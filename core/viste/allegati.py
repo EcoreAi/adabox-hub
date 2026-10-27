@@ -1,5 +1,7 @@
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
@@ -39,7 +41,11 @@ def carica(request, ct, pk):
 @login_required
 def scarica(request, pk):
     allegato = get_object_or_404(Allegato, pk=pk)
-    vista_e_oggetto(request, allegato.content_type_id, allegato.object_id, "view")
+    if allegato.content_type == ct_di(get_user_model()):
+        if allegato.object_id != request.user.pk:      # file personali (es. esportazioni): solo il proprietario
+            raise Http404
+    else:
+        vista_e_oggetto(request, allegato.content_type_id, allegato.object_id, "view")
     return allegati.risposta(allegato)
 
 

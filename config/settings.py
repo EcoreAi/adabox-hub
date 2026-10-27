@@ -139,6 +139,9 @@ SITO_URL = env("SITO_URL", default="http://localhost:8000").rstrip("/")
 # Posta in entrata del chatter: casella delle risposte (con indirizzi +token) e accesso IMAP
 EMAIL_RISPOSTE = env("EMAIL_RISPOSTE", default="")
 IMAP_URL = env("IMAP_URL", default="")
+# Export e import oltre queste righe passano dal worker
+EXPORT_SINCRONO_MAX = env.int("EXPORT_SINCRONO_MAX", default=5000)
+IMPORT_SINCRONO_MAX = env.int("IMPORT_SINCRONO_MAX", default=1000)
 
 # --- Sicurezza sempre attiva -------------------------------------------
 SESSION_COOKIE_AGE = 60 * 30

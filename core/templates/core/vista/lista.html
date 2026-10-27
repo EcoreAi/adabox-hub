@@ -5,6 +5,13 @@
   <div><h1>{{ vista.verbose_name_plural|capfirst }}</h1><div class="sub">{{ page_obj.paginator.count }} in totale</div></div>
   <div class="ui-pagehead-actions">
     {% include "core/vista/_selettore.html" %}
+    <div class="ui-dropdown">
+      <button type="button" class="ui-btn ui-btn-secondary" aria-haspopup="true" aria-expanded="false"><svg><use href="#icon-download"/></svg> Esporta</button>
+      <div class="ui-dropdown-menu is-right" role="menu">
+        <a href="{{ urls.esporta }}?formato=xlsx{% if query_filtri %}&{{ query_filtri }}{% endif %}">Excel (.xlsx)</a>
+        <a href="{{ urls.esporta }}?formato=csv{% if query_filtri %}&{{ query_filtri }}{% endif %}">CSV</a>
+      </div>
+    </div>
     {% if puo_aggiungere %}<a class="ui-btn ui-btn-primary" href="{{ urls.nuovo }}"><svg><use href="#icon-plus"/></svg> Nuovo</a>{% endif %}
   </div>
 </div>

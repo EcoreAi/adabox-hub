@@ -5,6 +5,7 @@
     {% csrf_token %}
     <span class="ui-azioni-label">Sulle righe selezionate:</span>
     {% for nome, etichetta, url in azioni %}<button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm" formaction="{{ url }}">{{ etichetta }}</button>{% endfor %}
+    <button type="submit" class="ui-btn ui-btn-ghost ui-btn-sm" formaction="{{ urls.esporta }}" name="formato" value="xlsx">Esporta</button>
   </form>
   {% endif %}
   {% if righe %}

@@ -56,7 +56,7 @@ Dipendenza nuova: `openpyxl`.
   palette del theme; `role="img"` e `<title>`; tabella dei dati sotto il grafico.
 - Test: dati aggregati (count e sum), per mese, limite categorie, SVG valido (parse XML), parametri non ammessi → default.
 
-### Task 5: Export
+### Task 5: Export — fatto
 
 - Azione "Esporta" nella testata della lista: CSV (`;` e UTF-8 con BOM, come lo apre Excel in italiano) o XLSX
   (`openpyxl`, intestazioni in grassetto, larghezza colonne, date come date); righe = queryset filtrato o i `pk`
