@@ -1,0 +1,40 @@
+<div class="ui-chatter-blocco">
+  <div class="ui-chatter-titolo">Attività pianificate ({{ chatter.attivita|length }})</div>
+  {% for voce in chatter.attivita %}{% with a=voce.a %}
+  <div class="ui-attivita ui-attivita-{{ voce.stato }}">
+    <svg aria-hidden="true"><use href="#icon-{{ a.tipo.icona }}"/></svg>
+    <div class="ui-attivita-testo">
+      <strong>{{ a.tipo }}</strong>{% if a.riepilogo %}: {{ a.riepilogo }}{% endif %}
+      <div class="ui-help">{{ a.scadenza|date:"d/m/Y" }} · {{ a.assegnatario.get_full_name|default:a.assegnatario.username }}</div>
+      {% if a.nota %}<div class="ui-attivita-nota">{{ a.nota|linebreaksbr }}</div>{% endif %}
+    </div>
+    {% if voce.gestibile %}
+    <form method="post" action="{% url 'core:attivita_fatta' a.pk %}" hx-post="{% url 'core:attivita_fatta' a.pk %}" hx-target="#chatter" hx-swap="outerHTML">
+      {% csrf_token %}<button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Fatta</button>
+    </form>
+    <form method="post" action="{% url 'core:attivita_annulla' a.pk %}" hx-post="{% url 'core:attivita_annulla' a.pk %}" hx-target="#chatter" hx-swap="outerHTML">
+      {% csrf_token %}<button type="submit" class="ui-icon-btn" aria-label="Annulla l'attività"><svg><use href="#icon-x"/></svg></button>
+    </form>
+    {% endif %}
+  </div>
+  {% endwith %}{% endfor %}
+  {% if chatter.puo_modificare %}
+  <details class="ui-attivita-nuova">
+    <summary class="ui-btn ui-btn-ghost ui-btn-sm">Pianifica un'attività</summary>
+    <form method="post" action="{% url 'core:chatter_pianifica' chatter.ct chatter.obj.pk %}"
+          hx-post="{% url 'core:chatter_pianifica' chatter.ct chatter.obj.pk %}" hx-target="#chatter" hx-swap="outerHTML">
+      {% csrf_token %}
+      <div class="ui-form-row">
+        <select class="ui-input" name="tipo" aria-label="Tipo">{% for t in chatter.tipi %}<option value="{{ t.pk }}">{{ t }}</option>{% endfor %}</select>
+        <input class="ui-input" type="date" name="scadenza" aria-label="Scadenza" value="{{ chatter.oggi|date:'Y-m-d' }}">
+      </div>
+      <input class="ui-input" name="riepilogo" placeholder="Riepilogo" aria-label="Riepilogo" maxlength="200">
+      <select class="ui-input" name="assegnatario" aria-label="Assegnatario">
+        {% for u in chatter.utenti %}<option value="{{ u.pk }}"{% if u.pk == request.user.pk %} selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>{% endfor %}
+      </select>
+      <textarea class="ui-input" name="nota" rows="2" placeholder="Nota (facoltativa)" aria-label="Nota"></textarea>
+      <button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">Pianifica</button>
+    </form>
+  </details>
+  {% endif %}
+</div>

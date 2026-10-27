@@ -293,3 +293,45 @@ class EmailRicevuta(models.Model):
 
     def __str__(self):
         return f"{self.oggetto or '(senza oggetto)'} da {self.mittente}"
+
+
+class TipoAttivita(models.Model):
+    nome = models.CharField("nome", max_length=60, unique=True)
+    icona = models.CharField("icona", max_length=30, default="check", help_text="nome di un'icona del theme")
+    giorni = models.PositiveSmallIntegerField("giorni di default", default=0)
+    ordine = models.PositiveSmallIntegerField("ordine", default=10)
+
+    class Meta:
+        verbose_name = "tipo di attività"
+        verbose_name_plural = "tipi di attività"
+        ordering = ["ordine", "nome"]
+
+    def __str__(self):
+        return self.nome
+
+
+class AttivitaPianificata(models.Model):
+    """Cosa da fare su un record (chiamata, email, riunione...), con scadenza e assegnatario.
+    Quando si segna fatta diventa una voce del chatter e la riga sparisce."""
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveBigIntegerField()
+    record = GenericForeignKey("content_type", "object_id")
+    tipo = models.ForeignKey(TipoAttivita, on_delete=models.PROTECT, verbose_name="tipo")
+    riepilogo = models.CharField("riepilogo", max_length=200, blank=True)
+    nota = models.TextField("nota", blank=True)
+    scadenza = models.DateField("scadenza")
+    assegnatario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                                     related_name="attivita_pianificate", verbose_name="assegnatario")
+    creato_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                  related_name="+", verbose_name="creata da")
+    creato = models.DateTimeField("creata il", auto_now_add=True)
+    azienda = models.ForeignKey(Azienda, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="azienda")
+
+    class Meta:
+        verbose_name = "attività pianificata"
+        verbose_name_plural = "attività pianificate"
+        ordering = ["scadenza", "pk"]
+        indexes = [models.Index(fields=["content_type", "object_id"]), models.Index(fields=["assegnatario", "scadenza"])]
+
+    def __str__(self):
+        return f"{self.tipo}: {self.riepilogo or self.record}"

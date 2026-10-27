@@ -1,13 +1,18 @@
-"""Pannello del chatter nel dettaglio: messaggi, note, allegati, follower (viste HTMX con fallback)."""
+"""Pannello del chatter nel dettaglio: messaggi, note, allegati, follower, attività (viste HTMX con fallback)."""
+import datetime
+
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from core import allegati, chatter
+from core import allegati, attivita, chatter
 from core.generici import ct_di, vista_e_oggetto
-from core.models import Messaggio
+from core.models import AttivitaPianificata, Messaggio, TipoAttivita
 
 PER_PAGINA = 20
 
@@ -18,6 +23,10 @@ def contesto_chatter(request, vista, obj, pagina=1):
         "ct": ct_di(obj).pk, "obj": obj, "messaggi": pagina_messaggi,
         "follower": chatter.follower_di(obj), "segue": chatter.segue(obj, request.user),
         "allegati": allegati.di(obj), "puo_modificare": vista.has_change_permission(request, obj),
+        "attivita": [{"a": a, "stato": attivita.stato(a), "gestibile": attivita.puo_gestire(request, vista, a)}
+                     for a in attivita.di(obj)],
+        "tipi": TipoAttivita.objects.all(), "oggi": timezone.localdate(),
+        "utenti": get_user_model().objects.filter(is_active=True).order_by("first_name", "username"),
     }
 
 
@@ -74,4 +83,53 @@ def segui(request, ct, pk):
         chatter.smetti(obj, request.user)
     else:
         chatter.segui(obj, request.user)
+    return _risposta(request, vista, obj)
+
+
+@require_POST
+@login_required
+def pianifica(request, ct, pk):
+    vista, obj = vista_e_oggetto(request, ct, pk, "change")
+    tipo = TipoAttivita.objects.filter(pk=request.POST.get("tipo") or 0).first()
+    assegnatario = get_user_model().objects.filter(pk=request.POST.get("assegnatario") or request.user.pk,
+                                                   is_active=True).first()
+    try:
+        scadenza = datetime.date.fromisoformat(request.POST["scadenza"]) if request.POST.get("scadenza") else None
+    except ValueError:
+        scadenza = None
+    if tipo is None or assegnatario is None:
+        messages.error(request, "Indica tipo e assegnatario dell'attività.")
+    else:
+        attivita.pianifica(obj, tipo, assegnatario, scadenza, request.POST.get("riepilogo", "").strip()[:200],
+                           request.POST.get("nota", "").strip(), creato_da=request.user)
+    return _risposta(request, vista, obj)
+
+
+def _gestisci(request, pk):
+    a = get_object_or_404(AttivitaPianificata, pk=pk)
+    vista, obj = vista_e_oggetto(request, a.content_type_id, a.object_id, "view")
+    if not attivita.puo_gestire(request, vista, a):
+        raise PermissionDenied
+    return a, vista, obj
+
+
+@require_POST
+@login_required
+def attivita_fatta(request, pk):
+    a, vista, obj = _gestisci(request, pk)
+    attivita.segna_fatta(a, request.user, request.POST.get("esito", ""))
+    return _dopo_attivita(request, vista, obj)
+
+
+@require_POST
+@login_required
+def attivita_annulla(request, pk):
+    a, vista, obj = _gestisci(request, pk)
+    a.delete()
+    return _dopo_attivita(request, vista, obj)
+
+
+def _dopo_attivita(request, vista, obj):
+    if request.POST.get("da") == "mie":
+        return redirect("core:attivita")
     return _risposta(request, vista, obj)

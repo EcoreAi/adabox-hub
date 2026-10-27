@@ -132,7 +132,7 @@ chiusi con la riga `Co-Authored-By` del modello che li scrive, push a fine task)
 - Test con email costruite a mano: abbinamento per header e per token, token falsificato, mittente sconosciuto o senza
   permesso, citazione tolta (italiano e inglese), HTML senza testo, allegato, doppione; IMAP con `imaplib` finto.
 
-### Task 10: Attività pianificate
+### Task 10: Attività pianificate — fatto
 
 - `TipoAttivita` (dati iniziali da migrazione), `AttivitaPianificata` (spec). `attivita.pianifica`, `segna_fatta`
   (messaggio nel chatter + cancellazione), `mie(utente)`.

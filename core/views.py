@@ -13,6 +13,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from . import azienda as az
 from . import moduli as mod
+from . import attivita as attivita_servizio
 from . import parametri
 
 from .forms import AziendaPredefinitaForm, ProfiloForm, TokenApiForm
@@ -25,6 +26,9 @@ from .viste import ModelView, register
 def voci_kernel(user):
     """Pagine del kernel nel launcher, secondo i permessi."""
     voci = []
+    if attivita_servizio.mie(user).exists():
+        voci.append({"label": "Le mie attività", "url": reverse("core:attivita"), "icon": "check",
+                     "sub": f"Da fare oggi o scadute: {attivita_servizio.da_fare_oggi(user)}"})
     if user.has_perm("core.view_azienda"):
         voci.append({"label": "Aziende", "url": reverse("core:aziende_lista"), "icon": "tool",
                      "sub": "Anagrafica delle aziende dell'istanza"})
@@ -310,3 +314,8 @@ class EmailRicevutaView(SoloSuperuserView):
     form_layout = [("Email", ["oggetto", ("mittente", "ricevuta"), "message_id"]),
                    ("Esito", [("stato", "messaggio"), "motivo"])]
     readonly_fields = ["ricevuta"]
+
+
+@login_required
+def attivita_mie(request):
+    return render(request, "core/attivita_mie.html", {"gruppi": attivita_servizio.raggruppate(request.user)})

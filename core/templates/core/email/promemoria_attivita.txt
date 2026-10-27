@@ -1,0 +1,9 @@
+{% autoescape off %}Ciao {{ utente.first_name|default:utente.username }},
+
+ecco le attività da fare oggi ({{ oggi|date:"d/m/Y" }}) o già scadute:
+{% for v in voci %}
+- {{ v.attivita.scadenza|date:"d/m/Y" }} · {{ v.attivita.tipo }}{% if v.attivita.riepilogo %}: {{ v.attivita.riepilogo }}{% endif %} — {{ v.record }}
+  {{ v.url }}{% endfor %}
+
+Tutte le tue attività: {{ link }}
+{% endautoescape %}

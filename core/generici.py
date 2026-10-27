@@ -32,3 +32,14 @@ def vista_e_oggetto(request, ct_id, pk, permesso="view"):
     if not vista.has_view_permission(request, obj) or not controllo(request, obj):
         raise PermissionDenied
     return vista, obj
+
+
+def url_record(obj):
+    """URL del dettaglio di un record, se il suo modello ha una ModelView montata; altrimenti None."""
+    vista = registry.per_modello(type(obj))
+    if vista is None:
+        return None
+    try:
+        return vista.url("dettaglio", pk=obj.pk)
+    except Exception:
+        return None

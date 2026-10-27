@@ -1,0 +1,25 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Le mie attività · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Le mie attività</h1><div class="sub">Pianificate sui record e assegnate a te</div></div></div>
+{% for titolo, chiave, voci in gruppi %}{% if voci %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">{{ titolo }} ({{ voci|length }})</div></div>
+  <div class="ui-card-body">
+    {% for v in voci %}{% with a=v.attivita %}
+    <div class="ui-attivita ui-attivita-{{ chiave }}">
+      <svg aria-hidden="true"><use href="#icon-{{ a.tipo.icona }}"/></svg>
+      <div class="ui-attivita-testo">
+        <strong>{{ a.tipo }}</strong>{% if a.riepilogo %}: {{ a.riepilogo }}{% endif %}
+        <div class="ui-help">{{ a.scadenza|date:"d/m/Y" }} · {% if v.url %}<a class="ui-link" href="{{ v.url }}">{{ v.record }}</a>{% else %}{{ v.record|default:"record eliminato" }}{% endif %}</div>
+      </div>
+      <form method="post" action="{% url 'core:attivita_fatta' a.pk %}">{% csrf_token %}<input type="hidden" name="da" value="mie"><button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Fatta</button></form>
+    </div>
+    {% endwith %}{% endfor %}
+  </div>
+</section>
+{% endif %}{% endfor %}
+{% if not gruppi.0.2 and not gruppi.1.2 and not gruppi.2.2 %}
+<div class="ui-card is-revealed"><div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-check"/></svg><p>Nessuna attività assegnata a te.</p></div></div></div>
+{% endif %}
+{% endblock %}

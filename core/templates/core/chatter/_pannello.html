@@ -28,6 +28,8 @@
   </div>
 
 
+  {% include "core/chatter/_attivita.html" %}
+
   <div class="ui-chatter-blocco">
     <div class="ui-chatter-titolo">Allegati ({{ chatter.allegati|length }})</div>
     {% include "core/allegati/_elenco.html" with obj=chatter.obj ct=chatter.ct allegati=chatter.allegati puo_modificare=chatter.puo_modificare %}
