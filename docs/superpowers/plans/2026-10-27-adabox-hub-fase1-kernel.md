@@ -59,7 +59,7 @@
 
 Il repo è stato clonato da `django-template` e non ha ancora commit.
 
-- [ ] **Step 1: commit dello stato attuale**
+- [x] **Step 1: commit dello stato attuale** (fatto il 2026-10-27, commit `65e15a5`)
 
 ```bash
 git add -A && git status --short | wc -l
