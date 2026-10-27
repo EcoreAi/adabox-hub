@@ -57,6 +57,8 @@ def test_sincronizza_dal_manifest():
 @pytest.mark.django_db
 def test_pianifica_scadute(settings):
     settings.LAVORI_SINCRONI = False
+    # quelle del kernel nascono con il DB di test e dopo qualche minuto di suite risultano scadute
+    Pianificazione.objects.exclude(modulo="alfa").update(attiva=False)
     lavori.sincronizza_pianificazioni("alfa", [{"nome": "A", "funzione": P + "somma", "ogni": "1h"}])
     p = Pianificazione.objects.get(nome="A")
     assert lavori.pianifica_scadute() == []
