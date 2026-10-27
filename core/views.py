@@ -3,6 +3,7 @@ from functools import wraps
 
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.db.migrations.recorder import MigrationRecorder
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import NoReverseMatch, reverse
@@ -12,9 +13,10 @@ from django.views.decorators.http import require_GET, require_POST
 from . import azienda as az
 from . import moduli as mod
 
-from .forms import ProfiloForm, TokenApiForm
+from .forms import AziendaPredefinitaForm, ProfiloForm, TokenApiForm
 from .models import Azienda, Modulo, ProfiloUtente, TokenApi
 from .registry import modules
+from .signals import crea_profilo
 from .viste import ModelView, register
 
 
@@ -57,10 +59,26 @@ def profilo(request):
         form.save()
         messages.success(request, "Profilo aggiornato.")
         return redirect("core:profilo")
+    form_azienda = None
+    if len(az.consentite(request.user)) > 1:
+        form_azienda = AziendaPredefinitaForm(instance=crea_profilo(request.user))
     return render(request, "core/profilo.html", {
-        "form": form, "form_token": TokenApiForm(), "token": request.user.token_api.all(),
+        "form": form, "form_azienda": form_azienda,
+        "form_token": TokenApiForm(), "token": request.user.token_api.all(),
         "token_chiaro": request.session.pop(CHIAVE_TOKEN_NUOVO, None),   # mostrato una sola volta
     })
+
+
+@require_POST
+@login_required
+def azienda_predefinita(request):
+    form = AziendaPredefinitaForm(request.POST, instance=crea_profilo(request.user))
+    if form.is_valid():
+        form.save()
+        messages.success(request, f"Azienda predefinita: {form.instance.azienda_predefinita}.")
+    else:
+        messages.error(request, "Azienda non consentita.")
+    return redirect("core:profilo")
 
 
 @require_POST
@@ -151,6 +169,8 @@ def _schede_moduli():
     righe = modules.sincronizza()
     info = modules.scopri()
     installati = modules.installati()
+    # migrazioni ancora registrate = tabelle rimaste (disinstallato senza --elimina-dati)
+    con_dati = set(MigrationRecorder.Migration.objects.values_list("app", flat=True).distinct())
     schede = []
     for r in righe:
         m = info[r.slug].manifest if r.slug in info else None
@@ -162,7 +182,8 @@ def _schede_moduli():
             Modulo.MANCANTE: ["disinstalla"],
             Modulo.ERRORE: ["aggiorna", "disinstalla"] if installato else (["installa"] if m else []),
         }[r.stato]
-        schede.append({"riga": r, "manifest": m, "ops": ops})
+        schede.append({"riga": r, "manifest": m, "ops": ops,
+                       "dati_presenti": not installato and r.slug in con_dati})
     return schede
 
 

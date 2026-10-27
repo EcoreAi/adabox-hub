@@ -138,3 +138,12 @@ def test_launcher_vuoto_superuser_link_moduli(client, superuser, monkeypatch):
     monkeypatch.setattr(modules, "manifests_attivi", lambda: {})
     html = client.get(reverse("core:home")).content.decode()
     assert 'href="/moduli/">Installa un modulo' in html
+
+
+@pytest.mark.django_db
+def test_dati_presenti_dopo_disinstallazione_senza_elimina(client, superuser, addons):
+    from django.db.migrations.recorder import MigrationRecorder
+    MigrationRecorder.Migration.objects.create(app="alfa", name="0001_initial")
+    html = client.get("/moduli/").content.decode()
+    assert "dati presenti" in _scheda(html, "Alfa")
+    assert "dati presenti" not in _scheda(html, "Beta")       # installato: niente avviso

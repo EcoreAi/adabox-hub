@@ -22,6 +22,7 @@
     <div class="ui-card-body">
       {% if m.summary %}<p>{{ m.summary }}</p>{% endif %}
       {% if m.depends %}<p class="ui-help">Dipende da: {{ m.depends|join:", " }}</p>{% endif %}
+      {% if s.dati_presenti %}<p class="ui-help"><span class="ui-pill ui-pill-warn">dati presenti</span> Le tabelle sono rimaste dalla disinstallazione: reinstallando si ritrovano i dati.</p>{% endif %}
       {% if r.ultimo_errore and r.stato == 'errore' or r.ultimo_errore and r.stato == 'mancante' %}<div class="ui-alert ui-alert-error"><pre class="ui-log">{{ r.ultimo_errore|truncatechars:1500 }}</pre></div>{% endif %}
       <div class="ui-modulo-ops">
         {% for op in s.ops %}

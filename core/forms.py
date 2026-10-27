@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.models import User
 
-from .models import TokenApi
+from .models import ProfiloUtente, TokenApi
 
 
 class ProfiloForm(forms.ModelForm):
@@ -19,3 +19,18 @@ class TokenApiForm(forms.ModelForm):
         fields = ["nome"]
         labels = {"nome": "Nome del token"}
         widgets = {"nome": forms.TextInput(attrs={"class": "ui-input", "placeholder": "es. integrazione adabox"})}
+
+
+class AziendaPredefinitaForm(forms.ModelForm):
+    """Azienda proposta all'apertura della sessione: solo tra quelle consentite e attive."""
+    class Meta:
+        model = ProfiloUtente
+        fields = ["azienda_predefinita"]
+        widgets = {"azienda_predefinita": forms.Select(attrs={"class": "ui-input"})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        campo = self.fields["azienda_predefinita"]
+        campo.queryset = self.instance.aziende.filter(attiva=True)
+        campo.required = True
+        campo.empty_label = None

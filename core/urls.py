@@ -8,6 +8,7 @@ urlpatterns = [
     path("", views.home, name="home"),
     path("stile/", views.stile, name="stile"),
     path("profilo/", views.profilo, name="profilo"),
+    path("profilo/azienda/", views.azienda_predefinita, name="azienda_predefinita"),
     path("profilo/token/", views.token_nuovo, name="token_nuovo"),
     path("profilo/token/<int:pk>/revoca/", views.token_revoca, name="token_revoca"),
     path("azienda/cambia/", views.cambia_azienda, name="cambia_azienda"),

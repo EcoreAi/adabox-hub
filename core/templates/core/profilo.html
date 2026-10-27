@@ -21,6 +21,20 @@
   </div>
 </div>
 
+{% if form_azienda %}
+<div class="ui-card is-revealed" style="max-width:560px;">
+  <div class="ui-card-head"><div><div class="ui-card-title">Azienda predefinita</div>
+    <div class="ui-card-sub">Quella con cui si apre ogni sessione; la cambi al volo dal selettore nella barra</div></div></div>
+  <div class="ui-card-body">
+    <form method="post" action="{% url 'core:azienda_predefinita' %}" class="ui-form-row">
+      {% csrf_token %}
+      <div class="ui-form-group"><label class="ui-label" for="{{ form_azienda.azienda_predefinita.id_for_label }}">Azienda</label>{{ form_azienda.azienda_predefinita }}</div>
+      <div class="ui-form-group" style="align-self:end;"><button type="submit" class="ui-btn ui-btn-primary"><svg><use href="#icon-save"/></svg> Salva</button></div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
 <div class="ui-card is-revealed" style="max-width:760px;">
   <div class="ui-card-head"><div><div class="ui-card-title">Token API</div>
     <div class="ui-card-sub">Per chiamare <a class="ui-link" href="/api/v1/docs">/api/v1/</a> con <code class="ui-code">Authorization: Bearer &lt;token&gt;</code></div></div></div>
