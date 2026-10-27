@@ -99,3 +99,32 @@ class TokenApi(models.Model):
         if token:
             cls.objects.filter(pk=token.pk).update(ultimo_uso=timezone.now())
         return token
+
+
+class Lavoro(models.Model):
+    """Lavoro in background: una funzione Python con argomenti JSON, eseguita dal worker."""
+    IN_CODA, IN_CORSO, FATTO, FALLITO = "in_coda", "in_corso", "fatto", "fallito"
+    STATI = [(IN_CODA, "In coda"), (IN_CORSO, "In corso"), (FATTO, "Fatto"), (FALLITO, "Fallito")]
+    funzione = models.CharField("funzione", max_length=200)
+    argomenti = models.JSONField("argomenti", default=dict, blank=True)
+    stato = models.CharField("stato", max_length=10, choices=STATI, default=IN_CODA)
+    tentativi = models.PositiveSmallIntegerField("tentativi", default=0)
+    max_tentativi = models.PositiveSmallIntegerField("tentativi massimi", default=3)
+    esegui_dopo = models.DateTimeField("esegui dopo", default=timezone.now)
+    creato = models.DateTimeField("creato il", auto_now_add=True)
+    iniziato = models.DateTimeField("iniziato il", null=True, blank=True)
+    finito = models.DateTimeField("finito il", null=True, blank=True)
+    errore = models.TextField("errore", blank=True)
+    risultato = models.TextField("risultato", blank=True)
+    azienda = models.ForeignKey(Azienda, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="azienda")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                               related_name="+", verbose_name="utente")
+
+    class Meta:
+        verbose_name = "lavoro"
+        verbose_name_plural = "lavori"
+        ordering = ["-creato", "-pk"]
+        indexes = [models.Index(fields=["stato", "esegui_dopo"])]
+
+    def __str__(self):
+        return f"{self.funzione} #{self.pk}"

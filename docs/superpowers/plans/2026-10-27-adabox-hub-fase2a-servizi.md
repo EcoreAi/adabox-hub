@@ -56,7 +56,7 @@ chiusi con la riga `Co-Authored-By` del modello che li scrive, push a fine task)
   usa e getta, `DATABASE_URL=... pytest -m postgres`).
 - Test: manifest con le nuove chiavi (validi e non), generici.
 
-### Task 2: Lavori in background e worker
+### Task 2: Lavori in background e worker — fatto
 
 - `Lavoro` (spec). `accoda(funzione, ritardo=0, max_tentativi=3, azienda=None, utente=None, **argomenti)`: con
   `LAVORI_SINCRONI` esegue subito (stesso codice di `esegui_uno`, errori propagati solo nei test) e registra comunque

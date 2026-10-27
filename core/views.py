@@ -7,6 +7,7 @@ from django.db.migrations.recorder import MigrationRecorder
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import NoReverseMatch, reverse
+from django.utils.html import format_html
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
 
@@ -14,7 +15,7 @@ from . import azienda as az
 from . import moduli as mod
 
 from .forms import AziendaPredefinitaForm, ProfiloForm, TokenApiForm
-from .models import Azienda, Modulo, ProfiloUtente, TokenApi
+from .models import Azienda, Lavoro, Modulo, ProfiloUtente, TokenApi
 from .registry import modules
 from .signals import crea_profilo
 from .viste import ModelView, register
@@ -27,6 +28,8 @@ def voci_kernel(user):
         voci.append({"label": "Aziende", "url": reverse("core:aziende_lista"), "icon": "tool",
                      "sub": "Anagrafica delle aziende dell'istanza"})
     if user.is_superuser:
+        voci.append({"label": "Lavori", "url": reverse("core:lavoro_lista"), "icon": "zap",
+                     "sub": "Coda dei lavori in background"})
         voci.append({"label": "Moduli", "url": reverse("core:moduli"), "icon": "download",
                      "sub": "Installa, aggiorna e disinstalla le app"})
     if user.is_staff:
@@ -234,3 +237,34 @@ class ProfiloUtenteView(ModelView):
     slug = "profili"
     list_display = ["utente", "azienda_predefinita"]
     api = False
+
+
+class SoloSuperuserView(ModelView):
+    """Viste del kernel in sola lettura per il superuser (lavori, email ricevute, ...)."""
+
+    def _perm(self, request, azione):
+        return azione == "view" and request.user.is_superuser
+
+
+@register
+class LavoroView(SoloSuperuserView):
+    model = Lavoro
+    list_display = ["funzione", "stato", "tentativi", "esegui_dopo", "finito"]
+    list_filter = ["stato"]
+    search_fields = ["funzione"]
+    form_layout = [("Lavoro", ["funzione", "argomenti", ("stato", "tentativi", "max_tentativi")]),
+                   ("Tempi", [("creato", "esegui_dopo"), ("iniziato", "finito")]),
+                   ("Esito", ["risultato", "errore"])]
+    readonly_fields = ["creato"]
+    buttons = ["riprova"]
+
+    def col_errore(self, obj):
+        return format_html('<pre class="ui-log">{}</pre>', obj.errore) if obj.errore else "—"
+    col_errore.short_description = "Errore"
+
+    def riprova(self, request, obj):
+        from . import lavori
+        lavori.riprova(obj)
+        return "Lavoro rimesso in coda."
+    riprova.short_description = "Riprova"
+    riprova.permission = "view"
