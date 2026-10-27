@@ -1,48 +1,10 @@
 {% extends 'theme/base.html' %}
-{% load humanize %}
 {% block title %}Home · {{ theme.brand }}{% endblock %}
 {% block content %}
 <div class="ui-pagehead">
   <div>
     <h1>Benvenuto, {{ user.first_name|default:user.username }}</h1>
-    <div class="sub">Panoramica di {{ theme.brand }}</div>
+    <div class="sub">{{ theme.brand }}</div>
   </div>
-  <div class="ui-pagehead-actions">
-    {% if user.is_staff %}<a class="ui-btn ui-btn-primary" href="{% url 'admin:core_cliente_add' %}"><svg><use href="#icon-plus"/></svg> Nuovo cliente</a>{% endif %}
-  </div>
-</div>
-
-<div class="ui-kpis">
-  <div class="ui-kpi"><div class="label">Clienti</div><div class="value">{{ totale|intcomma }}</div><div class="sub">totali</div></div>
-  <div class="ui-kpi"><div class="label">Attivi</div><div class="value">{{ attivi|intcomma }}</div><div class="sub">con stato attivo</div></div>
-  <div class="ui-kpi"><div class="label">Nuovi</div><div class="value">{{ recenti|intcomma }}</div><div class="sub">ultimi 30 giorni</div></div>
-</div>
-
-<div class="ui-card is-revealed">
-  <div class="ui-card-head">
-    <div><div class="ui-card-title">Ultimi clienti</div><div class="ui-card-sub">I 10 inseriti più di recente</div></div>
-    <div class="spacer"></div>
-  </div>
-  {% if ultimi %}
-  <div class="ui-table-wrap">
-  <table class="ui-table">
-    <thead><tr><th>Nome</th><th>Email</th><th>Stato</th><th>Creato</th></tr></thead>
-    <tbody>
-      {% for c in ultimi %}
-      <tr>
-        <td>{{ c.nome }}</td>
-        <td>{{ c.email|default:"—" }}</td>
-        <td>{% if c.attivo %}<span class="ui-pill ui-pill-ok">Attivo</span>{% else %}<span class="ui-pill ui-pill-neutral">Non attivo</span>{% endif %}</td>
-        <td>{{ c.creato|date:"d/m/Y" }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  </div>
-  {% else %}
-  <div class="ui-card-body">
-    <div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun cliente ancora. Aggiungine uno dall'amministrazione.</p></div>
-  </div>
-  {% endif %}
 </div>
 {% endblock %}

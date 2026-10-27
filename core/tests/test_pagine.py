@@ -2,8 +2,6 @@ import pytest
 from django.conf import settings
 from django.urls import reverse
 
-from core.models import Cliente
-
 
 @pytest.mark.django_db
 def test_home_richiede_login(client):
@@ -13,29 +11,10 @@ def test_home_richiede_login(client):
 
 
 @pytest.mark.django_db
-def test_home_mostra_kpi_e_tabella(client, staff):
-    Cliente.objects.create(nome="Rossi Srl", email="info@rossi.it", attivo=True)
-    Cliente.objects.create(nome="Bianchi Spa", email="info@bianchi.it", attivo=False)
+def test_home_da_staff(client, staff):
     r = client.get(reverse("core:home"))
     assert r.status_code == 200
-    html = r.content.decode()
-    assert "ui-kpis" in html and "ui-table" in html
-    assert "Rossi Srl" in html and "Bianchi Spa" in html
-    assert settings.THEME["brand"] in html  # brand dal THEME dei settings
-
-
-@pytest.mark.django_db
-def test_home_vuota_mostra_empty_state(client, staff):
-    r = client.get(reverse("core:home"))
-    assert "ui-empty" in r.content.decode()
-
-
-@pytest.mark.django_db
-def test_admin_cliente_changelist_e_change(client, superuser):
-    c = Cliente.objects.create(nome="Verdi", email="v@example.com")
-    assert client.get(reverse("admin:core_cliente_changelist")).status_code == 200
-    assert client.get(reverse("admin:core_cliente_change", args=[c.pk])).status_code == 200
-    assert client.get(reverse("admin:core_cliente_add")).status_code == 200
+    assert settings.THEME["brand"] in r.content.decode()  # brand dal THEME dei settings
 
 
 @pytest.mark.django_db

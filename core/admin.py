@@ -1,16 +1,16 @@
 from django.contrib import admin
 
-from .models import Cliente
+from .models import Azienda, ProfiloUtente
 
 
-@admin.register(Cliente)
-class ClienteAdmin(admin.ModelAdmin):
-    list_display = ("nome", "email", "attivo", "creato")
-    list_filter = ("attivo", "creato")
-    search_fields = ("nome", "email")
-    date_hierarchy = "creato"
-    list_per_page = 25
-    fieldsets = (
-        (None, {"fields": ("nome", "email", "attivo")}),
-        ("Altro", {"fields": ("note",), "classes": ("collapse",)}),
-    )
+@admin.register(Azienda)
+class AziendaAdmin(admin.ModelAdmin):
+    list_display = ("nome", "partita_iva", "citta", "attiva")
+    list_filter = ("attiva",)
+    search_fields = ("nome", "partita_iva")
+
+
+@admin.register(ProfiloUtente)
+class ProfiloUtenteAdmin(admin.ModelAdmin):
+    list_display = ("utente", "azienda_predefinita")
+    filter_horizontal = ("aziende",)

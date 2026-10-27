@@ -483,7 +483,7 @@ Expected: tutti passed.
 - Modify: `core/templates/core/home.html` (segnaposto), `core/tests/test_pagine.py`
 - Test: `core/tests/test_modelli.py`
 
-- [ ] **Step 1: test (falliscono)**
+- [x] **Step 1: test (falliscono)**
 
 `core/tests/test_modelli.py`:
 - `Azienda.objects.get(pk=1).nome == settings.THEME["brand"]` (creata dalla migrazione);
@@ -497,7 +497,7 @@ In `core/tests/test_pagine.py` togli i test sui KPI e sui clienti; resta: home �
 
 Run: `pytest core/tests -v` — Expected: FAIL.
 
-- [ ] **Step 2: modelli**
+- [x] **Step 2: modelli**
 
 `core/mixins.py`:
 ```python
@@ -614,20 +614,20 @@ class TokenApi(models.Model):
 
 `core/signals.py`: `post_save` su `User` → se `created`, crea `ProfiloUtente`, aggiunge le `Azienda` attive, imposta la predefinita (la prima per `nome`). Collegato in `CoreConfig.ready()`.
 
-- [ ] **Step 3: migrazioni**
+- [x] **Step 3: migrazioni**
 
 ```bash
 python manage.py makemigrations core -n kernel
 ```
 Verifica che `0002_kernel.py` contenga `DeleteModel("Cliente")` e i quattro modelli. Poi `0003_azienda_iniziale.py` a mano: `RunPython` che crea `Azienda(pk=1, nome=settings.THEME.get("brand", "Azienda"))` se non ce n'è nessuna, con `noop` inverso. I profili per gli utenti già esistenti li crea la stessa migrazione (ciclo su `User`).
 
-- [ ] **Step 4: admin, home segnaposto, forms**
+- [x] **Step 4: admin, home segnaposto, forms**
 
 `core/admin.py`: registra `Azienda` (list_display nome, partita_iva, citta, attiva; search nome, partita_iva) e `ProfiloUtente` (filter_horizontal aziende). `Modulo` e `TokenApi` si registrano nei task 11 e 12. `core/views.py`: `home` rende `core/home.html` con solo il page head "Benvenuto" (il launcher arriva in Task 10). `core/forms.py`: solo `ProfiloForm`.
 
 Run: `pytest -v` — Expected: tutto verde.
 
-- [ ] **Step 5: commit** — `feat(core): modelli del kernel (Azienda, ProfiloUtente, Modulo, TokenApi) e rimozione dell'esempio Cliente`
+- [x] **Step 5: commit** — `feat(core): modelli del kernel (Azienda, ProfiloUtente, Modulo, TokenApi) e rimozione dell'esempio Cliente`
 
 ---
 
