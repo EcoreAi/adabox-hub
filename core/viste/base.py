@@ -37,6 +37,7 @@ class ModelView:
     api = False
     api_fields = None
     export_fields = None          # colonne dell'export (default: id + campi di list_display)
+    import_key = None             # campo con cui l'import riconosce i record da aggiornare
     template_lista = "core/vista/lista.html"
     template_tabella = "core/vista/_tabella.html"
     template_form = "core/vista/form.html"
@@ -62,7 +63,7 @@ class ModelView:
         return reverse(self.nome_url(azione), kwargs=kwargs or None)
 
     def get_urls(self):
-        from . import azioni, dettaglio, elimina, esporta, form, lista
+        from . import azioni, dettaglio, elimina, esporta, form, importa, lista
         s = self.slug
         return [
             path(f"{s}/", lista.ListaView.as_view(vista=self), name=f"{s}_lista"),
@@ -73,6 +74,7 @@ class ModelView:
             path(f"{s}/azione/<slug:nome>/", azioni.AzioneView.as_view(vista=self), name=f"{s}_azione"),
             path(f"{s}/<int:pk>/bottone/<slug:nome>/", azioni.BottoneView.as_view(vista=self), name=f"{s}_bottone"),
             path(f"{s}/esporta/", esporta.EsportaView.as_view(vista=self), name=f"{s}_esporta"),
+            path(f"{s}/importa/", importa.ImportaView.as_view(vista=self), name=f"{s}_importa"),
         ] + self.get_urls_viste()
 
     def get_urls_viste(self):

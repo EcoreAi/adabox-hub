@@ -6,10 +6,11 @@
   <div class="ui-pagehead-actions">
     {% include "core/vista/_selettore.html" %}
     <div class="ui-dropdown">
-      <button type="button" class="ui-btn ui-btn-secondary" aria-haspopup="true" aria-expanded="false"><svg><use href="#icon-download"/></svg> Esporta</button>
+      <button type="button" class="ui-btn ui-btn-secondary" aria-haspopup="true" aria-expanded="false"><svg><use href="#icon-download"/></svg> Dati</button>
       <div class="ui-dropdown-menu is-right" role="menu">
         <a href="{{ urls.esporta }}?formato=xlsx{% if query_filtri %}&{{ query_filtri }}{% endif %}">Excel (.xlsx)</a>
         <a href="{{ urls.esporta }}?formato=csv{% if query_filtri %}&{{ query_filtri }}{% endif %}">CSV</a>
+        {% if puo_aggiungere %}<hr><a href="{{ urls.importa }}">Importa da CSV o Excel…</a>{% endif %}
       </div>
     </div>
     {% if puo_aggiungere %}<a class="ui-btn ui-btn-primary" href="{{ urls.nuovo }}"><svg><use href="#icon-plus"/></svg> Nuovo</a>{% endif %}

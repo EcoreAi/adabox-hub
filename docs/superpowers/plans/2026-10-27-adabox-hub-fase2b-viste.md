@@ -66,7 +66,7 @@ Dipendenza nuova: `openpyxl`.
 - Permesso: `view`. Test: CSV e XLSX (rileggendo con `csv`/`openpyxl`), selezione, valori resi (scelte, FK, date),
   export grande nel worker.
 
-### Task 6: Import
+### Task 6: Import — fatto
 
 - `GET/POST <slug>/importa/`: carica CSV o XLSX → anteprima con mappatura colonne → campi (proposta per nome o
   etichetta, ignorare una colonna), opzione "aggiorna i record esistenti" se `import_key`.

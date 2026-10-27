@@ -1,0 +1,58 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Importa · {{ vista.verbose_name_plural|capfirst }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Importa {{ vista.verbose_name_plural }}</h1><div class="sub"><a class="ui-link" href="{{ urls.lista }}">{{ vista.verbose_name_plural|capfirst }}</a></div></div>
+</div>
+{% if fase == "carica" %}
+<div class="ui-card is-revealed" style="max-width:640px;"><div class="ui-card-body">
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}<input type="hidden" name="fase" value="carica">
+    <div class="ui-form-group"><label class="ui-label" for="file-import">File CSV o Excel</label>
+      <input id="file-import" type="file" name="file" accept=".csv,.xlsx" class="ui-file" required>
+      <small class="ui-help">La prima riga contiene i nomi delle colonne. Campi disponibili: {% for n, e in campi %}{{ e }}{% if not forloop.last %}, {% endif %}{% endfor %}.</small>
+    </div>
+    <button type="submit" class="ui-btn ui-btn-primary">Carica</button>
+  </form>
+</div></div>
+{% else %}
+<form method="post">
+  {% csrf_token %}
+  <div class="ui-card is-revealed">
+    <div class="ui-card-head"><div><div class="ui-card-title">{{ nome }}</div><div class="ui-card-sub">{{ totale }} righe · associa le colonne ai campi</div></div></div>
+    <div class="ui-table-wrap"><table class="ui-table is-revealed">
+      <thead>
+        <tr>{% for i, intestazione, scelto in intestazioni %}<th>{{ intestazione|default:"(senza nome)" }}</th>{% endfor %}</tr>
+        <tr>{% for i, intestazione, scelto in intestazioni %}<td>
+          <select class="ui-input" name="col_{{ i }}" aria-label="Campo per {{ intestazione }}">
+            <option value="">— ignora —</option>
+            {% for n, e in campi %}<option value="{{ n }}"{% if n == scelto %} selected{% endif %}>{{ e }}</option>{% endfor %}
+          </select></td>{% endfor %}</tr>
+      </thead>
+      <tbody>{% for riga in anteprima %}<tr>{% for c in riga %}<td>{{ c|default_if_none:"" }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+    </table></div>
+    <div class="ui-card-body">
+      {% if con_chiave %}<label class="ui-checkbox-row" style="padding-top:0;"><input type="checkbox" class="ui-checkbox" name="aggiorna" value="1"{% if aggiorna %} checked{% endif %}> Aggiorna i record esistenti con lo stesso {{ chiave|lower }}</label>{% endif %}
+    </div>
+  </div>
+  {% if provato %}
+  <div class="ui-card is-revealed"><div class="ui-card-body">
+    {% if n_errori %}
+    <div class="ui-alert ui-alert-error">{{ n_errori }} errori: correggi il file o la mappatura. Nessuna riga verrà salvata finché ci sono errori.</div>
+    <div class="ui-table-wrap"><table class="ui-table is-revealed">
+      <thead><tr><th>Riga</th><th>Campo</th><th>Errore</th></tr></thead>
+      <tbody>{% for e in errori %}<tr><td>{{ e.riga }}</td><td>{{ e.campo|default:"—" }}</td><td>{{ e.messaggio }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}
+    <div class="ui-alert ui-alert-success">Prova riuscita: {{ nuovi }} nuovi, {{ aggiornati }} aggiornati.</div>
+    {% endif %}
+  </div></div>
+  {% endif %}
+  <div class="ui-form-actions">
+    <button type="submit" name="fase" value="prova" class="ui-btn ui-btn-secondary">Prova a secco</button>
+    {% if provato and not n_errori %}<button type="submit" name="fase" value="importa" class="ui-btn ui-btn-primary">Importa {{ totale }} righe</button>{% endif %}
+    <a class="ui-btn ui-btn-ghost" href="{{ urls.lista }}">Annulla</a>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

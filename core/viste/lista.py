@@ -11,7 +11,8 @@ from . import filtri, gruppi
 
 
 def urls_di(vista):
-    return SimpleNamespace(lista=vista.url("lista"), nuovo=vista.url("nuovo"), esporta=vista.url("esporta"))
+    return SimpleNamespace(lista=vista.url("lista"), nuovo=vista.url("nuovo"), esporta=vista.url("esporta"),
+                           importa=vista.url("importa"))
 
 
 def query_filtri(request):
