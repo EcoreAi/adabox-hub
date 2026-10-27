@@ -34,3 +34,21 @@ l'host `github.com` usa la deploy key di adaerp e non può scrivere qui).
 - Ogni `docker compose up` crea `staticfiles/` come root nella cartella del repo (comportamento ereditato dallo starter).
 - Fase 2 (kernel completo: chatter, attività, allegati, sequenze, kanban, calendario, report PDF, worker e cron,
   impostazioni, import/export, Properties): serve una spec propria prima del piano.
+
+## Fase 2a — servizi (stessa sessione)
+
+Spec di fase 2 approvata (`docs/superpowers/specs/2026-10-27-adabox-hub-fase2-kernel-completo-design.md`; decisione
+cambiata: email anche in entrata, via IMAP). Piano 2a eseguito: `docs/superpowers/plans/2026-10-27-adabox-hub-fase2a-servizi.md`.
+
+- Lavori nel DB e `manage.py worker`; pianificazioni dai manifest; parametri e `/impostazioni/`; sequenze; allegati
+  privati; chatter con tracciamento, follower, email in uscita e in entrata; attività pianificate e `/attivita/`.
+- `todo` 1.1.0 li usa tutti; il DB di sviluppo è aggiornato a 1.1.0.
+- Suite verde su SQLite e su Postgres (`deploy/test-postgres.sh -q`), compresi aggiornamento 1.0.0 → 1.1.0 e
+  concorrenza (worker, pianificazioni, sequenze).
+- Docker verificato: web, worker e nginx; lavoro accodato dal web ed eseguito dal worker; il worker esce e riparte
+  da solo quando cambiano i moduli.
+
+Scostamenti dal piano 2a: pannello del chatter incluso da `dettaglio.html` (non via `hooks`); sequenze conservate
+alla disinstallazione senza `--elimina-dati`; token di risposta `ct-pk-hmac` esadecimale (sta nella parte locale
+dell'indirizzo); il riferimento al filo del record in `References` non basta ad abbinare una risposta; contatore
+delle attività come voce della nav; il worker si ferma da solo quando cambiano `installed.json` o i manifest.

@@ -1,3 +1,4 @@
+import signal
 import threading
 from datetime import timedelta
 
@@ -144,7 +145,6 @@ def test_due_worker_non_prendono_lo_stesso_lavoro(settings):
 @pytest.mark.django_db
 def test_sigterm_ferma_il_worker(asincrono, capsys):
     import os
-    import signal
     precedenti = signal.getsignal(signal.SIGTERM), signal.getsignal(signal.SIGINT)
     timer = threading.Timer(0.3, os.kill, args=(os.getpid(), signal.SIGTERM))
     timer.start()
@@ -156,3 +156,24 @@ def test_sigterm_ferma_il_worker(asincrono, capsys):
         signal.signal(signal.SIGINT, precedenti[1])
     out = capsys.readouterr().out
     assert "worker avviato" in out and "worker fermato" in out
+
+
+@pytest.mark.django_db
+def test_worker_esce_se_cambiano_i_moduli(asincrono, addons_tmp, capsys, monkeypatch):
+    from core.management.commands import worker
+    impronte = iter([("a",), ("a",), ("b",)])
+    monkeypatch.setattr(worker, "impronta_moduli", lambda: next(impronte))
+    precedenti = signal.getsignal(signal.SIGTERM), signal.getsignal(signal.SIGINT)
+    try:
+        call_command("worker", "--pausa", "0.01")
+    finally:
+        signal.signal(signal.SIGTERM, precedenti[0])
+        signal.signal(signal.SIGINT, precedenti[1])
+    assert "moduli cambiati" in capsys.readouterr().out
+
+
+def test_impronta_moduli(addons_tmp):
+    from core.management.commands.worker import impronta_moduli
+    prima = impronta_moduli()
+    addons_tmp.crea("alfa")
+    assert impronta_moduli() != prima

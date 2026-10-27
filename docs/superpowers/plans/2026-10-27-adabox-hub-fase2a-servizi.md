@@ -155,7 +155,7 @@ chiusi con la riga `Co-Authored-By` del modello che li scrive, push a fine task)
   sottoprocesso (copia della 1.0.0 dal commit della fase 1, installa, sostituisci con la 1.1.0, `modulo aggiorna`,
   numeri assegnati).
 
-### Task 12: Deploy e documentazione
+### Task 12: Deploy e documentazione — fatto
 
 - `docker-compose.yml`: servizio `worker` (stessa immagine, `python manage.py worker`), volume `./private`;
   `LAVORI_SINCRONI=False` per web e worker.

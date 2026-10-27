@@ -11,6 +11,9 @@ services:
       # installare un modulo dalla pagina Moduli ricarica gunicorn con SIGHUP via pidfile
       RELOAD_STRATEGY: gunicorn
       GUNICORN_PIDFILE: /tmp/gunicorn.pid
+      # i lavori (email, promemoria, posta in entrata) li esegue il servizio worker
+      LAVORI_SINCRONI: "False"
+      ALLEGATI_X_ACCEL: "True"
     volumes:
       - .:/app
       # stato e dati per istanza: restano sull'host anche ricostruendo l'immagine
@@ -20,6 +23,25 @@ services:
       - ./private:/app/private
     expose:
       - "8000"
+
+  # lavori in background e pianificazioni (cron dei manifest); stessa immagine e stessi volumi del web.
+  # Quando cambiano i moduli installati esce da solo e restart lo riavvia con il codice nuovo.
+  worker:
+    image: adabox_hub:latest
+    container_name: adabox_hub_worker
+    restart: unless-stopped
+    depends_on:
+      - web
+    env_file: .env
+    environment:
+      LAVORI_SINCRONI: "False"
+    command: ["python", "manage.py", "worker"]
+    volumes:
+      - .:/app
+      - ./addons:/app/addons
+      - ./backup:/app/backup
+      - ./media:/app/media
+      - ./private:/app/private
 
   nginx:
     image: nginx:1.27-alpine

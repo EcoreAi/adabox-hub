@@ -1,9 +1,18 @@
 import signal
 import time
+from pathlib import Path
 
+from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from core import lavori
+
+
+def impronta_moduli():
+    """Date di modifica di installed.json e dei manifest: se cambiano, il processo ha moduli vecchi."""
+    radice = Path(settings.ADDONS_DIR)
+    file = [radice / "installed.json", *sorted(radice.glob("*/__manifest__.py"))]
+    return tuple((str(f), f.stat().st_mtime_ns) for f in file if f.exists())
 
 
 class Command(BaseCommand):
@@ -21,7 +30,12 @@ class Command(BaseCommand):
             self.stdout.write("worker avviato")
         if n := lavori.sblocca():
             self.stdout.write(f"rimessi in coda {n} lavori bloccati")
+        impronta = impronta_moduli()
         while not self.fermati:
+            if impronta_moduli() != impronta:
+                # moduli installati o aggiornati: si esce e il supervisore (Docker) riavvia con il codice nuovo
+                self.stdout.write("moduli cambiati: il worker si ferma per ripartire con il codice nuovo")
+                break
             self._pianifica()
             lavoro = lavori.esegui_uno()
             if lavoro is not None:

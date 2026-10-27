@@ -96,6 +96,37 @@ Un'app minima non scrive né viste né template: bastano modello, `ModelView` e 
 6. **Test** — in `addons/<slug>/tests/`; per farli girare con la suite aggiungi lo slug a
    `ADDONS_FORCE` in `pytest.ini`.
 
+## Servizi del kernel
+
+Un'app li usa dichiarando attributi o chiamando una funzione: niente viste né template da scrivere.
+
+| Servizio | Come si usa |
+|---|---|
+| **Chatter** | `ModelView.chatter = True`: pannello con messaggi, note interne, follower, allegati e attività nel dettaglio. `tracked_fields = ["stato", ...]` scrive le modifiche (da form e da API). Da codice: `core.chatter.scrivi(obj, utente, testo)`, `core.chatter.traccia(obj, vecchi, utente)` con `vecchi = core.chatter.valori(obj, campi)` letto prima. |
+| **Email** | I *messaggi* (non le note) partono per email ai follower, nel worker. Le risposte tornano nel chatter del record (vedi sotto). |
+| **Attività** | Nel pannello: "Pianifica un'attività" (tipo, scadenza, assegnatario). Fatta → voce del chatter. `/attivita/` elenca le proprie; promemoria ogni mattina alle 07:00. Da codice: `core.attivita.pianifica(obj, tipo, utente, scadenza)`. |
+| **Allegati** | Nel pannello, o `core.allegati.salva(obj, file, utente)`. File in `private/`, mai pubblici: si scaricano da `/allegati/<pk>/` solo con il permesso di vedere il record. |
+| **Sequenze** | Manifest `"sequences": [{"codice": "todo.attivita", "formato": "ATT/{anno}/{numero:04d}", "azzera": "anno"}]` e `ModelView.sequence_field = ("numero", "todo.attivita")`; da codice `core.sequenze.prossimo(codice, azienda)`. |
+| **Impostazioni** | Manifest `"settings": [{"chiave": "giorni_preavviso", "label": ..., "tipo": "intero", "default": 2, "per_azienda": True}]`: pagina `/impostazioni/` generata; si leggono con `core.parametri.leggi("todo.giorni_preavviso", azienda)`. |
+| **Lavori** | `core.lavori.accoda("app.modulo.funzione", ritardo=0, **argomenti_json)`: eseguito dal worker, con tre tentativi (1, 5, 30 minuti). `/core/lavoro/` per il superuser. |
+| **Pianificazioni** | Manifest `"cron": [{"nome": ..., "funzione": "todo.lavori.promemoria_scadenze", "ogni": "1d", "alle": "07:30"}]` (`ogni`: `15m`, `2h`, `1d`). Si attivano e disattivano dall'admin. |
+
+### Worker
+
+`python manage.py worker` esegue lavori e pianificazioni (in Docker è il servizio `worker`). Più worker in
+parallelo funzionano su Postgres. In sviluppo `LAVORI_SINCRONI=True` (default con `DEBUG`) esegue i lavori subito,
+nella richiesta: il worker serve solo per le pianificazioni. Quando cambiano i moduli installati il worker esce
+da solo e Docker lo riavvia con il codice nuovo.
+
+### Posta del chatter
+
+- **Uscita**: `EMAIL_URL` (vedi Produzione) e `SITO_URL` (base dei link, es. `https://hub.cliente.it`).
+- **Entrata**: una casella dedicata che accetti gli indirizzi con il `+` (`risposte+qualcosa@cliente.it` arriva in
+  `risposte@cliente.it`): `EMAIL_RISPOSTE=risposte@cliente.it` e
+  `IMAP_URL=imaps://risposte%40cliente.it:password@mail.cliente.it:993/INBOX`. Ogni 2 minuti il worker legge le
+  email non lette e le abbina al record (per `In-Reply-To` o per il token firmato nell'indirizzo); il mittente
+  deve essere un utente che vede il record. Esiti in `/core/email/`.
+
 ## Comandi `modulo`
 
 | Comando | Effetto |
@@ -158,7 +189,8 @@ installato prima del backup va tolta a mano) e riavvia.
 - Docker: `docker compose up -d --build`. `deploy/entrypoint.sh` esegue `collectstatic` e
   `migrate`, poi `exec gunicorn ... --pid /tmp/gunicorn.pid`: il pidfile serve alla ricarica
   dopo un'installazione (`RELOAD_STRATEGY=gunicorn`, già impostato nel compose).
-  `addons/`, `backup/` e `media/` sono volumi: stato, backup e logo restano sull'host.
+  `addons/`, `backup/`, `media/` e `private/` (allegati) sono volumi: restano sull'host. Il servizio `worker`
+  esegue lavori e pianificazioni; nginx serve gli allegati con `X-Accel-Redirect` (`ALLEGATI_X_ACCEL=True`).
   Installare un modulo nel container:
   `docker compose exec web python manage.py modulo installa <slug> --si --riavvia`.
 - Database: Postgres (`DATABASE_URL=postgres://...`); SQLite solo in sviluppo. L'immagine
@@ -221,4 +253,11 @@ che lo ospita abbia:
 ```bash
 pytest                    # tutta la suite, compresa l'installazione vergine di todo
 pytest -m "not slow"      # senza i test end-to-end
+```
+
+I test di concorrenza (worker, pianificazioni, sequenze) girano solo su Postgres:
+
+```bash
+deploy/test-postgres.sh           # Postgres usa e getta in Docker, solo i test marcati postgres
+deploy/test-postgres.sh -q        # tutta la suite su Postgres
 ```
