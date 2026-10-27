@@ -686,7 +686,7 @@ Run: `pytest core/tests/test_azienda.py -v` — Expected: passed.
 - Modify: `core/management/commands/modulo.py` (`lista`, `sincronizza`)
 - Test: `core/tests/test_registry.py`
 
-- [ ] **Step 1: test (falliscono)**
+- [x] **Step 1: test (falliscono)**
 
 Con `addons_tmp`:
 - `scopri()` trova i moduli con manifest valido e include quelli con manifest rotto con `errore` valorizzato e `manifest None`; ignora cartelle senza `__manifest__.py` e file;
@@ -694,7 +694,7 @@ Con `addons_tmp`:
 - `sincronizza()`: modulo su disco non nel file → riga `disponibile` con `versione_disponibile`; nel file e su disco con stessa versione → `installato`; nel file con manifest `version` maggiore della `versione_installata` → `da_aggiornare`; nel file ma cartella assente → `mancante` (la riga resta, `nome` conservato); riga con stato `errore` resta `errore` finché un comando non la cambia; una riga di un modulo sparito dal disco e non nel file viene cancellata;
 - `manage.py modulo lista` stampa una riga per modulo con slug, versione installata, disponibile e stato.
 
-- [ ] **Step 2: modules.py**
+- [x] **Step 2: modules.py**
 
 ```python
 @dataclass
@@ -728,7 +728,7 @@ def manifests_attivi() -> dict[str, Manifest]:
 
 Run: `pytest core/tests/test_registry.py -v` — Expected: passed.
 
-- [ ] **Step 3: commit** — `feat(core): registro dei moduli: scoperta, ordinamento per dipendenze, stati e sincronizzazione`
+- [x] **Step 3: commit** — `feat(core): registro dei moduli: scoperta, ordinamento per dipendenze, stati e sincronizzazione`
 
 ---
 
