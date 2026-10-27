@@ -128,3 +128,24 @@ class Lavoro(models.Model):
 
     def __str__(self):
         return f"{self.funzione} #{self.pk}"
+
+
+class Pianificazione(models.Model):
+    """Lavoro ricorrente dichiarato nel manifest di un modulo (o dal kernel): il worker lo accoda quando scade."""
+    modulo = models.CharField("modulo", max_length=31)
+    nome = models.CharField("nome", max_length=120)
+    funzione = models.CharField("funzione", max_length=200)
+    ogni = models.CharField("ogni", max_length=10, help_text="15m, 1h, 1d…")
+    alle = models.CharField("alle", max_length=5, blank=True, help_text="HH:MM, solo per gli intervalli in giorni")
+    attiva = models.BooleanField("attiva", default=True)
+    prossima_esecuzione = models.DateTimeField("prossima esecuzione", null=True, blank=True)
+    ultima_esecuzione = models.DateTimeField("ultima esecuzione", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "pianificazione"
+        verbose_name_plural = "pianificazioni"
+        ordering = ["modulo", "nome"]
+        constraints = [models.UniqueConstraint(fields=["modulo", "nome"], name="pianificazione_unica")]
+
+    def __str__(self):
+        return f"{self.modulo}: {self.nome}"

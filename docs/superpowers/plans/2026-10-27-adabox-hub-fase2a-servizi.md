@@ -68,7 +68,7 @@ chiusi con la riga `Co-Authored-By` del modello che li scrive, push a fine task)
 - Test: sincrono, coda, ritentativi e fallimento, `--una-volta`, funzione inesistente → `fallito`; Postgres: due
   worker non prendono lo stesso lavoro.
 
-### Task 3: Pianificazioni (cron)
+### Task 3: Pianificazioni (cron) — fatto
 
 - `Pianificazione`: `modulo`, `nome`, `funzione`, `ogni`, `alle`, `attiva`, `prossima_esecuzione`, `ultima_esecuzione`.
 - `modulo_applica`: crea/aggiorna dal manifest all'installazione e all'aggiornamento (chiave = modulo + nome),

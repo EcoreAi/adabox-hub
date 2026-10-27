@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Azienda, Modulo, ProfiloUtente, TokenApi
+from .models import Azienda, Modulo, Pianificazione, ProfiloUtente, TokenApi
 
 
 @admin.register(Azienda)
@@ -40,6 +40,18 @@ class TokenApiAdmin(admin.ModelAdmin):
     list_filter = ("attivo",)
     search_fields = ("nome", "utente__username")
     readonly_fields = ("utente", "nome", "creato", "ultimo_uso")
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(Pianificazione)
+class PianificazioneAdmin(admin.ModelAdmin):
+    """Le pianificazioni nascono dai manifest: dall'admin si attivano, si disattivano e si anticipano."""
+    list_display = ("nome", "modulo", "funzione", "ogni", "alle", "attiva", "prossima_esecuzione", "ultima_esecuzione")
+    list_editable = ("attiva",)
+    list_filter = ("modulo", "attiva")
+    readonly_fields = ("modulo", "nome", "funzione", "ogni", "alle", "ultima_esecuzione")
 
     def has_add_permission(self, request):
         return False

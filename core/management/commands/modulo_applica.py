@@ -12,6 +12,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
+from core.lavori import sincronizza_pianificazioni
 from core.models import Modulo
 from core.registry import manifest as mf
 from core.registry.groups import crea_gruppi
@@ -80,6 +81,7 @@ class Command(BaseCommand):
         with transaction.atomic():
             carica_fixture(m, demo)
             gruppi = crea_gruppi(m)
+            sincronizza_pianificazioni(slug, m.cron)
             riga = aggiorna_riga(m)
             esegui_hook(m, "post_install", riga)
             aggiorna_riga(m, stato=Modulo.INSTALLATO, versione_installata=m.version,
@@ -93,6 +95,7 @@ class Command(BaseCommand):
         with transaction.atomic():
             carica_fixture(m)
             gruppi = crea_gruppi(m)
+            sincronizza_pianificazioni(slug, m.cron)
             riga = aggiorna_riga(m)
             esegui_hook(m, "post_upgrade", riga, da)
             aggiorna_riga(m, stato=Modulo.INSTALLATO, versione_installata=m.version,
@@ -109,6 +112,7 @@ class Command(BaseCommand):
                 esegui_hook(m, "pre_uninstall", riga)
             if riga:
                 Group.objects.filter(name__in=riga.gruppi_creati).delete()
+            sincronizza_pianificazioni(slug, [])
         if elimina_dati and m and apps.is_installed(slug):
             self._migra(slug, "zero")
         Modulo.objects.filter(slug=slug).update(stato=Modulo.DISPONIBILE, versione_installata="",
