@@ -23,7 +23,7 @@ ordine di dipendenza.
 - Modelli, validatori fiscali (`addons/contatti/validatori.py`), vista con kanban per tipo, chatter, report,
   import/export, sezione "Persone" sul dettaglio delle aziende (hook nel `ready()`), dati iniziali (categorie) e demo.
 
-### Task 2: calendario
+### Task 2: calendario — fatto
 - `Evento`, visibilità degli eventi privati, vista calendario, `.ics` (invito per email e download), pianificazione
   dei promemoria.
 

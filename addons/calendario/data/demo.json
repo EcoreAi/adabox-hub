@@ -1,0 +1,82 @@
+[
+  {
+    "model": "calendario.evento",
+    "pk": 1,
+    "fields": {
+      "azienda": 1,
+      "uid": "00000000-0000-0000-0000-000000000001",
+      "titolo": "Riunione di avanzamento",
+      "inizio": "2026-11-02T09:00:00+01:00",
+      "fine": "2026-11-02T10:00:00+01:00",
+      "tutto_il_giorno": false,
+      "luogo": "Sala riunioni",
+      "descrizione": "",
+      "organizzatore": null,
+      "partecipanti": [],
+      "contatti": [],
+      "privato": false,
+      "promemoria": 15,
+      "promemoria_inviato": false
+    }
+  },
+  {
+    "model": "calendario.evento",
+    "pk": 2,
+    "fields": {
+      "azienda": 1,
+      "uid": "00000000-0000-0000-0000-000000000002",
+      "titolo": "Visita cliente Rossi",
+      "inizio": "2026-11-04T15:00:00+01:00",
+      "fine": "2026-11-04T16:30:00+01:00",
+      "tutto_il_giorno": false,
+      "luogo": "Cagliari",
+      "descrizione": "",
+      "organizzatore": null,
+      "partecipanti": [],
+      "contatti": [],
+      "privato": false,
+      "promemoria": 15,
+      "promemoria_inviato": false
+    }
+  },
+  {
+    "model": "calendario.evento",
+    "pk": 3,
+    "fields": {
+      "azienda": 1,
+      "uid": "00000000-0000-0000-0000-000000000003",
+      "titolo": "Formazione gestionale",
+      "inizio": "2026-11-10T09:30:00+01:00",
+      "fine": "2026-11-10T13:00:00+01:00",
+      "tutto_il_giorno": false,
+      "luogo": "Online",
+      "descrizione": "",
+      "organizzatore": null,
+      "partecipanti": [],
+      "contatti": [],
+      "privato": false,
+      "promemoria": 15,
+      "promemoria_inviato": false
+    }
+  },
+  {
+    "model": "calendario.evento",
+    "pk": 4,
+    "fields": {
+      "azienda": 1,
+      "uid": "00000000-0000-0000-0000-000000000004",
+      "titolo": "Chiusura trimestre",
+      "inizio": "2026-12-31T00:00:00+01:00",
+      "fine": "2026-12-31T23:59:00+01:00",
+      "tutto_il_giorno": true,
+      "luogo": "",
+      "descrizione": "",
+      "organizzatore": null,
+      "partecipanti": [],
+      "contatti": [],
+      "privato": false,
+      "promemoria": 15,
+      "promemoria_inviato": false
+    }
+  }
+]

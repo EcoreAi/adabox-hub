@@ -1,0 +1,23 @@
+{
+    "name": "Calendario",
+    "summary": "Appuntamenti e riunioni con inviti, promemoria e file .ics",
+    "version": "1.0.0",
+    "author": "ICHNOBYTE S.R.L.",
+    "category": "Produttività",
+    "depends": ["contatti"],
+    "min_core": "1.0",
+    "application": True,
+    "icon": "calendario/icon.svg",
+    "menu": [
+        {"label": "Calendario", "url_name": "calendario:eventi_calendario", "permission": "calendario.view_evento"},
+        {"label": "Eventi", "url_name": "calendario:eventi_lista", "permission": "calendario.view_evento"},
+    ],
+    "groups": {
+        "Calendario / Utente": ["calendario.view_evento", "calendario.add_evento", "calendario.change_evento",
+                                "calendario.delete_evento"],
+        "Calendario / Responsabile": ["calendario.*"],
+    },
+    "demo": ["data/demo.json"],
+    "hooks": "calendario.hooks",
+    "cron": [{"nome": "Promemoria eventi", "funzione": "calendario.lavori.promemoria", "ogni": "5m"}],
+}
