@@ -25,8 +25,11 @@ def campi_api(vista):
 
 
 def serializza(vista, obj):
-    """dict: id, campi di api_fields; FK come id più <fk>_display; M2M come lista di id; date ISO."""
+    """dict: id, campi di api_fields; FK come id più <fk>_display; M2M come lista di id; date ISO;
+    `proprieta` con i campi personalizzati se il modello li accetta."""
     dati = {"id": obj.pk}
+    if hasattr(obj, "proprieta"):
+        dati["proprieta"] = dict(obj.proprieta or {})
     for nome in campi_api(vista):
         f = vista.opts.get_field(nome)
         if f.many_to_many:
@@ -43,6 +46,12 @@ def serializza(vista, obj):
                 valore = valore.url if valore else ""
             dati[nome] = valore
     return dati
+
+
+def _dati_form(corpo):
+    """Il corpo JSON come dati del form: le chiavi di `proprieta` diventano campi prop_<nome>."""
+    proprieta = corpo.pop("proprieta", None) or {}
+    return {**corpo, **{f"prop_{k}": v for k, v in proprieta.items()}} if isinstance(proprieta, dict) else corpo
 
 
 def _corpo(request):
@@ -94,7 +103,7 @@ def _router_per(vista):
         azienda_per(request)
         if not vista.has_add_permission(request):
             raise HttpError(403, "permesso negato")
-        form = vista.get_form_class()(data=_corpo(request))
+        form = vista.get_form_class(request)(data=_dati_form(_corpo(request)))
         if not form.is_valid():
             return _errori(request, form)
         return api.create_response(request, salva(request, form, change=False), status=201)
@@ -106,9 +115,11 @@ def _router_per(vista):
     @router.patch("/{int:pk}/", operation_id=f"{op}_modifica", summary=f"Modifica {vista.verbose_name}")
     def modifica(request, pk: int):
         obj = oggetto(request, pk, vista.has_change_permission)
-        form_class = vista.get_form_class()
+        form_class = vista.get_form_class(request)
         attuali = model_to_dict(obj, fields=list(form_class.base_fields))
-        form = form_class(data={**attuali, **_corpo(request)}, instance=obj)
+        attuali.update({f"prop_{d.nome}": (obj.proprieta or {}).get(d.nome)       # PATCH: le proprietà non date restano
+                        for d in getattr(form_class, "definizioni_proprieta", [])})
+        form = form_class(data={**attuali, **_dati_form(_corpo(request))}, instance=obj)
         if not form.is_valid():
             return _errori(request, form)
         return salva(request, form, change=True)

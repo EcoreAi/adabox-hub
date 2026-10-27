@@ -1,6 +1,7 @@
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import render
 
+from core import proprieta as proprieta_srv
 from core.registry import hooks
 
 from .chatter import contesto_chatter
@@ -13,9 +14,22 @@ class DettaglioView(VistaBase):
         obj = vista.get_object(request, pk)
         if not vista.has_view_permission(request, obj):
             raise PermissionDenied
-        sezioni = [(titolo, [[{"campo": c, "label": vista.etichetta(c), "valore": vista.col_valore(request, obj, c)}
-                              for c in riga] for riga in righe])
-                   for titolo, righe in vista.layout_dettaglio()]
+        def dato(c):
+            return {"campo": c, "label": vista.etichetta(c), "valore": vista.col_valore(request, obj, c)}
+        proprieta = [{"campo": proprieta_srv.nome_campo(d), "label": d.label, "valore": proprieta_srv.testo(d, obj)}
+                     for d in vista.proprieta(request)]
+        sezioni, collocate = [], False
+        for titolo, righe in vista.layout_dettaglio():
+            righe_dati = []
+            for riga in righe:
+                if riga == ["@proprieta"]:
+                    righe_dati.extend([p] for p in proprieta)
+                    collocate = True
+                else:
+                    righe_dati.append([dato(c) for c in riga])
+            sezioni.append((titolo, [r for r in righe_dati if r]))
+        if proprieta and not collocate:
+            sezioni.append(("Altre informazioni", [[p] for p in proprieta]))
         return render(request, vista.template_dettaglio, {
             "vista": vista, "urls": urls_di(vista), "obj": obj, "sezioni": sezioni,
             "bottoni": [(nome, etichetta, vista.url("bottone", pk=obj.pk, nome=nome))

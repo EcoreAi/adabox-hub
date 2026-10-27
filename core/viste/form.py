@@ -6,11 +6,21 @@ from .lista import VistaBase, urls_di
 
 
 def sezioni_form(vista, form):
-    """[(titolo, [[BoundField, ...], ...])] dal layout, senza i campi in sola lettura."""
-    sezioni = []
+    """[(titolo, [[BoundField, ...], ...])] dal layout, senza i campi in sola lettura. I campi personalizzati
+    vanno dove il layout dice "@proprieta", altrimenti in una sezione "Altre informazioni" in fondo."""
+    proprieta = [n for n in form.fields if n.startswith("prop_")]
+    sezioni, collocati = [], False
     for titolo, righe in vista.layout():
-        righe_form = [[form[c] for c in riga if c in form.fields] for riga in righe]
+        righe_form = []
+        for riga in righe:
+            if riga == ["@proprieta"]:
+                righe_form.extend([form[n]] for n in proprieta)
+                collocati = True
+            else:
+                righe_form.append([form[c] for c in riga if c in form.fields])
         sezioni.append((titolo, [r for r in righe_form if r]))
+    if proprieta and not collocati:
+        sezioni.append(("Altre informazioni", [[form[n]] for n in proprieta]))
     return sezioni
 
 
@@ -38,7 +48,7 @@ class FormView(VistaBase):
 
     def get(self, request, pk=None):
         obj = self._oggetto(request, pk)
-        form_class = self.vista.get_form_class()
+        form_class = self.vista.get_form_class(request)
         # nuovo record: valori iniziali dalla query string (es. ?scadenza=2026-11-03 dal calendario)
         iniziali = {k: v for k, v in request.GET.items() if k in form_class.base_fields} if obj is None else {}
         return self._rendi(request, form_class(instance=obj, initial=iniziali), obj)
@@ -46,7 +56,7 @@ class FormView(VistaBase):
     def post(self, request, pk=None):
         vista = self.vista
         obj = self._oggetto(request, pk)
-        form = vista.get_form_class()(request.POST, request.FILES, instance=obj)
+        form = vista.get_form_class(request)(request.POST, request.FILES, instance=obj)
         if not form.is_valid():
             return self._rendi(request, form, obj)
         nuovo = form.save(commit=False)

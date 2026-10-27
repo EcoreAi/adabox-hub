@@ -31,7 +31,7 @@ filtri e API. `todo` 1.3.0 li usa.
 - Test: HTML del report (dati, azienda, un record per pagina), permessi (view; fuori azienda 404), indice non
   valido 404, stampa di massa, background, 503 senza libreria; PDF vero marcato `pdf` (saltato se manca Pango).
 
-### Task 2: Campi personalizzati (Properties)
+### Task 2: Campi personalizzati (Properties) — fatto
 
 - `ProprietaMixin` (`proprieta = JSONField(default=dict, blank=True)`), `CampoPersonalizzato` (spec; unico per
   modello + nome + azienda; `modello` limitato ai modelli con `proprieta`).

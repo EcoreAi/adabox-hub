@@ -16,8 +16,8 @@ from . import moduli as mod
 from . import attivita as attivita_servizio
 from . import parametri
 
-from .forms import AziendaPredefinitaForm, ProfiloForm, TokenApiForm
-from .models import Azienda, EmailRicevuta, Lavoro, Modulo, ProfiloUtente, TokenApi
+from .forms import AziendaPredefinitaForm, CampoPersonalizzatoForm, ProfiloForm, TokenApiForm
+from .models import Azienda, CampoPersonalizzato, EmailRicevuta, Lavoro, Modulo, ProfiloUtente, TokenApi
 from .registry import modules
 from .signals import crea_profilo
 from .viste import ModelView, register
@@ -39,6 +39,9 @@ def voci_kernel(user):
                      "sub": "Risposte alle notifiche e loro abbinamento"})
         voci.append({"label": "Moduli", "url": reverse("core:moduli"), "icon": "download",
                      "sub": "Installa, aggiorna e disinstalla le app"})
+    if user.has_perm("core.view_campopersonalizzato"):
+        voci.append({"label": "Campi personalizzati", "url": reverse("core:campi_lista"), "icon": "edit",
+                     "sub": "Campi aggiunti ai modelli senza programmare"})
     if user.has_perm("core.change_parametro") and parametri.definizioni():
         voci.append({"label": "Impostazioni", "url": reverse("core:impostazioni"), "icon": "tool",
                      "sub": "Parametri delle app installate"})
@@ -320,3 +323,16 @@ class EmailRicevutaView(SoloSuperuserView):
 @login_required
 def attivita_mie(request):
     return render(request, "core/attivita_mie.html", {"gruppi": attivita_servizio.raggruppate(request.user)})
+
+
+@register
+class CampoPersonalizzatoView(ModelView):
+    model = CampoPersonalizzato
+    slug = "campi"
+    list_display = ["label", "nome", "modello", "tipo", "azienda", "in_lista", "filtrabile"]
+    list_filter = ["modello", "tipo", "azienda"]
+    search_fields = ["label", "nome"]
+    ordering = ["modello", "ordine", "pk"]
+    form_class = CampoPersonalizzatoForm
+    form_layout = [("Campo", ["modello", ("label", "nome"), ("tipo", "ordine"), "scelte", "aiuto"]),
+                   ("Comportamento", [("obbligatorio", "in_lista", "filtrabile"), "azienda"])]

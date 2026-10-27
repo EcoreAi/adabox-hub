@@ -7,6 +7,8 @@ from django.core.paginator import Paginator
 from django.shortcuts import render
 from django.views import View
 
+from core import proprieta
+
 from . import filtri, gruppi
 
 
@@ -57,13 +59,17 @@ class ListaView(VistaBase):
                             "direzione": direzione, "prossimo": f"-{c}" if direzione == "asc" else c})
         azioni = [(nome, etichetta, vista.url("azione", nome=nome)) for nome, etichetta in vista.get_actions(request)]
         stampe = [(r["nome"], vista.url("stampa_massa", indice=i)) for i, r in enumerate(vista.reports)]
-        righe = [(obj, [vista.col_valore(request, obj, c) for c in vista.list_display]) for obj in page_obj]
+        extra = [d for d in vista.proprieta(request) if d.in_lista]       # campi personalizzati in lista
+        for d in extra:
+            colonne.append({"campo": f"prop_{d.nome}", "label": d.label, "ordinabile": False, "direzione": "", "prossimo": ""})
+        righe = [(obj, [vista.col_valore(request, obj, c) for c in vista.list_display]
+                  + [proprieta.testo(d, obj) for d in extra]) for obj in page_obj]
         somme = gruppi.somme_ammesse(vista)
         tot = gruppi.totali(vista, qs)
         ctx = {
             "vista": vista, "urls": urls_di(vista), "colonne": colonne, "righe": righe,
-            "blocchi": _blocchi(vista, righe, info_gruppi),
-            "totali": [tot.get(c, "") for c in vista.list_display] if tot else None,
+            "blocchi": _blocchi(vista, righe, info_gruppi, len(extra)),
+            "totali": [tot.get(c, "") for c in vista.list_display] + [""] * len(extra) if tot else None,
             "raggruppabili": raggruppabili, "gruppo": chiave, "con_somme": bool(somme), "stampe": stampe,
             "selezione": bool(azioni or stampe),
             **contesto_testata(request, vista, "lista"),
@@ -74,7 +80,7 @@ class ListaView(VistaBase):
         return render(request, vista.template_tabella if parziale(request) else vista.template_lista, ctx)
 
 
-def _blocchi(vista, righe, info):
+def _blocchi(vista, righe, info, colonne_extra=0):
     """Le righe della pagina divise per gruppo: [{etichetta, n, somme (per colonna), righe}]; un solo blocco
     senza intestazione se non si raggruppa."""
     if info is None:
@@ -84,6 +90,7 @@ def _blocchi(vista, righe, info):
         if not blocchi or blocchi[-1]["valore"] != obj._gruppo:
             g = info.get(obj._gruppo, {"etichetta": "—", "n": 0, "somme": {}})
             blocchi.append({"valore": obj._gruppo, "etichetta": g["etichetta"], "n": g["n"],
-                            "somme": [g["somme"].get(c, "") for c in vista.list_display], "righe": []})
+                            "somme": [g["somme"].get(c, "") for c in vista.list_display] + [""] * colonne_extra,
+                            "righe": []})
         blocchi[-1]["righe"].append((obj, celle))
     return blocchi

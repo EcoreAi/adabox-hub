@@ -145,7 +145,7 @@ class Convertitore:
 
 def valida(vista, request, intestazioni, righe, mappa, aggiorna):
     """(operazioni, errori): operazioni = [(form, nuovo)], errori = [{riga, campo, messaggio}]."""
-    form_class = vista.get_form_class()
+    form_class = vista.get_form_class(request)
     converti = Convertitore(form_class)
     colonne = [(i, nome) for i, nome in enumerate(mappa) if nome]
     chiave = vista.import_key if aggiorna and vista.import_key in mappa else None

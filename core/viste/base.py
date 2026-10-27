@@ -109,8 +109,9 @@ class ModelView:
 
     def get_queryset(self, request):
         qs = self.model._default_manager.all()
-        if self.company_field and getattr(request, "azienda", None) is not None:
-            qs = qs.filter(**{self.company_field: request.azienda})
+        azienda_id = getattr(getattr(request, "azienda", None), "pk", None)    # lazy: può avvolgere None
+        if self.company_field and azienda_id is not None:
+            qs = qs.filter(**{f"{self.company_field}_id": azienda_id})
         if self.ordering:
             return qs.order_by(*self.ordering)
         return qs if qs.ordered else qs.order_by("pk")    # paginazione stabile
@@ -131,6 +132,8 @@ class ModelView:
                 from core import sequenze
                 azienda = getattr(obj, self.company_field) if self.company_field else None
                 setattr(obj, self.sequence_field[0], sequenze.prossimo(self.sequence_field[1], azienda))
+            if hasattr(form, "applica_proprieta"):
+                form.applica_proprieta(obj)
             obj.save()
             form.save_m2m()
             if self.chatter and not change:
@@ -184,16 +187,28 @@ class ModelView:
     def layout_dettaglio(self):
         """Il layout più i readonly_fields che non vi compaiono."""
         layout = self.layout()
-        presenti = {c for _, righe in layout for riga in righe for c in riga}
+        presenti = {c for _, righe in layout for riga in righe for c in riga if not c.startswith("@")}
         if mancanti := [c for c in self.readonly_fields if c not in presenti]:
             layout.append(("Altre informazioni", [[c] for c in mancanti]))
         return layout
 
     def campi_form(self):
-        return [c for _, righe in self.layout() for riga in righe for c in riga if c not in self.readonly_fields]
+        return [c for _, righe in self.layout() for riga in righe for c in riga
+                if c not in self.readonly_fields and not c.startswith("@")]
 
-    def get_form_class(self):
-        return self.form_class or modelform_factory(self.model, fields=self.campi_form())
+    def get_form_class(self, request=None):
+        """ModelForm della vista; con la richiesta aggiunge i campi personalizzati validi per l'azienda corrente."""
+        from core import proprieta
+        base = self.form_class or modelform_factory(self.model, fields=self.campi_form())
+        if request is None or not proprieta.accetta(self.model):
+            return base
+        definizioni = proprieta.definizioni(self.model, getattr(request, "azienda", None))
+        return proprieta.form_con_proprieta(base, definizioni) if definizioni else base
+
+    def proprieta(self, request):
+        """Definizioni dei campi personalizzati per l'azienda della richiesta ([] se il modello non li accetta)."""
+        from core import proprieta
+        return proprieta.definizioni(self.model, getattr(request, "azienda", None))
 
     def etichetta(self, campo):
         """Intestazione di colonna o etichetta di campo."""
@@ -209,5 +224,9 @@ class ModelView:
         return nome[:1].upper() + nome[1:]
 
     def col_valore(self, request, obj, campo):
+        if campo.startswith("prop_"):
+            from core import proprieta
+            d = next((d for d in self.proprieta(request) if proprieta.nome_campo(d) == campo), None)
+            return proprieta.testo(d, obj) if d else "—"
         metodo = getattr(self, f"col_{campo}", None)
         return metodo(obj) if metodo else widgets.rendi(self, obj, campo, request)

@@ -1,4 +1,5 @@
 import hashlib
+import re
 import secrets
 import uuid
 
@@ -8,10 +9,11 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.utils import timezone
 
+from .mixins import ProprietaMixin
 from .storage import StoragePrivato
 
 
-class Azienda(models.Model):
+class Azienda(ProprietaMixin):
     nome = models.CharField("nome", max_length=160)
     partita_iva = models.CharField("partita IVA", max_length=16, blank=True)
     codice_fiscale = models.CharField("codice fiscale", max_length=16, blank=True)
@@ -335,3 +337,60 @@ class AttivitaPianificata(models.Model):
 
     def __str__(self):
         return f"{self.tipo}: {self.riepilogo or self.record}"
+
+
+class CampoPersonalizzato(models.Model):
+    """Campo aggiunto dal cliente a un modello con ProprietaMixin, per tutte le aziende o per una sola."""
+    TESTO, INTERO, DECIMALE, BOOLEANO, DATA, SCELTA, UTENTE = (
+        "testo", "intero", "decimale", "booleano", "data", "scelta", "utente")
+    TIPI = [(TESTO, "Testo"), (INTERO, "Numero intero"), (DECIMALE, "Numero decimale"), (BOOLEANO, "Sì/No"),
+            (DATA, "Data"), (SCELTA, "Scelta da elenco"), (UTENTE, "Utente")]
+    modello = models.ForeignKey(ContentType, on_delete=models.CASCADE, verbose_name="modello")
+    nome = models.SlugField("nome tecnico", max_length=40, help_text="minuscole, cifre e _ (es. codice_cliente)")
+    label = models.CharField("etichetta", max_length=80)
+    tipo = models.CharField("tipo", max_length=10, choices=TIPI, default=TESTO)
+    scelte = models.TextField("scelte", blank=True, help_text="una per riga: valore|etichetta (solo per le scelte)")
+    aiuto = models.CharField("testo di aiuto", max_length=200, blank=True)
+    obbligatorio = models.BooleanField("obbligatorio", default=False)
+    in_lista = models.BooleanField("mostra nella lista", default=False)
+    filtrabile = models.BooleanField("filtrabile", default=False, help_text="per scelte, Sì/No e utenti")
+    ordine = models.PositiveSmallIntegerField("ordine", default=10)
+    azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE, null=True, blank=True, verbose_name="azienda",
+                                help_text="vuoto = per tutte le aziende")
+
+    class Meta:
+        verbose_name = "campo personalizzato"
+        verbose_name_plural = "campi personalizzati"
+        ordering = ["modello", "ordine", "pk"]
+        constraints = [
+            models.UniqueConstraint(fields=["modello", "nome"], condition=models.Q(azienda__isnull=True),
+                                    name="campo_globale_unico"),
+            models.UniqueConstraint(fields=["modello", "nome", "azienda"], condition=models.Q(azienda__isnull=False),
+                                    name="campo_azienda_unico"),
+        ]
+
+    def __str__(self):
+        return f"{self.label} ({self.modello.name})"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        errori = {}
+        if self.nome and not re.match(r"^[a-z][a-z0-9_]*$", self.nome):
+            errori["nome"] = "Solo lettere minuscole, cifre e _, iniziando con una lettera."
+        modello = self.modello.model_class() if self.modello_id else None
+        if modello is not None and not any(f.name == "proprieta" for f in modello._meta.get_fields()):
+            errori["modello"] = "Questo modello non accetta campi personalizzati."
+        if self.tipo == self.SCELTA and not self.elenco_scelte():
+            errori["scelte"] = "Indica almeno una scelta (valore|etichetta)."
+        if self.filtrabile and self.tipo not in (self.SCELTA, self.BOOLEANO, self.UTENTE):
+            errori["filtrabile"] = "Si possono filtrare solo scelte, Sì/No e utenti."
+        if errori:
+            raise ValidationError(errori)
+
+    def elenco_scelte(self):
+        voci = []
+        for riga in self.scelte.splitlines():
+            if riga.strip():
+                valore, _, etichetta = riga.partition("|")
+                voci.append((valore.strip(), (etichetta or valore).strip()))
+        return voci

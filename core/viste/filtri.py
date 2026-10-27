@@ -48,7 +48,24 @@ def specifiche(vista, request):
                       .distinct()[:LIMITE_OPZIONI])
             spec["opzioni"] = [(str(v), str(v)) for v in valori if v not in (None, "")]
         risultato.append(spec)
+    for d in _proprieta_filtrabili(vista, request):
+        if d.tipo == "booleano":
+            opzioni = [("1", "Sì"), ("0", "No")]
+        elif d.tipo == "scelta":
+            opzioni = d.elenco_scelte()
+        else:
+            from django.contrib.auth import get_user_model
+            opzioni = [(str(u.pk), u.get_full_name() or u.username)
+                       for u in get_user_model().objects.filter(is_active=True)[:LIMITE_OPZIONI]]
+        risultato.append({"campo": f"prop_{d.nome}", "label": d.label, "tipo": "scelta", "opzioni": opzioni,
+                          "valore": request.GET.get(f"f_prop_{d.nome}", "")})
     return risultato
+
+
+def _proprieta_filtrabili(vista, request):
+    if not hasattr(vista, "proprieta"):
+        return []
+    return [d for d in vista.proprieta(request) if d.filtrabile]
 
 
 def ordinabili(vista):
@@ -90,6 +107,18 @@ def applica(vista, request, qs, parametri=None):
             continue
         qs = _filtra(qs, **{nome: valore})
         distinti = distinti or f.many_to_many
+    for d in _proprieta_filtrabili(vista, request):
+        valore = p.get(f"f_prop_{d.nome}", "")
+        if valore == "":
+            continue
+        if d.tipo == "booleano":
+            if valore in ("1", "0"):
+                qs = qs.filter(**{f"proprieta__{d.nome}": valore == "1"})
+        elif d.tipo == "utente":
+            if valore.isdigit():
+                qs = qs.filter(**{f"proprieta__{d.nome}": int(valore)})
+        else:
+            qs = qs.filter(**{f"proprieta__{d.nome}": valore})
     o = p.get("o", "")
     if o and o.lstrip("-") in ordinabili(vista):
         qs = qs.order_by(o, "pk")
