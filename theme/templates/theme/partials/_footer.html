@@ -1,0 +1,13 @@
+<footer class="ui-footer">
+  <div class="ui-container ui-footer-inner">
+    <span class="ui-footer-copy">
+      © {% now "Y" %} {{ theme.brand }}{% if theme.company %} · Sviluppato da
+      {% if theme.company_url %}<a href="{{ theme.company_url }}" target="_blank" rel="noopener">{{ theme.company }}</a>{% else %}{{ theme.company }}{% endif %}{% endif %}
+    </span>
+    {% if theme.version %}
+    <nav class="ui-footer-links" aria-label="Footer">
+      <span class="ui-footer-version ui-code">{{ theme.version }}</span>
+    </nav>
+    {% endif %}
+  </div>
+</footer>

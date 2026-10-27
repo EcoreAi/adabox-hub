@@ -1,0 +1,4 @@
+{% extends 'theme/base.html' %}
+{% block title %}Accesso negato · {{ theme.brand }}{% endblock %}
+{% block content %}{% include 'theme/partials/_scheda_errore.html' with codice='403' titolo='Accesso negato' testo='Non hai i permessi per vedere questa pagina.' %}{% endblock %}
+{% block public_content %}<main class="ui-shell"><div class="ui-container ui-content">{% include 'theme/partials/_scheda_errore.html' with codice='403' titolo='Accesso negato' testo='Non hai i permessi per vedere questa pagina.' %}</div></main>{% endblock %}

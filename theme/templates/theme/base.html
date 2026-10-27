@@ -1,0 +1,33 @@
+{% load static %}<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ theme.brand }}{% endblock %}</title>
+  <script>document.documentElement.classList.add('js')</script>
+  <link rel="stylesheet" href="{% static 'theme/ui.css' %}">
+  <link rel="icon" type="image/svg+xml" href="{% url 'theme:favicon' %}">
+  {% block head_extra %}{% endblock %}
+</head>
+<body class="ui-body">
+  {% include 'theme/partials/_icons.html' %}
+
+  {% if user.is_authenticated %}
+    {% include 'theme/partials/_header.html' %}
+    <main class="ui-shell">
+      <div class="ui-container ui-content">
+        {% if messages %}
+          {% for m in messages %}<div class="ui-alert ui-alert-{{ m.tags|default:'info' }}">{{ m }}</div>{% endfor %}
+        {% endif %}
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+    {% include 'theme/partials/_footer.html' %}
+  {% else %}
+    {% block public_content %}{% endblock %}
+  {% endif %}
+
+  <script src="{% static 'theme/ui.js' %}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

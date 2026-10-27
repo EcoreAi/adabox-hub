@@ -1,0 +1,6 @@
+{% load static %}<!DOCTYPE html>
+<html lang="it"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Errore del server</title><link rel="stylesheet" href="{% static 'theme/ui.css' %}"></head>
+<body class="ui-body"><main class="ui-shell"><div class="ui-container ui-content">
+{% include 'theme/partials/_scheda_errore.html' with codice='500' titolo='Errore del server' testo='Si è verificato un errore. Riprova tra qualche minuto.' %}
+</div></main></body></html>

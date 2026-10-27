@@ -1,0 +1,123 @@
+{% extends 'theme/base.html' %}
+{% block title %}Stile · {{ theme.brand }}{% endblock %}
+{% block content %}
+<div class="ui-pagehead"><div><h1>Catalogo dello stile</h1><div class="sub">Ogni componente di ui.css con lo snippet da copiare</div></div></div>
+
+<div class="ui-card is-revealed">
+  <div class="ui-card-head"><div class="ui-card-title">Bottoni</div></div>
+  <div class="ui-card-body">
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+  <button class="ui-btn ui-btn-primary">Primario</button>
+  <button class="ui-btn ui-btn-secondary">Secondario</button>
+  <button class="ui-btn ui-btn-ghost">Ghost</button>
+  <button class="ui-btn ui-btn-danger">Elimina</button>
+  <button class="ui-btn ui-btn-primary ui-btn-sm"><svg><use href="#icon-plus"/></svg> Piccolo</button>
+  <button class="ui-btn ui-btn-primary" disabled>Disabilitato</button>
+  <button class="ui-icon-btn" data-tooltip="Modifica"><svg><use href="#icon-edit"/></svg></button>
+  <button class="ui-icon-btn ui-icon-btn-danger" data-tooltip="Elimina"><svg><use href="#icon-trash"/></svg></button>
+</div>
+    <pre class="ui-code" style="margin-top:16px;padding:12px 14px;background:var(--ui-surface-2);border-radius:var(--radius-input);overflow:auto;font-size:12px;">{% filter force_escape %}<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+  <button class="ui-btn ui-btn-primary">Primario</button>
+  <button class="ui-btn ui-btn-secondary">Secondario</button>
+  <button class="ui-btn ui-btn-ghost">Ghost</button>
+  <button class="ui-btn ui-btn-danger">Elimina</button>
+  <button class="ui-btn ui-btn-primary ui-btn-sm"><svg><use href="#icon-plus"/></svg> Piccolo</button>
+  <button class="ui-btn ui-btn-primary" disabled>Disabilitato</button>
+  <button class="ui-icon-btn" data-tooltip="Modifica"><svg><use href="#icon-edit"/></svg></button>
+  <button class="ui-icon-btn ui-icon-btn-danger" data-tooltip="Elimina"><svg><use href="#icon-trash"/></svg></button>
+</div>{% endfilter %}</pre>
+  </div>
+</div>
+
+<div class="ui-card is-revealed">
+  <div class="ui-card-head"><div class="ui-card-title">Campi</div></div>
+  <div class="ui-card-body">
+<div class="ui-form-group"><label class="ui-label" for="es-nome">Nome</label><input class="ui-input" id="es-nome" placeholder="Es. Rossi Srl"></div>
+<div class="ui-form-group"><label class="ui-label" for="es-stato">Stato</label><select class="ui-input" id="es-stato"><option>Attivo</option><option>Sospeso</option></select></div>
+<div class="ui-form-group"><label class="ui-label" for="es-note">Note</label><textarea class="ui-input" id="es-note"></textarea><small class="ui-help">Testo di aiuto sotto al campo.</small></div>
+    <pre class="ui-code" style="margin-top:16px;padding:12px 14px;background:var(--ui-surface-2);border-radius:var(--radius-input);overflow:auto;font-size:12px;">{% filter force_escape %}<div class="ui-form-group"><label class="ui-label" for="es-nome">Nome</label><input class="ui-input" id="es-nome" placeholder="Es. Rossi Srl"></div>
+<div class="ui-form-group"><label class="ui-label" for="es-stato">Stato</label><select class="ui-input" id="es-stato"><option>Attivo</option><option>Sospeso</option></select></div>
+<div class="ui-form-group"><label class="ui-label" for="es-note">Note</label><textarea class="ui-input" id="es-note"></textarea><small class="ui-help">Testo di aiuto sotto al campo.</small></div>{% endfilter %}</pre>
+  </div>
+</div>
+
+<div class="ui-card is-revealed">
+  <div class="ui-card-head"><div class="ui-card-title">Pill</div></div>
+  <div class="ui-card-body">
+<span class="ui-pill ui-pill-ok">Attivo</span> <span class="ui-pill ui-pill-warn">In attesa</span>
+<span class="ui-pill ui-pill-danger">Errore</span> <span class="ui-pill ui-pill-neutral">Bozza</span>
+<span class="ui-pill ui-pill-info">Info</span> <code class="ui-code">ABC-123</code>
+    <pre class="ui-code" style="margin-top:16px;padding:12px 14px;background:var(--ui-surface-2);border-radius:var(--radius-input);overflow:auto;font-size:12px;">{% filter force_escape %}<span class="ui-pill ui-pill-ok">Attivo</span> <span class="ui-pill ui-pill-warn">In attesa</span>
+<span class="ui-pill ui-pill-danger">Errore</span> <span class="ui-pill ui-pill-neutral">Bozza</span>
+<span class="ui-pill ui-pill-info">Info</span> <code class="ui-code">ABC-123</code>{% endfilter %}</pre>
+  </div>
+</div>
+
+<div class="ui-card is-revealed">
+  <div class="ui-card-head"><div class="ui-card-title">KPI</div></div>
+  <div class="ui-card-body">
+<div class="ui-kpis">
+  <div class="ui-kpi"><div class="label">Fatturato</div><div class="value">12.480 €</div><div class="sub">mese corrente</div></div>
+  <div class="ui-kpi"><div class="label">Ordini</div><div class="value">37</div><div class="sub">+4 rispetto a ieri</div></div>
+</div>
+    <pre class="ui-code" style="margin-top:16px;padding:12px 14px;background:var(--ui-surface-2);border-radius:var(--radius-input);overflow:auto;font-size:12px;">{% filter force_escape %}<div class="ui-kpis">
+  <div class="ui-kpi"><div class="label">Fatturato</div><div class="value">12.480 €</div><div class="sub">mese corrente</div></div>
+  <div class="ui-kpi"><div class="label">Ordini</div><div class="value">37</div><div class="sub">+4 rispetto a ieri</div></div>
+</div>{% endfilter %}</pre>
+  </div>
+</div>
+
+<div class="ui-card is-revealed">
+  <div class="ui-card-head"><div class="ui-card-title">Tabella</div></div>
+  <div class="ui-card-body">
+<div class="ui-table-wrap"><table class="ui-table">
+  <thead><tr><th>Nome</th><th>Stato</th><th class="actions"></th></tr></thead>
+  <tbody>
+    <tr><td>Rossi Srl</td><td><span class="ui-pill ui-pill-ok">Attivo</span></td><td class="actions"><button class="ui-icon-btn" data-tooltip="Modifica"><svg><use href="#icon-edit"/></svg></button></td></tr>
+    <tr><td>Bianchi Spa</td><td><span class="ui-pill ui-pill-neutral">Bozza</span></td><td class="actions"><button class="ui-icon-btn" data-tooltip="Modifica"><svg><use href="#icon-edit"/></svg></button></td></tr>
+  </tbody>
+</table></div>
+    <pre class="ui-code" style="margin-top:16px;padding:12px 14px;background:var(--ui-surface-2);border-radius:var(--radius-input);overflow:auto;font-size:12px;">{% filter force_escape %}<div class="ui-table-wrap"><table class="ui-table">
+  <thead><tr><th>Nome</th><th>Stato</th><th class="actions"></th></tr></thead>
+  <tbody>
+    <tr><td>Rossi Srl</td><td><span class="ui-pill ui-pill-ok">Attivo</span></td><td class="actions"><button class="ui-icon-btn" data-tooltip="Modifica"><svg><use href="#icon-edit"/></svg></button></td></tr>
+    <tr><td>Bianchi Spa</td><td><span class="ui-pill ui-pill-neutral">Bozza</span></td><td class="actions"><button class="ui-icon-btn" data-tooltip="Modifica"><svg><use href="#icon-edit"/></svg></button></td></tr>
+  </tbody>
+</table></div>{% endfilter %}</pre>
+  </div>
+</div>
+
+<div class="ui-card is-revealed">
+  <div class="ui-card-head"><div class="ui-card-title">Empty state</div></div>
+  <div class="ui-card-body">
+<div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun elemento da mostrare.</p></div>
+    <pre class="ui-code" style="margin-top:16px;padding:12px 14px;background:var(--ui-surface-2);border-radius:var(--radius-input);overflow:auto;font-size:12px;">{% filter force_escape %}<div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun elemento da mostrare.</p></div>{% endfilter %}</pre>
+  </div>
+</div>
+
+<div class="ui-card is-revealed">
+  <div class="ui-card-head"><div class="ui-card-title">Alert e toast</div></div>
+  <div class="ui-card-body">
+<div class="ui-alert ui-alert-success">Operazione completata.</div>
+<div class="ui-alert ui-alert-warning">Attenzione: controlla i dati.</div>
+<div class="ui-alert ui-alert-error">Qualcosa è andato storto.</div>
+<button class="ui-btn ui-btn-secondary" onclick="uiToast('Salvato')">Mostra toast</button>
+<button class="ui-btn ui-btn-secondary" onclick="uiToast('Attenzione', 'warn')">Toast di avviso</button>
+    <pre class="ui-code" style="margin-top:16px;padding:12px 14px;background:var(--ui-surface-2);border-radius:var(--radius-input);overflow:auto;font-size:12px;">{% filter force_escape %}<div class="ui-alert ui-alert-success">Operazione completata.</div>
+<div class="ui-alert ui-alert-warning">Attenzione: controlla i dati.</div>
+<div class="ui-alert ui-alert-error">Qualcosa è andato storto.</div>
+<button class="ui-btn ui-btn-secondary" onclick="uiToast('Salvato')">Mostra toast</button>
+<button class="ui-btn ui-btn-secondary" onclick="uiToast('Attenzione', 'warn')">Toast di avviso</button>{% endfilter %}</pre>
+  </div>
+</div>
+
+<div class="ui-card is-revealed">
+  <div class="ui-card-head"><div class="ui-card-title">Link e card</div></div>
+  <div class="ui-card-body">
+<p>Un <a class="ui-link" href="#">link con sottolineatura animata</a> dentro un paragrafo.</p>
+<div class="ui-card is-revealed"><div class="ui-card-head"><div><div class="ui-card-title">Titolo card</div><div class="ui-card-sub">Sottotitolo</div></div><div class="spacer"></div><div class="head-actions"><button class="ui-btn ui-btn-ghost ui-btn-sm">Azione</button></div></div><div class="ui-card-body">Contenuto.</div></div>
+    <pre class="ui-code" style="margin-top:16px;padding:12px 14px;background:var(--ui-surface-2);border-radius:var(--radius-input);overflow:auto;font-size:12px;">{% filter force_escape %}<p>Un <a class="ui-link" href="#">link con sottolineatura animata</a> dentro un paragrafo.</p>
+<div class="ui-card is-revealed"><div class="ui-card-head"><div><div class="ui-card-title">Titolo card</div><div class="ui-card-sub">Sottotitolo</div></div><div class="spacer"></div><div class="head-actions"><button class="ui-btn ui-btn-ghost ui-btn-sm">Azione</button></div></div><div class="ui-card-body">Contenuto.</div></div>{% endfilter %}</pre>
+  </div>
+</div>
+{% endblock %}

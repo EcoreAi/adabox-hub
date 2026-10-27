@@ -1,0 +1,4 @@
+{% extends 'theme/base.html' %}
+{% block title %}Richiesta non valida · {{ theme.brand }}{% endblock %}
+{% block content %}{% include 'theme/partials/_scheda_errore.html' with codice='400' titolo='Richiesta non valida' testo='La richiesta non è stata compresa dal server.' %}{% endblock %}
+{% block public_content %}<main class="ui-shell"><div class="ui-container ui-content">{% include 'theme/partials/_scheda_errore.html' with codice='400' titolo='Richiesta non valida' testo='La richiesta non è stata compresa dal server.' %}</div></main>{% endblock %}

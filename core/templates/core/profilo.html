@@ -1,0 +1,23 @@
+{% extends 'theme/base.html' %}
+{% block title %}Profilo · {{ theme.brand }}{% endblock %}
+{% block content %}
+<div class="ui-pagehead"><div><h1>Profilo</h1><div class="sub">{{ user.username }}</div></div></div>
+<div class="ui-card is-revealed" style="max-width:560px;">
+  <div class="ui-card-body">
+    <form method="post">
+      {% csrf_token %}
+      {% for field in form %}
+      <div class="ui-form-group">
+        <label class="ui-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% for e in field.errors %}<div class="ui-form-error">{{ e }}</div>{% endfor %}
+      </div>
+      {% endfor %}
+      <div style="display:flex; gap:8px; margin-top:24px;">
+        <button type="submit" class="ui-btn ui-btn-primary"><svg><use href="#icon-save"/></svg> Salva</button>
+        <a href="{% url 'password_change' %}" class="ui-btn ui-btn-secondary"><svg><use href="#icon-lock"/></svg> Cambia password</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

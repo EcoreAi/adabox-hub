@@ -1,0 +1,4 @@
+{% extends 'theme/base.html' %}
+{% block title %}Pagina non trovata · {{ theme.brand }}{% endblock %}
+{% block content %}{% include 'theme/partials/_scheda_errore.html' with codice='404' titolo='Pagina non trovata' testo='La pagina che cerchi non esiste o è stata spostata.' %}{% endblock %}
+{% block public_content %}<main class="ui-shell"><div class="ui-container ui-content">{% include 'theme/partials/_scheda_errore.html' with codice='404' titolo='Pagina non trovata' testo='La pagina che cerchi non esiste o è stata spostata.' %}</div></main>{% endblock %}

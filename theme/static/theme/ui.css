@@ -1,0 +1,779 @@
+/* ============================================================
+   Componenti frontend — i colori vengono da tokens.css.
+   Catalogo vivente: /stile/ nel progetto.
+   ============================================================ */
+@import url("tokens.css");
+
+/* ============================================================
+   Reset / base
+   ============================================================ */
+* { box-sizing: border-box; }
+
+body.ui-body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ui-text);
+  background: var(--ui-surface-2);
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body.ui-body { display: flex; flex-direction: column; min-height: 100vh; }
+
+a { color: var(--ui-primary-lift); text-decoration: none; transition: color 0.2s ease; }
+a:hover { color: var(--ui-primary); text-decoration: underline; text-underline-offset: 2px; }
+
+h1, h2, h3, h4, h5, h6 { font-weight: 600; letter-spacing: -0.02em; color: var(--ui-text); margin: 0; }
+
+.ui-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.ui-num  { font-variant-numeric: tabular-nums; }
+
+/* ============================================================
+   Layout
+   ============================================================ */
+.ui-shell { flex: 1; display: flex; flex-direction: column; }
+.ui-container { width: 100%; max-width: 1400px; margin: 0 auto; padding: 0 20px; }
+.ui-content { padding: 32px 20px 48px; }
+
+/* ============================================================
+   Header
+   ============================================================ */
+.ui-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: 60px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: var(--shadow-header);
+}
+.ui-header-inner { height: 100%; display: flex; align-items: center; gap: 24px; }
+.ui-logo { display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; color: var(--ui-text); text-decoration: none; }
+.ui-logo:hover { color: var(--ui-text); text-decoration: none; }
+.ui-logo-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--ui-primary); color: #fff; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+
+.ui-nav { flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; }
+.ui-nav a {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px;
+  font-size: 14px; font-weight: 500; color: var(--ui-text-2);
+  background: none; border: 0; cursor: pointer;
+  border-radius: var(--radius-pill);
+  transition: var(--transition);
+}
+.ui-nav a:hover { color: var(--ui-text); background: rgba(0, 0, 0, 0.04); text-decoration: none; }
+.ui-nav a.is-active { color: var(--ui-primary); }
+.ui-nav a.is-active::after {
+  content: ""; position: absolute; left: 14px; right: 14px; bottom: -2px; height: 2px;
+  background: var(--ui-primary); border-radius: 2px;
+}
+.ui-nav .chev { width: 12px; height: 12px; opacity: .6; }
+
+/* Dropdown */
+.ui-dropdown { position: relative; }
+.ui-dropdown-menu {
+  position: absolute; top: calc(100% + 6px); left: 0;
+  min-width: 220px;
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-input);
+  box-shadow: var(--shadow-dropdown);
+  padding: 6px;
+  opacity: 0; transform: translateY(-10px); pointer-events: none;
+  transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-out);
+}
+/* Apertura solo via classe .is-open settata da JS al click (toggle).
+   Niente :hover né :focus-within: l'apertura su hover creava l'effetto
+   "il menu si chiude se sposto il mouse". */
+.ui-dropdown.is-open > .ui-dropdown-menu { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.ui-dropdown-menu a {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; font-size: 13px; font-weight: 500; color: var(--ui-text);
+  border-radius: 6px;
+}
+.ui-dropdown-menu a:hover { background: var(--ui-surface-2); color: var(--ui-text); text-decoration: none; }
+.ui-dropdown-menu a svg { width: 16px; height: 16px; color: var(--ui-text-2); }
+.ui-dropdown-menu hr { margin: 6px 0; border: 0; height: 1px; background: var(--ui-border); }
+.ui-dropdown-menu.is-right { left: auto; right: 0; }
+
+.ui-logout-form { margin: 0; padding: 0; }
+.ui-logout-form button {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 8px 12px;
+  font: inherit; font-size: 13px; font-weight: 500;
+  color: var(--ui-text); background: transparent;
+  border: 0; border-radius: 6px;
+  cursor: pointer; text-align: left;
+  transition: var(--transition);
+}
+.ui-logout-form button:hover { background: var(--ui-surface-2); }
+.ui-logout-form button svg { width: 16px; height: 16px; color: var(--ui-text-2); }
+
+/* Chevron del trigger profilo: ruota di 180° quando aria-expanded="true". */
+.ui-profile-trigger .chev { transition: transform 0.18s var(--ease-out); }
+.ui-profile-trigger[aria-expanded="true"] .chev { transform: rotate(180deg); }
+
+/* Hamburger toggle — mostrato solo su mobile (<768px) */
+.ui-nav-toggle {
+  display: none;
+  width: 40px; height: 40px;
+  background: transparent; border: 0; border-radius: var(--radius-input);
+  color: var(--ui-text);
+  cursor: pointer;
+  align-items: center; justify-content: center;
+  margin-left: auto; /* spinge verso destra del header-inner */
+}
+.ui-nav-toggle:hover { background: rgba(0, 0, 0, 0.04); }
+.ui-nav-toggle:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+.ui-nav-toggle svg { width: 22px; height: 22px; }
+
+/* Profile area */
+.ui-profile { display: flex; align-items: center; gap: 12px; }
+.ui-profile-trigger {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 4px 10px 4px 4px;
+  background: none; border: 1px solid var(--ui-border); border-radius: var(--radius-pill);
+  cursor: pointer; transition: var(--transition);
+  font: inherit; color: var(--ui-text);
+}
+.ui-profile-trigger:hover { background: rgba(0, 0, 0, 0.04); }
+.ui-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--ui-primary); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600;
+}
+
+/* ============================================================
+   Page head
+   ============================================================ */
+.ui-pagehead {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 24px; padding: 0;
+  margin-bottom: 16px;
+}
+.ui-pagehead h1 {
+  font-size: 20px; font-weight: 600; letter-spacing: -0.02em;
+  margin: 0; line-height: 1.2;
+}
+.ui-pagehead .sub { font-size: 13px; color: var(--ui-text-2); margin-top: 2px; }
+.ui-pagehead-actions { display: flex; gap: 8px; }
+
+/* ============================================================
+   KPI grid
+   ============================================================ */
+.ui-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  margin-bottom: 28px;
+}
+.ui-kpi {
+  background: var(--ui-surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: 24px 28px;
+  transition: var(--transition);
+}
+.ui-kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(30, 58, 138, 0.15);
+}
+.ui-kpi .label {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ui-text-3);
+  margin-bottom: 14px;
+}
+.ui-kpi .value {
+  font-size: 36px; font-weight: 600; letter-spacing: -0.02em;
+  color: var(--ui-text); line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.ui-kpi .sub { margin-top: 8px; font-size: 12px; color: var(--ui-text-3); }
+
+/* ============================================================
+   Card
+   ============================================================ */
+.ui-card {
+  background: var(--ui-surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  margin-bottom: 24px;
+  overflow: hidden;
+  /* Page-load fade-in stagger: --card-stagger settato da ui.js */
+  opacity: 0;
+  transition: opacity 400ms var(--ease-out) calc(var(--card-stagger, 0) * 60ms),
+              transform 200ms var(--ease-out),
+              box-shadow 200ms var(--ease-out);
+}
+.ui-card.is-revealed { opacity: 1; }
+.ui-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.10);
+}
+.ui-card-head {
+  padding: 24px 28px;
+  display: flex; align-items: center; gap: 16px;
+  border-bottom: 1px solid var(--ui-border);
+}
+.ui-card-head .ui-card-title { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+.ui-card-head .ui-card-sub { font-size: 13px; color: var(--ui-text-2); margin-top: 2px; }
+.ui-card-head .spacer { flex: 1; }
+.ui-card-head .head-actions { display: flex; gap: 8px; align-items: center; }
+.ui-card-body { padding: 24px 28px; }
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+.ui-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  border: 1px solid transparent;
+  border-radius: var(--radius-input);
+  cursor: pointer; user-select: none;
+  transition: var(--transition);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.ui-btn:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+.ui-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.ui-btn-primary { background: var(--ui-primary-lift); color: #fff; }
+.ui-btn-primary:hover { background: var(--ui-primary-hover-light); color: #fff; text-decoration: none; box-shadow: 0 3px 10px rgba(30, 58, 138, 0.20); }
+.ui-btn-primary:active { background: var(--ui-primary-hover-dark); box-shadow: 0 1px 3px rgba(30, 58, 138, 0.18); }
+
+.ui-btn-secondary { background: rgba(0, 0, 0, 0.04); color: var(--ui-text); border-color: rgba(0, 0, 0, 0.10); }
+.ui-btn-secondary:hover { background: rgba(0, 0, 0, 0.07); color: var(--ui-text); text-decoration: none; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08); }
+.ui-btn-secondary:active { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); }
+
+.ui-btn-ghost { background: transparent; color: var(--ui-text-2); }
+.ui-btn-ghost:hover { background: rgba(0, 0, 0, 0.04); color: var(--ui-text); text-decoration: none; }
+.ui-btn-ghost:active { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04); }
+
+.ui-btn-danger { background: var(--ui-danger); color: #fff; }
+.ui-btn-danger:hover { background: #e6342a; color: #fff; text-decoration: none; box-shadow: 0 3px 10px rgba(255, 59, 48, 0.25); }
+.ui-btn-danger:active { background: #d12e23; box-shadow: 0 1px 3px rgba(255, 59, 48, 0.20); }
+
+.ui-btn-sm { padding: 5px 10px; font-size: 12px; gap: 5px; }
+.ui-btn-lg { padding: 10px 18px; font-size: 14px; gap: 8px; }
+
+.ui-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+.ui-btn-sm svg { width: 13px; height: 13px; }
+.ui-btn-lg svg { width: 16px; height: 16px; }
+
+/* Icon-only circular button */
+.ui-icon-btn {
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 0; border-radius: 50%;
+  color: var(--ui-text-2);
+  cursor: pointer; padding: 0;
+  transition: var(--transition);
+  position: relative;
+}
+.ui-icon-btn svg { width: 14px; height: 14px; }
+.ui-icon-btn:hover { background: rgba(0, 0, 0, 0.05); color: var(--ui-text); transform: scale(1.05); }
+.ui-icon-btn:active { transform: scale(0.95); }
+.ui-icon-btn:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+.ui-icon-btn-primary { color: var(--ui-primary); }
+.ui-icon-btn-primary:hover { background: var(--ui-primary-tint); }
+.ui-icon-btn-danger { color: var(--ui-danger); }
+.ui-icon-btn-danger:hover { background: var(--ui-danger-tint); }
+.ui-icon-btn.is-disabled,
+.ui-icon-btn[aria-disabled="true"] {
+  color: var(--ui-text-3); opacity: .45; cursor: not-allowed;
+  pointer-events: auto; /* lascia attivo il tooltip */
+}
+.ui-icon-btn.is-disabled:hover,
+.ui-icon-btn[aria-disabled="true"]:hover { background: transparent; transform: none; color: var(--ui-text-3); }
+
+/* Tooltip on icon-button */
+.ui-icon-btn[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(4px);
+  background: rgba(0, 0, 0, 0.85); color: #fff; font-size: 11px; font-weight: 500;
+  padding: 5px 8px; border-radius: 6px; white-space: nowrap;
+  opacity: 0; pointer-events: none; transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 1000;
+}
+.ui-icon-btn[data-tooltip]::before {
+  content: ""; position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%);
+  border: 4px solid transparent; border-top-color: rgba(0, 0, 0, 0.85);
+  opacity: 0; pointer-events: none; transition: opacity 0.15s ease;
+}
+.ui-icon-btn:hover[data-tooltip]::after,
+.ui-icon-btn:hover[data-tooltip]::before { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* Ultima icona della colonna .actions: ancora
+   il tooltip al bordo destro dell'icona invece che al suo centro, cosi'
+   il testo si estende verso sinistra anziche' sbordare fuori dalla card.
+   La card ha overflow:hidden e taglierebbe il tooltip altrimenti. La
+   freccetta resta centrata sull'icona. */
+.actions .ui-icon-btn:last-child[data-tooltip]::after,
+.ui-icon-btn.tooltip-end[data-tooltip]::after {
+  left: auto;
+  right: 0;
+  transform: translateX(0) translateY(4px);
+}
+.actions .ui-icon-btn:last-child:hover[data-tooltip]::after,
+.ui-icon-btn.tooltip-end:hover[data-tooltip]::after {
+  transform: translateX(0) translateY(0);
+}
+
+/* Tooltip su pulsanti testuali (.ui-btn): stesso look di quello delle
+   icone ma con testo a capo, per spiegazioni piu' lunghe di una riga. */
+.ui-btn[data-tooltip] { position: relative; }
+.ui-btn[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(4px);
+  background: rgba(0, 0, 0, 0.85); color: #fff; font-size: 11px; font-weight: 500;
+  text-transform: none; letter-spacing: normal; line-height: 1.35;
+  padding: 6px 9px; border-radius: 6px;
+  width: max-content; max-width: 240px; white-space: normal; text-align: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 1000;
+}
+.ui-btn[data-tooltip]::before {
+  content: ""; position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%);
+  border: 4px solid transparent; border-top-color: rgba(0, 0, 0, 0.85);
+  opacity: 0; pointer-events: none; transition: opacity 0.15s ease;
+}
+.ui-btn:hover[data-tooltip]::after,
+.ui-btn:hover[data-tooltip]::before { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.ui-kpi-link { text-decoration: none; color: inherit; display: block; }
+.ui-kpi-link:hover { color: inherit; text-decoration: none; }
+
+.ui-delta-pill {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+.ui-delta-pill.up   { background: var(--ui-danger-tint); color: var(--ui-danger); }
+.ui-delta-pill.down { background: var(--ui-success-tint); color: var(--ui-success); }
+
+/* ============================================================
+   Inputs
+   ============================================================ */
+.ui-input {
+  width: 100%;
+  padding: 9px 14px;
+  font: inherit; font-size: 14px;
+  color: var(--ui-text);
+  background-color: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-input);
+  transition: border-color 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
+}
+.ui-input::placeholder { color: var(--ui-text-3); }
+.ui-input:focus { outline: none; border-color: var(--ui-primary); box-shadow: 0 0 0 3px var(--ui-primary-tint); }
+
+.ui-search {
+  position: relative;
+  display: flex; align-items: center;
+}
+.ui-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--ui-text-3); pointer-events: none; }
+.ui-search input { padding-left: 38px; }
+
+label.ui-label,
+.ui-form-group > label {
+  display: block; margin-bottom: 6px;
+  font-size: 12px; font-weight: 600; color: var(--ui-text-2);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.ui-form-group { margin-bottom: 16px; }
+
+/* Global <select>: anche quelli renderizzati raw da Django senza classe
+   ricevono lo stesso stile arrotondato degli input + chevron custom. */
+select {
+  display: block;
+  width: 100%;
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  padding: 9px 32px 9px 14px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ui-text);
+  background-color: var(--ui-surface);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236e6e73' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-input);
+  transition: border-color 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
+  cursor: pointer;
+}
+select:focus {
+  outline: none;
+  border-color: var(--ui-primary);
+  box-shadow: 0 0 0 3px var(--ui-primary-tint);
+}
+
+/* ============================================================
+   Pills / badges
+   ============================================================ */
+.ui-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px; font-weight: 600;
+  border-radius: var(--radius-pill);
+  letter-spacing: -0.005em;
+  transition: transform 200ms var(--ease-out);
+}
+.ui-pill:hover { transform: scale(1.05); }
+.ui-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .8; }
+.ui-pill-ok       { background: var(--ui-success-tint); color: #1f7a3a; }
+.ui-pill-warn     { background: var(--ui-warning-tint); color: #b46300; }
+.ui-pill-danger   { background: var(--ui-danger-tint);  color: #c4271f; }
+.ui-pill-neutral  { background: var(--ui-surface-2);    color: var(--ui-text-2); }
+.ui-pill-info     { background: var(--ui-primary-tint); color: var(--ui-primary); }
+
+.ui-code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  background: var(--ui-surface-2);
+  padding: 2px 8px;
+  border-radius: 6px;
+  color: var(--ui-text);
+}
+
+/* ============================================================
+   Tables
+   ============================================================ */
+/* Contenitore per le tabelle dentro le card (che hanno overflow:hidden):
+   su schermi stretti la tabella scorre in orizzontale invece di essere tagliata. */
+.ui-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+table.ui-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
+}
+table.ui-table th {
+  text-align: left;
+  padding: 12px 20px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--ui-text-3);
+  background: transparent;
+  border-bottom: 1px solid var(--ui-border);
+}
+table.ui-table td {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--ui-border);
+  color: var(--ui-text);
+}
+table.ui-table tbody tr:last-child td { border-bottom: 0; }
+table.ui-table tbody tr { transition: background-color 0.15s ease; }
+table.ui-table tbody tr:hover td { background: #f8f9fa; }
+table.ui-table .actions { text-align: right; white-space: nowrap; }
+table.ui-table .actions .ui-icon-btn { vertical-align: middle; }
+
+.ui-table-empty { text-align: center; padding: 40px 20px; color: var(--ui-text-3); }
+
+/* ============================================================
+   Empty state
+   ============================================================ */
+.ui-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  padding: 48px 20px; color: var(--ui-text-3);
+}
+.ui-empty svg { width: 36px; height: 36px; opacity: .6; }
+.ui-empty p { margin: 0; font-size: 14px; }
+
+/* ============================================================
+   Login
+   ============================================================ */
+.ui-login {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 40px 20px;
+  background: var(--ui-surface-2);
+}
+.ui-login-version {
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--ui-text-3);
+}
+.ui-login-card {
+  width: 100%; max-width: 420px;
+  background: var(--ui-surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.ui-login-header {
+  padding: 36px 32px 24px;
+  text-align: center;
+}
+.ui-login-header .mark {
+  width: 56px; height: 56px; border-radius: 14px; margin: 0 auto 16px;
+  background: var(--ui-primary); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 700; letter-spacing: -0.02em;
+}
+.ui-login-header h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+.ui-login-header p { margin: 6px 0 0; font-size: 13px; color: var(--ui-text-2); }
+.ui-login-body { padding: 8px 32px 32px; }
+.ui-login-link {
+  font-size: 12px; font-weight: 600; color: var(--ui-primary);
+  text-decoration: none; letter-spacing: 0;
+  transition: var(--transition);
+}
+.ui-login-link:hover { color: var(--ui-primary-hover-dark); text-decoration: underline; }
+
+/* Form label row: label a sinistra + link/azione a destra */
+.ui-label-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px; gap: 12px;
+}
+.ui-label-row > label.ui-label,
+.ui-label-row > .ui-label { margin-bottom: 0; }
+
+/* Input con affisso interno (es. occhiello toggle password) */
+.ui-input-affix { position: relative; display: block; }
+.ui-input-affix > .ui-input { padding-right: 44px; }
+.ui-input-affix-btn {
+  position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: none; border-radius: 6px;
+  color: var(--ui-text-3); cursor: pointer;
+  transition: var(--transition);
+}
+.ui-input-affix-btn:hover { color: var(--ui-text); background: var(--ui-surface-2); }
+.ui-input-affix-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ui-primary-tint); color: var(--ui-primary); }
+.ui-input-affix-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+/* L'attributo hidden non ha effetto UA sugli <svg>: va imposto qui. */
+.ui-input-affix-btn svg[hidden] { display: none; }
+.ui-input-affix-btn[hidden] { display: none; }
+
+/* ============================================================
+   Footer
+   ============================================================ */
+.ui-footer {
+  padding: 24px 0;
+  font-size: 12px;
+  color: var(--ui-text-3);
+  border-top: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+}
+.ui-footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.ui-footer-copy { color: var(--ui-text-3); }
+.ui-footer-links {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px;
+}
+.ui-footer-links a {
+  color: var(--ui-text-2);
+  text-decoration: none;
+  transition: color 180ms var(--ease-out);
+}
+.ui-footer-links a:hover { color: var(--ui-primary); text-decoration: none; }
+.ui-footer-sep { color: var(--ui-text-3); opacity: 0.5; }
+.ui-footer-version {
+  font-size: 11px;
+  padding: 1px 6px;
+  background: var(--ui-surface-2);
+  color: var(--ui-text-2);
+  border-radius: 4px;
+}
+@media (max-width: 767px) {
+  .ui-footer-inner { flex-direction: column; align-items: flex-start; gap: 8px; text-align: left; }
+}
+
+/* ============================================================
+   Animations · Tables (row entrance, empty state, row-hover icons)
+   ============================================================ */
+
+/* Row entrance: righe invisibili di default; JS aggiunge .is-revealed
+   alla tabella quando entra in viewport (ui.js). */
+.ui-table tbody tr {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.ui-table.is-revealed tbody tr {
+  animation: ui-row-in 350ms var(--ease-out) forwards;
+  animation-delay: calc(var(--row-index, 0) * 35ms);
+}
+@keyframes ui-row-in {
+  to { opacity: 1; transform: translateY(0); }
+}
+/* Empty state: appare con scale + fade ogni volta che viene renderizzato. */
+.ui-empty {
+  animation: ui-empty-in 280ms var(--ease-out);
+}
+@keyframes ui-empty-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Row-hover icon lift: solo dentro .ui-table così icon-btn fuori tabelle
+   non vengono toccati. Default opacity 0.65 (icone "spente"); hover sulla
+   riga le ravviva e le alza. Hover sull'icona stessa aggiunge scale 1.05. */
+.ui-table .ui-icon-btn { opacity: 0.65; }
+.ui-table tbody tr:hover .ui-icon-btn {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+.ui-table tbody tr:hover .ui-icon-btn:hover {
+  transform: translateY(-1px) scale(1.05);
+}
+
+/* Reduced motion: tutto istantaneo, niente stagger né scale-in */
+@media (prefers-reduced-motion: reduce) {
+  .ui-table tbody tr { opacity: 1; transform: none; }
+  .ui-table.is-revealed tbody tr { animation: none; }
+  .ui-empty { animation: none; }
+}
+
+/* ============================================================
+   Animations · Link grow (marker class .ui-link)
+   ============================================================ */
+.ui-link {
+  position: relative;
+  text-decoration: none;
+  color: var(--ui-primary-lift);
+  display: inline-block;
+}
+.ui-link::after {
+  content: "";
+  position: absolute;
+  left: 0; bottom: -2px;
+  width: 0; height: 2px;
+  background: currentColor;
+  transition: width 300ms var(--ease-out);
+}
+.ui-link:hover {
+  text-decoration: none;
+  color: var(--ui-primary);
+}
+.ui-link:hover::after { width: 100%; }
+@media (prefers-reduced-motion: reduce) {
+  .ui-link::after { transition: none; }
+}
+
+/* ============================================================
+   Reduced motion · hover e ingressi
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .ui-card { opacity: 1; transition: none; }
+  .ui-card:hover { transform: none; box-shadow: var(--shadow-card); }
+  .ui-kpi:hover { transform: none; box-shadow: var(--shadow-card); }
+  .ui-pill:hover { transform: none; }
+  .ui-btn-primary:hover { transform: none; box-shadow: none; }
+  .ui-btn-primary:active { transform: none; box-shadow: none; }
+  .ui-btn-secondary:hover, .ui-btn-secondary:active,
+  .ui-btn-ghost:hover, .ui-btn-ghost:active,
+  .ui-btn-danger:hover, .ui-btn-danger:active { transform: none; box-shadow: none; }
+}
+
+/* ============================================================
+   Reduced motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ============================================================
+   Toast — feedback auto-dismiss in basso a destra
+   ============================================================ */
+.ui-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  background: var(--ui-text);
+  color: white;
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+  max-width: 360px;
+}
+.ui-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.ui-toast-warn { background: #d97706; }
+
+/* ============================================================
+   Badge sigla nell'header (testo, non icona)
+   ============================================================ */
+.ui-logo-mark { font-size: 11px; font-weight: 700; letter-spacing: -0.02em; }
+
+/* ============================================================
+   Alert (messages di Django: success, info, warning, error)
+   ============================================================ */
+.ui-alert {
+  padding: 12px 16px; margin-bottom: 16px;
+  border-radius: var(--radius-input);
+  font-size: 14px; font-weight: 500;
+  background: var(--ui-primary-tint); color: var(--ui-primary);
+}
+.ui-alert-info    { background: var(--ui-primary-tint); color: var(--ui-primary); }
+.ui-alert-success { background: var(--ui-success-tint); color: #1f7a3a; }
+.ui-alert-warning { background: var(--ui-warning-tint); color: #b46300; }
+.ui-alert-danger,
+.ui-alert-error   { background: var(--ui-danger-tint);  color: #c4271f; }
+
+/* ============================================================
+   Select e textarea con lo stesso look di .ui-input
+   ============================================================ */
+select.ui-input { height: auto; padding-right: 32px; line-height: 1.5; }
+textarea.ui-input { min-height: 96px; resize: vertical; }
+.ui-help { display: block; margin-top: 6px; font-size: 12px; color: var(--ui-text-3); line-height: 1.4; }
+.ui-form-error { margin-top: 6px; font-size: 12px; color: #c4271f; }
+
+/* ============================================================
+   Responsive (<= 767px): hamburger + nav verticale
+   ============================================================ */
+@media (max-width: 767px) {
+  html, body { overflow-x: hidden; }
+  .ui-header-inner { gap: 10px; }
+  .ui-nav { display: none; }
+  .ui-nav-toggle { display: inline-flex; }
+  .ui-nav.is-open {
+    display: flex; flex-direction: column; align-items: stretch; gap: 2px;
+    position: fixed; top: 60px; left: 0; right: 0; z-index: 95;
+    background: var(--ui-surface); border-top: 1px solid var(--ui-border);
+    box-shadow: var(--shadow-card); padding: 12px 16px 20px;
+  }
+  .ui-nav.is-open a { padding: 12px 14px; font-size: 15px; border-radius: 10px; }
+  .ui-nav.is-open a.is-active { background: var(--ui-primary-tint); }
+  .ui-nav.is-open a.is-active::after { display: none; }
+  .ui-logo { font-size: 15px; gap: 6px; white-space: nowrap; }
+  .ui-logo-mark { width: 24px; height: 24px; font-size: 10px; }
+  .ui-profile-name { display: none; }
+  .ui-avatar { font-size: 11px; letter-spacing: 0.3px; }
+  .ui-pagehead { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .ui-pagehead h1 { font-size: 18px; }
+  .ui-card-head { flex-wrap: wrap; }
+  table.ui-table th, table.ui-table td { padding: 12px 14px; }
+  .ui-toast { left: 16px; right: 16px; max-width: none; }
+}
+
+/* Senza JS le card restano visibili: ui.js aggiunge .js su <html> appena parte */
+html:not(.js) .ui-card { opacity: 1; }
+html:not(.js) table.ui-table tbody tr { opacity: 1; transform: none; }

@@ -1,0 +1,52 @@
+/* ============================================================
+   Design token — l'UNICO posto dove si cambia la palette.
+   Importato da admin.css e ui.css.
+   ============================================================ */
+:root {
+  /* Brand (verificare contrasto AA >= 4.5:1 del primario su bianco) */
+  --ui-primary: #1e3a8a;
+  --ui-primary-lift: #2945a3;
+  --ui-primary-hover-dark: #152a63;
+  --ui-primary-hover-light: #243d94;
+  --ui-primary-tint: rgba(30, 58, 138, 0.10);
+
+  /* Testo */
+  --ui-text: #1d1d1f;
+  --ui-text-2: #6e6e73;
+  --ui-text-3: #86868b;
+
+  /* Superfici */
+  --ui-surface: #ffffff;
+  --ui-surface-2: #f5f5f7;
+  --ui-border: #e5e5ea;
+  --ui-border-soft: rgba(0, 0, 0, 0.10);
+
+  /* Semantici */
+  --ui-success: #34c759;
+  --ui-warning: #ff9f0a;
+  --ui-danger:  #ff3b30;
+  --ui-success-tint: rgba(52, 199, 89, 0.12);
+  --ui-warning-tint: rgba(255, 159, 10, 0.12);
+  --ui-danger-tint:  rgba(255, 59, 48, 0.12);
+
+  /* Raggi */
+  --radius-card:  18px;
+  --radius-modal: 12px;
+  --radius-input: 8px;
+  --radius-pill:  980px;
+
+  /* Ombre */
+  --shadow-card:     0 8px 30px rgba(0, 0, 0, 0.08);
+  --shadow-header:   0 1px 3px rgba(0, 0, 0, 0.10);
+  --shadow-dropdown: 0 8px 25px rgba(0, 0, 0, 0.10);
+  --shadow-modal:    0 20px 40px rgba(0, 0, 0, 0.20);
+
+  /* Tipografia: system stack, nessun webfont */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  /* Movimento */
+  --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-bounce: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --transition: all 0.2s ease;
+}

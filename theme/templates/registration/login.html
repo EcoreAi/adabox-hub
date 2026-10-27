@@ -1,0 +1,37 @@
+{% extends 'theme/base.html' %}
+{% block title %}Accedi · {{ theme.brand }}{% endblock %}
+{% block public_content %}
+<div class="ui-login">
+  <div class="ui-login-card">
+    <div class="ui-login-header">
+      <span class="mark">{{ theme.mark }}</span>
+      <h1>{{ theme.brand }}</h1>
+      <p>Accedi con le tue credenziali</p>
+    </div>
+    <form method="post" class="ui-login-body">
+      {% csrf_token %}
+      {% if form.errors %}<div class="ui-alert ui-alert-danger">Credenziali non valide.</div>{% endif %}
+      {% if messages %}{% for m in messages %}<div class="ui-alert ui-alert-{{ m.tags|default:'info' }}">{{ m }}</div>{% endfor %}{% endif %}
+      <div class="ui-form-group">
+        <label class="ui-label" for="id_username">Username</label>
+        <input class="ui-input" id="id_username" name="username" required autofocus
+               autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="username">
+      </div>
+      <div class="ui-form-group">
+        <label class="ui-label" for="id_password">Password</label>
+        <div class="ui-input-affix">
+          <input class="ui-input" id="id_password" name="password" type="password" required autocomplete="current-password">
+          <button type="button" class="ui-input-affix-btn" data-toggle-password="id_password"
+                  aria-label="Mostra password" aria-pressed="false">
+            <svg data-icon-show width="18" height="18" viewBox="0 0 24 24"><use href="#icon-eye"/></svg>
+            <svg data-icon-hide width="18" height="18" viewBox="0 0 24 24" hidden><use href="#icon-eye-off"/></svg>
+          </button>
+        </div>
+      </div>
+      <input type="hidden" name="next" value="{{ next }}">
+      <button class="ui-btn ui-btn-primary" type="submit" style="width:100%; justify-content:center; margin-top:8px;">Accedi</button>
+    </form>
+  </div>
+  {% if theme.version %}<p class="ui-login-version">versione {{ theme.version }}</p>{% endif %}
+</div>
+{% endblock %}

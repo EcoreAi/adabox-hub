@@ -1,0 +1,25 @@
+# gunicorn non e' pubblicato: lo raggiunge solo nginx sulla rete interna,
+# cosi' X-Forwarded-For/Proto li scrive sempre nginx (vedi README, Produzione).
+services:
+  web:
+    build: .
+    image: adabox_hub:latest
+    container_name: adabox_hub_web
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - .:/app
+    expose:
+      - "8000"
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: adabox_hub_nginx
+    restart: unless-stopped
+    depends_on:
+      - web
+    ports:
+      - "8096:80"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./staticfiles:/app/staticfiles:ro

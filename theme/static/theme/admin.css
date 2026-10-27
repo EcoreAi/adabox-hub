@@ -1,0 +1,580 @@
+/* ============================================================
+   Tema admin Django 5.x — sovrascrive le custom property native.
+   I colori vengono da tokens.css.
+   ============================================================ */
+@import url("tokens.css");
+
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  /* Override Django admin variables */
+  --primary: var(--ui-primary);
+  --secondary: var(--ui-primary-lift);
+  --accent: var(--ui-primary);
+  --primary-fg: #ffffff;
+
+  --body-fg: var(--ui-text);
+  --body-bg: var(--ui-surface-2);
+  --body-quiet-color: var(--ui-text-2);
+  --body-loud-color: var(--ui-text);
+
+  --header-color: var(--ui-text);
+  --header-branding-color: var(--ui-primary);
+  --header-bg: rgba(255, 255, 255, 0.95);
+  --header-link-color: var(--ui-text-2);
+
+  --breadcrumbs-fg: var(--ui-text-2);
+  --breadcrumbs-link-fg: var(--ui-primary);
+  --breadcrumbs-bg: var(--ui-surface);
+
+  --link-fg: var(--ui-primary);
+  --link-hover-color: var(--ui-primary-lift);
+  --link-selected-fg: var(--ui-primary-lift);
+
+  --hairline-color: var(--ui-border);
+  --border-color: var(--ui-border);
+
+  --button-fg: #ffffff;
+  --button-bg: var(--ui-primary-lift);
+  --button-hover-bg: var(--ui-primary);
+
+  --default-button-bg: var(--ui-primary-lift);
+  --default-button-hover-bg: var(--ui-primary);
+
+  --close-button-bg: rgba(0, 0, 0, 0.05);
+  --close-button-hover-bg: rgba(0, 0, 0, 0.10);
+
+  --delete-button-bg: var(--ui-danger);
+  --delete-button-hover-bg: #e6342a;
+
+  --object-tools-fg: #ffffff;
+  --object-tools-bg: var(--ui-primary-lift);
+  --object-tools-hover-bg: var(--ui-primary);
+
+  --selected-bg: var(--ui-primary-tint);
+  --selected-row: var(--ui-primary-tint);
+  --message-success-bg: rgba(52, 199, 89, 0.12);
+  --message-warning-bg: rgba(255, 159, 10, 0.12);
+  --message-error-bg: rgba(255, 59, 48, 0.12);
+
+  --darkened-bg: var(--ui-surface-2);
+}
+
+/* ============================================================
+   Typography & base
+   ============================================================ */
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5 { font-weight: 600; letter-spacing: -0.02em; }
+
+a { text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 2px; }
+
+/* ============================================================
+   Header
+   ============================================================ */
+#header {
+  background: var(--header-bg);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.10);
+  color: var(--header-color);
+  padding: 0 24px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#branding { display: flex; align-items: center; }
+#branding h1 { margin: 0; padding: 0; font-size: 16px; font-weight: 600; }
+#branding h1 a, #branding h1 a:link, #branding h1 a:visited {
+  display: inline-flex; align-items: center; gap: 10px;
+  color: var(--ui-text); text-decoration: none;
+  letter-spacing: -0.02em;
+}
+#branding h1 a:hover { text-decoration: none; color: var(--ui-text); }
+
+.ui-admin-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px;
+  background: var(--ui-primary); color: #fff;
+  border-radius: 8px;
+  font-size: 11px; font-weight: 700; letter-spacing: -0.02em;
+}
+
+#user-tools {
+  font-size: 13px;
+  color: var(--ui-text-2);
+  font-weight: 500;
+}
+#user-tools a {
+  color: var(--ui-primary);
+  border-bottom: 0;
+  padding: 6px 12px;
+  border-radius: 980px;
+  transition: all 0.2s ease;
+}
+#user-tools a:hover {
+  background: var(--ui-primary-tint);
+  text-decoration: none;
+}
+
+/* ============================================================
+   Breadcrumbs
+   ============================================================ */
+div.breadcrumbs {
+  background: var(--ui-surface);
+  color: var(--ui-text-2);
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--ui-border);
+  font-size: 13px;
+}
+div.breadcrumbs a { color: var(--ui-primary); }
+
+/* ============================================================
+   Content area
+   ============================================================ */
+#container { background: var(--ui-surface-2); }
+#content {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Dashboard: due colonne (lista app a sinistra, azioni recenti a destra) */
+/* Override esplicito di Django base.css `.dashboard #content { width: 600px }` */
+.dashboard #content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 24px;
+  align-items: start;
+  width: auto;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+body.colMS { margin-right: 0; }
+body.colSM { margin-left: 0; }
+.dashboard #content > h1 { grid-column: 1 / -1; margin: 0 0 4px; }
+.dashboard #content-main { min-width: 0; margin: 0; float: none; width: auto; }
+.dashboard #content-related {
+  margin: 0;
+  float: none;
+  width: auto;
+  position: sticky;
+  top: 84px;
+}
+
+#content-main, #content-related {
+  background: var(--ui-surface);
+  border-radius: 18px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  padding: 24px;
+  text-align: left;
+}
+/* base.css di Django dà a #content-main width:100%: con il padding della card
+   in content-box sfonderebbe #content di 48px (scroll orizzontale nelle pagine
+   admin con la sidebar di navigazione). */
+#content-main { box-sizing: border-box; }
+
+#content > h1 {
+  text-align: left;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 16px;
+  color: var(--ui-text);
+}
+
+/* Sidebar (sezione "Recent actions") */
+#content-related { font-size: 13px; }
+#content-related h2,
+#content-related h3 {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ui-text-3);
+  background: transparent;
+  padding: 0 0 12px 0;
+  border: 0;
+  margin: 0 0 8px;
+}
+#content-related .module { background: transparent; box-shadow: none; padding: 0; margin-bottom: 16px; }
+#content-related ul.actionlist { padding: 0; margin: 0; list-style: none; }
+#content-related ul.actionlist li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--ui-border);
+  font-size: 13px;
+}
+#content-related ul.actionlist li:last-child { border-bottom: 0; }
+
+@media (max-width: 1024px) {
+  .dashboard #content { grid-template-columns: 1fr; }
+  .dashboard #content-related { position: static; }
+}
+
+/* ============================================================
+   Module (cards/blocks)
+   ============================================================ */
+.module {
+  background: var(--ui-surface);
+  border: 0;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.module h2, .module caption {
+  background: var(--ui-surface-2);
+  color: var(--ui-text);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--ui-border);
+}
+
+/* App index list */
+.app a, .model a { color: var(--ui-primary); }
+.app a:hover, .model a:hover { color: var(--ui-primary-lift); }
+
+table { border-collapse: separate; border-spacing: 0; }
+.module table { width: 100%; }
+.module table th, .module table td { padding: 12px 18px; border-bottom: 1px solid var(--ui-border); }
+.module table tbody tr:last-child td { border-bottom: 0; }
+.module table tbody tr:hover td { background: #f8f9fa; }
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+.button, input[type="submit"], input[type="button"], .submit-row input,
+a.button {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  padding: 9px 18px;
+  border-radius: 980px;
+  border: 1px solid transparent;
+  background: var(--ui-primary-lift);
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-shadow: none;
+}
+.button:hover, input[type="submit"]:hover, input[type="button"]:hover,
+.submit-row input:hover, a.button:hover {
+  background: var(--ui-primary);
+  transform: translateY(-1px);
+  text-decoration: none;
+  color: #fff;
+}
+.button:active, input[type="submit"]:active { transform: translateY(0); }
+
+/* Default-button (è blu admin di default → ora è il nostro navy) */
+.button.default, input[type="submit"].default, .submit-row input.default {
+  background: var(--ui-primary-lift);
+}
+.button.default:hover, input[type="submit"].default:hover { background: var(--ui-primary); }
+
+/* Cancel link */
+.submit-row a.deletelink, a.deletelink {
+  background: var(--ui-danger);
+  color: #fff;
+  padding: 9px 18px;
+  border-radius: 980px;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+.submit-row a.deletelink:hover, a.deletelink:hover { background: #e6342a; color: #fff; }
+
+.submit-row {
+  background: var(--ui-surface-2);
+  border-top: 1px solid var(--ui-border);
+  border-radius: 0 0 18px 18px;
+  padding: 16px 24px;
+  margin: 24px -24px -24px;
+}
+
+/* ============================================================
+   Object tools (pulsanti "Aggiungi", "Storia", ...)
+   ============================================================ */
+.object-tools {
+  margin-top: 0;
+  margin-bottom: 16px;
+  /* Django la fa float:right con margin-top:-48px per affiancarla all'h1, che
+     qui sta fuori dalla card: senza questo restava a fianco della changelist
+     (flex) e la stringeva. Su una riga sua, allineata a destra. */
+  float: none;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.object-tools li a,
+.object-tools a:link, .object-tools a:visited {
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: -0.01em;
+  padding: 8px 16px;
+  border-radius: 980px;
+  background-color: var(--ui-primary-lift);
+  color: #ffffff;
+  transition: all 0.2s ease;
+}
+.object-tools li a:hover {
+  background-color: var(--ui-primary);
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+.object-tools li a.addlink, .object-tools li a.viewsitelink { padding-right: 34px; background-position: right 12px center; }
+.object-tools li a.viewsitelink, .object-tools li a.historylink { background-color: rgba(0, 0, 0, 0.05); color: var(--ui-text); }
+.object-tools li a.viewsitelink:hover, .object-tools li a.historylink:hover { background-color: rgba(0, 0, 0, 0.10); color: var(--ui-text); }
+
+/* ============================================================
+   Form fields
+   ============================================================ */
+input[type="text"], input[type="password"], input[type="email"],
+input[type="url"], input[type="number"], input[type="tel"],
+input[type="search"], textarea, select {
+  font-family: inherit;
+  font-size: 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  transition: all 0.2s ease;
+}
+/* Django admin fissa i <select> a 1.875rem: con il padding qui sopra il testo
+   della voce scelta resta tagliato (Chrome/Edge su Windows lo mostrano vuoto). */
+select { height: auto; }
+input[type="text"]:focus, input[type="password"]:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--ui-primary);
+  box-shadow: 0 0 0 3px var(--ui-primary-tint);
+}
+
+.form-row {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--ui-border);
+}
+fieldset.module { padding: 0; }
+fieldset.module .form-row { padding: 12px 18px; }
+
+label { font-size: 13px; font-weight: 600; color: var(--ui-text-2); }
+
+.help, p.help, span.help, div.help { color: var(--ui-text-3); font-size: 12px; }
+
+/* ============================================================
+   Changelist (lista modelli)
+   ============================================================ */
+#changelist { background: transparent; }
+/* overflow-x:auto come in Django: con hidden le colonne in più venivano tagliate */
+#changelist .results { background: var(--ui-surface); border-radius: 12px; overflow-x: auto; }
+#changelist table { width: 100%; }
+#changelist table thead th {
+  background: var(--ui-surface);
+  border-bottom: 1px solid var(--ui-border);
+  padding: 12px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ui-text-3);
+}
+#changelist table thead th a { color: var(--ui-text-3); }
+#changelist table tbody td,
+#changelist table tbody th {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--ui-border);
+  font-size: 14px;
+}
+#changelist table tbody tr:hover td,
+#changelist table tbody tr:hover th { background: #f8f9fa; }
+#changelist table tbody tr.row1, #changelist table tbody tr.row2 { background: transparent; }
+#changelist table tbody tr.selected td { background: var(--ui-primary-tint); }
+
+/* Filter sidebar */
+#changelist-filter {
+  background: var(--ui-surface);
+  border-radius: 12px;
+  padding: 18px;
+  margin-left: 16px;
+  border: 0;
+}
+#changelist-filter h2 {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ui-text-3);
+  background: transparent;
+  padding: 0 0 12px;
+  border: 0;
+}
+#changelist-filter h3 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 16px;
+  color: var(--ui-text);
+}
+#changelist-filter li.selected { border-left-color: var(--ui-primary); }
+#changelist-filter li.selected a { color: var(--ui-primary); font-weight: 600; }
+
+#toolbar {
+  background: var(--ui-surface);
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+#toolbar form input[type=submit] { padding: 8px 14px; font-size: 13px; }
+
+.actions {
+  background: var(--ui-surface);
+  padding: 10px 16px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+/* Pagination */
+.paginator {
+  background: transparent;
+  padding: 16px 0;
+  font-size: 13px;
+  color: var(--ui-text-2);
+  border: 0;
+}
+.paginator a {
+  padding: 6px 12px;
+  border-radius: 980px;
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  color: var(--ui-primary);
+  margin: 0 2px;
+  text-decoration: none;
+}
+.paginator a:hover { background: var(--ui-primary-tint); }
+.paginator .this-page {
+  padding: 6px 12px;
+  border-radius: 980px;
+  background: var(--ui-primary-tint);
+  color: var(--ui-primary);
+  font-weight: 600;
+  margin: 0 2px;
+}
+
+/* ============================================================
+   Login
+   ============================================================ */
+body.login { background: var(--ui-surface-2); }
+.login #container {
+  background: var(--ui-surface);
+  border-radius: 18px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  border: 0;
+}
+.login #header {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 24px 24px 0;
+}
+.login #content {
+  padding: 8px 24px 24px;
+}
+/* Il login ha la sua card (#container): neutralizza la card globale di
+   #content-main, che qui con width:100% + padding 24px (content-box)
+   sfonderebbe il contenitore tagliando campi e pulsante. */
+.login #content-main {
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  width: 100%;
+  box-sizing: border-box;
+  float: none;
+}
+.login .submit-row {
+  background: transparent;
+  border-top: 0;
+  padding: 0;
+  margin: 16px 0 0;
+}
+.login .submit-row input {
+  width: 100%;
+  text-align: center;
+  display: block;
+}
+
+/* ============================================================
+   Messages
+   ============================================================ */
+ul.messagelist { padding: 0; margin: 0 0 16px; }
+ul.messagelist li {
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 0;
+  background: var(--ui-primary-tint);
+  color: var(--ui-primary);
+}
+ul.messagelist li.success { background: rgba(52, 199, 89, 0.12); color: #1f7a3a; }
+ul.messagelist li.warning { background: rgba(255, 159, 10, 0.12); color: #b46300; }
+ul.messagelist li.error   { background: rgba(255, 59, 48, 0.12); color: #c4271f; }
+
+/* ============================================================
+   Calendar / time / date widgets
+   ============================================================ */
+.calendar caption, .calendarbox h2 {
+  background: var(--ui-primary-lift);
+  color: #ffffff;
+  font-weight: 600;
+}
+.calendar td a { color: var(--ui-primary); }
+.calendar td a:hover { background: var(--ui-primary); color: #fff; }
+
+/* ============================================================
+   Inline groups
+   ============================================================ */
+.inline-group .tabular table {
+  border-radius: 12px;
+  overflow: hidden;
+}
+.inline-group .tabular table tr.add-row td a {
+  padding: 8px 14px;
+  border-radius: 980px;
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--ui-text);
+  font-weight: 500;
+  display: inline-block;
+}
+.inline-group .tabular table tr.add-row td a:hover { background: rgba(0, 0, 0, 0.10); text-decoration: none; }
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 768px) {
+  #header { padding: 0 16px; }
+  #content, #content-main, #content-related { padding: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

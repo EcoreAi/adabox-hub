@@ -1,0 +1,44 @@
+{% with current=request.resolver_match.view_name|default:'' %}
+<header class="ui-header">
+  <div class="ui-container ui-header-inner">
+    <a class="ui-logo" href="/">
+      <span class="ui-logo-mark">{{ theme.mark }}</span>
+      <span>{{ theme.brand }}</span>
+    </a>
+
+    <nav class="ui-nav" aria-label="Principale">
+      {% for item in theme.nav %}
+        <a href="{% url item.url_name %}" class="{% if current == item.url_name %}is-active{% endif %}">{{ item.label }}</a>
+      {% endfor %}
+    </nav>
+
+    <button type="button" class="ui-nav-toggle" aria-label="Apri menu" aria-expanded="false">
+      <svg><use href="#icon-menu"/></svg>
+    </button>
+
+    <div class="ui-profile">
+      <div class="ui-dropdown">
+        <button type="button" class="ui-profile-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="profile-menu">
+          <span class="ui-avatar">{{ user.username|slice:":1"|upper }}</span>
+          <span class="ui-profile-name">{{ user.get_full_name|default:user.username }}</span>
+          <svg class="chev" style="width:12px;height:12px;"><use href="#icon-chevron-down"/></svg>
+        </button>
+        <div id="profile-menu" class="ui-dropdown-menu is-right" role="menu">
+          {% url 'core:profilo' as url_profilo %}
+          {% if url_profilo %}<a href="{{ url_profilo }}"><svg><use href="#icon-user"/></svg> Profilo</a>{% endif %}
+          <a href="{% url 'password_change' %}"><svg><use href="#icon-lock"/></svg> Cambia password</a>
+          {% if user.is_staff %}
+          <hr>
+          <a href="{% url 'admin:index' %}"><svg><use href="#icon-tool"/></svg> Amministrazione</a>
+          {% endif %}
+          <hr>
+          <form method="post" action="{% url 'logout' %}" class="ui-logout-form">
+            {% csrf_token %}
+            <button type="submit"><svg><use href="#icon-log-out"/></svg> Esci</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+{% endwith %}

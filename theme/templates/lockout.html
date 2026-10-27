@@ -1,0 +1,28 @@
+{% extends 'theme/base.html' %}
+{% block title %}Accesso bloccato · {{ theme.brand }}{% endblock %}
+{% block content %}
+<div class="ui-card" style="max-width:560px;margin:48px auto;">
+  <div class="ui-card-body" style="padding:28px;">
+    <div class="ui-alert ui-alert-danger">
+      Troppi tentativi di accesso falliti. Riprova tra {% if cooloff_timedelta %}{% widthratio cooloff_timedelta.total_seconds 60 1 %} minuti{% else %}qualche minuto{% endif %}.
+    </div>
+    <a class="ui-btn ui-btn-primary" href="/" style="margin-top:8px;">Torna alla home</a>
+  </div>
+</div>
+{% endblock %}
+{% block public_content %}
+<div class="ui-login">
+  <div class="ui-login-card">
+    <div class="ui-login-header">
+      <span class="mark">{{ theme.mark }}</span>
+      <h1>{{ theme.brand }}</h1>
+    </div>
+    <div class="ui-login-body">
+      <div class="ui-alert ui-alert-danger">
+        Troppi tentativi di accesso falliti. Riprova tra {% if cooloff_timedelta %}{% widthratio cooloff_timedelta.total_seconds 60 1 %} minuti{% else %}qualche minuto{% endif %}.
+      </div>
+      <a class="ui-btn ui-btn-primary" href="{% url 'login' %}" style="width:100%; justify-content:center; margin-top:8px;">Torna al login</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
