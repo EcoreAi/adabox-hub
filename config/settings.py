@@ -2,6 +2,7 @@
 Settings unico: sviluppo e produzione differiscono solo per DEBUG e per le
 variabili in .env (vedi .env.example).
 """
+import sys
 from datetime import timedelta
 from pathlib import Path
 
@@ -11,6 +12,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 env = environ.Env(DEBUG=(bool, False))
 environ.Env.read_env(BASE_DIR / ".env")
+
+from core import __version__ as CORE_VERSION  # noqa: E402  core/__init__.py non importa Django
+from core.registry import bootstrap  # noqa: E402
+
+# --- Moduli (addons) -----------------------------------------------------
+# Lo stato di installazione sta in ADDONS_DIR/installed.json; ADDONS_FORCE
+# aggiunge moduli presenti su disco (lo usa pytest, vedi pytest.ini).
+ADDONS_DIR = Path(env("ADDONS_DIR", default=str(BASE_DIR / "addons")))
+if str(ADDONS_DIR) not in sys.path:
+    sys.path.insert(0, str(ADDONS_DIR))
+ADDONS_ATTIVI = bootstrap.moduli_installati(ADDONS_DIR, forzati=env.list("ADDONS_FORCE", default=[]))
 
 SECRET_KEY = env("SECRET_KEY", default="solo-sviluppo-cambiami")
 DEBUG = env("DEBUG")
@@ -40,7 +52,9 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.humanize",
     "axes",
+    "ninja",
     "core",
+    *ADDONS_ATTIVI,
 ]
 
 MIDDLEWARE = [
@@ -100,6 +114,15 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+# Backup prima di installare/aggiornare/disinstallare un modulo
+BACKUP_DIR = Path(env("BACKUP_DIR", default=str(BASE_DIR / "backup")))
+BACKUP_CONSERVA = env.int("BACKUP_CONSERVA", default=10)
+# Ricarica del server dopo un cambio di moduli: gunicorn (SIGHUP via pidfile), runserver o none
+RELOAD_STRATEGY = env("RELOAD_STRATEGY", default="runserver" if DEBUG else "gunicorn")
+GUNICORN_PIDFILE = env("GUNICORN_PIDFILE", default="/tmp/gunicorn.pid")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -153,10 +176,10 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@localhost")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True)
 _file_handlers = {}
 _file_handler_names = []
 if not DEBUG:
-    LOG_DIR.mkdir(exist_ok=True)
     _file_handlers = {
         "file_app": {
             "class": "logging.handlers.RotatingFileHandler",
@@ -182,6 +205,13 @@ LOGGING = {
         "console": {"class": "logging.StreamHandler", "formatter": "std"},
         "mail_admins": {"class": "django.utils.log.AdminEmailHandler", "level": "ERROR",
                         "filters": ["require_debug_false"]},
+        # Storico di installazioni e aggiornamenti dei moduli: sempre, anche in sviluppo
+        "file_moduli": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": LOG_DIR / "moduli.log",
+            "maxBytes": 5 * 1024 * 1024, "backupCount": 5,
+            "level": "INFO", "formatter": "std",
+        },
         **_file_handlers,
     },
     "root": {"handlers": ["console", *_file_handler_names], "level": "INFO"},
@@ -190,5 +220,6 @@ LOGGING = {
             "handlers": ["console", "mail_admins", *_file_handler_names],
             "level": "ERROR", "propagate": False,
         },
+        "core.moduli": {"handlers": ["file_moduli"], "level": "INFO", "propagate": True},
     },
 }

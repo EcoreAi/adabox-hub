@@ -65,3 +65,19 @@ def test_mail_admins_solo_con_debug_false():
     assert "require_debug_false" in s.LOGGING["filters"]
     assert s.LOGGING["filters"]["require_debug_false"]["()"] == "django.utils.log.RequireDebugFalse"
     assert s.LOGGING["handlers"]["mail_admins"]["filters"] == ["require_debug_false"]
+
+
+def test_addons_installati_in_installed_apps(tmp_path):
+    import json
+    import sys
+    (tmp_path / "alfa").mkdir()
+    (tmp_path / "alfa" / "__manifest__.py").write_text("{'name': 'Alfa', 'version': '1.0.0', 'min_core': '1.0'}")
+    (tmp_path / "installed.json").write_text(json.dumps({"schema": 1, "installed": ["alfa"]}))
+    percorso = sys.path[:]
+    try:
+        s = _carica("True", ADDONS_DIR=str(tmp_path), ADDONS_FORCE="")
+        assert "alfa" in s.INSTALLED_APPS
+        assert s.ADDONS_ATTIVI == ["alfa"]
+        assert str(tmp_path) in sys.path
+    finally:
+        sys.path[:] = percorso

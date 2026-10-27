@@ -35,3 +35,11 @@ def test_anonimo_vede_solo_public_content():
     html = _render(AnonymousUser())
     assert "PUBBLICO" in html and "CORPO" not in html
     assert "ui-header" not in html
+
+
+@pytest.mark.django_db
+def test_base_carica_htmx(client, django_user_model):
+    u = django_user_model.objects.create_user("u", "u@example.com", "pass12345!")
+    client.force_login(u)
+    r = client.get("/")
+    assert "theme/vendor/htmx.min.js" in r.content.decode()

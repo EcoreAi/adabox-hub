@@ -83,7 +83,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Create: `theme/static/theme/vendor/htmx.min.js`; modify `theme/templates/theme/base.html`
 - Test: `core/tests/test_bootstrap.py`, `theme/tests/test_base.py` (aggiunta), `config/tests/test_settings.py` (aggiunta)
 
-- [ ] **Step 1: dipendenze**
+- [x] **Step 1: dipendenze**
 
 ```bash
 pip install django-ninja Pillow pytest-env
@@ -91,7 +91,7 @@ pip freeze | grep -i -E "^(django-ninja|pillow|pytest-env)=="
 ```
 Aggiungi le tre righe con la versione stampata: `django-ninja` e `Pillow` in `requirements.txt`, `pytest-env` in `requirements-dev.txt`.
 
-- [ ] **Step 2: HTMX vendorizzato**
+- [x] **Step 2: HTMX vendorizzato**
 
 ```bash
 mkdir -p theme/static/theme/vendor
@@ -103,7 +103,7 @@ Se la 2.0.4 non è disponibile, usa l'ultima della serie 2.0 e scrivi la version
   <script src="{% static 'theme/vendor/htmx.min.js' %}" defer></script>
 ```
 
-- [ ] **Step 3: test (falliscono)**
+- [x] **Step 3: test (falliscono)**
 
 `core/tests/test_bootstrap.py`:
 ```python
@@ -178,7 +178,7 @@ In `config/tests/test_settings.py` aggiungi un test che carica i settings con `r
 Run: `pytest core/tests/test_bootstrap.py theme/tests/test_base.py config/tests/test_settings.py -v`
 Expected: FAIL (`ModuleNotFoundError: core.registry`).
 
-- [ ] **Step 4: versione e bootstrap**
+- [x] **Step 4: versione e bootstrap**
 
 `core/__init__.py`:
 ```python
@@ -235,7 +235,7 @@ def moduli_installati(addons_dir, forzati=()):
     return slugs
 ```
 
-- [ ] **Step 5: settings**
+- [x] **Step 5: settings**
 
 In `config/settings.py`, dopo `BASE_DIR` ed `env`:
 ```python
@@ -271,7 +271,7 @@ env =
 
 `.gitignore`: aggiungi `addons/installed.json`, `backup/*`, `!backup/.gitkeep`, `media/`. `.env.example`: aggiungi, commentate, `ADDONS_DIR`, `BACKUP_DIR`, `BACKUP_CONSERVA`, `RELOAD_STRATEGY` (`gunicorn|runserver|none`), `GUNICORN_PIDFILE`.
 
-- [ ] **Step 6: conftest condiviso**
+- [x] **Step 6: conftest condiviso**
 
 `conftest.py` (radice; sposta qui la fixture `staff` da `core/tests/test_pagine.py`):
 ```python
@@ -336,7 +336,7 @@ def addons_tmp(tmp_path, settings, monkeypatch):
 Run: `pytest -v`
 Expected: tutto verde (i test di Task 1 inclusi; i test di `core/tests/test_pagine.py` usano la fixture spostata).
 
-- [ ] **Step 7: commit**
+- [x] **Step 7: commit**
 
 ```bash
 git add -A && git commit -m "feat(core): impianto del kernel: addons, bootstrap dello stato, ninja, htmx vendorizzato

@@ -27,6 +27,7 @@
     {% block public_content %}{% endblock %}
   {% endif %}
 
+  <script src="{% static 'theme/vendor/htmx.min.js' %}" defer></script>
   <script src="{% static 'theme/ui.js' %}"></script>
   {% block scripts %}{% endblock %}
 </body>

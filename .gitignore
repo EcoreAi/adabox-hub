@@ -6,3 +6,7 @@ db.sqlite3
 staticfiles/
 logs/
 .pytest_cache/
+addons/installed.json
+backup/*
+!backup/.gitkeep
+media/

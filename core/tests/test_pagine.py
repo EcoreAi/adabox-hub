@@ -1,16 +1,8 @@
 import pytest
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.urls import reverse
 
 from core.models import Cliente
-
-
-@pytest.fixture
-def staff(client):
-    u = User.objects.create_user("staff", "s@example.com", "pass12345!", is_staff=True, is_superuser=True)
-    client.force_login(u)
-    return u
 
 
 @pytest.mark.django_db
@@ -39,7 +31,7 @@ def test_home_vuota_mostra_empty_state(client, staff):
 
 
 @pytest.mark.django_db
-def test_admin_cliente_changelist_e_change(client, staff):
+def test_admin_cliente_changelist_e_change(client, superuser):
     c = Cliente.objects.create(nome="Verdi", email="v@example.com")
     assert client.get(reverse("admin:core_cliente_changelist")).status_code == 200
     assert client.get(reverse("admin:core_cliente_change", args=[c.pk])).status_code == 200
