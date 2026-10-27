@@ -1,6 +1,7 @@
 from django.urls import include, path
 
 from . import views
+from .viste import allegati as allegati_viste
 from .viste import registry
 
 app_name = "core"
@@ -13,6 +14,10 @@ urlpatterns = [
     path("profilo/token/<int:pk>/revoca/", views.token_revoca, name="token_revoca"),
     path("azienda/cambia/", views.cambia_azienda, name="cambia_azienda"),
     path("impostazioni/", views.impostazioni, name="impostazioni"),
+    path("allegati/elenco/<int:ct>/<int:pk>/", allegati_viste.elenco, name="allegati_elenco"),
+    path("allegati/carica/<int:ct>/<int:pk>/", allegati_viste.carica, name="allegato_carica"),
+    path("allegati/<int:pk>/", allegati_viste.scarica, name="allegato_scarica"),
+    path("allegati/<int:pk>/elimina/", allegati_viste.elimina, name="allegato_elimina"),
     path("moduli/", views.moduli, name="moduli"),
     path("moduli/azione/", views.moduli_azione, name="moduli_azione"),
     path("moduli/stato/", views.moduli_stato, name="moduli_stato"),

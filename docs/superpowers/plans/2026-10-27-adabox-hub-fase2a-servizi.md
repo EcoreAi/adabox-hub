@@ -92,7 +92,7 @@ chiusi con la riga `Co-Authored-By` del modello che li scrive, push a fine task)
   una nuova `Azienda` (signal). `ModelView.sequence_field = ("campo", "codice")`.
 - Test: formato, azzeramento, nuova azienda, assegnazione dalla vista; Postgres: 20 thread → 20 numeri distinti.
 
-### Task 6: Allegati privati
+### Task 6: Allegati privati — fatto
 
 - `Allegato` generico, file in `PRIVATE_MEDIA_ROOT/allegati/<anno>/<mese>/<uuid>-<nome>`, `valida` (dimensione,
   estensioni vietate, nome ripulito).

@@ -1,0 +1,25 @@
+<div class="ui-allegati" id="allegati-{{ ct }}-{{ obj.pk }}">
+  {% for a in allegati %}
+  <div class="ui-allegato">
+    <a class="ui-link" href="{% url 'core:allegato_scarica' a.pk %}">{{ a.nome }}</a>
+    <span class="ui-allegato-info">{{ a.dimensione|filesizeformat }}</span>
+    {% if puo_modificare %}
+    <form method="post" action="{% url 'core:allegato_elimina' a.pk %}" hx-post="{% url 'core:allegato_elimina' a.pk %}"
+          hx-target="#allegati-{{ ct }}-{{ obj.pk }}" hx-swap="outerHTML" hx-confirm="Eliminare «{{ a.nome }}»?">
+      {% csrf_token %}<button type="submit" class="ui-icon-btn ui-icon-btn-danger" aria-label="Elimina {{ a.nome }}"><svg><use href="#icon-trash"/></svg></button>
+    </form>
+    {% endif %}
+  </div>
+  {% empty %}
+  <p class="ui-help">Nessun allegato.</p>
+  {% endfor %}
+  {% if puo_modificare %}
+  <form method="post" enctype="multipart/form-data" action="{% url 'core:allegato_carica' ct obj.pk %}"
+        hx-post="{% url 'core:allegato_carica' ct obj.pk %}" hx-encoding="multipart/form-data"
+        hx-target="#allegati-{{ ct }}-{{ obj.pk }}" hx-swap="outerHTML" class="ui-allegati-carica">
+    {% csrf_token %}
+    <input type="file" name="file" multiple class="ui-file" aria-label="Allega file">
+    <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Carica</button>
+  </form>
+  {% endif %}
+</div>

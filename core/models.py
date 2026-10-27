@@ -1,9 +1,14 @@
 import hashlib
 import secrets
+import uuid
 
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.utils import timezone
+
+from .storage import StoragePrivato
 
 
 class Azienda(models.Model):
@@ -195,3 +200,31 @@ class Sequenza(models.Model):
 
     def __str__(self):
         return f"{self.codice}" + (f" ({self.azienda})" if self.azienda_id else "")
+
+
+def _percorso_allegato(instance, filename):
+    return f"allegati/{timezone.now():%Y/%m}/{uuid.uuid4().hex}-{filename}"
+
+
+class Allegato(models.Model):
+    """File allegato a un record qualsiasi; privato: si scarica solo con il permesso di vedere il record."""
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveBigIntegerField()
+    record = GenericForeignKey("content_type", "object_id")
+    file = models.FileField("file", upload_to=_percorso_allegato, storage=StoragePrivato(), max_length=300)
+    nome = models.CharField("nome", max_length=200)
+    mime = models.CharField("tipo", max_length=100, blank=True)
+    dimensione = models.PositiveBigIntegerField("dimensione", default=0)
+    caricato_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name="+", verbose_name="caricato da")
+    creato = models.DateTimeField("caricato il", auto_now_add=True)
+    azienda = models.ForeignKey(Azienda, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="azienda")
+
+    class Meta:
+        verbose_name = "allegato"
+        verbose_name_plural = "allegati"
+        ordering = ["-creato", "-pk"]
+        indexes = [models.Index(fields=["content_type", "object_id"])]
+
+    def __str__(self):
+        return self.nome

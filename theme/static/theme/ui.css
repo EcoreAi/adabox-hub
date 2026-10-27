@@ -896,3 +896,13 @@ pre.ui-log {
   background: var(--ui-surface-2); border-radius: var(--radius-input);
   font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere;
 }
+
+/* ============================================================
+   Allegati
+   ============================================================ */
+.ui-allegati { display: flex; flex-direction: column; gap: 6px; }
+.ui-allegato { display: flex; align-items: center; gap: 8px; font-size: 13px; min-width: 0; }
+.ui-allegato .ui-link { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-allegato-info { color: var(--ui-text-3); white-space: nowrap; }
+.ui-allegato form { margin-left: auto; }
+.ui-allegati-carica { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
