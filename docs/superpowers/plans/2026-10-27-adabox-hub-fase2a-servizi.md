@@ -77,7 +77,7 @@ chiusi con la riga `Co-Authored-By` del modello che li scrive, push a fine task)
   (`alle` per i giornalieri, fuso `Europe/Rome`), nella stessa transazione con `select_for_update(skip_locked=True)`.
 - Admin: attiva/disattiva. Test: calcolo della prossima esecuzione, una sola accodata, sincronizzazione dal manifest.
 
-### Task 4: Parametri e pagina Impostazioni
+### Task 4: Parametri e pagina Impostazioni — fatto
 
 - `Parametro` (spec), `parametri.leggi(chiave, azienda=None)` con precedenza azienda → globale → default del
   manifest (o `KeyError` se la chiave non è dichiarata), `scrivi`, conversione per tipo.

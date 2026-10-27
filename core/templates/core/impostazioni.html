@@ -1,0 +1,26 @@
+{% extends 'core/base_app.html' %}
+{% load vista %}
+{% block title %}Impostazioni · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Impostazioni</h1><div class="sub">Parametri delle app installate{% if azienda %} · azienda corrente: {{ azienda }}{% endif %}</div></div>
+</div>
+{% for s in schede %}
+<section class="ui-card is-revealed ui-section" id="{{ s.slug }}">
+  <div class="ui-card-head"><div class="ui-card-title">{{ s.nome }}</div></div>
+  <div class="ui-card-body">
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="modulo" value="{{ s.slug }}">
+      {% for f in s.form %}
+        {% campo f %}
+        {% if f.field.per_azienda and azienda %}<p class="ui-help" style="margin-top:-10px;">Vale per {{ azienda }}; le altre aziende hanno il proprio valore.</p>{% endif %}
+      {% endfor %}
+      <button type="submit" class="ui-btn ui-btn-primary"><svg><use href="#icon-save"/></svg> Salva</button>
+    </form>
+  </div>
+</section>
+{% empty %}
+<div class="ui-card is-revealed"><div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessuna app installata ha impostazioni.</p></div></div></div>
+{% endfor %}
+{% endblock %}

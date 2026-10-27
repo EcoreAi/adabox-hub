@@ -13,6 +13,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from . import azienda as az
 from . import moduli as mod
+from . import parametri
 
 from .forms import AziendaPredefinitaForm, ProfiloForm, TokenApiForm
 from .models import Azienda, Lavoro, Modulo, ProfiloUtente, TokenApi
@@ -32,6 +33,9 @@ def voci_kernel(user):
                      "sub": "Coda dei lavori in background"})
         voci.append({"label": "Moduli", "url": reverse("core:moduli"), "icon": "download",
                      "sub": "Installa, aggiorna e disinstalla le app"})
+    if user.has_perm("core.change_parametro") and parametri.definizioni():
+        voci.append({"label": "Impostazioni", "url": reverse("core:impostazioni"), "icon": "tool",
+                     "sub": "Parametri delle app installate"})
     if user.is_staff:
         voci.append({"label": "Stile", "url": reverse("core:stile"), "icon": "eye",
                      "sub": "Catalogo dei componenti grafici"})
@@ -268,3 +272,25 @@ class LavoroView(SoloSuperuserView):
         return "Lavoro rimesso in coda."
     riprova.short_description = "Riprova"
     riprova.permission = "view"
+
+
+@login_required
+def impostazioni(request):
+    """Una card per modulo con `settings` nel manifest; si salva un modulo alla volta."""
+    if not request.user.has_perm("core.change_parametro"):
+        raise PermissionDenied
+    azienda = getattr(request, "azienda", None)
+    manifest = modules.manifests_attivi()
+    moduli_con = [slug for slug, m in manifest.items() if m.settings]
+    inviato = request.POST.get("modulo") if request.method == "POST" else None
+    if inviato is not None and inviato not in moduli_con:
+        return HttpResponseBadRequest("modulo sconosciuto")
+    schede = []
+    for slug in moduli_con:
+        form = parametri.ImpostazioniForm(slug, azienda, request.POST if inviato == slug else None)
+        if inviato == slug and form.is_valid():
+            form.salva()
+            messages.success(request, f"Impostazioni di {manifest[slug].name} salvate.")
+            return redirect(f"{reverse('core:impostazioni')}#{slug}")
+        schede.append({"slug": slug, "nome": manifest[slug].name, "form": form})
+    return render(request, "core/impostazioni.html", {"schede": schede})

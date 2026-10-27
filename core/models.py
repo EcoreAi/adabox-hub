@@ -149,3 +149,24 @@ class Pianificazione(models.Model):
 
     def __str__(self):
         return f"{self.modulo}: {self.nome}"
+
+
+class Parametro(models.Model):
+    """Valore di un'impostazione dichiarata nel manifest (`settings`): globale o per azienda."""
+    chiave = models.CharField("chiave", max_length=100, help_text="<modulo>.<nome>")
+    valore = models.JSONField("valore", null=True, blank=True)
+    azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE, null=True, blank=True, verbose_name="azienda")
+
+    class Meta:
+        verbose_name = "parametro"
+        verbose_name_plural = "parametri"
+        ordering = ["chiave"]
+        constraints = [
+            models.UniqueConstraint(fields=["chiave"], condition=models.Q(azienda__isnull=True),
+                                    name="parametro_globale_unico"),
+            models.UniqueConstraint(fields=["chiave", "azienda"], condition=models.Q(azienda__isnull=False),
+                                    name="parametro_azienda_unico"),
+        ]
+
+    def __str__(self):
+        return f"{self.chiave} = {self.valore!r}" + (f" ({self.azienda})" if self.azienda_id else "")

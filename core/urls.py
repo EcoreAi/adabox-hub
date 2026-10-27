@@ -12,6 +12,7 @@ urlpatterns = [
     path("profilo/token/", views.token_nuovo, name="token_nuovo"),
     path("profilo/token/<int:pk>/revoca/", views.token_revoca, name="token_revoca"),
     path("azienda/cambia/", views.cambia_azienda, name="cambia_azienda"),
+    path("impostazioni/", views.impostazioni, name="impostazioni"),
     path("moduli/", views.moduli, name="moduli"),
     path("moduli/azione/", views.moduli_azione, name="moduli_azione"),
     path("moduli/stato/", views.moduli_stato, name="moduli_stato"),
