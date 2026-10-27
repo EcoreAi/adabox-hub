@@ -175,6 +175,7 @@ def test_lista_mostra_azioni_solo_se_dichiarate(client, acme, monkeypatch):
     html = client.get(reverse("core:aziende_lista")).content.decode()
     assert 'id="form-azioni"' in html and 'name="pk"' in html
     monkeypatch.setattr(registry.per_modello(Azienda), "actions", [])
+    monkeypatch.setattr(registry.per_modello(Azienda), "reports", [])        # anche le stampe usano la selezione
     html = client.get(reverse("core:aziende_lista")).content.decode()
     assert 'id="form-azioni"' not in html and 'name="pk"' not in html
 

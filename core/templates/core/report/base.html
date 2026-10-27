@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>{{ report.nome }}</title>
+<style>
+  @page {
+    size: A4; margin: 28mm 18mm 22mm 18mm;
+    @top-left { content: element(intestazione); }
+    @bottom-right { content: "Pagina " counter(page) " di " counter(pages); font-size: 8pt; color: #6e6e73; }
+    @bottom-left { content: "{{ theme.brand }} · stampato il {{ oggi|date:'d/m/Y' }}"; font-size: 8pt; color: #6e6e73; }
+  }
+  body { font-family: "DejaVu Sans", Helvetica, Arial, sans-serif; font-size: 10pt; color: #1d1d1f; }
+  .intestazione { position: running(intestazione); display: flex; align-items: center; gap: 10px; width: 100%;
+                  border-bottom: 1px solid #e5e5ea; padding-bottom: 6px; }
+  .intestazione img { height: 32px; }
+  .intestazione .azienda { font-weight: bold; font-size: 11pt; }
+  .intestazione .dati { font-size: 8pt; color: #6e6e73; }
+  .record { page-break-after: always; }
+  .record:last-child { page-break-after: auto; }
+  h1 { font-size: 16pt; margin: 0 0 4mm; color: #1e3a8a; }
+  h2 { font-size: 11pt; margin: 6mm 0 2mm; text-transform: uppercase; letter-spacing: 0.04em; color: #6e6e73; }
+  table.dati { width: 100%; border-collapse: collapse; }
+  table.dati th { text-align: left; width: 32%; font-weight: normal; color: #6e6e73; padding: 2mm 3mm 2mm 0; vertical-align: top; }
+  table.dati td { padding: 2mm 0; border-bottom: 1px solid #f0f0f2; }
+  {% block stile %}{% endblock %}
+</style>
+</head>
+<body>
+  <div class="intestazione">
+    {% if logo %}<img src="{{ logo }}" alt="">{% endif %}
+    <div>
+      <div class="azienda">{{ azienda.nome|default:theme.brand }}</div>
+      {% if azienda %}<div class="dati">{% if azienda.indirizzo %}{{ azienda.indirizzo }}, {{ azienda.cap }} {{ azienda.citta }}{% if azienda.provincia %} ({{ azienda.provincia }}){% endif %}{% endif %}{% if azienda.partita_iva %} · P.IVA {{ azienda.partita_iva }}{% endif %}</div>{% endif %}
+    </div>
+  </div>
+  {% for obj in oggetti %}
+  <section class="record">{% block record %}<h1>{{ obj }}</h1>{% endblock %}</section>
+  {% endfor %}
+</body>
+</html>

@@ -142,6 +142,8 @@ IMAP_URL = env("IMAP_URL", default="")
 # Export e import oltre queste righe passano dal worker
 EXPORT_SINCRONO_MAX = env.int("EXPORT_SINCRONO_MAX", default=5000)
 IMPORT_SINCRONO_MAX = env.int("IMPORT_SINCRONO_MAX", default=1000)
+# Stampe PDF di massa oltre questi record passano dal worker
+REPORT_SINCRONO_MAX = env.int("REPORT_SINCRONO_MAX", default=20)
 
 # --- Sicurezza sempre attiva -------------------------------------------
 SESSION_COOKIE_AGE = 60 * 30

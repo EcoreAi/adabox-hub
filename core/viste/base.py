@@ -38,6 +38,7 @@ class ModelView:
     api_fields = None
     export_fields = None          # colonne dell'export (default: id + campi di list_display)
     import_key = None             # campo con cui l'import riconosce i record da aggiornare
+    reports = ()                  # stampe PDF: [{"nome": "Scheda", "template": "app/report/x.html"}]
     template_lista = "core/vista/lista.html"
     template_tabella = "core/vista/_tabella.html"
     template_form = "core/vista/form.html"
@@ -79,9 +80,12 @@ class ModelView:
 
     def get_urls_viste(self):
         """URL delle viste facoltative, solo se dichiarate."""
-        from . import calendario, grafico, kanban
+        from . import calendario, grafico, kanban, stampa
         s = self.slug
         urls = []
+        if self.reports:
+            urls += [path(f"{s}/<int:pk>/stampa/<int:indice>/", stampa.StampaView.as_view(vista=self), name=f"{s}_stampa"),
+                     path(f"{s}/stampa/<int:indice>/", stampa.StampaMassaView.as_view(vista=self), name=f"{s}_stampa_massa")]
         if self.graph:
             urls.append(path(f"{s}/grafico/", grafico.GraficoView.as_view(vista=self), name=f"{s}_grafico"))
         if self.calendar_date:

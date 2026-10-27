@@ -16,7 +16,7 @@ filtri e API. `todo` 1.3.0 li usa.
 
 ---
 
-### Task 1: Report PDF
+### Task 1: Report PDF — fatto
 
 - Dipendenza `weasyprint` (versione da `pip freeze`); `Dockerfile`: `libpango-1.0-0 libpangoft2-1.0-0 fonts-dejavu-core`.
 - `ModelView.reports = [{"nome": "Scheda", "template": "todo/report/attivita.html"}]`.

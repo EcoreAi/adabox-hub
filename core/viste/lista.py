@@ -56,6 +56,7 @@ class ListaView(VistaBase):
             colonne.append({"campo": c, "label": vista.etichetta(c), "ordinabile": c in ordinabili,
                             "direzione": direzione, "prossimo": f"-{c}" if direzione == "asc" else c})
         azioni = [(nome, etichetta, vista.url("azione", nome=nome)) for nome, etichetta in vista.get_actions(request)]
+        stampe = [(r["nome"], vista.url("stampa_massa", indice=i)) for i, r in enumerate(vista.reports)]
         righe = [(obj, [vista.col_valore(request, obj, c) for c in vista.list_display]) for obj in page_obj]
         somme = gruppi.somme_ammesse(vista)
         tot = gruppi.totali(vista, qs)
@@ -63,7 +64,8 @@ class ListaView(VistaBase):
             "vista": vista, "urls": urls_di(vista), "colonne": colonne, "righe": righe,
             "blocchi": _blocchi(vista, righe, info_gruppi),
             "totali": [tot.get(c, "") for c in vista.list_display] if tot else None,
-            "raggruppabili": raggruppabili, "gruppo": chiave, "con_somme": bool(somme),
+            "raggruppabili": raggruppabili, "gruppo": chiave, "con_somme": bool(somme), "stampe": stampe,
+            "selezione": bool(azioni or stampe),
             **contesto_testata(request, vista, "lista"),
             "filtri": filtri.specifiche(vista, request), "page_obj": page_obj,
             "q": request.GET.get("q", ""), "puo_aggiungere": vista.has_add_permission(request),

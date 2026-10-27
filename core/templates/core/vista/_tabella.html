@@ -1,18 +1,19 @@
 {% load vista %}
 <div id="tabella">
-  {% if azioni %}
+  {% if selezione %}
   <form method="post" id="form-azioni" class="ui-azioni">
     {% csrf_token %}
     <span class="ui-azioni-label">Sulle righe selezionate:</span>
     {% for nome, etichetta, url in azioni %}<button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm" formaction="{{ url }}">{{ etichetta }}</button>{% endfor %}
     <button type="submit" class="ui-btn ui-btn-ghost ui-btn-sm" formaction="{{ urls.esporta }}" name="formato" value="xlsx">Esporta</button>
+    {% for nome, url in stampe %}<button type="submit" class="ui-btn ui-btn-ghost ui-btn-sm" formaction="{{ url }}" formtarget="_blank">Stampa: {{ nome }}</button>{% endfor %}
   </form>
   {% endif %}
   {% if righe %}
   <div class="ui-table-wrap">
   <table class="ui-table is-revealed">
     <thead><tr>
-      {% if azioni %}<th class="ui-col-check"><input type="checkbox" aria-label="Seleziona tutte" onclick="document.querySelectorAll('input[form=form-azioni][name=pk]').forEach(c => c.checked = this.checked)"></th>{% endif %}
+      {% if selezione %}<th class="ui-col-check"><input type="checkbox" aria-label="Seleziona tutte" onclick="document.querySelectorAll('input[form=form-azioni][name=pk]').forEach(c => c.checked = this.checked)"></th>{% endif %}
       {% for c in colonne %}
       <th>{% if c.ordinabile %}<a class="ui-sort{% if c.direzione %} is-{{ c.direzione }}{% endif %}" href="{% querystring_con o=c.prossimo p=None %}">{{ c.label }}</a>{% else %}{{ c.label }}{% endif %}</th>
       {% endfor %}
@@ -21,7 +22,7 @@
     <tbody>
       {% if b.etichetta is not None %}
       <tr class="ui-gruppo">
-        {% if azioni %}<td class="ui-col-check"></td>{% endif %}
+        {% if selezione %}<td class="ui-col-check"></td>{% endif %}
         {% for somma in b.somme %}
         {% if forloop.first %}<th scope="rowgroup"><button type="button" class="ui-gruppo-toggle" aria-expanded="true"
             onclick="const t=this.closest('tbody'); t.classList.toggle('is-chiuso'); this.setAttribute('aria-expanded', !t.classList.contains('is-chiuso'))">{{ b.etichetta }} <span class="ui-gruppo-n">{{ b.n }}</span></button></th>
@@ -31,7 +32,7 @@
       {% endif %}
       {% for obj, celle in b.righe %}
       <tr>
-        {% if azioni %}<td class="ui-col-check"><input type="checkbox" form="form-azioni" name="pk" value="{{ obj.pk }}" aria-label="Seleziona {{ obj }}"></td>{% endif %}
+        {% if selezione %}<td class="ui-col-check"><input type="checkbox" form="form-azioni" name="pk" value="{{ obj.pk }}" aria-label="Seleziona {{ obj }}"></td>{% endif %}
         {% for valore in celle %}
         <td>{% if forloop.first %}<a class="ui-link" href="{% url vista.modulo|add:':'|add:vista.slug|add:'_dettaglio' pk=obj.pk %}">{{ valore }}</a>{% else %}{{ valore }}{% endif %}</td>
         {% endfor %}
@@ -41,7 +42,7 @@
     {% endfor %}
     {% if totali %}
     <tfoot><tr class="ui-totali">
-      {% if azioni %}<td class="ui-col-check"></td>{% endif %}
+      {% if selezione %}<td class="ui-col-check"></td>{% endif %}
       {% for t in totali %}{% if forloop.first %}<th scope="row">Totale</th>{% else %}<td class="ui-num">{{ t }}</td>{% endif %}{% endfor %}
     </tr></tfoot>
     {% endif %}

@@ -10,6 +10,7 @@
     {% for nome, etichetta, url in bottoni %}
     <form method="post" action="{{ url }}">{% csrf_token %}<button type="submit" class="ui-btn ui-btn-secondary">{{ etichetta }}</button></form>
     {% endfor %}
+    {% for nome, url in stampe %}<a class="ui-btn ui-btn-secondary" href="{{ url }}" target="_blank" rel="noopener"><svg><use href="#icon-download"/></svg> {{ nome }}</a>{% endfor %}
     {% if puo_modificare %}<a class="ui-btn ui-btn-primary" href="{{ url_modifica }}"><svg><use href="#icon-edit"/></svg> Modifica</a>{% endif %}
     {% if puo_eliminare %}<a class="ui-btn ui-btn-danger" href="{{ url_elimina }}" hx-get="{{ url_elimina }}" hx-target="#modale" hx-swap="innerHTML"><svg><use href="#icon-trash"/></svg> Elimina</a>{% endif %}
   </div>

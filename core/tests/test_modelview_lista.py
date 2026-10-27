@@ -47,7 +47,8 @@ def test_nomi_url():
 def test_registro():
     v = registry.per_modello(Azienda)
     assert isinstance(v, AziendaView) and v in registry.viste_di("core")
-    assert len(v.get_urls()) == 9          # lista, nuovo, dettaglio, modifica, elimina, azione, bottone, esporta, importa
+    # lista, nuovo, dettaglio, modifica, elimina, azione, bottone, esporta, importa + viste facoltative
+    assert len(v.get_urls()) == 9 + len(v.get_urls_viste())
     assert len(registry.urlpatterns("core")) == sum(len(x.get_urls()) for x in registry.viste_di("core"))
 
 

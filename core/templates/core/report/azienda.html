@@ -1,0 +1,12 @@
+{% extends "core/report/base.html" %}
+{% block record %}
+<h1>{{ obj.nome }}</h1>
+<table class="dati">
+  <tr><th>Partita IVA</th><td>{{ obj.partita_iva|default:"—" }}</td></tr>
+  <tr><th>Codice fiscale</th><td>{{ obj.codice_fiscale|default:"—" }}</td></tr>
+  <tr><th>Indirizzo</th><td>{{ obj.indirizzo|default:"—" }} {{ obj.cap }} {{ obj.citta }} {{ obj.provincia }}</td></tr>
+  <tr><th>Email</th><td>{{ obj.email|default:"—" }}</td></tr>
+  <tr><th>Telefono</th><td>{{ obj.telefono|default:"—" }}</td></tr>
+  <tr><th>Attiva</th><td>{{ obj.attiva|yesno:"Sì,No" }}</td></tr>
+</table>
+{% endblock %}

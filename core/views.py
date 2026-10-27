@@ -152,6 +152,7 @@ class AziendaView(ModelView):
     buttons = ["attiva"]
     chatter = True
     tracked_fields = ["nome", "partita_iva", "attiva"]
+    reports = [{"nome": "Scheda azienda", "template": "core/report/azienda.html"}]
 
     def col_citta(self, obj):
         return obj.citta.upper() if obj.citta else "—"

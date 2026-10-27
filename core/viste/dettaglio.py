@@ -25,4 +25,5 @@ class DettaglioView(VistaBase):
             "url_modifica": vista.url("modifica", pk=obj.pk), "url_elimina": vista.url("elimina", pk=obj.pk),
             "sezioni_extra": hooks.sezioni_per(vista.model, request),
             "chatter": contesto_chatter(request, vista, obj) if vista.chatter else None,
+            "stampe": [(r["nome"], vista.url("stampa", pk=obj.pk, indice=i)) for i, r in enumerate(vista.reports)],
         })
