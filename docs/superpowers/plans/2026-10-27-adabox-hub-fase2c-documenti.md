@@ -44,7 +44,7 @@ filtri e API. `todo` 1.3.0 li usa.
 - `/core/campi/`: `ModelView` del kernel per `CampoPersonalizzato` (permessi Django del modello), nel launcher.
 - Test: form (obbligatorio, tipi), salvataggio senza perdere chiavi, per azienda, lista, filtro, API, dettaglio.
 
-### Task 3: `todo` 1.3.0, Docker, documentazione, verifica
+### Task 3: `todo` 1.3.0, Docker, documentazione, verifica — fatto
 
 - `todo` 1.3.0: `Attivita` con `ProprietaMixin` (migrazione 0003), report "Scheda attività", `"@proprieta"` nel layout.
 - `deploy/test-pdf.sh`: esegue i test marcati `pdf` nell'immagine Docker.

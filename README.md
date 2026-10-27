@@ -153,6 +153,21 @@ import_key = "numero"                                       # l'import aggiorna 
   con l'elenco degli errori per riga, poi importa tutto o niente. FK e tag si scrivono per nome, le scelte con la
   loro etichetta, le date come `gg/mm/aaaa`. Oltre `IMPORT_SINCRONO_MAX` righe (1000) nel worker.
 
+## Stampe PDF e campi personalizzati
+
+**Report PDF.** Sulla vista: `reports = [{"nome": "Scheda attività", "template": "todo/report/attivita.html"}]`.
+Il template estende `core/report/base.html` (A4, intestazione con logo e dati dell'azienda corrente, "Pagina N di M")
+e riempie `{% block record %}` con `obj`: un record per pagina. Bottone nel dettaglio e "Stampa" sulle righe
+selezionate della lista; `?html=1` mostra l'HTML per provare il layout. Oltre `REPORT_SINCRONO_MAX` record (20) il
+PDF lo prepara il worker. I PDF li genera WeasyPrint, che richiede Pango: è nell'immagine Docker; dove manca la
+stampa risponde 503 e i test che generano PDF si eseguono con `deploy/test-pdf.sh`.
+
+**Campi personalizzati.** Il cliente aggiunge campi da `/core/campi/` (testo, numeri, data, Sì/No, scelta da elenco,
+utente; obbligatori, in lista, filtrabili; per tutte le aziende o per una), senza migrazioni. Li accettano i modelli
+con `core.mixins.ProprietaMixin` (valori nel JSON `proprieta`): compaiono nel form (dove il `form_layout` dice
+`"@proprieta"`, altrimenti in "Altre informazioni"), nel dettaglio, nella lista, nei filtri e nell'API
+(`"proprieta": {...}` in lettura e scrittura). Oggi li accettano `Azienda` e `todo.Attivita`.
+
 ## Comandi `modulo`
 
 | Comando | Effetto |
@@ -287,3 +302,5 @@ I test di concorrenza (worker, pianificazioni, sequenze) girano solo su Postgres
 deploy/test-postgres.sh           # Postgres usa e getta in Docker, solo i test marcati postgres
 deploy/test-postgres.sh -q        # tutta la suite su Postgres
 ```
+
+I test che generano PDF veri girano nell'immagine Docker (Pango e font): `docker compose build web && deploy/test-pdf.sh`.

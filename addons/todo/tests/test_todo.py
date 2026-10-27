@@ -165,7 +165,8 @@ def test_promemoria_scadenze_con_parametro(membro, aziende):
 
 def test_manifest():
     m = manifest.leggi(CARTELLA)
-    assert m.version == "1.2.0" and m.cron and m.settings and m.sequences
+    from core.registry.manifest import versione_tupla
+    assert versione_tupla(m.version) >= (1, 3, 0) and m.cron and m.settings and m.sequences
 
 
 # --- 1.2.0: viste kanban, calendario, grafico, import ---
@@ -207,3 +208,36 @@ def test_import_con_utenti_e_tag(client, membro, aziende, settings, tmp_path):
     a = Attivita.objects.get(titolo="Da file")
     assert (a.assegnatario, a.stato, list(a.tag.values_list("nome", flat=True))) == (membro, "in_corso", ["Urgente"])
     assert a.azienda == aziende[0] and a.numero.startswith("ATT/")
+
+
+# --- 1.3.0: scheda PDF e campi personalizzati ---
+
+def test_scheda_attivita_html(client, membro, aziende):
+    a = Attivita.objects.get(titolo="Mia attività")
+    html = client.get(f"/todo/attivita/{a.pk}/stampa/0/", {"html": 1}).content.decode()
+    assert "Mia attività" in html and "Aperta" in html and aziende[0].nome in html
+    assert f"/todo/attivita/{a.pk}/stampa/0/" in client.get(f"/todo/attivita/{a.pk}/").content.decode()
+
+
+def test_campo_personalizzato_nella_sezione_classificazione(client, membro, aziende):
+    from django.contrib.contenttypes.models import ContentType
+
+    from core.models import CampoPersonalizzato
+    CampoPersonalizzato.objects.create(modello=ContentType.objects.get_for_model(Attivita), nome="cliente",
+                                       label="Cliente", in_lista=True)
+    html = client.get("/todo/attivita/nuovo/").content.decode()
+    classificazione = html[html.index("Classificazione"):]
+    assert 'name="prop_cliente"' in classificazione and "Altre informazioni" not in html
+    client.post("/todo/attivita/nuovo/", {"titolo": "Con cliente", "stato": "aperta", "prop_cliente": "Rossi"})
+    assert Attivita.objects.get(titolo="Con cliente").proprieta == {"cliente": "Rossi"}
+    assert "Rossi" in client.get("/todo/attivita/").content.decode()
+
+
+@pytest.mark.pdf
+def test_scheda_pdf(client, membro, aziende):
+    from core import report
+    if not report.disponibile():
+        pytest.skip("WeasyPrint senza Pango: deploy/test-pdf.sh")
+    a = Attivita.objects.get(titolo="Mia attività")
+    r = client.get(f"/todo/attivita/{a.pk}/stampa/0/")
+    assert r["Content-Type"] == "application/pdf" and r.content.startswith(b"%PDF")

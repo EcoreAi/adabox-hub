@@ -240,5 +240,8 @@ LOGGING = {
             "level": "ERROR", "propagate": False,
         },
         "core.moduli": {"handlers": ["file_moduli"], "level": "INFO", "propagate": True},
+        # WeasyPrint e fontTools scrivono centinaia di righe INFO per ogni PDF
+        "weasyprint": {"level": "WARNING"},
+        "fontTools": {"level": "WARNING"},
     },
 }

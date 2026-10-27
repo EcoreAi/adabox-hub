@@ -19,7 +19,7 @@ class AttivitaView(ModelView):
     ordering = ["-scadenza", "-creato"]
     form_layout = [
         ("Generale", ["titolo", ("scadenza", "assegnatario"), "descrizione"]),
-        ("Classificazione", ["tag", "stato"]),
+        ("Classificazione", ["tag", "stato", "@proprieta"]),
     ]
     readonly_fields = ["numero", "creato"]
     company_field = "azienda"
@@ -33,6 +33,7 @@ class AttivitaView(ModelView):
     calendar_color = "stato"
     graph = {"tipi": ["barre", "torta", "linee"], "misure": ["count"], "per": ["stato", "assegnatario", "scadenza:mese"]}
     import_key = "numero"
+    reports = [{"nome": "Scheda attività", "template": "todo/report/attivita.html"}]
     actions = ["archivia"]
     buttons = ["segna_fatta"]
     api = True

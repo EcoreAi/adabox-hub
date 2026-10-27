@@ -60,3 +60,26 @@ selettore delle viste, kanban con trascinamento, calendario mese/settimana, graf
 prova a secco. `todo` 1.2.0 le usa tutte; DB di sviluppo aggiornato. Suite verde su SQLite e Postgres.
 Scostamenti: le viste dichiarate ma non montate non compaiono nel selettore; il form "nuovo" accetta valori iniziali
 dalla query string (serve al calendario); i totali dei campi interi si riportano a intero (su Postgres SUM dà Decimal).
+
+## Fase 2c — report PDF e campi personalizzati (stessa sessione)
+
+Piano `docs/superpowers/plans/2026-10-27-adabox-hub-fase2c-documenti.md` eseguito: stampe PDF dalla `ModelView`
+(WeasyPrint, layout del kernel, singole e di massa, worker oltre 20 record) e campi personalizzati
+(`ProprietaMixin`, `/core/campi/`) in form, dettaglio, lista, filtri e API. `todo` 1.3.0 li usa; DB di sviluppo
+aggiornato. **La fase 2 è completa.**
+
+- Suite verde su SQLite e Postgres; test PDF verdi nell'immagine Docker (`deploy/test-pdf.sh`): Pango non è
+  installato sull'host (server condiviso), dove i test PDF si saltano e la stampa risponde 503.
+- Stack Docker provato: pagine 200, scheda PDF e export XLSX dal container web.
+- Corretto il pin di pytest (9.1.1): con 9.0.2 un'installazione pulita di requirements-dev falliva.
+- Scostamenti: `get_form_class(request)` (i campi personalizzati dipendono dall'azienda); `Azienda` accetta campi
+  personalizzati; il filtro per azienda confronta il pk (request.azienda lazy può avvolgere None); log di
+  WeasyPrint e fontTools a WARNING; HarfBuzz-Subset nell'immagine.
+
+## Prossimi passi
+
+- Prova manuale nel browser di tutta la fase 2 (con `runserver` serve `createsuperuser`: il DB di sviluppo non ha
+  utenti); per i PDF in sviluppo serve Pango sull'host oppure Docker.
+- Configurare per un'istanza vera `EMAIL_URL`, `EMAIL_RISPOSTE`, `IMAP_URL`, `SITO_URL` e Postgres nel compose.
+- Fase 3 (prime app: contatti, calendario, crm, helpdesk, progetti e timesheet): spec propria; `todo` può passare
+  alle attività pianificate del kernel.

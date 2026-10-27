@@ -1,0 +1,18 @@
+{% extends "core/report/base.html" %}
+{% block stile %}
+  .numero { font-size: 9pt; color: #6e6e73; margin-bottom: 1mm; }
+  .descrizione { white-space: pre-wrap; border: 1px solid #e5e5ea; border-radius: 2mm; padding: 3mm; min-height: 30mm; }
+{% endblock %}
+{% block record %}
+<div class="numero">{{ obj.numero }}</div>
+<h1>{{ obj.titolo }}</h1>
+<table class="dati">
+  <tr><th>Stato</th><td>{{ obj.get_stato_display }}</td></tr>
+  <tr><th>Scadenza</th><td>{{ obj.scadenza|date:"d/m/Y"|default:"—" }}</td></tr>
+  <tr><th>Assegnatario</th><td>{% if obj.assegnatario %}{{ obj.assegnatario.get_full_name|default:obj.assegnatario.username }}{% else %}—{% endif %}</td></tr>
+  <tr><th>Tag</th><td>{% for t in obj.tag.all %}{{ t }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td></tr>
+  <tr><th>Creata il</th><td>{{ obj.creato|date:"d/m/Y H:i" }}{% if obj.creato_da %} da {{ obj.creato_da }}{% endif %}</td></tr>
+</table>
+<h2>Descrizione</h2>
+<div class="descrizione">{{ obj.descrizione|default:"—" }}</div>
+{% endblock %}

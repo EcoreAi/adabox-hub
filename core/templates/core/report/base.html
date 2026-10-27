@@ -7,8 +7,9 @@
   @page {
     size: A4; margin: 28mm 18mm 22mm 18mm;
     @top-left { content: element(intestazione); }
-    @bottom-right { content: "Pagina " counter(page) " di " counter(pages); font-size: 8pt; color: #6e6e73; }
-    @bottom-left { content: "{{ theme.brand }} · stampato il {{ oggi|date:'d/m/Y' }}"; font-size: 8pt; color: #6e6e73; }
+    /* i riquadri dei margini non ereditano il font del corpo */
+    @bottom-right { content: "Pagina " counter(page) " di " counter(pages); font-family: "DejaVu Sans", sans-serif; font-size: 8pt; color: #6e6e73; }
+    @bottom-left { content: "{{ theme.brand }} · stampato il {{ oggi|date:'d/m/Y' }}"; font-family: "DejaVu Sans", sans-serif; font-size: 8pt; color: #6e6e73; }
   }
   body { font-family: "DejaVu Sans", Helvetica, Arial, sans-serif; font-size: 10pt; color: #1d1d1f; }
   .intestazione { position: running(intestazione); display: flex; align-items: center; gap: 10px; width: 100%;

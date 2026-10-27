@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.db import models
 
-from core.mixins import AziendaMixin
+from core.mixins import AziendaMixin, ProprietaMixin
 
 
 class Tag(models.Model):
@@ -17,7 +17,7 @@ class Tag(models.Model):
         return self.nome
 
 
-class Attivita(AziendaMixin):
+class Attivita(AziendaMixin, ProprietaMixin):
     APERTA, IN_CORSO, FATTA, ANNULLATA = "aperta", "in_corso", "fatta", "annullata"
     STATI = [(APERTA, "Aperta"), (IN_CORSO, "In corso"), (FATTA, "Fatta"), (ANNULLATA, "Annullata")]
     numero = models.CharField("numero", max_length=30, blank=True, editable=False, db_index=True)
