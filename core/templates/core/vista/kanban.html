@@ -1,0 +1,41 @@
+{% extends 'core/base_app.html' %}
+{% load static %}
+{% block title %}{{ vista.verbose_name_plural|capfirst }} · Kanban · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>{{ vista.verbose_name_plural|capfirst }}</h1></div>
+  <div class="ui-pagehead-actions">
+    {% include "core/vista/_selettore.html" %}
+    {% if puo_aggiungere %}<a class="ui-btn ui-btn-primary" href="{{ urls.nuovo }}"><svg><use href="#icon-plus"/></svg> Nuovo</a>{% endif %}
+  </div>
+</div>
+<div class="ui-card is-revealed">{% include "core/vista/_filtri_semplici.html" %}</div>
+<div class="ui-kanban" data-campo="{{ campo }}">
+  {% for col in colonne %}
+  <section class="ui-kanban-col" data-valore="{{ col.valore }}" aria-label="{{ col.etichetta }}">
+    <header><span>{{ col.etichetta }}</span><span class="ui-gruppo-n" data-conteggio>{{ col.totale }}</span></header>
+    <div class="ui-kanban-card-list">
+      {% for c in col.card %}
+      <article class="ui-kanban-card"{% if puo_spostare %} draggable="true"{% endif %}
+               data-sposta="{% url vista.modulo|add:':'|add:vista.slug|add:'_sposta' pk=c.obj.pk %}">
+        <a class="ui-kanban-titolo" href="{% url vista.modulo|add:':'|add:vista.slug|add:'_dettaglio' pk=c.obj.pk %}">{{ c.obj }}</a>
+        {% for etichetta, valore in c.campi %}<div class="ui-kanban-campo"><span>{{ etichetta }}</span> {{ valore }}</div>{% endfor %}
+        {% if puo_spostare %}
+        <noscript>
+          <form method="post" action="{% url vista.modulo|add:':'|add:vista.slug|add:'_sposta' pk=c.obj.pk %}">
+            {% csrf_token %}<input type="hidden" name="ritorno" value="{{ query_filtri }}">
+            <select name="valore" class="ui-input" aria-label="Sposta in">{% for v, e in tutte %}<option value="{{ v }}"{% if v == col.valore %} selected{% endif %}>{{ e }}</option>{% endfor %}</select>
+            <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Sposta</button>
+          </form>
+        </noscript>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    {% if col.altri %}<a class="ui-link ui-kanban-altri" href="{{ urls.lista }}?f_{{ campo }}={{ col.valore|urlencode }}{% if query_filtri %}&{{ query_filtri }}{% endif %}">altri {{ col.altri }}…</a>{% endif %}
+  </section>
+  {% endfor %}
+</div>
+{% csrf_token %}
+<script src="{% static 'core/kanban.js' %}" defer></script>
+{% endblock %}

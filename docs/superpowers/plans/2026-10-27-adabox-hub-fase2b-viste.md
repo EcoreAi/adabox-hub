@@ -27,7 +27,7 @@ Dipendenza nuova: `openpyxl`.
   `f_*`; select "Raggruppa per" nei filtri della lista.
 - Test: gruppi e conteggi, somme, raggruppamento per mese, gruppo vuoto (`—`), parametro non ammesso ignorato.
 
-### Task 2: Kanban
+### Task 2: Kanban — fatto
 
 - `kanban_group`, `kanban_fields`, `kanban_card` (template facoltativo), `kanban_limite` (50).
 - `GET <slug>/kanban/`: colonne dalle scelte (in ordine) o dai record correlati (filtrati per azienda), conteggio,

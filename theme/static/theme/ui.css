@@ -972,3 +972,26 @@ tbody.is-chiuso tr:not(.ui-gruppo) { display: none; }
 .ui-gruppo-n { font-weight: 400; font-size: 12px; color: var(--ui-text-2); background: var(--ui-surface); border-radius: var(--radius-pill); padding: 1px 8px; }
 table.ui-table tr.ui-totali th, table.ui-table tr.ui-totali td { font-weight: 700; border-top: 2px solid var(--ui-border); }
 td.ui-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ============================================================
+   Kanban
+   ============================================================ */
+.ui-kanban { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 12px; align-items: flex-start; }
+.ui-kanban-col {
+  flex: 0 0 280px; background: var(--ui-surface-2); border-radius: var(--radius-card); padding: 12px;
+  border: 2px solid transparent; transition: border-color 150ms var(--ease-out);
+}
+.ui-kanban-col.is-sopra { border-color: var(--ui-primary); }
+.ui-kanban-col > header { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 14px; margin-bottom: 10px; }
+.ui-kanban-card-list { display: flex; flex-direction: column; gap: 8px; min-height: 40px; }
+.ui-kanban-card {
+  background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 12px; padding: 10px 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); cursor: grab;
+}
+.ui-kanban-card.is-trascinata { opacity: 0.5; }
+.ui-kanban-titolo { display: block; font-weight: 600; font-size: 14px; color: var(--ui-text); text-decoration: none; margin-bottom: 4px; }
+.ui-kanban-titolo:hover { color: var(--ui-primary); }
+.ui-kanban-campo { font-size: 12px; color: var(--ui-text-2); }
+.ui-kanban-campo > span { color: var(--ui-text-3); }
+.ui-kanban-card form { display: flex; gap: 6px; margin-top: 8px; }
+.ui-kanban-altri { display: block; font-size: 13px; margin-top: 10px; }

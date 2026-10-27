@@ -2,7 +2,7 @@
 from django.db import transaction
 from django.forms import modelform_factory
 from django.shortcuts import get_object_or_404
-from django.urls import path, reverse
+from django.urls import NoReverseMatch, path, reverse
 
 from . import widgets
 
@@ -20,6 +20,8 @@ class ModelView:
     list_group_by = ()            # raggruppamenti ammessi: "campo", "data:mese", "data:anno"
     list_sum = ()                 # campi numerici con i totali (per gruppo e in fondo)
     kanban_group = None           # vista kanban: campo con scelte o FK
+    kanban_fields = ()            # campi mostrati nella card (oltre al titolo)
+    kanban_limite = 50            # card per colonna
     calendar_date = None          # vista calendario: campo data
     graph = None                  # vista grafico: {"tipi": [...], "misure": [...], "per": [...]}
     form_layout = None            # [("Sezione", ["campo", ("affiancato1", "affiancato2")]), ...]
@@ -38,6 +40,7 @@ class ModelView:
     template_form = "core/vista/form.html"
     template_dettaglio = "core/vista/dettaglio.html"
     template_conferma = "core/vista/_conferma.html"
+    template_kanban = "core/vista/kanban.html"
 
     def __init__(self, modulo):
         self.modulo = modulo                                   # namespace URL = slug del modulo
@@ -66,7 +69,17 @@ class ModelView:
             path(f"{s}/<int:pk>/elimina/", elimina.EliminaView.as_view(vista=self), name=f"{s}_elimina"),
             path(f"{s}/azione/<slug:nome>/", azioni.AzioneView.as_view(vista=self), name=f"{s}_azione"),
             path(f"{s}/<int:pk>/bottone/<slug:nome>/", azioni.BottoneView.as_view(vista=self), name=f"{s}_bottone"),
-        ]
+        ] + self.get_urls_viste()
+
+    def get_urls_viste(self):
+        """URL delle viste facoltative, solo se dichiarate."""
+        from . import kanban
+        s = self.slug
+        urls = []
+        if self.kanban_group:
+            urls += [path(f"{s}/kanban/", kanban.KanbanView.as_view(vista=self), name=f"{s}_kanban"),
+                     path(f"{s}/<int:pk>/sposta/", kanban.SpostaView.as_view(vista=self), name=f"{s}_sposta")]
+        return urls
 
     def viste_disponibili(self):
         """[(nome, etichetta, url)] delle viste dichiarate, per il selettore nella testata."""
@@ -74,7 +87,10 @@ class ModelView:
         for nome, etichetta, attivo in [("kanban", "Kanban", self.kanban_group), ("calendario", "Calendario", self.calendar_date),
                                         ("grafico", "Grafico", self.graph)]:
             if attivo:
-                viste.append((nome, etichetta, self.url(nome)))
+                try:
+                    viste.append((nome, etichetta, self.url(nome)))
+                except NoReverseMatch:          # dichiarata ma non montata
+                    pass
         return viste
 
     def get_queryset(self, request):

@@ -1,0 +1,18 @@
+{# Ricerca e filtri senza HTMX (kanban, calendario, grafico): la pagina si ricarica al cambio. #}
+<form class="ui-filtri" method="get">
+  {% for nome, valore in extra_get %}<input type="hidden" name="{{ nome }}" value="{{ valore }}">{% endfor %}
+  {% if vista.search_fields %}
+  <div class="ui-search ui-filtri-q">
+    <svg><use href="#icon-search"/></svg>
+    <input class="ui-input" type="search" name="q" value="{{ request.GET.q }}" placeholder="Cerca…" aria-label="Cerca">
+  </div>
+  {% endif %}
+  {% for f in filtri %}{% if f.tipo != "data" %}
+  <select class="ui-input" name="f_{{ f.campo }}" aria-label="{{ f.label }}" onchange="this.form.submit()">
+    <option value="">{{ f.label }}: tutti</option>
+    {% for valore, etichetta in f.opzioni %}<option value="{{ valore }}"{% if valore == f.valore %} selected{% endif %}>{{ etichetta }}</option>{% endfor %}
+  </select>
+  {% endif %}{% endfor %}
+  <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Filtra</button>
+  {% if query_filtri %}<a class="ui-btn ui-btn-ghost ui-btn-sm" href="?{% for nome, valore in extra_get %}{{ nome }}={{ valore|urlencode }}{% if not forloop.last %}&{% endif %}{% endfor %}">Azzera</a>{% endif %}
+</form>
