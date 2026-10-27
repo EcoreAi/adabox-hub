@@ -19,7 +19,7 @@ ordine di dipendenza.
   restituisce un record vince; esito `abbinata`).
 - Test: notifica all'esterno, risposta dell'esterno, esterno non ammesso rifiutato, gestore che crea un record.
 
-### Task 1: contatti
+### Task 1: contatti — fatto
 - Modelli, validatori fiscali (`addons/contatti/validatori.py`), vista con kanban per tipo, chatter, report,
   import/export, sezione "Persone" sul dettaglio delle aziende (hook nel `ready()`), dati iniziali (categorie) e demo.
 

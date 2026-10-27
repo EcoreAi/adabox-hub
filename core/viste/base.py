@@ -1,10 +1,34 @@
 """ModelView: viste di un modello dichiarate in Python, sullo stile di ModelAdmin."""
-from django.db import transaction
+from django.db import models, transaction
 from django.forms import modelform_factory
 from django.shortcuts import get_object_or_404
 from django.urls import NoReverseMatch, path, reverse
 
 from . import widgets
+
+
+def _campo_form(campo, **kwargs):
+    """Campi del form generato: gli URL senza schema diventano https (comportamento di Django 6)."""
+    if isinstance(campo, models.URLField):
+        kwargs.setdefault("assume_scheme", "https")
+    return campo.formfield(**kwargs)
+
+
+def form_per_azienda(base, azienda_id):
+    """Sottoclasse del form in cui le scelte di FK e M2M verso modelli per azienda (con il campo `azienda`)
+    sono limitate all'azienda corrente: un record di un'altra azienda non si può né vedere né collegare."""
+    if azienda_id is None:
+        return base
+
+    def __init__(self, *args, **kwargs):
+        base.__init__(self, *args, **kwargs)
+        for campo in self.fields.values():
+            queryset = getattr(campo, "queryset", None)
+            if queryset is not None and any(f.name == "azienda" and f.is_relation
+                                            for f in queryset.model._meta.get_fields()):
+                campo.queryset = queryset.filter(azienda_id=azienda_id)
+
+    return type(base)(base.__name__, (base,), {"__init__": __init__, "__module__": base.__module__})
 
 
 class ModelView:
@@ -199,11 +223,15 @@ class ModelView:
     def get_form_class(self, request=None):
         """ModelForm della vista; con la richiesta aggiunge i campi personalizzati validi per l'azienda corrente."""
         from core import proprieta
-        base = self.form_class or modelform_factory(self.model, fields=self.campi_form())
-        if request is None or not proprieta.accetta(self.model):
+        base = self.form_class or modelform_factory(self.model, fields=self.campi_form(),
+                                                    formfield_callback=_campo_form)
+        if request is None:
             return base
-        definizioni = proprieta.definizioni(self.model, getattr(request, "azienda", None))
-        return proprieta.form_con_proprieta(base, definizioni) if definizioni else base
+        if proprieta.accetta(self.model):
+            definizioni = proprieta.definizioni(self.model, getattr(request, "azienda", None))
+            if definizioni:
+                base = proprieta.form_con_proprieta(base, definizioni)
+        return form_per_azienda(base, getattr(getattr(request, "azienda", None), "pk", None))
 
     def destinatari_esterni(self, obj):
         """Indirizzi email non utenti che ricevono i messaggi del chatter di `obj` e possono rispondere

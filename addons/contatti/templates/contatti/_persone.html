@@ -1,0 +1,13 @@
+{% if obj.tipo == "azienda" %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Persone ({{ obj.persone.count }})</div>
+    <div class="spacer"></div>
+    <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'contatti:contatti_nuovo' %}?tipo=persona&societa={{ obj.pk }}">Aggiungi persona</a></div>
+  <div class="ui-card-body">
+    {% for p in obj.persone.all %}
+    <div class="ui-allegato"><a class="ui-link" href="{% url 'contatti:contatti_dettaglio' p.pk %}">{{ p.nome }}</a>
+      <span class="ui-allegato-info">{{ p.ruolo }}{% if p.email %} · {{ p.email }}{% endif %}{% if p.telefono %} · {{ p.telefono }}{% endif %}</span></div>
+    {% empty %}<p class="ui-help">Nessuna persona collegata.</p>{% endfor %}
+  </div>
+</section>
+{% endif %}

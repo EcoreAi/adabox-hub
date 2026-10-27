@@ -1,0 +1,5 @@
+[
+  {"model": "contatti.categoria", "pk": 1, "fields": {"nome": "Prospect", "colore": "#ff9f0a"}},
+  {"model": "contatti.categoria", "pk": 2, "fields": {"nome": "Partner", "colore": "#34c759"}},
+  {"model": "contatti.categoria", "pk": 3, "fields": {"nome": "Pubblica amministrazione", "colore": "#5856d6"}}
+]

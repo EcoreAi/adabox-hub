@@ -1,0 +1,24 @@
+{
+    "name": "Contatti",
+    "summary": "Anagrafica di aziende e persone: clienti, fornitori, recapiti e dati fiscali",
+    "version": "1.0.0",
+    "author": "ICHNOBYTE S.R.L.",
+    "category": "Anagrafiche",
+    "depends": [],
+    "min_core": "1.0",
+    "application": True,
+    "icon": "contatti/icon.svg",
+    "menu": [
+        {"label": "Contatti", "url_name": "contatti:contatti_lista", "permission": "contatti.view_contatto"},
+        {"label": "Categorie", "url_name": "contatti:categorie_lista", "permission": "contatti.view_categoria"},
+    ],
+    "groups": {
+        "Contatti / Utente": ["contatti.view_contatto", "contatti.add_contatto", "contatti.change_contatto",
+                              "contatti.view_categoria"],
+        "Contatti / Responsabile": ["contatti.*"],
+    },
+    "data": ["data/categorie.json"],
+    "demo": ["data/demo.json"],
+    "hooks": "contatti.hooks",
+    "sequences": [{"codice": "contatti.contatto", "formato": "C{numero:05d}"}],
+}
