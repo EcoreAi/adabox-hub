@@ -1,4 +1,5 @@
 """ModelView: viste di un modello dichiarate in Python, sullo stile di ModelAdmin."""
+from django.forms import modelform_factory
 from django.shortcuts import get_object_or_404
 from django.urls import path, reverse
 
@@ -87,6 +88,47 @@ class ModelView:
 
     def has_delete_permission(self, request, obj=None):
         return self._perm(request, "delete")
+
+    def permesso_metodo(self, request, metodo):
+        """Permesso di un'azione o di un bottone: attributo `permission` del metodo ('change' di default,
+        oppure 'view'/'add'/'delete', oppure un permesso completo 'app.codename')."""
+        perm = getattr(metodo, "permission", "change")
+        return request.user.has_perm(perm) if "." in perm else self._perm(request, perm)
+
+    def etichetta_metodo(self, nome):
+        return getattr(getattr(self, nome), "short_description", nome.replace("_", " ").capitalize())
+
+    def get_actions(self, request):
+        """[(nome, etichetta)] delle azioni di massa che l'utente può usare."""
+        return [(n, self.etichetta_metodo(n)) for n in self.actions if self.permesso_metodo(request, getattr(self, n))]
+
+    def get_buttons(self, request, obj):
+        """[(nome, etichetta)] dei bottoni del dettaglio che l'utente può usare."""
+        return [(n, self.etichetta_metodo(n)) for n in self.buttons if self.permesso_metodo(request, getattr(self, n))]
+
+    def layout(self):
+        """form_layout normalizzato: [(titolo, [[campo, ...], ...])], ogni riga una lista di campi."""
+        if self.form_layout is None:
+            campi = [f.name for f in self.opts.get_fields()
+                     if getattr(f, "editable", False) and not f.auto_created and f.name not in self.readonly_fields
+                     and f.name != self.company_field]
+            return [("", [[c] for c in campi])]
+        return [(titolo, [list(r) if isinstance(r, (tuple, list)) else [r] for r in righe])
+                for titolo, righe in self.form_layout]
+
+    def layout_dettaglio(self):
+        """Il layout più i readonly_fields che non vi compaiono."""
+        layout = self.layout()
+        presenti = {c for _, righe in layout for riga in righe for c in riga}
+        if mancanti := [c for c in self.readonly_fields if c not in presenti]:
+            layout.append(("Altre informazioni", [[c] for c in mancanti]))
+        return layout
+
+    def campi_form(self):
+        return [c for _, righe in self.layout() for riga in righe for c in riga if c not in self.readonly_fields]
+
+    def get_form_class(self):
+        return self.form_class or modelform_factory(self.model, fields=self.campi_form())
 
     def etichetta(self, campo):
         """Intestazione di colonna o etichetta di campo."""

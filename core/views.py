@@ -57,7 +57,24 @@ class AziendaView(ModelView):
     search_fields = ["nome", "partita_iva"]
     ordering = ["nome"]
     per_page = 25
+    form_layout = [
+        ("Anagrafica", ["nome", ("partita_iva", "codice_fiscale"), ("indirizzo", "cap"), ("citta", "provincia")]),
+        ("Contatti", [("email", "telefono"), "logo", "attiva"]),
+    ]
+    actions = ["disattiva"]
+    buttons = ["attiva"]
 
     def col_citta(self, obj):
         return obj.citta.upper() if obj.citta else "—"
     col_citta.short_description = "Città"
+
+    def disattiva(self, request, queryset):
+        n = queryset.update(attiva=False)
+        return f"Aziende disattivate: {n}."
+    disattiva.short_description = "Disattiva"
+
+    def attiva(self, request, obj):
+        obj.attiva = True
+        obj.save(update_fields=["attiva"])
+        return f"Azienda «{obj}» attivata."
+    attiva.short_description = "Attiva"

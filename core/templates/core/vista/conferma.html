@@ -1,0 +1,15 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Elimina {{ obj }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Eliminare «{{ obj }}»?</h1><div class="sub"><a class="ui-link" href="{{ urls.lista }}">{{ vista.verbose_name_plural|capfirst }}</a></div></div></div>
+<div class="ui-card is-revealed" style="max-width:560px;">
+  <div class="ui-card-body">
+    <p>L'operazione non si può annullare.</p>
+    <form method="post" action="{{ url_elimina }}" class="ui-modal-actions">
+      {% csrf_token %}
+      <a class="ui-btn ui-btn-ghost" href="{{ url_annulla }}">Annulla</a>
+      <button type="submit" class="ui-btn ui-btn-danger"><svg><use href="#icon-trash"/></svg> Elimina</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

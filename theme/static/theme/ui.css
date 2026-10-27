@@ -807,3 +807,36 @@ a.ui-sort.is-desc::after { content: " ▼"; font-size: 9px; }
 @media (max-width: 767px) {
   .ui-filtri .ui-input, .ui-azioni .ui-input { width: 100%; min-width: 0; }
 }
+
+/* ============================================================
+   Form a sezioni, dettaglio, modale di conferma
+   ============================================================ */
+.ui-section { margin-bottom: 20px; }
+.ui-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 20px; }
+.ui-form-row + .ui-form-row { margin-top: 0; }
+.ui-form-actions { display: flex; gap: 8px; margin: 8px 0 24px; }
+.ui-form-group.has-error .ui-input { border-color: var(--ui-danger); }
+.ui-checkbox { width: 16px; height: 16px; accent-color: var(--ui-primary); vertical-align: -3px; margin-right: 6px; }
+.ui-checkbox-row { display: inline-flex; align-items: center; font-size: 14px; color: var(--ui-text); padding-top: 26px; }
+.ui-checkbox-list { list-style: none; padding: 0; margin: 0; }
+.ui-file { font-size: 13px; }
+.ui-dato { margin-bottom: 16px; min-width: 0; }
+.ui-dato-label {
+  font-size: 12px; font-weight: 600; color: var(--ui-text-2);
+  text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px;
+}
+.ui-dato-valore { font-size: 14px; color: var(--ui-text); overflow-wrap: anywhere; }
+.ui-pagehead-actions form { display: inline; }
+.ui-azioni-label { font-size: 13px; color: var(--ui-text-2); }
+.ui-modal {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(0, 0, 0, 0.35);
+}
+.ui-modal-box {
+  width: 100%; max-width: 440px; padding: 24px;
+  background: var(--ui-surface); border-radius: var(--radius-modal); box-shadow: var(--shadow-card);
+}
+.ui-modal-box h2 { margin: 0 0 8px; font-size: 18px; }
+.ui-modal-box p { margin: 0 0 20px; color: var(--ui-text-2); }
+.ui-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }

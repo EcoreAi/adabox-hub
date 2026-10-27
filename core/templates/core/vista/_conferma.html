@@ -1,0 +1,11 @@
+<div class="ui-modal" role="dialog" aria-modal="true" aria-labelledby="modale-titolo">
+  <div class="ui-modal-box">
+    <h2 id="modale-titolo">Eliminare «{{ obj }}»?</h2>
+    <p>L'operazione non si può annullare.</p>
+    <form method="post" action="{{ url_elimina }}" hx-post="{{ url_elimina }}" class="ui-modal-actions">
+      {% csrf_token %}
+      <a class="ui-btn ui-btn-ghost" href="{{ url_annulla }}" onclick="if (this.closest('#modale')) { this.closest('.ui-modal').remove(); return false; }">Annulla</a>
+      <button type="submit" class="ui-btn ui-btn-danger"><svg><use href="#icon-trash"/></svg> Elimina</button>
+    </form>
+  </div>
+</div>

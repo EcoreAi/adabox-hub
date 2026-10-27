@@ -1,0 +1,11 @@
+{% load vista %}
+<div class="ui-form-group{% if campo.errors %} has-error{% endif %}">
+  {% if campo|e_checkbox %}
+  <label class="ui-checkbox-row">{{ campo|con_classe }} {{ campo.label }}{% if campo.field.required %} *{% endif %}</label>
+  {% else %}
+  <label class="ui-label" for="{{ campo.id_for_label }}">{{ campo.label }}{% if campo.field.required %} *{% endif %}</label>
+  {{ campo|con_classe }}
+  {% endif %}
+  {% for e in campo.errors %}<div class="ui-form-error ui-field-error">{{ e }}</div>{% endfor %}
+  {% if campo.help_text %}<small class="ui-help">{{ campo.help_text }}</small>{% endif %}
+</div>

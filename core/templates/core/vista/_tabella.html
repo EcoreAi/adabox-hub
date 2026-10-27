@@ -3,12 +3,8 @@
   {% if azioni %}
   <form method="post" id="form-azioni" class="ui-azioni">
     {% csrf_token %}
-    <select class="ui-input" name="azione" aria-label="Azione sulle righe selezionate"
-            onchange="this.form.action=this.value">
-      <option value="">Azione sulle righe selezionate…</option>
-      {% for nome, etichetta in azioni %}<option value="{% url vista.modulo|add:':'|add:vista.slug|add:'_azione' nome=nome %}">{{ etichetta }}</option>{% endfor %}
-    </select>
-    <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Applica</button>
+    <span class="ui-azioni-label">Sulle righe selezionate:</span>
+    {% for nome, etichetta, url in azioni %}<button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm" formaction="{{ url }}">{{ etichetta }}</button>{% endfor %}
   </form>
   {% endif %}
   {% if righe %}

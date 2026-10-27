@@ -1077,7 +1077,7 @@ Run: `pytest core/tests/test_modelview_lista.py -v` — Expected: passed. Apri `
 - Modify: `core/viste/base.py`, `core/templatetags/vista.py`, `core/views.py` (`AziendaView`: `form_layout`, action `disattiva`, button `attiva`), `theme/static/theme/ui.css` (solo se mancano `.ui-form-row`, `.ui-modal`, `.ui-section`)
 - Test: `core/tests/test_modelview_form.py`
 
-- [ ] **Step 1: test (falliscono)**
+- [x] **Step 1: test (falliscono)**
 
 - GET nuovo senza `add` → 403; con → 200, form con le sezioni del `form_layout` (titoli presenti, campi affiancati nella stessa `ui-form-row`); campo in `readonly_fields` assente dalla form e mostrato nel dettaglio;
 - POST valido → 302 al dettaglio, oggetto creato, `messages` "creata"; POST non valido → 200 con l'errore sotto il campo (`ui-field-error`);
@@ -1088,7 +1088,7 @@ Run: `pytest core/tests/test_modelview_lista.py -v` — Expected: passed. Apri `
 - bottone: POST `core:aziende_bottone pk nome=attiva` → chiama il metodo; `str` restituita → messaggio e redirect al dettaglio; `HttpResponse` restituita → usata così com'è;
 - sezione: `hooks.sezione_dettaglio("core.Azienda", "core/tests/_sezione_prova.html", order=10)` (template creato nel test con `tmp` di `settings.TEMPLATES[0]["DIRS"]`, o un template dentro `core/tests/templates/`) → il dettaglio contiene il suo HTML con `obj` nel contesto; due sezioni rispettano `order`; sezione con `permission` non posseduta non compare; `hooks.svuota()` in una fixture `autouse`.
 
-- [ ] **Step 2: implementazione**
+- [x] **Step 2: implementazione**
 
 `base.py` aggiunge:
 ```python
@@ -1118,7 +1118,7 @@ def svuota(): ...
 
 Run: `pytest core/tests -v` — Expected: passed. Prova nel browser creazione, modifica, eliminazione con modale, azione di massa.
 
-- [ ] **Step 3: commit** — `feat(core): ModelView: form a sezioni, dettaglio con sezioni registrabili, eliminazione, azioni e bottoni`
+- [x] **Step 3: commit** — `feat(core): ModelView: form a sezioni, dettaglio con sezioni registrabili, eliminazione, azioni e bottoni`
 
 ---
 

@@ -35,13 +35,12 @@ class ListaView(VistaBase):
             direzione = "asc" if ordine == c else "desc" if ordine == f"-{c}" else ""
             colonne.append({"campo": c, "label": vista.etichetta(c), "ordinabile": c in ordinabili,
                             "direzione": direzione, "prossimo": f"-{c}" if direzione == "asc" else c})
-        azioni = [(nome, getattr(getattr(vista, nome), "short_description", nome.replace("_", " ").capitalize()))
-                  for nome in vista.actions]
+        azioni = [(nome, etichetta, vista.url("azione", nome=nome)) for nome, etichetta in vista.get_actions(request)]
         ctx = {
             "vista": vista, "urls": urls_di(vista), "colonne": colonne,
             "righe": [(obj, [vista.col_valore(request, obj, c) for c in vista.list_display]) for obj in page_obj],
             "filtri": filtri.specifiche(vista, request), "page_obj": page_obj,
             "q": request.GET.get("q", ""), "puo_aggiungere": vista.has_add_permission(request),
-            "azioni": azioni if vista.has_change_permission(request) else [],
+            "azioni": azioni,
         }
         return render(request, vista.template_tabella if parziale(request) else vista.template_lista, ctx)

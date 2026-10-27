@@ -1,0 +1,30 @@
+{% extends 'core/base_app.html' %}
+{% load vista %}
+{% block title %}{% if obj %}{{ obj }}{% else %}Nuovo{% endif %} · {{ vista.verbose_name_plural|capfirst }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div>
+    <h1>{% if obj %}{{ obj }}{% else %}{{ vista.verbose_name|capfirst }}: nuovo{% endif %}</h1>
+    <div class="sub"><a class="ui-link" href="{{ urls.lista }}">{{ vista.verbose_name_plural|capfirst }}</a></div>
+  </div>
+</div>
+<form method="post"{% if form.is_multipart %} enctype="multipart/form-data"{% endif %} novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="ui-alert ui-alert-error">{% for e in form.non_field_errors %}{{ e }} {% endfor %}</div>{% endif %}
+  {% for campo_nascosto in form.hidden_fields %}{{ campo_nascosto }}{% endfor %}
+  {% for titolo, righe in sezioni %}
+  <section class="ui-card is-revealed ui-section">
+    {% if titolo %}<div class="ui-card-head"><div class="ui-card-title">{{ titolo }}</div></div>{% endif %}
+    <div class="ui-card-body">
+      {% for riga in righe %}
+      <div class="ui-form-row">{% for f in riga %}{% campo f %}{% endfor %}</div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+  <div class="ui-form-actions">
+    <button type="submit" class="ui-btn ui-btn-primary"><svg><use href="#icon-save"/></svg> Salva</button>
+    <a class="ui-btn ui-btn-ghost" href="{{ annulla }}">Annulla</a>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends 'core/base_app.html' %}
+{% block title %}{{ obj }} · {{ vista.verbose_name_plural|capfirst }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div>
+    <h1>{{ obj }}</h1>
+    <div class="sub"><a class="ui-link" href="{{ urls.lista }}">{{ vista.verbose_name_plural|capfirst }}</a></div>
+  </div>
+  <div class="ui-pagehead-actions">
+    {% for nome, etichetta, url in bottoni %}
+    <form method="post" action="{{ url }}">{% csrf_token %}<button type="submit" class="ui-btn ui-btn-secondary">{{ etichetta }}</button></form>
+    {% endfor %}
+    {% if puo_modificare %}<a class="ui-btn ui-btn-primary" href="{{ url_modifica }}"><svg><use href="#icon-edit"/></svg> Modifica</a>{% endif %}
+    {% if puo_eliminare %}<a class="ui-btn ui-btn-danger" href="{{ url_elimina }}" hx-get="{{ url_elimina }}" hx-target="#modale" hx-swap="innerHTML"><svg><use href="#icon-trash"/></svg> Elimina</a>{% endif %}
+  </div>
+</div>
+{% for titolo, righe in sezioni %}
+<section class="ui-card is-revealed ui-section">
+  {% if titolo %}<div class="ui-card-head"><div class="ui-card-title">{{ titolo }}</div></div>{% endif %}
+  <div class="ui-card-body">
+    {% for riga in righe %}
+    <div class="ui-form-row">
+      {% for c in riga %}<div class="ui-dato"><div class="ui-dato-label">{{ c.label }}</div><div class="ui-dato-valore">{{ c.valore }}</div></div>{% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+{% for s in sezioni_extra %}{% include s.template %}{% endfor %}
+<div id="modale"></div>
+{% endblock %}
