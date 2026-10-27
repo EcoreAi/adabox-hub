@@ -352,7 +352,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Create: `core/registry/manifest.py`, `core/management/__init__.py`, `core/management/commands/__init__.py`, `core/management/commands/modulo.py`
 - Test: `core/tests/test_manifest.py`
 
-- [ ] **Step 1: test (falliscono)**
+- [x] **Step 1: test (falliscono)**
 
 `core/tests/test_manifest.py`, casi (ognuno un test, usa `addons_tmp.crea`):
 - manifest minimo valido → `leggi(cartella)` restituisce `Manifest` con `slug`, `name`, `version`, `depends == []`, `application is False`;
@@ -373,7 +373,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 Run: `pytest core/tests/test_manifest.py -v`
 Expected: FAIL (`ImportError`).
 
-- [ ] **Step 2: manifest.py**
+- [x] **Step 2: manifest.py**
 
 ```python
 import ast
@@ -464,14 +464,14 @@ def valida(dati, slug, cartella):
 ```
 Scrivi per esteso i controlli indicati nel commento; ogni messaggio nomina la chiave e il valore sbagliato.
 
-- [ ] **Step 3: comando `modulo` con il sottocomando `verifica`**
+- [x] **Step 3: comando `modulo` con il sottocomando `verifica`**
 
 `core/management/commands/modulo.py`: `BaseCommand` con `add_arguments` che crea `subparsers` (`dest="sottocomando"`, `required=True`). In questo task solo `verifica <percorso>`: chiama `manifest.leggi`, stampa `OK <slug> <version>` oppure solleva `CommandError` con gli errori uno per riga. I sottocomandi successivi (`lista`, `sincronizza`, `installa`, `aggiorna`, `disinstalla`) si aggiungono nei task 5 e 7 allo stesso file.
 
 Run: `pytest core/tests/test_manifest.py -v`
 Expected: tutti passed.
 
-- [ ] **Step 4: commit** — `feat(core): manifest dei moduli con validazione e comando modulo verifica`
+- [x] **Step 4: commit** — `feat(core): manifest dei moduli con validazione e comando modulo verifica`
 
 ---
 
