@@ -269,3 +269,27 @@ class Follower(models.Model):
 
     def __str__(self):
         return f"{self.utente} segue {self.content_type.model} #{self.object_id}"
+
+
+class EmailRicevuta(models.Model):
+    """Email arrivata nella casella delle risposte: esito dell'abbinamento a un record del chatter."""
+    ABBINATA, NON_ABBINATA, RIFIUTATA, ERRORE = "abbinata", "non_abbinata", "rifiutata", "errore"
+    STATI = [(ABBINATA, "Abbinata"), (NON_ABBINATA, "Non abbinata"), (RIFIUTATA, "Rifiutata"), (ERRORE, "Errore")]
+    message_id = models.CharField("Message-ID", max_length=255, unique=True)
+    mittente = models.CharField("mittente", max_length=254, blank=True)
+    oggetto = models.CharField("oggetto", max_length=255, blank=True)
+    ricevuta = models.DateTimeField("ricevuta il", auto_now_add=True)
+    stato = models.CharField("stato", max_length=12, choices=STATI)
+    motivo = models.TextField("motivo", blank=True)
+    content_type = models.ForeignKey(ContentType, on_delete=models.SET_NULL, null=True, blank=True)
+    object_id = models.PositiveBigIntegerField(null=True, blank=True)
+    messaggio = models.ForeignKey(Messaggio, on_delete=models.SET_NULL, null=True, blank=True,
+                                  related_name="+", verbose_name="messaggio")
+
+    class Meta:
+        verbose_name = "email ricevuta"
+        verbose_name_plural = "email ricevute"
+        ordering = ["-ricevuta", "-pk"]
+
+    def __str__(self):
+        return f"{self.oggetto or '(senza oggetto)'} da {self.mittente}"

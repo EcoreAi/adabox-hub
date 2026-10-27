@@ -120,7 +120,7 @@ chiusi con la riga `Co-Authored-By` del modello che li scrive, push a fine task)
 - Template testo + HTML (`core/email/notifica.*`), link assoluto con `SITO_URL`.
 - Test (`mail.outbox`): destinatari, header, token verificabile, nota → nessuna email.
 
-### Task 9: Email in entrata
+### Task 9: Email in entrata — fatto
 
 - `EmailRicevuta` (spec). `chatter.entrata.ricevi(raw_bytes)`: parse, idempotenza su `Message-ID`, abbinamento
   (`In-Reply-To`/`References` → `Messaggio.message_id`, poi token nell'indirizzo `To`/`Delivered-To`), mittente =

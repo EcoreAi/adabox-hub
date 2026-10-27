@@ -1,5 +1,7 @@
 """Pianificazioni del kernel: si sincronizzano a ogni migrate di core (le voci si aggiungono nei servizi)."""
-KERNEL = []
+KERNEL = [
+    {"nome": "Posta in entrata", "funzione": "core.chatter.entrata.leggi_casella", "ogni": "2m"},
+]
 
 
 def sincronizza(**_):

@@ -16,7 +16,7 @@ from . import moduli as mod
 from . import parametri
 
 from .forms import AziendaPredefinitaForm, ProfiloForm, TokenApiForm
-from .models import Azienda, Lavoro, Modulo, ProfiloUtente, TokenApi
+from .models import Azienda, EmailRicevuta, Lavoro, Modulo, ProfiloUtente, TokenApi
 from .registry import modules
 from .signals import crea_profilo
 from .viste import ModelView, register
@@ -31,6 +31,8 @@ def voci_kernel(user):
     if user.is_superuser:
         voci.append({"label": "Lavori", "url": reverse("core:lavoro_lista"), "icon": "zap",
                      "sub": "Coda dei lavori in background"})
+        voci.append({"label": "Email ricevute", "url": reverse("core:email_lista"), "icon": "inbox",
+                     "sub": "Risposte alle notifiche e loro abbinamento"})
         voci.append({"label": "Moduli", "url": reverse("core:moduli"), "icon": "download",
                      "sub": "Installa, aggiorna e disinstalla le app"})
     if user.has_perm("core.change_parametro") and parametri.definizioni():
@@ -296,3 +298,15 @@ def impostazioni(request):
             return redirect(f"{reverse('core:impostazioni')}#{slug}")
         schede.append({"slug": slug, "nome": manifest[slug].name, "form": form})
     return render(request, "core/impostazioni.html", {"schede": schede})
+
+
+@register
+class EmailRicevutaView(SoloSuperuserView):
+    model = EmailRicevuta
+    slug = "email"
+    list_display = ["oggetto", "mittente", "stato", "ricevuta"]
+    list_filter = ["stato"]
+    search_fields = ["oggetto", "mittente", "message_id"]
+    form_layout = [("Email", ["oggetto", ("mittente", "ricevuta"), "message_id"]),
+                   ("Esito", [("stato", "messaggio"), "motivo"])]
+    readonly_fields = ["ricevuta"]
