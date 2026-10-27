@@ -738,20 +738,20 @@ Run: `pytest core/tests/test_registry.py -v` — Expected: passed.
 - Create: `core/backup.py`
 - Test: `core/tests/test_backup.py`
 
-- [ ] **Step 1: test (falliscono)**
+- [x] **Step 1: test (falliscono)**
 
 - con il DB di test (sqlite): `esegui("prova")` crea `BACKUP_DIR/<AAAA-MM-GG-HHMMSS>-prova.sqlite3` (settings `BACKUP_DIR` = `tmp_path`) apribile con `sqlite3` e contenente la tabella `core_azienda`;
 - Postgres (monkeypatch di `settings.DATABASES["default"]["ENGINE"]` e di `subprocess.run`): viene chiamato `pg_dump` con `-Fc`, `--dbname` composto da host, porta, utente e nome, `PGPASSWORD` nell'env e `--file` nel `BACKUP_DIR`; `returncode != 0` → `BackupFallito` con lo stderr;
 - `pulisci()` tiene solo gli ultimi `BACKUP_CONSERVA` file (per nome, che inizia con la data);
 - `esegui` su un engine sconosciuto → `BackupFallito`.
 
-- [ ] **Step 2: backup.py**
+- [x] **Step 2: backup.py**
 
 `esegui(motivo)`: crea `BACKUP_DIR`, sceglie per engine: `sqlite3` → `connection.connection.backup(sqlite3.connect(dest))` (API nativa di sqlite, funziona anche sul DB in memoria dei test); `postgresql` → `subprocess.run(["pg_dump", "-Fc", "--dbname", url, "--file", dest], env={**os.environ, "PGPASSWORD": pw}, capture_output=True, text=True)`. Poi `pulisci()`. Log su `core.moduli`. Restituisce il `Path`.
 
 Run: `pytest core/tests/test_backup.py -v` — Expected: passed.
 
-- [ ] **Step 3: commit** — `feat(core): backup del database prima di installazioni e aggiornamenti`
+- [x] **Step 3: commit** — `feat(core): backup del database prima di installazioni e aggiornamenti`
 
 ---
 
