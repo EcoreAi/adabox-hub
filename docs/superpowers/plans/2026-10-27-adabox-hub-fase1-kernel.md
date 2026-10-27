@@ -762,7 +762,7 @@ Run: `pytest core/tests/test_backup.py -v` — Expected: passed.
 - Modify: `core/management/commands/modulo.py` (`installa`, `aggiorna`, `disinstalla`)
 - Test: `core/tests/test_groups.py`, `core/tests/test_reload.py`, `core/tests/test_install.py`
 
-- [ ] **Step 1: test (falliscono)**
+- [x] **Step 1: test (falliscono)**
 
 `test_groups.py` (usa i permessi reali di `core`):
 - `espandi("core.*")` → tutti i codename dei modelli di `core` con prefisso `core.`; `espandi("core.view_azienda")` → `["core.view_azienda"]`; permesso inesistente → `ValueError`;
@@ -787,7 +787,7 @@ Run: `pytest core/tests/test_backup.py -v` — Expected: passed.
 - `--riavvia` → `reload.richiedi` chiamato (monkeypatch) solo a fine operazione riuscita;
 - `_modulo_applica installa <slug>` **in-process** su un modulo finto che è già in `INSTALLED_APPS`: per testarlo, `addons_tmp.crea("alfa", modelli=...)` con un modello e una migrazione generata (`call_command("makemigrations", "alfa")`), poi `settings.INSTALLED_APPS += ["alfa"]` e `apps.set_installed_apps`... **troppo fragile**: il flusso completo nel sottoprocesso si verifica end-to-end in Task 13 (`test_installazione.py` di `todo`). Qui si testano solo le funzioni di supporto di `_modulo_applica`: `carica_fixture(manifest, demo)` chiama `loaddata` con i percorsi assoluti; `esegui_hook(manifest, "post_install", modulo)` importa il modulo indicato e chiama la funzione se esiste, ignora se manca; `aggiorna_riga(manifest, stato=...)` scrive la riga `Modulo`.
 
-- [ ] **Step 2: groups.py, reload.py**
+- [x] **Step 2: groups.py, reload.py**
 
 ```python
 # core/registry/groups.py
@@ -844,7 +844,7 @@ def richiedi():
     raise ValueError(f"RELOAD_STRATEGY {strategia!r} sconosciuta")
 ```
 
-- [ ] **Step 3: install.py**
+- [x] **Step 3: install.py**
 
 ```python
 class ErroreInstallazione(Exception): ...
@@ -897,7 +897,7 @@ def installa(slugs, demo=False, riavvia=False, conferma=None):
 ```
 `aggiorna(slugs|tutti)` e `disinstalla(slug, elimina_dati, riavvia)` seguono lo stesso schema (backup → `_applica` → stato). Per `disinstalla`: controllo dei dipendenti tra gli installati, `_applica("disinstalla", [slug], elimina_dati=...)`, **poi** `scrivi_stato` senza lo slug. `_chiusura` aggiunge ricorsivamente le dipendenze.
 
-- [ ] **Step 4: `_modulo_applica`**
+- [x] **Step 4: `_modulo_applica`**
 
 Comando nascosto (`help` lo dice: "uso interno di modulo"). Argomenti: `operazione` (`installa|aggiorna|disinstalla`), `slugs`, `--demo`, `--elimina-dati`. Per ogni slug nell'ordine dato:
 - `installa`: `call_command("migrate", slug, interactive=False, verbosity=1)`; `carica_fixture(manifest, demo)`; `gruppi = crea_gruppi(manifest)`; `esegui_hook(manifest, "post_install", modulo)`; `aggiorna_riga(manifest, stato=INSTALLATO, versione_installata=manifest.version, installato_il=now, gruppi_creati=gruppi)`.
@@ -906,13 +906,13 @@ Comando nascosto (`help` lo dice: "uso interno di modulo"). Argomenti: `operazio
 - Alla fine, se `not settings.DEBUG`: `call_command("collectstatic", interactive=False, verbosity=0)`.
 Qualsiasi eccezione → stack su stderr, exit 1. Tutto dentro `transaction.atomic()` **per modulo**, tranne `migrate`, che gestisce le proprie transazioni.
 
-- [ ] **Step 5: sottocomandi di `modulo`**
+- [x] **Step 5: sottocomandi di `modulo`**
 
 `installa <slug>... [--demo] [--riavvia] [--si]`: la `conferma` stampa le dipendenze aggiuntive e chiede `[s/N]` salvo `--si`. `aggiorna <slug>...|--tutti [--riavvia]`, `disinstalla <slug> [--elimina-dati] [--riavvia] [--si]` (`--si` salta la conferma di `--elimina-dati`). Errori `ErroreInstallazione`/`ManifestNonValido`/`BackupFallito` → `CommandError`.
 
 Run: `pytest core/tests -v` — Expected: passed.
 
-- [ ] **Step 6: commit** — `feat(core): installazione, aggiornamento e disinstallazione dei moduli con backup, gruppi, hook e ricarica`
+- [x] **Step 6: commit** — `feat(core): installazione, aggiornamento e disinstallazione dei moduli con backup, gruppi, hook e ricarica`
 
 ---
 

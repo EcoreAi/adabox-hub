@@ -18,6 +18,8 @@ class BackupFallito(Exception):
 
 
 def _sqlite(dest):
+    """Va chiamata fuori da transazioni con scritture non committate: il backup nativo di sqlite
+    sulla stessa connessione resterebbe in attesa (succede solo nei test non transazionali)."""
     connection.ensure_connection()
     destinazione = sqlite3.connect(dest)
     try:
