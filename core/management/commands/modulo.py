@@ -28,11 +28,27 @@ class Command(BaseCommand):
         p = sub.add_parser("verifica", help="valida il manifest di una cartella")
         p.add_argument("percorso")
 
+    OPERAZIONI = {"installa", "aggiorna", "disinstalla"}
+
     def handle(self, *args, sottocomando, **opzioni):
+        """Le operazioni chiudono con '== FINE ok ==' o '== FINE errore ==': la pagina Moduli
+        legge il log del sottoprocesso e capisce così quando ha finito."""
         try:
             getattr(self, f"_{sottocomando}")(**opzioni)
         except (install.ErroreInstallazione, manifest.ManifestNonValido, BackupFallito) as e:
+            self._fine(sottocomando, "errore", str(e))
             raise CommandError(str(e))
+        except BaseException as e:
+            self._fine(sottocomando, "errore", repr(e))
+            raise
+        self._fine(sottocomando, "ok")
+
+    def _fine(self, sottocomando, esito, errore=""):
+        if sottocomando in self.OPERAZIONI:
+            if errore:
+                self.stdout.write(f"ERRORE: {errore}")
+            self.stdout.write(f"== FINE {esito} ==")
+            self.stdout.flush()
 
     def _chiedi(self, domanda):
         self.stdout.write(f"{domanda} [s/N] ", ending="")

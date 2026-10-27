@@ -1,0 +1,45 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Moduli · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Moduli</h1><div class="sub">Le app su disco in <code class="ui-code">addons/</code>: installa, aggiorna, disinstalla</div></div>
+</div>
+{% if log %}{% include "core/partials/_moduli_stato.html" %}{% else %}<div id="stato"></div>{% endif %}
+{% if schede %}
+<div class="ui-moduli">
+  {% for s in schede %}{% with r=s.riga m=s.manifest %}
+  <div class="ui-card is-revealed ui-modulo">
+    <div class="ui-card-head">
+      <div>
+        <div class="ui-card-title">{{ r.nome }}</div>
+        <div class="ui-card-sub"><code class="ui-code">{{ r.slug }}</code>
+          {% if r.versione_installata %}v{{ r.versione_installata }}{% endif %}
+          {% if r.versione_disponibile and r.versione_disponibile != r.versione_installata %}→ v{{ r.versione_disponibile }}{% endif %}</div>
+      </div>
+      <div class="spacer"></div>
+      <span class="ui-pill {% if r.stato == 'installato' %}ui-pill-ok{% elif r.stato == 'da_aggiornare' %}ui-pill-warn{% elif r.stato == 'disponibile' %}ui-pill-neutral{% else %}ui-pill-danger{% endif %}">{{ r.get_stato_display }}</span>
+    </div>
+    <div class="ui-card-body">
+      {% if m.summary %}<p>{{ m.summary }}</p>{% endif %}
+      {% if m.depends %}<p class="ui-help">Dipende da: {{ m.depends|join:", " }}</p>{% endif %}
+      {% if r.ultimo_errore and r.stato == 'errore' or r.ultimo_errore and r.stato == 'mancante' %}<div class="ui-alert ui-alert-error"><pre class="ui-log">{{ r.ultimo_errore|truncatechars:1500 }}</pre></div>{% endif %}
+      <div class="ui-modulo-ops">
+        {% for op in s.ops %}
+        <form method="post" action="{% url 'core:moduli_azione' %}" hx-post="{% url 'core:moduli_azione' %}" hx-target="#stato" hx-swap="outerHTML"
+              {% if op == "disinstalla" %}hx-confirm="Disinstallare {{ r.nome }}?"{% endif %}>
+          {% csrf_token %}
+          <input type="hidden" name="op" value="{{ op }}"><input type="hidden" name="slug" value="{{ r.slug }}">
+          {% if op == "installa" and m.demo %}<label class="ui-checkbox-row"><input type="checkbox" class="ui-checkbox" name="demo" value="1"> dati demo</label>{% endif %}
+          {% if op == "disinstalla" %}<label class="ui-checkbox-row"><input type="checkbox" class="ui-checkbox" name="elimina_dati" value="1"> elimina dati</label>{% endif %}
+          <button type="submit" class="ui-btn {% if op == 'disinstalla' %}ui-btn-danger{% else %}ui-btn-primary{% endif %} ui-btn-sm">{{ op|capfirst }}</button>
+        </form>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endwith %}{% endfor %}
+</div>
+{% else %}
+<div class="ui-card is-revealed"><div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun modulo in addons/.</p></div></div></div>
+{% endif %}
+{% endblock %}

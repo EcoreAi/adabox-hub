@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Azienda, ProfiloUtente
+from .models import Azienda, Modulo, ProfiloUtente
 
 
 @admin.register(Azienda)
@@ -14,3 +14,20 @@ class AziendaAdmin(admin.ModelAdmin):
 class ProfiloUtenteAdmin(admin.ModelAdmin):
     list_display = ("utente", "azienda_predefinita")
     filter_horizontal = ("aziende",)
+
+
+@admin.register(Modulo)
+class ModuloAdmin(admin.ModelAdmin):
+    """Specchio in sola lettura del file di stato: le operazioni passano dalla pagina /moduli/."""
+    list_display = ("slug", "nome", "versione_installata", "versione_disponibile", "stato", "application")
+    list_filter = ("stato", "application")
+    search_fields = ("slug", "nome")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

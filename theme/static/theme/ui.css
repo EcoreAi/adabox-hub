@@ -881,3 +881,18 @@ a.ui-sort.is-desc::after { content: " ▼"; font-size: 9px; }
   .ui-appbar-destra { margin-left: 0; width: 100%; }
   .ui-aziende .ui-input { width: 100%; }
 }
+
+/* ============================================================
+   Pagina Moduli: card dei moduli e log delle operazioni
+   ============================================================ */
+.ui-moduli { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.ui-moduli .ui-card { margin-bottom: 0; }
+.ui-modulo-ops { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.ui-modulo-ops form { display: inline-flex; align-items: center; gap: 8px; }
+.ui-modulo-ops .ui-checkbox-row { padding-top: 0; font-size: 13px; color: var(--ui-text-2); }
+.ui-moduli-stato { margin-bottom: 20px; }
+pre.ui-log {
+  margin: 0; max-height: 320px; overflow: auto; padding: 12px 14px;
+  background: var(--ui-surface-2); border-radius: var(--radius-input);
+  font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere;
+}

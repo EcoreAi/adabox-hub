@@ -1187,20 +1187,20 @@ Run: `pytest -v` — Expected: passed.
 - Modify: `core/views.py`, `core/urls.py`, `core/admin.py` (`ModuloAdmin` sola lettura con link a `/moduli/`)
 - Test: `core/tests/test_moduli_pagina.py`
 
-- [ ] **Step 1: test (falliscono)**
+- [x] **Step 1: test (falliscono)**
 
 - `/moduli/` → 302 per anonimo, 403 per staff non superuser, 200 per superuser; chiama `sincronizza()` e mostra una card per modulo con nome, versione, stato e i bottoni giusti per stato (`disponibile` → Installa con checkbox demo; `installato` → Disinstalla con checkbox "elimina dati"; `da_aggiornare` → Aggiorna e Disinstalla; `mancante`/`errore` → solo Disinstalla, e l'errore in un `ui-alert`);
 - `POST /moduli/azione/` con `op=installa&slug=alfa` → `subprocess.Popen` chiamato (monkeypatch) con `[sys.executable, ".../manage.py", "modulo", "installa", "alfa", "--si", "--riavvia"]`, `start_new_session=True`, stdout su un file in `logs/`; risposta 200 con il partial `_moduli_stato.html` che contiene `hx-get` verso `/moduli/stato/?log=<nome>`; `op=installa` con `demo=1` aggiunge `--demo`; `op=disinstalla` con `elimina_dati=1` aggiunge `--elimina-dati`; `slug` non tra quelli scoperti → 400; `op` sconosciuta → 400;
 - `/moduli/stato/?log=<nome>` → coda del log (ultime 60 righe), `in_corso` finché il processo non ha scritto la riga finale `== FINE <esito> ==` (la scrive il comando `modulo`), e `completato`/`fallito` dopo; nome di log con `/` o `..` → 400;
 - `Modulo` nell'admin: `has_add_permission` e `has_change_permission` falsi, `list_display` con stato.
 
-- [ ] **Step 2: implementazione**
+- [x] **Step 2: implementazione**
 
 Viste `moduli` (GET), `moduli_azione` (POST), `moduli_stato` (GET), decorate con `user_passes_test(lambda u: u.is_superuser)`. Il log: `logs/moduli-<slug>-<timestamp>.log` aperto in scrittura e passato a `Popen(stdout=f, stderr=subprocess.STDOUT, cwd=BASE_DIR, start_new_session=True)`; il comando `modulo` stampa `== FINE ok ==` o `== FINE errore ==` come ultima riga (aggiungilo al comando, anche per la CLI). `_moduli_stato.html`: `<div id="stato" hx-get="..." hx-trigger="every 2s" hx-swap="outerHTML">` con `<pre class="ui-log">` e, a fine lavoro, un link "Ricarica la pagina". `moduli.html` estende `base_app.html`. Link "Moduli" nel dropdown del profilo del theme: **no** (theme non conosce core); si aggiunge invece una voce "Moduli" nel launcher per il superuser e un link dall'admin (`ModuloAdmin.changelist` con un `ui-alert` in `change_list_template`).
 
 Run: `pytest core/tests/test_moduli_pagina.py -v` — Expected: passed.
 
-- [ ] **Step 3: commit** — `feat(core): pagina Moduli con installazione, aggiornamento e disinstallazione dall'interfaccia`
+- [x] **Step 3: commit** — `feat(core): pagina Moduli con installazione, aggiornamento e disinstallazione dall'interfaccia`
 
 ---
 

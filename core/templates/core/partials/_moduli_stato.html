@@ -1,0 +1,17 @@
+<div id="stato" class="ui-card is-revealed ui-moduli-stato"
+     {% if stato == "in_corso" %}hx-get="{% url 'core:moduli_stato' %}?log={{ log|urlencode }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  <div class="ui-card-head">
+    <div class="ui-card-title">
+      {% if stato == "in_corso" %}Operazione in corso…{% elif stato == "completato" %}Operazione completata{% else %}Operazione fallita{% endif %}
+    </div>
+    <div class="spacer"></div>
+    {% if stato == "completato" %}<span class="ui-pill ui-pill-ok">ok</span>{% elif stato == "fallito" %}<span class="ui-pill ui-pill-danger">errore</span>{% else %}<span class="ui-pill ui-pill-info">in corso</span>{% endif %}
+  </div>
+  <div class="ui-card-body">
+    <pre class="ui-log">{{ coda|default:"In attesa dell'output…" }}</pre>
+    {% if stato != "in_corso" %}
+    <p class="ui-help">{% if stato == "completato" %}Il server si sta ricaricando con i moduli nuovi.{% endif %}
+      <a class="ui-link" href="{% url 'core:moduli' %}">Ricarica la pagina</a></p>
+    {% endif %}
+  </div>
+</div>

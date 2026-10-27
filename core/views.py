@@ -1,15 +1,20 @@
 from django.contrib import messages
+from functools import wraps
+
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import NoReverseMatch, reverse
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from . import azienda as az
+from . import moduli as mod
 
 from .forms import ProfiloForm
-from .models import Azienda
+from .models import Azienda, Modulo
+from .registry import modules
 from .viste import ModelView, register
 
 
@@ -19,6 +24,9 @@ def voci_kernel(user):
     if user.has_perm("core.view_azienda"):
         voci.append({"label": "Aziende", "url": reverse("core:aziende_lista"), "icon": "tool",
                      "sub": "Anagrafica delle aziende dell'istanza"})
+    if user.is_superuser:
+        voci.append({"label": "Moduli", "url": reverse("core:moduli"), "icon": "download",
+                     "sub": "Installa, aggiorna e disinstalla le app"})
     if user.is_staff:
         voci.append({"label": "Stile", "url": reverse("core:stile"), "icon": "eye",
                      "sub": "Catalogo dei componenti grafici"})
@@ -95,3 +103,73 @@ class AziendaView(ModelView):
         obj.save(update_fields=["attiva"])
         return f"Azienda «{obj}» attivata."
     attiva.short_description = "Attiva"
+
+
+def solo_superuser(vista):
+    """Login richiesto; poi 403 (non un altro redirect al login) per chi non è superuser."""
+    @login_required
+    @wraps(vista)
+    def interna(request, *args, **kwargs):
+        if not request.user.is_superuser:
+            raise PermissionDenied
+        return vista(request, *args, **kwargs)
+    return interna
+
+
+def _schede_moduli():
+    righe = modules.sincronizza()
+    info = modules.scopri()
+    installati = modules.installati()
+    schede = []
+    for r in righe:
+        m = info[r.slug].manifest if r.slug in info else None
+        installato = r.slug in installati
+        ops = {
+            Modulo.DISPONIBILE: ["installa"],
+            Modulo.INSTALLATO: ["disinstalla"],
+            Modulo.DA_AGGIORNARE: ["aggiorna", "disinstalla"],
+            Modulo.MANCANTE: ["disinstalla"],
+            Modulo.ERRORE: ["aggiorna", "disinstalla"] if installato else (["installa"] if m else []),
+        }[r.stato]
+        schede.append({"riga": r, "manifest": m, "ops": ops})
+    return schede
+
+
+def _pagina_moduli(request, log=None):
+    ctx = {"schede": _schede_moduli()}
+    if log:
+        ctx["log"], (ctx["coda"], ctx["stato"]) = log, mod.leggi(log)
+    return render(request, "core/moduli.html", ctx)
+
+
+@require_GET
+@solo_superuser
+def moduli(request):
+    return _pagina_moduli(request)
+
+
+@require_POST
+@solo_superuser
+def moduli_azione(request):
+    op, slug = request.POST.get("op", ""), request.POST.get("slug", "")
+    if op not in ("installa", "aggiorna", "disinstalla"):
+        return HttpResponseBadRequest("operazione sconosciuta")
+    if slug not in set(modules.scopri()) | set(modules.installati()):
+        return HttpResponseBadRequest("modulo sconosciuto")
+    log = mod.avvia(op, slug, demo=request.POST.get("demo") == "1",
+                    elimina_dati=request.POST.get("elimina_dati") == "1")
+    if not request.headers.get("HX-Request"):
+        return _pagina_moduli(request, log)
+    coda, stato = mod.leggi(log)
+    return render(request, "core/partials/_moduli_stato.html", {"log": log, "coda": coda, "stato": stato})
+
+
+@require_GET
+@solo_superuser
+def moduli_stato(request):
+    log = request.GET.get("log", "")
+    try:
+        coda, stato = mod.leggi(log)
+    except ValueError:
+        return HttpResponseBadRequest("log non valido")
+    return render(request, "core/partials/_moduli_stato.html", {"log": log, "coda": coda, "stato": stato})
