@@ -638,7 +638,7 @@ Run: `pytest -v` — Expected: tutto verde.
 - Modify: `config/settings.py` (MIDDLEWARE), `core/views.py`, `core/urls.py`
 - Test: `core/tests/test_azienda.py`
 
-- [ ] **Step 1: test (falliscono)**
+- [x] **Step 1: test (falliscono)**
 
 - utente anonimo → `request.azienda is None` (vista di prova con `RequestFactory` + middleware);
 - utente con profilo → `request.azienda == azienda_predefinita`;
@@ -646,7 +646,7 @@ Run: `pytest -v` — Expected: tutto verde.
 - pk non consentita → 403; pk inesistente → 404; GET → 405;
 - `_aziende.html` (render del partial con un contesto) mostra il selettore solo con più di un'azienda.
 
-- [ ] **Step 2: implementazione**
+- [x] **Step 2: implementazione**
 
 `core/azienda.py`:
 ```python
@@ -675,7 +675,7 @@ def corrente(request):
 
 Run: `pytest core/tests/test_azienda.py -v` — Expected: passed.
 
-- [ ] **Step 3: commit** — `feat(core): azienda corrente in sessione, cambio azienda e selettore`
+- [x] **Step 3: commit** — `feat(core): azienda corrente in sessione, cambio azienda e selettore`
 
 ---
 

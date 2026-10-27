@@ -1,8 +1,14 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect, render
+from django.core.exceptions import PermissionDenied
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_POST
+
+from . import azienda as az
 
 from .forms import ProfiloForm
+from .models import Azienda
 
 
 @login_required
@@ -23,3 +29,18 @@ def profilo(request):
         messages.success(request, "Profilo aggiornato.")
         return redirect("core:profilo")
     return render(request, "core/profilo.html", {"form": form})
+
+
+@require_POST
+@login_required
+def cambia_azienda(request):
+    pk = request.POST.get("azienda", "")
+    scelta = get_object_or_404(Azienda, pk=int(pk) if pk.isdigit() else 0, attiva=True)
+    if scelta not in az.consentite(request.user):
+        raise PermissionDenied
+    request.session[az.CHIAVE_SESSIONE] = scelta.pk
+    messages.success(request, f"Azienda corrente: {scelta}.")
+    prossima = request.POST.get("next", "")
+    if not url_has_allowed_host_and_scheme(prossima, {request.get_host()}, request.is_secure()):
+        prossima = "/"
+    return redirect(prossima)
