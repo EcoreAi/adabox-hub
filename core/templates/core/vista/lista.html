@@ -1,0 +1,40 @@
+{% extends 'core/base_app.html' %}
+{% block title %}{{ vista.verbose_name_plural|capfirst }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>{{ vista.verbose_name_plural|capfirst }}</h1><div class="sub">{{ page_obj.paginator.count }} in totale</div></div>
+  <div class="ui-pagehead-actions">
+    {% if puo_aggiungere %}<a class="ui-btn ui-btn-primary" href="{{ urls.nuovo }}"><svg><use href="#icon-plus"/></svg> Nuovo</a>{% endif %}
+  </div>
+</div>
+
+<div class="ui-card is-revealed">
+  <form class="ui-filtri" method="get" action="{{ urls.lista }}"
+        hx-get="{{ urls.lista }}" hx-target="#tabella" hx-select="#tabella" hx-swap="outerHTML" hx-push-url="true"
+        hx-trigger="submit, change, keyup changed delay:300ms from:[name=q]">
+    {% if vista.search_fields %}
+    <div class="ui-search ui-filtri-q">
+      <svg><use href="#icon-search"/></svg>
+      <input class="ui-input" type="search" name="q" value="{{ q }}" placeholder="Cerca…" aria-label="Cerca">
+    </div>
+    {% endif %}
+    {% for f in filtri %}
+      {% if f.tipo == "data" %}
+      <label class="ui-filtri-data">{{ f.label }}
+        <input class="ui-input" type="date" name="f_{{ f.campo }}_da" value="{{ f.da }}" aria-label="{{ f.label }} dal">
+        <input class="ui-input" type="date" name="f_{{ f.campo }}_a" value="{{ f.a }}" aria-label="{{ f.label }} al">
+      </label>
+      {% else %}
+      <select class="ui-input" name="f_{{ f.campo }}" aria-label="{{ f.label }}">
+        <option value="">{{ f.label }}: tutti</option>
+        {% for valore, etichetta in f.opzioni %}<option value="{{ valore }}"{% if valore == f.valore %} selected{% endif %}>{{ etichetta }}</option>{% endfor %}
+      </select>
+      {% endif %}
+    {% endfor %}
+    {% if request.GET.o %}<input type="hidden" name="o" value="{{ request.GET.o }}">{% endif %}
+    <noscript><button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Filtra</button></noscript>
+    {% if request.GET %}<a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ urls.lista }}">Azzera</a>{% endif %}
+  </form>
+  {% include vista.template_tabella %}
+</div>
+{% endblock %}

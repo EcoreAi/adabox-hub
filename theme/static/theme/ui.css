@@ -777,3 +777,33 @@ textarea.ui-input { min-height: 96px; resize: vertical; }
 /* Senza JS le card restano visibili: ui.js aggiunge .js su <html> appena parte */
 html:not(.js) .ui-card { opacity: 1; }
 html:not(.js) table.ui-table tbody tr { opacity: 1; transform: none; }
+
+/* ============================================================
+   Liste generate: filtri, azioni di massa, ordinamento, paginazione
+   ============================================================ */
+.ui-filtri {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 16px 20px; border-bottom: 1px solid var(--ui-border);
+}
+.ui-filtri .ui-input { width: auto; min-width: 150px; }
+.ui-filtri .ui-search { flex: 1 1 220px; }
+.ui-filtri .ui-search .ui-input { width: 100%; }
+.ui-filtri-data { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ui-text-2); }
+.ui-azioni {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 20px; border-bottom: 1px solid var(--ui-border);
+}
+.ui-azioni .ui-input { width: auto; min-width: 240px; }
+.ui-col-check { width: 36px; }
+a.ui-sort { color: inherit; text-decoration: none; white-space: nowrap; }
+a.ui-sort:hover { color: var(--ui-primary); }
+a.ui-sort.is-asc::after { content: " ▲"; font-size: 9px; }
+a.ui-sort.is-desc::after { content: " ▼"; font-size: 9px; }
+.ui-pagination {
+  display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+  padding: 14px 20px; border-top: 1px solid var(--ui-border);
+  font-size: 13px; color: var(--ui-text-2);
+}
+@media (max-width: 767px) {
+  .ui-filtri .ui-input, .ui-azioni .ui-input { width: 100%; min-width: 0; }
+}

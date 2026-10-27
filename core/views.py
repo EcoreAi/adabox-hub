@@ -9,6 +9,7 @@ from . import azienda as az
 
 from .forms import ProfiloForm
 from .models import Azienda
+from .viste import ModelView, register
 
 
 @login_required
@@ -44,3 +45,19 @@ def cambia_azienda(request):
     if not url_has_allowed_host_and_scheme(prossima, {request.get_host()}, request.is_secure()):
         prossima = "/"
     return redirect(prossima)
+
+
+@register
+class AziendaView(ModelView):
+    """Gestione delle aziende (/core/aziende/) e banco di prova delle viste generiche."""
+    model = Azienda
+    slug = "aziende"
+    list_display = ["nome", "partita_iva", "citta", "attiva"]
+    list_filter = ["attiva", "provincia"]
+    search_fields = ["nome", "partita_iva"]
+    ordering = ["nome"]
+    per_page = 25
+
+    def col_citta(self, obj):
+        return obj.citta.upper() if obj.citta else "—"
+    col_citta.short_description = "Città"

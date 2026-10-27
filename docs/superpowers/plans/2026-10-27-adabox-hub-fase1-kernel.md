@@ -926,7 +926,7 @@ Run: `pytest core/tests -v` — Expected: passed.
 - Modify: `core/views.py` (`AziendaView`), `core/urls.py` (monta `registry.urlpatterns("core")`)
 - Test: `core/tests/test_modelview_lista.py`
 
-- [ ] **Step 1: test (falliscono)**
+- [x] **Step 1: test (falliscono)**
 
 Con `AziendaView` registrata in `core` (`list_display=["nome","partita_iva","citta","attiva"]`, `list_filter=["attiva","provincia"]`, `search_fields=["nome","partita_iva"]`, `ordering=["nome"]`, `per_page=5`, `col_citta` che restituisce `citta.upper()`), più aziende create nel test:
 - `reverse("core:azienda_lista") == "/core/aziende/"` ... **attenzione**: lo slug della vista è `aziende` (`slug = "aziende"`), quindi `core:aziende_lista`; i nomi generati sono `<slug>_lista|_nuovo|_dettaglio|_modifica|_elimina|_azione|_bottone`;
@@ -937,7 +937,7 @@ Con `AziendaView` registrata in `core` (`list_display=["nome","partita_iva","cit
 - bottone "Nuovo" presente solo con `core.add_azienda`;
 - `registry.per_modello(Azienda)` è l'istanza; `registry.viste_di("core")` la contiene; `registry.urlpatterns("core")` ha 7 pattern.
 
-- [ ] **Step 2: base.py e registry.py**
+- [x] **Step 2: base.py e registry.py**
 
 ```python
 # core/viste/base.py
@@ -1051,7 +1051,7 @@ def svuota():          # solo per i test
 ```
 `core/viste/__init__.py` esporta `ModelView` e `registry` (con `register = registry.register`).
 
-- [ ] **Step 3: lista, filtri, widget, template**
+- [x] **Step 3: lista, filtri, widget, template**
 
 `filtri.py`: `specifiche(vista, request)` → per ogni campo di `list_filter` un dict `{campo, label, tipo, opzioni, valore}` dal tipo di campo (`BooleanField` → sì/no; `choices`; FK → `queryset.all()` limitato a 200 e filtrato per azienda se il modello correlato ha `azienda`; `DateField` → `da`/`a`); `applica(vista, request, qs)` → `q`, `f_*`, `o` (solo campi in `list_display` che sono campi del modello); `querystring_senza(request, "p")` per la paginazione. `widgets.rendi(vista, obj, campo)`: `__str__`, bool → `ui-pill ui-pill-ok|neutral`, date → `d/m/Y`, datetime → `d/m/Y H:i`, FK → link al dettaglio se `registry.per_modello(related)` esiste e l'utente può vederlo, choices → `get_<campo>_display`, `None`/`""` → `—`; sempre `mark_safe` solo su HTML costruito con `format_html`.
 
@@ -1065,7 +1065,7 @@ def svuota():          # solo per i test
 
 Run: `pytest core/tests/test_modelview_lista.py -v` — Expected: passed. Apri `/core/aziende/` nel browser e prova ricerca, filtro, ordinamento con HTMX (la URL cambia senza ricaricare la pagina).
 
-- [ ] **Step 4: commit** — `feat(core): ModelView con registro, URL generati e vista lista con ricerca, filtri e paginazione HTMX`
+- [x] **Step 4: commit** — `feat(core): ModelView con registro, URL generati e vista lista con ricerca, filtri e paginazione HTMX`
 
 ---
 

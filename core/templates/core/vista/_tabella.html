@@ -1,0 +1,47 @@
+{% load vista %}
+<div id="tabella">
+  {% if azioni %}
+  <form method="post" id="form-azioni" class="ui-azioni">
+    {% csrf_token %}
+    <select class="ui-input" name="azione" aria-label="Azione sulle righe selezionate"
+            onchange="this.form.action=this.value">
+      <option value="">Azione sulle righe selezionate…</option>
+      {% for nome, etichetta in azioni %}<option value="{% url vista.modulo|add:':'|add:vista.slug|add:'_azione' nome=nome %}">{{ etichetta }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Applica</button>
+  </form>
+  {% endif %}
+  {% if righe %}
+  <div class="ui-table-wrap">
+  <table class="ui-table is-revealed">
+    <thead><tr>
+      {% if azioni %}<th class="ui-col-check"><input type="checkbox" aria-label="Seleziona tutte" onclick="document.querySelectorAll('input[form=form-azioni][name=pk]').forEach(c => c.checked = this.checked)"></th>{% endif %}
+      {% for c in colonne %}
+      <th>{% if c.ordinabile %}<a class="ui-sort{% if c.direzione %} is-{{ c.direzione }}{% endif %}" href="{% querystring_con o=c.prossimo p=None %}">{{ c.label }}</a>{% else %}{{ c.label }}{% endif %}</th>
+      {% endfor %}
+    </tr></thead>
+    <tbody>
+      {% for obj, celle in righe %}
+      <tr>
+        {% if azioni %}<td class="ui-col-check"><input type="checkbox" form="form-azioni" name="pk" value="{{ obj.pk }}" aria-label="Seleziona {{ obj }}"></td>{% endif %}
+        {% for valore in celle %}
+        <td>{% if forloop.first %}<a class="ui-link" href="{% url vista.modulo|add:':'|add:vista.slug|add:'_dettaglio' pk=obj.pk %}">{{ valore }}</a>{% else %}{{ valore }}{% endif %}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if page_obj.paginator.num_pages > 1 %}
+  <nav class="ui-pagination" aria-label="Pagine">
+    {% if page_obj.has_previous %}<a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% querystring_con p=page_obj.previous_page_number %}">‹ Precedente</a>{% endif %}
+    <span>Pagina {{ page_obj.number }} di {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% querystring_con p=page_obj.next_page_number %}">Successiva ›</a>{% endif %}
+  </nav>
+  {% endif %}
+  {% else %}
+  <div class="ui-card-body">
+    <div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun elemento{% if request.GET %} con questi filtri{% endif %}.</p></div>
+  </div>
+  {% endif %}
+</div>
