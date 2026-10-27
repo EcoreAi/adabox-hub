@@ -1265,7 +1265,7 @@ Run: `pytest -v` — Expected: passed. Apri `/api/v1/docs`.
 - Create: `addons/todo/__manifest__.py`, `__init__.py`, `apps.py`, `models.py`, `views.py`, `hooks.py`, `migrations/0001_initial.py`, `data/tag.json`, `data/demo.json`, `static/todo/icon.svg`, `tests/__init__.py`, `tests/test_todo.py`, `tests/test_installazione.py`
 - Test: come sopra più `core/tests/test_nav.py` (caso `patterns_moduli` con `todo`)
 
-- [ ] **Step 1: manifest, modelli, viste**
+- [x] **Step 1: manifest, modelli, viste**
 
 `addons/todo/__manifest__.py`: come nella spec (sezione "Manifest"), con `"icon": "todo/icon.svg"`, `"hooks": "todo.hooks"`, `"data": ["data/tag.json"]`, `"demo": ["data/demo.json"]`.
 
@@ -1314,7 +1314,7 @@ class Attivita(AziendaMixin):
 ```
 `views.py`: `AttivitaView` (come nella spec, `company_field="azienda"`, `readonly_fields=["creato"]`, `actions=["archivia"]`, `buttons=["segna_fatta"]`, `api=True`, `save_model` che imposta `creato_da` alla creazione) e `TagView` (`api=True`). `hooks.py`: `post_install(modulo)` aggiunge il gruppo "To-Do / Utente" a tutti gli utenti attivi. `data/tag.json`: tre tag (pk 1-3). `data/demo.json`: dieci attività con `azienda: 1` e stati vari. `icon.svg`: un quadrato con spunta, 48x48, colore `currentColor`. Migrazione: `ADDONS_FORCE=todo python manage.py makemigrations todo` (la variabile serve perché `todo` non è nel file di stato).
 
-- [ ] **Step 2: test dell'app**
+- [x] **Step 2: test dell'app**
 
 `tests/test_todo.py` (gira perché `pytest.ini` forza `todo`): modelli; lista/nuovo/dettaglio con un utente del gruppo "To-Do / Utente" (gruppo creato nel test con `crea_gruppi(manifest.leggi(...))`); attività di un'altra `Azienda` → 404 nel dettaglio e assente dalla lista; API `GET /api/v1/todo/attivita/` con `X-Azienda` dell'altra azienda (consentita) mostra solo le sue; `archivia` e `segna_fatta`; `creato_da` impostato; launcher e `theme.nav` mostrano "To-Do" per l'utente del gruppo e non per uno senza permessi; `patterns_moduli()` contiene il namespace `todo` e `reverse("todo:attivita_lista") == "/todo/attivita/"`.
 
@@ -1341,7 +1341,7 @@ def test_installazione_vergine(tmp_path):
 ```
 Registra il marker `slow` in `pytest.ini` (`markers = slow: test lenti end-to-end`).
 
-- [ ] **Step 3: installazione in sviluppo**
+- [x] **Step 3: installazione in sviluppo**
 
 ```bash
 python manage.py migrate
@@ -1352,7 +1352,7 @@ Riavvia `runserver`, apri `/`: la card To-Do; `/todo/attivita/`: le dieci attivi
 
 Run: `pytest -v` — Expected: tutto verde, compreso il test lento.
 
-- [ ] **Step 4: commit** — `feat(todo): app di riferimento To-Do con attività, tag, gruppi, dati demo e test di installazione vergine`
+- [x] **Step 4: commit** — `feat(todo): app di riferimento To-Do con attività, tag, gruppi, dati demo e test di installazione vergine`
 
 ---
 

@@ -1,0 +1,5 @@
+[
+  {"model": "todo.tag", "pk": 1, "fields": {"nome": "Urgente", "colore": "#d70015"}},
+  {"model": "todo.tag", "pk": 2, "fields": {"nome": "Cliente", "colore": "#1e3a8a"}},
+  {"model": "todo.tag", "pk": 3, "fields": {"nome": "Interno", "colore": "#248a3d"}}
+]
