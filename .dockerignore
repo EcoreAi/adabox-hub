@@ -7,3 +7,7 @@ db.sqlite3
 staticfiles/
 logs/
 .pytest_cache/
+# stato e dati per istanza: arrivano dai volumi, non stanno nell'immagine
+addons/installed.json
+backup/
+media/

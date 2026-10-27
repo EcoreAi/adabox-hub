@@ -1363,7 +1363,7 @@ Run: `pytest -v` — Expected: tutto verde, compreso il test lento.
 - Modify: `Dockerfile`, `docker-compose.yml`, `.env.example`, `README.md`, `.dockerignore`
 - Test: `config/tests/test_deploy.py` invariato deve restare verde
 
-- [ ] **Step 1: deploy**
+- [x] **Step 1: deploy**
 
 `deploy/entrypoint.sh`:
 ```sh
@@ -1375,11 +1375,11 @@ exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 
 ```
 `Dockerfile`: `apt-get install -y --no-install-recommends postgresql-client`, `COPY deploy/entrypoint.sh`, `chmod +x`, `CMD ["deploy/entrypoint.sh"]`. `docker-compose.yml`: volumi `./addons:/app/addons`, `./backup:/app/backup`, `./media:/app/media`; `RELOAD_STRATEGY=gunicorn` nell'`environment` del servizio `web`. `.dockerignore`: `backup/`, `media/`, `addons/installed.json` **no** (lo stato deve entrare nel volume, non nell'immagine: con il volume montato il file dell'host vince).
 
-- [ ] **Step 2: README**
+- [x] **Step 2: README**
 
 Riscrivi `README.md` per adabox-hub: cos'è, struttura, avvio in sviluppo (venv, `.env`, `migrate`, `createsuperuser`, `modulo installa todo --demo`, `runserver`), come si scrive un'app (manifest, `ModelView`, gruppi, fixture, hook, test), comandi `modulo`, pagina `/moduli/`, backup e ripristino (sqlite: copia; Postgres: `pg_restore`), produzione (gunicorn con pidfile, volumi, `RELOAD_STRATEGY`), sicurezza (sezione ereditata dallo starter), test (`pytest`, `pytest -m "not slow"`).
 
-- [ ] **Step 3: verifica finale**
+- [x] **Step 3: verifica finale**
 
 ```bash
 pytest -v
@@ -1391,7 +1391,7 @@ docker compose down
 ```
 Nel browser, con `runserver`: login, launcher, To-Do (lista, filtri, nuovo, dettaglio, elimina, azione), `/moduli/` (disinstalla e reinstalla To-Do dall'interfaccia con riavvio automatico), `/api/v1/docs`, `/profilo/` con un token, `/stile/`.
 
-- [ ] **Step 4: commit** — `feat: deploy con entrypoint e pidfile, volumi per addons e backup, README della piattaforma`
+- [x] **Step 4: commit** — `feat: deploy con entrypoint e pidfile, volumi per addons e backup, README della piattaforma`
 
 ---
 

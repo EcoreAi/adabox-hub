@@ -1,54 +1,147 @@
 # adabox-hub
 
-Starter Django 5.2 con lo stile grafico "SaaS" di ICHNOBYTE (admin e frontend)
-e la sicurezza di base già configurata. Si clona per iniziare un nuovo cliente.
+Piattaforma gestionale modulare di ICHNOBYTE, costruita con Django 5.2 sopra lo
+starter `django-template`. Riproduce il modello di Odoo: un **kernel** (`core`) e
+delle **app** in `addons/` che si installano, aggiornano e disinstallano da riga di
+comando o dalla pagina `/moduli/`. A ogni cliente la sua istanza, con le sue app.
 
-## Avvio in 5 passi
+Spec e piano della fase 1: `docs/superpowers/specs/2026-10-27-adabox-hub-fase1-kernel-design.md`,
+`docs/superpowers/plans/2026-10-27-adabox-hub-fase1-kernel.md`.
 
-1. Clona e riparti da zero con git:
-   ```bash
-   git clone <questo-repo> nome-cliente && cd nome-cliente && rm -rf .git && git init
-   ```
-2. Brand: in `config/settings.py` imposta `THEME` (`brand`, `mark`, `company`, `company_url`, `version`, `nav`).
-   Ogni voce di `THEME["nav"]` deve avere un `url_name` esistente: un nome sbagliato
-   solleva `NoReverseMatch` su tutte le pagine (voluto: l'errore di configurazione si vede subito).
-3. Palette (opzionale): cambia i valori in `theme/static/theme/tokens.css`.
-   Verifica il contrasto del primario su bianco (minimo AA 4,5:1).
-   Aggiorna anche il colore fisso della favicon in `theme/views.py` (`bg="#1e3a8a"`).
-4. L'app `core` è un esempio (modello `Cliente`, home, `/stile/`, `/profilo/`):
-   svuotala, rinominala o usala come base.
-5. Ambiente:
-   ```bash
-   python3 -m venv .venv && . .venv/bin/activate
-   pip install -r requirements-dev.txt
-   cp .env.example .env            # imposta SECRET_KEY
-   python manage.py migrate
-   python manage.py createsuperuser
-   python manage.py runserver
-   ```
-   Apri `http://127.0.0.1:8000/accounts/login/`, poi `/stile/` (catalogo dei componenti) e `/admin/`.
+## Avvio in sviluppo
+
+```bash
+python3 -m venv .venv && . .venv/bin/activate
+pip install -r requirements-dev.txt
+cp .env.example .env                       # imposta SECRET_KEY
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py modulo installa todo --demo --si
+python manage.py runserver
+```
+
+Apri `http://127.0.0.1:8000/`: il launcher mostra le app installate. Poi `/moduli/`
+(superuser), `/core/aziende/`, `/api/v1/docs`, `/profilo/` (token API), `/stile/`.
 
 ## Struttura
 
-- `config/` settings unico via `.env`, urls, wsgi.
-- `theme/` tutta la grafica: template admin, shell frontend (`theme/base.html`),
-  login/lockout/errori, `tokens.css` (colori), `admin.css`, `ui.css`, `ui.js`,
-  favicon dinamica con la sigla (`/favicon.svg`). **Non importa nulla da `core` o `config`**:
-  si può copiare in un altro progetto così com'è (test `test_portabilita.py`).
-- `core/` app di esempio.
-
-## Usare il tema nelle tue pagine
-
-```django
-{% extends 'theme/base.html' %}
-{% block title %}Titolo · {{ theme.brand }}{% endblock %}
-{% block content %}
-  <div class="ui-pagehead"><div><h1>Titolo</h1><div class="sub">Sottotitolo</div></div></div>
-  <div class="ui-card is-revealed"><div class="ui-card-body">…</div></div>
-{% endblock %}
+```
+addons/            le app: una cartella per app, con __manifest__.py
+  installed.json   stato di installazione dell'istanza (non versionato)
+  todo/            app di riferimento
+backup/            dump del DB prima di ogni installazione/aggiornamento (non versionato)
+config/            settings unico via .env; INSTALLED_APPS = kernel + addons installati
+core/              il kernel
+  registry/        bootstrap (python puro, letto dai settings), manifest, scoperta e stati,
+                   installazione, gruppi, ricarica, hook, URL dei moduli
+  viste/           ModelView e viste generiche (lista, form, dettaglio, elimina, azioni)
+  api/             API JSON (Django Ninja): /api/v1/
+  backup.py        sqlite (API di backup) o pg_dump
+  models.py        Azienda, ProfiloUtente, Modulo, TokenApi
+theme/             grafica (admin e frontend) + htmx vendorizzato; non importa nulla da core
+deploy/            entrypoint.sh (gunicorn con pidfile), nginx.conf
 ```
 
-Tutti i componenti, con lo snippet da copiare, sono in `/stile/`.
+## Scrivere un'app
+
+Un'app minima non scrive né viste né template: bastano modello, `ModelView` e manifest.
+`addons/todo/` è l'esempio completo.
+
+1. **Cartella e manifest** — `addons/<slug>/__manifest__.py`, un solo dizionario letterale
+   (si legge con `ast.literal_eval`, mai importato):
+   ```python
+   {
+       "name": "To-Do", "summary": "Attività con scadenze", "version": "1.0.0", "min_core": "1.0",
+       "depends": [], "application": True, "icon": "todo/icon.svg",
+       "menu": [{"label": "Attività", "url_name": "todo:attivita_lista", "permission": "todo.view_attivita"}],
+       "groups": {"To-Do / Utente": ["todo.view_attivita", "todo.add_attivita"], "To-Do / Responsabile": ["todo.*"]},
+       "data": ["data/tag.json"], "demo": ["data/demo.json"], "hooks": "todo.hooks",
+   }
+   ```
+   Lo slug (`^[a-z][a-z0-9_]{2,30}$`) è il nome della cartella e del pacchetto. Chiavi
+   sconosciute sono un errore. `python manage.py modulo verifica addons/<slug>` lo valida.
+2. **Pacchetto Django** — `__init__.py`, `apps.py`, `models.py`, `migrations/`. I modelli
+   per azienda ereditano `core.mixins.AziendaMixin`; quelli condivisi (tag, tipi) no.
+   Le migrazioni si generano con `ADDONS_FORCE=<slug> python manage.py makemigrations <slug>`
+   (la variabile carica il modulo anche se non è ancora installato).
+3. **Viste** — in `views.py`:
+   ```python
+   from core.viste import ModelView, register
+
+   @register
+   class AttivitaView(ModelView):
+       model = Attivita
+       list_display = ["titolo", "scadenza", "stato"]
+       list_filter = ["stato"]
+       search_fields = ["titolo"]
+       form_layout = [("Generale", ["titolo", ("scadenza", "stato")])]   # tupla = campi affiancati
+       company_field = "azienda"          # filtro e assegnazione automatica dell'azienda corrente
+       actions = ["archivia"]             # metodi (self, request, queryset) -> messaggio
+       buttons = ["segna_fatta"]          # metodi (self, request, obj) -> messaggio o HttpResponse
+       api = True                         # /api/v1/<slug>/<vista>/
+
+       def col_stato(self, obj): ...      # resa personalizzata di una colonna
+   ```
+   Il kernel genera sotto `/<slug>/` lista (ricerca, filtri, ordinamento, paginazione con
+   HTMX), nuovo, dettaglio, modifica, elimina (modale), azioni e bottoni, con nomi URL
+   `<slug>:<vista>_lista|_nuovo|_dettaglio|_modifica|_elimina|_azione|_bottone` e i permessi
+   Django del modello. Pagine proprie: `urls.py` del modulo (montato sotto lo stesso prefisso)
+   e template che estendono `core/base_app.html`.
+4. **Gruppi, fixture, hook** — i gruppi del manifest si creano all'installazione (`app.*` =
+   tutti i permessi dell'app); le fixture `data` si caricano a ogni installazione e
+   aggiornamento (pk fissi), quelle `demo` solo con `--demo`; `hooks.py` può definire
+   `post_install(modulo)`, `post_upgrade(modulo, da_versione)`, `pre_uninstall(modulo)`.
+5. **Sezioni su modelli altrui** — nel `ready()` dell'app:
+   `core.registry.hooks.sezione_dettaglio("todo.Attivita", "mia_app/_sezione.html", order=50)`.
+6. **Test** — in `addons/<slug>/tests/`; per farli girare con la suite aggiungi lo slug a
+   `ADDONS_FORCE` in `pytest.ini`.
+
+## Comandi `modulo`
+
+| Comando | Effetto |
+|---|---|
+| `modulo lista` | moduli su disco e installati, versioni, stato |
+| `modulo verifica <cartella>` | valida il manifest |
+| `modulo installa <slug>... [--demo] [--riavvia] [--si]` | backup, stato, migrazioni, fixture, gruppi, hook; installa anche le dipendenze mancanti (chiede conferma, salvo `--si`) |
+| `modulo aggiorna <slug>...` / `--tutti` `[--riavvia]` | per i moduli con versione nuova su disco |
+| `modulo disinstalla <slug> [--elimina-dati] [--riavvia] [--si]` | rifiuta se altri moduli ne dipendono; senza `--elimina-dati` le tabelle restano |
+| `modulo sincronizza` | allinea la tabella `Modulo` al disco |
+
+Il lavoro vero lo fa `modulo_applica` (uso interno) in un processo nuovo, che legge il file
+di stato aggiornato e quindi ha il modulo in `INSTALLED_APPS`. Se fallisce, il file di stato
+torna com'era e il modulo va in stato `errore`. Log in `logs/moduli.log`.
+
+La pagina **`/moduli/`** (solo superuser) lancia gli stessi comandi con `--riavvia` e mostra
+il log in pagina. `RELOAD_STRATEGY` decide come si ricarica il server: `gunicorn` (SIGHUP al
+pid in `GUNICORN_PIDFILE`), `runserver` (tocca `config/settings.py`), `none` (a mano).
+
+## Multi-azienda
+
+Ogni utente ha un `ProfiloUtente` con le aziende consentite e una predefinita (creato in
+automatico con tutte le aziende attive). L'azienda corrente (`request.azienda`) si cambia dal
+selettore nella barra dell'app; via API con l'header `X-Azienda: <pk>`. Le aziende si
+gestiscono da `/core/aziende/`.
+
+## API
+
+`/api/v1/`, documentazione su `/api/v1/docs` (solo utenti autenticati). Autenticazione con la
+sessione (stesso dominio, con CSRF) o `Authorization: Bearer <token>`; i token si creano dal
+profilo e si vedono in chiaro una volta sola. Per ogni `ModelView` con `api = True`:
+`GET` lista (`q`, `f_<campo>`, `o`, `p`, `per_page` fino a 200), `POST`, `GET/PATCH/DELETE
+/<pk>/`, con gli stessi permessi e filtri della vista; errori di validazione come `422
+{"errori": {...}}`. Fissi: `GET /api/v1/me/`, `GET /api/v1/moduli/` (superuser).
+
+## Backup e ripristino
+
+Prima di ogni installazione, aggiornamento o disinstallazione il kernel salva il DB in
+`backup/` (`<data>-pre-<operazione>-<slug>.sqlite3` o `.dump`) e tiene gli ultimi
+`BACKUP_CONSERVA` (default 10). Senza backup riuscito l'operazione non parte.
+
+- **SQLite**: ferma il server e copia il file: `cp backup/<file>.sqlite3 db.sqlite3`.
+- **Postgres**: `pg_restore --clean --if-exists --dbname "$DATABASE_URL" backup/<file>.dump`.
+
+Dopo un ripristino rimetti `addons/installed.json` coerente con il DB (la riga del modulo
+installato prima del backup va tolta a mano) e riavvia.
 
 ## Sicurezza inclusa
 
@@ -61,6 +154,15 @@ Tutti i componenti, con lo snippet da copiare, sono in `/stile/`.
   tu con `SECURE_HSTS_SECONDS`.
 
 ## Produzione
+
+- Docker: `docker compose up -d --build`. `deploy/entrypoint.sh` esegue `collectstatic` e
+  `migrate`, poi `exec gunicorn ... --pid /tmp/gunicorn.pid`: il pidfile serve alla ricarica
+  dopo un'installazione (`RELOAD_STRATEGY=gunicorn`, già impostato nel compose).
+  `addons/`, `backup/` e `media/` sono volumi: stato, backup e logo restano sull'host.
+  Installare un modulo nel container:
+  `docker compose exec web python manage.py modulo installa <slug> --si --riavvia`.
+- Database: Postgres (`DATABASE_URL=postgres://...`); SQLite solo in sviluppo. L'immagine
+  include `postgresql-client` per `pg_dump`.
 
 - `SECRET_KEY` ha un default di sviluppo: in produzione va **sempre** impostata in `.env`.
   `python manage.py check --deploy` la segnala (`security.W009`) se resta quella di default.
@@ -117,9 +219,6 @@ che lo ospita abbia:
 ## Test
 
 ```bash
-pytest
+pytest                    # tutta la suite, compresa l'installazione vergine di todo
+pytest -m "not slow"      # senza i test end-to-end
 ```
-
-## Fuori scope (deliberatamente)
-
-Docker, deploy, CI, reset password via mail, dark mode, lingue oltre l'italiano.
