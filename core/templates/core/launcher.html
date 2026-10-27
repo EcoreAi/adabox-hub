@@ -1,0 +1,37 @@
+{% extends 'core/base_app.html' %}
+{% load static %}
+{% block title %}Le tue app · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Le tue app</h1><div class="sub">Benvenuto, {{ user.first_name|default:user.username }}</div></div>
+</div>
+{% if apps %}
+<div class="ui-apps">
+  {% for app in apps %}
+  <a class="ui-app" href="{{ app.url }}">
+    <span class="ui-app-icona">{% if "/" in app.icon %}<img src="{% static app.icon %}" alt="">{% else %}<svg><use href="#icon-{{ app.icon|default:'zap' }}"/></svg>{% endif %}</span>
+    <span class="ui-app-nome">{{ app.label }}</span>
+    {% if app.summary %}<span class="ui-app-sub">{{ app.summary }}</span>{% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="ui-card is-revealed"><div class="ui-card-body">
+  <div class="ui-empty"><svg><use href="#icon-inbox"/></svg>
+    <p>Nessuna app disponibile.{% if user.is_superuser and url_moduli %} <a class="ui-link" href="{{ url_moduli }}">Installa un modulo</a>.{% elif not user.is_superuser %} Chiedi all'amministratore di installarne una o di darti i permessi.{% endif %}</p>
+  </div>
+</div></div>
+{% endif %}
+{% if kernel %}
+<h2 class="ui-apps-titolo">Piattaforma</h2>
+<div class="ui-apps">
+  {% for voce in kernel %}
+  <a class="ui-app" href="{{ voce.url }}">
+    <span class="ui-app-icona"><svg><use href="#icon-{{ voce.icon }}"/></svg></span>
+    <span class="ui-app-nome">{{ voce.label }}</span>
+    <span class="ui-app-sub">{{ voce.sub }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

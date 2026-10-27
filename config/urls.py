@@ -2,6 +2,8 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
+from core.registry.urls import patterns_moduli
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/login/", auth_views.LoginView.as_view(redirect_authenticated_user=True), name="login"),
@@ -10,4 +12,5 @@ urlpatterns = [
     path("accounts/password_change/done/", auth_views.PasswordChangeDoneView.as_view(), name="password_change_done"),
     path("", include("theme.urls")),
     path("", include("core.urls")),
+    *patterns_moduli(),   # un prefisso <slug>/ per ogni modulo installato
 ]

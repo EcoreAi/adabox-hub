@@ -1,4 +1,5 @@
 {% extends 'theme/base.html' %}
 {% block content %}
+{% if app_corrente or aziende|length > 1 %}{% include "core/partials/_menu_app.html" %}{% endif %}
 {% block app_content %}{% endblock %}
 {% endblock %}

@@ -1129,7 +1129,7 @@ Run: `pytest core/tests -v` — Expected: passed. Prova nel browser creazione, m
 - Modify: `core/registry/modules.py` (`app_visibili`, `app_corrente`), `core/context_processors.py` (nuovo file), `core/templates/core/base_app.html`, `config/settings.py` (`context_processors`), `config/urls.py`, `core/views.py` (`home`), `core/templates/core/home.html` → rimosso, `core/templates/core/stile.html`, `core/apps.py` (`ready`: `registry.autodiscover(settings.ADDONS_ATTIVI)`)
 - Test: `core/tests/test_nav.py`, `core/tests/test_launcher.py`
 
-- [ ] **Step 1: test (falliscono)**
+- [x] **Step 1: test (falliscono)**
 
 Con `addons_tmp` non si possono montare URL di moduli finti (l'urlconf è fissa per processo): i test usano `monkeypatch` su `modules.manifests_attivi` per far credere che esistano app `alfa` (`application=True`, menu con `url_name="core:aziende_lista"` e `permission="core.view_azienda"`) e `beta` (`application=False`):
 - `theme.nav` nel contesto della home contiene `alfa` solo per chi ha `core.view_azienda` (il superuser sempre), mai `beta`;
@@ -1137,7 +1137,7 @@ Con `addons_tmp` non si possono montare URL di moduli finti (l'urlconf è fissa 
 - il launcher (`/`) mostra una card per app visibile con nome, summary, link; empty state con link a `/moduli/` per il superuser e senza link per gli altri;
 - `patterns_moduli()` con `settings.ADDONS_ATTIVI=[]` → `[]`; con `todo` (Task 13) → un `URLResolver` con namespace `todo` (questo caso si verifica in Task 13).
 
-- [ ] **Step 2: implementazione**
+- [x] **Step 2: implementazione**
 
 `core/registry/urls.py`:
 ```python
@@ -1176,7 +1176,7 @@ Messo in `context_processors` **dopo** `theme.context_processors.theme`. `base_a
 
 Run: `pytest -v` — Expected: passed.
 
-- [ ] **Step 3: commit** — `feat(core): navigazione dinamica dai manifest, barra dell'app, launcher e montaggio degli URL dei moduli`
+- [x] **Step 3: commit** — `feat(core): navigazione dinamica dai manifest, barra dell'app, launcher e montaggio degli URL dei moduli`
 
 ---
 

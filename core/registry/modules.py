@@ -1,5 +1,6 @@
 """Scoperta dei moduli su disco, ordinamento per dipendenze, stati e sincronizzazione con il DB."""
 import heapq
+import logging
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -11,6 +12,8 @@ from core.models import Modulo
 
 from . import bootstrap
 from .manifest import Manifest, ManifestNonValido, leggi, versione_tupla
+
+log = logging.getLogger("core.moduli")
 
 
 @dataclass
@@ -124,3 +127,54 @@ def _manifests(addons_dir, slugs):
 def manifests_attivi() -> dict[str, Manifest]:
     """Manifest dei moduli in settings.ADDONS_ATTIVI (cache per processo: non cambiano senza riavvio)."""
     return _manifests(str(settings.ADDONS_DIR), tuple(settings.ADDONS_ATTIVI))
+
+
+def _voce_visibile(user, voce):
+    return user.is_superuser or not voce.get("permission") or user.has_perm(voce["permission"])
+
+
+def app_visibili(user):
+    """App installate (application=True) con almeno una voce di menu permessa all'utente.
+    [{slug, label, summary, icon, url_name, url, menu: [{label, url_name, url}], settings_url}]"""
+    from django.urls import NoReverseMatch, reverse
+    if not user.is_authenticated:
+        return []
+    apps = []
+    for slug, m in manifests_attivi().items():
+        if not m.application:
+            continue
+        menu = []
+        for voce in m.menu:
+            if not _voce_visibile(user, voce):
+                continue
+            try:
+                menu.append({"label": voce["label"], "url_name": voce["url_name"], "url": reverse(voce["url_name"])})
+            except NoReverseMatch:
+                log.warning("%s: voce di menu %r con url_name non risolvibile", slug, voce["url_name"])
+        if not menu:
+            continue
+        impostazioni = None
+        if m.settings_url:
+            try:
+                impostazioni = reverse(m.settings_url)
+            except NoReverseMatch:
+                pass
+        apps.append({"slug": slug, "label": m.name, "summary": m.summary, "icon": m.icon,
+                     "url_name": menu[0]["url_name"], "url": menu[0]["url"], "menu": menu,
+                     "settings_url": impostazioni})
+    return apps
+
+
+def app_corrente(request, apps=None):
+    """L'app del namespace della richiesta (se è un'app visibile), con la voce attiva marcata."""
+    match = getattr(request, "resolver_match", None)
+    namespace = match.namespace.split(":")[0] if match and match.namespace else ""
+    if namespace not in manifests_attivi():
+        return None
+    apps = app_visibili(request.user) if apps is None else apps
+    app = next((a for a in apps if a["slug"] == namespace), None)
+    if app is None:
+        return None
+    attiva = max((v for v in app["menu"] if request.path.startswith(v["url"])),
+                 key=lambda v: len(v["url"]), default=None)
+    return {**app, "menu": [{**v, "attiva": v is attiva} for v in app["menu"]]}

@@ -36,10 +36,7 @@ THEME = {
     "company": "ICHNOBYTE S.R.L.",
     "company_url": "https://ichnobyte.it/",
     "version": "0.1.0",
-    "nav": [
-        {"label": "Home", "url_name": "core:home"},
-        {"label": "Stile", "url_name": "core:stile"},
-    ],
+    "nav": [],  # la riempie core.context_processors.piattaforma con le app installate
 }
 
 INSTALLED_APPS = [
@@ -82,6 +79,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "theme.context_processors.theme",
+                "core.context_processors.piattaforma",
             ],
         },
     },

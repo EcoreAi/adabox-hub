@@ -1,6 +1,6 @@
-{% extends 'theme/base.html' %}
+{% extends 'core/base_app.html' %}
 {% block title %}Stile · {{ theme.brand }}{% endblock %}
-{% block content %}
+{% block app_content %}
 <div class="ui-pagehead"><div><h1>Catalogo dello stile</h1><div class="sub">Ogni componente di ui.css con lo snippet da copiare</div></div></div>
 
 <div class="ui-card is-revealed">
@@ -118,6 +118,107 @@
 <div class="ui-card is-revealed"><div class="ui-card-head"><div><div class="ui-card-title">Titolo card</div><div class="ui-card-sub">Sottotitolo</div></div><div class="spacer"></div><div class="head-actions"><button class="ui-btn ui-btn-ghost ui-btn-sm">Azione</button></div></div><div class="ui-card-body">Contenuto.</div></div>
     <pre class="ui-code" style="margin-top:16px;padding:12px 14px;background:var(--ui-surface-2);border-radius:var(--radius-input);overflow:auto;font-size:12px;">{% filter force_escape %}<p>Un <a class="ui-link" href="#">link con sottolineatura animata</a> dentro un paragrafo.</p>
 <div class="ui-card is-revealed"><div class="ui-card-head"><div><div class="ui-card-title">Titolo card</div><div class="ui-card-sub">Sottotitolo</div></div><div class="spacer"></div><div class="head-actions"><button class="ui-btn ui-btn-ghost ui-btn-sm">Azione</button></div></div><div class="ui-card-body">Contenuto.</div></div>{% endfilter %}</pre>
+  </div>
+</div>
+<div class="ui-card is-revealed">
+  <div class="ui-card-head"><div class="ui-card-title">Barra dell'app</div></div>
+  <div class="ui-card-body">
+<nav class="ui-appbar" aria-label="Menu dell'app">
+  <a class="ui-appbar-nome" href="#">To-Do</a>
+  <div class="ui-appbar-voci"><a href="#" class="is-active">Attività</a><a href="#">Tag</a></div>
+  <div class="ui-appbar-destra"><select class="ui-input" aria-label="Azienda"><option>Adabox Hub</option><option>Beta Srl</option></select></div>
+</nav>
+    <pre class="ui-code" style="margin-top:16px;padding:12px 14px;background:var(--ui-surface-2);border-radius:var(--radius-input);overflow:auto;font-size:12px;">{% filter force_escape %}<nav class="ui-appbar" aria-label="Menu dell'app">
+  <a class="ui-appbar-nome" href="#">To-Do</a>
+  <div class="ui-appbar-voci"><a href="#" class="is-active">Attività</a><a href="#">Tag</a></div>
+  <div class="ui-appbar-destra"><select class="ui-input" aria-label="Azienda"><option>Adabox Hub</option><option>Beta Srl</option></select></div>
+</nav>{% endfilter %}</pre>
+  </div>
+</div>
+
+<div class="ui-card is-revealed">
+  <div class="ui-card-head"><div class="ui-card-title">Lista con filtri</div></div>
+  <div class="ui-card-body">
+<div class="ui-card is-revealed">
+  <form class="ui-filtri">
+    <div class="ui-search"><svg><use href="#icon-search"/></svg><input class="ui-input" type="search" placeholder="Cerca…"></div>
+    <select class="ui-input"><option>Stato: tutti</option><option>Aperta</option></select>
+  </form>
+  <div class="ui-azioni"><span class="ui-azioni-label">Sulle righe selezionate:</span><button class="ui-btn ui-btn-secondary ui-btn-sm">Archivia</button></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th class="ui-col-check"><input type="checkbox"></th><th><a class="ui-sort is-asc" href="#">Titolo</a></th><th>Stato</th></tr></thead>
+    <tbody><tr><td class="ui-col-check"><input type="checkbox"></td><td><a class="ui-link" href="#">Preventivo Rossi</a></td><td>Aperta</td></tr></tbody>
+  </table></div>
+  <nav class="ui-pagination"><span>Pagina 1 di 3</span><a class="ui-btn ui-btn-secondary ui-btn-sm" href="#">Successiva ›</a></nav>
+</div>
+    <pre class="ui-code" style="margin-top:16px;padding:12px 14px;background:var(--ui-surface-2);border-radius:var(--radius-input);overflow:auto;font-size:12px;">{% filter force_escape %}<div class="ui-card is-revealed">
+  <form class="ui-filtri">
+    <div class="ui-search"><svg><use href="#icon-search"/></svg><input class="ui-input" type="search" placeholder="Cerca…"></div>
+    <select class="ui-input"><option>Stato: tutti</option><option>Aperta</option></select>
+  </form>
+  <div class="ui-azioni"><span class="ui-azioni-label">Sulle righe selezionate:</span><button class="ui-btn ui-btn-secondary ui-btn-sm">Archivia</button></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th class="ui-col-check"><input type="checkbox"></th><th><a class="ui-sort is-asc" href="#">Titolo</a></th><th>Stato</th></tr></thead>
+    <tbody><tr><td class="ui-col-check"><input type="checkbox"></td><td><a class="ui-link" href="#">Preventivo Rossi</a></td><td>Aperta</td></tr></tbody>
+  </table></div>
+  <nav class="ui-pagination"><span>Pagina 1 di 3</span><a class="ui-btn ui-btn-secondary ui-btn-sm" href="#">Successiva ›</a></nav>
+</div>{% endfilter %}</pre>
+  </div>
+</div>
+
+<div class="ui-card is-revealed">
+  <div class="ui-card-head"><div class="ui-card-title">Form a sezioni</div></div>
+  <div class="ui-card-body">
+<section class="ui-section">
+  <div class="ui-form-row">
+    <div class="ui-form-group"><label class="ui-label" for="es-piva">Partita IVA</label><input class="ui-input" id="es-piva"></div>
+    <div class="ui-form-group"><label class="ui-label" for="es-cf">Codice fiscale</label><input class="ui-input" id="es-cf"></div>
+  </div>
+  <div class="ui-form-group"><label class="ui-checkbox-row"><input type="checkbox" class="ui-checkbox" checked> Attiva</label></div>
+  <div class="ui-form-row"><div class="ui-dato"><div class="ui-dato-label">Città</div><div class="ui-dato-valore">Cagliari</div></div></div>
+</section>
+    <pre class="ui-code" style="margin-top:16px;padding:12px 14px;background:var(--ui-surface-2);border-radius:var(--radius-input);overflow:auto;font-size:12px;">{% filter force_escape %}<section class="ui-section">
+  <div class="ui-form-row">
+    <div class="ui-form-group"><label class="ui-label" for="es-piva">Partita IVA</label><input class="ui-input" id="es-piva"></div>
+    <div class="ui-form-group"><label class="ui-label" for="es-cf">Codice fiscale</label><input class="ui-input" id="es-cf"></div>
+  </div>
+  <div class="ui-form-group"><label class="ui-checkbox-row"><input type="checkbox" class="ui-checkbox" checked> Attiva</label></div>
+  <div class="ui-form-row"><div class="ui-dato"><div class="ui-dato-label">Città</div><div class="ui-dato-valore">Cagliari</div></div></div>
+</section>{% endfilter %}</pre>
+  </div>
+</div>
+
+<div class="ui-card is-revealed">
+  <div class="ui-card-head"><div class="ui-card-title">Modale di conferma</div></div>
+  <div class="ui-card-body">
+<button class="ui-btn ui-btn-danger" onclick="document.getElementById('es-modale').hidden=false">Apri la modale</button>
+<div class="ui-modal" id="es-modale" hidden role="dialog" aria-modal="true">
+  <div class="ui-modal-box">
+    <h2>Eliminare «Acme Spa»?</h2><p>L'operazione non si può annullare.</p>
+    <div class="ui-modal-actions"><button class="ui-btn ui-btn-ghost" onclick="this.closest('.ui-modal').hidden=true">Annulla</button><button class="ui-btn ui-btn-danger">Elimina</button></div>
+  </div>
+</div>
+    <pre class="ui-code" style="margin-top:16px;padding:12px 14px;background:var(--ui-surface-2);border-radius:var(--radius-input);overflow:auto;font-size:12px;">{% filter force_escape %}<button class="ui-btn ui-btn-danger" onclick="document.getElementById('es-modale').hidden=false">Apri la modale</button>
+<div class="ui-modal" id="es-modale" hidden role="dialog" aria-modal="true">
+  <div class="ui-modal-box">
+    <h2>Eliminare «Acme Spa»?</h2><p>L'operazione non si può annullare.</p>
+    <div class="ui-modal-actions"><button class="ui-btn ui-btn-ghost" onclick="this.closest('.ui-modal').hidden=true">Annulla</button><button class="ui-btn ui-btn-danger">Elimina</button></div>
+  </div>
+</div>{% endfilter %}</pre>
+  </div>
+</div>
+
+<div class="ui-card is-revealed">
+  <div class="ui-card-head"><div class="ui-card-title">Griglia delle app</div></div>
+  <div class="ui-card-body">
+<div class="ui-apps">
+  <a class="ui-app" href="#"><span class="ui-app-icona"><svg><use href="#icon-check"/></svg></span><span class="ui-app-nome">To-Do</span><span class="ui-app-sub">Attività con scadenze</span></a>
+  <a class="ui-app" href="#"><span class="ui-app-icona"><svg><use href="#icon-user"/></svg></span><span class="ui-app-nome">Contatti</span><span class="ui-app-sub">Clienti e fornitori</span></a>
+</div>
+    <pre class="ui-code" style="margin-top:16px;padding:12px 14px;background:var(--ui-surface-2);border-radius:var(--radius-input);overflow:auto;font-size:12px;">{% filter force_escape %}<div class="ui-apps">
+  <a class="ui-app" href="#"><span class="ui-app-icona"><svg><use href="#icon-check"/></svg></span><span class="ui-app-nome">To-Do</span><span class="ui-app-sub">Attività con scadenze</span></a>
+  <a class="ui-app" href="#"><span class="ui-app-icona"><svg><use href="#icon-user"/></svg></span><span class="ui-app-nome">Contatti</span><span class="ui-app-sub">Clienti e fornitori</span></a>
+</div>{% endfilter %}</pre>
   </div>
 </div>
 {% endblock %}

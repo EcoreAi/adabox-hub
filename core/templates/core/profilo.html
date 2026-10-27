@@ -1,6 +1,6 @@
-{% extends 'theme/base.html' %}
+{% extends 'core/base_app.html' %}
 {% block title %}Profilo · {{ theme.brand }}{% endblock %}
-{% block content %}
+{% block app_content %}
 <div class="ui-pagehead"><div><h1>Profilo</h1><div class="sub">{{ user.username }}</div></div></div>
 <div class="ui-card is-revealed" style="max-width:560px;">
   <div class="ui-card-body">

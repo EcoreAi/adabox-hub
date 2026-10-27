@@ -840,3 +840,44 @@ a.ui-sort.is-desc::after { content: " ▼"; font-size: 9px; }
 .ui-modal-box h2 { margin: 0 0 8px; font-size: 18px; }
 .ui-modal-box p { margin: 0 0 20px; color: var(--ui-text-2); }
 .ui-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ============================================================
+   Barra dell'app (sotto l'header) e griglia delle app
+   ============================================================ */
+.ui-appbar {
+  display: flex; align-items: center; gap: 20px; min-height: 44px;
+  margin: -8px 0 24px; padding: 0 4px;
+  border-bottom: 1px solid var(--ui-border);
+}
+.ui-appbar-nome { font-weight: 700; font-size: 15px; color: var(--ui-text); text-decoration: none; white-space: nowrap; }
+.ui-appbar-voci { display: flex; align-items: stretch; gap: 4px; flex-wrap: wrap; align-self: stretch; }
+.ui-appbar-voci a {
+  display: inline-flex; align-items: center; padding: 0 10px;
+  font-size: 14px; color: var(--ui-text-2); text-decoration: none;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.ui-appbar-voci a:hover { color: var(--ui-text); }
+.ui-appbar-voci a.is-active { color: var(--ui-primary); border-bottom-color: var(--ui-primary); font-weight: 600; }
+.ui-appbar-destra { margin-left: auto; }
+.ui-aziende .ui-input { width: auto; min-width: 180px; padding-top: 5px; padding-bottom: 5px; font-size: 13px; }
+.ui-apps { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+.ui-apps-titolo { font-size: 13px; font-weight: 600; color: var(--ui-text-2); text-transform: uppercase; letter-spacing: 0.04em; margin: 8px 0 12px; }
+.ui-app {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 20px;
+  background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--radius-card);
+  color: var(--ui-text); text-decoration: none;
+  transition: box-shadow 180ms var(--ease-out), transform 180ms var(--ease-out);
+}
+.ui-app:hover { box-shadow: var(--shadow-card); transform: translateY(-2px); }
+.ui-app-icona {
+  display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px;
+  border-radius: 12px; background: var(--ui-primary-tint); color: var(--ui-primary); margin-bottom: 6px;
+}
+.ui-app-icona svg, .ui-app-icona img { width: 26px; height: 26px; }
+.ui-app-nome { font-weight: 600; font-size: 15px; }
+.ui-app-sub { font-size: 13px; color: var(--ui-text-2); }
+@media (max-width: 767px) {
+  .ui-appbar { flex-wrap: wrap; gap: 8px; padding: 8px 0; }
+  .ui-appbar-destra { margin-left: 0; width: 100%; }
+  .ui-aziende .ui-input { width: 100%; }
+}

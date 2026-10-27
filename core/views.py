@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import NoReverseMatch, reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
@@ -12,9 +13,25 @@ from .models import Azienda
 from .viste import ModelView, register
 
 
+def voci_kernel(user):
+    """Pagine del kernel nel launcher, secondo i permessi."""
+    voci = []
+    if user.has_perm("core.view_azienda"):
+        voci.append({"label": "Aziende", "url": reverse("core:aziende_lista"), "icon": "tool",
+                     "sub": "Anagrafica delle aziende dell'istanza"})
+    if user.is_staff:
+        voci.append({"label": "Stile", "url": reverse("core:stile"), "icon": "eye",
+                     "sub": "Catalogo dei componenti grafici"})
+    return voci
+
+
 @login_required
 def home(request):
-    return render(request, "core/home.html")
+    try:
+        url_moduli = reverse("core:moduli")
+    except NoReverseMatch:
+        url_moduli = ""
+    return render(request, "core/launcher.html", {"kernel": voci_kernel(request.user), "url_moduli": url_moduli})
 
 
 @login_required

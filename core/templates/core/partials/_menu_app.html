@@ -1,0 +1,10 @@
+<nav class="ui-appbar" aria-label="Menu dell'app">
+  {% if app_corrente %}
+  <a class="ui-appbar-nome" href="{{ app_corrente.url }}">{{ app_corrente.label }}</a>
+  <div class="ui-appbar-voci">
+    {% for voce in menu_app %}<a href="{{ voce.url }}"{% if voce.attiva %} class="is-active" aria-current="page"{% endif %}>{{ voce.label }}</a>{% endfor %}
+    {% if app_corrente.settings_url %}<a href="{{ app_corrente.settings_url }}">Impostazioni</a>{% endif %}
+  </div>
+  {% endif %}
+  <div class="ui-appbar-destra">{% include "core/partials/_aziende.html" %}</div>
+</nav>
