@@ -27,7 +27,7 @@ ordine di dipendenza.
 - `Evento`, visibilità degli eventi privati, vista calendario, `.ics` (invito per email e download), pianificazione
   dei promemoria.
 
-### Task 3: crm
+### Task 3: crm — fatto
 - Fasi, etichette, motivi di perdita (dati iniziali), `Opportunita`, kanban per fase con regola della fase vinta,
   bottoni Vinta/Persa/Crea contatto, azione Assegna a me, parametro probabilità dalla fase.
 

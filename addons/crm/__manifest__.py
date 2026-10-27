@@ -1,0 +1,29 @@
+{
+    "name": "CRM",
+    "summary": "Opportunità commerciali in pipeline, dal primo contatto al contratto",
+    "version": "1.0.0",
+    "author": "ICHNOBYTE S.R.L.",
+    "category": "Vendite",
+    "depends": ["contatti"],
+    "min_core": "1.0",
+    "application": True,
+    "icon": "crm/icon.svg",
+    "menu": [
+        {"label": "Pipeline", "url_name": "crm:opportunita_kanban", "permission": "crm.view_opportunita"},
+        {"label": "Opportunità", "url_name": "crm:opportunita_lista", "permission": "crm.view_opportunita"},
+        {"label": "Analisi", "url_name": "crm:opportunita_grafico", "permission": "crm.view_opportunita"},
+        {"label": "Fasi", "url_name": "crm:fasi_lista", "permission": "crm.change_fasecrm"},
+    ],
+    "groups": {
+        "CRM / Commerciale": ["crm.view_opportunita", "crm.add_opportunita", "crm.change_opportunita",
+                              "crm.view_fasecrm", "crm.view_etichettacrm", "crm.view_motivoperdita"],
+        "CRM / Responsabile": ["crm.*"],
+    },
+    "data": ["data/iniziali.json"],
+    "demo": ["data/demo.json"],
+    "hooks": "crm.hooks",
+    "settings": [
+        {"chiave": "probabilita_dalla_fase", "label": "Probabilità dalla fase", "tipo": "booleano", "default": True,
+         "help": "Cambiando fase, la probabilità prende quella della fase"},
+    ],
+}

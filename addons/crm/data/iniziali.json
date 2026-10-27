@@ -1,0 +1,101 @@
+[
+  {
+    "model": "crm.fasecrm",
+    "pk": 1,
+    "fields": {
+      "nome": "Nuova",
+      "ordine": 10,
+      "probabilita": 10,
+      "vinta": false
+    }
+  },
+  {
+    "model": "crm.fasecrm",
+    "pk": 2,
+    "fields": {
+      "nome": "Qualificata",
+      "ordine": 20,
+      "probabilita": 30,
+      "vinta": false
+    }
+  },
+  {
+    "model": "crm.fasecrm",
+    "pk": 3,
+    "fields": {
+      "nome": "Proposta",
+      "ordine": 30,
+      "probabilita": 60,
+      "vinta": false
+    }
+  },
+  {
+    "model": "crm.fasecrm",
+    "pk": 4,
+    "fields": {
+      "nome": "Negoziazione",
+      "ordine": 40,
+      "probabilita": 80,
+      "vinta": false
+    }
+  },
+  {
+    "model": "crm.fasecrm",
+    "pk": 5,
+    "fields": {
+      "nome": "Vinta",
+      "ordine": 50,
+      "probabilita": 100,
+      "vinta": true
+    }
+  },
+  {
+    "model": "crm.motivoperdita",
+    "pk": 1,
+    "fields": {
+      "nome": "Prezzo troppo alto"
+    }
+  },
+  {
+    "model": "crm.motivoperdita",
+    "pk": 2,
+    "fields": {
+      "nome": "Scelto un concorrente"
+    }
+  },
+  {
+    "model": "crm.motivoperdita",
+    "pk": 3,
+    "fields": {
+      "nome": "Nessuna risposta"
+    }
+  },
+  {
+    "model": "crm.motivoperdita",
+    "pk": 4,
+    "fields": {
+      "nome": "Progetto rinviato"
+    }
+  },
+  {
+    "model": "crm.etichettacrm",
+    "pk": 1,
+    "fields": {
+      "nome": "Nuovo cliente"
+    }
+  },
+  {
+    "model": "crm.etichettacrm",
+    "pk": 2,
+    "fields": {
+      "nome": "Rinnovo"
+    }
+  },
+  {
+    "model": "crm.etichettacrm",
+    "pk": 3,
+    "fields": {
+      "nome": "Pubblica amministrazione"
+    }
+  }
+]
