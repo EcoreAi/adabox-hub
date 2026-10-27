@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Azienda, Modulo, ProfiloUtente
+from .models import Azienda, Modulo, ProfiloUtente, TokenApi
 
 
 @admin.register(Azienda)
@@ -30,4 +30,16 @@ class ModuloAdmin(admin.ModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(TokenApi)
+class TokenApiAdmin(admin.ModelAdmin):
+    """La chiave è un hash: dall'admin si vede e si revoca, non si crea (si crea dal profilo)."""
+    list_display = ("nome", "utente", "creato", "ultimo_uso", "attivo")
+    list_filter = ("attivo",)
+    search_fields = ("nome", "utente__username")
+    readonly_fields = ("utente", "nome", "creato", "ultimo_uso")
+
+    def has_add_permission(self, request):
         return False

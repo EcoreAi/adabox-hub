@@ -12,8 +12,8 @@ from django.views.decorators.http import require_GET, require_POST
 from . import azienda as az
 from . import moduli as mod
 
-from .forms import ProfiloForm
-from .models import Azienda, Modulo
+from .forms import ProfiloForm, TokenApiForm
+from .models import Azienda, Modulo, ProfiloUtente, TokenApi
 from .registry import modules
 from .viste import ModelView, register
 
@@ -47,6 +47,9 @@ def stile(request):
     return render(request, "core/stile.html")
 
 
+CHIAVE_TOKEN_NUOVO = "token_api_chiaro"
+
+
 @login_required
 def profilo(request):
     form = ProfiloForm(request.POST or None, instance=request.user)
@@ -54,7 +57,33 @@ def profilo(request):
         form.save()
         messages.success(request, "Profilo aggiornato.")
         return redirect("core:profilo")
-    return render(request, "core/profilo.html", {"form": form})
+    return render(request, "core/profilo.html", {
+        "form": form, "form_token": TokenApiForm(), "token": request.user.token_api.all(),
+        "token_chiaro": request.session.pop(CHIAVE_TOKEN_NUOVO, None),   # mostrato una sola volta
+    })
+
+
+@require_POST
+@login_required
+def token_nuovo(request):
+    form = TokenApiForm(request.POST)
+    if form.is_valid():
+        _, chiaro = TokenApi.genera(request.user, form.cleaned_data["nome"])
+        request.session[CHIAVE_TOKEN_NUOVO] = chiaro
+        messages.success(request, "Token creato: copialo ora, non sarà più mostrato.")
+    else:
+        messages.error(request, "Indica un nome per il token.")
+    return redirect("core:profilo")
+
+
+@require_POST
+@login_required
+def token_revoca(request, pk):
+    token = get_object_or_404(TokenApi, pk=pk, utente=request.user)
+    token.attivo = False
+    token.save(update_fields=["attivo"])
+    messages.success(request, f"Token «{token.nome}» revocato.")
+    return redirect("core:profilo")
 
 
 @require_POST
@@ -77,6 +106,8 @@ class AziendaView(ModelView):
     """Gestione delle aziende (/core/aziende/) e banco di prova delle viste generiche."""
     model = Azienda
     slug = "aziende"
+    api = True
+    api_fields = ["nome", "partita_iva", "codice_fiscale", "citta", "provincia", "email", "telefono", "attiva"]
     list_display = ["nome", "partita_iva", "citta", "attiva"]
     list_filter = ["attiva", "provincia"]
     search_fields = ["nome", "partita_iva"]
@@ -173,3 +204,12 @@ def moduli_stato(request):
     except ValueError:
         return HttpResponseBadRequest("log non valido")
     return render(request, "core/partials/_moduli_stato.html", {"log": log, "coda": coda, "stato": stato})
+
+
+@register
+class ProfiloUtenteView(ModelView):
+    """Profili utente: viste generiche senza API e fuori dai menu (si gestiscono anche dall'admin)."""
+    model = ProfiloUtente
+    slug = "profili"
+    list_display = ["utente", "azienda_predefinita"]
+    api = False

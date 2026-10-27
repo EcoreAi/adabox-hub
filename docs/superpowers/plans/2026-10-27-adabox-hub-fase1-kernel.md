@@ -1211,7 +1211,7 @@ Run: `pytest core/tests/test_moduli_pagina.py -v` — Expected: passed.
 - Modify: `config/urls.py`, `core/views.py` (`profilo`: token), `core/forms.py`, `core/templates/core/profilo.html`, `core/urls.py` (`core:token_nuovo`, `core:token_revoca`), `core/admin.py` (`TokenApi`)
 - Test: `core/tests/test_api.py`, `core/tests/test_profilo_token.py`
 
-- [ ] **Step 1: test (falliscono)**
+- [x] **Step 1: test (falliscono)**
 
 `test_api.py` (usa `AziendaView` con `api=True`, `api_fields=["nome","partita_iva","citta","attiva"]`):
 - senza credenziali → 401; con sessione (client loggato) → 200; con `Authorization: Bearer <chiaro>` → 200; token revocato → 401;
@@ -1226,7 +1226,7 @@ Run: `pytest core/tests/test_moduli_pagina.py -v` — Expected: passed.
 
 `test_profilo_token.py`: `/profilo/` mostra i token dell'utente; `POST core:token_nuovo nome=cli` → crea e mostra il chiaro **una sola volta** (nella pagina successiva non c'è); `POST core:token_revoca pk` → `attivo=False`; revocare un token altrui → 404.
 
-- [ ] **Step 2: implementazione**
+- [x] **Step 2: implementazione**
 
 ```python
 # core/api/auth.py
@@ -1255,7 +1255,7 @@ Profilo: `TokenApiForm(nome)`, viste `token_nuovo` e `token_revoca`; il chiaro p
 
 Run: `pytest -v` — Expected: passed. Apri `/api/v1/docs`.
 
-- [ ] **Step 3: commit** — `feat(core): API JSON generica con Django Ninja, token per utente e endpoint me/moduli`
+- [x] **Step 3: commit** — `feat(core): API JSON generica con Django Ninja, token per utente e endpoint me/moduli`
 
 ---
 

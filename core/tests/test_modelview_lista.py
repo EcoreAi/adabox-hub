@@ -47,7 +47,8 @@ def test_nomi_url():
 def test_registro():
     v = registry.per_modello(Azienda)
     assert isinstance(v, AziendaView) and v in registry.viste_di("core")
-    assert len(registry.urlpatterns("core")) == 7
+    assert len(v.get_urls()) == 7
+    assert len(registry.urlpatterns("core")) == 7 * len(registry.viste_di("core"))
 
 
 @pytest.mark.django_db

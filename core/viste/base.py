@@ -63,7 +63,9 @@ class ModelView:
         qs = self.model._default_manager.all()
         if self.company_field and getattr(request, "azienda", None) is not None:
             qs = qs.filter(**{self.company_field: request.azienda})
-        return qs.order_by(*self.ordering) if self.ordering else qs
+        if self.ordering:
+            return qs.order_by(*self.ordering)
+        return qs if qs.ordered else qs.order_by("pk")    # paginazione stabile
 
     def get_object(self, request, pk):
         return get_object_or_404(self.get_queryset(request), pk=pk)     # fuori azienda → 404
