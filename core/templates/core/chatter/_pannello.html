@@ -1,0 +1,40 @@
+<aside class="ui-chatter" id="chatter" aria-label="Messaggi e attività">
+  <form method="post" enctype="multipart/form-data" action="{% url 'core:chatter_scrivi' chatter.ct chatter.obj.pk %}"
+        hx-post="{% url 'core:chatter_scrivi' chatter.ct chatter.obj.pk %}" hx-encoding="multipart/form-data"
+        hx-target="#chatter" hx-swap="outerHTML" class="ui-chatter-scrivi">
+    {% csrf_token %}
+    <div class="ui-chatter-tipi" role="radiogroup" aria-label="Tipo">
+      <label><input type="radio" name="tipo" value="messaggio" checked> Messaggio</label>
+      <label><input type="radio" name="tipo" value="nota"> Nota interna</label>
+    </div>
+    <textarea class="ui-input" name="corpo" rows="3" placeholder="Scrivi ai follower o lascia una nota…" aria-label="Testo"></textarea>
+    <div class="ui-chatter-azioni">
+      <input type="file" name="file" multiple class="ui-file" aria-label="Allega file">
+      <button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">Invia</button>
+    </div>
+  </form>
+
+  <div class="ui-chatter-blocco">
+    <div class="ui-chatter-titolo">
+      Follower ({{ chatter.follower|length }})
+      <form method="post" action="{% url 'core:chatter_segui' chatter.ct chatter.obj.pk %}"
+            hx-post="{% url 'core:chatter_segui' chatter.ct chatter.obj.pk %}" hx-target="#chatter" hx-swap="outerHTML">
+        {% csrf_token %}
+        {% if chatter.segue %}<input type="hidden" name="azione" value="smetti"><button type="submit" class="ui-btn ui-btn-ghost ui-btn-sm">Smetti di seguire</button>
+        {% else %}<button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Segui</button>{% endif %}
+      </form>
+    </div>
+    <div class="ui-chatter-follower">{% for u in chatter.follower %}<span class="ui-avatar" title="{{ u.get_full_name|default:u.username }}">{{ u.username|slice:":1"|upper }}</span>{% endfor %}</div>
+  </div>
+
+
+  <div class="ui-chatter-blocco">
+    <div class="ui-chatter-titolo">Allegati ({{ chatter.allegati|length }})</div>
+    {% include "core/allegati/_elenco.html" with obj=chatter.obj ct=chatter.ct allegati=chatter.allegati puo_modificare=chatter.puo_modificare %}
+  </div>
+
+  <div class="ui-chatter-blocco">
+    <div class="ui-chatter-titolo">Attività recente</div>
+    {% include "core/chatter/_messaggi.html" %}
+  </div>
+</aside>

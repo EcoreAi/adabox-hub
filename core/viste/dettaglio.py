@@ -3,6 +3,7 @@ from django.shortcuts import render
 
 from core.registry import hooks
 
+from .chatter import contesto_chatter
 from .lista import VistaBase, urls_di
 
 
@@ -23,4 +24,5 @@ class DettaglioView(VistaBase):
             "puo_eliminare": vista.has_delete_permission(request, obj),
             "url_modifica": vista.url("modifica", pk=obj.pk), "url_elimina": vista.url("elimina", pk=obj.pk),
             "sezioni_extra": hooks.sezioni_per(vista.model, request),
+            "chatter": contesto_chatter(request, vista, obj) if vista.chatter else None,
         })

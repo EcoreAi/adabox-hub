@@ -228,3 +228,44 @@ class Allegato(models.Model):
 
     def __str__(self):
         return self.nome
+
+
+class Messaggio(models.Model):
+    """Voce del chatter di un record: nota interna, messaggio ai follower, tracciamento, evento di sistema."""
+    NOTA, MESSAGGIO, TRACCIAMENTO, SISTEMA = "nota", "messaggio", "tracciamento", "sistema"
+    TIPI = [(NOTA, "Nota"), (MESSAGGIO, "Messaggio"), (TRACCIAMENTO, "Tracciamento"), (SISTEMA, "Sistema")]
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveBigIntegerField()
+    record = GenericForeignKey("content_type", "object_id")
+    tipo = models.CharField("tipo", max_length=12, choices=TIPI, default=MESSAGGIO)
+    autore = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                               related_name="+", verbose_name="autore")
+    corpo = models.TextField("testo", blank=True)
+    modifiche = models.JSONField("modifiche", default=list, blank=True)
+    allegati = models.ManyToManyField(Allegato, blank=True, related_name="messaggi", verbose_name="allegati")
+    message_id = models.CharField("Message-ID", max_length=255, blank=True, db_index=True)
+    creato = models.DateTimeField("creato il", default=timezone.now)
+
+    class Meta:
+        verbose_name = "messaggio"
+        verbose_name_plural = "messaggi"
+        ordering = ["-creato", "-pk"]
+        indexes = [models.Index(fields=["content_type", "object_id", "-creato"])]
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} di {self.autore or 'sistema'} ({self.creato:%d/%m/%Y %H:%M})"
+
+
+class Follower(models.Model):
+    """Chi segue un record: riceve per email i messaggi (non le note)."""
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveBigIntegerField()
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="segue")
+
+    class Meta:
+        verbose_name = "follower"
+        verbose_name_plural = "follower"
+        constraints = [models.UniqueConstraint(fields=["content_type", "object_id", "utente"], name="follower_unico")]
+
+    def __str__(self):
+        return f"{self.utente} segue {self.content_type.model} #{self.object_id}"

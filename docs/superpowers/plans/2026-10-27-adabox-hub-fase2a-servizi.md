@@ -101,7 +101,7 @@ chiusi con la riga `Co-Authored-By` del modello che li scrive, push a fine task)
 - `deploy/nginx.conf`: `location /_privati/ { internal; alias /app/private/; }`; volume `./private`.
 - Test: caricamento, download consentito/negato (azienda diversa → 404), limiti, X-Accel.
 
-### Task 7: Chatter — messaggi, note, follower, tracciamento, pannello
+### Task 7: Chatter — messaggi, note, follower, tracciamento, pannello — fatto
 
 - `Messaggio`, `Follower` (spec). `chatter.scrivi(obj, autore, corpo, tipo, allegati=())`, `traccia(obj, vecchi, utente)`
   (etichette dei campi e valori resi come nel dettaglio), `segui/smetti`.

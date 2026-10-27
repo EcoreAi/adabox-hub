@@ -906,3 +906,35 @@ pre.ui-log {
 .ui-allegato-info { color: var(--ui-text-3); white-space: nowrap; }
 .ui-allegato form { margin-left: auto; }
 .ui-allegati-carica { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+
+/* ============================================================
+   Dettaglio con pannello laterale (chatter)
+   ============================================================ */
+.ui-con-chatter { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; }
+.ui-principale { min-width: 0; }
+.ui-chatter {
+  position: sticky; top: 76px; max-height: calc(100vh - 96px); overflow: auto;
+  background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--radius-card);
+  padding: 16px;
+}
+.ui-chatter-scrivi .ui-input { resize: vertical; }
+.ui-chatter-tipi { display: flex; gap: 16px; font-size: 13px; color: var(--ui-text-2); margin-bottom: 8px; }
+.ui-chatter-azioni { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.ui-chatter-blocco { border-top: 1px solid var(--ui-border); margin-top: 16px; padding-top: 12px; }
+.ui-chatter-titolo {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;
+  font-size: 12px; font-weight: 600; color: var(--ui-text-2); text-transform: uppercase; letter-spacing: 0.04em;
+}
+.ui-chatter-follower { display: flex; flex-wrap: wrap; gap: 4px; }
+.ui-messaggi { display: flex; flex-direction: column; gap: 14px; }
+.ui-messaggio header { display: flex; align-items: center; gap: 8px; font-size: 13px; flex-wrap: wrap; }
+.ui-messaggio header time { color: var(--ui-text-3); font-size: 12px; margin-left: auto; }
+.ui-messaggio-corpo { margin: 6px 0 0 36px; font-size: 14px; overflow-wrap: anywhere; }
+.ui-messaggio-nota .ui-messaggio-corpo { background: var(--ui-warning-tint); border-radius: var(--radius-input); padding: 8px 10px; }
+.ui-messaggio-modifiche { margin: 6px 0 0 36px; padding-left: 16px; font-size: 13px; color: var(--ui-text-2); }
+.ui-messaggio-modifiche s { color: var(--ui-text-3); }
+.ui-messaggio-allegati { margin: 6px 0 0 36px; display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; }
+@media (max-width: 1023px) {
+  .ui-con-chatter { grid-template-columns: minmax(0, 1fr); }
+  .ui-chatter { position: static; max-height: none; }
+}

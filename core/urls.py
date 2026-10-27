@@ -2,6 +2,7 @@ from django.urls import include, path
 
 from . import views
 from .viste import allegati as allegati_viste
+from .viste import chatter as chatter_viste
 from .viste import registry
 
 app_name = "core"
@@ -14,6 +15,10 @@ urlpatterns = [
     path("profilo/token/<int:pk>/revoca/", views.token_revoca, name="token_revoca"),
     path("azienda/cambia/", views.cambia_azienda, name="cambia_azienda"),
     path("impostazioni/", views.impostazioni, name="impostazioni"),
+    path("chatter/<int:ct>/<int:pk>/", chatter_viste.pannello, name="chatter"),
+    path("chatter/<int:ct>/<int:pk>/messaggi/", chatter_viste.altri_messaggi, name="chatter_messaggi"),
+    path("chatter/<int:ct>/<int:pk>/scrivi/", chatter_viste.scrivi, name="chatter_scrivi"),
+    path("chatter/<int:ct>/<int:pk>/segui/", chatter_viste.segui, name="chatter_segui"),
     path("allegati/elenco/<int:ct>/<int:pk>/", allegati_viste.elenco, name="allegati_elenco"),
     path("allegati/carica/<int:ct>/<int:pk>/", allegati_viste.carica, name="allegato_carica"),
     path("allegati/<int:pk>/", allegati_viste.scarica, name="allegato_scarica"),

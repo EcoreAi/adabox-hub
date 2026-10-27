@@ -1,0 +1,28 @@
+<div class="ui-messaggi">
+{% for m in chatter.messaggi %}
+  <article class="ui-messaggio ui-messaggio-{{ m.tipo }}">
+    <header>
+      <span class="ui-avatar">{% if m.autore %}{{ m.autore.username|slice:":1"|upper }}{% else %}·{% endif %}</span>
+      <strong>{% if m.autore %}{{ m.autore.get_full_name|default:m.autore.username }}{% else %}Sistema{% endif %}</strong>
+      {% if m.tipo == "nota" %}<span class="ui-pill ui-pill-warn">nota</span>{% endif %}
+      <time datetime="{{ m.creato|date:'c' }}">{{ m.creato|date:"d/m/Y H:i" }}</time>
+    </header>
+    {% if m.corpo %}<div class="ui-messaggio-corpo">{{ m.corpo|urlize|linebreaksbr }}</div>{% endif %}
+    {% if m.modifiche %}
+    <ul class="ui-messaggio-modifiche">
+      {% for c in m.modifiche %}<li>{{ c.label }}: <s>{{ c.prima }}</s> → <strong>{{ c.dopo }}</strong></li>{% endfor %}
+    </ul>
+    {% endif %}
+    {% if m.allegati.all %}
+    <div class="ui-messaggio-allegati">{% for a in m.allegati.all %}<a class="ui-link" href="{% url 'core:allegato_scarica' a.pk %}">{{ a.nome }}</a>{% endfor %}</div>
+    {% endif %}
+  </article>
+{% empty %}
+  <p class="ui-help">Ancora nessun messaggio.</p>
+{% endfor %}
+{% if chatter.messaggi.has_next %}
+  <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'core:chatter_messaggi' chatter.ct chatter.obj.pk %}?p={{ chatter.messaggi.next_page_number }}"
+     hx-get="{% url 'core:chatter_messaggi' chatter.ct chatter.obj.pk %}?p={{ chatter.messaggi.next_page_number }}"
+     hx-target="closest .ui-messaggi" hx-swap="beforeend" hx-select=".ui-messaggi > *" onclick="if (window.htmx) this.remove()">Messaggi precedenti</a>
+{% endif %}
+</div>

@@ -14,6 +14,7 @@
     {% if puo_eliminare %}<a class="ui-btn ui-btn-danger" href="{{ url_elimina }}" hx-get="{{ url_elimina }}" hx-target="#modale" hx-swap="innerHTML"><svg><use href="#icon-trash"/></svg> Elimina</a>{% endif %}
   </div>
 </div>
+{% if chatter %}<div class="ui-con-chatter"><div class="ui-principale">{% endif %}
 {% for titolo, righe in sezioni %}
 <section class="ui-card is-revealed ui-section">
   {% if titolo %}<div class="ui-card-head"><div class="ui-card-title">{{ titolo }}</div></div>{% endif %}
@@ -27,5 +28,6 @@
 </section>
 {% endfor %}
 {% for s in sezioni_extra %}{% include s.template %}{% endfor %}
+{% if chatter %}</div>{% include "core/chatter/_pannello.html" %}</div>{% endif %}
 <div id="modale"></div>
 {% endblock %}

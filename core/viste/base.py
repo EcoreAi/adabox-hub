@@ -22,6 +22,8 @@ class ModelView:
     readonly_fields = ()
     company_field = None          # None = modello globale
     sequence_field = None         # ("campo", "modulo.codice"): numero assegnato alla creazione
+    chatter = False               # pannello messaggi/note/allegati/attività nel dettaglio
+    tracked_fields = ()           # campi le cui modifiche finiscono nel chatter
     actions = ()                  # nomi di metodi (self, request, queryset) -> str|None
     buttons = ()                  # nomi di metodi (self, request, obj) -> HttpResponse|str|None
     api = False
@@ -75,13 +77,23 @@ class ModelView:
     def save_model(self, request, obj, form, change):
         if not change and self.company_field and getattr(obj, f"{self.company_field}_id", None) is None:
             setattr(obj, self.company_field, request.azienda)
+        from core import chatter
         with transaction.atomic():
+            vecchi = None
+            if change and self.chatter and self.tracked_fields:
+                # il form ha già modificato obj: i valori di prima si rileggono dal DB
+                vecchi = chatter.valori(self.model._default_manager.get(pk=obj.pk), self.tracked_fields)
             if not change and self.sequence_field and not getattr(obj, self.sequence_field[0]):
                 from core import sequenze
                 azienda = getattr(obj, self.company_field) if self.company_field else None
                 setattr(obj, self.sequence_field[0], sequenze.prossimo(self.sequence_field[1], azienda))
             obj.save()
             form.save_m2m()
+            if self.chatter and not change:
+                chatter.scrivi(obj, request.user, "Record creato.", tipo="sistema")
+                chatter.segui(obj, request.user)
+            elif vecchi is not None:
+                chatter.traccia(obj, vecchi, request.user)
 
     def _perm(self, request, azione):
         return request.user.has_perm(f"{self.opts.app_label}.{azione}_{self.opts.model_name}")

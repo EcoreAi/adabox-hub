@@ -144,6 +144,8 @@ class AziendaView(ModelView):
     ]
     actions = ["disattiva"]
     buttons = ["attiva"]
+    chatter = True
+    tracked_fields = ["nome", "partita_iva", "attiva"]
 
     def col_citta(self, obj):
         return obj.citta.upper() if obj.citta else "—"
