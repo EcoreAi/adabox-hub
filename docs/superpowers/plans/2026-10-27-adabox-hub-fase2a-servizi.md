@@ -112,7 +112,7 @@ chiusi con la riga `Co-Authored-By` del modello che li scrive, push a fine task)
 - `AziendaView` con `chatter = True` e `tracked_fields = ["attiva", "nome"]` come banco di prova.
 - Test: tracciamento da vista e API, follower automatici, permessi (fuori azienda → 404), paginazione.
 
-### Task 8: Email in uscita
+### Task 8: Email in uscita — fatto
 
 - Un `messaggio` (non nota né tracciamento) accoda `chatter.email.notifica(messaggio_id)`: una email per follower
   attivo con email, escluso l'autore. `Message-ID` `<msg-<pk>-<uuid>@<host>>` salvato su `Messaggio.message_id`;

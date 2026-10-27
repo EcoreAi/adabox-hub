@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="it"><body style="margin:0;padding:24px;background:#f5f5f7;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1d1d1f;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;">
+  <tr><td style="padding:24px 28px;">
+    <p style="margin:0 0 4px;font-size:13px;color:#6e6e73;">{{ brand }}</p>
+    <p style="margin:0 0 16px;font-size:15px;"><strong>{{ autore }}</strong> ha scritto su <strong>{{ obj }}</strong>:</p>
+    <div style="font-size:15px;line-height:1.5;">{{ m.corpo|urlize|linebreaksbr }}</div>
+    {% if m.allegati.all %}<p style="font-size:13px;color:#6e6e73;">Allegati: {% for a in m.allegati.all %}{{ a.nome }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+    <p style="margin:24px 0 0;"><a href="{{ link }}" style="display:inline-block;padding:10px 18px;background:#1e3a8a;color:#ffffff;border-radius:8px;text-decoration:none;font-size:14px;">Apri</a></p>
+  </td></tr>
+  <tr><td style="padding:16px 28px;border-top:1px solid #e5e5ea;font-size:12px;color:#86868b;">
+    Ricevi questa email perché segui «{{ obj }}». Puoi rispondere: la risposta comparirà nei messaggi del record.
+  </td></tr>
+</table>
+</body></html>

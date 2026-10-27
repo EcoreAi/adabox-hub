@@ -1,0 +1,10 @@
+{% autoescape off %}{{ autore }} ha scritto su «{{ obj }}»:
+
+{{ m.corpo }}
+{% if m.allegati.all %}
+Allegati: {% for a in m.allegati.all %}{{ a.nome }}{% if not forloop.last %}, {% endif %}{% endfor %}
+{% endif %}
+Apri: {{ link }}
+
+Ricevi questa email perché segui «{{ obj }}» su {{ brand }}.{% if m.content_type_id %} Puoi rispondere a questa email: la risposta comparirà nei messaggi del record.{% endif %}
+{% endautoescape %}
