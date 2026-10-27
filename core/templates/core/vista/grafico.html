@@ -1,0 +1,30 @@
+{% extends 'core/base_app.html' %}
+{% block title %}{{ vista.verbose_name_plural|capfirst }} · Grafico · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>{{ vista.verbose_name_plural|capfirst }}</h1><div class="sub">{{ titolo }}</div></div>
+  <div class="ui-pagehead-actions">{% include "core/vista/_selettore.html" %}</div>
+</div>
+<div class="ui-card is-revealed">{% include "core/vista/_filtri_semplici.html" %}</div>
+<div class="ui-card is-revealed">
+  <form class="ui-filtri" method="get">
+    {% for k, v in request.GET.items %}{% if k == "q" or k|slice:":2" == "f_" %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
+    {% if tipi|length > 1 %}<select class="ui-input" name="tipo" aria-label="Tipo di grafico" onchange="this.form.submit()">{% for v, e in tipi %}<option value="{{ v }}"{% if v == tipo %} selected{% endif %}>{{ e }}</option>{% endfor %}</select>{% else %}<input type="hidden" name="tipo" value="{{ tipo }}">{% endif %}
+    <select class="ui-input" name="misura" aria-label="Misura" onchange="this.form.submit()">{% for v, e in misure %}<option value="{{ v }}"{% if v == misura %} selected{% endif %}>{{ e }}</option>{% endfor %}</select>
+    <select class="ui-input" name="per" aria-label="Per" onchange="this.form.submit()">{% for v, e in assi %}<option value="{{ v }}"{% if v == per %} selected{% endif %}>Per {{ e|lower }}</option>{% endfor %}</select>
+    <noscript><button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Aggiorna</button></noscript>
+  </form>
+  <div class="ui-card-body">
+    {% if svg %}<div class="ui-grafico">{{ svg }}</div>
+    {% else %}<div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun dato con questi filtri.</p></div>{% endif %}
+  </div>
+  {% if righe %}
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <caption class="ui-help" style="text-align:left;padding:8px 20px;">{{ titolo }}</caption>
+    <thead><tr><th scope="col">Categoria</th><th scope="col" class="ui-num">Valore</th></tr></thead>
+    <tbody>{% for e, v in righe %}<tr><td>{{ e }}</td><td class="ui-num">{{ v }}</td></tr>{% endfor %}</tbody>
+    <tfoot><tr class="ui-totali"><th scope="row">Totale</th><td class="ui-num">{{ totale }}</td></tr></tfoot>
+  </table></div>
+  {% endif %}
+</div>
+{% endblock %}

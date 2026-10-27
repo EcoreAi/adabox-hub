@@ -47,7 +47,7 @@ Dipendenza nuova: `openpyxl`.
   `initial`).
 - Test: eventi nel giorno giusto (anche datetime in fuso Roma), mese e settimana, filtri, link al nuovo con la data.
 
-### Task 4: Grafico
+### Task 4: Grafico — fatto
 
 - `graph = {"tipi": [...], "misure": ["count", "sum:campo"], "per": ["campo", "campo:mese"]}`.
 - `GET <slug>/grafico/?tipo=barre&misura=count&per=stato`: aggregazione nel DB sul queryset filtrato, etichette

@@ -1,4 +1,6 @@
 """Raggruppamenti della lista (?g=campo o campo:mese|anno) e totali dei campi numerici (list_sum)."""
+from types import SimpleNamespace
+
 from django.core.exceptions import FieldDoesNotExist
 from django.db import models
 from django.db.models import Count, F, Sum
@@ -32,6 +34,11 @@ def raggruppabili(vista):
             continue
         risultato.append((chiave, _etichetta_campo(f) + {"": "", "mese": " (mese)", "anno": " (anno)"}.get(parte, "")))
     return risultato
+
+
+def raggruppabili_grafico(vista):
+    """Come raggruppabili, ma dagli assi dichiarati in graph["per"]."""
+    return raggruppabili(SimpleNamespace(list_group_by=vista.graph["per"], opts=vista.opts))
 
 
 def espressione(vista, chiave):

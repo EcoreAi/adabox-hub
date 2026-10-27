@@ -75,9 +75,11 @@ class ModelView:
 
     def get_urls_viste(self):
         """URL delle viste facoltative, solo se dichiarate."""
-        from . import calendario, kanban
+        from . import calendario, grafico, kanban
         s = self.slug
         urls = []
+        if self.graph:
+            urls.append(path(f"{s}/grafico/", grafico.GraficoView.as_view(vista=self), name=f"{s}_grafico"))
         if self.calendar_date:
             urls.append(path(f"{s}/calendario/", calendario.CalendarioView.as_view(vista=self), name=f"{s}_calendario"))
         if self.kanban_group:

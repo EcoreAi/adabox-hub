@@ -1034,3 +1034,7 @@ td.ui-num { text-align: right; font-variant-numeric: tabular-nums; white-space: 
   .ui-calendario-giorno { min-height: 64px; padding: 3px; }
   .ui-evento { font-size: 10px; padding: 1px 3px; }
 }
+
+/* Grafici SVG generati dal server */
+.ui-grafico { overflow-x: auto; }
+.ui-grafico-svg { width: 100%; max-width: 900px; height: auto; display: block; }
