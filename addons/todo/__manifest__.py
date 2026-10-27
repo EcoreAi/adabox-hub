@@ -1,7 +1,7 @@
 {
     "name": "To-Do",
     "summary": "Attività personali e di squadra con scadenze",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -20,4 +20,14 @@
     "demo": ["data/demo.json"],
     "hooks": "todo.hooks",
     "settings_url": None,
+    "cron": [
+        {"nome": "Promemoria scadenze", "funzione": "todo.lavori.promemoria_scadenze", "ogni": "1d", "alle": "07:30"},
+    ],
+    "settings": [
+        {"chiave": "giorni_preavviso", "label": "Giorni di preavviso", "tipo": "intero", "default": 2,
+         "per_azienda": True, "help": "Quanti giorni prima della scadenza l'assegnatario riceve il promemoria"},
+    ],
+    "sequences": [
+        {"codice": "todo.attivita", "formato": "ATT/{anno}/{numero:04d}", "azzera": "anno"},
+    ],
 }

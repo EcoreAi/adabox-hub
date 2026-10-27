@@ -143,7 +143,7 @@ chiusi con la riga `Co-Authored-By` del modello che li scrive, push a fine task)
   e scadute.
 - Test: pianifica/fatta/annulla, permessi, pagina, contatore, promemoria.
 
-### Task 11: `todo` 1.1.0
+### Task 11: `todo` 1.1.0 — fatto
 
 - Manifest 1.1.0: `cron` (promemoria scadenze delle attività `todo` usando il parametro), `settings`
   (`giorni_preavviso`), `sequences` (`todo.attivita`, `ATT/{anno}/{numero:04d}`).

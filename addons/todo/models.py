@@ -20,6 +20,7 @@ class Tag(models.Model):
 class Attivita(AziendaMixin):
     APERTA, IN_CORSO, FATTA, ANNULLATA = "aperta", "in_corso", "fatta", "annullata"
     STATI = [(APERTA, "Aperta"), (IN_CORSO, "In corso"), (FATTA, "Fatta"), (ANNULLATA, "Annullata")]
+    numero = models.CharField("numero", max_length=30, blank=True, editable=False, db_index=True)
     titolo = models.CharField("titolo", max_length=200)
     descrizione = models.TextField("descrizione", blank=True)
     scadenza = models.DateField("scadenza", null=True, blank=True)

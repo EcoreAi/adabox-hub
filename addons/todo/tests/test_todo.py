@@ -120,3 +120,49 @@ def test_hook_post_install(gruppi):
     hooks.post_install(None)
     assert attivo.groups.filter(name="To-Do / Utente").exists()
     assert not spento.groups.exists()
+
+
+# --- 1.1.0: chatter, numero, promemoria ---
+
+def test_numero_e_chatter_alla_creazione(client, membro, aziende):
+    from core import chatter
+    from django.utils import timezone
+    client.post("/todo/attivita/nuovo/", {"titolo": "Numerata", "stato": "aperta"})
+    a = Attivita.objects.get(titolo="Numerata")
+    assert a.numero == f"ATT/{timezone.localdate().year}/0001"
+    assert [m.tipo for m in chatter.messaggi_di(a)] == ["sistema"] and chatter.segue(a, membro)
+    html = client.get(f"/todo/attivita/{a.pk}/").content.decode()
+    assert 'id="chatter"' in html and a.numero in html
+
+
+def test_tracciamento_di_stato_e_bottone(client, membro, aziende):
+    from core import chatter
+    a = Attivita.objects.get(titolo="Mia attività")
+    client.post(f"/todo/attivita/{a.pk}/bottone/segna_fatta/")
+    (m,) = chatter.messaggi_di(a)
+    assert m.modifiche == [{"campo": "stato", "label": "Stato", "prima": "Aperta", "dopo": "Fatta"}]
+
+
+def test_promemoria_scadenze_con_parametro(membro, aziende):
+    import datetime
+
+    from django.core import mail
+    from django.utils import timezone
+
+    from core import parametri
+    from todo import lavori
+    prima, seconda, _ = aziende
+    oggi = timezone.localdate()
+    Attivita.objects.create(azienda=prima, titolo="Tra tre giorni", assegnatario=membro,
+                            scadenza=oggi + datetime.timedelta(days=3))
+    Attivita.objects.create(azienda=prima, titolo="Già fatta", assegnatario=membro, scadenza=oggi, stato="fatta")
+    assert lavori.promemoria_scadenze() == 0                   # preavviso di default: 2 giorni
+    parametri.scrivi("todo.giorni_preavviso", 3, azienda=prima)
+    assert lavori.promemoria_scadenze() == 1
+    (email,) = mail.outbox
+    assert "Tra tre giorni" in email.body and "Già fatta" not in email.body
+
+
+def test_manifest_1_1():
+    m = manifest.leggi(CARTELLA)
+    assert m.version == "1.1.0" and m.cron and m.settings and m.sequences
