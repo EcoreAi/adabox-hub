@@ -1,0 +1,5 @@
+{% if viste|length > 1 %}
+<nav class="ui-selettore" aria-label="Viste">
+  {% for nome, etichetta, url, attiva in viste %}<a href="{{ url }}"{% if attiva %} class="is-active" aria-current="page"{% endif %}>{{ etichetta }}</a>{% endfor %}
+</nav>
+{% endif %}

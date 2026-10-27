@@ -17,7 +17,7 @@ Dipendenza nuova: `openpyxl`.
 
 ---
 
-### Task 1: Selettore di vista e raggruppamenti nella lista
+### Task 1: Selettore di vista e raggruppamenti nella lista — fatto
 
 - `ModelView`: `list_group_by` (campi con scelte, FK, booleani, date con `:mese`/`:anno`), `list_sum` (campi numerici).
 - `?g=<campo>`: righe ordinate per gruppo, intestazione con etichetta, conteggio e somme dell'intero gruppo (una query

@@ -16,8 +16,19 @@
       <th>{% if c.ordinabile %}<a class="ui-sort{% if c.direzione %} is-{{ c.direzione }}{% endif %}" href="{% querystring_con o=c.prossimo p=None %}">{{ c.label }}</a>{% else %}{{ c.label }}{% endif %}</th>
       {% endfor %}
     </tr></thead>
+    {% for b in blocchi %}
     <tbody>
-      {% for obj, celle in righe %}
+      {% if b.etichetta is not None %}
+      <tr class="ui-gruppo">
+        {% if azioni %}<td class="ui-col-check"></td>{% endif %}
+        {% for somma in b.somme %}
+        {% if forloop.first %}<th scope="rowgroup"><button type="button" class="ui-gruppo-toggle" aria-expanded="true"
+            onclick="const t=this.closest('tbody'); t.classList.toggle('is-chiuso'); this.setAttribute('aria-expanded', !t.classList.contains('is-chiuso'))">{{ b.etichetta }} <span class="ui-gruppo-n">{{ b.n }}</span></button></th>
+        {% else %}<td class="ui-num">{{ somma }}</td>{% endif %}
+        {% endfor %}
+      </tr>
+      {% endif %}
+      {% for obj, celle in b.righe %}
       <tr>
         {% if azioni %}<td class="ui-col-check"><input type="checkbox" form="form-azioni" name="pk" value="{{ obj.pk }}" aria-label="Seleziona {{ obj }}"></td>{% endif %}
         {% for valore in celle %}
@@ -26,6 +37,13 @@
       </tr>
       {% endfor %}
     </tbody>
+    {% endfor %}
+    {% if totali %}
+    <tfoot><tr class="ui-totali">
+      {% if azioni %}<td class="ui-col-check"></td>{% endif %}
+      {% for t in totali %}{% if forloop.first %}<th scope="row">Totale</th>{% else %}<td class="ui-num">{{ t }}</td>{% endif %}{% endfor %}
+    </tr></tfoot>
+    {% endif %}
   </table>
   </div>
   {% if page_obj.paginator.num_pages > 1 %}

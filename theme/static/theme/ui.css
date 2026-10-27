@@ -955,3 +955,20 @@ pre.ui-log {
 .ui-attivita-nuova summary::-webkit-details-marker { display: none; }
 .ui-attivita-nuova form { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .ui-attivita-nuova .ui-form-row { gap: 8px; grid-template-columns: 1fr 1fr; }
+
+/* ============================================================
+   Selettore di vista, gruppi e totali della lista
+   ============================================================ */
+.ui-selettore { display: inline-flex; border: 1px solid var(--ui-border); border-radius: var(--radius-input); overflow: hidden; }
+.ui-selettore a { padding: 6px 12px; font-size: 13px; color: var(--ui-text-2); text-decoration: none; }
+.ui-selettore a + a { border-left: 1px solid var(--ui-border); }
+.ui-selettore a:hover { color: var(--ui-text); background: var(--ui-surface-2); }
+.ui-selettore a.is-active { background: var(--ui-primary-tint); color: var(--ui-primary); font-weight: 600; }
+table.ui-table tr.ui-gruppo th, table.ui-table tr.ui-gruppo td { background: var(--ui-surface-2); font-weight: 600; }
+.ui-gruppo-toggle { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.ui-gruppo-toggle::before { content: "▾"; font-size: 11px; color: var(--ui-text-3); }
+tbody.is-chiuso .ui-gruppo-toggle::before { content: "▸"; }
+tbody.is-chiuso tr:not(.ui-gruppo) { display: none; }
+.ui-gruppo-n { font-weight: 400; font-size: 12px; color: var(--ui-text-2); background: var(--ui-surface); border-radius: var(--radius-pill); padding: 1px 8px; }
+table.ui-table tr.ui-totali th, table.ui-table tr.ui-totali td { font-weight: 700; border-top: 2px solid var(--ui-border); }
+td.ui-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }

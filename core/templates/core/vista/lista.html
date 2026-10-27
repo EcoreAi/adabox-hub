@@ -4,6 +4,7 @@
 <div class="ui-pagehead">
   <div><h1>{{ vista.verbose_name_plural|capfirst }}</h1><div class="sub">{{ page_obj.paginator.count }} in totale</div></div>
   <div class="ui-pagehead-actions">
+    {% include "core/vista/_selettore.html" %}
     {% if puo_aggiungere %}<a class="ui-btn ui-btn-primary" href="{{ urls.nuovo }}"><svg><use href="#icon-plus"/></svg> Nuovo</a>{% endif %}
   </div>
 </div>
@@ -31,6 +32,12 @@
       </select>
       {% endif %}
     {% endfor %}
+    {% if raggruppabili %}
+    <select class="ui-input" name="g" aria-label="Raggruppa per">
+      <option value="">Nessun raggruppamento</option>
+      {% for chiave, etichetta in raggruppabili %}<option value="{{ chiave }}"{% if chiave == gruppo %} selected{% endif %}>Raggruppa: {{ etichetta }}</option>{% endfor %}
+    </select>
+    {% endif %}
     {% if request.GET.o %}<input type="hidden" name="o" value="{{ request.GET.o }}">{% endif %}
     <noscript><button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Filtra</button></noscript>
     {% if request.GET %}<a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ urls.lista }}">Azzera</a>{% endif %}

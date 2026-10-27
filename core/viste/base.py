@@ -17,6 +17,11 @@ class ModelView:
     search_fields = ()
     ordering = ()
     per_page = 50
+    list_group_by = ()            # raggruppamenti ammessi: "campo", "data:mese", "data:anno"
+    list_sum = ()                 # campi numerici con i totali (per gruppo e in fondo)
+    kanban_group = None           # vista kanban: campo con scelte o FK
+    calendar_date = None          # vista calendario: campo data
+    graph = None                  # vista grafico: {"tipi": [...], "misure": [...], "per": [...]}
     form_layout = None            # [("Sezione", ["campo", ("affiancato1", "affiancato2")]), ...]
     form_class = None
     readonly_fields = ()
@@ -62,6 +67,15 @@ class ModelView:
             path(f"{s}/azione/<slug:nome>/", azioni.AzioneView.as_view(vista=self), name=f"{s}_azione"),
             path(f"{s}/<int:pk>/bottone/<slug:nome>/", azioni.BottoneView.as_view(vista=self), name=f"{s}_bottone"),
         ]
+
+    def viste_disponibili(self):
+        """[(nome, etichetta, url)] delle viste dichiarate, per il selettore nella testata."""
+        viste = [("lista", "Lista", self.url("lista"))]
+        for nome, etichetta, attivo in [("kanban", "Kanban", self.kanban_group), ("calendario", "Calendario", self.calendar_date),
+                                        ("grafico", "Grafico", self.graph)]:
+            if attivo:
+                viste.append((nome, etichetta, self.url(nome)))
+        return viste
 
     def get_queryset(self, request):
         qs = self.model._default_manager.all()
