@@ -32,8 +32,8 @@ l'host `github.com` usa la deploy key di adaerp e non può scrivere qui).
 
 - Prova manuale nel browser (filtri dal vivo, modale, installa/disinstalla da `/moduli/` con `runserver`).
 - Ogni `docker compose up` crea `staticfiles/` come root nella cartella del repo (comportamento ereditato dallo starter).
-- Fase 2 (kernel completo: chatter, attività, allegati, sequenze, kanban, calendario, report PDF, worker e cron,
-  impostazioni, import/export, Properties): serve una spec propria prima del piano.
+- Fase 2: spec approvata e piano 2a completato (sezione sotto); restano i piani 2b (viste) e 2c (report PDF,
+  campi personalizzati).
 
 ## Fase 2a — servizi (stessa sessione)
 
