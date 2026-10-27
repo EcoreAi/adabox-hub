@@ -1,4 +1,5 @@
 """ModelView: viste di un modello dichiarate in Python, sullo stile di ModelAdmin."""
+from django.db import transaction
 from django.forms import modelform_factory
 from django.shortcuts import get_object_or_404
 from django.urls import path, reverse
@@ -20,6 +21,7 @@ class ModelView:
     form_class = None
     readonly_fields = ()
     company_field = None          # None = modello globale
+    sequence_field = None         # ("campo", "modulo.codice"): numero assegnato alla creazione
     actions = ()                  # nomi di metodi (self, request, queryset) -> str|None
     buttons = ()                  # nomi di metodi (self, request, obj) -> HttpResponse|str|None
     api = False
@@ -73,8 +75,13 @@ class ModelView:
     def save_model(self, request, obj, form, change):
         if not change and self.company_field and getattr(obj, f"{self.company_field}_id", None) is None:
             setattr(obj, self.company_field, request.azienda)
-        obj.save()
-        form.save_m2m()
+        with transaction.atomic():
+            if not change and self.sequence_field and not getattr(obj, self.sequence_field[0]):
+                from core import sequenze
+                azienda = getattr(obj, self.company_field) if self.company_field else None
+                setattr(obj, self.sequence_field[0], sequenze.prossimo(self.sequence_field[1], azienda))
+            obj.save()
+            form.save_m2m()
 
     def _perm(self, request, azione):
         return request.user.has_perm(f"{self.opts.app_label}.{azione}_{self.opts.model_name}")

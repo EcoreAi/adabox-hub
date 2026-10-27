@@ -13,7 +13,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from core.lavori import sincronizza_pianificazioni
-from core.models import Modulo
+from core import sequenze
+from core.models import Modulo, Sequenza
 from core.registry import manifest as mf
 from core.registry.groups import crea_gruppi
 
@@ -82,6 +83,7 @@ class Command(BaseCommand):
             carica_fixture(m, demo)
             gruppi = crea_gruppi(m)
             sincronizza_pianificazioni(slug, m.cron)
+            sequenze.crea(m.sequences)
             riga = aggiorna_riga(m)
             esegui_hook(m, "post_install", riga)
             aggiorna_riga(m, stato=Modulo.INSTALLATO, versione_installata=m.version,
@@ -96,6 +98,7 @@ class Command(BaseCommand):
             carica_fixture(m)
             gruppi = crea_gruppi(m)
             sincronizza_pianificazioni(slug, m.cron)
+            sequenze.crea(m.sequences)
             riga = aggiorna_riga(m)
             esegui_hook(m, "post_upgrade", riga, da)
             aggiorna_riga(m, stato=Modulo.INSTALLATO, versione_installata=m.version,
@@ -115,5 +118,7 @@ class Command(BaseCommand):
             sincronizza_pianificazioni(slug, [])
         if elimina_dati and m and apps.is_installed(slug):
             self._migra(slug, "zero")
+        if elimina_dati:                    # senza, le sequenze restano coi dati: reinstallando si prosegue
+            Sequenza.objects.filter(codice__startswith=f"{slug}.").delete()
         Modulo.objects.filter(slug=slug).update(stato=Modulo.DISPONIBILE, versione_installata="",
                                                 gruppi_creati=[], ultimo_errore="")

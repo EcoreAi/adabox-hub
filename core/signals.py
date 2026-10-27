@@ -20,3 +20,10 @@ def crea_profilo(utente):
 def profilo_al_nuovo_utente(sender, instance, created, raw=False, **kwargs):
     if created and not raw:
         crea_profilo(instance)
+
+
+@receiver(post_save, sender=Azienda)
+def sequenze_alla_nuova_azienda(sender, instance, created, raw=False, **kwargs):
+    if created and not raw:
+        from . import sequenze
+        sequenze.crea(list(sequenze.definizioni().values()), [instance])

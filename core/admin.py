@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Azienda, Modulo, Pianificazione, ProfiloUtente, TokenApi
+from .models import Azienda, Modulo, Parametro, Pianificazione, ProfiloUtente, Sequenza, TokenApi
 
 
 @admin.register(Azienda)
@@ -55,3 +55,17 @@ class PianificazioneAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+
+@admin.register(Sequenza)
+class SequenzaAdmin(admin.ModelAdmin):
+    list_display = ("codice", "azienda", "formato", "prossimo", "azzera", "anno")
+    list_filter = ("azienda", "azzera")
+    search_fields = ("codice",)
+
+
+@admin.register(Parametro)
+class ParametroAdmin(admin.ModelAdmin):
+    list_display = ("chiave", "azienda", "valore")
+    list_filter = ("azienda",)
+    search_fields = ("chiave",)

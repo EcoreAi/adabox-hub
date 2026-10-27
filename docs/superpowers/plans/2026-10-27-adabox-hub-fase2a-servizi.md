@@ -85,7 +85,7 @@ chiusi con la riga `Co-Authored-By` del modello che li scrive, push a fine task)
   "per questa azienda" per i `per_azienda`. `settings_url` assente → ancora del modulo su `/impostazioni/`.
 - Test: precedenze, tipi, pagina e permessi.
 
-### Task 5: Sequenze
+### Task 5: Sequenze — fatto
 
 - `Sequenza` (spec, unica per `codice` + `azienda`), `prossimo(codice, azienda)` con `select_for_update`, formato con
   `{anno}`, `{mese}`, `{numero:05d}`, azzeramento annuale. Creazione dal manifest per ogni azienda e alla creazione di

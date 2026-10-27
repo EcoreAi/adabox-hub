@@ -170,3 +170,28 @@ class Parametro(models.Model):
 
     def __str__(self):
         return f"{self.chiave} = {self.valore!r}" + (f" ({self.azienda})" if self.azienda_id else "")
+
+
+class Sequenza(models.Model):
+    """Numerazione progressiva (es. ATT/2026/0001), per azienda o globale (azienda vuota)."""
+    MAI, ANNO = "mai", "anno"
+    codice = models.CharField("codice", max_length=100, help_text="<modulo>.<nome>")
+    azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE, null=True, blank=True, verbose_name="azienda")
+    formato = models.CharField("formato", max_length=100, help_text="{anno} {mese:02d} {numero:05d}")
+    prossimo = models.PositiveIntegerField("prossimo numero", default=1)
+    azzera = models.CharField("azzera", max_length=4, choices=[(MAI, "Mai"), (ANNO, "Ogni anno")], default=MAI)
+    anno = models.PositiveSmallIntegerField("anno corrente", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "sequenza"
+        verbose_name_plural = "sequenze"
+        ordering = ["codice"]
+        constraints = [
+            models.UniqueConstraint(fields=["codice"], condition=models.Q(azienda__isnull=True),
+                                    name="sequenza_globale_unica"),
+            models.UniqueConstraint(fields=["codice", "azienda"], condition=models.Q(azienda__isnull=False),
+                                    name="sequenza_azienda_unica"),
+        ]
+
+    def __str__(self):
+        return f"{self.codice}" + (f" ({self.azienda})" if self.azienda_id else "")
