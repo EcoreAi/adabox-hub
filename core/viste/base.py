@@ -23,6 +23,7 @@ class ModelView:
     kanban_fields = ()            # campi mostrati nella card (oltre al titolo)
     kanban_limite = 50            # card per colonna
     calendar_date = None          # vista calendario: campo data
+    calendar_color = None         # campo con scelte che colora gli eventi
     graph = None                  # vista grafico: {"tipi": [...], "misure": [...], "per": [...]}
     form_layout = None            # [("Sezione", ["campo", ("affiancato1", "affiancato2")]), ...]
     form_class = None
@@ -41,6 +42,7 @@ class ModelView:
     template_dettaglio = "core/vista/dettaglio.html"
     template_conferma = "core/vista/_conferma.html"
     template_kanban = "core/vista/kanban.html"
+    template_calendario = "core/vista/calendario.html"
 
     def __init__(self, modulo):
         self.modulo = modulo                                   # namespace URL = slug del modulo
@@ -73,9 +75,11 @@ class ModelView:
 
     def get_urls_viste(self):
         """URL delle viste facoltative, solo se dichiarate."""
-        from . import kanban
+        from . import calendario, kanban
         s = self.slug
         urls = []
+        if self.calendar_date:
+            urls.append(path(f"{s}/calendario/", calendario.CalendarioView.as_view(vista=self), name=f"{s}_calendario"))
         if self.kanban_group:
             urls += [path(f"{s}/kanban/", kanban.KanbanView.as_view(vista=self), name=f"{s}_kanban"),
                      path(f"{s}/<int:pk>/sposta/", kanban.SpostaView.as_view(vista=self), name=f"{s}_sposta")]

@@ -38,7 +38,7 @@ Dipendenza nuova: `openpyxl`.
   ripristino della card se la risposta non è 2xx. Senza JS: select "Sposta in" nella card.
 - Test: colonne e conteggi, filtri applicati, sposta (permessi, valore non valido 400, tracciamento), FK.
 
-### Task 3: Calendario
+### Task 3: Calendario — fatto
 
 - `calendar_date` (DateField o DateTimeField), `calendar_color` (campo con scelte, facoltativo).
 - `GET <slug>/calendario/?mese=AAAA-MM` (griglia del mese, settimane da lunedì) e `?settimana=AAAA-MM-GG`; frecce

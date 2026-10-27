@@ -1,0 +1,39 @@
+{% extends 'core/base_app.html' %}
+{% block title %}{{ vista.verbose_name_plural|capfirst }} · Calendario · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>{{ vista.verbose_name_plural|capfirst }}</h1></div>
+  <div class="ui-pagehead-actions">
+    {% include "core/vista/_selettore.html" %}
+    {% if puo_aggiungere %}<a class="ui-btn ui-btn-primary" href="{{ urls.nuovo }}"><svg><use href="#icon-plus"/></svg> Nuovo</a>{% endif %}
+  </div>
+</div>
+<div class="ui-card is-revealed">{% include "core/vista/_filtri_semplici.html" %}</div>
+<div class="ui-card is-revealed" id="calendario">
+  <div class="ui-calendario-nav">
+    <a class="ui-btn ui-btn-secondary ui-btn-sm" href="{{ precedente }}" hx-get="{{ precedente }}" hx-target="#calendario" hx-select="#calendario" hx-swap="outerHTML" hx-push-url="true" aria-label="Precedente">‹</a>
+    <a class="ui-btn ui-btn-secondary ui-btn-sm" href="{{ oggi_link }}" hx-get="{{ oggi_link }}" hx-target="#calendario" hx-select="#calendario" hx-swap="outerHTML" hx-push-url="true">Oggi</a>
+    <a class="ui-btn ui-btn-secondary ui-btn-sm" href="{{ successivo }}" hx-get="{{ successivo }}" hx-target="#calendario" hx-select="#calendario" hx-swap="outerHTML" hx-push-url="true" aria-label="Successivo">›</a>
+    <h2>{{ titolo }}</h2>
+    <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ altro_modo }}">{% if modo == "mese" %}Settimana{% else %}Mese{% endif %}</a>
+  </div>
+  <div class="ui-calendario ui-calendario-{{ modo }}" role="grid">
+    <div class="ui-calendario-riga ui-calendario-intestazione" role="row">{% for g in intestazioni %}<div role="columnheader">{{ g }}</div>{% endfor %}</div>
+    {% for settimana in settimane %}
+    <div class="ui-calendario-riga" role="row">
+      {% for g in settimana %}
+      <div class="ui-calendario-giorno{% if g.oggi %} is-oggi{% endif %}{% if g.fuori %} is-fuori{% endif %}" role="gridcell">
+        <div class="ui-calendario-numero">
+          {% if puo_aggiungere %}<a href="{{ urls.nuovo }}?{{ campo }}={{ g.data|date:'Y-m-d' }}" title="Nuovo il {{ g.data|date:'d/m/Y' }}">{{ g.data.day }}</a>{% else %}{{ g.data.day }}{% endif %}
+        </div>
+        {% for e in g.eventi %}
+        <a class="ui-evento ui-evento-c{{ e.colore }}" href="{% url vista.modulo|add:':'|add:vista.slug|add:'_dettaglio' pk=e.obj.pk %}">{% if e.ora %}<time>{{ e.ora }}</time> {% endif %}{{ e.obj }}</a>
+        {% endfor %}
+        {% if g.altri %}<span class="ui-help">+{{ g.altri }} altri</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

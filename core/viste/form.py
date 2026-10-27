@@ -38,7 +38,10 @@ class FormView(VistaBase):
 
     def get(self, request, pk=None):
         obj = self._oggetto(request, pk)
-        return self._rendi(request, self.vista.get_form_class()(instance=obj), obj)
+        form_class = self.vista.get_form_class()
+        # nuovo record: valori iniziali dalla query string (es. ?scadenza=2026-11-03 dal calendario)
+        iniziali = {k: v for k, v in request.GET.items() if k in form_class.base_fields} if obj is None else {}
+        return self._rendi(request, form_class(instance=obj, initial=iniziali), obj)
 
     def post(self, request, pk=None):
         vista = self.vista
