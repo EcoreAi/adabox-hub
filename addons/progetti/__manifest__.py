@@ -1,0 +1,26 @@
+{
+    "name": "Progetti",
+    "summary": "Commesse e compiti con fasi, scadenze e avanzamento",
+    "version": "1.0.0",
+    "author": "ICHNOBYTE S.R.L.",
+    "category": "Servizi",
+    "depends": ["contatti"],
+    "min_core": "1.0",
+    "application": True,
+    "icon": "progetti/icon.svg",
+    "menu": [
+        {"label": "Progetti", "url_name": "progetti:progetti_lista", "permission": "progetti.view_progetto"},
+        {"label": "Compiti", "url_name": "progetti:compiti_kanban", "permission": "progetti.view_compito"},
+        {"label": "Calendario", "url_name": "progetti:compiti_calendario", "permission": "progetti.view_compito"},
+        {"label": "Fasi", "url_name": "progetti:fasi_lista", "permission": "progetti.change_fasecompito"},
+    ],
+    "groups": {
+        "Progetti / Utente": ["progetti.view_progetto", "progetti.view_compito", "progetti.add_compito",
+                              "progetti.change_compito", "progetti.view_fasecompito"],
+        "Progetti / Responsabile": ["progetti.*"],
+    },
+    "data": ["data/fasi.json"],
+    "demo": ["data/demo.json"],
+    "hooks": "progetti.hooks",
+    "sequences": [{"codice": "progetti.progetto", "formato": "PRJ/{numero:04d}"}],
+}

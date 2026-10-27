@@ -1,0 +1,38 @@
+[
+  {
+    "model": "progetti.fasecompito",
+    "pk": 1,
+    "fields": {
+      "nome": "Da fare",
+      "ordine": 10,
+      "chiusa": false
+    }
+  },
+  {
+    "model": "progetti.fasecompito",
+    "pk": 2,
+    "fields": {
+      "nome": "In corso",
+      "ordine": 20,
+      "chiusa": false
+    }
+  },
+  {
+    "model": "progetti.fasecompito",
+    "pk": 3,
+    "fields": {
+      "nome": "In revisione",
+      "ordine": 30,
+      "chiusa": false
+    }
+  },
+  {
+    "model": "progetti.fasecompito",
+    "pk": 4,
+    "fields": {
+      "nome": "Fatto",
+      "ordine": 40,
+      "chiusa": true
+    }
+  }
+]

@@ -35,7 +35,7 @@ ordine di dipendenza.
 - Team, fasi, `Ticket` con numero e SLA dai parametri, destinatari esterni, gestore delle email non abbinate,
   pianificazione SLA, bottoni Prendi in carico/Risolvi.
 
-### Task 5: progetti
+### Task 5: progetti — fatto
 - Fasi, `Progetto`, `Compito`, permesso `vedi_tutti_progetti` e visibilità, sezione "Compiti" nel dettaglio del
   progetto.
 

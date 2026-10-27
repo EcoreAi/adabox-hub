@@ -14,8 +14,11 @@ P = "core.tests.lavori_prova."
 
 
 @pytest.fixture
-def asincrono(settings):
+def asincrono(settings, db):
     settings.LAVORI_SINCRONI = False
+    # le pianificazioni del kernel nascono con il DB di test: dopo qualche minuto di suite il worker le eseguirebbe
+    from core.models import Pianificazione
+    Pianificazione.objects.update(attiva=False)
 
 
 @pytest.mark.django_db

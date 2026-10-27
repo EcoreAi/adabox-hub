@@ -1,0 +1,13 @@
+{% with r=obj.riepilogo_compiti %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Compiti ({{ r.0 }})</div>
+    <div class="ui-card-sub">Completati {{ r.1 }} su {{ r.0 }} · {{ r.2 }}%</div></div>
+    <div class="spacer"></div>
+    <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'progetti:compiti_kanban' %}?f_progetto={{ obj.pk }}">Apri il kanban</a>
+    <a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'progetti:compiti_nuovo' %}?progetto={{ obj.pk }}">Nuovo compito</a></div>
+  <div class="ui-card-body">
+    <div class="ui-avanzamento" role="progressbar" aria-valuenow="{{ r.2 }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ r.2 }}%"></span></div>
+    <div class="ui-help" style="margin-top:8px;">{% for fase, n in r.3 %}{{ fase }}: {{ n }}{% if not forloop.last %} · {% endif %}{% endfor %}</div>
+  </div>
+</section>
+{% endwith %}

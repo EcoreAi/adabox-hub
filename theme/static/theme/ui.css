@@ -1038,3 +1038,7 @@ td.ui-num { text-align: right; font-variant-numeric: tabular-nums; white-space: 
 /* Grafici SVG generati dal server */
 .ui-grafico { overflow-x: auto; }
 .ui-grafico-svg { width: 100%; max-width: 900px; height: auto; display: block; }
+
+/* Barra di avanzamento */
+.ui-avanzamento { height: 8px; border-radius: var(--radius-pill); background: var(--ui-surface-2); overflow: hidden; }
+.ui-avanzamento > span { display: block; height: 100%; background: var(--ui-success); border-radius: inherit; }

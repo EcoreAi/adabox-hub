@@ -1,0 +1,144 @@
+[
+  {
+    "model": "progetti.progetto",
+    "pk": 1,
+    "fields": {
+      "azienda": 1,
+      "codice": "",
+      "nome": "Nuovo sito aziendale",
+      "cliente": null,
+      "responsabile": null,
+      "membri": [],
+      "inizio": "2026-10-01",
+      "fine": "2026-12-20",
+      "stato": "attivo",
+      "descrizione": "",
+      "proprieta": {}
+    }
+  },
+  {
+    "model": "progetti.progetto",
+    "pk": 2,
+    "fields": {
+      "azienda": 1,
+      "codice": "",
+      "nome": "Migrazione gestionale",
+      "cliente": null,
+      "responsabile": null,
+      "membri": [],
+      "inizio": "2026-11-01",
+      "fine": "2027-03-31",
+      "stato": "attivo",
+      "descrizione": "",
+      "proprieta": {}
+    }
+  },
+  {
+    "model": "progetti.compito",
+    "pk": 1,
+    "fields": {
+      "azienda": 1,
+      "progetto": 1,
+      "titolo": "Analisi dei contenuti",
+      "descrizione": "",
+      "fase": 4,
+      "assegnatari": [],
+      "scadenza": "2026-10-15",
+      "priorita": "normale",
+      "ore_previste": "8",
+      "padre": null,
+      "creato": "2026-10-27T08:00:00Z",
+      "proprieta": {}
+    }
+  },
+  {
+    "model": "progetti.compito",
+    "pk": 2,
+    "fields": {
+      "azienda": 1,
+      "progetto": 1,
+      "titolo": "Grafica della home",
+      "descrizione": "",
+      "fase": 2,
+      "assegnatari": [],
+      "scadenza": "2026-11-05",
+      "priorita": "normale",
+      "ore_previste": "16",
+      "padre": null,
+      "creato": "2026-10-27T08:00:00Z",
+      "proprieta": {}
+    }
+  },
+  {
+    "model": "progetti.compito",
+    "pk": 3,
+    "fields": {
+      "azienda": 1,
+      "progetto": 1,
+      "titolo": "Sviluppo pagine",
+      "descrizione": "",
+      "fase": 1,
+      "assegnatari": [],
+      "scadenza": "2026-11-30",
+      "priorita": "normale",
+      "ore_previste": "40",
+      "padre": null,
+      "creato": "2026-10-27T08:00:00Z",
+      "proprieta": {}
+    }
+  },
+  {
+    "model": "progetti.compito",
+    "pk": 4,
+    "fields": {
+      "azienda": 1,
+      "progetto": 2,
+      "titolo": "Inventario dei dati",
+      "descrizione": "",
+      "fase": 2,
+      "assegnatari": [],
+      "scadenza": "2026-11-20",
+      "priorita": "normale",
+      "ore_previste": "12",
+      "padre": null,
+      "creato": "2026-10-27T08:00:00Z",
+      "proprieta": {}
+    }
+  },
+  {
+    "model": "progetti.compito",
+    "pk": 5,
+    "fields": {
+      "azienda": 1,
+      "progetto": 2,
+      "titolo": "Mappatura dei campi",
+      "descrizione": "",
+      "fase": 1,
+      "assegnatari": [],
+      "scadenza": "2026-12-10",
+      "priorita": "normale",
+      "ore_previste": "20",
+      "padre": null,
+      "creato": "2026-10-27T08:00:00Z",
+      "proprieta": {}
+    }
+  },
+  {
+    "model": "progetti.compito",
+    "pk": 6,
+    "fields": {
+      "azienda": 1,
+      "progetto": 2,
+      "titolo": "Prove di importazione",
+      "descrizione": "",
+      "fase": 1,
+      "assegnatari": [],
+      "scadenza": "2027-01-15",
+      "priorita": "normale",
+      "ore_previste": "24",
+      "padre": null,
+      "creato": "2026-10-27T08:00:00Z",
+      "proprieta": {}
+    }
+  }
+]
