@@ -1,5 +1,6 @@
 """Vista grafico: conteggio o somma per categoria, aggregati nel DB, disegnati in SVG dal server."""
 from django.core.exceptions import PermissionDenied
+from django.db import models
 from django.db.models import Count, Sum
 from django.shortcuts import render
 from django.utils.safestring import mark_safe
@@ -30,7 +31,8 @@ def dati(vista, qs, misura, per):
     righe = list(qs.annotate(_g=gruppi.espressione(vista, per)).order_by().values("_g")
                  .annotate(_v=aggregato).order_by("_g"))
     nomi = gruppi.etichette(vista, per, [r["_g"] for r in righe])
-    coppie = [(nomi[r["_g"]], r["_v"] or 0) for r in righe]
+    intero = misura == "count" or isinstance(vista.opts.get_field(misura.split(":", 1)[1]), models.IntegerField)
+    coppie = [(nomi[r["_g"]], int(r["_v"] or 0) if intero else (r["_v"] or 0)) for r in righe]
     if len(coppie) <= MAX_CATEGORIE:
         return coppie
     if ":" in per:

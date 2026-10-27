@@ -77,7 +77,7 @@ Dipendenza nuova: `openpyxl`.
   aggiornamenti). Test: mappatura proposta, prova a secco con errori, import riuscito, aggiornamento per chiave,
   tutto o niente, permessi.
 
-### Task 7: `todo` 1.2.0, documentazione, verifica
+### Task 7: `todo` 1.2.0, documentazione, verifica — fatto
 
 - `todo` 1.2.0: `kanban_group = "stato"`, `calendar_date = "scadenza"`, `graph`, `list_group_by`, `import_key = "numero"`.
 - README: le viste e l'import/export. Verifica: suite, Postgres, aggiornamento 1.1 → 1.2 nel test end-to-end,

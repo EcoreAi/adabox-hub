@@ -163,6 +163,47 @@ def test_promemoria_scadenze_con_parametro(membro, aziende):
     assert "Tra tre giorni" in email.body and "Già fatta" not in email.body
 
 
-def test_manifest_1_1():
+def test_manifest():
     m = manifest.leggi(CARTELLA)
-    assert m.version == "1.1.0" and m.cron and m.settings and m.sequences
+    assert m.version == "1.2.0" and m.cron and m.settings and m.sequences
+
+
+# --- 1.2.0: viste kanban, calendario, grafico, import ---
+
+def test_viste_nel_selettore(client, membro, aziende):
+    html = client.get("/todo/attivita/").content.decode()
+    for url in ("/todo/attivita/kanban/", "/todo/attivita/calendario/", "/todo/attivita/grafico/"):
+        assert url in html
+        assert client.get(url).status_code == 200
+
+
+def test_kanban_sposta_con_tracciamento(client, membro, aziende):
+    from core import chatter
+    a = Attivita.objects.get(titolo="Mia attività")
+    assert client.post(f"/todo/attivita/{a.pk}/sposta/", {"valore": "in_corso"}, HTTP_HX_REQUEST="true").status_code == 204
+    a.refresh_from_db()
+    assert a.stato == "in_corso" and chatter.messaggi_di(a).first().modifiche[0]["dopo"] == "In corso"
+
+
+def test_calendario_solo_azienda_corrente(client, membro, aziende):
+    import datetime
+    prima, seconda, altra = aziende
+    oggi = datetime.date.today()
+    Attivita.objects.filter(pk=altra.pk).update(scadenza=oggi)
+    Attivita.objects.filter(titolo="Mia attività").update(scadenza=oggi)
+    r = client.get("/todo/attivita/calendario/")
+    titoli = [e["obj"].titolo for s in r.context["settimane"] for g in s for e in g["eventi"]]
+    assert titoli == ["Mia attività"]
+
+
+def test_import_con_utenti_e_tag(client, membro, aziende, settings, tmp_path):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    settings.PRIVATE_MEDIA_ROOT = tmp_path
+    Tag.objects.create(nome="Urgente")
+    csv = "Titolo;Scadenza;Assegnatario;Tag;Stato\nDa file;03/11/2026;lucia;urgente;In corso\n"
+    r = client.post("/todo/attivita/importa/", {"fase": "carica", "file": SimpleUploadedFile("a.csv", csv.encode())})
+    mappa = {f"col_{i}": s for i, _, s in r.context["intestazioni"]}
+    r = client.post("/todo/attivita/importa/", {"fase": "importa", **mappa})
+    a = Attivita.objects.get(titolo="Da file")
+    assert (a.assegnatario, a.stato, list(a.tag.values_list("nome", flat=True))) == (membro, "in_corso", ["Urgente"])
+    assert a.azienda == aziende[0] and a.numero.startswith("ATT/")

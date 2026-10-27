@@ -52,3 +52,11 @@ Scostamenti dal piano 2a: pannello del chatter incluso da `dettaglio.html` (non 
 alla disinstallazione senza `--elimina-dati`; token di risposta `ct-pk-hmac` esadecimale (sta nella parte locale
 dell'indirizzo); il riferimento al filo del record in `References` non basta ad abbinare una risposta; contatore
 delle attività come voce della nav; il worker si ferma da solo quando cambiano `installed.json` o i manifest.
+
+## Fase 2b — viste (stessa sessione)
+
+Piano `docs/superpowers/plans/2026-10-27-adabox-hub-fase2b-viste.md` eseguito: raggruppamenti con totali e
+selettore delle viste, kanban con trascinamento, calendario mese/settimana, grafico SVG, export CSV/XLSX, import con
+prova a secco. `todo` 1.2.0 le usa tutte; DB di sviluppo aggiornato. Suite verde su SQLite e Postgres.
+Scostamenti: le viste dichiarate ma non montate non compaiono nel selettore; il form "nuovo" accetta valori iniziali
+dalla query string (serve al calendario); i totali dei campi interi si riportano a intero (su Postgres SUM dà Decimal).

@@ -81,6 +81,13 @@ def numero(valore):
     return formats.number_format(valore, use_l10n=True, force_grouping=True)
 
 
+def somma(vista, campo, valore):
+    """Totale formattato: su Postgres la SUM di un intero è un Decimal, si riporta a intero."""
+    if valore is not None and isinstance(_campo(vista, campo), models.IntegerField):
+        valore = int(valore)
+    return numero(valore)
+
+
 def somme_ammesse(vista):
     return [c for c in vista.list_sum if (f := _campo(vista, c)) is not None
             and isinstance(f, (models.IntegerField, models.DecimalField, models.FloatField))]
@@ -92,7 +99,7 @@ def totali(vista, qs):
     if not campi:
         return {}
     dati = qs.order_by().aggregate(**{f"s_{c}": Sum(c) for c in campi})
-    return {c: numero(dati[f"s_{c}"]) for c in campi}
+    return {c: somma(vista, c, dati[f"s_{c}"]) for c in campi}
 
 
 def gruppi(vista, qs, chiave):
@@ -104,6 +111,6 @@ def gruppi(vista, qs, chiave):
     righe = list(righe)
     nomi = etichette(vista, chiave, [r["_gruppo"] for r in righe])
     info = {r["_gruppo"]: {"etichetta": nomi[r["_gruppo"]], "n": r["_n"],
-                           "somme": {c: numero(r[f"s_{c}"]) for c in campi}} for r in righe}
+                           "somme": {c: somma(vista, c, r[f"s_{c}"]) for c in campi}} for r in righe}
     ordine = list(qs.query.order_by) or list(vista.opts.ordering) or ["pk"]
     return annotato.order_by(F("_gruppo").asc(nulls_last=True), *ordine), info

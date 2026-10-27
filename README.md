@@ -127,6 +127,32 @@ da solo e Docker lo riavvia con il codice nuovo.
   email non lette e le abbina al record (per `In-Reply-To` o per il token firmato nell'indirizzo); il mittente
   deve essere un utente che vede il record. Esiti in `/core/email/`.
 
+## Viste oltre la lista
+
+Si dichiarano sulla `ModelView`; un selettore nella testata passa dall'una all'altra conservando ricerca e filtri.
+
+```python
+list_group_by = ["stato", "assegnatario", "scadenza:mese"]   # "Raggruppa per" nella lista, con conteggi
+list_sum = ["ore"]                                          # totali per gruppo e in fondo (campi numerici)
+kanban_group = "stato"                                      # colonne: scelte o FK; card trascinabili
+kanban_fields = ["numero", "scadenza", "assegnatario"]
+calendar_date = "scadenza"                                  # mese e settimana; clic su un giorno = nuovo
+calendar_color = "stato"
+graph = {"tipi": ["barre", "linee", "torta"], "misure": ["count", "sum:ore"], "per": ["stato", "scadenza:mese"]}
+export_fields = None                                        # default: id + campi di list_display
+import_key = "numero"                                       # l'import aggiorna i record con lo stesso numero
+```
+
+- **Kanban**: spostare una card cambia il campo (permesso `change`) e lo traccia nel chatter; senza JavaScript
+  ogni card ha un "Sposta".
+- **Grafico**: aggregato nel DB e disegnato in SVG dal server, con la tabella dei dati sotto.
+- **Export** (menu "Dati" della lista): Excel o CSV (`;`, virgola decimale, come lo apre Excel in italiano) delle
+  righe filtrate, o di quelle selezionate. Oltre `EXPORT_SINCRONO_MAX` righe (5000) lo prepara il worker e il link
+  arriva per email.
+- **Import** (menu "Dati"): carica CSV o Excel, associa le colonne ai campi (proposta automatica), **prova a secco**
+  con l'elenco degli errori per riga, poi importa tutto o niente. FK e tag si scrivono per nome, le scelte con la
+  loro etichetta, le date come `gg/mm/aaaa`. Oltre `IMPORT_SINCRONO_MAX` righe (1000) nel worker.
+
 ## Comandi `modulo`
 
 | Comando | Effetto |

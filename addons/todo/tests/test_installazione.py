@@ -1,4 +1,4 @@
-"""End-to-end nel sottoprocesso: installazione vergine, disinstallazione, aggiornamento 1.0.0 -> 1.1.0."""
+"""End-to-end nel sottoprocesso: installazione vergine, disinstallazione, aggiornamento 1.0.0 -> versione attuale."""
 import io
 import json
 import os
@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pytest
 from django.conf import settings
+
+from core.registry import manifest
 
 BASE_DIR = Path(settings.BASE_DIR)
 COMMIT_1_0 = "bac7e7c"          # todo 1.0.0, fine della fase 1
@@ -85,7 +87,8 @@ def test_aggiornamento_da_1_0(tmp_path):
     assert "da_aggiornare" in run("modulo", "lista")
     assert "== FINE ok ==" in run("modulo", "aggiorna", "todo")
     lista = run("modulo", "lista")
-    assert "1.1.0" in lista and "installato" in lista
+    attuale = manifest.leggi(BASE_DIR / "addons" / "todo").version
+    assert attuale in lista and "installato" in lista
     numeri = shell("from todo.models import Attivita; print(list(Attivita.objects.values_list('numero', flat=True)))")
     assert numeri.count("ATT/") == 10
     assert "Promemoria scadenze" in shell("from core.models import Pianificazione; "

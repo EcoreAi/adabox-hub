@@ -26,6 +26,13 @@ class AttivitaView(ModelView):
     sequence_field = ("numero", "todo.attivita")
     chatter = True
     tracked_fields = ["stato", "assegnatario", "scadenza"]
+    list_group_by = ["stato", "assegnatario", "scadenza:mese"]
+    kanban_group = "stato"
+    kanban_fields = ["numero", "scadenza", "assegnatario"]
+    calendar_date = "scadenza"
+    calendar_color = "stato"
+    graph = {"tipi": ["barre", "torta", "linee"], "misure": ["count"], "per": ["stato", "assegnatario", "scadenza:mese"]}
+    import_key = "numero"
     actions = ["archivia"]
     buttons = ["segna_fatta"]
     api = True
