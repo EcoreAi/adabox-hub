@@ -14,6 +14,8 @@ def cartella(settings, tmp_path):
 
 
 @pytest.mark.django_db
+@pytest.mark.skipif("sqlite" not in __import__("django.conf").conf.settings.DATABASES["default"]["ENGINE"],
+                    reason="backup sqlite")
 def test_backup_sqlite(cartella):
     dest = backup.esegui("prova")
     assert dest.parent == cartella and dest.name.endswith("-prova.sqlite3")

@@ -15,9 +15,17 @@ MIN_CORE_RE = re.compile(r"^\d+\.\d+$")
 PERM_RE = re.compile(r"^[a-z][a-z0-9_]*\.([a-z_][a-z0-9_]*|\*)$")
 DOTTED_RE = re.compile(r"^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)*$")
 CHIAVI = {"name", "summary", "version", "author", "category", "depends", "min_core", "application",
-          "icon", "menu", "groups", "data", "demo", "hooks", "settings_url"}
+          "icon", "menu", "groups", "data", "demo", "hooks", "settings_url", "cron", "settings", "sequences"}
 OBBLIGATORIE = {"name", "version", "min_core"}
 CHIAVI_MENU = {"label", "url_name", "permission"}
+CHIAVI_CRON = {"nome", "funzione", "ogni", "alle"}
+CHIAVI_SETTING = {"chiave", "label", "tipo", "default", "per_azienda", "help", "scelte"}
+CHIAVI_SEQUENZA = {"codice", "formato", "azzera"}
+TIPI_PARAMETRO = {"testo", "intero", "decimale", "booleano", "scelta", "data"}
+OGNI_RE = re.compile(r"^[1-9]\d*[mhd]$")
+ALLE_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+NOME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+CODICE_SEQ_RE = re.compile(r"^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$")
 
 
 class ManifestNonValido(Exception):
@@ -45,6 +53,9 @@ class Manifest:
     demo: list = field(default_factory=list)
     hooks: str | None = None
     settings_url: str | None = None
+    cron: list = field(default_factory=list)
+    settings: list = field(default_factory=list)
+    sequences: list = field(default_factory=list)
 
 
 def versione_tupla(v):
@@ -85,6 +96,78 @@ def _file(errori, dati, chiave, cartella):
             errori.append(f"{chiave}: percorso {p!r} non valido (relativo alla cartella del modulo)")
         elif not (Path(cartella) / p).is_file():
             errori.append(f"{chiave}: file {p!r} assente")
+
+
+def _lista_di_dict(errori, chiave, valore, ammesse):
+    if not isinstance(valore, list):
+        errori.append(f"{chiave}: attesa una lista, trovato {valore!r}")
+        return []
+    buone = []
+    for voce in valore:
+        if not isinstance(voce, dict):
+            errori.append(f"{chiave}: voce {voce!r} non è un dizionario")
+        elif extra := sorted(set(voce) - ammesse):
+            errori.append(f"{chiave}: voce {voce!r} con chiavi sconosciute: {', '.join(extra)}")
+        else:
+            buone.append(voce)
+    return buone
+
+
+def _unici(errori, chiave, voci, campo):
+    visti = set()
+    for v in voci:
+        if v.get(campo) in visti:
+            errori.append(f"{chiave}: {campo} {v.get(campo)!r} ripetuto")
+        visti.add(v.get(campo))
+
+
+def _cron(errori, valore):
+    voci = _lista_di_dict(errori, "cron", valore, CHIAVI_CRON)
+    for v in voci:
+        if not isinstance(v.get("nome"), str) or not v.get("nome"):
+            errori.append(f"cron: voce {v!r} senza nome")
+        f = v.get("funzione")
+        if not (isinstance(f, str) and DOTTED_RE.match(f) and "." in f):
+            errori.append(f"cron: funzione {f!r} non valida (atteso modulo.funzione)")
+        if not (isinstance(v.get("ogni"), str) and OGNI_RE.match(v["ogni"])):
+            errori.append(f"cron: ogni {v.get('ogni')!r} non valido (es. 15m, 1h, 1d)")
+        if "alle" in v:
+            if not (isinstance(v["alle"], str) and ALLE_RE.match(v["alle"])):
+                errori.append(f"cron: alle {v['alle']!r} non valido (atteso HH:MM)")
+            elif not str(v.get("ogni", "")).endswith("d"):
+                errori.append(f"cron: alle {v['alle']!r} ammesso solo con ogni in giorni (es. 1d)")
+    _unici(errori, "cron", voci, "nome")
+
+
+def _settings(errori, valore):
+    voci = _lista_di_dict(errori, "settings", valore, CHIAVI_SETTING)
+    for v in voci:
+        if not (isinstance(v.get("chiave"), str) and NOME_RE.match(v["chiave"])):
+            errori.append(f"settings: chiave {v.get('chiave')!r} non valida")
+        if not isinstance(v.get("label"), str) or not v.get("label"):
+            errori.append(f"settings: {v.get('chiave')!r} senza label")
+        if v.get("tipo") not in TIPI_PARAMETRO:
+            errori.append(f"settings: tipo {v.get('tipo')!r} non valido ({', '.join(sorted(TIPI_PARAMETRO))})")
+        if v.get("tipo") == "scelta":
+            scelte = v.get("scelte")
+            if not (isinstance(scelte, list) and scelte and all(
+                    isinstance(c, (list, tuple)) and len(c) == 2 for c in scelte)):
+                errori.append(f"settings: {v.get('chiave')!r} di tipo scelta senza scelte [[valore, label], ...]")
+        if "per_azienda" in v and not isinstance(v["per_azienda"], bool):
+            errori.append(f"settings: per_azienda di {v.get('chiave')!r} deve essere True o False")
+    _unici(errori, "settings", voci, "chiave")
+
+
+def _sequenze(errori, valore):
+    voci = _lista_di_dict(errori, "sequences", valore, CHIAVI_SEQUENZA)
+    for v in voci:
+        if not (isinstance(v.get("codice"), str) and CODICE_SEQ_RE.match(v["codice"])):
+            errori.append(f"sequences: codice {v.get('codice')!r} non valido (atteso modulo.nome)")
+        if not (isinstance(v.get("formato"), str) and "{numero" in v["formato"]):
+            errori.append(f"sequences: formato {v.get('formato')!r} senza {{numero}}")
+        if v.get("azzera", "mai") not in ("mai", "anno"):
+            errori.append(f"sequences: azzera {v.get('azzera')!r} non valido (mai, anno)")
+    _unici(errori, "sequences", voci, "codice")
 
 
 def valida(dati, slug, cartella):
@@ -158,6 +241,9 @@ def valida(dati, slug, cartella):
 
     _file(errori, dati, "data", cartella)
     _file(errori, dati, "demo", cartella)
+    _cron(errori, dati.get("cron", []))
+    _settings(errori, dati.get("settings", []))
+    _sequenze(errori, dati.get("sequences", []))
 
     hooks = dati.get("hooks")
     if hooks is not None and not (isinstance(hooks, str) and DOTTED_RE.match(hooks)):

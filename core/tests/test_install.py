@@ -3,6 +3,7 @@ import sys
 
 import pytest
 from django.contrib.auth.models import Group
+from django.db import connection
 
 from core import backup
 from core.management.commands import modulo_applica as applica
@@ -14,6 +15,8 @@ from core.registry.manifest import ManifestNonValido
 @pytest.fixture
 def ambiente(addons_tmp, settings, tmp_path, monkeypatch, db):
     settings.BACKUP_DIR = tmp_path / "backup"
+    if connection.vendor == "postgresql":          # pg_dump c'è nell'immagine Docker, non sull'host dei test
+        monkeypatch.setattr(backup, "_postgres", lambda dest, db: dest.write_bytes(b""))
     chiamate = []
 
     def finto(operazione, slugs, **opzioni):

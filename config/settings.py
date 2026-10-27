@@ -125,6 +125,21 @@ GUNICORN_PIDFILE = env("GUNICORN_PIDFILE", default="/tmp/gunicorn.pid")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# --- Servizi del kernel (fase 2) -----------------------------------------
+# Lavori in background: con True `accoda` esegue subito, nello stesso processo
+# (sviluppo e test); in produzione False e `manage.py worker` in un container.
+LAVORI_SINCRONI = env.bool("LAVORI_SINCRONI", default=DEBUG)
+# File privati (allegati): mai serviti direttamente, solo dalla vista con i permessi
+PRIVATE_MEDIA_ROOT = Path(env("PRIVATE_MEDIA_ROOT", default=str(BASE_DIR / "private")))
+ALLEGATI_MAX_MB = env.int("ALLEGATI_MAX_MB", default=20)
+# Con nginx davanti: il download passa a nginx (location internal /_privati/)
+ALLEGATI_X_ACCEL = env.bool("ALLEGATI_X_ACCEL", default=False)
+# Indirizzo base assoluto per i link nelle email (es. https://hub.cliente.it)
+SITO_URL = env("SITO_URL", default="http://localhost:8000").rstrip("/")
+# Posta in entrata del chatter: casella delle risposte (con indirizzi +token) e accesso IMAP
+EMAIL_RISPOSTE = env("EMAIL_RISPOSTE", default="")
+IMAP_URL = env("IMAP_URL", default="")
+
 # --- Sicurezza sempre attiva -------------------------------------------
 SESSION_COOKIE_AGE = 60 * 30
 SESSION_SAVE_EVERY_REQUEST = True

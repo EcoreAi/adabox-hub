@@ -10,3 +10,4 @@ addons/installed.json
 backup/*
 !backup/.gitkeep
 media/
+private/

@@ -111,3 +111,53 @@ def test_comando_verifica_errore(addons_tmp):
     with pytest.raises(CommandError) as exc:
         call_command("modulo", "verifica", str(cartella))
     assert "X.Y.Z" in str(exc.value) and "nome" in str(exc.value)
+
+
+# --- chiavi della fase 2: cron, settings, sequences ---
+
+def test_cron_settings_sequences_validi(addons_tmp):
+    m = manifest.leggi(addons_tmp.crea(
+        "alfa",
+        cron=[{"nome": "Promemoria", "funzione": "alfa.lavori.promemoria", "ogni": "1d", "alle": "07:00"},
+              {"nome": "Pulizia", "funzione": "alfa.lavori.pulisci", "ogni": "15m"}],
+        settings=[{"chiave": "giorni", "label": "Giorni", "tipo": "intero", "default": 2, "per_azienda": True},
+                  {"chiave": "modo", "label": "Modo", "tipo": "scelta", "scelte": [["a", "A"], ["b", "B"]]}],
+        sequences=[{"codice": "alfa.ordine", "formato": "ORD/{anno}/{numero:05d}", "azzera": "anno"}]))
+    assert len(m.cron) == 2 and m.settings[0]["chiave"] == "giorni" and m.sequences[0]["codice"] == "alfa.ordine"
+
+
+@pytest.mark.parametrize("voce, atteso", [
+    ({"nome": "X", "funzione": "alfa.f", "ogni": "1w"}, "ogni"),
+    ({"nome": "X", "funzione": "f", "ogni": "1d"}, "funzione"),
+    ({"nome": "X", "funzione": "alfa.f", "ogni": "1h", "alle": "07:00"}, "alle"),
+    ({"nome": "X", "funzione": "alfa.f", "ogni": "1d", "alle": "25:00"}, "alle"),
+    ({"funzione": "alfa.f", "ogni": "1d"}, "nome"),
+    ({"nome": "X", "funzione": "alfa.f", "ogni": "1d", "quando": "x"}, "quando"),
+])
+def test_cron_non_valido(addons_tmp, voce, atteso):
+    assert atteso in _errori(addons_tmp, cron=[voce])
+
+
+def test_cron_nomi_ripetuti(addons_tmp):
+    voce = {"nome": "X", "funzione": "alfa.f", "ogni": "1d"}
+    assert "ripetuto" in _errori(addons_tmp, cron=[voce, voce])
+
+
+@pytest.mark.parametrize("voce, atteso", [
+    ({"chiave": "Giorni", "label": "G", "tipo": "intero"}, "chiave"),
+    ({"chiave": "g", "label": "G", "tipo": "numero"}, "tipo"),
+    ({"chiave": "g", "label": "G", "tipo": "scelta"}, "scelte"),
+    ({"chiave": "g", "tipo": "testo"}, "label"),
+    ({"chiave": "g", "label": "G", "tipo": "testo", "per_azienda": "si"}, "per_azienda"),
+])
+def test_settings_non_validi(addons_tmp, voce, atteso):
+    assert atteso in _errori(addons_tmp, settings=[voce])
+
+
+@pytest.mark.parametrize("voce, atteso", [
+    ({"codice": "ordine", "formato": "{numero}"}, "codice"),
+    ({"codice": "alfa.ordine", "formato": "ORD"}, "numero"),
+    ({"codice": "alfa.ordine", "formato": "{numero}", "azzera": "mese"}, "azzera"),
+])
+def test_sequences_non_valide(addons_tmp, voce, atteso):
+    assert atteso in _errori(addons_tmp, sequences=[voce])

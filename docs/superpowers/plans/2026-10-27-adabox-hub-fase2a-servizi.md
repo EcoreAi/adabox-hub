@@ -42,7 +42,7 @@ chiusi con la riga `Co-Authored-By` del modello che li scrive, push a fine task)
 
 ---
 
-### Task 1: Impianto — settings, manifest esteso, generici, test su Postgres
+### Task 1: Impianto — settings, manifest esteso, generici, test su Postgres — fatto
 
 - Settings: `LAVORI_SINCRONI` (default `DEBUG`; `True` sotto pytest via `pytest-env`), `PRIVATE_MEDIA_ROOT`
   (`BASE_DIR/private`), `ALLEGATI_MAX_MB` (20), `EMAIL_RISPOSTE` (vuoto), `IMAP_URL` (vuoto), `SITO_URL`

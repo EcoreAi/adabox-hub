@@ -54,3 +54,14 @@ def addons_tmp(tmp_path, settings, monkeypatch):
     settings.ADDONS_DIR = cartella
     monkeypatch.syspath_prepend(str(cartella))
     return _Addons(cartella)
+
+
+def pytest_collection_modifyitems(config, items):
+    """I test marcati postgres (concorrenza reale) girano solo su Postgres: deploy/test-postgres.sh."""
+    from django.db import connection
+    if connection.vendor == "postgresql":
+        return
+    salta = pytest.mark.skip(reason="solo su Postgres (deploy/test-postgres.sh)")
+    for item in items:
+        if "postgres" in item.keywords:
+            item.add_marker(salta)
