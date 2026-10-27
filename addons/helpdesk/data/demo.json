@@ -1,0 +1,107 @@
+[
+  {
+    "model": "helpdesk.ticket",
+    "pk": 1,
+    "fields": {
+      "azienda": 1,
+      "numero": "",
+      "oggetto": "Non riesco ad accedere",
+      "descrizione": "",
+      "contatto": null,
+      "email_cliente": "mario@rossicostruzioni.it",
+      "team": 1,
+      "assegnatario": null,
+      "fase": 1,
+      "priorita": "alta",
+      "creato": "2026-10-27T08:00:00Z",
+      "scadenza_sla": null,
+      "sla_avvisato": false,
+      "chiuso_il": null,
+      "proprieta": {}
+    }
+  },
+  {
+    "model": "helpdesk.ticket",
+    "pk": 2,
+    "fields": {
+      "azienda": 1,
+      "numero": "",
+      "oggetto": "Errore nella stampa delle fatture",
+      "descrizione": "",
+      "contatto": null,
+      "email_cliente": "giulia@bianchiforniture.it",
+      "team": 1,
+      "assegnatario": null,
+      "fase": 2,
+      "priorita": "media",
+      "creato": "2026-10-27T08:00:00Z",
+      "scadenza_sla": null,
+      "sla_avvisato": false,
+      "chiuso_il": null,
+      "proprieta": {}
+    }
+  },
+  {
+    "model": "helpdesk.ticket",
+    "pk": 3,
+    "fields": {
+      "azienda": 1,
+      "numero": "",
+      "oggetto": "Richiesta nuova utenza",
+      "descrizione": "",
+      "contatto": null,
+      "email_cliente": "luca@verdiefigli.it",
+      "team": 1,
+      "assegnatario": null,
+      "fase": 1,
+      "priorita": "bassa",
+      "creato": "2026-10-27T08:00:00Z",
+      "scadenza_sla": null,
+      "sla_avvisato": false,
+      "chiuso_il": null,
+      "proprieta": {}
+    }
+  },
+  {
+    "model": "helpdesk.ticket",
+    "pk": 4,
+    "fields": {
+      "azienda": 1,
+      "numero": "",
+      "oggetto": "Server lento dalle 9",
+      "descrizione": "",
+      "contatto": null,
+      "email_cliente": "it@nerilogistica.it",
+      "team": 1,
+      "assegnatario": null,
+      "fase": 2,
+      "priorita": "urgente",
+      "creato": "2026-10-27T08:00:00Z",
+      "scadenza_sla": null,
+      "sla_avvisato": false,
+      "chiuso_il": null,
+      "proprieta": {}
+    }
+  },
+  {
+    "model": "helpdesk.ticket",
+    "pk": 5,
+    "fields": {
+      "azienda": 1,
+      "numero": "",
+      "oggetto": "Aggiornamento completato?",
+      "descrizione": "",
+      "contatto": null,
+      "email_cliente": "info@gialli.it",
+      "team": 1,
+      "assegnatario": null,
+      "fase": 4,
+      "priorita": "bassa",
+      "creato": "2026-10-27T08:00:00Z",
+      "scadenza_sla": null,
+      "sla_avvisato": false,
+      "chiuso_il": null,
+      "proprieta": {}
+    }
+  }
+]

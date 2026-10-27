@@ -31,7 +31,7 @@ ordine di dipendenza.
 - Fasi, etichette, motivi di perdita (dati iniziali), `Opportunita`, kanban per fase con regola della fase vinta,
   bottoni Vinta/Persa/Crea contatto, azione Assegna a me, parametro probabilità dalla fase.
 
-### Task 4: helpdesk
+### Task 4: helpdesk — fatto
 - Team, fasi, `Ticket` con numero e SLA dai parametri, destinatari esterni, gestore delle email non abbinate,
   pianificazione SLA, bottoni Prendi in carico/Risolvi.
 

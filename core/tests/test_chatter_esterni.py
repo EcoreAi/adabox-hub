@@ -17,9 +17,7 @@ def ambiente(settings, tmp_path, monkeypatch):
     settings.EMAIL_RISPOSTE = "risposte@example.com"
     vista = registry.per_modello(Azienda)
     monkeypatch.setattr(vista, "destinatari_esterni", lambda obj: [obj.email] if obj.email else [])
-    entrata.svuota_gestori()
-    yield
-    entrata.svuota_gestori()
+    monkeypatch.setattr(entrata, "_GESTORI", [])      # registro vuoto per il test, ripristinato dopo
 
 
 @pytest.fixture

@@ -1,0 +1,46 @@
+[
+  {
+    "model": "helpdesk.faseticket",
+    "pk": 1,
+    "fields": {
+      "nome": "Nuovo",
+      "ordine": 10,
+      "chiusa": false
+    }
+  },
+  {
+    "model": "helpdesk.faseticket",
+    "pk": 2,
+    "fields": {
+      "nome": "In lavorazione",
+      "ordine": 20,
+      "chiusa": false
+    }
+  },
+  {
+    "model": "helpdesk.faseticket",
+    "pk": 3,
+    "fields": {
+      "nome": "In attesa del cliente",
+      "ordine": 30,
+      "chiusa": false
+    }
+  },
+  {
+    "model": "helpdesk.faseticket",
+    "pk": 4,
+    "fields": {
+      "nome": "Risolto",
+      "ordine": 40,
+      "chiusa": true
+    }
+  },
+  {
+    "model": "helpdesk.team",
+    "pk": 1,
+    "fields": {
+      "nome": "Assistenza",
+      "membri": []
+    }
+  }
+]
