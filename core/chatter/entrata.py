@@ -26,6 +26,26 @@ from . import email as posta
 from . import scrivi
 
 log = logging.getLogger("core.chatter")
+_GESTORI = []          # funzioni (msg, mittente) -> record o None, per le email non abbinate
+
+
+def registra_gestore(funzione):
+    """Un'app gestisce le email che non rispondono a nessun record (es. l'helpdesk apre un ticket).
+    La funzione riceve il messaggio email e il mittente e restituisce il record creato, o None."""
+    if funzione not in _GESTORI:
+        _GESTORI.append(funzione)
+    return funzione
+
+
+def svuota_gestori():
+    """Solo per i test."""
+    _GESTORI.clear()
+
+
+def esterno_ammesso(obj, mittente):
+    vista = registry.per_modello(type(obj))
+    ammessi = {e.strip().lower() for e in (vista.destinatari_esterni(obj) if vista else []) if e}
+    return mittente.lower() in ammessi
 CITAZIONE_RE = re.compile(r"(ha scritto|wrote)\s*:\s*$", re.I)
 SEPARATORI = ("-----original message-----", "-----messaggio originale-----", "________________________________")
 
@@ -112,8 +132,11 @@ def ricevi(grezza):
 def _elabora(msg, riga):
     abbinamento = _abbina(msg)
     if abbinamento is None:
-        riga.stato, riga.motivo = EmailRicevuta.NON_ABBINATA, "nessun riferimento a un record (Message-ID o token)"
-        return
+        obj = next((o for o in (g(msg, riga.mittente) for g in _GESTORI) if o is not None), None)
+        if obj is None:
+            riga.stato, riga.motivo = EmailRicevuta.NON_ABBINATA, "nessun riferimento a un record (Message-ID o token)"
+            return
+        abbinamento = (ContentType.objects.get_for_model(obj).pk, obj.pk)
     ct_id, pk = abbinamento
     modello = ContentType.objects.get_for_id(ct_id).model_class()
     riga.content_type_id, riga.object_id = ct_id, pk
@@ -121,7 +144,7 @@ def _elabora(msg, riga):
     if obj is None:
         riga.stato, riga.motivo = EmailRicevuta.RIFIUTATA, "il record non esiste più"
         return
-    if utente is None:
+    if utente is None and not esterno_ammesso(obj, riga.mittente):
         riga.stato, riga.motivo = EmailRicevuta.RIFIUTATA, f"{riga.mittente} non è un utente che può vedere il record"
         return
     corpo, scartati, file = togli_citazione(_testo(msg)), [], []
@@ -134,7 +157,8 @@ def _elabora(msg, riga):
     if not corpo and not file:
         riga.stato, riga.motivo = EmailRicevuta.RIFIUTATA, "nessun testo né allegati"
         return
-    riga.messaggio = scrivi(obj, utente, corpo, Messaggio.MESSAGGIO, allegati=file)
+    riga.messaggio = scrivi(obj, utente, corpo, Messaggio.MESSAGGIO, allegati=file,
+                            autore_email="" if utente else riga.mittente)
     riga.stato, riga.motivo = EmailRicevuta.ABBINATA, "; ".join(scartati)
 
 

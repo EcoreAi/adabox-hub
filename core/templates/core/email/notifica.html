@@ -6,10 +6,10 @@
     <p style="margin:0 0 16px;font-size:15px;"><strong>{{ autore }}</strong> ha scritto su <strong>{{ obj }}</strong>:</p>
     <div style="font-size:15px;line-height:1.5;">{{ m.corpo|urlize|linebreaksbr }}</div>
     {% if m.allegati.all %}<p style="font-size:13px;color:#6e6e73;">Allegati: {% for a in m.allegati.all %}{{ a.nome }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
-    <p style="margin:24px 0 0;"><a href="{{ link }}" style="display:inline-block;padding:10px 18px;background:#1e3a8a;color:#ffffff;border-radius:8px;text-decoration:none;font-size:14px;">Apri</a></p>
+    {% if link %}<p style="margin:24px 0 0;"><a href="{{ link }}" style="display:inline-block;padding:10px 18px;background:#1e3a8a;color:#ffffff;border-radius:8px;text-decoration:none;font-size:14px;">Apri</a></p>{% endif %}
   </td></tr>
   <tr><td style="padding:16px 28px;border-top:1px solid #e5e5ea;font-size:12px;color:#86868b;">
-    Ricevi questa email perché segui «{{ obj }}». Puoi rispondere: la risposta comparirà nei messaggi del record.
+    {% if esterno %}Puoi rispondere a questa email per continuare la conversazione.{% else %}Ricevi questa email perché segui «{{ obj }}». Puoi rispondere: la risposta comparirà nei messaggi del record.{% endif %}
   </td></tr>
 </table>
 </body></html>

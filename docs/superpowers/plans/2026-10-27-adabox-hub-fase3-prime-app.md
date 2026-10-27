@@ -12,7 +12,7 @@ ordine di dipendenza.
 
 ---
 
-### Task 0: Kernel — clienti esterni nel chatter
+### Task 0: Kernel — clienti esterni nel chatter — fatto
 - `Messaggio.autore_email`; `ModelView.destinatari_esterni(obj)`; `chatter.email.notifica` include gli esterni
   (link al record solo per gli utenti); `entrata`: mittente esterno ammesso se tra i destinatari esterni del record
   (messaggio senza utente), registro `registra_gestore(funzione)` per le email non abbinate (il primo gestore che

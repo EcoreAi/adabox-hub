@@ -242,6 +242,7 @@ class Messaggio(models.Model):
     tipo = models.CharField("tipo", max_length=12, choices=TIPI, default=MESSAGGIO)
     autore = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
                                related_name="+", verbose_name="autore")
+    autore_email = models.EmailField("email dell'autore", blank=True, help_text="mittente esterno (non utente)")
     corpo = models.TextField("testo", blank=True)
     modifiche = models.JSONField("modifiche", default=list, blank=True)
     allegati = models.ManyToManyField(Allegato, blank=True, related_name="messaggi", verbose_name="allegati")

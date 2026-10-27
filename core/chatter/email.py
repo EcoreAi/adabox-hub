@@ -54,8 +54,27 @@ def destinatari(messaggio):
             if u.pk != messaggio.autore_id]
 
 
+def esterni(messaggio):
+    """Indirizzi esterni del record (ModelView.destinatari_esterni), escluso chi ha scritto e chi è già utente."""
+    from core.viste import registry
+    obj = messaggio.record
+    vista = registry.per_modello(type(obj)) if obj is not None else None
+    if vista is None:
+        return []
+    utenti = {u.email.lower() for u in destinatari(messaggio)}
+    visti, risultato = {messaggio.autore_email.lower(), ""}, []
+    if messaggio.autore is not None and messaggio.autore.email:
+        visti.add(messaggio.autore.email.lower())
+    for indirizzo in vista.destinatari_esterni(obj):
+        chiave = (indirizzo or "").strip().lower()
+        if chiave not in visti and chiave not in utenti:
+            visti.add(chiave)
+            risultato.append(indirizzo.strip())
+    return risultato
+
+
 def accoda_notifica(messaggio):
-    if messaggio.record is not None and destinatari(messaggio):
+    if messaggio.record is not None and (destinatari(messaggio) or esterni(messaggio)):
         return lavori.accoda("core.chatter.email.notifica", messaggio_id=messaggio.pk)
     return None
 
@@ -79,8 +98,11 @@ def notifica(messaggio_id):
         m.message_id = f"<msg-{m.pk}-{uuid.uuid4().hex[:12]}@{host()}>"
         m.save(update_fields=["message_id"])
     brand = settings.THEME.get("brand", "")
-    ctx = {"m": m, "obj": obj, "link": _link(obj), "brand": brand,
-           "autore": (m.autore.get_full_name() or m.autore.username) if m.autore else "Sistema"}
+    if m.autore:
+        nome_autore = m.autore.get_full_name() or m.autore.username
+    else:
+        nome_autore = m.autore_email or "Sistema"
+    ctx = {"m": m, "obj": obj, "link": _link(obj), "brand": brand, "autore": nome_autore}
     intestazioni = {"Message-ID": m.message_id, "References": riferimento_record(m.content_type_id, m.object_id)}
     risposta = indirizzo_risposta(m.content_type_id, m.object_id)
     inviate = 0
@@ -90,6 +112,14 @@ def notifica(messaggio_id):
                 subject=f"[{brand}] {obj}", body=render_to_string("core/email/notifica.txt", {**ctx, "utente": u}),
                 to=[u.email], headers=intestazioni, reply_to=[risposta] if risposta else None, connection=connessione)
             email.attach_alternative(render_to_string("core/email/notifica.html", {**ctx, "utente": u}), "text/html")
+            email.send()
+            inviate += 1
+        for indirizzo in esterni(m):                     # clienti esterni: niente link all'applicazione
+            ctx_esterno = {**ctx, "utente": None, "link": None, "esterno": True}
+            email = EmailMultiAlternatives(
+                subject=f"[{brand}] {obj}", body=render_to_string("core/email/notifica.txt", ctx_esterno),
+                to=[indirizzo], headers=intestazioni, reply_to=[risposta] if risposta else None, connection=connessione)
+            email.attach_alternative(render_to_string("core/email/notifica.html", ctx_esterno), "text/html")
             email.send()
             inviate += 1
     return inviate

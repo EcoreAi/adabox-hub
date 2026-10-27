@@ -51,11 +51,13 @@ def _etichetta(obj, campo):
     return nome[:1].upper() + nome[1:]
 
 
-def scrivi(obj, autore, corpo="", tipo=Messaggio.MESSAGGIO, allegati=(), modifiche=None, message_id=""):
+def scrivi(obj, autore, corpo="", tipo=Messaggio.MESSAGGIO, allegati=(), modifiche=None, message_id="",
+           autore_email=""):
     """Aggiunge una voce al chatter. Chi scrive una nota o un messaggio diventa follower;
     un messaggio (non una nota) parte per email ai follower (core.chatter.email)."""
     m = Messaggio.objects.create(content_type=ct_di(obj), object_id=obj.pk, tipo=tipo, autore=autore,
-                                 corpo=corpo, modifiche=modifiche or [], message_id=message_id)
+                                 autore_email=autore_email, corpo=corpo, modifiche=modifiche or [],
+                                 message_id=message_id)
     if allegati:
         m.allegati.set(allegati)
     if autore is not None and tipo in (Messaggio.NOTA, Messaggio.MESSAGGIO):

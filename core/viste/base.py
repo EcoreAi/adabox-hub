@@ -205,6 +205,11 @@ class ModelView:
         definizioni = proprieta.definizioni(self.model, getattr(request, "azienda", None))
         return proprieta.form_con_proprieta(base, definizioni) if definizioni else base
 
+    def destinatari_esterni(self, obj):
+        """Indirizzi email non utenti che ricevono i messaggi del chatter di `obj` e possono rispondere
+        (es. il cliente di un ticket). Default nessuno."""
+        return []
+
     def proprieta(self, request):
         """Definizioni dei campi personalizzati per l'azienda della richiesta ([] se il modello non li accetta)."""
         from core import proprieta
