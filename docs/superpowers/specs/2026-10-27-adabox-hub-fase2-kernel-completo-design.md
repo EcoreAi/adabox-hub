@@ -1,7 +1,7 @@
 # adabox-hub — fase 2: il kernel completo
 
 Data: 2026-10-27
-Stato: **bozza da approvare** (decisioni aperte nella sezione finale, con la raccomandazione)
+Stato: approvato il 2026-10-27 (decisioni della sezione finale confermate; la 3 cambiata: email anche in entrata)
 Precede: `2026-10-27-adabox-hub-fase1-kernel-design.md` (fase 1, completata: vedi `docs/sessioni/2026-10-27-fase1-kernel.md`)
 
 ## Scopo
@@ -120,7 +120,26 @@ Il pannello a destra (o sotto, su mobile) del dettaglio, come in Odoo, attivato 
   arriva per email ai follower tranne l'autore.
 - **Email in uscita**: accodata nel worker (`core.chatter.invia_notifica`), template testo +
   HTML con il theme, `EMAIL_URL` della fase 1. Oggetto `[<brand>] <record>`, link al dettaglio.
-  **Email in entrata (rispondere alla mail): fuori da questa fase.**
+  Ogni email ha un `Message-ID` proprio (salvato su `Messaggio.message_id`) e `Reply-To` sulla
+  casella delle risposte dell'istanza (`EMAIL_RISPOSTE`), con l'indirizzo in forma
+  `risposte+<token>@dominio`, dove `<token>` identifica il record ed è firmato (HMAC con
+  `SECRET_KEY`).
+- **Email in entrata**: chi risponde a una notifica scrive nel chatter del record.
+  - Una `Pianificazione` del kernel (ogni 2 minuti) legge la casella con IMAP (`IMAP_URL`,
+    es. `imaps://utente:password@mail.cliente.it:993/INBOX`, libreria standard `imaplib`),
+    prende i messaggi non letti e li passa a `core.chatter.ricevi(bytes)`.
+  - **Abbinamento al record**: prima `In-Reply-To`/`References` contro `Messaggio.message_id`,
+    poi il token firmato nell'indirizzo `+`. Token non valido o assente = non abbinata.
+  - **Mittente**: deve essere l'email di un utente attivo che può vedere il record; il messaggio
+    nasce come `messaggio` di quell'utente (e quindi notifica gli altri follower). Mittenti
+    sconosciuti o senza permesso: niente messaggio, email registrata come `rifiutata`.
+  - **Corpo**: parte testo (o HTML convertito in testo), con la citazione tolta ("Il … ha
+    scritto:", "On … wrote:", righe che iniziano con `>`); allegati → `Allegato` del record,
+    con gli stessi limiti del caricamento.
+  - **Idempotenza**: ogni email in entrata ha una riga `EmailRicevuta` (`message_id` unico,
+    `stato`: `abbinata`, `non_abbinata`, `rifiutata`, `errore`, motivo, record); in casella
+    viene segnata come letta. La pagina `/core/email/` (superuser) le elenca.
+  - Senza `IMAP_URL` la pianificazione non fa nulla e il `Reply-To` non viene impostato.
 - Il pannello è una sezione di dettaglio registrata dal kernel (meccanismo `hooks` della fase 1),
   quindi anche i moduli possono aggiungerne accanto.
 
@@ -239,7 +258,8 @@ Per ogni servizio, test del kernel come in fase 1 più l'uso da `todo`:
 - sequenze: formato, azzeramento annuale, concorrenza (Postgres);
 - allegati: download consentito/negato secondo il record, limiti, nome ripulito;
 - chatter: tracciamento da vista e da API, follower, email solo ai follower e solo per i
-  messaggi, accodata nel worker;
+  messaggi, accodata nel worker; in entrata: abbinamento per `In-Reply-To` e per token, token
+  falsificato, mittente sconosciuto o senza permesso, citazione tolta, allegati, email già vista;
 - attività: pianifica, fatta → messaggio, "le mie attività", promemoria;
 - viste: raggruppamento con totali, kanban con spostamento e permessi, calendario mese e
   settimana, grafico (dati aggregati e SVG), export CSV/XLSX, import con prova a secco ed errori;
@@ -252,25 +272,25 @@ concorrenza: SQLite non li rappresenta.
 
 ## Fuori scope (fasi successive)
 
-Email in entrata e risposte via mail, notifiche in tempo reale (websocket), messaggistica
+Webhook dei provider per la posta in entrata (Mailgun, SES…), notifiche in tempo reale (websocket), messaggistica
 interna (Discuss), firma digitale dei documenti, report con editor visuale, Properties
 "per record padre", viste pivot, gantt e mappa, attività ricorrenti, multi-lingua.
 
 ## Decisioni da confermare
 
-1. **Coda di lavori nel DB, scritta nel kernel** — *raccomandata*. Alternative: Celery +
+1. **Coda di lavori nel DB, scritta nel kernel** — *decisa*. Alternative: Celery +
    Redis (standard, ma un servizio in più da gestire per ogni cliente, e sul server Redis non
    c'è); `django-q2` (coda su ORM già pronta, ma è una dipendenza in più per ~300 righe di
    codice, e il cron dei manifest va scritto comunque). Il kernel ne ha bisogno di poco:
    accoda, ritenta, pianifica.
-2. **PDF con WeasyPrint** — *raccomandato*: i report sono template Django con il CSS del theme.
+2. **PDF con WeasyPrint** — *deciso*: i report sono template Django con il CSS del theme.
    Alternative: Chromium headless (resa perfetta, ma immagine Docker molto più pesante);
    ReportLab (nessuna dipendenza di sistema, ma i layout si scrivono in Python).
-3. **Email del chatter: solo in uscita** in questa fase — *raccomandato*. Le risposte via mail
-   (casella IMAP o webhook del provider) richiedono infrastruttura per cliente.
-4. **Grafici in SVG dal server** — *raccomandato*, niente librerie JS (coerente con la fase 1).
+3. **Email del chatter in uscita e in entrata** — *deciso*: risposte via IMAP con una casella
+   per istanza (raccomandazione iniziale era solo uscita).
+4. **Grafici in SVG dal server** — *deciso*, niente librerie JS (coerente con la fase 1).
    Alternativa: Chart.js vendorizzato (interattivo, tooltip, ma una dipendenza frontend).
-5. **Properties per modello** (e non per record padre come Odoo) — *raccomandato* in fase 2.
-6. **Tre piani 2a, 2b, 2c** in quest'ordine — *raccomandato*.
-7. **Test di concorrenza su Postgres** in un container dedicato — *raccomandato*; serve Docker
+5. **Properties per modello** (e non per record padre come Odoo) — *deciso* in fase 2.
+6. **Tre piani 2a, 2b, 2c** in quest'ordine — *deciso*.
+7. **Test di concorrenza su Postgres** in un container dedicato — *deciso*; serve Docker
    sulla macchina che esegue i test (c'è).
