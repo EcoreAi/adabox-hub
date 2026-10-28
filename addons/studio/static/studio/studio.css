@@ -1,0 +1,24 @@
+/* Studio: editor delle viste */
+.studio-schede { margin-bottom: 16px; }
+.studio-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.studio-griglia .ui-section { margin: 0; }
+.studio-elenco { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 36px; }
+.studio-chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 6px 5px 10px; border: 1px solid var(--ui-border);
+  border-radius: var(--radius-pill); background: var(--ui-surface); font-size: 13px; cursor: grab; user-select: none; }
+.studio-chip.is-trascinato { opacity: .4; }
+.studio-chip.is-sopra { outline: 2px dashed var(--ui-primary); }
+.studio-chip.is-obbligatorio { border-color: var(--ui-primary); }
+.studio-chip button { all: unset; cursor: pointer; width: 20px; height: 20px; display: inline-grid; place-items: center;
+  border-radius: 50%; color: var(--ui-text-3); font-size: 12px; }
+.studio-chip button:hover, .studio-chip button:focus-visible { background: var(--ui-surface-2); color: var(--ui-text); }
+.studio-aggiungi { max-width: 220px; padding: 5px 10px; font-size: 13px; }
+.studio-sezione { border: 1px solid var(--ui-border); border-radius: var(--radius-card, 12px); background: var(--ui-surface); padding: 14px; margin-bottom: 14px; }
+.studio-sezione-testa { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.studio-sezione-testa .ui-input { max-width: 320px; font-weight: 600; }
+.studio-riga { display: flex; gap: 8px; align-items: center; padding: 8px; border: 1px dashed var(--ui-border); border-radius: 8px; margin-bottom: 8px; min-height: 44px; }
+.studio-riga.is-sopra { border-color: var(--ui-primary); background: var(--ui-primary-tint); }
+.studio-riga .studio-elenco { flex: 1; }
+.studio-azioni { display: inline-flex; gap: 2px; margin-left: auto; }
+.studio-azioni button { all: unset; cursor: pointer; padding: 2px 6px; border-radius: 6px; color: var(--ui-text-3); font-size: 13px; }
+.studio-azioni button:hover, .studio-azioni button:focus-visible { background: var(--ui-surface-2); color: var(--ui-text); }
+.studio-importa { display: inline; }

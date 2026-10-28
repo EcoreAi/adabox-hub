@@ -1,0 +1,25 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Studio · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Studio</h1><div class="sub">Scegli una vista da adattare: colonne, filtri, form, etichette.</div></div>
+  <div class="ui-pagehead-actions">
+    <a class="ui-btn ui-btn-secondary" href="{% url 'studio:esporta' %}"><svg><use href="#icon-download"/></svg> Esporta</a>
+    <form method="post" action="{% url 'studio:importa' %}" enctype="multipart/form-data" class="studio-importa">{% csrf_token %}
+      <label class="ui-btn ui-btn-secondary">Importa…<input type="file" name="file" accept="application/json,.json" hidden onchange="this.form.submit()"></label>
+    </form>
+  </div>
+</div>
+{% for modulo, viste in gruppi %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">{{ modulo }}</div></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <tbody>{% for v, p in viste %}<tr>
+      <td><a class="ui-link" href="{% url 'studio:editor' v.modulo v.slug %}">{{ v.verbose_name_plural|capfirst }}</a></td>
+      <td class="ui-help">{{ v.modulo }}:{{ v.slug }}</td>
+      <td>{% if p %}<span class="ui-pill ui-pill-info">personalizzata</span> <span class="ui-help">{{ p.modificato_il|date:"d/m/Y H:i" }}{% if p.modificato_da %} · {{ p.modificato_da }}{% endif %}</span>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endfor %}
+{% endblock %}

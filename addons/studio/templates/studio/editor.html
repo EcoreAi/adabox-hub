@@ -1,0 +1,79 @@
+{% extends 'core/base_app.html' %}
+{% load static %}
+{% block title %}Studio · {{ vista.verbose_name_plural|capfirst }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<link rel="stylesheet" href="{% static 'studio/studio.css' %}">
+<div class="ui-pagehead">
+  <div><h1>{{ vista.verbose_name_plural|capfirst }}</h1>
+    <div class="sub"><a class="ui-link" href="{% url 'studio:indice' %}">Studio</a> · {{ vista.modulo }}:{{ vista.slug }}{% if personalizzata %} · <span class="ui-pill ui-pill-info">personalizzata</span>{% endif %}</div></div>
+  <div class="ui-pagehead-actions">
+    <a class="ui-btn ui-btn-ghost" href="{{ url_vista }}" target="_blank" rel="noopener"><svg><use href="#icon-eye"/></svg> Apri la vista</a>
+    {% if personalizzata %}<form method="post" action="{% url 'studio:ripristina' vista.modulo vista.slug %}">{% csrf_token %}
+      <button class="ui-btn ui-btn-secondary" type="submit" onclick="return confirm('Tornare alla vista originale del modulo?')">Ripristina l'originale</button></form>{% endif %}
+    <button class="ui-btn ui-btn-primary" type="submit" form="studio-form"><svg><use href="#icon-save"/></svg> Salva</button>
+  </div>
+</div>
+
+<nav class="ui-selettore studio-schede" aria-label="Sezioni">
+  <a href="#lista" data-scheda="lista" class="is-active">Lista</a>
+  <a href="#form" data-scheda="form">Form</a>
+  <a href="#etichette" data-scheda="etichette">Etichette</a>
+  {% if stato.kanban %}<a href="#kanban" data-scheda="kanban">Kanban</a>{% endif %}
+  <a href="#storico" data-scheda="storico">Storico</a>
+</nav>
+
+<form id="studio-form" method="post">{% csrf_token %}<input type="hidden" name="dati" data-studio-dati></form>
+
+<div class="studio-pannello" data-pannello="lista">
+  <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Colonne</div></div>
+    <div class="ui-card-body"><div data-elenco="list_display"></div></div></section>
+  <div class="studio-griglia">
+    <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Filtri</div></div>
+      <div class="ui-card-body"><div data-elenco="list_filter"></div></div></section>
+    <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Ricerca nei campi</div></div>
+      <div class="ui-card-body"><div data-elenco="search_fields"></div></div></section>
+    <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Raggruppamenti</div></div>
+      <div class="ui-card-body"><div data-elenco="list_group_by"></div></div></section>
+    <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Totali</div></div>
+      <div class="ui-card-body"><div data-elenco="list_sum"></div></div></section>
+    <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Ordinamento predefinito</div></div>
+      <div class="ui-card-body"><div data-elenco="ordering" data-direzione></div></div></section>
+    <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Righe per pagina</div></div>
+      <div class="ui-card-body"><input class="ui-input" type="number" min="10" max="500" step="5" data-per-pagina style="max-width:120px"></div></section>
+  </div>
+</div>
+
+<div class="studio-pannello" data-pannello="form" hidden>
+  {% if stato.form_modificabile %}
+  <div class="ui-alert" data-mancanti hidden></div>
+  <div data-layout></div>
+  <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-nuova-sezione><svg><use href="#icon-plus"/></svg> Nuova sezione</button>
+  <p class="ui-help">Trascina i campi tra le righe; più campi nella stessa riga stanno affiancati. I campi nuovi si creano in
+    <a class="ui-link" href="{% url 'core:campi_nuovo' %}">Campi personalizzati</a> e compaiono qui da collocare.</p>
+  {% else %}<p class="ui-help">Il form di questa vista è scritto dal modulo e non si personalizza.</p>{% endif %}
+</div>
+
+<div class="studio-pannello" data-pannello="etichette" hidden>
+  <section class="ui-card is-revealed ui-section"><div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Campo</th><th>Etichetta originale</th><th>Etichetta</th></tr></thead>
+    <tbody data-etichette></tbody></table></div></section>
+</div>
+
+{% if stato.kanban %}<div class="studio-pannello" data-pannello="kanban" hidden>
+  <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Campi nella card</div></div>
+    <div class="ui-card-body"><div data-elenco="kanban_fields"></div></div></section>
+</div>{% endif %}
+
+<div class="studio-pannello" data-pannello="storico" hidden>
+  <section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+    {% if versioni %}{% for v in versioni %}<div class="ui-allegato">
+      <span>{{ v.quando|date:"d/m/Y H:i"|default:"—" }}{% if v.utente %} · {{ v.utente }}{% endif %}{% if v.originale %} · originale del modulo{% endif %}</span>
+      <form method="post" action="{% url 'studio:ripristina' vista.modulo vista.slug %}" style="display:inline">{% csrf_token %}
+        <input type="hidden" name="versione" value="{{ v.indice }}"><button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit">Ripristina</button></form>
+    </div>{% endfor %}{% else %}<p class="ui-help">Nessuna versione precedente.</p>{% endif %}
+  </div></section>
+</div>
+
+{{ stato|json_script:"studio-stato" }}
+<script src="{% static 'studio/studio.js' %}" defer></script>
+{% endblock %}

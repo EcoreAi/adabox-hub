@@ -12,7 +12,7 @@ commit, un commit per task con push, collaudo di ogni app nuova con `modulo coll
 - `hooks.voce_testata(template, order, permission)` e inclusione nella testata.
 - Test con una funzione di personalizzazione di prova.
 
-### Task 2: studio — personalizzazioni, editor, storico, campi nuovi, esporta/importa
+### Task 2: studio — personalizzazioni, editor, storico, campi nuovi, esporta/importa — fatto
 ### Task 3: documenti — cartelle, documenti, tag, pagina con albero, caricamento, anteprima, cestino, zip
 ### Task 4: documenti — condivisione pubblica, richieste, cartelle collegate ai modelli, sezione sui record
 ### Task 5: discuss — canali, iscrizioni, messaggi diretti, conversazione con polling, non letti
