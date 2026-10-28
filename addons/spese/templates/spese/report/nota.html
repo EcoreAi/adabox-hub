@@ -1,0 +1,19 @@
+{% extends "core/report/base.html" %}
+{% block stile %}
+  table.righe { width: 100%; border-collapse: collapse; margin-top: 4mm; }
+  table.righe th { text-align: left; font-size: 8pt; color: #6e6e73; text-transform: uppercase; border-bottom: 1px solid #c7c7cc; padding: 2mm 1mm; }
+  table.righe td { padding: 2mm 1mm; border-bottom: 1px solid #f0f0f2; vertical-align: top; }
+  .num { text-align: right; white-space: nowrap; }
+  .firme { margin-top: 18mm; display: flex; justify-content: space-between; font-size: 9pt; }
+{% endblock %}
+{% block record %}
+<h1>Nota spese {{ obj.numero }}</h1>
+<div style="font-size:9pt;color:#6e6e73;">{{ obj.titolo }} · {{ obj.dipendente }}{% if obj.dipendente.reparto %} ({{ obj.dipendente.reparto }}){% endif %} · {{ obj.get_stato_display }}</div>
+<table class="righe">
+  <thead><tr><th>Data</th><th>Categoria</th><th>Descrizione</th><th class="num">Km</th><th class="num">Importo</th><th>Ricevuta</th></tr></thead>
+  <tbody>{% for r in obj.righe.all %}<tr><td>{{ r.data|date:"d/m/Y" }}</td><td>{{ r.categoria }}</td><td>{{ r.descrizione }}</td>
+    <td class="num">{% if r.km %}{{ r.km|floatformat:"-1" }}{% endif %}</td><td class="num">{{ r.importo|floatformat:2 }} €</td><td>{% if r.ricevuta %}sì{% else %}—{% endif %}</td></tr>{% endfor %}</tbody>
+</table>
+<p class="num" style="font-size:12pt;"><strong>Totale {{ obj.totale|floatformat:2 }} €</strong></p>
+<div class="firme"><span>Il dipendente</span><span>Approvata da {{ obj.decisa_da|default:"________________" }}</span></div>
+{% endblock %}

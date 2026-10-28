@@ -1,0 +1,25 @@
+{
+    "name": "Note spese",
+    "summary": "Note spese dei dipendenti con ricevute, rimborsi chilometrici, approvazione e rimborso",
+    "version": "1.0.0",
+    "author": "ICHNOBYTE S.R.L.",
+    "category": "Risorse umane",
+    "depends": ["personale"],
+    "min_core": "1.0",
+    "application": True,
+    "icon": "spese/icon.svg",
+    "dashboard": "spese.dashboard.kpi",
+    "menu": [
+        {"label": "Note spese", "url_name": "spese:note_lista", "permission": "spese.view_notaspese"},
+        {"label": "Categorie", "url_name": "spese:categorie_lista", "permission": "spese.change_categoriaspesa"},
+    ],
+    "groups": {
+        "Note spese / Dipendente": ["spese.view_notaspese", "spese.add_notaspese", "spese.change_notaspese",
+                                    "spese.delete_notaspese", "spese.view_rigaspesa", "spese.add_rigaspesa",
+                                    "spese.change_rigaspesa", "spese.delete_rigaspesa", "spese.view_categoriaspesa"],
+        "Note spese / Responsabile": ["spese.*"],
+    },
+    "data": ["data/categorie.json"],
+    "hooks": "spese.hooks",
+    "sequences": [{"codice": "spese.nota", "formato": "NS/{anno}/{numero:04d}", "azzera": "anno"}],
+}

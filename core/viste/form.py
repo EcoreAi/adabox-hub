@@ -42,10 +42,12 @@ class FormView(VistaBase):
 
     def _rendi(self, request, form, obj, formsets=None):
         vista = self.vista
+        formsets = vista.formsets(request, obj) if formsets is None else formsets
         return render(request, vista.template_form, {
             "vista": vista, "urls": urls_di(vista), "form": form, "obj": obj,
             "sezioni": sezioni_form(vista, form),
-            "formsets": vista.formsets(request, obj) if formsets is None else formsets,
+            "formsets": formsets,
+            "formsets_multipart": any(fs.is_multipart() for _, fs in formsets),
             "annulla": vista.url("dettaglio", pk=obj.pk) if obj else vista.url("lista"),
         })
 

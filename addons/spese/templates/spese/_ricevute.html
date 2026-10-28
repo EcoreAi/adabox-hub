@@ -1,0 +1,10 @@
+{% with righe=obj.righe.all %}{% if righe %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Ricevute</div></div>
+  <div class="ui-card-body">{% for r in righe %}<div class="ui-allegato">
+    {% if r.ricevuta %}<a class="ui-link" href="{% url 'spese:ricevuta' r.pk %}">{{ r }}</a>{% else %}<span>{{ r }}</span>{% endif %}
+    <span class="ui-allegato-info">{{ r.categoria }} · {{ r.importo|floatformat:2 }} €{% if not r.ricevuta %}{% if r.categoria.ricevuta_obbligatoria %} · <span class="ui-pill ui-pill-danger">ricevuta mancante</span>{% else %} · senza ricevuta{% endif %}{% endif %}</span>
+  </div>{% endfor %}
+  {% if obj.nota_decisione %}<p class="ui-help">Nota di chi ha deciso: {{ obj.nota_decisione }}</p>{% endif %}</div>
+</section>
+{% endif %}{% endwith %}

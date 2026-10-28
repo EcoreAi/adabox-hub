@@ -9,7 +9,7 @@
     <div class="sub"><a class="ui-link" href="{{ urls.lista }}">{{ vista.verbose_name_plural|capfirst }}</a></div>
   </div>
 </div>
-<form method="post"{% if form.is_multipart %} enctype="multipart/form-data"{% endif %} novalidate>
+<form method="post"{% if form.is_multipart or formsets_multipart %} enctype="multipart/form-data"{% endif %} novalidate>
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="ui-alert ui-alert-error">{% for e in form.non_field_errors %}{{ e }} {% endfor %}</div>{% endif %}
   {% for campo_nascosto in form.hidden_fields %}{{ campo_nascosto }}{% endfor %}

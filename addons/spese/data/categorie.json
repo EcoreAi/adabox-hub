@@ -1,0 +1,8 @@
+[
+  {"model": "spese.categoriaspesa", "pk": 1, "fields": {"nome": "Vitto", "limite": "40.00", "ricevuta_obbligatoria": true}},
+  {"model": "spese.categoriaspesa", "pk": 2, "fields": {"nome": "Alloggio", "limite": "150.00", "ricevuta_obbligatoria": true}},
+  {"model": "spese.categoriaspesa", "pk": 3, "fields": {"nome": "Treno, aereo, bus", "ricevuta_obbligatoria": true}},
+  {"model": "spese.categoriaspesa", "pk": 4, "fields": {"nome": "Taxi e parcheggi", "ricevuta_obbligatoria": true}},
+  {"model": "spese.categoriaspesa", "pk": 5, "fields": {"nome": "Rimborso chilometrico", "chilometrica": true, "tariffa_km": "0.4200", "ricevuta_obbligatoria": false}},
+  {"model": "spese.categoriaspesa", "pk": 6, "fields": {"nome": "Altro", "ricevuta_obbligatoria": true}}
+]

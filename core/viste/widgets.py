@@ -35,7 +35,7 @@ def rendi(vista, obj, campo, request=None):
     if f is None and callable(valore):
         valore = valore()
     if isinstance(valore, FieldFile):
-        valore = valore.name
+        valore = valore.name.rsplit("/", 1)[-1] if valore else ""           # il nome, non il percorso interno
     if valore is None or valore == "":
         return VUOTO
     if isinstance(valore, bool):
