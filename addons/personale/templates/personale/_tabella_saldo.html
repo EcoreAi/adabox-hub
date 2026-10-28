@@ -1,0 +1,6 @@
+<div class="ui-table-wrap"><table class="ui-table is-revealed">
+  <thead><tr><th></th><th class="ui-num">Spettanti</th><th class="ui-num">Godute</th><th class="ui-num">Da approvare</th><th class="ui-num">Residue</th></tr></thead>
+  <tbody>
+    <tr><td>Ferie (giorni)</td><td class="ui-num">{{ s.ferie.spettanti|floatformat:"-2" }}</td><td class="ui-num">{{ s.ferie.godute|floatformat:"-2" }}</td><td class="ui-num">{{ s.ferie.richieste|floatformat:"-2" }}</td><td class="ui-num"><strong>{{ s.ferie.residue|floatformat:"-2" }}</strong></td></tr>
+    <tr><td>Permessi (ore)</td><td class="ui-num">{{ s.permessi.spettanti|floatformat:"-2" }}</td><td class="ui-num">{{ s.permessi.godute|floatformat:"-2" }}</td><td class="ui-num">{{ s.permessi.richieste|floatformat:"-2" }}</td><td class="ui-num"><strong>{{ s.permessi.residue|floatformat:"-2" }}</strong></td></tr>
+  </tbody></table></div>

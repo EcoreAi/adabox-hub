@@ -1,0 +1,8 @@
+[
+  {"model": "personale.tipoassenza", "pk": 1, "fields": {"nome": "Ferie", "unita": "giorni", "saldo": "ferie", "colore": "#1f7a3a", "ordine": 10}},
+  {"model": "personale.tipoassenza", "pk": 2, "fields": {"nome": "Permesso (ROL)", "unita": "ore", "saldo": "permessi", "colore": "#1e3a8a", "ordine": 20}},
+  {"model": "personale.tipoassenza", "pk": 3, "fields": {"nome": "Malattia", "unita": "giorni", "saldo": "", "colore": "#c4271f", "ordine": 30}},
+  {"model": "personale.tipoassenza", "pk": 4, "fields": {"nome": "Congedo parentale", "unita": "giorni", "saldo": "", "colore": "#7a3fb4", "ordine": 40}},
+  {"model": "personale.tipoassenza", "pk": 5, "fields": {"nome": "Permesso retribuito (lutto, matrimonio, studio)", "unita": "giorni", "saldo": "", "colore": "#b46300", "ordine": 50}},
+  {"model": "personale.tipoassenza", "pk": 6, "fields": {"nome": "Smart working", "unita": "giorni", "saldo": "", "colore": "#2a8a99", "ordine": 60}}
+]

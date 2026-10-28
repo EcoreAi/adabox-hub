@@ -1,0 +1,25 @@
+{% extends 'core/base_app.html' %}
+{% load vista %}
+{% block title %}Le mie assenze · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Le mie assenze</h1>
+  <div class="sub">{% if dipendente %}{{ dipendente }}{% if dipendente.responsabile %} · approva {{ dipendente.responsabile }}{% endif %}{% endif %}</div></div>
+  {% if da_approvare %}<div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="{% url 'personale:assenze_lista' %}?f_stato=richiesta">Da approvare: {{ da_approvare }}</a></div>{% endif %}
+</div>
+{% if not dipendente %}
+<div class="ui-card is-revealed"><div class="ui-card-body"><div class="ui-empty"><p>Il tuo utente non è collegato a una scheda dipendente: chiedi all'ufficio del personale di collegarlo.</p></div></div></div>
+{% else %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Saldo {{ anno }}</div></div>
+  {% with s=saldo %}{% include "personale/_tabella_saldo.html" %}{% endwith %}</section>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Nuova richiesta</div></div>
+  <div class="ui-card-body"><form method="post" novalidate>{% csrf_token %}
+    {% if form.non_field_errors %}<div class="ui-alert ui-alert-error">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+    {% campo form.tipo %}
+    <div class="ui-form-row">{% campo form.dal %}{% campo form.al %}</div>
+    {% campo form.ore %}{% campo form.motivo %}
+    <button class="ui-btn ui-btn-primary" type="submit">Invia la richiesta</button></form></div></section>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Le mie richieste</div></div>
+  <div class="ui-card-body">{% for a in assenze %}<div class="ui-allegato"><a class="ui-link" href="{% url 'personale:assenze_dettaglio' a.pk %}">{{ a.tipo }}</a>
+    <span class="ui-allegato-info">{{ a.dal|date:"d/m/Y" }}{% if a.al != a.dal %} – {{ a.al|date:"d/m/Y" }}{% endif %}{% if a.ore %} · {{ a.ore|floatformat:"-2" }} ore{% endif %} · {{ a.get_stato_display }}</span></div>{% empty %}<p class="ui-help">Nessuna richiesta.</p>{% endfor %}</div></section>
+{% endif %}
+{% endblock %}

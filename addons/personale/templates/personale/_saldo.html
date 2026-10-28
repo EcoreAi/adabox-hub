@@ -1,0 +1,7 @@
+{% load personale %}{% saldo_dipendente obj as s %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Saldo {% now "Y" %}</div></div>
+  {% include "personale/_tabella_saldo.html" %}
+  <div class="ui-card-body">{% for a in obj.assenze.all|slice:":8" %}<div class="ui-allegato"><a class="ui-link" href="{% url 'personale:assenze_dettaglio' a.pk %}">{{ a.tipo }}</a>
+    <span class="ui-allegato-info">{{ a.dal|date:"d/m/Y" }}{% if a.al != a.dal %} – {{ a.al|date:"d/m/Y" }}{% endif %} · {{ a.get_stato_display }}</span></div>{% empty %}<p class="ui-help">Nessuna assenza.</p>{% endfor %}</div>
+</section>
