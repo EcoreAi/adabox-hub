@@ -14,11 +14,14 @@ def post_install(modulo):
 
 
 def demo(modulo):
-    """Inventario iniziale dei beni (la metà sotto scorta, per vedere gli avvisi)."""
+    """Inventario iniziale dei beni (la metà sotto scorta, per vedere gli avvisi) e i documenti degli ordini
+    confermati che ancora non li hanno."""
     from prodotti.models import Prodotto
 
+    from . import collegamenti
     from .models import Magazzino, Movimento
     azienda = Azienda.objects.filter(attiva=True).order_by("pk").first()
+    collegamenti.recupera_ordini(azienda)
     if Movimento.objects.filter(azienda=azienda).exists():
         return
     magazzino = Magazzino.predefinito_per(azienda)

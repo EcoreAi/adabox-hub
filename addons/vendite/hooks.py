@@ -19,6 +19,7 @@ def demo(modulo):
     from prodotti.models import Prodotto
 
     from .models import OrdineVendita, RigaVendita
+    from .segnali import ordine_confermato
     azienda = Azienda.objects.filter(attiva=True).order_by("pk").first()
     if OrdineVendita.objects.filter(azienda=azienda).exists():
         return
@@ -39,7 +40,8 @@ def demo(modulo):
                                          numero=sequenze.prossimo("vendite.preventivo", azienda))
         for j, p in enumerate(prodotti[i % 2:i % 2 + 3]):
             RigaVendita.objects.create(ordine=o, prodotto=p, quantita=Decimal(j + 1), sconto=Decimal(5 * (i % 2)))
+        o.ricalcola()
         if stato == OrdineVendita.CONFERMATO:
             o.numero_ordine, o.confermato_il = sequenze.prossimo("vendite.ordine", azienda), data
             o.save(update_fields=["numero_ordine", "confermato_il"])
-        o.ricalcola()
+            ordine_confermato.send(sender=OrdineVendita, ordine=o, utente=None)    # come la conferma vera

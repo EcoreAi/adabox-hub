@@ -30,6 +30,26 @@ def ricevimento_da_ordine(sender, ordine, utente=None, **kwargs):
     return ricevimento
 
 
+def recupera_ordini(azienda):
+    """Consegne e ricevimenti per gli ordini già confermati che non li hanno (es. installando il magazzino
+    dopo vendite o acquisti). Restituisce quanti documenti ha creato."""
+    from django.apps import apps
+    creati = 0
+    coppie = []
+    if apps.is_installed("vendite"):
+        from vendite.models import OrdineVendita
+        coppie.append((OrdineVendita, Consegna, consegna_da_ordine))
+    if apps.is_installed("acquisti"):
+        from acquisti.models import OrdineAcquisto
+        coppie.append((OrdineAcquisto, Ricevimento, ricevimento_da_ordine))
+    for modello_ordine, modello_documento, crea in coppie:
+        tipo = ContentType.objects.get_for_model(modello_ordine)
+        con_documento = modello_documento.objects.filter(origine_tipo=tipo).values_list("origine_id", flat=True)
+        for ordine in modello_ordine.objects.filter(azienda=azienda, stato="confermato").exclude(pk__in=con_documento):
+            creati += crea(modello_ordine, ordine) is not None
+    return creati
+
+
 def di(origine, modello):
     """I documenti di magazzino nati da un ordine."""
     return modello.objects.filter(origine_tipo=ContentType.objects.get_for_model(origine), origine_id=origine.pk)

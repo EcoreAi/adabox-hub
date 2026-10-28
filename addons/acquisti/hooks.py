@@ -19,6 +19,7 @@ def demo(modulo):
     from prodotti.models import Prodotto
 
     from .models import OrdineAcquisto, RigaAcquisto
+    from .segnali import ordine_acquisto_confermato
     azienda = Azienda.objects.filter(attiva=True).order_by("pk").first()
     if OrdineAcquisto.objects.filter(azienda=azienda).exists():
         return
@@ -38,3 +39,5 @@ def demo(modulo):
         for p in beni:
             RigaAcquisto.objects.create(ordine=o, prodotto=p, quantita=Decimal(10))
         o.ricalcola()
+        if stato == OrdineAcquisto.CONFERMATO:
+            ordine_acquisto_confermato.send(sender=OrdineAcquisto, ordine=o, utente=None)

@@ -5,7 +5,7 @@
 **Regole per chi esegue:** come nei piani precedenti (test prima, suite verde con l'esito di pytest che decide il
 commit, un commit per task con push, collaudo di ogni app nuova con `modulo collauda`).
 
-### Task 1: demo vendite → magazzino
+### Task 1: demo vendite → magazzino — fatto
 ### Task 2: sdi — schemi XSD, trasmissioni, canali manuale/prova/PEC, notifiche, stato sulla fattura
 ### Task 3: sdi — fatture passive (PEC e caricamento, p7m), registrazione, pagamenti, registro IVA acquisti
 ### Task 4: personale — reparti, dipendenti, tipi di assenza, richieste e approvazioni, saldo, calendario

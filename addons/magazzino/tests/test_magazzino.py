@@ -121,3 +121,20 @@ def test_demo(scena):
     hooks.demo(None)
     hooks.demo(None)
     assert Movimento.objects.filter(causale="Inventario iniziale").count() == Prodotto.objects.filter(tipo="bene").count()
+
+
+def test_demo_crea_consegne_e_ricevimenti_degli_ordini_confermati(scena):
+    """Il ponte nei dati demo: in qualunque ordine si installino le app, gli ordini confermati hanno i documenti."""
+    if not (apps.is_installed("vendite") and apps.is_installed("acquisti")):
+        pytest.skip("servono vendite e acquisti")
+    from acquisti import hooks as ha
+    from magazzino import collegamenti
+    from prodotti import hooks as hp
+    from vendite import hooks as hv
+    hp.demo(None)
+    hv.demo(None)                                     # emette il segnale: consegne create subito
+    ha.demo(None)
+    assert Consegna.objects.count() == 2 and Ricevimento.objects.count() == 1
+    Consegna.objects.all().delete()                   # come se il magazzino fosse arrivato dopo
+    hooks.demo(None)
+    assert Consegna.objects.count() == 2 and collegamenti.recupera_ordini(scena[0]) == 0
