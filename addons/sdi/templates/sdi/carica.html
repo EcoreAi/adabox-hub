@@ -1,0 +1,22 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Carica file dello SDI · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Carica file dello SDI</h1>
+  <div class="sub">Notifiche scaricate dal portale (ricevute, scarti, esiti) e fatture dei fornitori, anche in un archivio zip</div></div></div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <form method="post" enctype="multipart/form-data">{% csrf_token %}
+    <input class="ui-input" type="file" name="file" multiple required accept=".xml,.p7m,.zip" aria-label="File">
+    <button class="ui-btn ui-btn-primary" type="submit" style="margin-top:10px">Carica</button>
+  </form>
+</div></section>
+{% if esiti %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Esito</div></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><tbody>
+  {% for e in esiti %}<tr><td>{{ e.nome }}</td><td>
+    {% if e.esito == "notifica" %}<span class="ui-pill ui-pill-ok">{{ e.oggetto.get_tipo_display }}</span>{% if e.oggetto.trasmissione %} per {{ e.oggetto.trasmissione.fattura }}{% else %} · nessuna trasmissione corrispondente{% endif %}
+    {% elif e.esito == "passiva" %}<span class="ui-pill ui-pill-ok">Fattura ricevuta</span> <a class="ui-link" href="{% url 'sdi:passive_dettaglio' e.oggetto.pk %}">{{ e.oggetto }}</a>
+    {% elif e.esito == "doppione" %}<span class="ui-pill ui-pill-neutral">già presente</span>
+    {% else %}<span class="ui-pill ui-pill-warn">non riconosciuto</span>{% endif %}</td></tr>{% endfor %}
+  </tbody></table></div></section>
+{% endif %}
+{% endblock %}

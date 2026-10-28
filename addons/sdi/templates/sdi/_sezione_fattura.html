@@ -1,0 +1,22 @@
+{% load sdi %}{% if obj.stato == "emessa" %}{% stato_sdi obj as sdi %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Fattura elettronica · SDI</div></div>
+  <div class="ui-card-body">
+    {% for t in sdi.trasmissioni %}
+    <div class="ui-allegato">
+      <a class="ui-link" href="{% url 'sdi:trasmissioni_dettaglio' t.pk %}">{{ t.nome_file }}</a>
+      <span class="ui-pill {% if t.stato == 'consegnata' or t.stato == 'accettata' or t.stato == 'decorsa' %}ui-pill-ok{% elif t.stato == 'scartata' or t.stato == 'rifiutata' or t.stato == 'errore' %}ui-pill-danger{% elif t.stato == 'mancata' %}ui-pill-warn{% else %}ui-pill-info{% endif %}">{{ t.get_stato_display }}</span>
+      <span class="ui-allegato-info">{{ t.canale }}{% if t.identificativo_sdi %} · SDI {{ t.identificativo_sdi }}{% endif %}{% if t.inviata_il %} · {{ t.inviata_il|date:"d/m/Y H:i" }}{% endif %}</span>
+      <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'sdi:xml' t.pk %}">XML</a>
+      {% if t.stato == "pronta" and perms.sdi.add_trasmissione %}<form method="post" action="{% url 'sdi:caricata' t.pk %}" style="display:inline">{% csrf_token %}<button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Segna come caricata sul portale</button></form>{% endif %}
+    </div>
+    {% for e in t.errori %}<p class="ui-form-error">{{ e.codice }}: {{ e.descrizione }}{% if e.suggerimento %} — {{ e.suggerimento }}{% endif %}</p>{% endfor %}
+    {% for n in t.notifiche.all %}<p class="ui-help">{{ n.get_tipo_display }} · {{ n.ricevuta_il|date:"d/m/Y H:i" }}</p>{% endfor %}
+    {% empty %}<p class="ui-help">Non ancora inviata allo SDI.</p>{% endfor %}
+    {% if sdi.puo_inviare and perms.sdi.add_trasmissione %}
+    <form method="post" action="{% url 'sdi:invia' obj.pk %}">{% csrf_token %}
+      <button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">{% if sdi.trasmissioni %}Reinvia allo SDI{% else %}Invia allo SDI{% endif %}</button>
+    </form>{% endif %}
+  </div>
+</section>
+{% endif %}

@@ -6,7 +6,7 @@
 commit, un commit per task con push, collaudo di ogni app nuova con `modulo collauda`).
 
 ### Task 1: demo vendite → magazzino — fatto
-### Task 2: sdi — schemi XSD, trasmissioni, canali manuale/prova/PEC, notifiche, stato sulla fattura
+### Task 2: sdi — schemi XSD, trasmissioni, canali manuale/prova/PEC, notifiche, stato sulla fattura — fatto
 ### Task 3: sdi — fatture passive (PEC e caricamento, p7m), registrazione, pagamenti, registro IVA acquisti
 ### Task 4: personale — reparti, dipendenti, tipi di assenza, richieste e approvazioni, saldo, calendario
 ### Task 5: spese — categorie, note spese con righe e ricevute, approvazione, rimborso, stampa
