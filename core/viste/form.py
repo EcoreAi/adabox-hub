@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.shortcuts import redirect, render
 
 from .lista import VistaBase, urls_di
@@ -38,11 +39,12 @@ class FormView(VistaBase):
             raise PermissionDenied
         return obj
 
-    def _rendi(self, request, form, obj):
+    def _rendi(self, request, form, obj, formsets=None):
         vista = self.vista
         return render(request, vista.template_form, {
             "vista": vista, "urls": urls_di(vista), "form": form, "obj": obj,
             "sezioni": sezioni_form(vista, form),
+            "formsets": vista.formsets(request, obj) if formsets is None else formsets,
             "annulla": vista.url("dettaglio", pk=obj.pk) if obj else vista.url("lista"),
         })
 
@@ -57,10 +59,17 @@ class FormView(VistaBase):
         vista = self.vista
         obj = self._oggetto(request, pk)
         form = vista.get_form_class(request)(request.POST, request.FILES, instance=obj)
-        if not form.is_valid():
-            return self._rendi(request, form, obj)
-        nuovo = form.save(commit=False)
-        vista.save_model(request, nuovo, form, change=obj is not None)
+        formsets = vista.formsets(request, obj, request.POST, request.FILES)
+        if not form.is_valid() or not all(fs.is_valid() for _, fs in formsets):
+            return self._rendi(request, form, obj, formsets)
+        with transaction.atomic():
+            nuovo = form.save(commit=False)
+            vista.save_model(request, nuovo, form, change=obj is not None)
+            for _, fs in formsets:
+                fs.instance = nuovo
+                fs.save()
+            if formsets:
+                vista.dopo_righe(request, nuovo)
         if obj is None:
             messages.success(request, f"Creazione completata: {vista.verbose_name} «{nuovo}».")
         else:

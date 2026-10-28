@@ -1,0 +1,7 @@
+{% load vista %}
+<tr class="ui-riga{% if f.errors %} has-error{% endif %}">
+  {% for campo in f.visible_fields %}{% if campo.name != "DELETE" %}
+  <td>{{ campo|con_classe }}{% for e in campo.errors %}<div class="ui-form-error ui-field-error">{{ e }}</div>{% endfor %}</td>
+  {% endif %}{% endfor %}
+  <td class="ui-col-check">{% for h in f.hidden_fields %}{{ h }}{% endfor %}{% if f.DELETE %}<label class="ui-riga-elimina" title="Elimina la riga">{{ f.DELETE }}<svg><use href="#icon-trash"/></svg></label>{% endif %}</td>
+</tr>

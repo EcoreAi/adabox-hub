@@ -1,6 +1,7 @@
 {% extends 'core/base_app.html' %}
 {% load vista %}
-{% block title %}{% if obj %}{{ obj }}{% else %}Nuovo{% endif %} · {{ vista.verbose_name_plural|capfirst }} · {{ theme.brand }}{% endblock %}
+{% block title %}{% if obj %}{{ obj }}{% else %}Nuovo{% endif %} · {{ vista.verbose_name_plural|capfirst }} · {{ theme.brand }}{% if formsets %}{% load static %}<script src="{% static 'core/righe.js' %}" defer></script>{% endif %}
+{% endblock %}
 {% block app_content %}
 <div class="ui-pagehead">
   <div>
@@ -20,6 +21,21 @@
       <div class="ui-form-row">{% for f in riga %}{% campo f %}{% endfor %}</div>
       {% endfor %}
     </div>
+  </section>
+  {% endfor %}
+  {% for inline, fs in formsets %}
+  <section class="ui-card is-revealed ui-section" data-righe="{{ fs.prefix }}">
+    <div class="ui-card-head"><div class="ui-card-title">{{ inline.titolo }}</div></div>
+    {{ fs.management_form }}
+    {% if fs.non_form_errors %}<div class="ui-alert ui-alert-error">{% for e in fs.non_form_errors %}{{ e }} {% endfor %}</div>{% endif %}
+    <div class="ui-table-wrap"><table class="ui-table is-revealed ui-righe ui-righe-form">
+      <thead><tr>{% for c in inline.colonne %}<th>{{ c }}</th>{% endfor %}<th class="ui-col-check" aria-label="Elimina"></th></tr></thead>
+      <tbody data-righe-corpo>
+        {% for f in fs %}{% include "core/vista/_riga_form.html" with f=f %}{% endfor %}
+      </tbody>
+    </table></div>
+    <template data-righe-modello>{% include "core/vista/_riga_form.html" with f=fs.empty_form %}</template>
+    <div class="ui-card-body"><button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-aggiungi-riga><svg><use href="#icon-plus"/></svg> Aggiungi riga</button></div>
   </section>
   {% endfor %}
   <div class="ui-form-actions">

@@ -38,6 +38,8 @@ class DettaglioView(VistaBase):
             "puo_eliminare": vista.has_delete_permission(request, obj),
             "url_modifica": vista.url("modifica", pk=obj.pk), "url_elimina": vista.url("elimina", pk=obj.pk),
             "sezioni_extra": hooks.sezioni_per(vista.model, request),
+            "righe": [{"titolo": i.titolo, "colonne": i.colonne(), "righe": i.righe(obj, request)} for i in vista.inlines],
+            "totali": vista.totali(obj),
             "chatter": contesto_chatter(request, vista, obj) if vista.chatter else None,
             "stampe": [(r["nome"], vista.url("stampa", pk=obj.pk, indice=i)) for i, r in enumerate(vista.reports)],
         })

@@ -195,3 +195,14 @@ def test_disinstalla_rimuove_i_gruppi(ambiente):
     applica.Command()._disinstalla("alfa", elimina_dati=False)
     assert not Group.objects.filter(name="Alfa / Utente").exists()
     assert Modulo.objects.get(slug="alfa").stato == Modulo.DISPONIBILE
+
+
+def test_hook_demo_solo_con_demo(ambiente, monkeypatch):
+    chiamati = []
+    monkeypatch.setattr(applica, "esegui_hook", lambda m, nome, *a: chiamati.append(nome))
+    monkeypatch.setattr(applica.Command, "_migra", lambda self, slug, *d: None)
+    m = manifest.leggi(ambiente.crea("alfa"))
+    monkeypatch.setattr(applica, "_manifest", lambda slug: m)
+    applica.Command()._installa("alfa", demo=False)
+    applica.Command()._installa("alfa", demo=True)
+    assert chiamati == ["post_install", "post_install", "demo"]

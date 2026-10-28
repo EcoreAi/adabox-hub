@@ -1062,6 +1062,21 @@ td.ui-num { text-align: right; font-variant-numeric: tabular-nums; white-space: 
 .ui-dash-grafici .ui-card { margin-bottom: 0; }
 @media (max-width: 767px) { .ui-dash-grafici { grid-template-columns: minmax(0, 1fr); } }
 
+/* ============================================================
+   Righe dei documenti (ordini, fatture...) e totali
+   ============================================================ */
+.ui-righe-form td { padding: 6px 8px; vertical-align: top; }
+.ui-righe-form .ui-input { min-width: 90px; padding: 7px 10px; font-size: 13px; }
+.ui-righe-form textarea.ui-input { min-height: 38px; height: 38px; }
+.ui-riga.has-error td { background: var(--ui-danger-tint); }
+.ui-riga-elimina { display: inline-flex; align-items: center; gap: 4px; color: var(--ui-text-3); cursor: pointer; }
+.ui-riga-elimina svg { width: 15px; height: 15px; }
+.ui-totali-documento { display: grid; justify-content: end; gap: 4px; margin: 0; padding: 14px 20px 18px; border-top: 1px solid var(--ui-border); }
+.ui-totali-documento > div { display: flex; justify-content: space-between; gap: 40px; font-size: 14px; }
+.ui-totali-documento dt { color: var(--ui-text-2); }
+.ui-totali-documento dd { margin: 0; font-variant-numeric: tabular-nums; }
+.ui-totali-documento > div:last-child { font-weight: 700; font-size: 16px; border-top: 1px solid var(--ui-border); padding-top: 6px; }
+
 /* Barra di avanzamento */
 .ui-avanzamento { height: 8px; border-radius: var(--radius-pill); background: var(--ui-surface-2); overflow: hidden; }
 .ui-avanzamento > span { display: block; height: 100%; background: var(--ui-success); border-radius: inherit; }

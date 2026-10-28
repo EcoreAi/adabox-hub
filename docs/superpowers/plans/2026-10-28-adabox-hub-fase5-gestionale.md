@@ -5,7 +5,7 @@
 **Regole per chi esegue:** come nei piani precedenti (test prima, suite verde con l'esito di pytest che decide il
 commit, un commit per task con push, collaudo di ogni app nuova con `modulo collauda`).
 
-### Task 1: Kernel — righe dei documenti e hook demo
+### Task 1: Kernel — righe dei documenti e hook demo — fatto
 - `core.viste.Inline(model, fk, fields, titolo, extra)`, `ModelView.inlines`, `ModelView.totali(obj)` e
   `ModelView.dopo_righe(request, obj)`; form con formset (prefisso per inline, scelte filtrate per azienda, "Aggiungi
   riga" con `core/static/core/righe.js`), dettaglio con la tabella delle righe e i totali.

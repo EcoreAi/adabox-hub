@@ -86,6 +86,8 @@ class Command(BaseCommand):
             sequenze.crea(m.sequences)
             riga = aggiorna_riga(m)
             esegui_hook(m, "post_install", riga)
+            if demo:
+                esegui_hook(m, "demo", riga)               # dati dimostrativi creati in Python (spec fase 5)
             aggiorna_riga(m, stato=Modulo.INSTALLATO, versione_installata=m.version,
                           installato_il=timezone.now(), gruppi_creati=gruppi)
 

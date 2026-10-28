@@ -28,6 +28,20 @@
   </div>
 </section>
 {% endfor %}
+{% for r in righe %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">{{ r.titolo }}</div></div>
+  {% if r.righe %}
+  <div class="ui-table-wrap"><table class="ui-table is-revealed ui-righe">
+    <thead><tr>{% for c in r.colonne %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for riga in r.righe %}<tr>{% for v in riga %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<div class="ui-card-body"><p class="ui-help">Nessuna riga.</p></div>{% endif %}
+  {% if forloop.last and totali %}
+  <dl class="ui-totali-documento">{% for etichetta, valore in totali %}<div><dt>{{ etichetta }}</dt><dd>{{ valore }}</dd></div>{% endfor %}</dl>
+  {% endif %}
+</section>
+{% endfor %}
 {% for s in sezioni_extra %}{% include s.template %}{% endfor %}
 {% if chatter %}</div>{% include "core/chatter/_pannello.html" %}</div>{% endif %}
 <div id="modale"></div>

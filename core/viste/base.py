@@ -63,6 +63,7 @@ class ModelView:
     export_fields = None          # colonne dell'export (default: id + campi di list_display)
     import_key = None             # campo con cui l'import riconosce i record da aggiornare
     reports = ()                  # stampe PDF: [{"nome": "Scheda", "template": "app/report/x.html"}]
+    inlines = ()                  # righe del documento: [Inline(Modello, "fk", ["campo", ...])]
     template_lista = "core/vista/lista.html"
     template_tabella = "core/vista/_tabella.html"
     template_form = "core/vista/form.html"
@@ -232,6 +233,20 @@ class ModelView:
             if definizioni:
                 base = proprieta.form_con_proprieta(base, definizioni)
         return form_per_azienda(base, getattr(getattr(request, "azienda", None), "pk", None))
+
+    def formsets(self, request, obj, data=None, files=None):
+        """[(inline, formset)] delle righe del documento (vuoto se la vista non ne ha)."""
+        azienda_id = getattr(getattr(request, "azienda", None), "pk", None)
+        istanza = obj if obj is not None else self.model()
+        return [(inline, inline.formset_class(self.model, azienda_id)(data, files, instance=istanza, prefix=f"righe{i}"))
+                for i, inline in enumerate(self.inlines)]
+
+    def dopo_righe(self, request, obj):
+        """Chiamato dopo il salvataggio di documento e righe (es. per ricalcolare i totali)."""
+
+    def totali(self, obj):
+        """[(etichetta, valore)] mostrati sotto le righe nel dettaglio."""
+        return []
 
     def destinatari_esterni(self, obj):
         """Indirizzi email non utenti che ricevono i messaggi del chatter di `obj` e possono rispondere
