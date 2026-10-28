@@ -1,0 +1,13 @@
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Link pubblico</div></div>
+  <div class="ui-card-body">
+    {% if obj.attiva %}
+    <p class="ui-help">Chi ha questo link vede {% if obj.cartella %}la cartella «{{ obj.cartella.nome }}»{% if obj.documenti.exists %} e i documenti scelti{% endif %}{% else %}i documenti scelti{% endif %} fino al {{ obj.scadenza|date:"d/m/Y" }}, senza accedere.</p>
+    <input class="ui-input" readonly value="{{ request.scheme }}://{{ request.get_host }}{% url 'documenti:condivisione' obj.token %}" onclick="this.select()" aria-label="Link pubblico">
+    {% else %}<p class="ui-help">Il link {% if obj.revocata %}è stato revocato{% else %}è scaduto il {{ obj.scadenza|date:"d/m/Y" }}{% endif %}.</p>{% endif %}
+    {% with accessi=obj.accessi.all|slice:":20" %}{% if accessi %}
+    <h3 class="ui-card-title" style="margin-top:14px">Ultimi accessi</h3>
+    {% for a in accessi %}<div class="ui-allegato"><span>{{ a.quando|date:"d/m/Y H:i" }} · {{ a.azione }}{% if a.documento %} · {{ a.documento }}{% endif %}</span><span class="ui-allegato-info">{{ a.ip }}</span></div>{% endfor %}
+    {% endif %}{% endwith %}
+  </div>
+</section>

@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from . import accesso, servizi
+from .models import Richiesta
 
 
 def kpi(request):
@@ -18,4 +19,6 @@ def kpi(request):
         {"valore": documenti.count(), "etichetta": "documenti", "url": reverse("documenti:archivio")},
         {"valore": documenti.filter(creato__gte=settimana).count(), "etichetta": "caricati negli ultimi 7 giorni"},
         {"valore": filesizeformat(servizi.spazio_usato(azienda)), "etichetta": "spazio usato"},
+        {"valore": Richiesta.objects.filter(azienda=azienda, destinatario=request.user, stato=Richiesta.APERTA).count(),
+         "etichetta": "documenti richiesti a te", "url": reverse("documenti:richieste_lista") + "?f_stato=aperta"},
     ]}

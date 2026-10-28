@@ -36,6 +36,7 @@
       <div class="doc-barra" data-barra hidden>
         <span data-conteggio></span>
         <button class="ui-btn ui-btn-secondary ui-btn-sm" name="azione" value="zip"><svg><use href="#icon-download"/></svg> Scarica zip</button>
+        {% if not cestino and perms.documenti.add_condivisione %}<button class="ui-btn ui-btn-secondary ui-btn-sm" name="azione" value="condividi">Condividi con un link</button>{% endif %}
         {% if cestino %}
         <button class="ui-btn ui-btn-secondary ui-btn-sm" name="azione" value="ripristina">Ripristina</button>
         {% if perms.documenti.delete_documento %}<button class="ui-btn ui-btn-danger ui-btn-sm" name="azione" value="elimina" onclick="return confirm('Eliminare definitivamente i documenti selezionati?')">Elimina definitivamente</button>{% endif %}

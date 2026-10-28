@@ -10,14 +10,14 @@ def _chiave(model):
 
 
 def sezione_dettaglio(model, template, order=100, permission=None):
-    """Da chiamare nel ready() dell'app: il dettaglio di `model` ("app.Model" o classe) includerà
+    """Da chiamare nel ready() dell'app: il dettaglio di `model` ("app.Model", classe o "*" per tutti) includerà
     `template` con `obj` nel contesto, nell'ordine di `order`, solo per chi ha `permission`."""
     _sezioni[_chiave(model)].append({"template": template, "order": order, "permission": permission})
 
 
 def sezioni_per(model, request):
     user = request.user
-    visibili = [s for s in _sezioni.get(_chiave(model), [])
+    visibili = [s for s in _sezioni.get(_chiave(model), []) + _sezioni.get("*", [])
                 if s["permission"] is None or user.is_superuser or user.has_perm(s["permission"])]
     return sorted(visibili, key=lambda s: s["order"])
 

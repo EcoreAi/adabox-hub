@@ -1,0 +1,4 @@
+{% extends 'theme/base.html' %}
+{% block title %}{{ condivisione.nome }} · {{ theme.brand }}{% endblock %}
+{% block content %}{% include "documenti/_condivisione_pubblica.html" %}{% endblock %}
+{% block public_content %}<div class="ui-container ui-content">{% include "documenti/_condivisione_pubblica.html" %}</div>{% endblock %}

@@ -10,8 +10,8 @@ from django.views.decorators.http import require_POST
 
 from core import allegati
 
-from . import accesso, servizi
-from .models import Cartella, Documento, Tag
+from . import accesso, richieste, servizi
+from .models import Cartella, Condivisione, Documento, Richiesta, Tag
 
 
 def _albero(cartelle, conteggi):
@@ -167,6 +167,18 @@ def azione(request):
         risposta = HttpResponse(contenuto, content_type="application/zip")
         risposta["Content-Disposition"] = 'attachment; filename="documenti.zip"'
         return risposta
+    if nome == "condividi":
+        if not request.user.has_perm("documenti.add_condivisione"):
+            raise PermissionDenied
+        import datetime
+
+        from django.utils import timezone
+        condivisione = Condivisione.objects.create(
+            azienda=request.azienda, nome=f"Condivisione del {timezone.localdate():%d/%m/%Y}", creata_da=request.user,
+            scadenza=timezone.localdate() + datetime.timedelta(days=30))
+        condivisione.documenti.set(documenti)
+        messages.success(request, f"Link creato per {len(documenti)} documenti: valido 30 giorni (modificabile).")
+        return redirect("documenti:condivisioni_dettaglio", pk=condivisione.pk)
     modificabili = [d for d in documenti if accesso.puo_modificare(request.user, d)]
     if len(modificabili) < len(documenti):
         messages.warning(request, f"Documenti esclusi perché bloccati o in cartelle di sola lettura: "
@@ -192,3 +204,22 @@ def azione(request):
     else:
         raise Http404("Azione sconosciuta")
     return redirect(ritorno)
+
+
+@login_required
+@require_POST
+def evadi(request, pk):
+    """Il destinatario carica il documento richiesto, che va nella cartella della richiesta."""
+    richiesta = get_object_or_404(Richiesta, pk=pk, azienda=request.azienda, destinatario=request.user,
+                                  stato=Richiesta.APERTA)
+    file = request.FILES.get("file")
+    if file is None:
+        messages.error(request, "Scegli un file.")
+        return redirect("documenti:richieste_dettaglio", pk=pk)
+    try:
+        documento = richieste.evadi(richiesta, file, request.user)
+    except allegati.AllegatoNonValido as e:
+        messages.error(request, str(e))
+        return redirect("documenti:richieste_dettaglio", pk=pk)
+    messages.success(request, f"«{documento}» archiviato in {richiesta.cartella}. Richiesta completata.")
+    return redirect("documenti:richieste_dettaglio", pk=pk)

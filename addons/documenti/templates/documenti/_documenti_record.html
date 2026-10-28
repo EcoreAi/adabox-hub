@@ -1,0 +1,10 @@
+{% load documenti %}{% documenti_del_record obj as docs %}
+{% if docs %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Documenti</div></div>
+  <div class="ui-card-body">
+    {% for d in docs %}<div class="ui-allegato"><a class="ui-link" href="{% url 'documenti:documenti_dettaglio' d.pk %}">{{ d.nome }}</a>
+      <span class="ui-allegato-info">{{ d.cartella.percorso }} · {{ d.dimensione|filesizeformat }}</span></div>{% endfor %}
+  </div>
+</section>
+{% endif %}

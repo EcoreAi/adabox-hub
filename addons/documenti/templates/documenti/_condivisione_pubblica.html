@@ -1,0 +1,22 @@
+<div class="ui-pagehead"><div><h1>{{ condivisione.nome }}</h1>
+  <div class="sub">Condiviso da {{ condivisione.azienda }} · disponibile fino al {{ condivisione.scadenza|date:"d/m/Y" }}</div></div></div>
+{% if messaggio %}<div class="ui-alert ui-alert-info">{{ messaggio }}</div>{% endif %}
+<section class="ui-card is-revealed ui-section">
+  {% if documenti %}<div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Documento</th><th class="ui-num">Dimensione</th><th></th></tr></thead>
+    <tbody>{% for d in documenti %}<tr><td>{{ d.nome }}</td><td class="ui-num">{{ d.dimensione|filesizeformat }}</td>
+      <td class="ui-num"><a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'documenti:condivisione_scarica' condivisione.token d.pk %}">Scarica</a></td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<div class="ui-card-body"><p class="ui-help">Nessun documento.</p></div>{% endif %}
+</section>
+{% if caricamento %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Invia dei file</div></div>
+  <div class="ui-card-body">
+    <form method="post" enctype="multipart/form-data">{% csrf_token %}
+      <input class="ui-input" type="file" name="file" multiple required aria-label="File da inviare">
+      <button class="ui-btn ui-btn-primary" type="submit" style="margin-top:8px">Invia</button>
+    </form>
+  </div>
+</section>
+{% endif %}
