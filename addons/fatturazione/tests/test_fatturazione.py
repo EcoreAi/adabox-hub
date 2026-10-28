@@ -197,3 +197,18 @@ def test_demo(scena):
     assert fatture.count() == 2 and fatture.filter(stato="emessa").count() == 1
     assert DatiFiscali.objects.filter(azienda_id=1).exists()
     assert Fattura.objects.filter(pagata=True).exists()
+
+
+@pytest.mark.pdf
+def test_stampa_pdf_e_invio_con_allegato(client, superuser, scena):
+    from core import report
+    if not report.disponibile():
+        pytest.skip("WeasyPrint senza Pango: deploy/test-pdf.sh")
+    azienda, cliente, monitor, corso = scena
+    f = _fattura(azienda, cliente, [(monitor, 1), (corso, 2)])
+    operazioni.emetti(f)
+    r = client.get(f"/fatturazione/fatture/{f.pk}/stampa/0/")
+    assert r["Content-Type"] == "application/pdf" and r.content.startswith(b"%PDF")
+    client.post(f"/fatturazione/fatture/{f.pk}/bottone/invia/")
+    nome, contenuto, tipo = mail.outbox[-1].attachments[0]
+    assert nome == f"Fattura 1-{ANNO}.pdf" and contenuto.startswith(b"%PDF")

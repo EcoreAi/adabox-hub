@@ -118,3 +118,20 @@ zip dei moduli, pacchettizzazione, firma) o fase 5 (gestionale: prodotti, vendit
 
 Prossimi passi: generare la coppia di chiavi di produzione e pubblicare il catalogo; prontezza per un cliente vero
 (Postgres nel compose, HTTPS, posta, CI, backup pianificati); fase 5 (gestionale) e il modulo AI vero.
+
+## Fase 5 — gestionale (2026-10-28)
+
+Spec `docs/superpowers/specs/2026-10-28-adabox-hub-fase5-gestionale-design.md` e piano
+`docs/superpowers/plans/2026-10-28-adabox-hub-fase5-gestionale.md` eseguiti in autonomia: **fiscale, prodotti,
+vendite, magazzino, acquisti, fatturazione**, installate nel DB di sviluppo con i demo; tutte passano il collaudo.
+
+- Kernel: righe dei documenti (`Inline`, formset con "Aggiungi riga", totali nel dettaglio) e hook `demo(modulo)`.
+- Collegamenti con segnali (conferma ordine → consegna/ricevimento) solo se `magazzino` è installato; giacenza
+  calcolata dai movimenti; importi `Decimal` con `ROUND_HALF_UP`.
+- Fatture numerate `n/anno` solo all'emissione (controllo dell'ordine delle date), scadenze dal termine di
+  pagamento, incassi, note di credito sulla stessa sequenza; XML FatturaPA FPR12 con progressivo di invio per azienda
+  e validazione strutturale nei test; registro IVA mensile/annuale con CSV.
+- Fuori scope, come da spec: SDI (modulo a parte, con lo schema XSD ufficiale), HR e note spese, partita doppia.
+
+Prossimi passi: modulo `sdi` (invio/ricezione, notifiche, XSD); i demo di vendite non generano consegne (gli ordini
+demo sono confermati senza segnale); prova nel browser del ciclo completo; modulo AI vero.

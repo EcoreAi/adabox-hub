@@ -90,10 +90,15 @@ Un'app minima non scrive né viste né template: bastano modello, `ModelView` e 
 4. **Gruppi, fixture, hook** — i gruppi del manifest si creano all'installazione (`app.*` =
    tutti i permessi dell'app); le fixture `data` si caricano a ogni installazione e
    aggiornamento (pk fissi), quelle `demo` solo con `--demo`; `hooks.py` può definire
-   `post_install(modulo)`, `post_upgrade(modulo, da_versione)`, `pre_uninstall(modulo)`.
-5. **Sezioni su modelli altrui** — nel `ready()` dell'app:
+   `post_install(modulo)`, `post_upgrade(modulo, da_versione)`, `pre_uninstall(modulo)` e
+   `demo(modulo)` (solo con `--demo`, dopo le fixture: per i dati demo che citano record di altre app).
+5. **Righe dei documenti** (one2many) — `inlines = [Inline(Riga, "documento", ["prodotto", "quantita"])]`
+   nella `ModelView`: il form del documento ha la tabella delle righe con "Aggiungi riga" ed eliminazione
+   (scelte filtrate per azienda), il dettaglio le mostra in sola lettura; `dopo_righe(request, obj)` è chiamato
+   dopo il salvataggio (es. per ricalcolare i totali) e `totali(obj)` dà le voci sotto le righe.
+6. **Sezioni su modelli altrui** — nel `ready()` dell'app:
    `core.registry.hooks.sezione_dettaglio("todo.Attivita", "mia_app/_sezione.html", order=50)`.
-6. **Test** — in `addons/<slug>/tests/`; per farli girare con la suite aggiungi lo slug a
+7. **Test** — in `addons/<slug>/tests/`; per farli girare con la suite aggiungi lo slug a
    `ADDONS_FORCE` in `pytest.ini`.
 
 ## Servizi del kernel
@@ -179,6 +184,13 @@ con `core.mixins.ProprietaMixin` (valori nel JSON `proprieta`): compaiono nel fo
 | `helpdesk` | contatti | ticket con SLA per priorità; il cliente riceve i messaggi e risponde per email; ticket aperti dalle email all'indirizzo dell'helpdesk |
 | `progetti` | contatti | progetti e compiti (kanban, calendario, avanzamento); ognuno vede i progetti di cui è membro |
 | `timesheet` | progetti | ore su progetti e compiti, griglia settimanale, totali e analisi; ognuno vede le proprie ore |
+| `ai` | — | pagina di chat (home dell'applicazione se installata), conversazioni limitabili a un'app |
+| `fiscale` | — | aliquote IVA con natura ed esigibilità, termini di pagamento a rate; calcolo di importi, riepilogo IVA e scadenze |
+| `prodotti` | fiscale | beni e servizi con codice, unità, IVA, costo e prezzo; listini a scaglioni di quantità |
+| `vendite` | prodotti, contatti | preventivi e ordini con righe, listini, sconti e IVA; stampa, invio per email, conferma |
+| `magazzino` | prodotti | movimenti e giacenze, consegne con DDT (scarico), ricevimenti (carico), rettifiche, scorte minime |
+| `acquisti` | prodotti, contatti | ordini ai fornitori con costi e IVA; stampa, invio, conferma |
+| `fatturazione` | vendite, fiscale | fatture e note di credito numerate all'emissione, scadenze e incassi, XML FatturaPA, registro IVA |
 
 `python manage.py modulo installa timesheet crm helpdesk calendario --demo --si` installa tutto, con le dipendenze
 (contatti, progetti) e i dati dimostrativi. Chi installa un'app riceve il suo gruppo base; i gruppi "Responsabile"
@@ -187,6 +199,25 @@ danno anche i permessi speciali (`progetti.vedi_tutti_progetti`, `timesheet.vedi
 Per l'helpdesk via email: casella delle risposte configurata (vedi "Posta del chatter"), un indirizzo dedicato
 (es. `assistenza@cliente.it`) che arrivi nella stessa casella, e quell'indirizzo nel parametro "Indirizzo email
 dell'helpdesk" in `/impostazioni/`.
+
+### Il gestionale
+
+`python manage.py modulo installa fatturazione magazzino acquisti --demo --si` installa il ciclo commerciale
+completo. Il flusso: **prodotto → preventivo → ordine → consegna (DDT) → fattura → incasso**, e dal lato fornitori
+**ordine d'acquisto → ricevimento**.
+
+- Le app si parlano con segnali: con `magazzino` installato, la conferma di un ordine di vendita crea la consegna
+  in bozza e quella di un ordine d'acquisto il ricevimento; senza, vendite e acquisti funzionano lo stesso.
+- La giacenza è la somma dei movimenti; il parametro "Consenti giacenze negative" in `/impostazioni/` decide se una
+  consegna può spedire più di quanto c'è.
+- Numeri: preventivi `PV/anno/n` alla creazione, ordini `OV/anno/n` alla conferma, DDT alla spedizione, fatture
+  `n/anno` solo all'**emissione** (le bozze non consumano numeri; le note di credito usano la stessa sequenza e
+  la data deve seguire quella dell'ultima fattura emessa). Una fattura emessa non si modifica: si storna con una
+  nota di credito.
+- Fattura elettronica: in `/fatturazione/dati/` regime fiscale, IBAN e REA dell'azienda (con partita IVA e
+  indirizzo nella sua anagrafica); il bottone "Fattura elettronica (XML)" di una fattura emessa scarica
+  `IT<partita IVA>_<progressivo>.xml` in formato FPR12. L'invio allo SDI non è incluso (modulo `sdi` a parte).
+- Il registro IVA delle vendite (`/fatturazione/registro-iva/`) riepiloga per mese o anno, anche in CSV.
 
 ## Distribuire i moduli
 
