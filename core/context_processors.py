@@ -1,24 +1,7 @@
-from django.conf import settings
-
 from theme.context_processors import theme as _theme   # core importa theme, mai il contrario
 
-from . import attivita, azienda
+from . import attivita, azienda, barra
 from .registry import hooks, modules
-
-
-def dividi_nav(voci_app, corrente=None, quante=None):
-    """(principali, altre): le prime `quante` app restano nella barra, le altre vanno nel menu "Altre".
-    L'app in cui si trova l'utente è sempre tra le principali (al posto dell'ultima)."""
-    quante = settings.NAV_APP_VISIBILI if quante is None else quante
-    if len(voci_app) <= quante + 1:                       # una sola in più: inutile un menu per lei
-        return voci_app, []
-    principali, altre = voci_app[:quante], voci_app[quante:]
-    slug = corrente["slug"] if corrente else None
-    attiva = next((v for v in altre if v["slug"] == slug), None)
-    if attiva is not None and principali:
-        altre = [principali[-1], *[v for v in altre if v is not attiva]]
-        principali = [*principali[:-1], attiva]
-    return principali, altre
 
 
 def piattaforma(request):
@@ -33,7 +16,8 @@ def piattaforma(request):
     da_fare = attivita.da_fare_oggi(request.user)
     if da_fare:
         nav.append({"label": f"Attività · {da_fare}", "url_name": "core:attivita"})
-    principali, altre = dividi_nav(voci_app, corrente)
+    scelta = barra.leggi()
+    principali, altre = barra.dividi(voci_app, corrente, scelta["quante"], scelta["fisse"])
     principali = [nav[0], *principali] + nav[len(voci_app) + 1:]          # Dashboard, app, Attività
     return {
         "theme": {**base, "nav": nav, "nav_principale": principali, "nav_altre": altre},

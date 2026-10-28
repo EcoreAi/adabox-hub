@@ -17,6 +17,7 @@ urlpatterns = [
     path("profilo/token/<int:pk>/revoca/", views.token_revoca, name="token_revoca"),
     path("azienda/cambia/", views.cambia_azienda, name="cambia_azienda"),
     path("impostazioni/", views.impostazioni, name="impostazioni"),
+    path("impostazioni/barra/", views.impostazioni_barra, name="impostazioni_barra"),
     path("chatter/<int:ct>/<int:pk>/", chatter_viste.pannello, name="chatter"),
     path("chatter/<int:ct>/<int:pk>/messaggi/", chatter_viste.altri_messaggi, name="chatter_messaggi"),
     path("chatter/<int:ct>/<int:pk>/scrivi/", chatter_viste.scrivi, name="chatter_scrivi"),

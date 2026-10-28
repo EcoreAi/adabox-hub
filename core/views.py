@@ -14,10 +14,11 @@ from django.views.decorators.http import require_GET, require_POST
 from . import azienda as az
 from . import moduli as mod
 from . import attivita as attivita_servizio
-from . import parametri
+from . import barra, parametri
 
 from .forms import AziendaPredefinitaForm, CampoPersonalizzatoForm, ProfiloForm, TokenApiForm
-from .models import Azienda, CampoPersonalizzato, EmailRicevuta, Lavoro, Modulo, ProfiloUtente, TokenApi
+from .models import (Azienda, CampoPersonalizzato, EmailRicevuta, Lavoro, Modulo, Parametro, ProfiloUtente,
+                     TokenApi)
 from .registry import modules, pacchetti
 from .signals import crea_profilo
 from .viste import ModelView, register
@@ -373,6 +374,37 @@ def impostazioni(request):
             return redirect(f"{reverse('core:impostazioni')}#{slug}")
         schede.append({"slug": slug, "nome": manifest[slug].name, "form": form})
     return render(request, "core/impostazioni.html", {"schede": schede})
+
+
+@login_required
+def impostazioni_barra(request):
+    """Quali app restano nella barra in alto e in che ordine; le altre vanno nel menu "Altre"."""
+    if not request.user.has_perm("core.change_parametro"):
+        raise PermissionDenied
+    manifest = modules.manifests_attivi()
+    tutte = [(slug, m.name) for slug, m in manifest.items() if m.application]
+    if request.method == "POST":
+        if request.POST.get("ripristina"):
+            Parametro.objects.filter(chiave=barra.CHIAVE, azienda__isnull=True).delete()
+            messages.success(request, "Barra in alto riportata alla scelta automatica.")
+            return redirect("core:impostazioni_barra")
+        scelte = []
+        for indice, (slug, _) in enumerate(tutte):
+            if request.POST.get(f"fissa_{slug}"):
+                ordine = request.POST.get(f"ordine_{slug}", "")
+                scelte.append((int(ordine) if ordine.lstrip("-").isdigit() else 999, indice, slug))
+        quante = request.POST.get("quante", "")
+        barra.scrivi([slug for _, _, slug in sorted(scelte)],
+                     int(quante) if quante.isdigit() else barra.leggi()["quante"])
+        messages.success(request, "Barra in alto salvata.")
+        return redirect("core:impostazioni_barra")
+    attuale = barra.leggi()
+    posizioni = {slug: i + 1 for i, slug in enumerate(attuale["fisse"])}
+    righe = sorted([{"slug": slug, "nome": nome, "fissa": slug in posizioni, "ordine": posizioni.get(slug, "")}
+                    for slug, nome in tutte], key=lambda r: (not r["fissa"], r["ordine"] or 0, r["nome"].lower()))
+    return render(request, "core/impostazioni_barra.html", {
+        "righe": righe, "quante": attuale["quante"], "massimo": barra.MASSIMO,
+        "personalizzata": Parametro.objects.filter(chiave=barra.CHIAVE, azienda__isnull=True).exists()})
 
 
 @register

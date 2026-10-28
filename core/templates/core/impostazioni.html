@@ -5,6 +5,11 @@
 <div class="ui-pagehead">
   <div><h1>Impostazioni</h1><div class="sub">Parametri delle app installate{% if azienda %} · azienda corrente: {{ azienda }}{% endif %}</div></div>
 </div>
+<section class="ui-card is-revealed ui-section" id="barra">
+  <div class="ui-card-head"><div class="ui-card-title">Barra in alto</div></div>
+  <div class="ui-card-body"><p class="ui-help" style="margin-top:0;">Quali app restano visibili nella barra in alto e in che ordine; le altre vanno nel menu «Altre».</p>
+    <a class="ui-btn ui-btn-secondary" href="{% url 'core:impostazioni_barra' %}">Scegli le app della barra</a></div>
+</section>
 {% for s in schede %}
 <section class="ui-card is-revealed ui-section" id="{{ s.slug }}">
   <div class="ui-card-head"><div class="ui-card-title">{{ s.nome }}</div></div>
