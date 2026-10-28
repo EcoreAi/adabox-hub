@@ -195,6 +195,9 @@ con `core.mixins.ProprietaMixin` (valori nel JSON `proprieta`): compaiono nel fo
 | `magazzino` | prodotti | movimenti e giacenze, consegne con DDT (scarico), ricevimenti (carico), rettifiche, scorte minime |
 | `acquisti` | prodotti, contatti | ordini ai fornitori con costi e IVA; stampa, invio, conferma |
 | `fatturazione` | vendite, fiscale | fatture e note di credito numerate all'emissione, scadenze e incassi, XML FatturaPA, registro IVA |
+| `sdi` | fatturazione | fatture elettroniche allo SDI (validate con lo schema ufficiale; canale manuale, PEC o di prova) con notifiche; fatture dei fornitori dalla PEC o caricate (XML, p7m, zip), registrazione, pagamenti, registro IVA acquisti |
+| `personale` | — | dipendenti e reparti, ferie e permessi richiesti dal dipendente e approvati dal responsabile, saldi annui, calendario delle assenze |
+| `spese` | personale | note spese con ricevute e rimborsi chilometrici, approvazione del responsabile, rimborso, stampa |
 | `studio` | — | adatta le viste senza programmare: colonne, filtri, ricerca, raggruppamenti, form, etichette, kanban; storico, esporta/importa |
 | `documenti` | — | archivio per cartelle con permessi ereditati, anteprima, tag, cestino, zip; link pubblici a scadenza, richieste di documenti, cartelle che raccolgono gli allegati dei record |
 | `discuss` | — | canali e messaggi diretti tra colleghi, menzioni, posta in arrivo (anche dal chatter), campanella in testata, email per i non letti |
@@ -225,6 +228,25 @@ completo. Il flusso: **prodotto → preventivo → ordine → consegna (DDT) →
   indirizzo nella sua anagrafica); il bottone "Fattura elettronica (XML)" di una fattura emessa scarica
   `IT<partita IVA>_<progressivo>.xml` in formato FPR12. L'invio allo SDI non è incluso (modulo `sdi` a parte).
 - Il registro IVA delle vendite (`/fatturazione/registro-iva/`) riepiloga per mese o anno, anche in CSV.
+
+### SDI, personale, note spese
+
+- **SDI** (`/sdi/`): il canale si sceglie per azienda in `/impostazioni/`.
+  - **manuale** (default): dalla fattura emessa "Invia allo SDI" prepara l'XML, lo si carica sul portale
+    "Fatture e Corrispettivi", si segna come caricato e si caricano qui le notifiche ricevute (anche in zip);
+  - **PEC**: indirizzo, server SMTP e casella IMAP della PEC aziendale; un lavoro pianificato legge la casella
+    ogni 15 minuti (serve il worker). L'indirizzo dello SDI comunicato nella prima ricevuta si memorizza da solo;
+  - **prova**: simula la consegna, solo per demo e test.
+  Ogni XML si valida con lo schema FatturaPA 1.2.2 (copia locale in `addons/sdi/schemi/`, serve `lxml`) prima
+  di partire. Dopo uno scarto si corregge e si reinvia con un nuovo progressivo. Le fatture dei fornitori
+  arrivano dalla stessa PEC o si caricano (XML, `.p7m` estratto con `openssl`, zip): il fornitore si riconosce
+  o si crea dalla partita IVA; si registrano, si pagano per scadenza e finiscono nel registro IVA acquisti.
+  Le credenziali PEC stanno nei parametri del database: proteggere l'accesso a `/impostazioni/`.
+- **Personale**: ogni dipendente collegato a un utente chiede ferie e permessi da "Le mie assenze"; approva il
+  suo responsabile (o quello del reparto) o chi ha "vede tutte le assenze". I giorni si contano lavorativi, senza
+  festività nazionali (Pasqua compresa); le spettanze dell'anno sono in proporzione al periodo lavorato.
+- **Note spese**: ricevuta obbligatoria e limite per categoria; il rimborso chilometrico calcola km × tariffa.
+  Il responsabile approva, l'amministrazione ("vede tutte le note") segna il rimborso.
 
 ### Studio, Documenti, Discuss
 

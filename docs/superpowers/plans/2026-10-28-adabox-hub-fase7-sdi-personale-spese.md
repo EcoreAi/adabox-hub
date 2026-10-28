@@ -10,4 +10,4 @@ commit, un commit per task con push, collaudo di ogni app nuova con `modulo coll
 ### Task 3: sdi — fatture passive (PEC e caricamento, p7m), registrazione, pagamenti, registro IVA acquisti — fatto
 ### Task 4: personale — reparti, dipendenti, tipi di assenza, richieste e approvazioni, saldo, calendario — fatto
 ### Task 5: spese — categorie, note spese con righe e ricevute, approvazione, rimborso, stampa — fatto
-### Task 6: installazione di tutto, collaudo, README, verifica
+### Task 6: installazione di tutto, collaudo, README, verifica — fatto

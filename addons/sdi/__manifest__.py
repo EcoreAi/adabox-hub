@@ -38,5 +38,6 @@
          "default": "sdi01@pec.fatturapa.it",
          "help": "Il primo invio va a sdi01; lo SDI comunica poi l'indirizzo da usare, che si aggiorna da solo"},
     ],
+    "hooks": "sdi.hooks",
     "cron": [{"nome": "Lettura della PEC dello SDI", "funzione": "sdi.pec.leggi_tutte", "ogni": "15m"}],
 }

@@ -154,3 +154,17 @@ sono installate nel DB di sviluppo (documenti e discuss con i demo) e passano il
 
 Prossimi passi: prova nel browser di editor di Studio, trascinamento dei file e chat; cache condivisa (Redis) per
 il limite dei link pubblici con più processi; campanella anche nella pagina della chat AI (ha una testata propria).
+
+## Barra in alto, fase 7 — SDI, personale, note spese, proposta AI (2026-10-28)
+
+- Barra in alto con poche app e menu «Altre»; pagina `/impostazioni/barra/` per scegliere app fisse e ordine.
+- Fase 7 (spec `docs/superpowers/specs/2026-10-28-adabox-hub-fase7-sdi-personale-spese-design.md`, piano
+  omonimo): ponte vendite/acquisti → magazzino nei dati demo; **sdi** (validazione XSD ufficiale con `lxml`,
+  canali manuale/PEC/prova, notifiche, fatture passive con p7m, pagamenti, registro acquisti); **personale**
+  (assenze con approvazione, saldi, festività); **spese** (note con ricevute, km, approvazione, rimborso).
+  Kernel: form multipart anche per le righe, nome dei file nei dettagli, test che ogni `hooks.py` sia dichiarato
+  (il manifest di sdi lo aveva dimenticato: demo e gruppo non partivano).
+- Un test (`config/tests/test_deploy.py`) è fallito una volta sola sotto carico e poi è passato: da tenere d'occhio.
+- **Modulo AI**: proposta in `docs/superpowers/specs/2026-10-28-adabox-hub-modulo-ai-proposta.md`, dallo studio di
+  adabox (`/opt/adabox`, spec `docs/MODULO_AI_SPEC.md`, adabox-pii, villasalto-rag) e di deepseek-harness (MIT).
+  In attesa delle decisioni della sezione 7 prima della spec.

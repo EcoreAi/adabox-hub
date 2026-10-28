@@ -164,12 +164,34 @@ mascherati, uno locale no. Il fallback scatta solo prima del primo token.
 | AI-6 Specialisti | decisore e previsioni Timestral come strumenti con grafici a quantili | "prevedi il fatturato dei prossimi 3 mesi" |
 | AI-7 Agenti e qualità | assistenti configurabili, sotto-agenti per dominio, compattazione, eval in CI con LLM finto e domande d'oro | assistenti per app, regressioni bloccate in CI |
 
-## 7. Da decidere con te prima della spec
+## 7. Decisioni prese (brainstorming del 2026-10-28)
 
-1. **Postgres obbligatorio per il modulo AI**: pgvector, e niente SQLite in produzione per l'AI.
-2. **Worker ASGI (uvicorn) per lo streaming**, accanto a gunicorn, oppure tutto ASGI.
-3. **Servizi locali**: riusiamo i container di adabox così come sono (embeddings, pii, decider, forecast) o li
-   reimpacchettiamo? Su questo server c'è GPU?
-4. **Jev cloud (USA)** e **licenza dei pesi Timestral** per la vendita: ok, o solo alternative locali?
-5. **Profondità delle azioni**: l'agente può anche emettere fatture, inviare allo SDI, eliminare record (sempre
-   con conferma), o in partenza solo lettura + scritture semplici?
+1. **Dove gira**: app Django `ai` dentro adabox-hub. Lo streaming passa da worker ASGI (uvicorn), le esecuzioni
+   lunghe e pianificate dal worker del kernel. Niente servizio separato: gli strumenti usano direttamente le
+   `ModelView` con i permessi dell'utente.
+2. **Specialisti locali**: si riusano i container di adabox già attivi su questo server (embeddings, pii,
+   decider, forecast), raggiunti via rete Docker con URL configurabili. Senza di loro le funzioni relative si
+   spengono e il resto funziona.
+3. **Azioni dell'agente nella prima versione**:
+   - legge tutto ciò che l'utente vede;
+   - crea e modifica con anteprima e conferma;
+   - le azioni irreversibili (eliminare, emettere, inviare allo SDI) richiedono conferma con riepilogo
+     esplicito.
+4. **Database**: Postgres + pgvector obbligatorio per il modulo AI; sviluppo e test dell'AI su Postgres.
+5. **Jev e Timestral**: decisore e previsioni opzionali, spenti di default. Jev cloud (USA) solo con consenso
+   esplicito per azienda. Per Timestral si documenta il limite della licenza dei pesi e si valuta un'alternativa
+   Apache 2.0 (es. Chronos).
+6. **Vendita**: file di licenza firmato (cliente, scadenza, funzioni, numero di utenti) e tetto di spesa mensile
+   per azienda, con avvisi e blocco morbido. Senza licenza valida il modulo resta installato ma spento.
+7. **Chiavi API**: per azienda, cifrate nel database, con una chiave globale di riserva; mai mostrate per intero.
+   I costi si attribuiscono all'azienda.
+8. **Accesso**: gruppo «AI / Utente» per la chat. Ogni assistente (generale o per app) ha i gruppi ammessi e i
+   propri strumenti; gli strumenti operano sempre con i permessi di chi chiede.
+
+Fatti verificati sul server:
+- niente GPU (8 core, 22 GB di RAM);
+- sono attivi i container adabox `embeddings`, `pii` (porta 5005), `decider`, `forecast`, `searxng` e
+  `speaches`;
+- Ollama non è in esecuzione: gli LLM locali girerebbero su CPU, quindi solo modelli piccoli.
+
+Prossimo passo: la spec del modulo (dalle sezioni 2-6 e da queste decisioni) e il piano della fase AI-1.
