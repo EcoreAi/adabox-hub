@@ -1,0 +1,50 @@
+[
+  {
+    "model": "prodotti.unitamisura",
+    "pk": 1,
+    "fields": {
+      "simbolo": "pz",
+      "nome": "Pezzi"
+    }
+  },
+  {
+    "model": "prodotti.unitamisura",
+    "pk": 2,
+    "fields": {
+      "simbolo": "h",
+      "nome": "Ore"
+    }
+  },
+  {
+    "model": "prodotti.unitamisura",
+    "pk": 3,
+    "fields": {
+      "simbolo": "kg",
+      "nome": "Chilogrammi"
+    }
+  },
+  {
+    "model": "prodotti.unitamisura",
+    "pk": 4,
+    "fields": {
+      "simbolo": "m",
+      "nome": "Metri"
+    }
+  },
+  {
+    "model": "prodotti.unitamisura",
+    "pk": 5,
+    "fields": {
+      "simbolo": "l",
+      "nome": "Litri"
+    }
+  },
+  {
+    "model": "prodotti.unitamisura",
+    "pk": 6,
+    "fields": {
+      "simbolo": "gg",
+      "nome": "Giorni"
+    }
+  }
+]

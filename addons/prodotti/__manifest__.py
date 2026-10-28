@@ -1,0 +1,26 @@
+{
+    "name": "Prodotti",
+    "summary": "Catalogo di beni e servizi con prezzi, costi, IVA e listini",
+    "version": "1.0.0",
+    "author": "ICHNOBYTE S.R.L.",
+    "category": "Vendite",
+    "depends": ["fiscale"],
+    "min_core": "1.0",
+    "application": True,
+    "icon": "prodotti/icon.svg",
+    "dashboard": "prodotti.dashboard.kpi",
+    "menu": [
+        {"label": "Prodotti", "url_name": "prodotti:prodotti_lista", "permission": "prodotti.view_prodotto"},
+        {"label": "Listini", "url_name": "prodotti:listini_lista", "permission": "prodotti.view_listino"},
+        {"label": "Categorie", "url_name": "prodotti:categorie_lista", "permission": "prodotti.view_categoria"},
+        {"label": "Unità di misura", "url_name": "prodotti:unita_lista", "permission": "prodotti.change_unitamisura"},
+    ],
+    "groups": {
+        "Prodotti / Utente": ["prodotti.view_prodotto", "prodotti.view_listino", "prodotti.view_categoria",
+                              "prodotti.view_unitamisura", "prodotti.view_prezzolistino"],
+        "Prodotti / Responsabile": ["prodotti.*"],
+    },
+    "data": ["data/iniziali.json"],
+    "hooks": "prodotti.hooks",
+    "sequences": [{"codice": "prodotti.prodotto", "formato": "P{numero:05d}"}],
+}
