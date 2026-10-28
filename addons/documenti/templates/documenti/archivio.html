@@ -1,0 +1,61 @@
+{% extends 'core/base_app.html' %}
+{% load static %}
+{% block title %}Documenti · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<link rel="stylesheet" href="{% static 'documenti/documenti.css' %}">
+<div class="ui-pagehead">
+  <div><h1>{% if cestino %}Cestino{% elif corrente %}{{ corrente.nome }}{% else %}Tutti i documenti{% endif %}</h1>
+    <div class="sub">{% if corrente %}{{ corrente.percorso }} · {% endif %}{{ documenti|length }} documenti · {{ spazio|filesizeformat }} archiviati</div></div>
+  <div class="ui-pagehead-actions">
+    {% if puo_caricare %}
+    <form method="post" action="{% url 'documenti:carica' %}" enctype="multipart/form-data" data-carica>{% csrf_token %}
+      <input type="hidden" name="cartella" value="{{ corrente.pk }}">
+      <label class="ui-btn ui-btn-primary"><svg><use href="#icon-plus"/></svg> Carica<input type="file" name="file" multiple hidden onchange="this.form.submit()"></label>
+    </form>{% endif %}
+  </div>
+</div>
+<div class="doc-layout">
+  <aside class="doc-albero ui-card is-revealed" aria-label="Cartelle">
+    <a class="doc-voce{% if not corrente and not cestino %} is-active{% endif %}" href="{% url 'documenti:archivio' %}">Tutti i documenti <span>{{ totale }}</span></a>
+    {% include "documenti/_albero.html" with nodi=albero %}
+    <a class="doc-voce doc-cestino{% if cestino %} is-active{% endif %}" href="?cartella=cestino"><svg><use href="#icon-trash"/></svg> Cestino <span>{{ n_cestino }}</span></a>
+    <form method="post" action="{% url 'documenti:nuova_cartella' %}" class="doc-nuova">{% csrf_token %}
+      {% if corrente %}<input type="hidden" name="padre" value="{{ corrente.pk }}">{% endif %}
+      <input class="ui-input" name="nome" placeholder="{% if corrente %}Nuova sottocartella{% else %}Nuova cartella{% endif %}" aria-label="Nome della nuova cartella" required maxlength="120">
+    </form>
+  </aside>
+
+  <main class="doc-centro">
+    <form class="ui-filtri doc-filtri" method="get">
+      {% if cestino %}<input type="hidden" name="cartella" value="cestino">{% elif corrente %}<input type="hidden" name="cartella" value="{{ corrente.pk }}">{% endif %}
+      <div class="ui-search ui-filtri-q"><svg><use href="#icon-search"/></svg><input class="ui-input" type="search" name="q" value="{{ q }}" placeholder="Cerca nei documenti…" aria-label="Cerca"></div>
+      <select class="ui-input" name="tag" aria-label="Tag" onchange="this.form.submit()"><option value="">Tutti i tag</option>{% for t in tag %}<option value="{{ t.pk }}"{% if t.pk == tag_scelto %} selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+    </form>
+    <form method="post" action="{% url 'documenti:azione' %}" id="doc-azioni" class="{% if puo_caricare %}doc-zona{% endif %}" data-zona>{% csrf_token %}
+      <input type="hidden" name="ritorno" value="{{ request.get_full_path }}">
+      <div class="doc-barra" data-barra hidden>
+        <span data-conteggio></span>
+        <button class="ui-btn ui-btn-secondary ui-btn-sm" name="azione" value="zip"><svg><use href="#icon-download"/></svg> Scarica zip</button>
+        {% if cestino %}
+        <button class="ui-btn ui-btn-secondary ui-btn-sm" name="azione" value="ripristina">Ripristina</button>
+        {% if perms.documenti.delete_documento %}<button class="ui-btn ui-btn-danger ui-btn-sm" name="azione" value="elimina" onclick="return confirm('Eliminare definitivamente i documenti selezionati?')">Elimina definitivamente</button>{% endif %}
+        {% else %}
+        <select class="ui-input ui-btn-sm" name="cartella" aria-label="Cartella di destinazione"><option value="">Sposta in…</option>{% for c in cartelle_scrivibili %}<option value="{{ c.pk }}">{{ c.percorso }}</option>{% endfor %}</select>
+        <button class="ui-btn ui-btn-secondary ui-btn-sm" name="azione" value="sposta">Sposta</button>
+        <select class="ui-input ui-btn-sm" name="tag" aria-label="Tag da aggiungere"><option value="">Tag…</option>{% for t in tag %}<option value="{{ t.pk }}">{{ t }}</option>{% endfor %}</select>
+        <button class="ui-btn ui-btn-secondary ui-btn-sm" name="azione" value="tag">Aggiungi tag</button>
+        <button class="ui-btn ui-btn-ghost ui-btn-sm" name="azione" value="cestina"><svg><use href="#icon-trash"/></svg> Cestina</button>
+        {% endif %}
+      </div>
+      {% include "documenti/_griglia.html" %}
+      {% if puo_caricare %}<div class="doc-rilascia" data-rilascia>Rilascia i file per caricarli in «{{ corrente.nome }}»</div>{% endif %}
+    </form>
+  </main>
+
+  <aside class="doc-anteprima ui-card is-revealed" id="doc-anteprima" aria-live="polite">
+    <div class="ui-empty"><svg><use href="#icon-eye"/></svg><p>Seleziona un documento per l'anteprima.</p></div>
+  </aside>
+</div>
+{% if puo_caricare %}<span data-url-carica="{% url 'documenti:carica' %}" data-cartella="{{ corrente.pk }}" hidden></span>{% endif %}
+<script src="{% static 'documenti/documenti.js' %}" defer></script>
+{% endblock %}

@@ -13,7 +13,7 @@ commit, un commit per task con push, collaudo di ogni app nuova con `modulo coll
 - Test con una funzione di personalizzazione di prova.
 
 ### Task 2: studio — personalizzazioni, editor, storico, campi nuovi, esporta/importa — fatto
-### Task 3: documenti — cartelle, documenti, tag, pagina con albero, caricamento, anteprima, cestino, zip
+### Task 3: documenti — cartelle, documenti, tag, pagina con albero, caricamento, anteprima, cestino, zip — fatto
 ### Task 4: documenti — condivisione pubblica, richieste, cartelle collegate ai modelli, sezione sui record
 ### Task 5: discuss — canali, iscrizioni, messaggi diretti, conversazione con polling, non letti
 ### Task 6: discuss — menzioni, posta in arrivo dal chatter, contatore in testata, email per i non letti

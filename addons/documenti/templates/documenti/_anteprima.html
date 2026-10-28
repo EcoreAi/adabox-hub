@@ -1,0 +1,23 @@
+<div class="doc-vista">
+  {% if d.immagine %}<img src="{% url 'documenti:scarica' d.pk %}?inline=1" alt="{{ d.nome }}">
+  {% elif d.pdf %}<iframe src="{% url 'documenti:scarica' d.pk %}?inline=1" title="{{ d.nome }}"></iframe>
+  {% else %}<span class="doc-icona doc-icona-grande">{{ d.estensione }}</span>{% endif %}
+</div>
+<div class="ui-card-body">
+  <h2 class="doc-titolo">{{ d.nome }}</h2>
+  <p class="ui-help">{{ d.cartella.percorso }} · {{ d.dimensione|filesizeformat }} · {{ d.creato|date:"d/m/Y H:i" }}{% if d.proprietario %} · {{ d.proprietario }}{% endif %}</p>
+  {% if d.bloccato_da %}<p class="ui-help"><svg class="doc-lucchetto"><use href="#icon-lock"/></svg> Bloccato da {{ d.bloccato_da }}</p>{% endif %}
+  {% if d.record %}<p>Allegato a <strong>{{ d.record }}</strong></p>{% endif %}
+  <div class="doc-comandi">
+    <a class="ui-btn ui-btn-primary ui-btn-sm" href="{% url 'documenti:scarica' d.pk %}"><svg><use href="#icon-download"/></svg> Scarica</a>
+    <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'documenti:documenti_dettaglio' d.pk %}">Scheda e messaggi</a>
+  </div>
+  {% if puo_modificare and not d.cestinato_il %}
+  <form method="post" action="{% url 'documenti:modifica' d.pk %}" class="doc-modifica">{% csrf_token %}
+    <label class="ui-label" for="doc-nome">Nome</label><input class="ui-input" id="doc-nome" name="nome" value="{{ d.nome }}" maxlength="200">
+    <label class="ui-label" for="doc-descrizione">Descrizione</label><textarea class="ui-input" id="doc-descrizione" name="descrizione" rows="3">{{ d.descrizione }}</textarea>
+    <fieldset class="doc-tag-scelta"><legend class="ui-label">Tag</legend>{% for t in tag %}<label><input type="checkbox" class="ui-checkbox" name="tag" value="{{ t.pk }}"{% if t in d.tag.all %} checked{% endif %}> {{ t }}</label>{% endfor %}</fieldset>
+    <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit"><svg><use href="#icon-save"/></svg> Salva</button>
+  </form>
+  {% elif d.descrizione %}<p>{{ d.descrizione|linebreaksbr }}</p>{% endif %}
+</div>

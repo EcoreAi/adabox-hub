@@ -1,0 +1,28 @@
+{
+    "name": "Documenti",
+    "summary": "Archivio di file per cartelle con permessi, tag, anteprima, condivisione e richieste",
+    "version": "1.0.0",
+    "author": "ICHNOBYTE S.R.L.",
+    "category": "Produttività",
+    "depends": [],
+    "min_core": "1.0",
+    "application": True,
+    "icon": "documenti/icon.svg",
+    "dashboard": "documenti.dashboard.kpi",
+    "menu": [
+        {"label": "Documenti", "url_name": "documenti:archivio", "permission": "documenti.view_documento"},
+        {"label": "Richieste", "url_name": "documenti:richieste_lista", "permission": "documenti.view_richiesta"},
+        {"label": "Condivisioni", "url_name": "documenti:condivisioni_lista", "permission": "documenti.view_condivisione"},
+        {"label": "Cartelle", "url_name": "documenti:cartelle_lista", "permission": "documenti.change_cartella"},
+        {"label": "Tag", "url_name": "documenti:tag_lista", "permission": "documenti.change_tag"},
+    ],
+    "groups": {
+        "Documenti / Utente": ["documenti.view_documento", "documenti.add_documento", "documenti.change_documento",
+                               "documenti.delete_documento", "documenti.view_cartella", "documenti.view_tag",
+                               "documenti.view_richiesta", "documenti.add_richiesta", "documenti.change_richiesta",
+                               "documenti.view_condivisione", "documenti.add_condivisione"],
+        "Documenti / Responsabile": ["documenti.*"],
+    },
+    "data": ["data/tag.json"],
+    "hooks": "documenti.hooks",
+}

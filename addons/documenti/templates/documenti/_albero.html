@@ -1,0 +1,4 @@
+{% if nodi %}<ul class="doc-rami">{% for n in nodi %}
+  <li><a class="doc-voce{% if corrente.pk == n.cartella.pk %} is-active{% endif %}" href="?cartella={{ n.cartella.pk }}">{{ n.cartella.nome }}{% if n.cartella.modello_id %} <small class="ui-help">· allegati</small>{% endif %} <span>{{ n.n }}</span></a>
+    {% include "documenti/_albero.html" with nodi=n.figlie %}</li>
+{% endfor %}</ul>{% endif %}

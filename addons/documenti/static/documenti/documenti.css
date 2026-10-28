@@ -1,0 +1,44 @@
+/* Documenti: archivio a tre colonne (cartelle, documenti, anteprima) */
+.doc-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .doc-layout { grid-template-columns: 220px minmax(0, 1fr); } .doc-anteprima { grid-column: 1 / -1; } }
+@media (max-width: 720px) { .doc-layout { grid-template-columns: 1fr; } }
+.doc-albero { padding: 10px; position: sticky; top: 12px; }
+.doc-rami { list-style: none; margin: 0; padding: 0 0 0 12px; }
+.doc-albero > .doc-rami { padding-left: 0; }
+.doc-voce { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 8px; color: var(--ui-text); text-decoration: none; font-size: 14px; }
+.doc-voce span { margin-left: auto; font-size: 12px; color: var(--ui-text-3); }
+.doc-voce svg { width: 15px; height: 15px; }
+.doc-voce:hover { background: var(--ui-surface-2); }
+.doc-voce.is-active { background: var(--ui-primary-tint); color: var(--ui-primary); font-weight: 600; }
+.doc-cestino { margin-top: 8px; border-top: 1px solid var(--ui-border); border-radius: 0 0 8px 8px; padding-top: 10px; }
+.doc-nuova { margin-top: 10px; }
+.doc-nuova .ui-input { padding: 6px 10px; font-size: 13px; }
+.doc-filtri { margin-bottom: 12px; }
+.doc-barra { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 10px; margin-bottom: 12px; border-radius: 10px; background: var(--ui-primary-tint); }
+.doc-barra select.ui-input { width: auto; padding: 5px 8px; font-size: 13px; }
+.doc-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.doc-card { position: relative; border: 1px solid var(--ui-border); border-radius: 12px; background: var(--ui-surface); overflow: hidden; }
+.doc-card:hover { border-color: var(--ui-primary); }
+.doc-scelta { position: absolute; top: 6px; left: 8px; z-index: 1; }
+.doc-apri { all: unset; display: flex; flex-direction: column; gap: 4px; width: 100%; box-sizing: border-box; padding: 0 0 10px; cursor: pointer; }
+.doc-apri:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: -2px; border-radius: 12px; }
+.doc-miniatura { width: 100%; height: 110px; object-fit: cover; background: var(--ui-surface-2); }
+.doc-icona { display: grid; place-items: center; height: 110px; background: var(--ui-surface-2); color: var(--ui-text-2); font-weight: 700; font-size: 15px; letter-spacing: .04em; }
+.doc-icona.is-pdf { color: #c4271f; }
+.doc-icona-grande { height: 220px; font-size: 26px; }
+.doc-nome { padding: 0 10px; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-info { padding: 0 10px; font-size: 12px; color: var(--ui-text-3); }
+.doc-tag { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 10px; }
+.doc-tag span { font-size: 11px; padding: 1px 7px; border-radius: 999px; color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); }
+.doc-lucchetto { width: 12px; height: 12px; margin-right: 4px; vertical-align: -1px; }
+.doc-anteprima { position: sticky; top: 12px; overflow: hidden; }
+.doc-vista img { display: block; width: 100%; max-height: 320px; object-fit: contain; background: var(--ui-surface-2); }
+.doc-vista iframe { display: block; width: 100%; height: 360px; border: 0; background: var(--ui-surface-2); }
+.doc-titolo { font-size: 16px; margin: 0 0 4px; word-break: break-word; }
+.doc-comandi { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
+.doc-modifica { display: grid; gap: 6px; }
+.doc-tag-scelta { border: 0; padding: 0; margin: 4px 0 8px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.doc-zona { position: relative; min-height: 200px; }
+.doc-rilascia { display: none; position: absolute; inset: 0; place-items: center; border: 2px dashed var(--ui-primary); border-radius: 12px;
+  background: color-mix(in srgb, var(--ui-primary-tint) 85%, transparent); color: var(--ui-primary); font-weight: 600; }
+.doc-zona.is-sopra .doc-rilascia { display: grid; }

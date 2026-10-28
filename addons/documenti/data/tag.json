@@ -1,0 +1,6 @@
+[
+  {"model": "documenti.tag", "pk": 1, "fields": {"nome": "Contratto", "colore": "#1e3a8a"}},
+  {"model": "documenti.tag", "pk": 2, "fields": {"nome": "Fattura", "colore": "#1f7a3a"}},
+  {"model": "documenti.tag", "pk": 3, "fields": {"nome": "Da rivedere", "colore": "#b46300"}},
+  {"model": "documenti.tag", "pk": 4, "fields": {"nome": "Riservato", "colore": "#c4271f"}}
+]

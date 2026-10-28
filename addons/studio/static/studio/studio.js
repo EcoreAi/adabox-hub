@@ -145,7 +145,7 @@
 
   // ---- Invio ----
   document.getElementById('studio-form').addEventListener('submit', () => {
-    dati.form_layout = dati.form_layout.map(([t, righe]) => [t, righe.filter((r) => r.length)]);
+    dati.form_layout = dati.form_layout.map(([t, righe]) => [t, righe.filter((r) => r.length)]).filter(([, righe]) => righe.length);
     document.querySelector('[data-studio-dati]').value = JSON.stringify(dati);
   });
 })();

@@ -1,0 +1,17 @@
+{% if documenti %}
+<div class="doc-griglia">{% for d in documenti %}
+  <div class="doc-card">
+    <label class="doc-scelta"><input type="checkbox" class="ui-checkbox" name="pk" value="{{ d.pk }}" aria-label="Seleziona {{ d.nome }}"></label>
+    <button type="button" class="doc-apri" hx-get="{% url 'documenti:anteprima' d.pk %}" hx-target="#doc-anteprima" aria-label="Anteprima di {{ d.nome }}">
+      {% if d.immagine %}<img class="doc-miniatura" src="{% url 'documenti:scarica' d.pk %}?inline=1" alt="" loading="lazy">
+      {% else %}<span class="doc-icona{% if d.pdf %} is-pdf{% endif %}">{{ d.estensione }}</span>{% endif %}
+      <span class="doc-nome">{% if d.bloccato_da_id %}<svg class="doc-lucchetto"><use href="#icon-lock"/></svg>{% endif %}{{ d.nome }}</span>
+      <span class="doc-info">{{ d.dimensione|filesizeformat }} · {{ d.creato|date:"d/m/Y" }}{% if not corrente %} · {{ d.cartella.nome }}{% endif %}</span>
+      {% if d.tag.all %}<span class="doc-tag">{% for t in d.tag.all %}<span style="--c:{{ t.colore }}">{{ t }}</span>{% endfor %}</span>{% endif %}
+    </button>
+  </div>{% endfor %}
+</div>
+{% else %}
+<div class="ui-card is-revealed"><div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg>
+  <p>{% if cestino %}Il cestino è vuoto.{% elif puo_caricare %}Nessun documento: trascina qui i file o usa «Carica».{% else %}Nessun documento.{% endif %}</p></div></div></div>
+{% endif %}
