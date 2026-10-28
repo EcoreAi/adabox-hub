@@ -5,6 +5,7 @@ import json
 import shutil
 import stat
 import tempfile
+import uuid
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -242,7 +243,7 @@ def archivia(cartella, versione):
     """Copia zip della cartella di un modulo in backup/moduli/<slug>-<versione>.zip."""
     destinazione = Path(settings.BACKUP_DIR) / "moduli"
     destinazione.mkdir(parents=True, exist_ok=True)
-    base = destinazione / f"{Path(cartella).name}-{versione}-{timezone.localtime():%Y%m%d-%H%M%S}"
+    base = destinazione / f"{Path(cartella).name}-{versione}-{timezone.localtime():%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:6]}"
     return Path(shutil.make_archive(str(base), "zip", root_dir=Path(cartella).parent, base_dir=Path(cartella).name))
 
 

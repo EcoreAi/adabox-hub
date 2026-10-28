@@ -5,10 +5,23 @@
   <div><h1>Moduli</h1><div class="sub">Le app su disco in <code class="ui-code">addons/</code>: installa, aggiorna, disinstalla</div></div>
 </div>
 {% if log %}{% include "core/partials/_moduli_stato.html" %}{% else %}<div id="stato"></div>{% endif %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Carica un modulo</div>
+    <div class="ui-card-sub">Pacchetto .zip creato con <code class="ui-code">manage.py modulo impacchetta</code>.
+      {% if firma_obbligatoria %}Su questa istanza si accettano solo pacchetti firmati da una chiave fidata.{% else %}Firma non obbligatoria su questa istanza (sviluppo).{% endif %}</div></div></div>
+  <div class="ui-card-body">
+    <form method="post" action="{% url 'core:moduli_carica' %}" enctype="multipart/form-data" class="ui-modulo-ops">
+      {% csrf_token %}
+      <input type="file" name="pacchetto" accept=".zip" class="ui-file" required aria-label="Pacchetto del modulo">
+      <button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">Carica</button>
+      <span class="ui-help">Il modulo viene controllato ed estratto, non installato: poi lo installi dalla sua scheda.</span>
+    </form>
+  </div>
+</section>
 {% if schede %}
 <div class="ui-moduli">
   {% for s in schede %}{% with r=s.riga m=s.manifest %}
-  <div class="ui-card is-revealed ui-modulo">
+  <div class="ui-card is-revealed ui-modulo" id="modulo-{{ r.slug }}">
     <div class="ui-card-head">
       <div>
         <div class="ui-card-title">{{ r.nome }}</div>
@@ -22,6 +35,7 @@
     <div class="ui-card-body">
       {% if m.summary %}<p>{{ m.summary }}</p>{% endif %}
       {% if m.depends %}<p class="ui-help">Dipende da: {{ m.depends|join:", " }}</p>{% endif %}
+      <p class="ui-help">{% if s.origine.firmato_da %}<span class="ui-pill ui-pill-ok">Firmato da {{ s.origine.firmato_da }}</span>{% elif s.origine %}<span class="ui-pill ui-pill-warn">Pacchetto non firmato</span>{% else %}Cartella locale{% endif %}{% if s.origine %} · {{ s.origine.pacchetto }}{% endif %}</p>
       {% if s.dati_presenti %}<p class="ui-help"><span class="ui-pill ui-pill-warn">dati presenti</span> Le tabelle sono rimaste dalla disinstallazione: reinstallando si ritrovano i dati.</p>{% endif %}
       {% if r.ultimo_errore and r.stato == 'errore' or r.ultimo_errore and r.stato == 'mancante' %}<div class="ui-alert ui-alert-error"><pre class="ui-log">{{ r.ultimo_errore|truncatechars:1500 }}</pre></div>{% endif %}
       <div class="ui-modulo-ops">

@@ -12,7 +12,7 @@ commit, un commit per task con push). Dipendenza nuova: `cryptography` (versione
   `MODULI_ZIP_MAX_MB`.
 - Test: contenuto ed esclusioni, hash, firma valida/alterata/chiave non fidata.
 
-### Task 2: Caricamento
+### Task 2: Caricamento — fatto
 - `pacchetti.controlla(zip)` (tutti i controlli della spec, decisione 5) e `pacchetti.installa_su_disco(zip, forza)`
   (decisione 6, archivio della versione precedente in `backup/moduli/`), provenienza registrata nella riga `Modulo`
   (`firmato_da`, `origine`).

@@ -18,7 +18,7 @@ from . import parametri
 
 from .forms import AziendaPredefinitaForm, CampoPersonalizzatoForm, ProfiloForm, TokenApiForm
 from .models import Azienda, CampoPersonalizzato, EmailRicevuta, Lavoro, Modulo, ProfiloUtente, TokenApi
-from .registry import modules
+from .registry import modules, pacchetti
 from .signals import crea_profilo
 from .viste import ModelView, register
 
@@ -225,12 +225,14 @@ def _schede_moduli():
             Modulo.ERRORE: ["aggiorna", "disinstalla"] if installato else (["installa"] if m else []),
         }[r.stato]
         schede.append({"riga": r, "manifest": m, "ops": ops,
-                       "dati_presenti": not installato and r.slug in con_dati})
+                       "dati_presenti": not installato and r.slug in con_dati,
+                       "origine": pacchetti.origine(info[r.slug].cartella) if r.slug in info else None})
     return schede
 
 
 def _pagina_moduli(request, log=None):
-    ctx = {"schede": _schede_moduli()}
+    from django.conf import settings
+    ctx = {"schede": _schede_moduli(), "firma_obbligatoria": settings.MODULI_FIRMA_OBBLIGATORIA}
     if log:
         ctx["log"], (ctx["coda"], ctx["stato"]) = log, mod.leggi(log)
     return render(request, "core/moduli.html", ctx)
@@ -256,6 +258,29 @@ def moduli_azione(request):
         return _pagina_moduli(request, log)
     coda, stato = mod.leggi(log)
     return render(request, "core/partials/_moduli_stato.html", {"log": log, "coda": coda, "stato": stato})
+
+
+@require_POST
+@solo_superuser
+def moduli_carica(request):
+    """Caricamento di un pacchetto zip: controlli, poi estrazione in addons/ (l'installazione resta un bottone)."""
+    import tempfile
+    file = request.FILES.get("pacchetto")
+    if file is None:
+        messages.error(request, "Scegli un pacchetto .zip.")
+        return redirect("core:moduli")
+    with tempfile.NamedTemporaryFile(suffix=".zip") as temporaneo:
+        for blocco in file.chunks():
+            temporaneo.write(blocco)
+        temporaneo.flush()
+        try:
+            esito = pacchetti.carica(temporaneo.name, nome_pacchetto=file.name)
+        except pacchetti.PacchettoNonValido as e:
+            messages.error(request, "Pacchetto rifiutato: " + "; ".join(e.errori))
+            return redirect("core:moduli")
+    origine = f"firmato da {esito.firmato_da}" if esito.firmato_da else "non firmato"
+    messages.success(request, f"{esito.nome} {esito.versione} caricato ({origine}): ora puoi installarlo o aggiornarlo.")
+    return redirect(f"{reverse('core:moduli')}#modulo-{esito.slug}")
 
 
 @require_GET
