@@ -103,13 +103,13 @@ def test_azione_e_bottone(client, membro, aziende):
 
 
 def test_launcher_e_nav(client, membro):
-    r = client.get("/")
+    r = client.get("/app/")
     assert "To-Do" in r.content.decode() and "todo/icon.svg" in r.content.decode()
-    assert [v["label"] for v in r.context["theme"]["nav"]] == ["To-Do"]
+    assert [v["label"] for v in r.context["theme"]["nav"]] == ["Dashboard", "To-Do"]
     estraneo = User.objects.create_user("estraneo", "e@example.com", "pass12345!")
     client.force_login(estraneo)
-    r = client.get("/")
-    assert r.context["theme"]["nav"] == [] and "todo/icon.svg" not in r.content.decode()
+    r = client.get("/app/")
+    assert [v["label"] for v in r.context["theme"]["nav"]] == ["Dashboard"] and "todo/icon.svg" not in r.content.decode()
 
 
 @pytest.mark.django_db

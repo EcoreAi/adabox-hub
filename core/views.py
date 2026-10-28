@@ -25,7 +25,8 @@ from .viste import ModelView, register
 
 def voci_kernel(user):
     """Pagine del kernel nel launcher, secondo i permessi."""
-    voci = []
+    voci = [{"label": "Dashboard", "url": reverse("core:dashboard"), "icon": "zap",
+              "sub": "Gli indicatori di tutte le app"}]
     if attivita_servizio.mie(user).exists():
         voci.append({"label": "Le mie attività", "url": reverse("core:attivita"), "icon": "check",
                      "sub": f"Da fare oggi o scadute: {attivita_servizio.da_fare_oggi(user)}"})
@@ -53,6 +54,28 @@ def voci_kernel(user):
 
 @login_required
 def home(request):
+    """La prima pagina: quella dichiarata da un modulo installato (`home` nel manifest, es. la chat AI),
+    altrimenti la dashboard."""
+    for m in modules.manifests_attivi().values():
+        if m.home:
+            try:
+                return redirect(reverse(m.home))
+            except NoReverseMatch:
+                continue
+    return redirect("core:dashboard")
+
+
+@login_required
+def dashboard(request):
+    from . import dashboard as dash
+    schede = dash.schede(request)
+    attivita_kernel = dash.scheda_attivita(request)
+    return render(request, "core/dashboard.html", {
+        "schede": ([attivita_kernel] if attivita_kernel else []) + schede, "grafici": dash.grafici(schede)})
+
+
+@login_required
+def launcher(request):
     try:
         url_moduli = reverse("core:moduli")
     except NoReverseMatch:

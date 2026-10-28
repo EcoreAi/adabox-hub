@@ -1,11 +1,12 @@
 {
     "name": "Calendario",
     "summary": "Appuntamenti e riunioni con inviti, promemoria e file .ics",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": ["contatti"],
     "min_core": "1.0",
+    "dashboard": "calendario.dashboard.kpi",
     "application": True,
     "icon": "calendario/icon.svg",
     "menu": [

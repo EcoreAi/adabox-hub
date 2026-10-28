@@ -136,7 +136,7 @@ def test_comando_scrive_fine(addons_tmp, capsys):
 def test_launcher_vuoto_superuser_link_moduli(client, superuser, monkeypatch):
     from core.registry import modules
     monkeypatch.setattr(modules, "manifests_attivi", lambda: {})
-    html = client.get(reverse("core:home")).content.decode()
+    html = client.get(reverse("core:launcher")).content.decode()
     assert 'href="/moduli/">Installa un modulo' in html
 
 

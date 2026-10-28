@@ -15,7 +15,8 @@ MIN_CORE_RE = re.compile(r"^\d+\.\d+$")
 PERM_RE = re.compile(r"^[a-z][a-z0-9_]*\.([a-z_][a-z0-9_]*|\*)$")
 DOTTED_RE = re.compile(r"^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)*$")
 CHIAVI = {"name", "summary", "version", "author", "category", "depends", "min_core", "application",
-          "icon", "menu", "groups", "data", "demo", "hooks", "settings_url", "cron", "settings", "sequences"}
+          "icon", "menu", "groups", "data", "demo", "hooks", "settings_url", "cron", "settings", "sequences",
+          "dashboard", "home"}
 OBBLIGATORIE = {"name", "version", "min_core"}
 CHIAVI_MENU = {"label", "url_name", "permission"}
 CHIAVI_CRON = {"nome", "funzione", "ogni", "alle"}
@@ -56,6 +57,8 @@ class Manifest:
     cron: list = field(default_factory=list)
     settings: list = field(default_factory=list)
     sequences: list = field(default_factory=list)
+    dashboard: str | None = None
+    home: str | None = None
 
 
 def versione_tupla(v):
@@ -175,7 +178,7 @@ def valida(dati, slug, cartella):
     if not isinstance(dati, dict):
         raise ManifestNonValido(["il manifest deve essere un dizionario"])
     if not SLUG_RE.match(slug):
-        errori.append(f"slug {slug!r} non valido (atteso ^[a-z][a-z0-9_]{{2,30}}$)")
+        errori.append(f"slug {slug!r} non valido (atteso ^[a-z][a-z0-9_]{{1,30}}$)")
     if slug in RISERVATI:
         errori.append(f"slug {slug!r} riservato")
     if sconosciute := sorted(set(dati) - CHIAVI):
@@ -244,6 +247,12 @@ def valida(dati, slug, cartella):
     _cron(errori, dati.get("cron", []))
     _settings(errori, dati.get("settings", []))
     _sequenze(errori, dati.get("sequences", []))
+    dash = dati.get("dashboard")
+    if dash is not None and not (isinstance(dash, str) and DOTTED_RE.match(dash) and "." in dash):
+        errori.append(f"dashboard: {dash!r} non è una funzione (atteso modulo.funzione)")
+    home = dati.get("home")
+    if home is not None and not (isinstance(home, str) and ":" in home):
+        errori.append(f"home: {home!r} non è un nome URL (atteso app:nome)")
 
     hooks = dati.get("hooks")
     if hooks is not None and not (isinstance(hooks, str) and DOTTED_RE.match(hooks)):

@@ -12,7 +12,7 @@ def test_home_richiede_login(client):
 
 @pytest.mark.django_db
 def test_home_da_staff(client, staff):
-    r = client.get(reverse("core:home"))
+    r = client.get(reverse("core:dashboard"))
     assert r.status_code == 200
     assert settings.THEME["brand"] in r.content.decode()  # brand dal THEME dei settings
 

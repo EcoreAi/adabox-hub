@@ -1,11 +1,12 @@
 {
     "name": "Progetti",
     "summary": "Commesse e compiti con fasi, scadenze e avanzamento",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Servizi",
     "depends": ["contatti"],
     "min_core": "1.0",
+    "dashboard": "progetti.dashboard.kpi",
     "application": True,
     "icon": "progetti/icon.svg",
     "menu": [

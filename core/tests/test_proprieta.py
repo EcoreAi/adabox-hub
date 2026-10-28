@@ -100,7 +100,7 @@ def test_pagina_campi(client, superuser):
     html = client.get("/core/campi/nuovo/").content.decode()
     opzioni = html[html.index('name="modello"'):html.index("</select>", html.index('name="modello"'))]
     assert "azienda" in opzioni and "lavoro" not in opzioni
-    assert "Campi personalizzati" in client.get("/").content.decode()
+    assert "Campi personalizzati" in client.get("/app/").content.decode()
 
 
 def test_testo_e_conversioni(db, campi):

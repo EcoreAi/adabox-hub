@@ -1,0 +1,9 @@
+<ul class="ai-elenco">
+  {% for c in chat %}
+  <li><a href="{% url 'ai:conversazione' c.pk %}"{% if conversazione and c.pk == conversazione.pk %} class="is-attiva" aria-current="page"{% endif %}>
+    <span class="ai-elenco-titolo">{% if c.preferita %}★ {% endif %}{{ c.titolo }}</span>
+    <span class="ai-elenco-data">{{ c.aggiornata|date:"d/m H:i" }}</span></a></li>
+  {% empty %}
+  <li class="ai-vuoto"><p>{{ vuoto }}</p></li>
+  {% endfor %}
+</ul>

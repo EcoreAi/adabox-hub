@@ -8,6 +8,8 @@ from .viste import registry
 app_name = "core"
 urlpatterns = [
     path("", views.home, name="home"),
+    path("dashboard/", views.dashboard, name="dashboard"),
+    path("app/", views.launcher, name="launcher"),
     path("stile/", views.stile, name="stile"),
     path("profilo/", views.profilo, name="profilo"),
     path("profilo/azienda/", views.azienda_predefinita, name="azienda_predefinita"),

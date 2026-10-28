@@ -1,0 +1,6 @@
+{% for m in messaggi %}
+<article class="ai-msg ai-msg-{{ m.ruolo }}">
+  <div class="ai-msg-bolla">{{ m.testo|urlize|linebreaksbr }}</div>
+  <time datetime="{{ m.creato|date:'c' }}">{{ m.creato|date:"H:i" }}</time>
+</article>
+{% endfor %}

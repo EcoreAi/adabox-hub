@@ -34,26 +34,26 @@ def _utente(client, *codenames):
 
 
 def _nav(r):
-    return [v["label"] for v in r.context["theme"]["nav"]]
+    return [v["label"] for v in r.context["theme"]["nav"] if v["url_name"] != "core:dashboard"]
 
 
 @pytest.mark.django_db
 def test_nav_solo_con_permesso(client):
     _utente(client)
-    assert _nav(client.get(reverse("core:home"))) == []
+    assert _nav(client.get(reverse("core:launcher"))) == []
 
 
 @pytest.mark.django_db
 def test_nav_con_permesso(client):
     _utente(client, "view_azienda")
-    r = client.get(reverse("core:home"))
+    r = client.get(reverse("core:launcher"))
     assert _nav(r) == ["Alfa"]
     assert [v["label"] for v in r.context["apps"][0]["menu"]] == ["Aziende"]
 
 
 @pytest.mark.django_db
 def test_nav_superuser(client, superuser):
-    r = client.get(reverse("core:home"))
+    r = client.get(reverse("core:launcher"))
     assert _nav(r) == ["Alfa"]
     assert [v["label"] for v in r.context["apps"][0]["menu"]] == ["Aziende", "Stile"]
 

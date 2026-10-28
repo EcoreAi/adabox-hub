@@ -58,7 +58,7 @@ Un'app minima non scrive né viste né template: bastano modello, `ModelView` e 
        "data": ["data/tag.json"], "demo": ["data/demo.json"], "hooks": "todo.hooks",
    }
    ```
-   Lo slug (`^[a-z][a-z0-9_]{2,30}$`) è il nome della cartella e del pacchetto. Chiavi
+   Lo slug (`^[a-z][a-z0-9_]{1,30}$`) è il nome della cartella e del pacchetto. Chiavi
    sconosciute sono un errore. `python manage.py modulo verifica addons/<slug>` lo valida.
 2. **Pacchetto Django** — `__init__.py`, `apps.py`, `models.py`, `migrations/`. I modelli
    per azienda ereditano `core.mixins.AziendaMixin`; quelli condivisi (tag, tipi) no.

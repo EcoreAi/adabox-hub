@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 SCHEMA = 1
-SLUG_RE = re.compile(r"^[a-z][a-z0-9_]{2,30}$")
+SLUG_RE = re.compile(r"^[a-z][a-z0-9_]{1,30}$")
 log = logging.getLogger("core.moduli")
 
 

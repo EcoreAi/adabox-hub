@@ -11,7 +11,8 @@ def piattaforma(request):
         return {"theme": base}
     apps = modules.app_visibili(request.user)
     corrente = modules.app_corrente(request, apps)
-    nav = [{"label": a["label"], "url_name": a["url_name"]} for a in apps]
+    nav = [{"label": "Dashboard", "url_name": "core:dashboard"}]
+    nav += [{"label": a["label"], "url_name": a["url_name"]} for a in apps]
     if (da_fare := attivita.da_fare_oggi(request.user)):
         nav.append({"label": f"Attività · {da_fare}", "url_name": "core:attivita"})
     return {

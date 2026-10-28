@@ -1039,6 +1039,29 @@ td.ui-num { text-align: right; font-variant-numeric: tabular-nums; white-space: 
 .ui-grafico { overflow-x: auto; }
 .ui-grafico-svg { width: 100%; max-width: 900px; height: auto; display: block; }
 
+/* ============================================================
+   Dashboard: card dei KPI cliccabili e grafici
+   ============================================================ */
+.ui-dash { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.ui-dash-card {
+  display: flex; flex-direction: column; padding: 18px 20px; min-height: 150px;
+  background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--radius-card);
+  color: var(--ui-text); text-decoration: none;
+  transition: box-shadow 180ms var(--ease-out), transform 180ms var(--ease-out), border-color 180ms var(--ease-out);
+}
+.ui-dash-card:hover, .ui-dash-card:focus-visible { box-shadow: var(--shadow-card); transform: translateY(-2px); border-color: var(--ui-primary-tint); }
+.ui-dash-testa { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.ui-dash-icona { width: 34px; height: 34px; margin: 0; border-radius: 10px; }
+.ui-dash-icona svg, .ui-dash-icona img { width: 20px; height: 20px; }
+.ui-dash-nome { font-weight: 600; font-size: 14px; color: var(--ui-text-2); }
+.ui-dash-valore { font-size: 34px; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.ui-dash-etichetta { font-size: 13px; color: var(--ui-text-2); margin-top: 2px; }
+.ui-dash-altri { list-style: none; margin: auto 0 0; padding: 12px 0 0; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--ui-text-2); }
+.ui-dash-altri strong { color: var(--ui-text); font-variant-numeric: tabular-nums; }
+.ui-dash-grafici { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px; }
+.ui-dash-grafici .ui-card { margin-bottom: 0; }
+@media (max-width: 767px) { .ui-dash-grafici { grid-template-columns: minmax(0, 1fr); } }
+
 /* Barra di avanzamento */
 .ui-avanzamento { height: 8px; border-radius: var(--radius-pill); background: var(--ui-surface-2); overflow: hidden; }
 .ui-avanzamento > span { display: block; height: 100%; background: var(--ui-success); border-radius: inherit; }

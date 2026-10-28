@@ -1,0 +1,41 @@
+{% extends 'core/base_app.html' %}
+{% load static %}
+{% block title %}Dashboard · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Dashboard</h1><div class="sub">{% now "l j F Y" %}{% if azienda %} · {{ azienda }}{% endif %}</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="{% url 'core:launcher' %}">Tutte le app</a></div>
+</div>
+{% if schede %}
+<div class="ui-dash">
+  {% for s in schede %}
+  <a class="ui-dash-card" href="{{ s.url }}" aria-label="{{ s.label }}: apri l'app">
+    <div class="ui-dash-testa">
+      <span class="ui-app-icona ui-dash-icona">{% if "/" in s.icon %}<img src="{% static s.icon %}" alt="">{% else %}<svg><use href="#icon-{{ s.icon|default:'zap' }}"/></svg>{% endif %}</span>
+      <span class="ui-dash-nome">{{ s.label }}</span>
+    </div>
+    {% with principale=s.kpi.0 %}
+    {% if principale %}<div class="ui-dash-valore">{{ principale.valore }}</div><div class="ui-dash-etichetta">{{ principale.etichetta }}</div>{% endif %}
+    {% endwith %}
+    {% if s.kpi|length > 1 %}
+    <ul class="ui-dash-altri">{% for k in s.kpi|slice:"1:" %}<li><strong>{{ k.valore }}</strong> {{ k.etichetta }}</li>{% endfor %}</ul>
+    {% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="ui-card is-revealed"><div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg>
+  <p>Nessuna app con indicatori.{% if user.is_superuser %} <a class="ui-link" href="{% url 'core:moduli' %}">Installa un modulo</a>.{% endif %}</p></div></div></div>
+{% endif %}
+{% if grafici %}
+<div class="ui-dash-grafici">
+  {% for g in grafici %}
+  <section class="ui-card is-revealed">
+    <div class="ui-card-head"><div><div class="ui-card-title">{{ g.titolo }}</div><div class="ui-card-sub">{{ g.app }}</div></div>
+      <div class="spacer"></div><a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ g.url }}">Apri</a></div>
+    <div class="ui-card-body">{% if g.svg %}<div class="ui-grafico">{{ g.svg }}</div>{% else %}<p class="ui-help">Ancora nessun dato.</p>{% endif %}</div>
+  </section>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

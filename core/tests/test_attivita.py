@@ -91,9 +91,9 @@ def test_le_mie_attivita_e_contatore(client, scena):
     assert html.index("Scaduta") < html.index("Di oggi") < html.index("Futura")
     assert f'href="/core/aziende/{acme.pk}/"' in html
     assert {"label": "Attività · 2", "url_name": "core:attivita"} in r.context["theme"]["nav"]
-    assert "Le mie attività" in client.get("/").content.decode()
+    assert "Le mie attività" in client.get("/app/").content.decode()
     client.force_login(capo)
-    assert not any(v["url_name"] == "core:attivita" for v in client.get("/").context["theme"]["nav"])
+    assert not any(v["url_name"] == "core:attivita" for v in client.get("/app/").context["theme"]["nav"])
 
 
 def test_promemoria(scena):

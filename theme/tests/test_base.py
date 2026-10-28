@@ -41,5 +41,5 @@ def test_anonimo_vede_solo_public_content():
 def test_base_carica_htmx(client, django_user_model):
     u = django_user_model.objects.create_user("u", "u@example.com", "pass12345!")
     client.force_login(u)
-    r = client.get("/")
+    r = client.get("/accounts/password_change/")          # pagina del theme, indipendente da core
     assert "theme/vendor/htmx.min.js" in r.content.decode()
