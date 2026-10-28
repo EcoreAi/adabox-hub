@@ -1,0 +1,202 @@
+[
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 1,
+    "fields": {
+      "codice": "22",
+      "descrizione": "IVA 22%",
+      "percentuale": "22.00",
+      "natura": "",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 2,
+    "fields": {
+      "codice": "10",
+      "descrizione": "IVA 10%",
+      "percentuale": "10.00",
+      "natura": "",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 3,
+    "fields": {
+      "codice": "5",
+      "descrizione": "IVA 5%",
+      "percentuale": "5.00",
+      "natura": "",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 4,
+    "fields": {
+      "codice": "4",
+      "descrizione": "IVA 4%",
+      "percentuale": "4.00",
+      "natura": "",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 5,
+    "fields": {
+      "codice": "N2.2",
+      "descrizione": "Non soggetta",
+      "percentuale": "0.00",
+      "natura": "N2.2",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 6,
+    "fields": {
+      "codice": "N3.1",
+      "descrizione": "Non imponibile, esportazione",
+      "percentuale": "0.00",
+      "natura": "N3.1",
+      "riferimento_normativo": "Art. 8 c.1 lett. a DPR 633/72",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 7,
+    "fields": {
+      "codice": "N3.2",
+      "descrizione": "Non imponibile, cessione intracomunitaria",
+      "percentuale": "0.00",
+      "natura": "N3.2",
+      "riferimento_normativo": "Art. 41 DL 331/93",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 8,
+    "fields": {
+      "codice": "N4",
+      "descrizione": "Esente",
+      "percentuale": "0.00",
+      "natura": "N4",
+      "riferimento_normativo": "Art. 10 DPR 633/72",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 9,
+    "fields": {
+      "codice": "N6.7",
+      "descrizione": "Inversione contabile, settore edile",
+      "percentuale": "0.00",
+      "natura": "N6.7",
+      "riferimento_normativo": "Art. 17 c.6 lett. a-ter DPR 633/72",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.terminepagamento",
+    "pk": 1,
+    "fields": {
+      "nome": "Rimessa diretta",
+      "rate": [
+        {
+          "giorni": 0,
+          "percentuale": 100
+        }
+      ],
+      "modalita": "MP05",
+      "attivo": true
+    }
+  },
+  {
+    "model": "fiscale.terminepagamento",
+    "pk": 2,
+    "fields": {
+      "nome": "30 giorni data fattura",
+      "rate": [
+        {
+          "giorni": 30,
+          "percentuale": 100
+        }
+      ],
+      "modalita": "MP05",
+      "attivo": true
+    }
+  },
+  {
+    "model": "fiscale.terminepagamento",
+    "pk": 3,
+    "fields": {
+      "nome": "30 giorni fine mese",
+      "rate": [
+        {
+          "giorni": 30,
+          "percentuale": 100,
+          "fine_mese": true
+        }
+      ],
+      "modalita": "MP05",
+      "attivo": true
+    }
+  },
+  {
+    "model": "fiscale.terminepagamento",
+    "pk": 4,
+    "fields": {
+      "nome": "60 giorni fine mese",
+      "rate": [
+        {
+          "giorni": 60,
+          "percentuale": 100,
+          "fine_mese": true
+        }
+      ],
+      "modalita": "MP05",
+      "attivo": true
+    }
+  },
+  {
+    "model": "fiscale.terminepagamento",
+    "pk": 5,
+    "fields": {
+      "nome": "30-60 giorni fine mese",
+      "rate": [
+        {
+          "giorni": 30,
+          "percentuale": 50,
+          "fine_mese": true
+        },
+        {
+          "giorni": 60,
+          "percentuale": 50,
+          "fine_mese": true
+        }
+      ],
+      "modalita": "MP12",
+      "attivo": true
+    }
+  }
+]

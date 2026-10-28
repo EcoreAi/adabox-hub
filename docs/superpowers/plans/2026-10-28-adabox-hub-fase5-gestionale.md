@@ -12,7 +12,7 @@ commit, un commit per task con push, collaudo di ogni app nuova con `modulo coll
 - `modulo_applica`: hook `demo(modulo)` chiamato solo con `--demo`.
 - Test su un documento di prova.
 
-### Task 2: fiscale
+### Task 2: fiscale — fatto
 ### Task 3: prodotti
 ### Task 4: vendite (preventivi, ordini, stampa, invio, segnale di conferma)
 ### Task 5: magazzino (movimenti, giacenze, consegne/DDT, ricevimenti, rettifiche, scorte)
