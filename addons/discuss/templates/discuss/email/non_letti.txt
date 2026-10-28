@@ -1,0 +1,8 @@
+Ciao {{ utente.get_full_name|default:utente.username }},
+hai messaggi non letti su {{ sito }}:
+{% for n in voci %}
+- {{ n.titolo }} ({{ n.creata|date:"d/m H:i" }})
+  {{ n.testo }}
+  {{ sito }}{{ n.url }}
+{% endfor %}
+Tutta la posta in arrivo: {{ link }}

@@ -46,7 +46,8 @@
 .ds-scrivi { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--ui-border); }
 .ds-scrivi textarea { flex: 1; min-width: 200px; resize: vertical; min-height: 44px; }
 .ds-allegati-scelti { flex-basis: 100%; }
-.ds-campanella { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; color: var(--ui-text-2); text-decoration: none; margin-right: 8px; }
-.ds-campanella:hover { background: var(--ui-surface-2); color: var(--ui-text); }
-.ds-campanella svg { width: 18px; height: 18px; }
-.ds-campanella .ds-contatore { position: absolute; top: 2px; right: 0; min-width: 16px; line-height: 16px; font-size: 10px; padding: 0 4px; }
+.ds-icona { width: 15px; height: 15px; }
+.ds-notifica { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; color: var(--ui-text); text-decoration: none; font-size: 14px; }
+.ds-notifica:hover { background: var(--ui-surface-2); }
+.ds-notifica.is-nuova { background: var(--ui-primary-tint); }
+.ds-notifica-testo { color: var(--ui-text-2); font-size: 13px; }

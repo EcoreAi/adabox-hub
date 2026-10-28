@@ -1,0 +1,13 @@
+{% extends "discuss/home.html" %}
+{% block title %}Posta in arrivo · Discuss · {{ theme.brand }}{% endblock %}
+{% block conversazione %}
+<header class="ds-testa"><div><h1>Posta in arrivo</h1><div class="ui-help">Menzioni, messaggi diretti e messaggi sui record che segui</div></div>
+  {% if posta_non_letta %}<form method="post" action="{% url 'discuss:tutte_lette' %}">{% csrf_token %}<button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit">Segna tutte come lette</button></form>{% endif %}
+</header>
+<div class="ds-messaggi">
+  {% for n in voci %}<a class="ds-notifica{% if not n.letta %} is-nuova{% endif %}" href="{% url 'discuss:notifica' n.pk %}">
+    <strong>{{ n.titolo }}</strong> <span class="ui-help">{{ n.creata|date:"d/m H:i" }} · {{ n.get_tipo_display }}</span>
+    {% if n.testo %}<span class="ds-notifica-testo">{{ n.testo }}</span>{% endif %}</a>
+  {% empty %}<div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessuna notifica.</p></div>{% endfor %}
+</div>
+{% endblock %}

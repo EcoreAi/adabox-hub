@@ -18,4 +18,8 @@ urlpatterns = [
     path("allegato/<int:pk>/", pagine.allegato, name="allegato"),
     path("canale/nuovo/", pagine.nuovo_canale, name="nuovo_canale"),
     path("diretto/", pagine.diretto, name="diretto"),
+    path("posta/", pagine.posta, name="posta"),
+    path("posta/lette/", pagine.tutte_lette, name="tutte_lette"),
+    path("notifica/<int:pk>/", pagine.apri_notifica, name="notifica"),
+    path("contatore/", pagine.contatore, name="contatore"),
 ]

@@ -11,8 +11,8 @@ from core import allegati
 from core.generici import ct_di
 from core.models import Allegato
 
-from . import servizi
-from .models import Canale, Iscrizione, Messaggio
+from . import notifiche, servizi
+from .models import Canale, Iscrizione, Messaggio, Notifica
 
 PERMESSO = "discuss.view_canale"
 
@@ -29,7 +29,8 @@ def _contesto(request, canale=None):
     iscrizioni = list(servizi.iscrizioni_di(request.user))
     return {"iscrizioni": iscrizioni, "canali": [i for i in iscrizioni if not i.canale.diretto],
             "diretti": [i for i in iscrizioni if i.canale.diretto], "corrente": canale,
-            "da_scoprire": servizi.pubblici_da_scoprire(request.user), "utenti": utenti}
+            "da_scoprire": servizi.pubblici_da_scoprire(request.user), "utenti": utenti,
+            "posta_non_letta": notifiche.non_lette(request.user)}
 
 
 @login_required
@@ -50,6 +51,7 @@ def canale(request, pk):
     ultimo_letto = iscrizione.ultimo_letto if iscrizione else None
     if iscrizione and elenco:
         servizi.segna_letto(request.user, canale, elenco[-1].pk)
+    notifiche.segna_lette_del_canale(request.user, canale)
     contesto = _contesto(request, canale)
     primo_non_letto = next((m.pk for m in elenco if ultimo_letto is not None and m.pk > ultimo_letto
                             and m.autore_id != request.user.pk), None)
@@ -70,6 +72,7 @@ def nuovi(request, pk):
     ultimo = elenco[-1].pk if elenco else dopo
     if elenco and servizi.iscrizione(request.user, canale):
         servizi.segna_letto(request.user, canale, ultimo)
+        notifiche.segna_lette_del_canale(request.user, canale)
     return render(request, "discuss/_nuovi.html", {"canale": canale, "messaggi": elenco, "ultimo": ultimo})
 
 
@@ -213,3 +216,40 @@ def preferenze(request, pk):
     if valore in dict(Iscrizione.NOTIFICHE):
         Iscrizione.objects.filter(canale=canale, utente=request.user).update(notifiche=valore)
     return redirect("discuss:canale", pk=pk)
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+def posta(request):
+    """Posta in arrivo: le notifiche, prima le non lette."""
+    voci = Notifica.objects.filter(utente=request.user).select_related("autore").order_by("letta", "-creata")[:200]
+    contesto = _contesto(request)
+    contesto.update({"voci": voci, "in_posta": True})
+    return render(request, "discuss/posta.html", contesto)
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+def apri_notifica(request, pk):
+    notifica = get_object_or_404(Notifica, pk=pk, utente=request.user)
+    if not notifica.letta:
+        notifica.letta = True
+        notifica.save(update_fields=["letta"])
+    destinazione = notifica.url if notifica.url.startswith("/") and not notifica.url.startswith("//") else "/"
+    return redirect(destinazione)
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+@require_POST
+def tutte_lette(request):
+    Notifica.objects.filter(utente=request.user, letta=False).update(letta=True)
+    return redirect("discuss:posta")
+
+
+@login_required
+def contatore(request):
+    """La campanella in testata (aggiornata ogni 30 secondi)."""
+    if not request.user.has_perm(PERMESSO):
+        return HttpResponse("")
+    return render(request, "discuss/_campanella.html")

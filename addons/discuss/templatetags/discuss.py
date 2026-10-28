@@ -24,3 +24,9 @@ def iniziale(utente):
 @register.filter
 def titolo_canale(canale, utente):
     return canale.titolo_per(utente)
+
+
+@register.simple_tag
+def notifiche_non_lette(utente):
+    from discuss import notifiche
+    return notifiche.non_lette(utente) if utente.is_authenticated else 0

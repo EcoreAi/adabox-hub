@@ -16,5 +16,5 @@ commit, un commit per task con push, collaudo di ogni app nuova con `modulo coll
 ### Task 3: documenti — cartelle, documenti, tag, pagina con albero, caricamento, anteprima, cestino, zip — fatto
 ### Task 4: documenti — condivisione pubblica, richieste, cartelle collegate ai modelli, sezione sui record — fatto
 ### Task 5: discuss — canali, iscrizioni, messaggi diretti, conversazione con polling, non letti — fatto
-### Task 6: discuss — menzioni, posta in arrivo dal chatter, contatore in testata, email per i non letti
+### Task 6: discuss — menzioni, posta in arrivo dal chatter, contatore in testata, email per i non letti — fatto
 ### Task 7: installazione di tutto, collaudo, README, verifica

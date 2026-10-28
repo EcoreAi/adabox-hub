@@ -5,6 +5,7 @@
 <link rel="stylesheet" href="{% static 'discuss/discuss.css' %}">
 <div class="ds-layout">
   <aside class="ds-barra ui-card is-revealed" aria-label="Conversazioni">
+    <a class="ds-voce{% if in_posta %} is-active{% endif %}{% if posta_non_letta %} has-nuovi{% endif %}" href="{% url 'discuss:posta' %}"><svg class="ds-icona"><use href="#icon-inbox"/></svg><span class="ds-voce-nome">Posta in arrivo</span>{% if posta_non_letta %}<span class="ds-contatore">{{ posta_non_letta }}</span>{% endif %}</a>
     <div class="ds-gruppo">
       <div class="ds-gruppo-testa">Canali
         <details class="ds-nuovo"><summary aria-label="Nuovo canale" title="Nuovo canale">+</summary>
@@ -34,7 +35,7 @@
   </aside>
 
   <section class="ds-conversazione ui-card is-revealed">
-    {% if canale %}
+    {% block conversazione %}{% if canale %}
     <header class="ds-testa">
       <div><h1>{{ titolo }}</h1>{% if canale.descrizione %}<div class="ui-help">{{ canale.descrizione }}</div>{% endif %}</div>
       <details class="ds-info"><summary class="ui-btn ui-btn-ghost ui-btn-sm">{{ membri|length }} membri</summary>
@@ -72,7 +73,7 @@
     {% endif %}
     {% else %}
     <div class="ui-empty"><p>Scegli una conversazione o creane una nuova.</p></div>
-    {% endif %}
+    {% endif %}{% endblock %}
   </section>
 </div>
 <script src="{% static 'discuss/discuss.js' %}" defer></script>
