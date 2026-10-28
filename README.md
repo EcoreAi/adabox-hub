@@ -168,6 +168,26 @@ con `core.mixins.ProprietaMixin` (valori nel JSON `proprieta`): compaiono nel fo
 `"@proprieta"`, altrimenti in "Altre informazioni"), nel dettaglio, nella lista, nei filtri e nell'API
 (`"proprieta": {...}` in lettura e scrittura). Oggi li accettano `Azienda` e `todo.Attivita`.
 
+## Le app
+
+| App | Dipende da | Cosa fa |
+|---|---|---|
+| `todo` | — | app minima di riferimento del kernel (attività con scadenze) |
+| `contatti` | — | anagrafica di aziende e persone, partita IVA e codice fiscale validati, codice SDI e PEC |
+| `calendario` | contatti | eventi con inviti e file `.ics`, promemoria, eventi privati |
+| `crm` | contatti | opportunità in pipeline (kanban per fase), valore atteso, lead convertibili in contatti |
+| `helpdesk` | contatti | ticket con SLA per priorità; il cliente riceve i messaggi e risponde per email; ticket aperti dalle email all'indirizzo dell'helpdesk |
+| `progetti` | contatti | progetti e compiti (kanban, calendario, avanzamento); ognuno vede i progetti di cui è membro |
+| `timesheet` | progetti | ore su progetti e compiti, griglia settimanale, totali e analisi; ognuno vede le proprie ore |
+
+`python manage.py modulo installa timesheet crm helpdesk calendario --demo --si` installa tutto, con le dipendenze
+(contatti, progetti) e i dati dimostrativi. Chi installa un'app riceve il suo gruppo base; i gruppi "Responsabile"
+danno anche i permessi speciali (`progetti.vedi_tutti_progetti`, `timesheet.vedi_tutte_ore`).
+
+Per l'helpdesk via email: casella delle risposte configurata (vedi "Posta del chatter"), un indirizzo dedicato
+(es. `assistenza@cliente.it`) che arrivi nella stessa casella, e quell'indirizzo nel parametro "Indirizzo email
+dell'helpdesk" in `/impostazioni/`.
+
 ## Comandi `modulo`
 
 | Comando | Effetto |

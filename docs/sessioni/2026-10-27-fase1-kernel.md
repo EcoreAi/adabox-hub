@@ -83,3 +83,23 @@ aggiornato. **La fase 2 è completa.**
 - Configurare per un'istanza vera `EMAIL_URL`, `EMAIL_RISPOSTE`, `IMAP_URL`, `SITO_URL` e Postgres nel compose.
 - Fase 3 (prime app: contatti, calendario, crm, helpdesk, progetti e timesheet): spec propria; `todo` può passare
   alle attività pianificate del kernel.
+
+## Fase 3 — prime app (sessione proseguita il 2026-10-28)
+
+Spec `docs/superpowers/specs/2026-10-27-adabox-hub-fase3-prime-app-design.md` (decisioni prese in autonomia su
+richiesta dell'utente, motivate nella spec) e piano `docs/superpowers/plans/2026-10-27-adabox-hub-fase3-prime-app.md`
+eseguiti: **contatti, calendario, crm, helpdesk, progetti, timesheet**, tutte installate nel DB di sviluppo con i demo.
+
+- Kernel: clienti esterni nel chatter (`destinatari_esterni`, `autore_email`) e gestori delle email non abbinate;
+  scelte di FK/M2M filtrate per azienda nei form; campi URL con https.
+- Visibilità sui record con permessi personalizzati: progetti (membri/responsabile), timesheet (proprie ore),
+  calendario (eventi privati).
+- `todo` resta l'app minima di riferimento (decisione 6 della spec).
+- Suite verde su SQLite (con l'installazione vergine di tutte le app) e su Postgres; PDF in Docker; stack Docker
+  provato su tutte le app.
+- Corretti strada facendo: due test dipendenti dal tempo (pianificazioni del kernel scadute dopo minuti di suite),
+  registri globali (sezioni, gestori email) svuotati dai test e ora sostituiti con monkeypatch, un escape non valido
+  in `calendario/ics.py` (ora c'è un test che compila tutti i sorgenti con i warning come errori).
+
+Prossimi passi: prova nel browser; configurazione della posta per un'istanza vera; fase 4 (distribuzione: upload
+zip dei moduli, pacchettizzazione, firma) o fase 5 (gestionale: prodotti, vendite, magazzino, fatturazione).

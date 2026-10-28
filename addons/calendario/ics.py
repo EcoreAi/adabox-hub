@@ -7,7 +7,8 @@ from django.utils import timezone
 
 
 def _testo(valore):
-    return (valore or "").replace("\\", "\\\\").replace(";", "\;").replace(",", "\\,").replace("\r\n", "\\n").replace("\n", "\\n")
+    """Testo di una proprietà iCalendar: backslash, punto e virgola, virgola e a capo vanno preceduti da \\."""
+    return (valore or "").replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\r\n", "\\n").replace("\n", "\\n")
 
 
 def _piega(riga):

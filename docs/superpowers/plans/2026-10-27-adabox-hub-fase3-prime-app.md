@@ -42,7 +42,7 @@ ordine di dipendenza.
 ### Task 6: timesheet — fatto
 - `RigaOre` con validazioni e visibilità, sezioni "Ore" su progetto e compito, pagina `/timesheet/settimana/`.
 
-### Task 7: installazione di tutte le app, documentazione, verifica
+### Task 7: installazione di tutte le app, documentazione, verifica — fatto
 - Test end-to-end: DB vuoto, `modulo installa timesheet crm helpdesk calendario --demo --si` (le dipendenze si
   risolvono da sole), verifica dei dati, disinstallazione in ordine inverso.
 - README (le app), installazione delle app nel DB di sviluppo, suite SQLite e Postgres, Docker.
