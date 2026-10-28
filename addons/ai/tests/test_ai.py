@@ -20,9 +20,27 @@ def utente(db, client):
 
 def test_pagina_vuota_a_tre_colonne(client, utente):
     html = client.get("/ai/chat/").content.decode()
-    assert "Ciao Chiara" in html and 'id="ai-pannello-sinistra" hidden' in html and 'id="ai-pannello-destra" hidden' in html
+    assert "Ciao, Chiara" in html and 'id="ai-pannello-sinistra" hidden' in html and 'id="ai-pannello-destra" hidden' in html
     for etichetta in ("Nuova chat", "Cronologia chat", "Artifact salvati", "Documenti salvati"):
         assert etichetta in html
+    assert 'class="ui-header"' not in html and 'class="ui-appbar"' not in html     # niente header del tema
+    assert 'aria-controls="ai-menu-app"' in html and "Le tue app" in html         # header con il menu delle app
+    assert "data-sugg" in html and "ai-suggerimenti-app" in html
+
+
+def test_app_per_limitare_la_chat(client, utente):
+    from django.contrib.auth.models import Permission
+    utente.user_permissions.add(Permission.objects.get(codename="view_attivita"))
+    from django.contrib.auth.models import User
+    client.force_login(User.objects.get(pk=utente.pk))
+    html = client.get("/ai/chat/").content.decode()
+    assert 'data-ambito-app="todo"' in html and 'data-ambito-app="ai"' not in html
+    client.post("/ai/chat/invia/", {"testo": "Cosa scade oggi?", "ambito": "todo"})
+    client.post("/ai/chat/invia/", {"testo": "E nel CRM?", "ambito": "crm"})       # app non visibile: ignorata
+    ambiti = dict(Conversazione.objects.values_list("titolo", "ambito"))
+    assert ambiti == {"Cosa scade oggi?": "todo", "E nel CRM?": ""}
+    c = Conversazione.objects.get(ambito="todo")
+    assert "To-Do" in client.get(f"/ai/chat/{c.pk}/").content.decode()
 
 
 def test_primo_messaggio_crea_la_conversazione(client, utente):

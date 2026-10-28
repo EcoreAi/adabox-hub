@@ -1,4 +1,4 @@
-"""Chat con l'assistente: pagina a tre colonne (pannelli laterali chiusi di default) e invio dei messaggi."""
+"""Chat con l'assistente: pagina a tutto schermo a tre colonne (pannelli laterali chiusi di default)."""
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.http import HttpResponse
@@ -6,6 +6,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
+from core.registry import modules
+
+from . import suggerimenti
 from .assistente import rispondi
 from .models import Conversazione, MessaggioChat
 
@@ -18,16 +21,24 @@ def _mie(request):
     return Conversazione.objects.filter(utente=request.user)
 
 
+def app_selezionabili(user):
+    """Le app che l'utente vede (tranne l'assistente stesso): la chat si può limitare a una di queste."""
+    return [a for a in modules.app_visibili(user) if a["slug"] != "ai"]
+
+
 @login_required
 @permission_required("ai.view_conversazione", raise_exception=True)
 def chat(request, pk=None):
     conversazione = get_object_or_404(_mie(request), pk=pk) if pk else None
     mie = _mie(request)
+    app = app_selezionabili(request.user)
+    ambito = next((a for a in app if conversazione and a["slug"] == conversazione.ambito), None)
     return render(request, "ai/chat.html", {
-        "conversazione": conversazione,
+        "conversazione": conversazione, "ambito": ambito,
         "messaggi": conversazione.messaggi.all() if conversazione else [],
         "storico": mie[:50], "preferite": mie.filter(preferita=True)[:50],
         "pannelli_sinistra": PANNELLI_SINISTRA, "pannelli_destra": PANNELLI_DESTRA,
+        "app": app, "suggerimenti": suggerimenti.per(), "suggerimenti_per_app": suggerimenti.tutti(),
     })
 
 
@@ -43,7 +54,9 @@ def invia(request, pk=None):
     nuova = conversazione is None
     if nuova:
         titolo = " ".join(testo.split())
-        conversazione = Conversazione.objects.create(utente=request.user,
+        ammessi = {a["slug"] for a in app_selezionabili(request.user)}
+        ambito = request.POST.get("ambito", "")
+        conversazione = Conversazione.objects.create(utente=request.user, ambito=ambito if ambito in ammessi else "",
                                                      titolo=titolo[:60] + ("…" if len(titolo) > 60 else ""))
     domanda = MessaggioChat.objects.create(conversazione=conversazione, ruolo=MessaggioChat.UTENTE, testo=testo)
     risposta = MessaggioChat.objects.create(conversazione=conversazione, ruolo=MessaggioChat.ASSISTENTE,

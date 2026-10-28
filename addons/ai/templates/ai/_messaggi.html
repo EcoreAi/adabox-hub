@@ -1,6 +1,9 @@
 {% for m in messaggi %}
 <article class="ai-msg ai-msg-{{ m.ruolo }}">
-  <div class="ai-msg-bolla">{{ m.testo|urlize|linebreaksbr }}</div>
-  <time datetime="{{ m.creato|date:'c' }}">{{ m.creato|date:"H:i" }}</time>
+  {% if m.ruolo == "assistente" %}<span class="ai-msg-avatar" aria-hidden="true"><svg><use href="#ai-scintilla"/></svg></span>{% endif %}
+  <div class="ai-msg-corpo">
+    <div class="ai-msg-testo">{{ m.testo|urlize|linebreaksbr }}</div>
+    <time datetime="{{ m.creato|date:'c' }}">{{ m.creato|date:"H:i" }}</time>
+  </div>
 </article>
 {% endfor %}

@@ -7,6 +7,8 @@ class Conversazione(models.Model):
     utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="conversazioni",
                                verbose_name="utente")
     titolo = models.CharField("titolo", max_length=120, default="Nuova chat")
+    ambito = models.CharField("limitata all'app", max_length=31, blank=True,
+                              help_text="slug dell'app a cui la chat è limitata; vuoto = tutte")
     preferita = models.BooleanField("preferita", default=False)
     creata = models.DateTimeField("creata il", auto_now_add=True)
     aggiornata = models.DateTimeField("aggiornata il", auto_now=True)
