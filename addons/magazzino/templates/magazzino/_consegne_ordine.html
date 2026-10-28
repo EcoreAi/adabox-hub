@@ -1,0 +1,10 @@
+{% load magazzino %}{% consegne_di obj as consegne %}
+{% if consegne %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Consegne</div></div>
+  <div class="ui-card-body">
+    {% for c in consegne %}<div class="ui-allegato"><a class="ui-link" href="{% url 'magazzino:consegne_dettaglio' c.pk %}">{{ c }}</a>
+      <span class="ui-allegato-info">{{ c.get_stato_display }} · {{ c.data|date:"d/m/Y" }}</span></div>{% endfor %}
+  </div>
+</section>
+{% endif %}

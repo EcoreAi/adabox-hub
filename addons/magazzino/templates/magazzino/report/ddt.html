@@ -1,0 +1,20 @@
+{% extends "core/report/base.html" %}
+{% block stile %}
+  .parti { display: flex; gap: 6mm; margin: 4mm 0; } .parti > div { flex: 1; padding: 3mm 4mm; border: 1px solid #e5e5ea; border-radius: 2mm; }
+  .parti h3 { margin: 0 0 1mm; font-size: 8pt; color: #6e6e73; text-transform: uppercase; }
+  table.righe { width: 100%; border-collapse: collapse; } table.righe th { text-align: left; font-size: 8pt; color: #6e6e73; border-bottom: 1px solid #c7c7cc; padding: 2mm 1mm; }
+  table.righe td { padding: 2mm 1mm; border-bottom: 1px solid #f0f0f2; } .num { text-align: right; }
+  .firme { display: flex; gap: 10mm; margin-top: 18mm; } .firme div { flex: 1; border-top: 1px solid #1d1d1f; padding-top: 1mm; font-size: 8pt; color: #6e6e73; }
+{% endblock %}
+{% block record %}
+<h1>Documento di trasporto {{ obj }}</h1>
+<div style="font-size:9pt;color:#6e6e73;">del {{ obj.data|date:"d/m/Y" }}{% if obj.riferimento %} · rif. {{ obj.riferimento }}{% endif %}</div>
+<div class="parti">
+  <div><h3>Destinatario</h3><strong>{{ obj.cliente.nome }}</strong><br>{{ obj.cliente.indirizzo }} {{ obj.cliente.cap }} {{ obj.cliente.citta }} {{ obj.cliente.provincia }}{% if obj.cliente.partita_iva %}<br>P.IVA {{ obj.cliente.partita_iva }}{% endif %}</div>
+  <div><h3>Trasporto</h3>Causale: {{ obj.get_causale_trasporto_display }}<br>A cura del {{ obj.get_trasporto_a_cura_display|lower }}{% if obj.vettore %} ({{ obj.vettore }}){% endif %}<br>Colli: {{ obj.colli }}{% if obj.peso %} · peso {{ obj.peso }} kg{% endif %} · {{ obj.aspetto_beni }}</div>
+</div>
+<table class="righe"><thead><tr><th>Codice</th><th>Descrizione</th><th class="num">Quantità</th><th>U.M.</th></tr></thead>
+<tbody>{% for r in obj.righe.all %}<tr><td>{{ r.prodotto.codice }}</td><td>{{ r.descrizione }}</td><td class="num">{{ r.quantita|floatformat:"-3" }}</td><td>{{ r.prodotto.unita }}</td></tr>{% endfor %}</tbody></table>
+{% if obj.note %}<p>{{ obj.note|linebreaksbr }}</p>{% endif %}
+<div class="firme"><div>Firma del conducente</div><div>Firma del destinatario</div></div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Giacenze · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Giacenze</h1><div class="sub">{{ righe|length }} prodotti{% if request.GET.sotto_scorta %} sotto scorta{% endif %}</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-primary" href="{% url 'magazzino:movimenti_nuovo' %}"><svg><use href="#icon-plus"/></svg> Rettifica</a></div>
+</div>
+<div class="ui-card is-revealed">
+  <form class="ui-filtri" method="get">
+    <div class="ui-search ui-filtri-q"><svg><use href="#icon-search"/></svg><input class="ui-input" type="search" name="q" value="{{ request.GET.q }}" placeholder="Cerca un prodotto…" aria-label="Cerca"></div>
+    <label class="ui-checkbox-row" style="padding-top:0;"><input type="checkbox" class="ui-checkbox" name="sotto_scorta" value="1" onchange="this.form.submit()"{% if request.GET.sotto_scorta %} checked{% endif %}> Solo sotto scorta</label>
+    <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Filtra</button>
+  </form>
+  {% if righe %}
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Prodotto</th>{% for m in magazzini %}<th class="ui-num">{{ m }}</th>{% endfor %}<th class="ui-num">Totale</th><th class="ui-num">Scorta minima</th></tr></thead>
+    <tbody>{% for r in righe %}<tr>
+      <td><a class="ui-link" href="{% url 'magazzino:movimenti_lista' %}?f_prodotto={{ r.prodotto.pk }}">{{ r.prodotto }}</a></td>
+      {% for q in r.per_magazzino %}<td class="ui-num">{{ q|floatformat:"-3" }}</td>{% endfor %}
+      <td class="ui-num"><strong>{{ r.totale|floatformat:"-3" }}</strong> {{ r.prodotto.unita }}</td>
+      <td class="ui-num">{% if r.sotto_scorta %}<span class="ui-pill ui-pill-danger">sotto scorta</span> {% endif %}{{ r.prodotto.scorta_minima|floatformat:"-3" }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun prodotto da mostrare.</p></div></div>{% endif %}
+</div>
+{% endblock %}

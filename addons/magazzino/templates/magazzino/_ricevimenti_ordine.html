@@ -1,0 +1,10 @@
+{% load magazzino %}{% ricevimenti_di obj as ricevimenti %}
+{% if ricevimenti %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Ricevimenti</div></div>
+  <div class="ui-card-body">
+    {% for r in ricevimenti %}<div class="ui-allegato"><a class="ui-link" href="{% url 'magazzino:ricevimenti_dettaglio' r.pk %}">{{ r }}</a>
+      <span class="ui-allegato-info">{{ r.get_stato_display }} · {{ r.data|date:"d/m/Y" }}</span></div>{% endfor %}
+  </div>
+</section>
+{% endif %}
