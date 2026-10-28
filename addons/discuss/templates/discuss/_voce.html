@@ -1,0 +1,2 @@
+{% load discuss %}<a class="ds-voce{% if corrente.pk == i.canale.pk %} is-active{% endif %}{% if i.non_letti %} has-nuovi{% endif %}" href="{% url 'discuss:canale' i.canale.pk %}">
+  <span class="ds-voce-nome">{{ i.canale|titolo_canale:request.user }}</span>{% if i.non_letti %}<span class="ds-contatore" aria-label="{{ i.non_letti }} non letti">{{ i.non_letti }}</span>{% endif %}</a>

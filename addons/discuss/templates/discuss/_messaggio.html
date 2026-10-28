@@ -1,0 +1,14 @@
+{% load discuss %}<article class="ds-messaggio{% if m.autore_id == request.user.pk %} is-mio{% endif %}" id="m{{ m.pk }}">
+  <span class="ui-avatar ds-avatar" aria-hidden="true">{{ m.autore|iniziale }}</span>
+  <div class="ds-corpo">
+    <div class="ds-intestazione"><strong>{{ m.autore.get_full_name|default:m.autore.username|default:"Utente rimosso" }}</strong>
+      <time datetime="{{ m.creato|date:'c' }}" class="ui-help">{{ m.creato|date:"d/m H:i" }}</time>{% if m.modificato_il and not m.eliminato %} <span class="ui-help">(modificato)</span>{% endif %}
+      {% if m.autore_id == request.user.pk and not m.eliminato %}<span class="ds-azioni">
+        <button type="button" hx-get="{% url 'discuss:modifica' m.pk %}" hx-target="#m{{ m.pk }}" hx-swap="outerHTML">Modifica</button>
+        <button type="button" hx-post="{% url 'discuss:elimina' m.pk %}" hx-target="#m{{ m.pk }}" hx-swap="outerHTML" hx-confirm="Eliminare il messaggio?">Elimina</button>
+      </span>{% endif %}</div>
+    {% if m.eliminato %}<div class="ui-help"><em>Messaggio eliminato.</em></div>
+    {% else %}<div class="ds-testo">{{ m.corpo|messaggio_html }}</div>
+    {% for a in m|allegati_messaggio %}<a class="ds-allegato" href="{% url 'discuss:allegato' a.pk %}">📎 {{ a.nome }} <span class="ui-help">{{ a.dimensione|filesizeformat }}</span></a>{% endfor %}{% endif %}
+  </div>
+</article>

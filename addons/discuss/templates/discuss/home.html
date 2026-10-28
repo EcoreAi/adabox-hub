@@ -1,0 +1,79 @@
+{% extends 'core/base_app.html' %}
+{% load static %}
+{% block title %}{% if canale %}{{ titolo }} · {% endif %}Discuss · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<link rel="stylesheet" href="{% static 'discuss/discuss.css' %}">
+<div class="ds-layout">
+  <aside class="ds-barra ui-card is-revealed" aria-label="Conversazioni">
+    <div class="ds-gruppo">
+      <div class="ds-gruppo-testa">Canali
+        <details class="ds-nuovo"><summary aria-label="Nuovo canale" title="Nuovo canale">+</summary>
+          <form method="post" action="{% url 'discuss:nuovo_canale' %}" class="ds-popup">{% csrf_token %}
+            <input class="ui-input" name="nome" placeholder="Nome del canale" required maxlength="80" aria-label="Nome del canale">
+            <input class="ui-input" name="descrizione" placeholder="Di cosa si parla (facoltativo)" maxlength="250" aria-label="Descrizione">
+            <label><input type="radio" class="ui-checkbox" name="tipo" value="pubblico" checked> Pubblico: chiunque può entrare</label>
+            <label><input type="radio" class="ui-checkbox" name="tipo" value="privato"> Privato: solo su invito</label>
+            <select class="ui-input" name="membri" multiple size="5" aria-label="Membri">{% for u in utenti %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}</option>{% endfor %}</select>
+            <button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Crea il canale</button>
+          </form></details>
+      </div>
+      {% for i in canali %}{% include "discuss/_voce.html" %}{% empty %}<p class="ui-help ds-vuoto">Nessun canale.</p>{% endfor %}
+      {% if da_scoprire %}<details class="ds-scopri"><summary>Altri canali pubblici ({{ da_scoprire|length }})</summary>
+        {% for c in da_scoprire %}<a class="ds-voce" href="{% url 'discuss:canale' c.pk %}"># {{ c.nome }}</a>{% endfor %}</details>{% endif %}
+    </div>
+    <div class="ds-gruppo">
+      <div class="ds-gruppo-testa">Messaggi diretti
+        <details class="ds-nuovo"><summary aria-label="Nuovo messaggio diretto" title="Nuovo messaggio diretto">+</summary>
+          <form method="post" action="{% url 'discuss:diretto' %}" class="ds-popup">{% csrf_token %}
+            <select class="ui-input" name="utenti" multiple size="6" required aria-label="Con chi">{% for u in utenti %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}</option>{% endfor %}</select>
+            <button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Scrivi</button>
+          </form></details>
+      </div>
+      {% for i in diretti %}{% include "discuss/_voce.html" %}{% empty %}<p class="ui-help ds-vuoto">Nessun messaggio diretto.</p>{% endfor %}
+    </div>
+  </aside>
+
+  <section class="ds-conversazione ui-card is-revealed">
+    {% if canale %}
+    <header class="ds-testa">
+      <div><h1>{{ titolo }}</h1>{% if canale.descrizione %}<div class="ui-help">{{ canale.descrizione }}</div>{% endif %}</div>
+      <details class="ds-info"><summary class="ui-btn ui-btn-ghost ui-btn-sm">{{ membri|length }} membri</summary>
+        <div class="ds-popup ds-popup-destra">
+          {% for u in membri %}<div>{{ u.get_full_name|default:u.username }} <span class="ui-help">@{{ u.username }}</span></div>{% endfor %}
+          {% if iscrizione and not canale.diretto %}
+          <form method="post" action="{% url 'discuss:invita' canale.pk %}">{% csrf_token %}
+            <select class="ui-input" name="utenti" multiple size="4" aria-label="Invita">{% for u in utenti %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}</option>{% endfor %}</select>
+            <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Aggiungi</button></form>
+          {% endif %}
+          {% if iscrizione %}<form method="post" action="{% url 'discuss:preferenze' canale.pk %}">{% csrf_token %}
+            <label class="ui-label" for="ds-notifiche">Notifiche</label>
+            <select class="ui-input" id="ds-notifiche" name="notifiche" onchange="this.form.submit()">{% for v, e in iscrizione.NOTIFICHE %}<option value="{{ v }}"{% if v == iscrizione.notifiche %} selected{% endif %}>{{ e }}</option>{% endfor %}</select>
+          </form>{% endif %}
+          {% if iscrizione and not canale.diretto %}<form method="post" action="{% url 'discuss:esci' canale.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit">Esci dal canale</button></form>{% endif %}
+        </div></details>
+    </header>
+    <div class="ds-messaggi" id="ds-messaggi" data-io="{{ request.user.pk }}">
+      {% if altro_prima and messaggi %}{% include "discuss/_altro_prima.html" with primo=messaggi.0.pk %}{% endif %}
+      {% for m in messaggi %}{% if m.pk == primo_non_letto %}<div class="ds-divisore"><span>Nuovi messaggi</span></div>{% endif %}{% include "discuss/_messaggio.html" %}{% empty %}<div class="ui-empty" data-vuoto><p>Ancora nessun messaggio: scrivi il primo.</p></div>{% endfor %}
+      {% include "discuss/_poller.html" %}
+    </div>
+    {% if iscrizione %}
+    <form class="ds-scrivi" method="post" action="{% url 'discuss:invia' canale.pk %}" enctype="multipart/form-data"
+          hx-post="{% url 'discuss:invia' canale.pk %}" hx-encoding="multipart/form-data" hx-swap="none" data-scrivi>{% csrf_token %}
+      <textarea class="ui-input" name="corpo" rows="2" placeholder="Scrivi a {{ titolo }}… (Invio per mandare, Maiusc+Invio per andare a capo, @nome per menzionare)" aria-label="Messaggio"></textarea>
+      <label class="ui-btn ui-btn-ghost ui-btn-sm" title="Allega file">📎<input type="file" name="file" multiple hidden data-file></label>
+      <button class="ui-btn ui-btn-primary" type="submit">Invia</button>
+      <div class="ui-help ds-allegati-scelti" data-scelti></div>
+    </form>
+    {% else %}
+    <form class="ds-scrivi" method="post" action="{% url 'discuss:entra' canale.pk %}">{% csrf_token %}
+      <span class="ui-help">Non fai parte di questo canale.</span><button class="ui-btn ui-btn-primary" type="submit">Entra nel canale</button>
+    </form>
+    {% endif %}
+    {% else %}
+    <div class="ui-empty"><p>Scegli una conversazione o creane una nuova.</p></div>
+    {% endif %}
+  </section>
+</div>
+<script src="{% static 'discuss/discuss.js' %}" defer></script>
+{% endblock %}

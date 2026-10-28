@@ -1,0 +1,1 @@
+<div id="ds-poller" hx-get="{% url 'discuss:nuovi' canale.pk %}?dopo={{ ultimo }}" hx-trigger="every 3s, ds-nuovi from:body" hx-swap="outerHTML"></div>

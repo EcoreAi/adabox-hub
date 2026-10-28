@@ -1,0 +1,1 @@
+{% if altro_prima and messaggi %}{% include "discuss/_altro_prima.html" with primo=messaggi.0.pk %}{% endif %}{% for m in messaggi %}{% include "discuss/_messaggio.html" %}{% endfor %}
