@@ -4,7 +4,7 @@
 **Regole:** test prima, suite verde (SQLite e Postgres) che decide il commit, un commit per task con push,
 collaudo del modulo `ai`.
 
-### Task 1: infrastruttura — dipendenze, cifratura nel kernel, servizio ASGI per lo streaming
+### Task 1: infrastruttura — dipendenze, cifratura nel kernel, servizio ASGI per lo streaming — fatto
 - `anthropic==1.17.0`, `uvicorn`, `uvicorn-worker` nei requirements; `core/cifratura.py` (Fernet da
   `AI_CHIAVE_CIFRATURA` o derivata da `SECRET_KEY`); `config/asgi.py`; servizio `stream` nel compose e
   instradamento nginx di `/ai/flusso/`.

@@ -43,6 +43,24 @@ services:
       - ./media:/app/media
       - ./private:/app/private
 
+  # streaming dell'assistente AI (Server-Sent Events, /ai/flusso/): ASGI con uvicorn, stessa immagine.
+  # gunicorn resta WSGI per tutto il resto (sotto ASGI le viste sincrone di Django andrebbero in fila).
+  stream:
+    image: adabox_hub:latest
+    container_name: adabox_hub_stream
+    restart: unless-stopped
+    depends_on:
+      - web
+    env_file: .env
+    command: ["uvicorn", "config.asgi:application", "--host", "0.0.0.0", "--port", "8001", "--workers", "2",
+              "--proxy-headers", "--forwarded-allow-ips", "*", "--timeout-graceful-shutdown", "10"]
+    volumes:
+      - .:/app
+      - ./addons:/app/addons
+      - ./private:/app/private
+    expose:
+      - "8001"
+
   nginx:
     image: nginx:1.27-alpine
     container_name: adabox_hub_nginx

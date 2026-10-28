@@ -25,6 +25,8 @@ if str(ADDONS_DIR) not in sys.path:
 ADDONS_ATTIVI = bootstrap.moduli_installati(ADDONS_DIR, forzati=env.list("ADDONS_FORCE", default=[]))
 
 SECRET_KEY = env("SECRET_KEY", default="solo-sviluppo-cambiami")
+# chiave Fernet per i segreti salvati nel database (chiavi API...): senza, derivata da SECRET_KEY
+CHIAVE_CIFRATURA = env("CHIAVE_CIFRATURA", default="")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
