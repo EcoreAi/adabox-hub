@@ -31,6 +31,15 @@ def form_per_azienda(base, azienda_id):
     return type(base)(base.__name__, (base,), {"__init__": __init__, "__module__": base.__module__})
 
 
+def _con_etichette(base, etichette):
+    def __init__(self, *args, **kwargs):
+        base.__init__(self, *args, **kwargs)
+        for nome, etichetta in etichette.items():
+            if nome in self.fields:
+                self.fields[nome].label = etichetta
+    return type(base)(base.__name__, (base,), {"__init__": __init__, "__module__": base.__module__})
+
+
 class ModelView:
     model = None
     slug = None
@@ -64,6 +73,7 @@ class ModelView:
     import_key = None             # campo con cui l'import riconosce i record da aggiornare
     reports = ()                  # stampe PDF: [{"nome": "Scheda", "template": "app/report/x.html"}]
     inlines = ()                  # righe del documento: [Inline(Modello, "fk", ["campo", ...])]
+    etichette = {}                # etichette sostituite: {"campo": "Etichetta"} (es. da Studio)
     template_lista = "core/vista/lista.html"
     template_tabella = "core/vista/_tabella.html"
     template_form = "core/vista/form.html"
@@ -78,6 +88,11 @@ class ModelView:
         self.slug = self.slug or self.opts.model_name
         self.verbose_name = self.verbose_name or self.opts.verbose_name
         self.verbose_name_plural = self.verbose_name_plural or self.opts.verbose_name_plural
+
+    def personalizzata(self, request):
+        """La vista per questa richiesta: se un modulo la personalizza, una copia con gli attributi cambiati."""
+        from .personalizza import applica
+        return applica(self, request)
 
     def __repr__(self):
         return f"<{type(self).__name__} {self.modulo}:{self.slug}>"
@@ -219,13 +234,15 @@ class ModelView:
 
     def campi_form(self):
         return [c for _, righe in self.layout() for riga in righe for c in riga
-                if c not in self.readonly_fields and not c.startswith("@")]
+                if c not in self.readonly_fields and not c.startswith(("@", "prop_"))]
 
     def get_form_class(self, request=None):
         """ModelForm della vista; con la richiesta aggiunge i campi personalizzati validi per l'azienda corrente."""
         from core import proprieta
         base = self.form_class or modelform_factory(self.model, fields=self.campi_form(),
                                                     formfield_callback=_campo_form)
+        if self.etichette:
+            base = _con_etichette(base, self.etichette)
         if request is None:
             return base
         if proprieta.accetta(self.model):
@@ -260,6 +277,8 @@ class ModelView:
 
     def etichetta(self, campo):
         """Intestazione di colonna o etichetta di campo."""
+        if campo in self.etichette:
+            return self.etichette[campo]
         metodo = getattr(self, f"col_{campo}", None)
         if metodo is not None and hasattr(metodo, "short_description"):
             return metodo.short_description

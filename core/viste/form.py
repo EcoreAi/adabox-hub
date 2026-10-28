@@ -9,7 +9,8 @@ from .lista import VistaBase, urls_di
 def sezioni_form(vista, form):
     """[(titolo, [[BoundField, ...], ...])] dal layout, senza i campi in sola lettura. I campi personalizzati
     vanno dove il layout dice "@proprieta", altrimenti in una sezione "Altre informazioni" in fondo."""
-    proprieta = [n for n in form.fields if n.startswith("prop_")]
+    collocati_singoli = {c for _, righe in vista.layout() for riga in righe for c in riga}
+    proprieta = [n for n in form.fields if n.startswith("prop_") and n not in collocati_singoli]
     sezioni, collocati = [], False
     for titolo, righe in vista.layout():
         righe_form = []

@@ -5,7 +5,7 @@
 **Regole per chi esegue:** come nei piani precedenti (test prima, suite verde con l'esito di pytest che decide il
 commit, un commit per task con push, collaudo di ogni app nuova con `modulo collauda`).
 
-### Task 1: Kernel — viste personalizzabili e voci della testata
+### Task 1: Kernel — viste personalizzabili e voci della testata — fatto
 - `core/viste/personalizza.py`: `registra`, `ATTRIBUTI`, `applica(vista, request)`; `ModelView.personalizzata`,
   `VistaBase.dispatch` usa la copia; `etichette` in `etichetta()` e nelle label del form.
 - `prop_<nome>` singoli in `form_layout` (form e dettaglio) e in `list_display` (senza duplicare quelli `in_lista`).

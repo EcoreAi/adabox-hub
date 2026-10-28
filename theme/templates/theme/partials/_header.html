@@ -16,6 +16,8 @@
       <svg><use href="#icon-menu"/></svg>
     </button>
 
+    {% for voce in voci_testata %}{% include voce.template %}{% endfor %}
+
     <div class="ui-profile">
       <div class="ui-dropdown">
         <button type="button" class="ui-profile-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="profile-menu">

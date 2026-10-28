@@ -35,6 +35,11 @@ def parziale(request):
 class VistaBase(LoginRequiredMixin, View):
     vista = None
 
+    def dispatch(self, request, *args, **kwargs):
+        if self.vista is not None:
+            self.vista = self.vista.personalizzata(request)     # copia per questa richiesta (Studio)
+        return super().dispatch(request, *args, **kwargs)
+
 
 class ListaView(VistaBase):
     def get(self, request):
@@ -53,13 +58,16 @@ class ListaView(VistaBase):
         ordine = request.GET.get("o", "")
         ordinabili = filtri.ordinabili(vista)
         colonne = []
+        etichette_prop = {f"prop_{d.nome}": d.label for d in vista.proprieta(request)}
         for c in vista.list_display:
             direzione = "asc" if ordine == c else "desc" if ordine == f"-{c}" else ""
-            colonne.append({"campo": c, "label": vista.etichetta(c), "ordinabile": c in ordinabili,
+            colonne.append({"campo": c, "label": vista.etichette.get(c) or etichette_prop.get(c) or vista.etichetta(c),
+                            "ordinabile": c in ordinabili,
                             "direzione": direzione, "prossimo": f"-{c}" if direzione == "asc" else c})
         azioni = [(nome, etichetta, vista.url("azione", nome=nome)) for nome, etichetta in vista.get_actions(request)]
         stampe = [(r["nome"], vista.url("stampa_massa", indice=i)) for i, r in enumerate(vista.reports)]
-        extra = [d for d in vista.proprieta(request) if d.in_lista]       # campi personalizzati in lista
+        extra = [d for d in vista.proprieta(request)                     # campi personalizzati in lista
+                 if d.in_lista and f"prop_{d.nome}" not in vista.list_display]
         for d in extra:
             colonne.append({"campo": f"prop_{d.nome}", "label": d.label, "ordinabile": False, "direzione": "", "prossimo": ""})
         righe = [(obj, [vista.col_valore(request, obj, c) for c in vista.list_display]

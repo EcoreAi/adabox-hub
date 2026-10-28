@@ -14,10 +14,15 @@ class DettaglioView(VistaBase):
         obj = vista.get_object(request, pk)
         if not vista.has_view_permission(request, obj):
             raise PermissionDenied
+        definizioni = vista.proprieta(request)
+        etichette_prop = {proprieta_srv.nome_campo(d): d.label for d in definizioni}
+
         def dato(c):
-            return {"campo": c, "label": vista.etichetta(c), "valore": vista.col_valore(request, obj, c)}
+            return {"campo": c, "label": vista.etichette.get(c) or etichette_prop.get(c) or vista.etichetta(c),
+                    "valore": vista.col_valore(request, obj, c)}
+        singoli = {c for _, righe in vista.layout_dettaglio() for riga in righe for c in riga}
         proprieta = [{"campo": proprieta_srv.nome_campo(d), "label": d.label, "valore": proprieta_srv.testo(d, obj)}
-                     for d in vista.proprieta(request)]
+                     for d in definizioni if proprieta_srv.nome_campo(d) not in singoli]
         sezioni, collocate = [], False
         for titolo, righe in vista.layout_dettaglio():
             righe_dati = []

@@ -1,7 +1,7 @@
 from theme.context_processors import theme as _theme   # core importa theme, mai il contrario
 
 from . import attivita, azienda
-from .registry import modules
+from .registry import hooks, modules
 
 
 def piattaforma(request):
@@ -19,4 +19,5 @@ def piattaforma(request):
         "theme": {**base, "nav": nav},
         "apps": apps, "app_corrente": corrente, "menu_app": corrente["menu"] if corrente else [],
         "aziende": azienda.consentite(request.user), "azienda": getattr(request, "azienda", None),
+        "voci_testata": hooks.voci_testata(request),
     }
