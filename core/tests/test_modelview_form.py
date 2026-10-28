@@ -18,10 +18,10 @@ def _utente(client, *codenames, nome="op"):
 
 
 @pytest.fixture(autouse=True)
-def _pulisci_hooks():
-    hooks.svuota()
-    yield
-    hooks.svuota()
+def _pulisci_hooks(monkeypatch):
+    # registro vuoto per questi test e poi ripristinato: le sezioni registrate dalle app nel ready() restano
+    from collections import defaultdict
+    monkeypatch.setattr(hooks, "_sezioni", defaultdict(list))
 
 
 @pytest.fixture

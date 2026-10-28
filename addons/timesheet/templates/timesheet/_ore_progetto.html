@@ -1,0 +1,8 @@
+{% load timesheet %}
+{% ore_registrate progetto=obj as totale %}{% ore_registrate progetto=obj fatturabile=True as fatturabili %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Ore</div>
+    <div class="ui-card-sub">{{ totale|floatformat:2 }} h registrate · {{ fatturabili|floatformat:2 }} h fatturabili</div></div>
+    <div class="spacer"></div>
+    <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'timesheet:ore_lista' %}?f_progetto={{ obj.pk }}&g=utente">Dettaglio per persona</a></div>
+</section>

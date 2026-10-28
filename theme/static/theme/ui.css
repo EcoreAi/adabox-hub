@@ -1042,3 +1042,6 @@ td.ui-num { text-align: right; font-variant-numeric: tabular-nums; white-space: 
 /* Barra di avanzamento */
 .ui-avanzamento { height: 8px; border-radius: var(--radius-pill); background: var(--ui-surface-2); overflow: hidden; }
 .ui-avanzamento > span { display: block; height: 100%; background: var(--ui-success); border-radius: inherit; }
+
+/* Griglia delle ore settimanali */
+.ui-settimana .ui-ore { width: 64px; min-width: 0; padding: 6px 8px; text-align: right; }

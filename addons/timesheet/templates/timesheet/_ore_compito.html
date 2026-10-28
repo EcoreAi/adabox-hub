@@ -1,0 +1,9 @@
+{% load timesheet %}
+{% ore_registrate compito=obj as totale %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Ore</div>
+    <div class="ui-card-sub">{{ totale|floatformat:2 }} h registrate{% if obj.ore_previste %} su {{ obj.ore_previste|floatformat:2 }} h previste{% endif %}</div></div>
+    <div class="spacer"></div>
+    <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'timesheet:ore_nuovo' %}?progetto={{ obj.progetto_id }}&compito={{ obj.pk }}">Registra ore</a></div>
+  {% if obj.ore_previste %}<div class="ui-card-body"><div class="ui-avanzamento"><span style="width: {{ totale|percentuale:obj.ore_previste }}%"></span></div></div>{% endif %}
+</section>

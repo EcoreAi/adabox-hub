@@ -1,0 +1,33 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Settimana · Timesheet · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>La mia settimana</h1><div class="sub">dal {{ lunedi|date:"d/m/Y" }} · totale {{ totale }} h</div></div>
+  <div class="ui-pagehead-actions">
+    <a class="ui-btn ui-btn-secondary ui-btn-sm" href="?data={{ precedente|date:'Y-m-d' }}">‹ Precedente</a>
+    <a class="ui-btn ui-btn-secondary ui-btn-sm" href="?">Questa settimana</a>
+    <a class="ui-btn ui-btn-secondary ui-btn-sm" href="?data={{ successivo|date:'Y-m-d' }}">Successiva ›</a>
+  </div>
+</div>
+<form method="post" class="ui-card is-revealed">
+  {% csrf_token %}<input type="hidden" name="data" value="{{ lunedi|date:'Y-m-d' }}">
+  {% if righe %}
+  <div class="ui-table-wrap"><table class="ui-table is-revealed ui-settimana">
+    <thead><tr><th scope="col">Compito</th>{% for nome, g, t in giorni %}<th scope="col" class="ui-num">{{ nome }} {{ g|date:"d/m" }}</th>{% endfor %}<th scope="col" class="ui-num">Totale</th></tr></thead>
+    <tbody>
+      {% for r in righe %}
+      <tr>
+        <th scope="row"><a class="ui-link" href="{% url 'progetti:compiti_dettaglio' r.compito.pk %}">{{ r.compito.titolo }}</a><div class="ui-help">{{ r.compito.progetto }}</div></th>
+        {% for c in r.celle %}<td><input class="ui-input ui-ore" name="{{ c.nome }}" value="{{ c.valore }}" inputmode="decimal" aria-label="{{ r.compito.titolo }} {{ c.giorno|date:'d/m' }}"></td>{% endfor %}
+        <td class="ui-num">{{ r.totale }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot><tr class="ui-totali"><th scope="row">Totale del giorno</th>{% for nome, g, t in giorni %}<td class="ui-num">{{ t }}</td>{% endfor %}<td class="ui-num">{{ totale }}</td></tr></tfoot>
+  </table></div>
+  <div class="ui-card-body"><button type="submit" class="ui-btn ui-btn-primary"><svg><use href="#icon-save"/></svg> Salva la settimana</button></div>
+  {% else %}
+  <div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun compito aperto assegnato a te nei progetti attivi. Le ore senza compito si registrano dall'<a class="ui-link" href="{% url 'timesheet:ore_nuovo' %}">elenco delle ore</a>.</p></div></div>
+  {% endif %}
+</form>
+{% endblock %}

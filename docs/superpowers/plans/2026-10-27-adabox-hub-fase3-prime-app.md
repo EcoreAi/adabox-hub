@@ -39,7 +39,7 @@ ordine di dipendenza.
 - Fasi, `Progetto`, `Compito`, permesso `vedi_tutti_progetti` e visibilità, sezione "Compiti" nel dettaglio del
   progetto.
 
-### Task 6: timesheet
+### Task 6: timesheet — fatto
 - `RigaOre` con validazioni e visibilità, sezioni "Ore" su progetto e compito, pagina `/timesheet/settimana/`.
 
 ### Task 7: installazione di tutte le app, documentazione, verifica
