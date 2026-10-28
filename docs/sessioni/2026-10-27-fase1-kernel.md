@@ -103,3 +103,18 @@ eseguiti: **contatti, calendario, crm, helpdesk, progetti, timesheet**, tutte in
 
 Prossimi passi: prova nel browser; configurazione della posta per un'istanza vera; fase 4 (distribuzione: upload
 zip dei moduli, pacchettizzazione, firma) o fase 5 (gestionale: prodotti, vendite, magazzino, fatturazione).
+
+## Dashboard, chat e fase 4 — distribuzione (2026-10-28)
+
+- **Dashboard** (`/dashboard/`) con i KPI e i grafici dichiarati da ogni app (`dashboard` nel manifest); **home**
+  configurabile (`home` nel manifest): con il modulo `ai` installato è la chat, altrimenti la dashboard; launcher su
+  `/app/`. Modulo **`ai` 0.2.0** (scheletro): chat a tutto schermo con header e menu delle app, colonne laterali a
+  icone, suggerimenti e limitazione a un'app; risposta segnaposto in `addons/ai/assistente.py`.
+- **Fase 4** (spec `docs/superpowers/specs/2026-10-28-adabox-hub-fase4-distribuzione-design.md`, piano
+  `docs/superpowers/plans/2026-10-28-adabox-hub-fase4-distribuzione.md`): pacchetti zip con hash e firma Ed25519
+  (`cryptography`), caricamento con tutti i controlli da `/moduli/` e da CLI (estrae, non installa), catalogo firmato
+  con download, collaudo `modulo collauda` in istanze usa e getta. Tutte le 8 app passano il collaudo.
+- Il collaudo ha trovato un test di `ai` che presupponeva `todo` installato: corretto.
+
+Prossimi passi: generare la coppia di chiavi di produzione e pubblicare il catalogo; prontezza per un cliente vero
+(Postgres nel compose, HTTPS, posta, CI, backup pianificati); fase 5 (gestionale) e il modulo AI vero.

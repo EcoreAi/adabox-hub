@@ -16,6 +16,9 @@ class Command(BaseCommand):
         p.add_argument("modulo", help="slug in addons/ o percorso della cartella")
         p.add_argument("--firma", help="file della chiave privata")
         p.add_argument("--uscita", default="dist", help="cartella dei pacchetti (default dist/)")
+        p = sub.add_parser("collauda", help="installazione vergine e test di moduli, in un'istanza usa e getta")
+        p.add_argument("slugs", nargs="*")
+        p.add_argument("--tutti", action="store_true", help="tutti i moduli in addons/")
         p = sub.add_parser("indice", help="crea il catalogo firmato (indice.json) dai pacchetti di una cartella")
         p.add_argument("cartella")
         p.add_argument("--firma", required=True, help="file della chiave privata")
@@ -131,6 +134,27 @@ class Command(BaseCommand):
         zip_ = pacchetti.impacchetta(cartella, uscita, privata)
         stato = f"firmato ({pacchetti.impronta(pacchetti.pubblica_b64(privata))})" if privata else "non firmato"
         self.stdout.write(f"Pacchetto {zip_} {stato}")
+
+    def _collauda(self, slugs, tutti, **_):
+        from core.registry import collaudo
+        if not slugs and not tutti:
+            raise CommandError("indica i moduli da collaudare oppure --tutti")
+        try:
+            ordine, info = collaudo.da_collaudare(None if tutti else slugs)
+        except ValueError as e:
+            raise CommandError(str(e))
+        falliti = []
+        for slug in ordine:
+            self.stdout.write(f"Collaudo di {slug}…", ending=" ")
+            self.stdout.flush()
+            r = collaudo.collauda(slug, info)
+            self.stdout.write(("OK" if r.ok else "KO") + "  " + " · ".join(f"{n} {'✓' if ok else '✗'}" for n, ok in r.passi))
+            if not r.ok:
+                falliti.append(slug)
+                self.stdout.write(r.dettaglio)
+        if falliti:
+            raise CommandError(f"collaudo fallito: {', '.join(falliti)}")
+        self.stdout.write(f"Collaudo riuscito: {', '.join(ordine)}")
 
     def _indice(self, cartella, firma, url_base, **_):
         from core.registry import pacchetti

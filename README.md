@@ -188,6 +188,29 @@ Per l'helpdesk via email: casella delle risposte configurata (vedi "Posta del ch
 (es. `assistenza@cliente.it`) che arrivi nella stessa casella, e quell'indirizzo nel parametro "Indirizzo email
 dell'helpdesk" in `/impostazioni/`.
 
+## Distribuire i moduli
+
+Un modulo si consegna come pacchetto zip firmato da ICHNOBYTE; ogni istanza accetta solo le chiavi di cui si fida.
+
+1. **Chiavi** (una volta): `python manage.py modulo chiavi --uscita ~/chiavi/moduli.pem` crea la chiave privata
+   (da custodire fuori dal repository) e stampa la chiave pubblica e la sua impronta. Sulle istanze:
+   `MODULI_CHIAVI_FIDATE=<chiave pubblica>` nel `.env`. In produzione la firma è obbligatoria
+   (`MODULI_FIRMA_OBBLIGATORIA`, default il contrario di `DEBUG`).
+2. **Collaudo** prima di pubblicare: `python manage.py modulo collauda crm` (o `--tutti`) installa il modulo con le
+   sue dipendenze in un'istanza usa e getta (DB vuoto), carica i demo, esegue i suoi test e lo disinstalla.
+3. **Pacchetto**: `python manage.py modulo impacchetta crm --firma ~/chiavi/moduli.pem` crea `dist/crm-1.0.1.zip`
+   con la descrizione (SHA-256 di ogni file) e la firma.
+4. **Consegna**, in uno dei due modi:
+   - **caricamento**: da `/moduli/` → "Carica un modulo", oppure `python manage.py modulo carica crm-1.0.1.zip`;
+   - **catalogo**: `python manage.py modulo indice dist/ --firma ~/chiavi/moduli.pem --url-base https://…/moduli`
+     crea `indice.json` e `indice.sig`; pubblica la cartella e imposta sulle istanze
+     `MODULI_CATALOGO_URL=https://…/moduli/indice.json`. In `/moduli/` compare la sezione "Catalogo" con i moduli
+     nuovi o aggiornati e il bottone "Scarica".
+5. **Installazione o aggiornamento**: il caricamento controlla il pacchetto (firma, hash, percorsi, dimensioni,
+   manifest) e lo estrae in `addons/` senza toccare il database; poi si installa o aggiorna dalla scheda del modulo,
+   con il backup automatico. Una versione minore di quella presente è rifiutata; la cartella precedente resta in
+   `backup/moduli/`.
+
 ## Comandi `modulo`
 
 | Comando | Effetto |
@@ -198,6 +221,7 @@ dell'helpdesk" in `/impostazioni/`.
 | `modulo aggiorna <slug>...` / `--tutti` `[--riavvia]` | per i moduli con versione nuova su disco |
 | `modulo disinstalla <slug> [--elimina-dati] [--riavvia] [--si]` | rifiuta se altri moduli ne dipendono; senza `--elimina-dati` le tabelle restano |
 | `modulo sincronizza` | allinea la tabella `Modulo` al disco |
+| `modulo chiavi` · `impacchetta` · `carica` · `indice` · `collauda` | distribuzione dei moduli (vedi sopra) |
 
 Il lavoro vero lo fa `modulo_applica` (uso interno) in un processo nuovo, che legge il file
 di stato aggiornato e quindi ha il modulo in `INSTALLED_APPS`. Se fallisce, il file di stato

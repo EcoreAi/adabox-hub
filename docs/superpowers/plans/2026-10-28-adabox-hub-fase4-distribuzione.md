@@ -24,7 +24,7 @@ commit, un commit per task con push). Dipendenza nuova: `cryptography` (versione
 - Sezione "Catalogo" in `/moduli/` con "Scarica"; settings `MODULI_CATALOGO_URL`.
 - Test: indice, firma alterata, hash sbagliato, filtri delle voci.
 
-### Task 4: Collaudo, documentazione, verifica
+### Task 4: Collaudo, documentazione, verifica — fatto
 - `modulo collauda` (sottoprocesso per modulo con dipendenze e test del modulo); test lento che collauda un modulo che
   passa e uno che fallisce; collaudo di tutte le app ufficiali.
 - README: distribuzione dei moduli (chiavi, pacchetti, firma, caricamento, catalogo, collaudo). Suite SQLite e

@@ -28,11 +28,11 @@ def test_pagina_vuota_a_tre_colonne(client, utente):
     assert "data-sugg" in html and "ai-suggerimenti-app" in html
 
 
-def test_app_per_limitare_la_chat(client, utente):
-    from django.contrib.auth.models import Permission
-    utente.user_permissions.add(Permission.objects.get(codename="view_attivita"))
-    from django.contrib.auth.models import User
-    client.force_login(User.objects.get(pk=utente.pk))
+def test_app_per_limitare_la_chat(client, utente, monkeypatch):
+    # app finta: il modulo ai non dipende da nessuna app, il test non deve presupporne una installata
+    from ai import pagine
+    finta = [{"slug": "todo", "label": "To-Do", "icon": "todo/icon.svg", "url": "/todo/attivita/"}]
+    monkeypatch.setattr(pagine, "app_selezionabili", lambda user: finta)
     html = client.get("/ai/chat/").content.decode()
     assert 'data-ambito-app="todo"' in html and 'data-ambito-app="ai"' not in html
     client.post("/ai/chat/invia/", {"testo": "Cosa scade oggi?", "ambito": "todo"})
