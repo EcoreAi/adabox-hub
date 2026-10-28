@@ -11,3 +11,6 @@ backup/*
 !backup/.gitkeep
 media/
 private/
+.moduli-in-arrivo/
+dist/
+*.pem

@@ -10,6 +10,15 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         sub = parser.add_subparsers(dest="sottocomando", required=True)
         sub.add_parser("lista", help="moduli su disco e installati, con versione e stato")
+        p = sub.add_parser("chiavi", help="genera una coppia di chiavi Ed25519 per firmare i pacchetti")
+        p.add_argument("--uscita", default="chiave-moduli.pem", help="file della chiave privata (da custodire)")
+        p = sub.add_parser("impacchetta", help="crea lo zip di un modulo (firmato con --firma)")
+        p.add_argument("modulo", help="slug in addons/ o percorso della cartella")
+        p.add_argument("--firma", help="file della chiave privata")
+        p.add_argument("--uscita", default="dist", help="cartella dei pacchetti (default dist/)")
+        p = sub.add_parser("carica", help="controlla un pacchetto zip e lo estrae in addons/ (non installa)")
+        p.add_argument("pacchetto")
+        p.add_argument("--forza", action="store_true", help="sostituisce anche la stessa versione")
         sub.add_parser("sincronizza", help="allinea le righe Modulo al disco e al file di stato")
         p = sub.add_parser("installa", help="installa moduli e dipendenze mancanti")
         p.add_argument("slugs", nargs="+")
@@ -90,6 +99,46 @@ class Command(BaseCommand):
         except manifest.ManifestNonValido as e:
             raise CommandError("manifest non valido:\n" + "\n".join(f"- {err}" for err in e.errori))
         self.stdout.write(f"OK {m.slug} {m.version}")
+
+    def _chiavi(self, uscita, **_):
+        from pathlib import Path
+
+        from core.registry import pacchetti
+        destinazione = Path(uscita)
+        if destinazione.exists():
+            raise CommandError(f"{destinazione} esiste già: non la sovrascrivo")
+        privata, pubblica = pacchetti.genera_chiavi()
+        destinazione.write_bytes(privata)
+        destinazione.chmod(0o600)
+        self.stdout.write(f"Chiave privata: {destinazione} (custodiscila, non metterla nel repository)")
+        self.stdout.write(f"Chiave pubblica (per MODULI_CHIAVI_FIDATE): {pubblica}")
+        self.stdout.write(f"Impronta: {pacchetti.impronta(pubblica)}")
+
+    def _impacchetta(self, modulo, firma, uscita, **_):
+        from pathlib import Path
+
+        from django.conf import settings
+
+        from core.registry import pacchetti
+        cartella = Path(modulo) if "/" in modulo else Path(settings.ADDONS_DIR) / modulo
+        if not cartella.is_dir():
+            raise CommandError(f"cartella {cartella} inesistente")
+        privata = pacchetti.carica_privata(firma) if firma else None
+        zip_ = pacchetti.impacchetta(cartella, uscita, privata)
+        stato = f"firmato ({pacchetti.impronta(pacchetti.pubblica_b64(privata))})" if privata else "non firmato"
+        self.stdout.write(f"Pacchetto {zip_} {stato}")
+
+    def _carica(self, pacchetto, forza, **_):
+        from core.registry import pacchetti
+        try:
+            esito = pacchetti.carica(pacchetto, forza=forza)
+        except pacchetti.PacchettoNonValido as e:
+            raise CommandError("pacchetto rifiutato:\n" + "\n".join(f"- {err}" for err in e.errori))
+        origine = f"firmato da {esito.firmato_da}" if esito.firmato_da else "non firmato"
+        self.stdout.write(f"Caricato {esito.slug} {esito.versione} ({origine}). Installalo o aggiornalo da /moduli/ "
+                          f"o con `modulo installa {esito.slug}`.")
+        for avviso in esito.avvisi:
+            self.stdout.write(f"Avviso: {avviso}")
 
     def _lista(self, **_):
         righe = modules.sincronizza()

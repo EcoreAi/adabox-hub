@@ -5,7 +5,7 @@
 **Regole per chi esegue:** come nei piani precedenti (test prima, suite verde con l'esito di pytest che decide il
 commit, un commit per task con push). Dipendenza nuova: `cryptography` (versione da `pip freeze`).
 
-### Task 1: Pacchetti e firme
+### Task 1: Pacchetti e firme — fatto
 - `core/registry/pacchetti.py`: `descrivi(cartella)`, `impacchetta(cartella, uscita, chiave=None)`, `genera_chiavi()`,
   `firma(dati, chiave)`, `verifica(dati, firma, chiavi_fidate)`, `impronta(chiave_pubblica)`.
 - Comandi `modulo chiavi`, `modulo impacchetta`. Settings `MODULI_CHIAVI_FIDATE`, `MODULI_FIRMA_OBBLIGATORIA`,

@@ -145,6 +145,15 @@ IMPORT_SINCRONO_MAX = env.int("IMPORT_SINCRONO_MAX", default=1000)
 # Stampe PDF di massa oltre questi record passano dal worker
 REPORT_SINCRONO_MAX = env.int("REPORT_SINCRONO_MAX", default=20)
 
+# --- Distribuzione dei moduli (fase 4) -------------------------------------
+# Chiavi pubbliche Ed25519 (base64, separate da virgola) di cui l'istanza si fida per i pacchetti
+MODULI_CHIAVI_FIDATE = env.list("MODULI_CHIAVI_FIDATE", default=[])
+# In produzione si caricano solo pacchetti firmati da una chiave fidata
+MODULI_FIRMA_OBBLIGATORIA = env.bool("MODULI_FIRMA_OBBLIGATORIA", default=not DEBUG)
+MODULI_ZIP_MAX_MB = env.int("MODULI_ZIP_MAX_MB", default=20)
+# Catalogo dei moduli approvati: URL (https://… o file://…) di indice.json, con indice.sig accanto
+MODULI_CATALOGO_URL = env("MODULI_CATALOGO_URL", default="")
+
 # --- Sicurezza sempre attiva -------------------------------------------
 SESSION_COOKIE_AGE = 60 * 30
 SESSION_SAVE_EVERY_REQUEST = True
