@@ -1,0 +1,13 @@
+{% if obj.stato == "confermato" or obj.fatture.exists %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Fatture</div></div>
+  <div class="ui-card-body">
+    {% for f in obj.fatture.all %}<div class="ui-allegato"><a class="ui-link" href="{% url 'fatturazione:fatture_dettaglio' f.pk %}">{{ f }}</a>
+      <span class="ui-allegato-info">{{ f.get_stato_display }} · {{ f.data|date:"d/m/Y" }} · {{ f.totale|floatformat:2 }} €</span></div>{% endfor %}
+    {% if obj.stato == "confermato" and perms.fatturazione.add_fattura %}
+    <form method="post" action="{% url 'fatturazione:da_ordine' obj.pk %}">{% csrf_token %}
+      <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm"><svg><use href="#icon-plus"/></svg> Crea la fattura</button>
+    </form>{% endif %}
+  </div>
+</section>
+{% endif %}

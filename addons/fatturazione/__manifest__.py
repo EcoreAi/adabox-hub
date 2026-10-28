@@ -1,0 +1,27 @@
+{
+    "name": "Fatturazione",
+    "summary": "Fatture e note di credito, scadenze e incassi, fattura elettronica XML e registro IVA",
+    "version": "1.0.0",
+    "author": "ICHNOBYTE S.R.L.",
+    "category": "Contabilità",
+    "depends": ["vendite", "fiscale"],
+    "min_core": "1.0",
+    "application": True,
+    "icon": "fatturazione/icon.svg",
+    "dashboard": "fatturazione.dashboard.kpi",
+    "menu": [
+        {"label": "Fatture", "url_name": "fatturazione:fatture_lista", "permission": "fatturazione.view_fattura"},
+        {"label": "Scadenze", "url_name": "fatturazione:scadenze_lista", "permission": "fatturazione.view_scadenza"},
+        {"label": "Dati fiscali", "url_name": "fatturazione:dati_lista", "permission": "fatturazione.change_datifiscali"},
+    ],
+    "groups": {
+        "Fatturazione / Utente": ["fatturazione.view_fattura", "fatturazione.add_fattura", "fatturazione.change_fattura",
+                                  "fatturazione.view_rigafattura", "fatturazione.add_rigafattura",
+                                  "fatturazione.change_rigafattura", "fatturazione.delete_rigafattura",
+                                  "fatturazione.view_scadenza", "fatturazione.change_scadenza",
+                                  "fatturazione.view_datifiscali"],
+        "Fatturazione / Responsabile": ["fatturazione.*"],
+    },
+    "hooks": "fatturazione.hooks",
+    "sequences": [{"codice": "fatturazione.fattura", "formato": "{numero}/{anno}", "azzera": "anno"}],
+}

@@ -1,0 +1,10 @@
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Dati per la fatturazione</div></div>
+  <div class="ui-card-body">
+    {% if obj.dati_fiscali %}
+    <p>{{ obj.dati_fiscali.get_regime_fiscale_display }}{% if obj.dati_fiscali.iban %} · IBAN {{ obj.dati_fiscali.iban }}{% endif %}{% if obj.dati_fiscali.rea_numero %} · REA {{ obj.dati_fiscali.rea_ufficio }}-{{ obj.dati_fiscali.rea_numero }}{% endif %}</p>
+    <a class="ui-link" href="{% url 'fatturazione:dati_modifica' obj.dati_fiscali.pk %}">Modifica</a>
+    {% else %}<p class="ui-help">Regime fiscale, IBAN e REA non sono ancora indicati: servono per la fattura elettronica.</p>
+    <a class="ui-link" href="{% url 'fatturazione:dati_nuovo' %}">Inserisci</a>{% endif %}
+  </div>
+</section>

@@ -1,0 +1,16 @@
+{% with scadenze=obj.scadenze.all note=obj.note_credito.all %}
+{% if scadenze or note or obj.fattura_origine or obj.ordine %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Pagamento e collegamenti</div></div>
+  <div class="ui-card-body">
+    {% if obj.ordine %}<p>Dall'ordine <a class="ui-link" href="{% url 'vendite:ordini_dettaglio' obj.ordine.pk %}">{{ obj.ordine.numero_ordine }}</a></p>{% endif %}
+    {% if obj.fattura_origine %}<p>Storna <a class="ui-link" href="{% url 'fatturazione:fatture_dettaglio' obj.fattura_origine.pk %}">{{ obj.fattura_origine }}</a></p>{% endif %}
+    {% for n in note %}<p>Stornata da <a class="ui-link" href="{% url 'fatturazione:fatture_dettaglio' n.pk %}">{{ n }}</a> ({{ n.get_stato_display|lower }})</p>{% endfor %}
+    {% for s in scadenze %}<div class="ui-allegato"><a class="ui-link" href="{% url 'fatturazione:scadenze_dettaglio' s.pk %}">{{ s.data|date:"d/m/Y" }}</a>
+      <span class="ui-allegato-info">{{ s.importo|floatformat:2 }} € · {% if s.pagata %}incassata il {{ s.pagata_il|date:"d/m/Y" }}{% else %}da incassare{% endif %}</span>
+      {% if not s.pagata and perms.fatturazione.change_scadenza %}<form method="post" action="{% url 'fatturazione:scadenze_bottone' s.pk 'incassa' %}" style="display:inline">{% csrf_token %}<button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit">Segna incassata</button></form>{% endif %}
+    </div>{% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endwith %}
