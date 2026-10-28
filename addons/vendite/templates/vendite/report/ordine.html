@@ -1,0 +1,32 @@
+{% extends "core/report/base.html" %}
+{% block stile %}
+  .intestatario { margin: 4mm 0 6mm auto; width: 80mm; padding: 3mm 4mm; border: 1px solid #e5e5ea; border-radius: 2mm; }
+  table.righe { width: 100%; border-collapse: collapse; margin-top: 4mm; }
+  table.righe th { text-align: left; font-size: 8pt; color: #6e6e73; text-transform: uppercase; border-bottom: 1px solid #c7c7cc; padding: 2mm 1mm; }
+  table.righe td { padding: 2mm 1mm; border-bottom: 1px solid #f0f0f2; vertical-align: top; }
+  .num { text-align: right; white-space: nowrap; }
+  .totali { width: 70mm; margin: 5mm 0 0 auto; border-collapse: collapse; }
+  .totali td { padding: 1mm; } .totali tr:last-child td { font-weight: bold; font-size: 12pt; border-top: 1px solid #1d1d1f; }
+{% endblock %}
+{% block record %}
+<h1>{{ obj.titolo_documento }} {{ obj }}</h1>
+<div style="font-size:9pt;color:#6e6e73;">del {{ obj.data|date:"d/m/Y" }}{% if obj.validita and obj.stato != "confermato" %} · valido fino al {{ obj.validita|date:"d/m/Y" }}{% endif %}{% if obj.riferimento_cliente %} · vostro riferimento {{ obj.riferimento_cliente }}{% endif %}</div>
+<div class="intestatario">
+  <strong>{{ obj.cliente.nome }}</strong><br>
+  {% if obj.cliente.indirizzo %}{{ obj.cliente.indirizzo }}<br>{% endif %}{{ obj.cliente.cap }} {{ obj.cliente.citta }} {% if obj.cliente.provincia %}({{ obj.cliente.provincia }}){% endif %}<br>
+  {% if obj.cliente.partita_iva %}P.IVA {{ obj.cliente.partita_iva }}{% endif %}
+</div>
+<table class="righe">
+  <thead><tr><th>Descrizione</th><th class="num">Q.tà</th><th class="num">Prezzo</th><th class="num">Sconto</th><th class="num">IVA</th><th class="num">Importo</th></tr></thead>
+  <tbody>{% for r in obj.righe.all %}<tr>
+    <td>{{ r.descrizione }}</td><td class="num">{{ r.quantita|floatformat:"-3" }}</td><td class="num">{{ r.prezzo|floatformat:2 }}</td>
+    <td class="num">{% if r.sconto %}{{ r.sconto|floatformat:"-2" }}%{% endif %}</td><td class="num">{{ r.aliquota.codice }}</td><td class="num">{{ r.importo|floatformat:2 }}</td></tr>{% endfor %}</tbody>
+</table>
+<table class="totali">
+  <tr><td>Imponibile</td><td class="num">{{ obj.imponibile|floatformat:2 }} €</td></tr>
+  {% for g in obj.riepilogo_iva %}<tr><td>IVA {{ g.aliquota }}</td><td class="num">{{ g.imposta|floatformat:2 }} €</td></tr>{% endfor %}
+  <tr><td>Totale</td><td class="num">{{ obj.totale|floatformat:2 }} €</td></tr>
+</table>
+{% if obj.termine_pagamento %}<p>Pagamento: {{ obj.termine_pagamento }}</p>{% endif %}
+{% if obj.note %}<h2>Note</h2><p>{{ obj.note|linebreaksbr }}</p>{% endif %}
+{% endblock %}
