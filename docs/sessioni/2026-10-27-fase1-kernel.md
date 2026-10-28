@@ -135,3 +135,22 @@ vendite, magazzino, acquisti, fatturazione**, installate nel DB di sviluppo con 
 
 Prossimi passi: modulo `sdi` (invio/ricezione, notifiche, XSD); i demo di vendite non generano consegne (gli ordini
 demo sono confermati senza segnale); prova nel browser del ciclo completo; modulo AI vero.
+
+## Fase 6 — Studio, Documenti, Discuss (2026-10-28)
+
+Spec `docs/superpowers/specs/2026-10-28-adabox-hub-fase6-studio-documenti-discuss-design.md` e piano
+`docs/superpowers/plans/2026-10-28-adabox-hub-fase6-studio-documenti-discuss.md` eseguiti in autonomia; le tre app
+sono installate nel DB di sviluppo (documenti e discuss con i demo) e passano il collaudo.
+
+- Kernel: viste personalizzabili per richiesta (`core.viste.personalizza`, copia superficiale della `ModelView`),
+  `etichette`, campi personalizzati singoli nei layout, `hooks.voce_testata`, sezioni di dettaglio per tutti i
+  modelli (`"*"`).
+- **Studio**: editor in JavaScript nativo (trascinamento + bottoni), solo le differenze salvate, storico,
+  esporta/importa; verificato con jsdom e con un salvataggio vero sul server di sviluppo.
+- **Documenti**: permessi per gruppi ereditati, anteprima di immagini e PDF, cestino, zip, link pubblici con
+  limite per IP e registro accessi, richieste che creano un'attività, cartelle collegate ai modelli.
+- **Discuss**: canali e messaggi diretti con polling HTMX, non letti, menzioni, posta in arrivo anche dal chatter,
+  campanella in testata, email dei non letti.
+
+Prossimi passi: prova nel browser di editor di Studio, trascinamento dei file e chat; cache condivisa (Redis) per
+il limite dei link pubblici con più processi; campanella anche nella pagina della chat AI (ha una testata propria).

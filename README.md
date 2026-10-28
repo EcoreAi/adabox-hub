@@ -97,7 +97,11 @@ Un'app minima non scrive né viste né template: bastano modello, `ModelView` e 
    (scelte filtrate per azienda), il dettaglio le mostra in sola lettura; `dopo_righe(request, obj)` è chiamato
    dopo il salvataggio (es. per ricalcolare i totali) e `totali(obj)` dà le voci sotto le righe.
 6. **Sezioni su modelli altrui** — nel `ready()` dell'app:
-   `core.registry.hooks.sezione_dettaglio("todo.Attivita", "mia_app/_sezione.html", order=50)`.
+   `core.registry.hooks.sezione_dettaglio("todo.Attivita", "mia_app/_sezione.html", order=50)` (`"*"` = il
+   dettaglio di tutti i modelli). Per la barra in alto: `hooks.voce_testata("mia_app/_voce.html", order, permission)`.
+   Per cambiare le viste di altri moduli a ogni richiesta: `core.viste.personalizza.registra(funzione)`, dove
+   `funzione(vista, request)` restituisce gli attributi da sovrascrivere (`list_display`, `form_layout`,
+   `etichette`... vedi `ATTRIBUTI`); è il meccanismo usato da Studio.
 7. **Test** — in `addons/<slug>/tests/`; per farli girare con la suite aggiungi lo slug a
    `ADDONS_FORCE` in `pytest.ini`.
 
@@ -191,6 +195,9 @@ con `core.mixins.ProprietaMixin` (valori nel JSON `proprieta`): compaiono nel fo
 | `magazzino` | prodotti | movimenti e giacenze, consegne con DDT (scarico), ricevimenti (carico), rettifiche, scorte minime |
 | `acquisti` | prodotti, contatti | ordini ai fornitori con costi e IVA; stampa, invio, conferma |
 | `fatturazione` | vendite, fiscale | fatture e note di credito numerate all'emissione, scadenze e incassi, XML FatturaPA, registro IVA |
+| `studio` | — | adatta le viste senza programmare: colonne, filtri, ricerca, raggruppamenti, form, etichette, kanban; storico, esporta/importa |
+| `documenti` | — | archivio per cartelle con permessi ereditati, anteprima, tag, cestino, zip; link pubblici a scadenza, richieste di documenti, cartelle che raccolgono gli allegati dei record |
+| `discuss` | — | canali e messaggi diretti tra colleghi, menzioni, posta in arrivo (anche dal chatter), campanella in testata, email per i non letti |
 
 `python manage.py modulo installa timesheet crm helpdesk calendario --demo --si` installa tutto, con le dipendenze
 (contatti, progetti) e i dati dimostrativi. Chi installa un'app riceve il suo gruppo base; i gruppi "Responsabile"
@@ -218,6 +225,23 @@ completo. Il flusso: **prodotto → preventivo → ordine → consegna (DDT) →
   indirizzo nella sua anagrafica); il bottone "Fattura elettronica (XML)" di una fattura emessa scarica
   `IT<partita IVA>_<progressivo>.xml` in formato FPR12. L'invio allo SDI non è incluso (modulo `sdi` a parte).
 - Il registro IVA delle vendite (`/fatturazione/registro-iva/`) riepiloga per mese o anno, anche in CSV.
+
+### Studio, Documenti, Discuss
+
+- **Studio** (`/studio/`, superuser o gruppo "Studio / Amministratore"): per ogni vista si scelgono e ordinano
+  (trascinando) colonne, filtri, campi di ricerca, raggruppamenti, totali, ordinamento, righe per pagina, il layout
+  del form (sezioni, righe, campi affiancati, singoli campi personalizzati) e le etichette. Si salvano solo le
+  differenze dall'originale, così il resto segue gli aggiornamenti del modulo; i campi che un aggiornamento toglie
+  si ignorano. Ogni salvataggio tiene la versione precedente (ultime 20); "Esporta" e "Importa" portano tutte le
+  personalizzazioni e i campi personalizzati globali da un'istanza all'altra.
+- **Documenti** (`/documenti/`): i gruppi vuoti di una cartella ereditano quelli della madre (in cima: tutti gli
+  utenti dell'app); il gruppo "Responsabile" vede tutto. Una cartella collegata a un tipo di record (es. le
+  fatture) raccoglie gli allegati caricati sui suoi record, senza copiarli. I link pubblici
+  (`/documenti/condivisi/<token>/`) scadono, si revocano, registrano ogni accesso e hanno un limite di 60
+  richieste al minuto per IP (serve una cache condivisa, es. Redis, con più processi gunicorn).
+- **Discuss** (`/discuss/`): la conversazione aperta si aggiorna ogni 3 secondi e la campanella ogni 30 (niente
+  websocket). All'installazione tutti entrano nel canale «generale». Le menzioni (`@username`) e i messaggi
+  diretti non letti da 15 minuti arrivano per email (lavoro pianificato ogni 10 minuti: serve il worker).
 
 ## Distribuire i moduli
 
