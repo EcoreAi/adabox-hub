@@ -136,6 +136,8 @@ ALLEGATI_MAX_MB = env.int("ALLEGATI_MAX_MB", default=20)
 ALLEGATI_X_ACCEL = env.bool("ALLEGATI_X_ACCEL", default=False)
 # Indirizzo base assoluto per i link nelle email (es. https://hub.cliente.it)
 SITO_URL = env("SITO_URL", default="http://localhost:8000").rstrip("/")
+# app mostrate nella barra in alto (oltre alla Dashboard); le altre vanno nel menu "Altre"
+NAV_APP_VISIBILI = env.int("NAV_APP_VISIBILI", default=4)
 # Posta in entrata del chatter: casella delle risposte (con indirizzi +token) e accesso IMAP
 EMAIL_RISPOSTE = env("EMAIL_RISPOSTE", default="")
 IMAP_URL = env("IMAP_URL", default="")

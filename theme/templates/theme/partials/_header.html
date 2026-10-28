@@ -7,9 +7,17 @@
     </a>
 
     <nav class="ui-nav" aria-label="Principale">
-      {% for item in theme.nav %}
+      {% for item in theme.nav_principale|default:theme.nav %}
         <a href="{% url item.url_name %}" class="{% if current == item.url_name %}is-active{% endif %}">{{ item.label }}</a>
       {% endfor %}
+      {% if theme.nav_altre %}
+      <div class="ui-dropdown ui-nav-altre">
+        <button type="button" class="ui-nav-voce{% for item in theme.nav_altre %}{% if current == item.url_name %} is-active{% endif %}{% endfor %}" aria-haspopup="true" aria-expanded="false" aria-controls="nav-altre">Altre <svg class="chev"><use href="#icon-chevron-down"/></svg></button>
+        <div id="nav-altre" class="ui-dropdown-menu is-right" role="menu">
+          {% for item in theme.nav_altre %}<a href="{% url item.url_name %}" role="menuitem">{{ item.label }}</a>{% endfor %}
+        </div>
+      </div>
+      {% endif %}
     </nav>
 
     <button type="button" class="ui-nav-toggle" aria-label="Apri menu" aria-expanded="false">

@@ -57,7 +57,7 @@ h1, h2, h3, h4, h5, h6 { font-weight: 600; letter-spacing: -0.02em; color: var(-
 .ui-logo-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--ui-primary); color: #fff; display: inline-flex; align-items: center; justify-content: center; flex: none; }
 
 .ui-nav { flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; }
-.ui-nav a {
+.ui-nav a, .ui-nav-voce {
   position: relative;
   display: inline-flex; align-items: center; gap: 6px;
   padding: 8px 14px;
@@ -66,13 +66,17 @@ h1, h2, h3, h4, h5, h6 { font-weight: 600; letter-spacing: -0.02em; color: var(-
   border-radius: var(--radius-pill);
   transition: var(--transition);
 }
-.ui-nav a:hover { color: var(--ui-text); background: rgba(0, 0, 0, 0.04); text-decoration: none; }
-.ui-nav a.is-active { color: var(--ui-primary); }
-.ui-nav a.is-active::after {
+.ui-nav a:hover, .ui-nav-voce:hover { color: var(--ui-text); background: rgba(0, 0, 0, 0.04); text-decoration: none; }
+.ui-nav a.is-active, .ui-nav-voce.is-active { color: var(--ui-primary); }
+.ui-nav a.is-active::after, .ui-nav-voce.is-active::after {
   content: ""; position: absolute; left: 14px; right: 14px; bottom: -2px; height: 2px;
   background: var(--ui-primary); border-radius: 2px;
 }
 .ui-nav .chev { width: 12px; height: 12px; opacity: .6; }
+.ui-nav-voce { font-family: inherit; }
+.ui-nav-altre .ui-dropdown-menu { min-width: 200px; max-height: 70vh; overflow-y: auto; }
+.ui-nav-altre .ui-dropdown-menu a { display: flex; border-radius: 8px; }
+.ui-nav-altre .ui-dropdown-menu a::after { display: none; }
 
 /* Dropdown */
 .ui-dropdown { position: relative; }
@@ -763,6 +767,9 @@ textarea.ui-input { min-height: 96px; resize: vertical; }
   .ui-nav.is-open a { padding: 12px 14px; font-size: 15px; border-radius: 10px; }
   .ui-nav.is-open a.is-active { background: var(--ui-primary-tint); }
   .ui-nav.is-open a.is-active::after { display: none; }
+  .ui-nav.is-open .ui-nav-altre > .ui-nav-voce { display: none; }        /* su mobile: tutte in fila */
+  .ui-nav.is-open .ui-nav-altre .ui-dropdown-menu { position: static; opacity: 1; transform: none; pointer-events: auto;
+    box-shadow: none; border: 0; padding: 0; min-width: 0; max-height: none; background: none; }
   .ui-logo { font-size: 15px; gap: 6px; white-space: nowrap; }
   .ui-logo-mark { width: 24px; height: 24px; font-size: 10px; }
   .ui-profile-name { display: none; }
