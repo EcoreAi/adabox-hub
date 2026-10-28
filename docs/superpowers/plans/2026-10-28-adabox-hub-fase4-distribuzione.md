@@ -19,7 +19,7 @@ commit, un commit per task con push). Dipendenza nuova: `cryptography` (versione
 - Comando `modulo carica`; card "Carica un modulo" in `/moduli/`.
 - Test: tutti i casi della spec.
 
-### Task 3: Catalogo
+### Task 3: Catalogo — fatto
 - `modulo indice`; `pacchetti.leggi_catalogo()` (URL http(s) o file, timeout, firma), `pacchetti.scarica(voce)`.
 - Sezione "Catalogo" in `/moduli/` con "Scarica"; settings `MODULI_CATALOGO_URL`.
 - Test: indice, firma alterata, hash sbagliato, filtri delle voci.

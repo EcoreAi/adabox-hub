@@ -16,6 +16,10 @@ class Command(BaseCommand):
         p.add_argument("modulo", help="slug in addons/ o percorso della cartella")
         p.add_argument("--firma", help="file della chiave privata")
         p.add_argument("--uscita", default="dist", help="cartella dei pacchetti (default dist/)")
+        p = sub.add_parser("indice", help="crea il catalogo firmato (indice.json) dai pacchetti di una cartella")
+        p.add_argument("cartella")
+        p.add_argument("--firma", required=True, help="file della chiave privata")
+        p.add_argument("--url-base", default="", help="URL da cui si scaricano i pacchetti (default: accanto all'indice)")
         p = sub.add_parser("carica", help="controlla un pacchetto zip e lo estrae in addons/ (non installa)")
         p.add_argument("pacchetto")
         p.add_argument("--forza", action="store_true", help="sostituisce anche la stessa versione")
@@ -127,6 +131,11 @@ class Command(BaseCommand):
         zip_ = pacchetti.impacchetta(cartella, uscita, privata)
         stato = f"firmato ({pacchetti.impronta(pacchetti.pubblica_b64(privata))})" if privata else "non firmato"
         self.stdout.write(f"Pacchetto {zip_} {stato}")
+
+    def _indice(self, cartella, firma, url_base, **_):
+        from core.registry import pacchetti
+        n = pacchetti.crea_indice(cartella, pacchetti.carica_privata(firma), url_base)
+        self.stdout.write(f"Catalogo con {n} pacchetti firmati in {cartella}/indice.json (e indice.sig)")
 
     def _carica(self, pacchetto, forza, **_):
         from core.registry import pacchetti

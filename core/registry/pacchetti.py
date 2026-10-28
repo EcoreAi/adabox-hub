@@ -285,3 +285,105 @@ def origine(cartella):
         return json.loads(percorso.read_text())
     except (OSError, ValueError):
         return None
+
+
+# --- catalogo dei moduli approvati -------------------------------------------------------
+
+INDICE, FIRMA_INDICE = "indice.json", "indice.sig"
+TIMEOUT_CATALOGO = 15
+
+
+def _info_pacchetto(percorso_zip):
+    """Descrizione e manifest (letto con ast, mai importato) di un pacchetto, senza estrarlo."""
+    import ast
+    with zipfile.ZipFile(percorso_zip) as z:
+        descrizione = json.loads(z.read(DESCRIZIONE))
+        dati_manifest = ast.literal_eval(z.read(f"{descrizione['slug']}/__manifest__.py").decode("utf-8"))
+        firmato = FIRMA in z.namelist()
+    return descrizione, dati_manifest, firmato
+
+
+def crea_indice(cartella, privata, url_base=""):
+    """Scrive indice.json (i pacchetti firmati della cartella) e indice.sig. Restituisce il numero di voci."""
+    cartella = Path(cartella)
+    voci = []
+    for zip_ in sorted(cartella.glob("*.zip")):
+        descrizione, m, firmato = _info_pacchetto(zip_)
+        if not firmato:
+            continue                                      # nel catalogo vanno solo pacchetti firmati
+        voci.append({"slug": descrizione["slug"], "versione": descrizione["versione"], "nome": m.get("name", ""),
+                     "riassunto": m.get("summary", ""), "dipendenze": m.get("depends", []),
+                     "min_core": descrizione["min_core"], "file": zip_.name,
+                     "url": f"{url_base.rstrip('/')}/{zip_.name}" if url_base else zip_.name,
+                     "sha256": _sha256(zip_), "dimensione": zip_.stat().st_size})
+    dati = serializza({"formato": FORMATO, "creato": timezone.now().isoformat(timespec="seconds"), "moduli": voci})
+    (cartella / INDICE).write_bytes(dati)
+    (cartella / FIRMA_INDICE).write_bytes(firma(dati, privata))
+    return len(voci)
+
+
+def _leggi_url(url, limite):
+    from urllib.request import urlopen
+    with urlopen(url, timeout=TIMEOUT_CATALOGO) as risposta:          # http(s) o file: lo decide l'amministratore
+        dati = risposta.read(limite + 1)
+    if len(dati) > limite:
+        raise PacchettoNonValido(f"{url}: risposta troppo grande")
+    return dati
+
+
+def leggi_catalogo():
+    """Le voci del catalogo (ultima versione per modulo) con lo stato rispetto a addons/:
+    'nuovo' (non presente), 'aggiornamento' (più recente), 'presente'. Firma dell'indice verificata."""
+    from urllib.error import URLError
+    from urllib.parse import urljoin
+    url = settings.MODULI_CATALOGO_URL
+    if not url:
+        return []
+    try:
+        dati = _leggi_url(url, 5 * 1024 * 1024)
+        try:
+            firma_indice = _leggi_url(urljoin(url, FIRMA_INDICE), 4096)
+        except (URLError, OSError):
+            firma_indice = None
+    except (URLError, OSError, ValueError) as e:
+        raise PacchettoNonValido(f"catalogo non raggiungibile: {e}")
+    if firma_indice is None or verifica(dati, firma_indice, chiavi_fidate()) is None:
+        raise PacchettoNonValido("catalogo senza una firma valida di una chiave fidata")
+    try:
+        voci = json.loads(dati)["moduli"]
+    except (ValueError, KeyError):
+        raise PacchettoNonValido("indice del catalogo non valido")
+    ultime = {}
+    for v in voci:
+        if v["slug"] not in ultime or manifest.versione_tupla(v["versione"]) > manifest.versione_tupla(ultime[v["slug"]]["versione"]):
+            ultime[v["slug"]] = v
+    risultato = []
+    for slug, v in sorted(ultime.items()):
+        cartella = Path(settings.ADDONS_DIR) / slug
+        try:
+            presente = manifest.leggi(cartella).version if cartella.exists() else None
+        except manifest.ManifestNonValido:
+            presente = None
+        if presente is None:
+            stato = "nuovo"
+        elif manifest.versione_tupla(v["versione"]) > manifest.versione_tupla(presente):
+            stato = "aggiornamento"
+        else:
+            stato = "presente"
+        risultato.append({**v, "url": urljoin(url, v["url"]), "stato": stato, "versione_presente": presente,
+                          "compatibile": manifest.core_compatibile(v["min_core"])})
+    return risultato
+
+
+def scarica(slug):
+    """Scarica dal catalogo l'ultima versione di `slug`, controlla l'hash dell'indice e la carica in addons/."""
+    voce = next((v for v in leggi_catalogo() if v["slug"] == slug), None)
+    if voce is None:
+        raise PacchettoNonValido(f"{slug} non è nel catalogo")
+    dati = _leggi_url(voce["url"], settings.MODULI_ZIP_MAX_MB * 1024 * 1024)
+    if hashlib.sha256(dati).hexdigest() != voce["sha256"]:
+        raise PacchettoNonValido(f"{voce['file']}: il file scaricato non corrisponde al catalogo")
+    with tempfile.NamedTemporaryFile(suffix=".zip") as temporaneo:
+        temporaneo.write(dati)
+        temporaneo.flush()
+        return carica(temporaneo.name, nome_pacchetto=voce["file"])

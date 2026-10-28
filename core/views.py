@@ -232,7 +232,13 @@ def _schede_moduli():
 
 def _pagina_moduli(request, log=None):
     from django.conf import settings
-    ctx = {"schede": _schede_moduli(), "firma_obbligatoria": settings.MODULI_FIRMA_OBBLIGATORIA}
+    ctx = {"schede": _schede_moduli(), "firma_obbligatoria": settings.MODULI_FIRMA_OBBLIGATORIA,
+           "catalogo_configurato": bool(settings.MODULI_CATALOGO_URL)}
+    if settings.MODULI_CATALOGO_URL:
+        try:
+            ctx["catalogo"] = [v for v in pacchetti.leggi_catalogo() if v["stato"] != "presente"]
+        except pacchetti.PacchettoNonValido as e:
+            ctx["errore_catalogo"] = str(e)
     if log:
         ctx["log"], (ctx["coda"], ctx["stato"]) = log, mod.leggi(log)
     return render(request, "core/moduli.html", ctx)
@@ -280,6 +286,19 @@ def moduli_carica(request):
             return redirect("core:moduli")
     origine = f"firmato da {esito.firmato_da}" if esito.firmato_da else "non firmato"
     messages.success(request, f"{esito.nome} {esito.versione} caricato ({origine}): ora puoi installarlo o aggiornarlo.")
+    return redirect(f"{reverse('core:moduli')}#modulo-{esito.slug}")
+
+
+@require_POST
+@solo_superuser
+def moduli_scarica(request):
+    """Scarica dal catalogo un modulo nuovo o aggiornato e lo carica in addons/."""
+    try:
+        esito = pacchetti.scarica(request.POST.get("slug", ""))
+    except pacchetti.PacchettoNonValido as e:
+        messages.error(request, "Download rifiutato: " + "; ".join(e.errori))
+        return redirect("core:moduli")
+    messages.success(request, f"{esito.nome} {esito.versione} scaricato dal catalogo: ora puoi installarlo o aggiornarlo.")
     return redirect(f"{reverse('core:moduli')}#modulo-{esito.slug}")
 
 

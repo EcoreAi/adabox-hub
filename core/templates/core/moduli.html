@@ -18,6 +18,29 @@
     </form>
   </div>
 </section>
+{% if catalogo_configurato %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Catalogo</div>
+    <div class="ui-card-sub">Moduli approvati nuovi o più recenti di quelli presenti</div></div></div>
+  <div class="ui-card-body">
+    {% if errore_catalogo %}<div class="ui-alert ui-alert-error">{{ errore_catalogo }}</div>
+    {% elif catalogo %}
+    <div class="ui-table-wrap"><table class="ui-table is-revealed">
+      <thead><tr><th>Modulo</th><th>Versione</th><th>Dipende da</th><th class="actions"></th></tr></thead>
+      <tbody>{% for v in catalogo %}<tr>
+        <td><strong>{{ v.nome }}</strong> <code class="ui-code">{{ v.slug }}</code><div class="ui-help">{{ v.riassunto }}</div></td>
+        <td>{% if v.versione_presente %}{{ v.versione_presente }} → {% endif %}{{ v.versione }}
+          {% if v.stato == "nuovo" %}<span class="ui-pill ui-pill-info">nuovo</span>{% else %}<span class="ui-pill ui-pill-warn">aggiornamento</span>{% endif %}</td>
+        <td>{{ v.dipendenze|join:", "|default:"—" }}</td>
+        <td class="actions">{% if v.compatibile %}<form method="post" action="{% url 'core:moduli_scarica' %}">{% csrf_token %}
+          <input type="hidden" name="slug" value="{{ v.slug }}"><button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Scarica</button></form>
+          {% else %}<span class="ui-help">richiede un kernel più recente ({{ v.min_core }})</span>{% endif %}</td>
+      </tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}<p class="ui-help">Tutti i moduli del catalogo sono già presenti e aggiornati.</p>{% endif %}
+  </div>
+</section>
+{% endif %}
 {% if schede %}
 <div class="ui-moduli">
   {% for s in schede %}{% with r=s.riga m=s.manifest %}
