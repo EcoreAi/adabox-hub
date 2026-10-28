@@ -55,6 +55,8 @@ class Fattura(AziendaMixin, ProprietaMixin):
     totale = models.DecimalField("totale", max_digits=14, decimal_places=2, default=0, editable=False)
     pagata = models.BooleanField("incassata", default=False, editable=False)
     emessa_il = models.DateTimeField("emessa il", null=True, blank=True, editable=False)
+    progressivo_invio = models.CharField("progressivo di invio", max_length=5, blank=True, editable=False,
+                                         help_text="assegnato alla prima generazione dell'XML")
 
     class Meta(AziendaMixin.Meta):
         verbose_name = "fattura"

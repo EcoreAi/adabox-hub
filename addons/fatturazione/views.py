@@ -1,11 +1,12 @@
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.http import HttpResponse
 from django.shortcuts import redirect
 
 from core import chatter, lavori
 from core.viste import Inline, ModelView, register
 
-from . import operazioni
+from . import fatturapa, operazioni
 from .models import DatiFiscali, Fattura, RigaFattura, Scadenza
 
 
@@ -37,7 +38,7 @@ class FatturaView(ModelView):
              "per": ["data:mese", "cliente", "tipo", "stato"]}
     chatter = True
     tracked_fields = ["stato", "cliente", "totale", "pagata"]
-    buttons = ["emetti", "invia", "nota_di_credito", "annulla"]
+    buttons = ["emetti", "xml", "invia", "nota_di_credito", "annulla"]
     reports = [{"nome": "Stampa", "template": "fatturazione/report/fattura.html"}]
     api = True
 
@@ -65,7 +66,7 @@ class FatturaView(ModelView):
         return voci + [("Totale", euro(obj.totale))]
 
     def get_buttons(self, request, obj):
-        ammessi = {Fattura.BOZZA: {"emetti", "annulla"}, Fattura.EMESSA: {"invia", "nota_di_credito"},
+        ammessi = {Fattura.BOZZA: {"emetti", "annulla"}, Fattura.EMESSA: {"xml", "invia", "nota_di_credito"},
                    Fattura.ANNULLATA: set()}[obj.stato]
         if obj.tipo == Fattura.NOTA_CREDITO:
             ammessi.discard("nota_di_credito")
@@ -82,6 +83,19 @@ class FatturaView(ModelView):
         chatter.traccia(obj, vecchi, request.user)
         return f"{obj} emessa."
     emetti.short_description = "Emetti"
+
+    def xml(self, request, obj):
+        try:
+            nome, contenuto = fatturapa.genera(obj)
+        except ValidationError as e:
+            for m in e.messages:
+                messages.error(request, m)
+            return redirect(self.url("dettaglio", pk=obj.pk))
+        risposta = HttpResponse(contenuto, content_type="application/xml")
+        risposta["Content-Disposition"] = f'attachment; filename="{nome}"'
+        return risposta
+    xml.short_description = "Fattura elettronica (XML)"
+    xml.permission = "view"
 
     def invia(self, request, obj):
         if not obj.cliente.email:

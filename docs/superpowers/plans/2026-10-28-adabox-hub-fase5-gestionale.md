@@ -18,5 +18,5 @@ commit, un commit per task con push, collaudo di ogni app nuova con `modulo coll
 ### Task 5: magazzino (movimenti, giacenze, consegne/DDT, ricevimenti, rettifiche, scorte) — fatto
 ### Task 6: acquisti (ordini fornitore, segnale di conferma, ricevimento) — fatto
 ### Task 7: fatturazione (dati fiscali, fatture, emissione, scadenze, incassi, note di credito) — fatto
-### Task 8: fattura elettronica XML e registro IVA
+### Task 8: fattura elettronica XML e registro IVA — fatto
 ### Task 9: installazione di tutto, collaudo, README, verifica

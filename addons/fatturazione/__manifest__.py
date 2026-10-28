@@ -12,6 +12,7 @@
     "menu": [
         {"label": "Fatture", "url_name": "fatturazione:fatture_lista", "permission": "fatturazione.view_fattura"},
         {"label": "Scadenze", "url_name": "fatturazione:scadenze_lista", "permission": "fatturazione.view_scadenza"},
+        {"label": "Registro IVA", "url_name": "fatturazione:registro_iva", "permission": "fatturazione.view_fattura"},
         {"label": "Dati fiscali", "url_name": "fatturazione:dati_lista", "permission": "fatturazione.change_datifiscali"},
     ],
     "groups": {
