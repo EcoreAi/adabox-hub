@@ -1,0 +1,36 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Registro IVA · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Registro IVA degli acquisti</h1><div class="sub">{{ titolo_periodo }} · {{ righe|length }} righe</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="?anno={{ anno }}&mese={{ mese|default_if_none:'' }}&formato=csv">Esporta CSV</a></div>
+</div>
+<div class="ui-card is-revealed">
+  <form class="ui-filtri" method="get">
+    <select class="ui-input" name="anno" aria-label="Anno">{% for a in anni %}<option value="{{ a }}"{% if a == anno %} selected{% endif %}>{{ a }}</option>{% endfor %}</select>
+    <select class="ui-input" name="mese" aria-label="Mese"><option value="">Tutto l'anno</option>{% for n, nome in mesi %}<option value="{{ n }}"{% if n == mese %} selected{% endif %}>{{ nome|capfirst }}</option>{% endfor %}</select>
+    <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Mostra</button>
+  </form>
+  {% if righe %}
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Registrata</th><th>Numero e data</th><th>Fornitore</th><th>Partita IVA / C.F.</th><th>Aliquota</th><th class="ui-num">Imponibile</th><th class="ui-num">Imposta</th></tr></thead>
+    <tbody>{% for r in righe %}<tr>
+      <td>{{ r.fattura.registrata_il|date:"d/m/Y" }}</td>
+      <td><a class="ui-link" href="{% url 'sdi:passive_dettaglio' r.fattura.pk %}">{{ r.fattura.numero }}</a> del {{ r.fattura.data|date:"d/m/Y" }}{% if r.fattura.nota_credito %} <span class="ui-pill">nota di credito</span>{% endif %}</td>
+      <td>{{ r.fattura.fornitore.nome }}</td><td>{{ r.fattura.fornitore.partita_iva|default:r.fattura.fornitore.codice_fiscale }}</td>
+      <td>{{ r.aliquota }}</td><td class="ui-num">{{ r.imponibile|floatformat:2 }}</td><td class="ui-num">{{ r.imposta|floatformat:2 }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessuna fattura registrata nel periodo.</p></div></div>{% endif %}
+</div>
+{% if riepilogo %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Riepilogo per aliquota</div></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Aliquota</th><th class="ui-num">Imponibile</th><th class="ui-num">Imposta</th></tr></thead>
+    <tbody>{% for v in riepilogo %}<tr><td>{{ v.aliquota }}</td><td class="ui-num">{{ v.imponibile|floatformat:2 }}</td><td class="ui-num">{{ v.imposta|floatformat:2 }}</td></tr>{% endfor %}
+    <tr><td><strong>Totale</strong></td><td class="ui-num"><strong>{{ totale.imponibile|floatformat:2 }}</strong></td><td class="ui-num"><strong>{{ totale.imposta|floatformat:2 }}</strong></td></tr></tbody>
+  </table></div>
+</section>
+{% endif %}
+{% endblock %}

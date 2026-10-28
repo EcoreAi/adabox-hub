@@ -10,13 +10,17 @@
     "icon": "sdi/icon.svg",
     "dashboard": "sdi.dashboard.kpi",
     "menu": [
+        {"label": "Fatture ricevute", "url_name": "sdi:passive_lista", "permission": "sdi.view_fatturapassiva"},
+        {"label": "Da pagare", "url_name": "sdi:pagamenti_lista", "permission": "sdi.view_scadenzapassiva"},
+        {"label": "Registro acquisti", "url_name": "sdi:registro_acquisti", "permission": "sdi.view_fatturapassiva"},
         {"label": "Trasmissioni", "url_name": "sdi:trasmissioni_lista", "permission": "sdi.view_trasmissione"},
         {"label": "Notifiche", "url_name": "sdi:notifiche_lista", "permission": "sdi.view_notificasdi"},
         {"label": "Carica file dello SDI", "url_name": "sdi:carica", "permission": "sdi.add_notificasdi"},
     ],
     "groups": {
         "SDI / Utente": ["sdi.view_trasmissione", "sdi.add_trasmissione", "sdi.view_notificasdi",
-                         "sdi.add_notificasdi"],
+                         "sdi.add_notificasdi", "sdi.view_fatturapassiva", "sdi.change_fatturapassiva",
+                         "sdi.view_rigapassiva", "sdi.view_scadenzapassiva", "sdi.change_scadenzapassiva"],
         "SDI / Responsabile": ["sdi.*"],
     },
     "settings": [
