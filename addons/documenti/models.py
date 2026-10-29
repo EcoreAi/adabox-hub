@@ -11,8 +11,71 @@ from core.mixins import AziendaMixin, ProprietaMixin
 from core.storage import StoragePrivato
 
 
+class Spazio(AziendaMixin):
+    """Spazio di lavoro: personale (di un utente) o condiviso (tra i membri). Le sue cartelle seguono le regole dello
+    spazio; le cartelle senza spazio sono l'archivio aziendale."""
+    PERSONALE, CONDIVISO = "personale", "condiviso"
+    TIPI = [(PERSONALE, "Personale"), (CONDIVISO, "Condiviso")]
+    nome = models.CharField("nome", max_length=120)
+    tipo = models.CharField("tipo", max_length=10, choices=TIPI, default=PERSONALE)
+    proprietario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="spazi_documenti",
+                                     verbose_name="proprietario")
+    descrizione = models.TextField("descrizione", blank=True)
+    quota_mb = models.PositiveIntegerField("quota (MB)", default=0,
+                                           help_text="solo per gli spazi condivisi; 0 = solo la quota dell'azienda")
+    membri = models.ManyToManyField(settings.AUTH_USER_MODEL, through="MembroSpazio", blank=True, related_name="+",
+                                    verbose_name="membri")
+    creato = models.DateTimeField("creato il", auto_now_add=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "spazio di lavoro"
+        verbose_name_plural = "spazi di lavoro"
+        ordering = ["tipo", "nome", "pk"]
+        permissions = [("crea_spazio_condiviso", "Crea spazi condivisi")]
+
+    def __str__(self):
+        return self.nome
+
+    @property
+    def personale(self):
+        return self.tipo == self.PERSONALE
+
+
+class MembroSpazio(models.Model):
+    LETTURA, SCRITTURA, GESTIONE = "lettura", "scrittura", "gestione"
+    RUOLI = [(LETTURA, "Legge"), (SCRITTURA, "Legge e scrive"), (GESTIONE, "Gestisce (anche i membri)")]
+    spazio = models.ForeignKey(Spazio, on_delete=models.CASCADE, related_name="iscritti", verbose_name="spazio")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+",
+                               verbose_name="utente")
+    ruolo = models.CharField("ruolo", max_length=10, choices=RUOLI, default=SCRITTURA)
+
+    class Meta:
+        verbose_name = "membro"
+        verbose_name_plural = "membri"
+        constraints = [models.UniqueConstraint(fields=["spazio", "utente"], name="documenti_membro_unico")]
+
+    def __str__(self):
+        return f"{self.utente} · {self.get_ruolo_display()}"
+
+
+class QuotaUtente(AziendaMixin):
+    """Quanti MB può occupare un utente con i suoi spazi personali (senza riga: il default dell'azienda)."""
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+",
+                               verbose_name="utente")
+    quota_mb = models.PositiveIntegerField("quota (MB)", help_text="0 = solo la quota dell'azienda")
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "quota di un utente"
+        verbose_name_plural = "quote degli utenti"
+        constraints = [models.UniqueConstraint(fields=["azienda", "utente"], name="documenti_quota_unica")]
+
+    def __str__(self):
+        return f"{self.utente}: {self.quota_mb} MB"
+
+
 class Cartella(AziendaMixin):
-    """Cartella dell'archivio. I gruppi vuoti ereditano quelli della cartella madre (in cima: tutti gli utenti)."""
+    """Cartella dell'archivio. I gruppi vuoti ereditano quelli della cartella madre (in cima: tutti gli utenti).
+    Le cartelle di uno spazio di lavoro seguono invece le regole dello spazio."""
     nome = models.CharField("nome", max_length=120)
     padre = models.ForeignKey("self", on_delete=models.PROTECT, null=True, blank=True, related_name="figlie",
                               verbose_name="dentro a")
@@ -25,6 +88,8 @@ class Cartella(AziendaMixin):
     modello = models.ForeignKey(ContentType, on_delete=models.SET_NULL, null=True, blank=True,
                                 verbose_name="raccoglie gli allegati di",
                                 help_text="gli allegati caricati sui record di questo tipo finiscono qui")
+    spazio = models.ForeignKey(Spazio, on_delete=models.CASCADE, null=True, blank=True, related_name="cartelle",
+                               verbose_name="spazio di lavoro", help_text="vuoto = archivio aziendale")
 
     class Meta(AziendaMixin.Meta):
         verbose_name = "cartella"
@@ -42,6 +107,11 @@ class Cartella(AziendaMixin):
             parti.append(c.nome)
             c = c.padre
         return " / ".join(reversed(parti))
+
+    def save(self, *args, **kwargs):
+        if self.padre_id is not None:                  # una sottocartella sta nello spazio della madre
+            self.spazio_id = Cartella.objects.filter(pk=self.padre_id).values_list("spazio_id", flat=True).first()
+        super().save(*args, **kwargs)
 
     def clean(self):
         from django.core.exceptions import ValidationError
@@ -87,6 +157,9 @@ class Documento(AziendaMixin, ProprietaMixin):
     bloccato_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
                                     related_name="+", verbose_name="bloccato da")
     cestinato_il = models.DateTimeField("nel cestino dal", null=True, blank=True)
+    versione = models.PositiveIntegerField("versione", default=1)
+    caricato_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name="+", verbose_name="ultima versione di")
     creato = models.DateTimeField("caricato il", auto_now_add=True)
     modificato = models.DateTimeField("modificato il", auto_now=True)
 
@@ -115,6 +188,32 @@ class Documento(AziendaMixin, ProprietaMixin):
     @property
     def estensione(self):
         return self.nome.rsplit(".", 1)[-1].upper()[:5] if "." in self.nome else "FILE"
+
+
+def _percorso_versione(instance, filename):
+    return f"documenti/versioni/{timezone.now():%Y/%m}/{uuid.uuid4().hex}-{filename}"
+
+
+class Versione(models.Model):
+    """Una versione precedente di un documento: salvare un file con lo stesso nome nella stessa cartella crea una
+    versione nuova e la vecchia finisce qui (si tengono le ultime, secondo le impostazioni dell'azienda)."""
+    documento = models.ForeignKey(Documento, on_delete=models.CASCADE, related_name="versioni",
+                                  verbose_name="documento")
+    numero = models.PositiveIntegerField("versione")
+    file = models.FileField("file", upload_to=_percorso_versione, storage=StoragePrivato(), max_length=300)
+    dimensione = models.PositiveBigIntegerField("dimensione", default=0)
+    caricata_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name="+", verbose_name="caricata da")
+    creata = models.DateTimeField("del")
+
+    class Meta:
+        verbose_name = "versione"
+        verbose_name_plural = "versioni"
+        ordering = ["-numero"]
+        constraints = [models.UniqueConstraint(fields=["documento", "numero"], name="documenti_versione_unica")]
+
+    def __str__(self):
+        return f"{self.documento} v{self.numero}"
 
 
 def _token():

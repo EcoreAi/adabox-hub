@@ -20,4 +20,11 @@
     <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit"><svg><use href="#icon-save"/></svg> Salva</button>
   </form>
   {% elif d.descrizione %}<p>{{ d.descrizione|linebreaksbr }}</p>{% endif %}
+  {% if versioni %}
+  <h3 class="doc-sottotitolo">Versioni precedenti <small class="ui-help">(questa è la {{ d.versione }})</small></h3>
+  <ul class="doc-versioni">{% for v in versioni %}
+    <li><span>v{{ v.numero }} · {{ v.creata|date:"d/m/Y H:i" }} · {{ v.dimensione|filesizeformat }}{% if v.caricata_da %} · {{ v.caricata_da }}{% endif %}</span>
+      <a href="{% url 'documenti:scarica_versione' d.pk v.numero %}">Scarica</a>
+      {% if puo_modificare and not d.cestinato_il %}<form method="post" action="{% url 'documenti:ripristina_versione' d.pk v.numero %}">{% csrf_token %}<button class="ui-link-btn" type="submit">Ripristina</button></form>{% endif %}</li>
+  {% endfor %}</ul>{% endif %}
 </div>

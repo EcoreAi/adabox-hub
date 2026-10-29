@@ -42,3 +42,24 @@
 .doc-rilascia { display: none; position: absolute; inset: 0; place-items: center; border: 2px dashed var(--ui-primary); border-radius: 12px;
   background: color-mix(in srgb, var(--ui-primary-tint) 85%, transparent); color: var(--ui-primary); font-weight: 600; }
 .doc-zona.is-sopra .doc-rilascia { display: grid; }
+
+/* spazi di lavoro: sezioni nella colonna delle cartelle, barra d'uso, versioni */
+.doc-sezione { margin-top: 10px; }
+.doc-sezione > summary { cursor: pointer; padding: 6px 10px; font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--ui-text-3); list-style: none; }
+.doc-sezione > summary::-webkit-details-marker { display: none; }
+.doc-sezione > summary::before { content: "▾ "; }
+.doc-sezione:not([open]) > summary::before { content: "▸ "; }
+.doc-spazio + .doc-spazio { margin-top: 2px; }
+.doc-spazio-gestisci { display: block; padding: 0 10px 4px 22px; font-size: 11.5px; }
+.doc-uso { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.doc-uso-barra { width: 180px; height: 6px; border-radius: 3px; background: var(--ui-surface-2); overflow: hidden; }
+.doc-uso-barra span { display: block; height: 100%; max-width: 100%; background: var(--ui-primary); border-radius: 3px; }
+.doc-uso small { color: var(--ui-text-2); font-size: 12px; }
+.doc-sottotitolo { margin: 18px 0 6px; font-size: 13px; font-weight: 600; }
+.doc-versioni { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
+.doc-versioni li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--ui-border-soft); }
+.doc-versioni li span { flex: 1; color: var(--ui-text-2); }
+.doc-versioni form { margin: 0; }
+.ui-link-btn { border: 0; background: none; padding: 0; color: var(--ui-primary-lift); cursor: pointer; font: inherit; }
+.ui-link-btn:hover { text-decoration: underline; }

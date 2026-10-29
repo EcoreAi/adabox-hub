@@ -92,7 +92,7 @@ def test_anteprima_e_download(client, scena):
 
 
 def test_azioni_di_massa(client, scena):
-    a, b = _doc(scena["pubblica"], "a.txt", b"AAA"), _doc(scena["pubblica"], "a.txt", b"BBB")
+    a, b = _doc(scena["pubblica"], "a.txt", b"AAA"), _doc(scena["sotto"], "a.txt", b"BBB")     # altra cartella: niente versione
     storico = _doc(scena["storico"], "vecchio.txt")
     client.force_login(scena["mario"])
     r = client.post("/documenti/azione/", {"azione": "zip", "pk": [a.pk, b.pk]})

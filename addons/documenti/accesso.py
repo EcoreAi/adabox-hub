@@ -1,15 +1,55 @@
-"""Chi vede e chi modifica le cartelle: gruppi della cartella, oppure (se vuoti) quelli ereditati dalla madre."""
-from .models import Cartella, Documento
+"""Chi vede e chi modifica le cartelle.
+
+- Archivio aziendale (cartelle senza spazio): gruppi della cartella, oppure (se vuoti) quelli ereditati dalla madre.
+- Spazi di lavoro: lo spazio personale è del proprietario (e dei responsabili, se l'azienda lo stabilisce); lo spazio
+  condiviso è dei suoi membri, con il loro ruolo. I responsabili vedono e modificano gli spazi condivisi.
+"""
+from .models import Cartella, Documento, MembroSpazio, Spazio
 
 
 def gestore(user):
     return user.is_superuser or user.has_perm("documenti.vedi_tutte_cartelle")
 
 
+def responsabili_vedono_personali(azienda):
+    from core import parametri
+    try:
+        valore = parametri.leggi("documenti.responsabili_vedono_personali", azienda)
+    except KeyError:
+        return True
+    return True if valore is None else bool(valore)
+
+
+def spazi(user, azienda):
+    """{spazio: (legge, scrive, gestisce)} degli spazi di lavoro dell'azienda che l'utente vede."""
+    if azienda is None or not user.has_perm("documenti.view_documento"):
+        return {}
+    responsabile = gestore(user)
+    personali_ai_responsabili = responsabile and responsabili_vedono_personali(azienda)
+    ruoli = dict(MembroSpazio.objects.filter(spazio__azienda=azienda, utente=user).values_list("spazio_id", "ruolo"))
+    risultato = {}
+    for s in Spazio.objects.filter(azienda=azienda).select_related("proprietario"):
+        suo = s.proprietario_id == user.pk
+        if s.personale:
+            if suo or personali_ai_responsabili:
+                risultato[s] = (True, True, suo or personali_ai_responsabili)
+        elif suo or responsabile:
+            risultato[s] = (True, True, True)
+        elif s.pk in ruoli:
+            ruolo = ruoli[s.pk]
+            risultato[s] = (True, ruolo != MembroSpazio.LETTURA, ruolo == MembroSpazio.GESTIONE)
+    return risultato
+
+
+def _cartelle_spazi(user, azienda, scrittura=False):
+    ammessi = [s.pk for s, (legge, scrive, _) in spazi(user, azienda).items() if (scrive if scrittura else legge)]
+    return list(Cartella.objects.filter(azienda=azienda, spazio__in=ammessi)) if ammessi else []
+
+
 def _mappa(azienda):
-    """{pk: (cartella, lettura, scrittura)} con i gruppi effettivi (None = nessun limite)."""
-    cartelle = {c.pk: c for c in Cartella.objects.filter(azienda=azienda).prefetch_related("gruppi_lettura",
-                                                                                          "gruppi_scrittura")}
+    """{pk: (cartella, lettura, scrittura)} dell'archivio aziendale con i gruppi effettivi (None = nessun limite)."""
+    cartelle = {c.pk: c for c in Cartella.objects.filter(azienda=azienda, spazio__isnull=True)
+                .prefetch_related("gruppi_lettura", "gruppi_scrittura")}
     risultato = {}
 
     def effettivi(c, profondita=0):
@@ -47,13 +87,15 @@ def _scrive(user, lettura, scrittura):
 
 
 def visibili(user, azienda):
-    """Le cartelle dell'azienda che l'utente vede."""
+    """Le cartelle dell'azienda che l'utente vede: archivio aziendale e spazi di lavoro."""
     if not user.has_perm("documenti.view_documento"):
         return []
     mappa = _mappa(azienda)
     if gestore(user):
-        return [c for c, _, _ in mappa.values()]
-    return [c for c, lettura, scrittura in mappa.values() if _legge(user, lettura, scrittura)]
+        aziendali = [c for c, _, _ in mappa.values()]
+    else:
+        aziendali = [c for c, lettura, scrittura in mappa.values() if _legge(user, lettura, scrittura)]
+    return aziendali + _cartelle_spazi(user, azienda)
 
 
 def scrivibili(user, azienda):
@@ -61,8 +103,10 @@ def scrivibili(user, azienda):
         return []
     mappa = _mappa(azienda)
     if gestore(user):
-        return [c for c, _, _ in mappa.values()]
-    return [c for c, lettura, scrittura in mappa.values() if _scrive(user, lettura, scrittura)]
+        aziendali = [c for c, _, _ in mappa.values()]
+    else:
+        aziendali = [c for c, lettura, scrittura in mappa.values() if _scrive(user, lettura, scrittura)]
+    return aziendali + _cartelle_spazi(user, azienda, scrittura=True)
 
 
 def puo_scrivere(user, cartella):

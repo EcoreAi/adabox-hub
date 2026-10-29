@@ -283,5 +283,12 @@ fasi della proposta.
 - Compattazione con evento `riassunto` (`fino_a`): la storia per il modello parte dal riassunto più recente.
 - `ai_eval` con domande d'oro e copioni del modello finto per la CI.
 
+## Dopo il modulo AI (2026-10-29)
+
+- Interruttore dei moduli (`Modulo.disattivato`, middleware, pagina Moduli, admin con azioni, `modulo disattiva`).
+- Documenti 1.1.0: spazi di lavoro personali e condivisi, quote per azienda e per utente, dimensione massima per
+  azienda, versioni (spec `docs/superpowers/specs/2026-10-29-adabox-hub-documenti-spazi-design.md`). Prossimo
+  passo possibile: uno spazio come unità di rete sul PC (WebDAV), che richiede HTTPS e password per le applicazioni.
+
 Restano aperti: il passaggio a Postgres + pgvector per la conoscenza su volumi grandi, il decisore con teste
 addestrate, la licenza dei pesi di Timestral, `DEBUG=True` sul server di sviluppo.

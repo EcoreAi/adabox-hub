@@ -10,8 +10,8 @@ from django.views.decorators.http import require_POST
 
 from core import allegati
 
-from . import accesso, richieste, servizi
-from .models import Cartella, Condivisione, Documento, Richiesta, Tag
+from . import accesso, quote, richieste, servizi
+from .models import Cartella, Condivisione, Documento, MembroSpazio, Richiesta, Spazio, Tag, Versione
 
 
 def _albero(cartelle, conteggi):
@@ -29,10 +29,44 @@ def _url_archivio(cartella=None, cestino=False):
     return f"{base}?cartella=cestino" if cestino else f"{base}?cartella={cartella.pk}" if cartella else base
 
 
+def spazio_personale(utente, azienda):
+    """Lo spazio personale dell'utente (creato al primo accesso, con la sua cartella radice)."""
+    spazio = Spazio.objects.filter(azienda=azienda, tipo=Spazio.PERSONALE, proprietario=utente).order_by("pk").first()
+    if spazio is None:
+        spazio = crea_spazio(azienda, utente, "Il mio spazio", Spazio.PERSONALE)
+    return spazio
+
+
+def crea_spazio(azienda, utente, nome, tipo):
+    spazio = Spazio.objects.create(azienda=azienda, proprietario=utente, nome=nome[:120], tipo=tipo)
+    Cartella.objects.create(azienda=azienda, spazio=spazio, nome=nome[:120])
+    if tipo == Spazio.CONDIVISO:
+        MembroSpazio.objects.create(spazio=spazio, utente=utente, ruolo=MembroSpazio.GESTIONE)
+    return spazio
+
+
+def _sezioni(utente, azienda, visibili, conteggi):
+    """[{titolo, spazi: [{spazio, albero, scrive}]}] e l'albero dell'archivio aziendale."""
+    per_spazio = {}
+    for c in visibili:
+        per_spazio.setdefault(c.spazio_id, []).append(c)
+    miei, condivisi, altrui = [], [], []
+    for s, (_, scrive, gestisce) in sorted(accesso.spazi(utente, azienda).items(), key=lambda x: x[0].nome.lower()):
+        voce = {"spazio": s, "albero": _albero(per_spazio.get(s.pk, []), conteggi), "scrive": scrive,
+                "gestisce": gestisce}
+        (miei if s.personale and s.proprietario_id == utente.pk else altrui if s.personale else condivisi).append(voce)
+    sezioni = [{"titolo": "I miei spazi", "spazi": miei}, {"titolo": "Spazi condivisi", "spazi": condivisi}]
+    if altrui:
+        sezioni.append({"titolo": "Spazi personali degli utenti", "spazi": altrui, "chiusa": True})
+    return sezioni, _albero(per_spazio.get(None, []), conteggi)
+
+
 @login_required
 @permission_required("documenti.view_documento", raise_exception=True)
 def archivio(request):
     azienda = request.azienda
+    if request.user.has_perm("documenti.add_documento"):
+        spazio_personale(request.user, azienda)
     visibili = accesso.visibili(request.user, azienda)
     scrivibili = {c.pk for c in accesso.scrivibili(request.user, azienda)}
     tutti = Documento.objects.filter(azienda=azienda, cartella__in=[c.pk for c in visibili])
@@ -53,13 +87,17 @@ def archivio(request):
     if tag.isdigit():
         documenti = documenti.filter(tag=int(tag))
     documenti = documenti.select_related("cartella", "proprietario").prefetch_related("tag")[:500]
+    sezioni, aziendale = _sezioni(request.user, azienda, visibili, conteggi)
     contesto = {
-        "albero": _albero(visibili, conteggi), "corrente": corrente, "cestino": cestino, "documenti": documenti,
+        "albero": aziendale, "sezioni": sezioni, "corrente": corrente, "cestino": cestino, "documenti": documenti,
+        "uso": quote.riepilogo(corrente.spazio) if corrente is not None and corrente.spazio_id else None,
+        "max_file_mb": quote.max_file_mb(azienda),
+        "puo_creare_condivisi": request.user.has_perm("documenti.crea_spazio_condiviso"),
         "tag": Tag.objects.all(), "tag_scelto": int(tag) if tag.isdigit() else None, "q": q,
         "puo_caricare": corrente is not None and corrente.pk in scrivibili,
         "cartelle_scrivibili": [c for c in visibili if c.pk in scrivibili],
         "totale": sum(conteggi.values()), "n_cestino": tutti.filter(cestinato_il__isnull=False).count(),
-        "spazio": servizi.spazio_usato(azienda),
+        "spazio": quote.uso_azienda(azienda), "quota_azienda": quote.quota_azienda(azienda),
     }
     if request.headers.get("HX-Request") and request.GET.get("parziale"):
         return render(request, "documenti/_griglia.html", contesto)
@@ -76,7 +114,55 @@ def _documento(request, pk):
 def anteprima(request, pk):
     documento = _documento(request, pk)
     return render(request, "documenti/_anteprima.html", {
-        "d": documento, "tag": Tag.objects.all(), "puo_modificare": accesso.puo_modificare(request.user, documento)})
+        "d": documento, "tag": Tag.objects.all(), "puo_modificare": accesso.puo_modificare(request.user, documento),
+        "versioni": documento.versioni.select_related("caricata_da")[:20]})
+
+
+def _versione(request, pk, numero):
+    return get_object_or_404(Versione, documento=_documento(request, pk), numero=numero)
+
+
+@login_required
+@permission_required("documenti.view_documento", raise_exception=True)
+def scarica_versione(request, pk, numero):
+    versione = _versione(request, pk, numero)
+    finto = type("File", (), {"mime": "application/octet-stream", "file": versione.file,
+                              "nome": f"v{numero} - {versione.documento.nome}"})()
+    return allegati.risposta(finto)
+
+
+@login_required
+@permission_required("documenti.change_documento", raise_exception=True)
+@require_POST
+def ripristina_versione(request, pk, numero):
+    versione = _versione(request, pk, numero)
+    if not accesso.puo_modificare(request.user, versione.documento):
+        raise PermissionDenied
+    try:
+        documento = servizi.ripristina_versione(versione, request.user)
+    except allegati.AllegatoNonValido as e:
+        messages.error(request, str(e))
+    else:
+        messages.success(request, f"«{documento}»: ripristinata la versione {numero} (ora è la {documento.versione}).")
+    return redirect(_url_archivio(versione.documento.cartella))
+
+
+@login_required
+@permission_required("documenti.add_documento", raise_exception=True)
+@require_POST
+def nuovo_spazio(request):
+    nome = request.POST.get("nome", "").strip()
+    tipo = Spazio.CONDIVISO if request.POST.get("tipo") == Spazio.CONDIVISO else Spazio.PERSONALE
+    if tipo == Spazio.CONDIVISO and not request.user.has_perm("documenti.crea_spazio_condiviso"):
+        raise PermissionDenied
+    if not nome:
+        messages.error(request, "Indica il nome dello spazio.")
+        return redirect("documenti:archivio")
+    spazio = crea_spazio(request.azienda, request.user, nome, tipo)
+    if tipo == Spazio.CONDIVISO:
+        messages.success(request, f"Spazio «{spazio}» creato: aggiungi i membri.")
+        return redirect("documenti:spazi_modifica", pk=spazio.pk)
+    return redirect(_url_archivio(spazio.cartelle.get(padre__isnull=True)))
 
 
 @login_required
@@ -123,7 +209,7 @@ def nuova_cartella(request):
     if not nome:
         messages.error(request, "Indica il nome della cartella.")
         return redirect(_url_archivio(padre))
-    cartella = Cartella.objects.create(azienda=request.azienda, nome=nome, padre=padre)
+    cartella = Cartella.objects.create(azienda=request.azienda, nome=nome, padre=padre)   # nello spazio della madre
     return redirect(_url_archivio(cartella))
 
 
@@ -187,6 +273,15 @@ def azione(request):
         cartella = Cartella.objects.filter(pk=request.POST.get("cartella") or 0, azienda=request.azienda).first()
         if cartella is None or not accesso.puo_scrivere(request.user, cartella):
             raise PermissionDenied
+        entranti = [d for d in modificabili if d.cartella.spazio_id != cartella.spazio_id]
+        aggiunta = sum(d.dimensione + sum(v.dimensione for v in d.versioni.all()) for d in entranti
+                       if not d.allegato_id)
+        try:
+            if aggiunta:
+                quote.controlla(cartella, aggiunta)
+        except quote.QuotaSuperata as e:
+            messages.error(request, f"Spostamento non fatto: {e}.")
+            return redirect(ritorno)
         messages.success(request, f"Spostati in {cartella}: {servizi.sposta(modificabili, cartella)}.")
     elif nome == "tag":
         tag = get_object_or_404(Tag, pk=request.POST.get("tag") or 0)

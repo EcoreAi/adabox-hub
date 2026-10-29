@@ -26,13 +26,15 @@ def nome_pulito(nome):
     return radice[:140] + est[:20]
 
 
-def valida(file):
+def valida(file, max_mb=None):
+    """Il nome pulito del file, se ammesso; `max_mb` sostituisce ALLEGATI_MAX_MB (es. i Documenti per azienda)."""
     nome = nome_pulito(file.name)
     estensione = PurePosixPath(nome).suffix.lower().lstrip(".")
+    massimo = settings.ALLEGATI_MAX_MB if max_mb is None else max_mb
     if estensione in VIETATE:
         raise AllegatoNonValido(f"«{nome}»: file .{estensione} non ammessi")
-    if file.size > settings.ALLEGATI_MAX_MB * 1024 * 1024:
-        raise AllegatoNonValido(f"«{nome}»: supera {settings.ALLEGATI_MAX_MB} MB")
+    if file.size > massimo * 1024 * 1024:
+        raise AllegatoNonValido(f"«{nome}»: supera {massimo} MB")
     if file.size == 0:
         raise AllegatoNonValido(f"«{nome}»: file vuoto")
     return nome

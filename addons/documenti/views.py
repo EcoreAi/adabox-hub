@@ -7,10 +7,10 @@ from django.template.defaultfilters import filesizeformat
 from django.urls import reverse
 from django.utils import timezone
 
-from core.viste import ModelView, register
+from core.viste import Inline, ModelView, register
 
-from . import accesso, richieste, servizi
-from .models import Cartella, Condivisione, Documento, Richiesta, Tag
+from . import accesso, quote, richieste, servizi
+from .models import Cartella, Condivisione, Documento, MembroSpazio, QuotaUtente, Richiesta, Spazio, Tag
 
 
 @register
@@ -230,3 +230,57 @@ class RichiestaView(ModelView):
         richieste.annulla(obj, request.user)
         return f"Richiesta «{obj}» annullata."
     annulla.short_description = "Annulla la richiesta"
+
+
+@register
+class SpazioView(ModelView):
+    """Spazi di lavoro: chi li gestisce sceglie i membri; la quota di uno spazio condiviso la fissano i responsabili."""
+    model = Spazio
+    slug = "spazi"
+    verbose_name_plural = "spazi di lavoro"
+    list_display = ["nome", "tipo", "proprietario", "uso"]
+    list_filter = ["tipo", "proprietario"]
+    search_fields = ["nome", "descrizione"]
+    form_layout = [("Spazio", [("nome", "quota_mb"), "descrizione"])]
+    company_field = "azienda"
+    inlines = [Inline(MembroSpazio, "spazio", ["utente", "ruolo"], titolo="Membri (solo per gli spazi condivisi)")]
+
+    def get_queryset(self, request):
+        """I responsabili vedono tutti gli spazi; gli altri quelli che gestiscono."""
+        qs = super().get_queryset(request)
+        if accesso.gestore(request.user):
+            return qs
+        gestiti = [s.pk for s, (_, _, gestisce) in accesso.spazi(request.user, request.azienda).items() if gestisce]
+        return qs.filter(pk__in=gestiti)
+
+    def has_add_permission(self, request):
+        return False                                   # si crea dall'archivio, con la sua cartella radice
+
+    def has_delete_permission(self, request, obj=None):
+        return accesso.gestore(request.user)
+
+    def save_model(self, request, obj, form, change):
+        if change and not accesso.gestore(request.user):   # la quota la decidono i responsabili
+            obj.quota_mb = Spazio.objects.get(pk=obj.pk).quota_mb
+        super().save_model(request, obj, form, change)
+
+    def col_uso(self, obj):
+        r = quote.riepilogo(obj)
+        return filesizeformat(r["usato"]) + (f" di {filesizeformat(r['quota'])}" if r["quota"] else "")
+    col_uso.short_description = "Spazio usato"
+
+
+@register
+class QuotaUtenteView(ModelView):
+    """Come l'azienda suddivide la sua quota: i MB di ogni utente per i suoi spazi personali."""
+    model = QuotaUtente
+    slug = "quote"
+    verbose_name_plural = "quote degli utenti"
+    list_display = ["utente", "quota_mb", "uso"]
+    search_fields = ["utente__username", "utente__first_name", "utente__last_name"]
+    form_layout = [("Quota", [("utente", "quota_mb")])]
+    company_field = "azienda"
+
+    def col_uso(self, obj):
+        return filesizeformat(quote.uso_personale(obj.utente, obj.azienda))
+    col_uso.short_description = "Usati"

@@ -265,6 +265,23 @@ completo. Il flusso: **prodotto → preventivo → ordine → consegna (DDT) →
   websocket). All'installazione tutti entrano nel canale «generale». Le menzioni (`@username`) e i messaggi
   diretti non letti da 15 minuti arrivano per email (lavoro pianificato ogni 10 minuti: serve il worker).
 
+### Spazi di lavoro dei Documenti
+
+Spec `docs/superpowers/specs/2026-10-29-adabox-hub-documenti-spazi-design.md`.
+
+- **Spazi personali** (ogni utente ne ha uno, «Il mio spazio», creato al primo accesso, e può crearne altri) e
+  **spazi condivisi** (li crea chi ha «Crea spazi condivisi»; membri con ruolo lettura, scrittura o gestione).
+  Le cartelle senza spazio sono l'archivio aziendale di prima, con i permessi per gruppi. I responsabili dei
+  documenti vedono anche gli spazi personali, se l'azienda lo stabilisce (impostazione, default sì).
+- **Quote** in MB nelle impostazioni dell'azienda: spazio totale dell'azienda, quota di default di ogni utente per
+  i suoi spazi personali (diversa per utente in Documenti → Quote), quota di ogni spazio condiviso (Documenti →
+  Spazi, la fissa un responsabile). Contano documenti, versioni e cestino; un caricamento o uno spostamento oltre
+  quota si rifiuta dicendo quale quota è piena.
+- **Dimensione massima di un file** per azienda (default 20 MB) entro il tetto del server `DOCUMENTI_FILE_MAX_MB`
+  (default 200; nginx accetta fino a 512 MB). Gli allegati dei record restano a `ALLEGATI_MAX_MB`.
+- **Versioni**: un file con lo stesso nome nella stessa cartella diventa la versione nuova del documento; si
+  tengono le ultime N (impostazione, default 10), si scaricano e si ripristinano dall'anteprima.
+
 ### Assistente AI
 
 Spec `docs/superpowers/specs/2026-10-29-adabox-hub-modulo-ai-design.md`; fasi AI-1 (fondamenta), AI-2 (strumenti

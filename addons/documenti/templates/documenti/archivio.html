@@ -5,7 +5,10 @@
 <link rel="stylesheet" href="{% static 'documenti/documenti.css' %}">
 <div class="ui-pagehead">
   <div><h1>{% if cestino %}Cestino{% elif corrente %}{{ corrente.nome }}{% else %}Tutti i documenti{% endif %}</h1>
-    <div class="sub">{% if corrente %}{{ corrente.percorso }} · {% endif %}{{ documenti|length }} documenti · {{ spazio|filesizeformat }} archiviati</div></div>
+    <div class="sub">{% if corrente %}{{ corrente.percorso }} · {% endif %}{{ documenti|length }} documenti{% if not uso %} · {{ spazio|filesizeformat }} archiviati{% if quota_azienda %} su {{ quota_azienda|filesizeformat }}{% endif %}{% endif %} · file fino a {{ max_file_mb }} MB</div>
+    {% if uso %}<div class="doc-uso" title="Spazio usato {{ uso.di }}">
+      <div class="doc-uso-barra"><span style="width:{% if uso.quota %}{% widthratio uso.usato uso.quota 100 %}{% else %}0{% endif %}%"></span></div>
+      <small>{{ uso.usato|filesizeformat }}{% if uso.quota %} di {{ uso.quota|filesizeformat }}{% endif %} {{ uso.di }}</small></div>{% endif %}</div>
   <div class="ui-pagehead-actions">
     {% if puo_caricare %}
     <form method="post" action="{% url 'documenti:carica' %}" enctype="multipart/form-data" data-carica>{% csrf_token %}
@@ -17,7 +20,19 @@
 <div class="doc-layout">
   <aside class="doc-albero ui-card is-revealed" aria-label="Cartelle">
     <a class="doc-voce{% if not corrente and not cestino %} is-active{% endif %}" href="{% url 'documenti:archivio' %}">Tutti i documenti <span>{{ totale }}</span></a>
-    {% include "documenti/_albero.html" with nodi=albero %}
+    {% for sezione in sezioni %}{% if sezione.spazi or forloop.first %}
+    <details class="doc-sezione"{% if not sezione.chiusa %} open{% endif %}><summary>{{ sezione.titolo }}</summary>
+      {% for v in sezione.spazi %}
+      <div class="doc-spazio">{% include "documenti/_albero.html" with nodi=v.albero %}
+        {% if v.gestisce and not v.spazio.personale %}<a class="doc-spazio-gestisci" href="{% url 'documenti:spazi_modifica' v.spazio.pk %}">membri e quota</a>{% endif %}</div>
+      {% endfor %}
+    </details>{% endif %}{% endfor %}
+    {% if albero %}<details class="doc-sezione" open><summary>Archivio aziendale</summary>{% include "documenti/_albero.html" with nodi=albero %}</details>{% endif %}
+    {% if perms.documenti.add_documento %}
+    <form method="post" action="{% url 'documenti:nuovo_spazio' %}" class="doc-nuova">{% csrf_token %}
+      <input class="ui-input" name="nome" placeholder="Nuovo spazio di lavoro" aria-label="Nome del nuovo spazio" required maxlength="120">
+      {% if puo_creare_condivisi %}<label class="ui-checkbox-row"><input type="checkbox" class="ui-checkbox" name="tipo" value="condiviso"> condiviso</label>{% endif %}
+    </form>{% endif %}
     <a class="doc-voce doc-cestino{% if cestino %} is-active{% endif %}" href="?cartella=cestino"><svg><use href="#icon-trash"/></svg> Cestino <span>{{ n_cestino }}</span></a>
     <form method="post" action="{% url 'documenti:nuova_cartella' %}" class="doc-nuova">{% csrf_token %}
       {% if corrente %}<input type="hidden" name="padre" value="{{ corrente.pk }}">{% endif %}

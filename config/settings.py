@@ -143,6 +143,8 @@ AI_LICENZA_SVILUPPO = env.bool("AI_LICENZA_SVILUPPO", default=False)
 # File privati (allegati): mai serviti direttamente, solo dalla vista con i permessi
 PRIVATE_MEDIA_ROOT = Path(env("PRIVATE_MEDIA_ROOT", default=str(BASE_DIR / "private")))
 ALLEGATI_MAX_MB = env.int("ALLEGATI_MAX_MB", default=20)
+# tetto del server per un file dei Documenti: ogni azienda sceglie il suo limite fin qui (nginx accetta fino a 512 MB)
+DOCUMENTI_FILE_MAX_MB = env.int("DOCUMENTI_FILE_MAX_MB", default=200)
 # Con nginx davanti: il download passa a nginx (location internal /_privati/)
 ALLEGATI_X_ACCEL = env.bool("ALLEGATI_X_ACCEL", default=False)
 # Indirizzo base assoluto per i link nelle email (es. https://hub.cliente.it)
