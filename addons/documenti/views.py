@@ -95,6 +95,7 @@ class DocumentoView(ModelView):
     def scarica(self, request, obj):
         return redirect(reverse("documenti:scarica", args=[obj.pk]))
     scarica.short_description = "Scarica"
+    scarica.ai = False
     scarica.permission = "view"
 
     def blocca(self, request, obj):
@@ -171,6 +172,7 @@ class CondivisioneView(ModelView):
         obj.save(update_fields=["revocata"])
         return f"Il link «{obj}» non funziona più."
     revoca.short_description = "Revoca il link"
+    revoca.rischio = "irreversibile"
 
 
 @register

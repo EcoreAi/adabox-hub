@@ -74,7 +74,8 @@ def test_strumento_inesistente_o_in_errore(scena):
     assert turno.stato == "completato"
 
 
-def test_strumenti_con_permesso_e_timeout(scena, monkeypatch):
+def test_strumenti_con_permesso_e_timeout(scena, monkeypatch, settings):
+    settings.AI_STRUMENTI_SINCRONI = False                  # il timeout c'è solo con il thread
     lento = strumenti.Strumento("lento", "test", {"type": "object", "properties": {}},
                                 lambda c: time.sleep(2) or "fatto", timeout=0.2)
     riservato = strumenti.Strumento("riservato", "test", {"type": "object", "properties": {}}, lambda c: "segreto",

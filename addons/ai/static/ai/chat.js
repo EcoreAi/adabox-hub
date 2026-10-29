@@ -107,7 +107,14 @@
 
   // --- risposta in diretta: la bolla "in corso" segue il turno con Server-Sent Events ---
   const csrf = form.querySelector('input[name="csrfmiddlewaretoken"]').value;
-  const NOMI = { data_e_ora: 'controllo data e ora', app_disponibili: 'guardo le app disponibili' };
+  const NOMI = {
+    data_e_ora: 'controllo data e ora', app_disponibili: 'guardo le app disponibili',
+    elenco_viste: 'guardo dove sono i dati', descrivi_vista: 'leggo la struttura dei dati',
+    cerca_record: 'cerco i record', leggi_record: 'leggo il record', aggrega_record: 'calcolo i totali',
+    crea_record: 'preparo il nuovo record', modifica_record: 'preparo la modifica',
+    elimina_record: "preparo l'eliminazione", esegui_bottone: "preparo l'operazione",
+    esegui_azione: "preparo l'operazione", pianifica_attivita: "preparo l'attività",
+  };
   const segui = (bolla) => {
     if (!bolla || bolla.dataset.seguita) return;
     bolla.dataset.seguita = '1';

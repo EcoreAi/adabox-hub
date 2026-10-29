@@ -1,5 +1,5 @@
 """Markdown delle risposte in HTML sicuro: prima si fa l'escape di tutto, poi si aggiungono solo i tag ammessi
-(paragrafi, titoli, elenchi, tabelle, codice, grassetto, corsivo, link http/https)."""
+(paragrafi, titoli, elenchi, tabelle, codice, grassetto, corsivo, link http/https e link interni /...)."""
 import re
 
 from django.utils.html import escape
@@ -8,7 +8,7 @@ from django.utils.safestring import mark_safe
 CODICE = re.compile(r"`([^`\n]+)`")
 GRASSETTO = re.compile(r"\*\*(.+?)\*\*")
 CORSIVO = re.compile(r"(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])|(?<!\w)_(?!\s)(.+?)(?<!\s)_(?!\w)")
-LINK = re.compile(r"\[([^\]\n]+)\]\((https?://[^\s)]+)\)")
+LINK = re.compile(r"\[([^\]\n]+)\]\((https?://[^\s)]+|/(?!/)[^\s)]*)\)")
 URL = re.compile(r"(?<![\"'=>])\bhttps?://[^\s<]+[^\s<.,;:!?)\]'\"]")
 SEPARATORE = re.compile(r"^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?$")
 

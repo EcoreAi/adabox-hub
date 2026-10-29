@@ -54,9 +54,11 @@ class EventoView(ModelView):
         risposta["Content-Disposition"] = f'attachment; filename="evento-{obj.pk}.ics"'
         return risposta
     scarica_ics.short_description = "Scarica .ics"
+    scarica_ics.ai = False
     scarica_ics.permission = "view"
 
     def invia_invito(self, request, obj):
         lavori.accoda("calendario.lavori.invia_inviti", evento_id=obj.pk)
         return "Inviti inviati ai partecipanti."
     invia_invito.short_description = "Invia di nuovo l'invito"
+    invia_invito.rischio = "irreversibile"

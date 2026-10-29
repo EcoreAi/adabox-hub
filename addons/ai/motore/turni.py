@@ -15,7 +15,7 @@ from django.conf import settings
 from django.db import close_old_connections, connection, transaction
 from django.utils import timezone
 
-from .. import catalogo, strumenti
+from .. import catalogo, proposte, strumenti
 from ..gateway import ChiamataStrumento, ErroreModello, Fine, Inizio, Testo, Uso, esegui as gateway
 from ..models import Evento, MessaggioChat, Turno
 from . import prompt
@@ -77,8 +77,9 @@ def avvia(conversazione, testo, utente, azienda=None):
         return in_corso
     with transaction.atomic():
         turno = Turno.objects.create(conversazione=conversazione, utente=utente, azienda=azienda)
+        esiti = proposte.da_comunicare(conversazione)
         Evento.objects.create(conversazione=conversazione, turno=turno, tipo=Evento.UTENTE, dati={
-            "ruolo": "utente", "testo": prompt.con_contesto(testo, utente, azienda, conversazione.ambito)})
+            "ruolo": "utente", "testo": prompt.con_contesto(testo, utente, azienda, conversazione.ambito, esiti)})
         MessaggioChat.objects.create(conversazione=conversazione, ruolo=MessaggioChat.UTENTE, testo=testo)
     if getattr(settings, "AI_TURNI_SINCRONI", False):
         esegui(turno.pk)
@@ -237,7 +238,8 @@ def _chiudi(e, stato, coda="", errore=""):
     turno.battito = turno.finito
     turno.save()
     if turno.conversazione_id and testo:
-        MessaggioChat.objects.create(conversazione=turno.conversazione, ruolo=MessaggioChat.ASSISTENTE, testo=testo)
+        MessaggioChat.objects.create(conversazione=turno.conversazione, ruolo=MessaggioChat.ASSISTENTE, testo=testo,
+                                     turno=turno)
         turno.conversazione.save(update_fields=["aggiornata"])
     if stato == Turno.COMPLETATO and turno.compito == "chat" and turno.conversazione_id:
         from . import titoli

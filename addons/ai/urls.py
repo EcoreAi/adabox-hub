@@ -14,5 +14,7 @@ urlpatterns = [
     path("chat/<int:pk>/elimina/", pagine.elimina, name="elimina"),
     path("flusso/<int:pk>/", flusso.flusso, name="flusso"),
     path("turno/<int:pk>/stop/", pagine.stop, name="stop"),
+    path("proposta/<int:pk>/conferma/", pagine.conferma_proposta, name="conferma_proposta"),
+    path("proposta/<int:pk>/annulla/", pagine.annulla_proposta, name="annulla_proposta"),
     path("licenza/", pagine.pagina_licenza, name="licenza"),
 ]

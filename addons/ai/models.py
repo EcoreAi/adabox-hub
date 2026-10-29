@@ -1,5 +1,8 @@
+from datetime import timedelta
+
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class Conversazione(models.Model):
@@ -29,6 +32,8 @@ class MessaggioChat(models.Model):
                                       verbose_name="conversazione")
     ruolo = models.CharField("ruolo", max_length=10, choices=[(UTENTE, "Utente"), (ASSISTENTE, "Assistente")])
     testo = models.TextField("testo")
+    turno = models.ForeignKey("Turno", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                              verbose_name="turno")
     creato = models.DateTimeField("creato il", auto_now_add=True)
 
     class Meta:
@@ -214,6 +219,59 @@ class Evento(models.Model):
         verbose_name_plural = "eventi"
         ordering = ["pk"]
         indexes = [models.Index(fields=["conversazione", "id"])]
+
+
+class Proposta(models.Model):
+    """Una modifica preparata dall'assistente che aspetta la conferma dell'utente. Alla conferma si esegue
+    l'operazione salvata qui (strumento e argomenti), mai argomenti nuovi."""
+    IN_ATTESA, ESEGUITA, ANNULLATA, FALLITA, SCADUTA = "in_attesa", "eseguita", "annullata", "fallita", "scaduta"
+    STATI = [(IN_ATTESA, "In attesa di conferma"), (ESEGUITA, "Eseguita"), (ANNULLATA, "Annullata"),
+             (FALLITA, "Non riuscita"), (SCADUTA, "Scaduta")]
+    SCRITTURA, IRREVERSIBILE = "scrittura", "irreversibile"
+    RISCHI = [(SCRITTURA, "Modifica"), (IRREVERSIBILE, "Irreversibile")]
+    conversazione = models.ForeignKey(Conversazione, on_delete=models.CASCADE, related_name="proposte",
+                                      verbose_name="conversazione")
+    turno = models.ForeignKey(Turno, on_delete=models.SET_NULL, null=True, blank=True, related_name="proposte",
+                              verbose_name="turno")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+",
+                               verbose_name="utente")
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, verbose_name="azienda")
+    strumento = models.CharField("strumento", max_length=80)
+    argomenti = models.JSONField("argomenti", default=dict)
+    titolo = models.CharField("titolo", max_length=250)
+    dettagli = models.JSONField("dettagli", default=list, blank=True,
+                                help_text='[{"campo", "prima", "dopo"}] mostrati nella scheda')
+    riepilogo = models.TextField("riepilogo", blank=True)
+    rischio = models.CharField("rischio", max_length=13, choices=RISCHI, default=SCRITTURA)
+    impronta = models.JSONField("impronta del record", default=dict, blank=True)
+    url = models.CharField("link", max_length=300, blank=True)
+    stato = models.CharField("stato", max_length=10, choices=STATI, default=IN_ATTESA)
+    esito = models.TextField("esito", blank=True)
+    comunicata = models.BooleanField("esito comunicato all'assistente", default=False)
+    creata = models.DateTimeField("creata il", auto_now_add=True)
+    decisa = models.DateTimeField("decisa il", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "proposta"
+        verbose_name_plural = "proposte"
+        ordering = ["pk"]
+
+    def __str__(self):
+        return self.titolo
+
+    DURATA = timedelta(hours=24)                 # oltre, la proposta scade: i dati potrebbero essere cambiati
+
+    @property
+    def in_attesa(self):
+        return self.stato == self.IN_ATTESA
+
+    @property
+    def scaduta(self):
+        return self.in_attesa and timezone.now() - self.creata > self.DURATA
+
+    @property
+    def irreversibile(self):
+        return self.rischio == self.IRREVERSIBILE
 
 
 class Licenza(models.Model):

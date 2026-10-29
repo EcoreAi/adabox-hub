@@ -1,0 +1,33 @@
+{# Scheda di una proposta dell'assistente: anteprima della modifica, poi «Conferma» / «Annulla», poi l'esito. #}
+<section class="ai-proposta{% if p.irreversibile %} is-irreversibile{% endif %}" id="ai-proposta-{{ p.pk }}" aria-labelledby="ai-proposta-{{ p.pk }}-titolo">
+  <header class="ai-proposta-testa">
+    <h3 id="ai-proposta-{{ p.pk }}-titolo">{{ p.titolo }}</h3>
+    {% if p.scaduta %}<span class="ui-pill ui-pill-neutral">Scaduta</span>
+    {% elif p.stato == "in_attesa" %}<span class="ui-pill {% if p.irreversibile %}ui-pill-danger{% else %}ui-pill-warn{% endif %}">{% if p.irreversibile %}Irreversibile · da confermare{% else %}Da confermare{% endif %}</span>
+    {% elif p.stato == "eseguita" %}<span class="ui-pill ui-pill-ok">Eseguita</span>
+    {% elif p.stato == "fallita" %}<span class="ui-pill ui-pill-danger">Non riuscita</span>
+    {% else %}<span class="ui-pill ui-pill-neutral">{{ p.get_stato_display }}</span>{% endif %}
+  </header>
+  {% if p.dettagli %}
+  <table class="ai-proposta-dettagli"><tbody>
+    {% for d in p.dettagli %}<tr><th scope="row">{{ d.campo }}</th><td>{% if d.prima %}<del>{{ d.prima }}</del> → {% endif %}{{ d.dopo }}</td></tr>{% endfor %}
+  </tbody></table>
+  {% endif %}
+  {% if p.riepilogo %}<p class="ai-proposta-riepilogo">{{ p.riepilogo }}</p>{% endif %}
+  {% if errore %}<p class="ai-proposta-errore" role="alert">{{ errore }}</p>{% endif %}
+  {% if p.in_attesa and not p.scaduta %}
+  <div class="ai-proposta-azioni">
+    <form method="post" action="{% url 'ai:conferma_proposta' p.pk %}" hx-post="{% url 'ai:conferma_proposta' p.pk %}"
+          hx-target="#ai-proposta-{{ p.pk }}" hx-swap="outerHTML">
+      {% csrf_token %}
+      {% if p.irreversibile %}<label class="ai-proposta-spunta"><input type="checkbox" name="consapevole" value="1" required> Ho letto il riepilogo e voglio procedere</label>{% endif %}
+      <button type="submit" class="ui-btn {% if p.irreversibile %}ui-btn-danger{% else %}ui-btn-primary{% endif %}">Conferma</button>
+    </form>
+    <form method="post" action="{% url 'ai:annulla_proposta' p.pk %}" hx-post="{% url 'ai:annulla_proposta' p.pk %}"
+          hx-target="#ai-proposta-{{ p.pk }}" hx-swap="outerHTML">
+      {% csrf_token %}<button type="submit" class="ui-btn ui-btn-ghost">Annulla</button>
+    </form>
+  </div>
+  {% elif p.esito %}<p class="ai-proposta-esito">{{ p.esito }}</p>{% endif %}
+  {% if p.url and p.stato != "annullata" %}<a class="ai-proposta-link" href="{{ p.url }}" target="_blank" rel="noopener">Apri ↗</a>{% endif %}
+</section>

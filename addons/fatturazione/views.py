@@ -83,6 +83,7 @@ class FatturaView(ModelView):
         chatter.traccia(obj, vecchi, request.user)
         return f"{obj} emessa."
     emetti.short_description = "Emetti"
+    emetti.rischio = "irreversibile"
 
     def xml(self, request, obj):
         try:
@@ -95,6 +96,7 @@ class FatturaView(ModelView):
         risposta["Content-Disposition"] = f'attachment; filename="{nome}"'
         return risposta
     xml.short_description = "Fattura elettronica (XML)"
+    xml.ai = False
     xml.permission = "view"
 
     def invia(self, request, obj):
@@ -103,6 +105,7 @@ class FatturaView(ModelView):
         lavori.accoda("fatturazione.lavori.invia", fattura_id=obj.pk, utente_id=request.user.pk)
         return f"{obj} inviata a {obj.cliente.email}."
     invia.short_description = "Invia per email"
+    invia.rischio = "irreversibile"
 
     def nota_di_credito(self, request, obj):
         try:
@@ -112,6 +115,7 @@ class FatturaView(ModelView):
         messages.success(request, f"Nota di credito in bozza per {obj}: correggi le righe ed emettila.")
         return redirect(self.url("dettaglio", pk=nota.pk))
     nota_di_credito.short_description = "Nota di credito"
+    nota_di_credito.rischio = "irreversibile"
 
     def annulla(self, request, obj):
         if obj.stato != Fattura.BOZZA:
@@ -122,6 +126,7 @@ class FatturaView(ModelView):
         chatter.traccia(obj, vecchi, request.user)
         return f"{obj} annullata."
     annulla.short_description = "Annulla"
+    annulla.rischio = "irreversibile"
 
 
 @register

@@ -6,8 +6,14 @@ from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as Scaduto
 from dataclasses import dataclass, field
 
+from django.core.exceptions import PermissionDenied
+
 log = logging.getLogger("ai.strumenti")
 LIMITE_RISULTATO = 20000                                # caratteri: oltre si tronca con un avviso
+
+
+class ErroreStrumento(Exception):
+    """Errore previsto (argomenti sbagliati, record inesistente...): il messaggio va al modello, senza traceback."""
 
 
 @dataclass
@@ -21,6 +27,9 @@ class Strumento:
     timeout: float = 30.0
     permesso: str | None = None                         # "app.codename" richiesto all'utente
     app: str = ""                                       # app di appartenenza (per le chat limitate a un'app)
+    # scritture: anteprima(contesto, **argomenti) -> {titolo, dettagli, riepilogo, rischio, impronta, url} valida e
+    # descrive senza toccare nulla; la funzione gira solo alla conferma dell'utente (ai.proposte)
+    anteprima: object = None
 
     def definizione(self):
         return {"nome": self.nome, "descrizione": self.descrizione, "schema": self.schema}
@@ -56,23 +65,46 @@ def _testo(valore):
     return testo
 
 
+def _proponi(strumento):
+    """Una scrittura non si esegue: si salva come proposta da confermare."""
+    def funzione(contesto, **argomenti):
+        from .. import proposte
+        return proposte.prepara(strumento, contesto, argomenti)
+    return funzione
+
+
 def _esegui_uno(chiamata, contesto, ammessi):
     s = ammessi.get(chiamata.nome)
     if s is None:
         return {"id": chiamata.id, "contenuto": f"Strumento «{chiamata.nome}» inesistente o non permesso.", "errore": True}
     if "_non_valido" in chiamata.argomenti:
         return {"id": chiamata.id, "contenuto": "Argomenti non validi (JSON illeggibile): riprova.", "errore": True}
+    funzione = s.funzione if s.rischio == "lettura" else _proponi(s)
     try:
+        if _sincroni():
+            return {"id": chiamata.id, "contenuto": _testo(funzione(contesto, **chiamata.argomenti)), "errore": False}
         with ThreadPoolExecutor(max_workers=1) as esecutore:
-            futuro = esecutore.submit(_con_chiusura, s.funzione, contesto, chiamata.argomenti)
+            futuro = esecutore.submit(_con_chiusura, funzione, contesto, chiamata.argomenti)
             return {"id": chiamata.id, "contenuto": _testo(futuro.result(timeout=s.timeout)), "errore": False}
     except Scaduto:
         return {"id": chiamata.id, "contenuto": f"Lo strumento ha superato {s.timeout:g} secondi.", "errore": True}
+    except ErroreStrumento as e:
+        return {"id": chiamata.id, "contenuto": str(e), "errore": True}
+    except PermissionDenied:
+        return {"id": chiamata.id, "contenuto": "Permesso negato: l'utente non può fare questa operazione.",
+                "errore": True}
     except TypeError as e:
         return {"id": chiamata.id, "contenuto": f"Argomenti non validi: {e}", "errore": True}
     except Exception as e:                              # l'errore va al modello, che può correggersi
         log.exception("strumento %s", s.nome)
         return {"id": chiamata.id, "contenuto": f"Errore: {e}", "errore": True}
+
+
+def _sincroni():
+    """Con AI_STRUMENTI_SINCRONI (nei test) gli strumenti girano nel thread del turno: un altro thread non vedrebbe
+    la transazione del test. Niente timeout in questo modo."""
+    from django.conf import settings
+    return getattr(settings, "AI_STRUMENTI_SINCRONI", False)
 
 
 def _con_chiusura(funzione, contesto, argomenti):
@@ -90,8 +122,8 @@ def esegui(chiamate, contesto, ammessi):
     def svuota():
         if not gruppo:
             return
-        if len(gruppo) == 1:
-            risultati.append(_esegui_uno(gruppo[0], contesto, ammessi))
+        if len(gruppo) == 1 or _sincroni():
+            risultati.extend(_esegui_uno(c, contesto, ammessi) for c in gruppo)
         else:
             with ThreadPoolExecutor(max_workers=min(8, len(gruppo))) as esecutore:
                 risultati.extend(esecutore.map(lambda c: _esegui_uno(c, contesto, ammessi), gruppo))

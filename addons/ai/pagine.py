@@ -9,7 +9,7 @@ from django.views.decorators.http import require_POST
 from core.registry import modules
 
 from . import motore, suggerimenti
-from .models import Conversazione, MessaggioChat, Turno
+from .models import Conversazione, MessaggioChat, Proposta, Turno
 
 PANNELLI_SINISTRA = [("storico", "Cronologia chat", "ai-storico"), ("preferite", "Chat preferite", "ai-stella")]
 PANNELLI_DESTRA = [("artifact", "Artifact salvati", "ai-artifact"), ("documenti", "Documenti salvati", "ai-documento"),
@@ -140,3 +140,34 @@ def pagina_licenza(request):
     return render(request, "ai/licenza.html", {
         "stato": licenza.attuale(), "spesa": limiti.spesa_mese(azienda) if azienda else None,
         "tetto": limiti.tetto(azienda) if azienda else None, "utenti_mese": len(limiti.utenti_del_mese())})
+
+
+def _scheda(request, proposta, errore=""):
+    if request.headers.get("HX-Request"):
+        return render(request, "ai/_proposta.html", {"p": proposta, "errore": errore})
+    if errore:
+        messages.error(request, errore)
+    return redirect("ai:conversazione", pk=proposta.conversazione_id)
+
+
+@require_POST
+@login_required
+def conferma_proposta(request, pk):
+    from . import proposte
+    from .strumenti import ErroreStrumento
+    proposta = get_object_or_404(Proposta, pk=pk, utente=request.user, conversazione__utente=request.user)
+    if proposta.irreversibile and proposta.in_attesa and not request.POST.get("consapevole"):
+        return _scheda(request, proposta, "Spunta la casella per confermare un'operazione irreversibile.")
+    try:
+        proposte.conferma(proposta, request.user, getattr(request, "azienda", None))
+    except ErroreStrumento as e:
+        return _scheda(request, proposta, str(e))
+    return _scheda(request, proposta)
+
+
+@require_POST
+@login_required
+def annulla_proposta(request, pk):
+    from . import proposte
+    proposta = get_object_or_404(Proposta, pk=pk, utente=request.user, conversazione__utente=request.user)
+    return _scheda(request, proposte.annulla(proposta))

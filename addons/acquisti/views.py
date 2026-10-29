@@ -85,6 +85,7 @@ class OrdineAcquistoView(ModelView):
             self._stato(request, obj, OrdineAcquisto.INVIATO)
         return f"Ordine {obj} inviato a {obj.fornitore.email}."
     invia.short_description = "Invia per email"
+    invia.rischio = "irreversibile"
 
     def conferma(self, request, obj):
         if not obj.modificabile:
@@ -95,6 +96,7 @@ class OrdineAcquistoView(ModelView):
         ordine_acquisto_confermato.send(sender=OrdineAcquisto, ordine=obj, utente=request.user)
         return f"Ordine {obj} confermato."
     conferma.short_description = "Conferma l'ordine"
+    conferma.rischio = "irreversibile"
 
     def annulla(self, request, obj):
         if obj.stato == OrdineAcquisto.ANNULLATO:

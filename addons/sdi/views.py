@@ -40,6 +40,7 @@ class TrasmissioneView(ModelView):
     def scarica(self, request, obj):
         return redirect(reverse("sdi:xml", args=[obj.pk]))
     scarica.short_description = "Scarica l'XML"
+    scarica.ai = False
     scarica.permission = "view"
 
 
@@ -124,10 +125,12 @@ class FatturaPassivaView(ModelView):
         obj.save(update_fields=["stato"])
         return "Fattura segnata come contestata: chiedi al fornitore una nota di credito."
     contesta.short_description = "Contesta"
+    contesta.rischio = "irreversibile"
 
     def scarica(self, request, obj):
         return redirect(reverse("sdi:originale", args=[obj.pk]))
     scarica.short_description = "Scarica il file"
+    scarica.ai = False
     scarica.permission = "view"
 
     def registra_selezionate(self, request, queryset):

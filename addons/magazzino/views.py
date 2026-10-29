@@ -81,6 +81,7 @@ class ConsegnaView(ModelView):
     def spedisci(self, request, obj):
         return _bottone(request, operazioni.spedisci, obj, lambda c: f"Consegna spedita con il DDT {c.numero}.")
     spedisci.short_description = "Spedisci (emetti DDT)"
+    spedisci.rischio = "irreversibile"
 
     def annulla(self, request, obj):
         if obj.stato != Consegna.BOZZA:
@@ -118,3 +119,4 @@ class RicevimentoView(ModelView):
     def ricevi(self, request, obj):
         return _bottone(request, operazioni.ricevi, obj, lambda r: "Merce ricevuta e caricata a magazzino.")
     ricevi.short_description = "Ricevi la merce"
+    ricevi.rischio = "irreversibile"

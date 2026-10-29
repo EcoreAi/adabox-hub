@@ -136,6 +136,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LAVORI_SINCRONI = env.bool("LAVORI_SINCRONI", default=DEBUG)
 # turni dell'assistente AI nella richiesta stessa invece che in un thread (test)
 AI_TURNI_SINCRONI = env.bool("AI_TURNI_SINCRONI", default=False)
+AI_STRUMENTI_SINCRONI = env.bool("AI_STRUMENTI_SINCRONI", default=AI_TURNI_SINCRONI)   # niente thread né timeout
 # licenza del modulo AI simulata (sviluppo e test): mai in produzione
 AI_LICENZA_SVILUPPO = env.bool("AI_LICENZA_SVILUPPO", default=False)
 # File privati (allegati): mai serviti direttamente, solo dalla vista con i permessi

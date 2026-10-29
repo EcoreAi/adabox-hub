@@ -224,3 +224,25 @@ body.ai-pagina { margin: 0; height: 100vh; overflow: hidden; background: var(--u
 .ai-stop:hover, .ai-stop:focus-visible { color: var(--ui-text); border-color: var(--ui-text-3); }
 .ai-stop:disabled { opacity: .5; cursor: default; }
 .ai-avviso { margin: 0 0 8px; padding: 8px 12px; border-radius: 10px; background: var(--ui-warning-tint); color: #8a4b00; font-size: 13px; }
+
+/* ---------- proposte di modifica (anteprima e conferma) ---------- */
+.ai-proposta {
+  margin: 10px 0 4px; padding: 14px 16px; border: 1px solid var(--ui-border); border-radius: 14px;
+  background: var(--ui-surface); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); max-width: 620px;
+}
+.ai-proposta.is-irreversibile { border-color: var(--ui-danger); background: var(--ui-danger-tint); }
+.ai-proposta-testa { display: flex; align-items: flex-start; gap: 10px; justify-content: space-between; }
+.ai-proposta-testa h3 { margin: 0; font-size: 14px; font-weight: 600; line-height: 1.4; color: var(--ui-text); }
+.ai-proposta-testa .ui-pill { flex: none; }
+.ai-proposta-dettagli { width: 100%; margin: 10px 0 0; border-collapse: collapse; font-size: 13px; }
+.ai-proposta-dettagli th { width: 34%; padding: 5px 10px 5px 0; text-align: left; font-weight: 500; color: var(--ui-text-2); vertical-align: top; }
+.ai-proposta-dettagli td { padding: 5px 0; color: var(--ui-text); overflow-wrap: anywhere; }
+.ai-proposta-dettagli tr + tr th, .ai-proposta-dettagli tr + tr td { border-top: 1px solid var(--ui-border-soft); }
+.ai-proposta-dettagli del { color: var(--ui-text-3); }
+.ai-proposta-riepilogo { margin: 10px 0 0; font-size: 13px; font-weight: 600; color: #c4271f; }
+.ai-proposta-errore { margin: 10px 0 0; font-size: 13px; color: #c4271f; }
+.ai-proposta-esito { margin: 10px 0 0; font-size: 13px; color: var(--ui-text-2); }
+.ai-proposta-azioni { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.ai-proposta-azioni form { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0; }
+.ai-proposta-spunta { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ui-text); }
+.ai-proposta-link { display: inline-block; margin-top: 8px; font-size: 13px; }
