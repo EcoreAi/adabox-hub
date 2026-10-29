@@ -94,3 +94,8 @@ def test_app_in_testa_sempre_per_prime(client, superuser, settings):
     assert 'name="fissa_crm"' not in client.get("/impostazioni/barra/").content.decode()   # non si sceglie
     settings.NAV_APP_IN_TESTA = ["inesistente"]                                            # non installata: niente
     assert client.get("/dashboard/").context["theme"]["nav_principale"][0]["label"] == "Dashboard"
+
+
+def test_etichetta_della_barra_dal_manifest(client, superuser):
+    tema = client.get("/dashboard/").context["theme"]
+    assert tema["nav_principale"][0] == {"label": "Chat", "url_name": "ai:chat", "slug": "ai"}

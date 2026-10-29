@@ -161,7 +161,8 @@ def app_visibili(user):
                 pass
         elif m.settings and user.has_perm("core.change_parametro"):
             impostazioni = f"{reverse('core:impostazioni')}#{slug}"     # pagina generata dal manifest
-        apps.append({"slug": slug, "label": m.name, "summary": m.summary, "icon": m.icon,
+        apps.append({"slug": slug, "label": m.name, "nav_label": m.nav_label or m.name, "summary": m.summary,
+                     "icon": m.icon,
                      "url_name": menu[0]["url_name"], "url": menu[0]["url"], "menu": menu,
                      "settings_url": impostazioni})
     return apps

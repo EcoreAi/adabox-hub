@@ -13,7 +13,7 @@ def test_admin_index_ha_brand_e_css(client):
     html = r.content.decode()
     assert "theme/admin.css" in html
     assert f"{settings.THEME['brand']} · Admin" in html
-    assert f'class="ui-admin-mark">{settings.THEME["mark"]}<' in html
+    assert 'class="ui-admin-mark">' in html and 'class="ui-logo-cubo"' in html
 
 
 @pytest.mark.django_db

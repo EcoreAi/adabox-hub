@@ -23,7 +23,7 @@ def test_utente_loggato_vede_header_nav_e_footer():
                                   "nav": [{"label": "Home", "url_name": "core:home"}]}):
         html = _render(user)
     assert "CORPO" in html and "PUBBLICO" not in html
-    assert 'class="ui-logo-mark">AC<' in html
+    assert 'class="ui-logo-mark">' in html and 'class="ui-logo-cubo"' in html
     assert ">Home<" in html
     assert "Mario Rossi" in html
     assert "Ichnobyte" in html

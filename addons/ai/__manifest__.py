@@ -7,6 +7,7 @@
     "depends": [],
     "min_core": "1.0",
     "application": True,
+    "nav_label": "Chat",
     "icon": "ai/icon.svg",
     "home": "ai:chat",
     "menu": [

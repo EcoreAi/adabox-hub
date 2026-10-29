@@ -167,3 +167,9 @@ def test_chiave_ai_solo_un_modulo_dell_app_stessa(addons_tmp):
     assert manifest.leggi(addons_tmp.crea("alfa", ai="alfa.ai")).ai == "alfa.ai"
     assert "non è un modulo Python del modulo stesso" in _errori(addons_tmp, "beta", ai="os.path")
     assert "non è un modulo Python del modulo stesso" in _errori(addons_tmp, "gamma", ai=["gamma.ai"])
+
+
+def test_etichetta_nella_barra(addons_tmp):
+    assert manifest.leggi(addons_tmp.crea("alfa", nav_label="Chat")).nav_label == "Chat"
+    assert manifest.leggi(addons_tmp.crea("beta")).nav_label == ""
+    assert "nav_label" in _errori(addons_tmp, "gamma", nav_label=3)

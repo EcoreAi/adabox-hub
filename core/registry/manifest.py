@@ -15,7 +15,7 @@ MIN_CORE_RE = re.compile(r"^\d+\.\d+$")
 PERM_RE = re.compile(r"^[a-z][a-z0-9_]*\.([a-z_][a-z0-9_]*|\*)$")
 DOTTED_RE = re.compile(r"^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)*$")
 CHIAVI = {"name", "summary", "version", "author", "category", "depends", "min_core", "application",
-          "icon", "menu", "groups", "data", "demo", "hooks", "ai", "settings_url", "cron", "settings", "sequences",
+          "icon", "nav_label", "menu", "groups", "data", "demo", "hooks", "ai", "settings_url", "cron", "settings", "sequences",
           "dashboard", "home"}
 OBBLIGATORIE = {"name", "version", "min_core"}
 CHIAVI_MENU = {"label", "url_name", "permission"}
@@ -48,6 +48,7 @@ class Manifest:
     depends: list = field(default_factory=list)
     application: bool = False
     icon: str = ""
+    nav_label: str = ""                   # etichetta nella barra in alto, se diversa dal nome (es. "Chat")
     menu: list = field(default_factory=list)
     groups: dict = field(default_factory=dict)
     data: list = field(default_factory=list)
@@ -187,7 +188,7 @@ def valida(dati, slug, cartella):
     for k in sorted(OBBLIGATORIE - set(dati)):
         errori.append(f"manca la chiave obbligatoria {k!r}")
 
-    for k in ("name", "summary", "author", "category", "icon"):
+    for k in ("name", "summary", "author", "category", "icon", "nav_label"):
         _testo(errori, dati, k)
     if "version" in dati and not (isinstance(dati["version"], str) and SEMVER_RE.match(dati["version"])):
         errori.append(f"version: {dati['version']!r} non è nel formato X.Y.Z")

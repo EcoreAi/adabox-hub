@@ -54,7 +54,8 @@ h1, h2, h3, h4, h5, h6 { font-weight: 600; letter-spacing: -0.02em; color: var(-
 .ui-header-inner { height: 100%; display: flex; align-items: center; gap: 24px; }
 .ui-logo { display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; color: var(--ui-text); text-decoration: none; }
 .ui-logo:hover { color: var(--ui-text); text-decoration: none; }
-.ui-logo-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--ui-primary); color: #fff; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.ui-logo-mark { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.ui-logo-cubo { display: block; width: 100%; height: 100%; }
 
 .ui-nav { flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; }
 .ui-nav a, .ui-nav-voce {
@@ -524,10 +525,8 @@ table.ui-table .actions .ui-icon-btn { vertical-align: middle; }
   text-align: center;
 }
 .ui-login-header .mark {
-  width: 56px; height: 56px; border-radius: 14px; margin: 0 auto 16px;
-  background: var(--ui-primary); color: #fff;
+  width: 60px; height: 60px; margin: 0 auto 14px;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 18px; font-weight: 700; letter-spacing: -0.02em;
 }
 .ui-login-header h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
 .ui-login-header p { margin: 6px 0 0; font-size: 13px; color: var(--ui-text-2); }
@@ -725,7 +724,6 @@ table.ui-table .actions .ui-icon-btn { vertical-align: middle; }
 /* ============================================================
    Badge sigla nell'header (testo, non icona)
    ============================================================ */
-.ui-logo-mark { font-size: 11px; font-weight: 700; letter-spacing: -0.02em; }
 
 /* ============================================================
    Alert (messages di Django: success, info, warning, error)
@@ -771,7 +769,7 @@ textarea.ui-input { min-height: 96px; resize: vertical; }
   .ui-nav.is-open .ui-nav-altre .ui-dropdown-menu { position: static; opacity: 1; transform: none; pointer-events: auto;
     box-shadow: none; border: 0; padding: 0; min-width: 0; max-height: none; background: none; }
   .ui-logo { font-size: 15px; gap: 6px; white-space: nowrap; }
-  .ui-logo-mark { width: 24px; height: 24px; font-size: 10px; }
+  .ui-logo-mark { width: 26px; height: 26px; }
   .ui-profile-name { display: none; }
   .ui-avatar { font-size: 11px; letter-spacing: 0.3px; }
   .ui-pagehead { flex-direction: column; align-items: flex-start; gap: 10px; }

@@ -36,7 +36,7 @@ CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
 # Brand: letto dal context processor theme.context_processors.theme
 THEME = {
-    "brand": "Adabox Hub",
+    "brand": "Adabox v3",
     "mark": "AH",
     "company": "ICHNOBYTE S.R.L.",
     "company_url": "https://ichnobyte.it/",

@@ -12,7 +12,7 @@
 {% block branding %}
 <h1 id="site-name">
   <a href="{% url 'admin:index' %}">
-    <span class="ui-admin-mark">{{ theme.mark }}</span>
+    <span class="ui-admin-mark">{% include "theme/partials/_logo.html" %}</span>
     <span class="ui-admin-brand">{{ theme.brand }} · Admin</span>
   </a>
 </h1>

@@ -11,7 +11,7 @@ def test_login_in_stile_con_brand(client):
     assert r.status_code == 200
     html = r.content.decode()
     assert "ui-login-card" in html
-    assert '<span class="mark">AC</span>' in html
+    assert '<span class="mark"><svg class="ui-logo-cubo"' in html
     assert "Acme" in html
 
 

@@ -11,7 +11,7 @@ def piattaforma(request):
         return {"theme": base}
     apps = modules.app_visibili(request.user)
     corrente = modules.app_corrente(request, apps)
-    voci_app = [{"label": a["label"], "url_name": a["url_name"], "slug": a["slug"]} for a in apps]
+    voci_app = [{"label": a["nav_label"], "url_name": a["url_name"], "slug": a["slug"]} for a in apps]
     in_testa, voci_app = barra.in_testa(voci_app)          # es. l'assistente AI: sempre per primo
     dashboard = {"label": "Dashboard", "url_name": "core:dashboard"}
     nav = [*in_testa, dashboard, *voci_app]

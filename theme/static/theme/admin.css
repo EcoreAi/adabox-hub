@@ -105,10 +105,8 @@ a:hover { text-decoration: underline; text-underline-offset: 2px; }
 .ui-admin-mark {
   display: inline-flex; align-items: center; justify-content: center;
   width: 30px; height: 30px;
-  background: var(--ui-primary); color: #fff;
-  border-radius: 8px;
-  font-size: 11px; font-weight: 700; letter-spacing: -0.02em;
 }
+.ui-admin-mark .ui-logo-cubo { display: block; width: 100%; height: 100%; }
 
 #user-tools {
   font-size: 13px;
