@@ -32,7 +32,7 @@ class _Stato:
         self.posizione, self.avanzamento = posizione, -1
 
 
-def _passo(turno_id, stato):
+def _passo(turno_id, stato, request=None):
     """(eventi, finito) dallo stato attuale del turno."""
     turno = Turno.objects.filter(pk=turno_id).only("testo", "avanzamento", "stato", "conversazione_id").first()
     if turno is None:
@@ -47,16 +47,17 @@ def _passo(turno_id, stato):
     if turno.concluso:
         messaggio = (MessaggioChat.objects.filter(conversazione_id=turno.conversazione_id,
                                                   ruolo=MessaggioChat.ASSISTENTE).order_by("-pk").first())
-        html = render_to_string("ai/_messaggi.html", {"messaggi": [messaggio]}) if messaggio else ""
+        # con la richiesta: i form delle schede (proposte, salva) hanno il token CSRF
+        html = render_to_string("ai/_messaggi.html", {"messaggi": [messaggio]}, request=request) if messaggio else ""
         eventi.append(_evento("fine", {"stato": turno.stato, "html": html}))
         return eventi, True
     return eventi, False
 
 
-def _sincrono(turno_id, stato):
+def _sincrono(turno_id, stato, request=None):
     inizio = ultimo = time.monotonic()
     while time.monotonic() - inizio < DURATA_MASSIMA:
-        eventi, finito = _passo(turno_id, stato)
+        eventi, finito = _passo(turno_id, stato, request)
         yield from eventi
         if finito:
             return
@@ -66,11 +67,11 @@ def _sincrono(turno_id, stato):
         time.sleep(INTERVALLO)
 
 
-async def _asincrono(turno_id, stato):
+async def _asincrono(turno_id, stato, request=None):
     passo = sync_to_async(_passo, thread_sensitive=False)
     inizio = ultimo = time.monotonic()
     while time.monotonic() - inizio < DURATA_MASSIMA:
-        eventi, finito = await passo(turno_id, stato)
+        eventi, finito = await passo(turno_id, stato, request)
         for e in eventi:
             yield e
         if finito:
@@ -87,7 +88,8 @@ def flusso(request, pk):
     turno = get_object_or_404(Turno, pk=pk, conversazione__utente=request.user)
     ultimo = request.headers.get("Last-Event-ID", "")
     stato = _Stato(int(ultimo) if ultimo.isdigit() else 0)
-    generatore = _asincrono(turno.pk, stato) if isinstance(request, ASGIRequest) else _sincrono(turno.pk, stato)
+    generatore = (_asincrono(turno.pk, stato, request) if isinstance(request, ASGIRequest)
+                  else _sincrono(turno.pk, stato, request))
     risposta = StreamingHttpResponse(generatore, content_type="text/event-stream; charset=utf-8")
     risposta["Cache-Control"] = "no-cache"
     risposta["X-Accel-Buffering"] = "no"

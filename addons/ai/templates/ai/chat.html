@@ -10,7 +10,7 @@
   <link rel="icon" type="image/svg+xml" href="{% url 'theme:favicon' %}">
 </head>
 {# Pagina a tutto schermo: niente header, barra dell'app e footer del tema, solo le tre colonne. #}
-<body class="ui-body ai-pagina">
+<body class="ui-body ai-pagina" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 {% include 'theme/partials/_icons.html' %}
 {% include "ai/_icone.html" %}
 <div class="ai-chat" data-ai-chat>

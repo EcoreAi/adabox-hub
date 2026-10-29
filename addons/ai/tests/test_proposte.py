@@ -212,3 +212,21 @@ def test_preventivo_con_righe(scena, tmp_path):
     ordine = OrdineVendita.objects.get()
     assert ordine.righe.count() == 2 and ordine.imponibile == Decimal("415.00") and ordine.commerciale == scena["capo"]
     assert ordine.numero and p.__class__.objects.get().stato == "eseguita"
+
+
+def test_scheda_dallo_streaming_con_token_csrf(scena):
+    import json
+    import re
+
+    from django.test import Client
+    client = Client(enforce_csrf_checks=True)                                # come il browser in produzione
+    client.force_login(scena["capo"])
+    _turno(scena, [("crea_record", {"vista": "core.aziende", "campi": {"nome": "Con token"}})])
+    p = Proposta.objects.get()
+    pagina = client.get(f"/ai/chat/{scena['conversazione'].pk}/").content.decode()
+    assert re.search(r"hx-headers='\{\"X-CSRFToken\": \"[^\"]+\"\}'", pagina)     # header per ogni richiesta HTMX
+    flusso = b"".join(client.get(f"/ai/flusso/{p.turno_id}/").streaming_content).decode()
+    fine = json.loads(re.search(r"event: fine\ndata: (.*)\n", flusso).group(1))
+    token = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', fine["html"]).group(1)
+    r = client.post(f"/ai/proposta/{p.pk}/conferma/", {"csrfmiddlewaretoken": token}, HTTP_HX_REQUEST="true")
+    assert r.status_code == 200 and Azienda.objects.filter(nome="Con token").exists()
