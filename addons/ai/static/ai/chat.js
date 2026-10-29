@@ -82,7 +82,8 @@
   };
   collegaSuggerimenti();
 
-  // --- app a cui limitare la chat: una sola alla volta, con il chip nel composer ---
+  // --- app a cui limitare la chat: dalle icone sotto il campo (chat nuova) o dal bottone «App» nel campo (sempre).
+  //     Una sola alla volta, mostrata dal chip; in una chat già avviata vale dal messaggio successivo ---
   const datiApp = document.getElementById('ai-suggerimenti-app');
   const suggerimentiApp = datiApp ? JSON.parse(datiApp.textContent) : {};
   const campoAmbito = form.querySelector('[data-ambito]');
@@ -99,30 +100,73 @@
     }));
     collegaSuggerimenti();
   };
-  const scegli = (bottone) => {
-    const giaScelto = bottone && bottone.getAttribute('aria-pressed') === 'true';
-    chat.querySelectorAll('[data-ambito-app]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
-    if (!bottone || giaScelto) {
-      campoAmbito.value = '';
-      if (chip) chip.hidden = true;
-      mostraSuggerimenti('');
-      return;
-    }
-    bottone.setAttribute('aria-pressed', 'true');
-    campoAmbito.value = bottone.dataset.ambitoApp;
+  const scegli = (slug, focus = true) => {
+    campoAmbito.value = slug;
+    chat.querySelectorAll('[data-ambito-app]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.ambitoApp === slug)));
+    const fonte = slug && chat.querySelector(`[data-ambito-app="${slug}"][data-nome]`);
     if (chip) {
-      chip.querySelector('[data-chip-nome]').textContent = bottone.dataset.nome;
-      const img = chip.querySelector('img');
-      img.hidden = !bottone.dataset.icona;
-      if (bottone.dataset.icona) img.src = bottone.dataset.icona;
-      chip.hidden = false;
+      chip.hidden = !fonte;
+      if (fonte) {
+        chip.querySelector('[data-chip-nome]').textContent = fonte.dataset.nome;
+        const img = chip.querySelector('img');
+        img.hidden = !fonte.dataset.icona;
+        if (fonte.dataset.icona) img.src = fonte.dataset.icona;
+      }
     }
-    mostraSuggerimenti(bottone.dataset.ambitoApp);
-    input.focus();
+    mostraSuggerimenti(slug);
+    if (focus) input.focus();
   };
-  chat.querySelectorAll('[data-ambito-app]').forEach((b) => b.addEventListener('click', () => scegli(b)));
+  // icone sotto il campo: un clic sceglie, un altro clic sulla stessa toglie la scelta
+  chat.querySelectorAll('.ai-ambito[data-ambito-app]').forEach((b) => b.addEventListener('click', () => {
+    scegli(b.getAttribute('aria-pressed') === 'true' ? '' : b.dataset.ambitoApp);
+  }));
   const togli = form.querySelector('[data-togli-ambito]');
-  if (togli) togli.addEventListener('click', () => scegli(null));
+  if (togli) togli.addEventListener('click', () => scegli(''));
+
+  // bottone «App» nel campo: apre la scheda con le app; si chiude scegliendo, con Esc o cliccando fuori
+  const apriApp = form.querySelector('[data-apri-app]');
+  const scheda = form.querySelector('#ai-scheda-app');
+  const chiudiScheda = () => {
+    if (!scheda || scheda.hidden) return;
+    scheda.hidden = true;
+    apriApp.setAttribute('aria-expanded', 'false');
+  };
+  if (apriApp && scheda) {
+    apriApp.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const aperta = !scheda.hidden;
+      scheda.hidden = aperta;
+      apriApp.setAttribute('aria-expanded', String(!aperta));
+      if (!aperta) (scheda.querySelector('[aria-pressed="true"]') || scheda.querySelector('button')).focus();
+    });
+    scheda.querySelectorAll('[data-ambito-app]').forEach((b) => b.addEventListener('click', () => {
+      scegli(b.dataset.ambitoApp);
+      chiudiScheda();
+    }));
+    document.addEventListener('click', (e) => { if (!scheda.contains(e.target)) chiudiScheda(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !scheda.hidden) { chiudiScheda(); apriApp.focus(); }
+    });
+  }
+
+  // le icone sotto il campo si nascondono con un clic sul titolo (scelta ricordata)
+  const interruttore = chat.querySelector('[data-interruttore-ambiti]');
+  if (interruttore) {
+    const griglia = chat.querySelector('#ai-ambiti-griglia');
+    const imposta = (visibili) => {
+      griglia.hidden = !visibili;
+      interruttore.setAttribute('aria-expanded', String(visibili));
+    };
+    let nascoste = false;
+    try { nascoste = localStorage.getItem('ai-ambiti-nascosti') === '1'; } catch (e) { /* archivio non disponibile */ }
+    imposta(!nascoste);
+    interruttore.addEventListener('click', () => {
+      const visibili = griglia.hidden;
+      imposta(visibili);
+      try { localStorage.setItem('ai-ambiti-nascosti', visibili ? '0' : '1'); } catch (e) { /* idem */ }
+    });
+  }
+  if (campoAmbito.value) scegli(campoAmbito.value, false);
 
   // --- risposta in diretta: la bolla "in corso" segue il turno con Server-Sent Events ---
   const csrf = form.querySelector('input[name="csrfmiddlewaretoken"]').value;

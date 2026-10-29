@@ -82,12 +82,16 @@ def invia(request, pk=None):
         return HttpResponse(status=204) if request.headers.get("HX-Request") else redirect(
             reverse("ai:conversazione", args=[pk]) if pk else reverse("ai:chat"))
     nuova = conversazione is None
+    ammessi = {a["slug"] for a in app_selezionabili(request.user)}
+    ambito = request.POST.get("ambito", "")
+    ambito = ambito if ambito in ammessi else ""
     if nuova:
         titolo = " ".join(testo.split())
-        ammessi = {a["slug"] for a in app_selezionabili(request.user)}
-        ambito = request.POST.get("ambito", "")
-        conversazione = Conversazione.objects.create(utente=request.user, ambito=ambito if ambito in ammessi else "",
+        conversazione = Conversazione.objects.create(utente=request.user, ambito=ambito,
                                                      titolo=titolo[:60] + ("…" if len(titolo) > 60 else ""))
+    elif "ambito" in request.POST and ambito != conversazione.ambito:     # app cambiata dal bottone «App»
+        conversazione.ambito = ambito
+        conversazione.save(update_fields=["ambito"])
     primo = conversazione.messaggi.order_by("-pk").values_list("pk", flat=True).first() or 0
     turno = motore.avvia(conversazione, testo, request.user, getattr(request, "azienda", None))
     conversazione.save(update_fields=["aggiornata"])

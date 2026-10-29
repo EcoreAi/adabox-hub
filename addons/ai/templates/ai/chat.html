@@ -49,7 +49,6 @@
         {# titolo e azioni della conversazione: una riga che scorre con i messaggi, non una seconda barra #}
         <div class="ai-titolo-chat">
           <h1>{{ conversazione.titolo }}</h1>
-          {% if ambito %}<span class="ai-chip"><img src="{% static ambito.icon %}" alt="">{{ ambito.label }}</span>{% endif %}
           <span class="ai-spazio"></span>
           <form method="post" action="{% url 'ai:preferita' conversazione.pk %}">{% csrf_token %}
             <button type="submit" class="ai-azione{% if conversazione.preferita %} is-preferita{% endif %}" aria-pressed="{{ conversazione.preferita|yesno:'true,false' }}"
@@ -82,10 +81,27 @@
           <textarea name="testo" rows="3" class="ai-input" placeholder="{% if conversazione %}Rispondi…{% else %}Come posso aiutarti oggi?{% endif %}" aria-label="Messaggio" required></textarea>
           <div class="ai-composer-barra">
             <button type="button" class="ai-tondo" disabled data-tip="Allegati: in arrivo" aria-label="Allega (in arrivo)"><svg><use href="#ai-piu"/></svg></button>
-            {% if not conversazione %}
+            {% if app %}
+            <div class="ai-app-scelta">
+              <button type="button" class="ai-app-btn" data-apri-app aria-haspopup="true" aria-expanded="false" aria-controls="ai-scheda-app">
+                <svg><use href="#ai-app"/></svg><span>App</span></button>
+              <div class="ai-scheda-app" id="ai-scheda-app" role="dialog" aria-label="Limita la chat a un'app" hidden>
+                <div class="ai-scheda-app-testa">Limita la chat a un'app</div>
+                <button type="button" class="ai-scheda-voce ai-scheda-tutte" data-ambito-app="" aria-pressed="{% if conversazione.ambito %}false{% else %}true{% endif %}">
+                  <span class="ai-scheda-icona"><svg><use href="#ai-dashboard"/></svg></span><span>Tutte le app</span></button>
+                <div class="ai-scheda-griglia">
+                  {% for a in app %}
+                  <button type="button" class="ai-scheda-voce" data-ambito-app="{{ a.slug }}" data-nome="{{ a.label }}"
+                          data-icona="{% if '/' in a.icon %}{% static a.icon %}{% endif %}" aria-pressed="false">
+                    <span class="ai-scheda-icona">{% if "/" in a.icon %}<img src="{% static a.icon %}" alt="">{% else %}<svg><use href="#icon-{{ a.icon|default:'zap' }}"/></svg>{% endif %}</span>
+                    <span>{{ a.label }}</span></button>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+            {% endif %}
             <span class="ai-chip ai-chip-ambito" data-chip-ambito hidden><img alt=""><span data-chip-nome></span>
               <button type="button" class="ai-chip-x" data-togli-ambito aria-label="Usa tutte le app"><svg><use href="#icon-x"/></svg></button></span>
-            {% endif %}
             <span class="ai-spazio"></span>
             <span class="ai-suggerimento-tasti">Invio per inviare · Maiusc+Invio per andare a capo</span>
             <button type="submit" class="ai-invia" aria-label="Invia"><svg><use href="#ai-freccia"/></svg></button>
@@ -98,8 +114,9 @@
         </ul>
         {% if app %}
         <section class="ai-ambiti" aria-labelledby="ai-ambiti-titolo">
-          <h2 id="ai-ambiti-titolo">Limita la chat a un'app</h2>
-          <div class="ai-ambiti-griglia">
+          <h2 id="ai-ambiti-titolo"><button type="button" class="ai-ambiti-interruttore" data-interruttore-ambiti
+              aria-expanded="true" aria-controls="ai-ambiti-griglia">Limita la chat a un'app <svg><use href="#icon-chevron-down"/></svg></button></h2>
+          <div class="ai-ambiti-griglia" id="ai-ambiti-griglia">
             {% for a in app %}
             <button type="button" class="ai-ambito" data-ambito-app="{{ a.slug }}" data-nome="{{ a.label }}"
                     data-icona="{% if '/' in a.icon %}{% static a.icon %}{% endif %}" aria-pressed="false">

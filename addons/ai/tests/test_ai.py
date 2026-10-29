@@ -40,7 +40,26 @@ def test_app_per_limitare_la_chat(client, utente, monkeypatch):
     ambiti = dict(Conversazione.objects.values_list("titolo", "ambito"))
     assert ambiti == {"Cosa scade oggi?": "todo", "E nel CRM?": ""}
     c = Conversazione.objects.get(ambito="todo")
-    assert "To-Do" in client.get(f"/ai/chat/{c.pk}/").content.decode()
+    html = client.get(f"/ai/chat/{c.pk}/").content.decode()
+    assert "To-Do" in html and 'data-apri-app' in html and 'name="ambito" value="todo"' in html     # bottone «App»
+    assert 'data-interruttore-ambiti' not in html                       # le icone sotto il campo: solo chat nuova
+    client.post(f"/ai/chat/{c.pk}/invia/", {"testo": "E il CRM?", "ambito": "crm"})     # non visibile: tutte
+    c.refresh_from_db()
+    assert c.ambito == ""
+    client.post(f"/ai/chat/{c.pk}/invia/", {"testo": "Torna alle attività", "ambito": "todo"})
+    client.post(f"/ai/chat/{c.pk}/invia/", {"testo": "Senza campo ambito"})             # resta com'è
+    c.refresh_from_db()
+    assert c.ambito == "todo"
+
+
+def test_bottone_app_e_icone_che_si_nascondono(client, utente, monkeypatch):
+    from ai import pagine
+    finta = [{"slug": "todo", "label": "To-Do", "icon": "todo/icon.svg", "url": "/todo/attivita/"}]
+    monkeypatch.setattr(pagine, "app_selezionabili", lambda user: finta)
+    html = client.get("/ai/chat/").content.decode()
+    assert 'aria-controls="ai-scheda-app"' in html and 'id="ai-scheda-app"' in html and "Tutte le app" in html
+    assert 'data-interruttore-ambiti' in html and 'aria-controls="ai-ambiti-griglia"' in html
+    assert html.count('data-ambito-app="todo"') == 2                   # nella scheda e tra le icone
 
 
 def test_primo_messaggio_crea_la_conversazione(client, utente):
