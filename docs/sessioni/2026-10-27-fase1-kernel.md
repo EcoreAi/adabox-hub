@@ -229,3 +229,17 @@ Piano `docs/superpowers/plans/2026-10-29-adabox-hub-ai-3-proattivita.md`.
 - Il profilo «Attività pianificate» passa da 1024 a 16000 token (`post_upgrade`).
 
 Prossimo: AI-4 (conoscenza: RAG su documenti, chatter e record con citazioni).
+
+## Modulo AI — fase AI-4, conoscenza (2026-10-29)
+
+Piano `docs/superpowers/plans/2026-10-29-adabox-hub-ai-4-conoscenza.md`.
+
+- Il server di sviluppo è su SQLite: niente pgvector per ora. Vettori float32 a 256 dimensioni nel database,
+  confronto in Python, ricerca ibrida (0,8 semantica + 0,2 parole chiave); senza servizio solo parole chiave.
+- Indice per azienda, permessi alla ricerca tramite le `ModelView` (cartelle dei Documenti comprese).
+- Servizio di embedding di adabox (`adabox-embeddings-1`, rete `adabox_ada_net`) raggiunto con un
+  `docker-compose.override.yml` locale; URL nell'impostazione `ai.url_embeddings`.
+- Escluse dall'indice le viste tecniche del kernel (lavori, email ricevute, profili, campi personalizzati).
+- Dipendenze nuove: `pypdf`, `python-docx`.
+
+Prossimo: AI-5 (fiducia: dati personali mascherati verso il cloud, provenienza, audit).

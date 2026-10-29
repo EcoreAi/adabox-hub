@@ -268,7 +268,7 @@ completo. Il flusso: **prodotto → preventivo → ordine → consegna (DDT) →
 ### Assistente AI
 
 Spec `docs/superpowers/specs/2026-10-29-adabox-hub-modulo-ai-design.md`; fasi AI-1 (fondamenta), AI-2 (strumenti
-dalle app) e AI-3 (proattività) completate.
+dalle app), AI-3 (proattività) e AI-4 (conoscenza) completate.
 
 - **Configurazione** (gruppo «AI / Amministratore»):
   - in `/ai/provider/` la chiave API di Anthropic, salvata cifrata con `CHIAVE_CIFRATURA` o, se manca, con una
@@ -325,6 +325,20 @@ dalle app) e AI-3 (proattività) completate.
     Discuss come messaggio diretto dell'utente di sistema `assistente-ai` (non attivo, senza password) e per email.
     I link assoluti usano `SITO_URL`;
   - le modifiche ai dati restano proposte da confermare nella conversazione.
+- **Conoscenza** (AI-4):
+  - `cerca_conoscenza` cerca nel testo dei documenti (PDF, Word, Excel, CSV, testo), nelle note e nei messaggi del
+    chatter e nei campi di testo dei record, e restituisce estratti numerati da citare come link. I risultati
+    passano dalla `ModelView` della fonte: l'utente vede solo quello che vedrebbe nell'interfaccia (anche le
+    cartelle dei Documenti). `leggi_documento` legge un documento a pagine, `leggi_foglio` le righe di un
+    Excel/CSV;
+  - l'indice (`Frammento`) si aggiorna ogni 10 minuti (voce `cron`) o con `python manage.py ai_indicizza`; solo i
+    testi cambiati si ricalcolano;
+  - ricerca semantica con il servizio di embedding indicato in `/impostazioni/` → «URL del servizio di
+    embedding» (EmbeddingGemma 2 di adabox, vettori a 256 dimensioni); senza, solo per parole chiave. Per
+    raggiungere i servizi di adabox sullo stesso server: `deploy/compose.servizi-adabox.yml` come
+    `docker-compose.override.yml`;
+  - i vettori stanno nel database e si confrontano in Python (adatto fino a decine di migliaia di frammenti);
+    pgvector è il passo successivo quando il database sarà Postgres.
 - **Produzione**: lo streaming lo serve il servizio `stream` del compose (uvicorn, ASGI), e nginx gli instrada
   `/ai/flusso/`; il resto resta su gunicorn (WSGI). Quando cambiano i moduli installati, `stream` risponde 503 e
   si riavvia da solo, come il worker.

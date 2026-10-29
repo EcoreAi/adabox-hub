@@ -14,3 +14,6 @@ private/
 .moduli-in-arrivo/
 dist/
 *.pem
+
+# collegamenti locali del server (es. ai servizi di adabox): vedi deploy/compose.servizi-adabox.yml
+docker-compose.override.yml

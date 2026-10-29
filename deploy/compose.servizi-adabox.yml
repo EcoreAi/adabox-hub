@@ -1,0 +1,15 @@
+# Esempio: collega l'hub ai servizi locali di adabox (embeddings, pii, decider, forecast) già attivi sullo stesso
+# server, sulla loro rete Docker. Copialo come docker-compose.override.yml (non versionato) e imposta in
+# /impostazioni/ l'URL del servizio, es. http://adabox-embeddings-1:8080.
+services:
+  web:
+    networks: [default, adabox]
+  worker:
+    networks: [default, adabox]
+  stream:
+    networks: [default, adabox]
+
+networks:
+  adabox:
+    name: adabox_ada_net
+    external: true
