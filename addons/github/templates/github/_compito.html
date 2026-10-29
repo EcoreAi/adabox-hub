@@ -1,0 +1,16 @@
+{% load github %}{% github_del_compito obj as g %}{% if g.repository or g.collegamenti %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">GitHub</div>
+    <div class="ui-card-sub">Riferimento <code class="ui-code">{{ g.riferimento }}</code> nei commit e nelle pull request · ramo suggerito <code class="ui-code">{{ g.ramo }}</code></div></div>
+    <div class="spacer"></div>
+    {% if perms.github.add_collegamento %}{% for r in g.repository %}{% if r.token_cifrato %}
+    <form method="post" action="{% url 'github:crea_issue' obj.pk %}">{% csrf_token %}<input type="hidden" name="repository" value="{{ r.pk }}">
+      <button class="ui-btn ui-btn-ghost ui-btn-sm">Crea issue su {{ r.nome }}</button></form>{% endif %}{% endfor %}{% endif %}</div>
+  <div class="ui-card-body">
+    {% for c in g.collegamenti %}<p><span class="ui-pill ui-pill-neutral">{{ c.get_tipo_display }}</span>
+      <a class="ui-link" href="{{ c.url }}" target="_blank" rel="noopener">{{ c.etichetta }}</a> {{ c.titolo }}
+      {% if c.stato %}<span class="ui-pill {% if c.stato == 'unita' %}ui-pill-ok{% elif c.stato == 'chiusa' %}ui-pill-neutral{% else %}ui-pill-info{% endif %}">{{ c.get_stato_display|lower }}</span>{% endif %}
+      {% if c.autore %}<span class="ui-help">· {{ c.autore }}</span>{% endif %}</p>
+    {% empty %}<p class="ui-help">Ancora nessun commit o pull request: cita <code class="ui-code">{{ g.riferimento }}</code> nel messaggio di commit, nel titolo della pull request o nel nome del ramo.</p>{% endfor %}
+  </div>
+</section>{% endif %}

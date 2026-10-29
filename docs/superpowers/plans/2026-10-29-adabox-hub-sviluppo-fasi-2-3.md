@@ -35,7 +35,7 @@ collaudo dei moduli prima del deploy di ogni fase; un commit per task con push.
 - Pagina di esecuzione: esito per caso; da un caso fallito «Apri difetto» crea un compito di tipo Bug collegato.
 - Scheda sul rilascio: esito dei collaudi.
 
-### Task 6: modulo `github`
+### Task 6: modulo `github` — fatto
 - `Repository` per progetto (owner/nome, segreto del webhook, token cifrato, chiusura al merge).
 - Webhook firmato (HMAC SHA-256): push → commit sul compito citato (`ADA-123` nel messaggio); pull request →
   collegamento con stato (aperta, unita, chiusa), al merge il compito si chiude se richiesto; release pubblicata →
@@ -43,4 +43,4 @@ collaudo dei moduli prima del deploy di ogni fase; un commit per task con push.
 - Bottone «Crea issue su GitHub» (con il token) come lavoro in background; scheda sul compito con riferimento,
   nome del ramo suggerito e collegamenti.
 
-### Task 7: installazione, collaudo, README, prova dal vivo
+### Task 7: installazione, collaudo, README, prova dal vivo — fatto

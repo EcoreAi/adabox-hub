@@ -1,0 +1,13 @@
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Webhook da configurare su GitHub</div></div>
+  <div class="ui-card-body">
+    <p>Su <a class="ui-link" href="{{ obj.url }}/settings/hooks/new" target="_blank" rel="noopener">{{ obj.nome }} → Settings → Webhooks → Add webhook</a>:</p>
+    <ul>
+      <li>Payload URL: <code class="ui-code">{{ request.scheme }}://{{ request.get_host }}{% url 'github:webhook' obj.pk %}</code></li>
+      <li>Content type: <code class="ui-code">application/json</code></li>
+      <li>Secret: <code class="ui-code">{{ obj.segreto }}</code></li>
+      <li>Eventi: <em>Let me select individual events</em> → Pushes, Pull requests, Issues, Releases.</li>
+    </ul>
+    <p class="ui-help">Token per aprire le issue: {% if obj.token_cifrato %}salvato (cifrato){% else %}nessuno{% endif %}. Un tag di release (es. v2.4.0) pubblica il rilascio del progetto con la stessa versione.</p>
+  </div>
+</section>

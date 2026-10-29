@@ -286,7 +286,28 @@ Helpdesk e Progetti, che restano installabili da soli).
   file; vede solo i messaggi pubblici. Gli utenti esterni (`ProfiloUtente.esterno`) non raggiungono le pagine interne,
   le API né l'admin. Password dimenticata da `/accounts/password_reset/`.
 - **Ticket → compito**: «Crea compito di sviluppo» dal ticket; quando il compito arriva in una fase chiusa il cliente
-  riceve un messaggio e il ticket passa a «Risolto».
+  riceve un messaggio e il ticket passa a «Risolto»; quando esce la versione che contiene il compito riceve un altro
+  messaggio. Un ticket di tipo bug diventa un compito di tipo Bug.
+
+### Progetti software, Qualità e GitHub
+
+Piano `docs/superpowers/plans/2026-10-29-adabox-hub-sviluppo-fasi-2-3.md`.
+
+- **Progetti 1.1** (servono a ogni progetto): tipi di lavoro configurabili (Funzionalità, Bug, Miglioramento,
+  Attività), punti di stima, milestone con avanzamento, dipendenze «bloccato da» (niente cicli; un compito bloccato
+  non si completa dal form, dal bottone né dal kanban), sprint con burndown e «Chiudi lo sprint» che sposta i compiti
+  aperti nello sprint successivo, rilasci con note generate dai compiti completati e «Rilascia» (segnale
+  `progetti.segnali.rilascio_pubblicato`), budget di ore del progetto con avviso nel chatter all'80% e al 100% delle
+  ore del timesheet. Aggancio del kernel `ModelView.kanban_vietato(request, obj)` per rifiutare uno spostamento.
+- **Qualità** (modulo `qualita`, dipende da Progetti): ambienti (sviluppo, collaudo, produzione) con la versione
+  installata, casi di test (area, precondizioni, passi, risultato atteso), collaudi per rilascio e ambiente con tutti
+  i casi attivi, pagina «Esegui i test» con esito e note per caso, «Apri difetto» da un caso fallito (compito Bug nel
+  rilascio, con passi e risultato), esito dei collaudi sulla scheda del rilascio.
+- **GitHub** (modulo `github`, dipende da Progetti): un repository per progetto; webhook `/github/webhook/<id>/`
+  firmato con il segreto della scheda (eventi push, pull request, issues, release). `ADA-123` (prefisso nelle
+  Impostazioni) in un commit, nel titolo o nel ramo di una pull request collega il compito 123 del progetto; una pull
+  request unita completa i compiti citati (se non bloccati e se il repository lo prevede); un tag `v2.4.0` pubblicato
+  come release pubblica il rilascio 2.4.0. Con un token (salvato cifrato) «Crea issue su GitHub» dal compito.
 
 ### Spazi di lavoro dei Documenti
 
