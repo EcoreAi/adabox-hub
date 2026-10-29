@@ -67,6 +67,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "core.middleware.AziendaCorrenteMiddleware",
     "core.middleware.ModuloDisattivatoMiddleware",
+    "core.middleware.UtenteEsternoMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "axes.middleware.AxesMiddleware",
@@ -110,6 +111,9 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "core:home"
+# portale degli utenti esterni (clienti): gli unici indirizzi che vedono, e dove arrivano dopo l'accesso
+PORTALE_HOME = env("PORTALE_HOME", default="/assistenza/portale/")
+PORTALE_PERCORSI = env.list("PORTALE_PERCORSI", default=["/assistenza/portale/"])
 LOGOUT_REDIRECT_URL = "login"
 
 LANGUAGE_CODE = "it"

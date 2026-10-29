@@ -40,6 +40,8 @@ class ProfiloUtente(models.Model):
     aziende = models.ManyToManyField(Azienda, verbose_name="aziende consentite", blank=True)
     azienda_predefinita = models.ForeignKey(Azienda, on_delete=models.SET_NULL, null=True, blank=True,
                                             related_name="+", verbose_name="azienda predefinita")
+    esterno = models.BooleanField("utente esterno", default=False,
+                                  help_text="un cliente: vede solo il portale, mai le pagine interne")
 
     class Meta:
         verbose_name = "profilo utente"

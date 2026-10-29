@@ -1,0 +1,14 @@
+{% load assistenza %}{% supporto_del_progetto obj as s %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Assistenza clienti</div></div>
+  <div class="ui-card-body">
+    {% if s %}
+    <p>{% if s.attivo %}<span class="ui-pill ui-pill-ok">attiva</span>{% else %}<span class="ui-pill ui-pill-neutral">sospesa</span>{% endif %}
+      Team <strong>{{ s.team|default:"—" }}</strong>, responsabile <strong>{{ s.responsabile|default:"il meno carico del team" }}</strong>,
+      contratto <strong>{{ s.contratto_valido|default:"nessuno (SLA dell'helpdesk)" }}</strong>.
+      <a href="{% url 'assistenza:supporto_modifica' s.pk %}">Modifica</a></p>
+    {% else %}
+    <p class="ui-help">Il progetto non ha ancora l'assistenza. <a href="{% url 'assistenza:supporto_nuovo' %}?progetto={{ obj.pk }}">Attivala</a> per ricevere i ticket dei clienti con il team, il contratto e il widget del progetto.</p>
+    {% endif %}
+  </div>
+</section>

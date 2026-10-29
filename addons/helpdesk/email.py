@@ -22,8 +22,14 @@ def apri_ticket(msg, mittente):
     contatto = Contatto.objects.filter(email__iexact=mittente, attivo=True).first()
     azienda = contatto.azienda if contatto else Azienda.objects.filter(attiva=True).order_by("pk").first()
     from .models import Team, Ticket
+    from .segnali import ticket_da_email
     ticket = Ticket.objects.create(azienda=azienda, oggetto=str(msg.get("Subject", "") or "(senza oggetto)")[:200],
-                                   contatto=contatto, email_cliente=mittente, team=Team.objects.order_by("pk").first())
+                                   contatto=contatto, email_cliente=mittente)
+    ticket_da_email.send(sender=Ticket, ticket=ticket)          # es. l'assistenza lo mette sul progetto giusto
+    ticket.refresh_from_db()
+    if ticket.team_id is None:                                   # nessuno l'ha instradato: il primo team
+        ticket.team = Team.objects.order_by("pk").first()
+        ticket.save(update_fields=["team"])
     segui_team(ticket)
     return ticket
 

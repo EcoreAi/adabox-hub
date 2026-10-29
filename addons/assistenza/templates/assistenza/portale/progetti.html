@@ -1,0 +1,10 @@
+{% extends "assistenza/portale/base.html" %}
+{% block title %}Progetti{% endblock %}
+{% block contenuto %}
+<div class="ui-pagehead"><div><h1>I progetti di {{ cliente }}</h1></div></div>
+<section class="ui-card is-revealed"><div class="ui-table-wrap">
+  <table class="ui-table"><thead><tr><th>Progetto</th><th>Stato</th><th>Fine prevista</th><th>Richieste aperte</th></tr></thead>
+    <tbody>{% for p, aperti in progetti %}<tr><td>{{ p.nome }}</td><td>{{ p.get_stato_display }}</td><td>{{ p.fine|date:"d/m/Y"|default:"—" }}</td><td>{{ aperti }}</td></tr>
+    {% empty %}<tr><td colspan="4">Nessun progetto.</td></tr>{% endfor %}</tbody></table>
+</div></section>
+{% endblock %}

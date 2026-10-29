@@ -1,0 +1,17 @@
+{% extends "assistenza/portale/base.html" %}
+{% block title %}Le mie richieste{% endblock %}
+{% block contenuto %}
+<div class="ui-pagehead"><div><h1>Le richieste di {{ cliente }}</h1><div class="sub">{{ aperti }} aperte</div></div>
+  <a class="ui-btn ui-btn-primary" href="{% url 'assistenza:portale_nuovo' %}"><svg><use href="#icon-plus"/></svg> Nuova segnalazione</a></div>
+<section class="ui-card is-revealed"><div class="ui-table-wrap">
+  {% if ticket %}
+  <table class="ui-table"><thead><tr><th>Numero</th><th>Oggetto</th><th>Aperta da</th><th>Stato</th><th>Aperta il</th></tr></thead>
+    <tbody>{% for t in ticket %}<tr>
+      <td><a href="{% url 'assistenza:portale_ticket' t.pk %}">{{ t.numero }}</a></td>
+      <td><a href="{% url 'assistenza:portale_ticket' t.pk %}">{{ t.oggetto }}</a></td>
+      <td>{{ t.contatto|default:"—" }}</td>
+      <td><span class="ui-pill {% if t.fase.chiusa %}ui-pill-ok{% else %}ui-pill-info{% endif %}">{{ t.fase }}</span></td>
+      <td>{{ t.creato|date:"d/m/Y" }}</td></tr>{% endfor %}</tbody></table>
+  {% else %}<div class="ui-empty"><p>Nessuna richiesta, per ora.</p></div>{% endif %}
+</div></section>
+{% endblock %}

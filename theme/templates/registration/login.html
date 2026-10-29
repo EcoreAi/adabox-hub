@@ -30,6 +30,7 @@
       </div>
       <input type="hidden" name="next" value="{{ next }}">
       <button class="ui-btn ui-btn-primary" type="submit" style="width:100%; justify-content:center; margin-top:8px;">Accedi</button>
+      <p style="margin:14px 0 0;text-align:center;font-size:13px;"><a href="{% url 'password_reset' %}">Password dimenticata?</a></p>
     </form>
   </div>
   {% if theme.version %}<p class="ui-login-version">versione {{ theme.version }}</p>{% endif %}

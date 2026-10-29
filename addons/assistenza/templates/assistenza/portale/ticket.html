@@ -1,0 +1,33 @@
+{% extends "assistenza/portale/base.html" %}
+{% block title %}{{ t.numero }}{% endblock %}
+{% block contenuto %}
+<div class="ui-pagehead"><div><h1>{{ t.oggetto }}</h1>
+  <div class="sub">{{ t.numero }}{% if dati.progetto %} · {{ dati.progetto }}{% endif %} · aperta il {{ t.creato|date:"d/m/Y H:i" }}{% if t.contatto %} da {{ t.contatto }}{% endif %}</div></div>
+  <span class="ui-pill {% if t.fase.chiusa %}ui-pill-ok{% else %}ui-pill-info{% endif %}">{{ t.fase }}</span></div>
+<div class="pt-colonne">
+  <div>
+    {% if t.descrizione %}<section class="ui-card is-revealed ui-section"><div class="ui-card-body pt-testo">{{ t.descrizione|linebreaksbr }}</div></section>{% endif %}
+    {% for m in messaggi %}
+    <article class="pt-messaggio{% if m.autore == user %} is-mio{% endif %}">
+      <header><strong>{% if m.autore %}{{ m.autore.get_full_name|default:m.autore.username }}{% else %}{{ m.autore_email|default:"—" }}{% endif %}</strong> · {{ m.creato|date:"d/m/Y H:i" }}</header>
+      <div class="pt-testo">{{ m.corpo|linebreaksbr }}</div>
+      {% for a in m.allegati.all %}<a class="pt-file" href="{% url 'assistenza:portale_file' t.pk a.pk %}">📎 {{ a.nome }}</a>{% endfor %}
+    </article>
+    {% empty %}<p class="ui-help">Ancora nessun messaggio: ti risponderemo qui e per email.</p>{% endfor %}
+    <section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+      <form method="post" enctype="multipart/form-data">{% csrf_token %}
+        <label class="ui-label" for="pt-testo">{% if t.fase.chiusa %}Rispondi (la richiesta si riapre){% else %}Rispondi{% endif %}</label>
+        <textarea class="ui-input" id="pt-testo" name="testo" rows="4"></textarea>
+        <div class="pt-azioni"><input type="file" name="file" multiple aria-label="Allegati"><button class="ui-btn ui-btn-primary" type="submit">Invia</button></div>
+      </form></div></section>
+  </div>
+  <aside>
+    <section class="ui-card is-revealed"><div class="ui-card-body">
+      <dl class="pt-dati"><dt>Stato</dt><dd>{{ t.fase }}</dd><dt>Priorità</dt><dd>{{ t.get_priorita_display }}</dd>
+        {% if dati %}<dt>Tipo</dt><dd>{{ dati.get_tipo_display }}</dd>{% if dati.compito %}<dt>Sviluppo</dt><dd>{{ dati.compito.fase }}</dd>{% endif %}{% endif %}
+        {% if t.chiuso_il %}<dt>Chiusa il</dt><dd>{{ t.chiuso_il|date:"d/m/Y" }}</dd>{% endif %}</dl>
+      {% if allegati_ticket %}<h3 class="pt-sottotitolo">File</h3>{% for a in allegati_ticket %}<a class="pt-file" href="{% url 'assistenza:portale_file' t.pk a.pk %}">📎 {{ a.nome }}</a>{% endfor %}{% endif %}
+    </div></section>
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% load assistenza %}{% accesso_del_contatto obj as accesso %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Portale clienti</div></div>
+  <div class="ui-card-body" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
+    {% if accesso and accesso.utente.is_active %}
+      <span>Accesso attivo: <strong>{{ accesso.utente.username }}</strong>{% if accesso.utente.last_login %}, ultimo accesso {{ accesso.utente.last_login|date:"d/m/Y H:i" }}{% else %}, non ancora entrato{% endif %}.</span>
+      <form method="post" action="{% url 'assistenza:invita_contatto' obj.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-secondary ui-btn-sm">Rimanda l'invito</button></form>
+      {% if perms.assistenza.delete_accessoportale %}<form method="post" action="{% url 'assistenza:revoca_contatto' obj.pk %}" onsubmit="return confirm('Sospendere l\'accesso al portale?')">{% csrf_token %}<button class="ui-btn ui-btn-ghost ui-btn-sm">Sospendi l'accesso</button></form>{% endif %}
+    {% else %}
+      <span class="ui-help">{% if accesso %}Accesso sospeso.{% else %}Il contatto non ha accesso al portale.{% endif %} Con l'invito riceve un'email per scegliere la password e segue ticket e progetti della sua azienda.</span>
+      {% if obj.email %}<form method="post" action="{% url 'assistenza:invita_contatto' obj.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-primary ui-btn-sm">{% if accesso %}Riattiva e invita{% else %}Invita al portale{% endif %}</button></form>
+      {% else %}<span class="ui-help">Serve un indirizzo email sul contatto.</span>{% endif %}
+    {% endif %}
+  </div>
+</section>

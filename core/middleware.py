@@ -3,6 +3,37 @@ from django.utils.functional import SimpleLazyObject
 from .azienda import corrente
 
 
+def esterno(user):
+    """Un utente esterno (es. il cliente di un portale): vede solo gli indirizzi del portale."""
+    if not getattr(user, "is_authenticated", False) or user.is_superuser:
+        return False
+    try:
+        return user.profilo.esterno
+    except Exception:                                   # senza profilo: utente interno
+        return False
+
+
+class UtenteEsternoMiddleware:
+    """Gli utenti esterni restano nel portale: ogni altro indirizzo (pagine interne, API, admin) rimanda alla home
+    del portale. Sempre ammessi: accesso, uscita, password, file statici, favicon."""
+    SEMPRE = ("/accounts/", "/static/", "/favicon.")
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        from django.conf import settings
+        from django.shortcuts import redirect, render
+        if esterno(getattr(request, "user", None)):
+            percorso = request.path_info
+            ammessi = (*self.SEMPRE, *settings.PORTALE_PERCORSI)
+            if not percorso.startswith(ammessi):
+                if settings.PORTALE_HOME and percorso != settings.PORTALE_HOME:
+                    return redirect(settings.PORTALE_HOME)
+                return render(request, "core/solo_portale.html", status=403)
+        return self.get_response(request)
+
+
 class ModuloDisattivatoMiddleware:
     """Le pagine e le API di un modulo disattivato rispondono 404 con un avviso, per tutti: il modulo resta
     installato con i suoi dati e si riaccende dalla pagina Moduli."""

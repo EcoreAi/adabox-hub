@@ -1,0 +1,17 @@
+{% load static %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Widget per l'applicazione del cliente</div></div>
+  <div class="ui-card-body">
+    {% if obj.elenco_domini %}
+    <p>Incolla questa riga nelle pagine dell'applicazione (prima di <code>&lt;/body&gt;</code>): compare il bottone
+      «Segnala un problema» e i ticket arrivano a questo progetto.</p>
+    <pre class="ui-log" style="white-space:pre-wrap;">&lt;script src="{{ request.scheme }}://{{ request.get_host }}{% static 'assistenza/widget.js' %}" data-chiave="{{ obj.chiave }}" data-versione="1.0.0" async&gt;&lt;/script&gt;</pre>
+    <p class="ui-help">Facoltativi: <code>data-email</code> e <code>data-nome</code> dell'utente collegato, <code>data-versione</code>
+      dell'applicazione, <code>data-testo</code>, <code>data-colore</code>, <code>data-posizione="sinistra"</code>.
+      Funziona solo dai siti ammessi: {{ obj.elenco_domini|join:", " }}.</p>
+    {% else %}
+    <p class="ui-help">Il widget è spento: indica nel campo «siti ammessi» gli indirizzi dell'applicazione del cliente
+      (es. <code>https://app.cliente.it</code>), uno per riga.</p>
+    {% endif %}
+  </div>
+</section>

@@ -1,0 +1,3 @@
+{% extends 'theme/base.html' %}
+{% block title %}Accesso riservato · {{ theme.brand }}{% endblock %}
+{% block content %}{% include 'theme/partials/_scheda_errore.html' with codice='403' titolo='Area riservata' testo="Il tuo accesso è per il portale clienti, che al momento non è disponibile." %}{% endblock %}

@@ -1,0 +1,21 @@
+{% load assistenza %}{% dati_assistenza obj as dati %}
+{% if dati %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Assistenza</div></div>
+  <div class="ui-card-body">
+    <dl class="ui-totali-documento" style="justify-content:start;border:0;padding:0;flex-wrap:wrap;gap:18px 32px;">
+      <div><dt>Progetto</dt><dd>{% if dati.progetto %}<a href="{% url 'progetti:progetti_dettaglio' dati.progetto.pk %}">{{ dati.progetto }}</a>{% else %}—{% endif %}</dd></div>
+      <div><dt>Tipo</dt><dd>{{ dati.get_tipo_display }}</dd></div>
+      <div><dt>Arrivato da</dt><dd>{{ dati.get_canale_display }}</dd></div>
+      <div><dt>Prima risposta entro</dt><dd>{% if dati.risposta_il %}<span class="ui-pill ui-pill-ok">data il {{ dati.risposta_il|date:"d/m H:i" }}</span>{% elif dati.scadenza_risposta %}{{ dati.scadenza_risposta|date:"d/m/Y H:i" }}{% else %}—{% endif %}</dd></div>
+      {% if dati.compito %}<div><dt>Compito di sviluppo</dt><dd><a href="{% url 'progetti:compiti_dettaglio' dati.compito.pk %}">{{ dati.compito }}</a> · {{ dati.compito.fase }}</dd></div>{% endif %}
+    </dl>
+    {% if dati.progetto and not dati.compito and perms.progetti.add_compito %}
+    <form method="post" action="{% url 'assistenza:crea_compito' obj.pk %}" style="margin-top:12px;">{% csrf_token %}
+      <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Crea compito di sviluppo</button>
+      <span class="ui-help">nel progetto {{ dati.progetto }}: quando sarà completato il cliente riceverà un avviso</span></form>{% endif %}
+    {% if dati.tecnici %}<details style="margin-top:12px;"><summary class="ui-help">Dati tecnici dall'applicazione</summary>
+      <table class="ui-table" style="margin-top:8px;"><tbody>{% for chiave, valore in dati.tecnici.items %}<tr><th style="width:30%;">{{ chiave }}</th><td style="overflow-wrap:anywhere;">{{ valore }}</td></tr>{% endfor %}</tbody></table></details>{% endif %}
+  </div>
+</section>
+{% endif %}

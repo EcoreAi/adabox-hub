@@ -1,0 +1,19 @@
+{% extends "assistenza/portale/base.html" %}
+{% block title %}Nuova segnalazione{% endblock %}
+{% block contenuto %}
+<div class="ui-pagehead"><div><h1>Nuova segnalazione</h1><div class="sub">Va direttamente al team del progetto</div></div></div>
+{% if progetti %}
+<section class="ui-card is-revealed" style="max-width:720px;"><div class="ui-card-body">
+  <form method="post" enctype="multipart/form-data">{% csrf_token %}
+    <label class="ui-label" for="pt-progetto">Progetto</label>
+    <select class="ui-input" id="pt-progetto" name="progetto" required>{% for p in progetti %}<option value="{{ p.pk }}">{{ p.nome }}</option>{% endfor %}</select>
+    <label class="ui-label" for="pt-tipo">Tipo</label>
+    <select class="ui-input" id="pt-tipo" name="tipo">{% for valore, nome in tipi %}<option value="{{ valore }}">{{ nome }}</option>{% endfor %}</select>
+    <label class="ui-label" for="pt-oggetto">Oggetto</label><input class="ui-input" id="pt-oggetto" name="oggetto" maxlength="200" required>
+    <label class="ui-label" for="pt-descrizione">Descrizione</label>
+    <textarea class="ui-input" id="pt-descrizione" name="descrizione" rows="6" placeholder="Cosa stavi facendo, cosa ti aspettavi, cosa è successo"></textarea>
+    <label class="ui-label" for="pt-file">Allegati (fino a 5)</label><input id="pt-file" type="file" name="file" multiple>
+    <div class="pt-azioni"><button class="ui-btn ui-btn-primary" type="submit">Invia la segnalazione</button></div>
+  </form></div></section>
+{% else %}<div class="ui-alert ui-alert-info">Nessun progetto con assistenza attiva: scrivici per email.</div>{% endif %}
+{% endblock %}

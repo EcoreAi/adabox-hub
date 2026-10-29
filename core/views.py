@@ -58,6 +58,9 @@ def voci_kernel(user):
 def home(request):
     """La prima pagina: quella dichiarata da un modulo installato (`home` nel manifest, es. la chat AI),
     altrimenti la dashboard."""
+    from .middleware import esterno
+    if esterno(request.user):
+        return redirect(settings.PORTALE_HOME)
     spenti = modules.disattivati()
     for slug, m in modules.manifests_attivi().items():
         if m.home and slug not in spenti:

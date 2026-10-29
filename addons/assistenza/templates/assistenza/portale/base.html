@@ -1,0 +1,40 @@
+{% load static tema %}<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Portale clienti{% endblock %} · {{ theme.brand }}</title>
+  <link rel="stylesheet" href="{% statico 'theme/ui.css' %}">
+  <link rel="stylesheet" href="{% statico 'assistenza/portale.css' %}">
+  <link rel="icon" type="image/svg+xml" href="{% url 'theme:favicon' %}">
+</head>
+{# Portale dei clienti: testata propria, niente app interne. #}
+<body class="ui-body">
+{% include 'theme/partials/_icons.html' %}
+<header class="ui-header">
+  <div class="ui-container ui-header-inner">
+    <a class="ui-logo" href="{% url 'assistenza:portale' %}"><span class="ui-logo-mark">{% include "theme/partials/_logo.html" %}</span>
+      <span>{{ theme.brand }} <small class="pt-sotto">Portale clienti</small></span></a>
+    <nav class="ui-nav" aria-label="Portale">
+      {% with nome=request.resolver_match.url_name %}
+      <a href="{% url 'assistenza:portale' %}" class="{% if nome == 'portale' or nome == 'portale_ticket' %}is-active{% endif %}">Le mie richieste</a>
+      <a href="{% url 'assistenza:portale_progetti' %}" class="{% if nome == 'portale_progetti' %}is-active{% endif %}">Progetti</a>
+      <a href="{% url 'assistenza:portale_nuovo' %}" class="{% if nome == 'portale_nuovo' %}is-active{% endif %}">Nuova segnalazione</a>
+      {% endwith %}
+    </nav>
+    <div class="ui-profile"><div class="ui-dropdown">
+      <button type="button" class="ui-profile-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="pt-menu">
+        <span class="ui-avatar">{{ user.username|slice:":1"|upper }}</span><span class="ui-profile-name">{{ accesso.contatto.nome }}</span></button>
+      <div id="pt-menu" class="ui-dropdown-menu is-right" role="menu">
+        <div class="pt-azienda">{{ cliente }}</div>
+        <a href="{% url 'password_change' %}"><svg><use href="#icon-lock"/></svg> Cambia password</a>
+        <hr><form method="post" action="{% url 'logout' %}" class="ui-logout-form">{% csrf_token %}<button type="submit"><svg><use href="#icon-log-out"/></svg> Esci</button></form>
+      </div></div></div>
+  </div>
+</header>
+<main class="ui-shell"><div class="ui-container ui-content">
+  {% for m in messages %}<div class="ui-alert ui-alert-{{ m.tags|default:'info' }}">{{ m }}</div>{% endfor %}
+  {% block contenuto %}{% endblock %}
+</div></main>
+<script src="{% statico 'theme/ui.js' %}"></script>
+</body>
+</html>

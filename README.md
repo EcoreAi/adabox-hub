@@ -265,6 +265,29 @@ completo. Il flusso: **prodotto → preventivo → ordine → consegna (DDT) →
   websocket). All'installazione tutti entrano nel canale «generale». Le menzioni (`@username`) e i messaggi
   diretti non letti da 15 minuti arrivano per email (lavoro pianificato ogni 10 minuti: serve il worker).
 
+### Assistenza clienti (software house)
+
+Spec `docs/superpowers/specs/2026-10-29-adabox-hub-assistenza-software-design.md`. Modulo `assistenza` (dipende da
+Helpdesk e Progetti, che restano installabili da soli).
+
+- **Supporto per progetto** (Assistenza → Supporto dei progetti, o «Attivala» dalla scheda del progetto): team
+  dell'helpdesk, responsabile, contratto, siti ammessi per il widget. Un ticket del progetto va al suo team e al
+  responsabile (senza responsabile: al membro con meno ticket aperti); un ticket via email o creato a mano va al
+  progetto del cliente se ne ha uno solo con assistenza. Le scelte fatte a mano non si toccano.
+- **Contratti SLA**: politiche con ore di prima risposta e di risoluzione per priorità, sulle ore lavorative
+  (giorni e fascia oraria) o sulle 24 ore; il contratto valido del cliente (o dell'azienda della persona) fissa le
+  scadenze del ticket; la prima risposta è il primo messaggio pubblico di un interno.
+- **Widget** per le applicazioni web dei clienti: lo snippet con la chiave sta nella scheda del supporto.
+  Bottone «Segnala un problema», dati tecnici automatici (pagina, browser, schermo, versione, ultimi errori),
+  screenshot da file o catturato; endpoint `/assistenza/widget/<chiave>/` con CORS sui siti ammessi, 10 segnalazioni
+  l'ora per indirizzo, campo esca. Il segnalante riceve un'email con il numero.
+- **Portale clienti** (`/assistenza/portale/`): dalla scheda del contatto «Invita al portale» (email con il link per
+  scegliere la password); il cliente vede ticket e progetti della sua azienda, apre segnalazioni, risponde e allega
+  file; vede solo i messaggi pubblici. Gli utenti esterni (`ProfiloUtente.esterno`) non raggiungono le pagine interne,
+  le API né l'admin. Password dimenticata da `/accounts/password_reset/`.
+- **Ticket → compito**: «Crea compito di sviluppo» dal ticket; quando il compito arriva in una fase chiusa il cliente
+  riceve un messaggio e il ticket passa a «Risolto».
+
 ### Spazi di lavoro dei Documenti
 
 Spec `docs/superpowers/specs/2026-10-29-adabox-hub-documenti-spazi-design.md`.
