@@ -10,7 +10,7 @@ collaudo del modulo `ai`.
   instradamento nginx di `/ai/flusso/`.
 
 ### Task 2: catalogo — provider, modelli, profili, risoluzione del profilo, viste di gestione, dati iniziali — fatto
-### Task 3: gateway — adattatori anthropic / openai_compat / finto, chunk ed errori normalizzati, retry e fallback, costi
+### Task 3: gateway — adattatori anthropic / openai_compat / finto, chunk ed errori normalizzati, retry e fallback, costi — fatto
 ### Task 4: motore — turni, log degli eventi, loop con strumenti di base, budget, battito, contesto con cache
 ### Task 5: streaming SSE e interfaccia della chat (invio, testo in diretta, stop, titoli automatici)
 ### Task 6: licenza firmata, tetto di spesa, consumi e dashboard
