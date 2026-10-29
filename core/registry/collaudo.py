@@ -55,7 +55,7 @@ def collauda(slug, info):
             shutil.copytree(info[s].cartella, addons / s, ignore=shutil.ignore_patterns("__pycache__", ".adabox-origine.json"))
         env = {**os.environ, "ADDONS_DIR": str(addons), "DATABASE_URL": f"sqlite:///{tmp / 'db.sqlite3'}",
                "BACKUP_DIR": str(tmp / "backup"), "RELOAD_STRATEGY": "none", "DEBUG": "True",
-               "LAVORI_SINCRONI": "True", "AI_TURNI_SINCRONI": "True", "PRIVATE_MEDIA_ROOT": str(tmp / "private")}
+               "LAVORI_SINCRONI": "True", "AI_TURNI_SINCRONI": "True", "AI_LICENZA_SVILUPPO": "True", "PRIVATE_MEDIA_ROOT": str(tmp / "private")}
         env.pop("ADDONS_FORCE", None)
         manage = [sys.executable, str(base / "manage.py")]
         passi = [("migrate", manage + ["migrate", "--noinput"], env),

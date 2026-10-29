@@ -136,6 +136,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LAVORI_SINCRONI = env.bool("LAVORI_SINCRONI", default=DEBUG)
 # turni dell'assistente AI nella richiesta stessa invece che in un thread (test)
 AI_TURNI_SINCRONI = env.bool("AI_TURNI_SINCRONI", default=False)
+# licenza del modulo AI simulata (sviluppo e test): mai in produzione
+AI_LICENZA_SVILUPPO = env.bool("AI_LICENZA_SVILUPPO", default=False)
 # File privati (allegati): mai serviti direttamente, solo dalla vista con i permessi
 PRIVATE_MEDIA_ROOT = Path(env("PRIVATE_MEDIA_ROOT", default=str(BASE_DIR / "private")))
 ALLEGATI_MAX_MB = env.int("ALLEGATI_MAX_MB", default=20)

@@ -214,3 +214,16 @@ class Evento(models.Model):
         verbose_name_plural = "eventi"
         ordering = ["pk"]
         indexes = [models.Index(fields=["conversazione", "id"])]
+
+
+class Licenza(models.Model):
+    """File di licenza caricato (JSON firmato da ICHNOBYTE): vale l'ultimo caricato."""
+    testo = models.TextField("licenza")
+    caricata_il = models.DateTimeField("caricata il", auto_now_add=True)
+    caricata_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name="+", verbose_name="caricata da")
+
+    class Meta:
+        verbose_name = "licenza"
+        verbose_name_plural = "licenze"
+        ordering = ["-pk"]

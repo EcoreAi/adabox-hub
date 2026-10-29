@@ -25,6 +25,26 @@ def app_selezionabili(user):
     return [a for a in modules.app_visibili(user) if a["slug"] != "ai"]
 
 
+def _avviso_spesa(request):
+    """Testo dell'avviso quando la spesa del mese si avvicina al tetto (o l'assistente non è attivo)."""
+    from core import parametri
+
+    from . import licenza, limiti
+    stato = licenza.attuale()
+    if not stato.valida:
+        return f"L'assistente non è attivo: {stato.motivo}"
+    azienda = getattr(request, "azienda", None)
+    if azienda is None or limiti.tetto(azienda) <= 0:
+        return ""
+    spesa, tetto = limiti.spesa_mese(azienda), limiti.tetto(azienda)
+    soglia = tetto * (parametri.leggi("ai.avviso_percentuale", azienda) or 80) / 100
+    if spesa >= tetto:
+        return "Raggiunto il tetto di spesa mensile: l'assistente riprenderà il mese prossimo."
+    if spesa >= soglia:
+        return f"Spesa del mese a {spesa:.2f} $ su {tetto} $."
+    return ""
+
+
 @login_required
 @permission_required("ai.view_conversazione", raise_exception=True)
 def chat(request, pk=None):
@@ -36,7 +56,7 @@ def chat(request, pk=None):
         motore.segna_interrotti(conversazione)
     in_corso = conversazione.turni.filter(stato=Turno.IN_CORSO).first() if conversazione else None
     return render(request, "ai/chat.html", {
-        "conversazione": conversazione, "ambito": ambito, "turno": in_corso,
+        "conversazione": conversazione, "ambito": ambito, "turno": in_corso, "avviso_spesa": _avviso_spesa(request),
         "messaggi": conversazione.messaggi.all() if conversazione else [],
         "storico": mie[:50], "preferite": mie.filter(preferita=True)[:50],
         "pannelli_sinistra": PANNELLI_SINISTRA, "pannelli_destra": PANNELLI_DESTRA,
@@ -98,3 +118,25 @@ def stop(request, pk):
     turno = get_object_or_404(Turno, pk=pk, conversazione__utente=request.user)
     motore.ferma(turno)
     return HttpResponse(status=204)
+
+
+@login_required
+@permission_required("ai.change_licenza", raise_exception=True)
+def pagina_licenza(request):
+    """Stato della licenza e caricamento di un nuovo file."""
+    from . import licenza, limiti
+    from .models import Licenza
+    if request.method == "POST":
+        file = request.FILES.get("file")
+        testo = file.read().decode("utf-8", errors="replace") if file else request.POST.get("testo", "")
+        stato = licenza.leggi(testo)
+        if stato.valida:
+            Licenza.objects.create(testo=testo, caricata_da=request.user)
+            messages.success(request, f"Licenza di {stato.cliente} caricata: valida fino al {stato.scadenza:%d/%m/%Y}.")
+        else:
+            messages.error(request, f"Licenza non caricata: {stato.motivo}")
+        return redirect("ai:licenza")
+    azienda = getattr(request, "azienda", None)
+    return render(request, "ai/licenza.html", {
+        "stato": licenza.attuale(), "spesa": limiti.spesa_mese(azienda) if azienda else None,
+        "tetto": limiti.tetto(azienda) if azienda else None, "utenti_mese": len(limiti.utenti_del_mese())})

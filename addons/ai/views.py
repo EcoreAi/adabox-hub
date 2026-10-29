@@ -2,7 +2,7 @@ from core import cifratura
 from core.viste import Inline, ModelView, register
 
 from .forms import ChiaveAziendaForm, ProviderForm
-from .models import AnelloCatena, ChiaveAzienda, Modello, Profilo, Provider
+from .models import AnelloCatena, ChiaveAzienda, Modello, Profilo, Provider, Turno
 
 
 @register
@@ -62,3 +62,32 @@ class ProfiloView(ModelView):
     def col_catena_modelli(self, obj):
         return " → ".join(a.modello.etichetta for a in obj.catena.select_related("modello")) or "—"
     col_catena_modelli.short_description = "Catena"
+
+
+@register
+class ConsumiView(ModelView):
+    """Ogni chiamata ai modelli (turni della chat, titoli, pianificate): token, costo, esito."""
+    model = Turno
+    slug = "consumi"
+    verbose_name_plural = "consumi"
+    list_display = ["iniziato", "utente", "azienda", "compito", "modello", "passi", "costo", "stato"]
+    list_filter = ["compito", "stato", "modello", "azienda", "iniziato"]
+    search_fields = ["utente__username", "testo", "errore"]
+    form_layout = [("Turno", [("iniziato", "finito"), ("utente", "azienda"), ("compito", "modello"),
+                              ("stato", "passi"), ("costo", "uso"), "errore"])]
+    readonly_fields = ["iniziato", "finito", "utente", "azienda", "compito", "modello", "stato", "passi", "costo",
+                       "uso", "errore"]
+    list_group_by = ["iniziato:mese", "utente", "modello", "compito", "azienda"]
+    list_sum = ["costo"]
+    graph = {"tipi": ["barre", "linee", "torta"], "misure": ["sum:costo", "count"],
+             "per": ["iniziato:mese", "utente", "modello", "compito"]}
+
+    def col_costo(self, obj):
+        return f"{obj.costo:.4f} $"
+    col_costo.short_description = "Costo"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

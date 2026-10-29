@@ -143,7 +143,7 @@ def esegui(turno_id):
     e = _Esecuzione(turno)
     try:
         from .. import limiti
-        limiti.verifica(turno.azienda)
+        limiti.verifica(turno.azienda, utente)
         profilo = catalogo.profilo_per(turno.compito, turno.azienda, conversazione.ambito)
         catena = catalogo.catena(profilo, turno.azienda)
         ammessi = {s.nome: s for s in strumenti.disponibili(utente, conversazione.ambito)}

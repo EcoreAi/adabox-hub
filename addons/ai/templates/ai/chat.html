@@ -103,6 +103,7 @@
 
     <div class="ai-fondo">
       <div class="ai-colonna">
+        {% if avviso_spesa %}<p class="ai-avviso" role="status">{{ avviso_spesa }}</p>{% endif %}
         <form class="ai-composer" method="post"
               action="{% if conversazione %}{% url 'ai:invia_conversazione' conversazione.pk %}{% else %}{% url 'ai:invia' %}{% endif %}"
               hx-post="{% if conversazione %}{% url 'ai:invia_conversazione' conversazione.pk %}{% else %}{% url 'ai:invia' %}{% endif %}"
