@@ -1,11 +1,11 @@
 {% extends "admin/base.html" %}
-{% load static %}
+{% load static tema %}
 
 {% block title %}{{ subtitle }}{% if subtitle %} · {% endif %}{{ title }} · {{ theme.brand }}{% endblock %}
 
 {% block extrastyle %}
   {{ block.super }}
-  <link rel="stylesheet" href="{% static 'theme/admin.css' %}">
+  <link rel="stylesheet" href="{% statico 'theme/admin.css' %}">
   <link rel="icon" type="image/svg+xml" href="{% url 'theme:favicon' %}">
 {% endblock %}
 

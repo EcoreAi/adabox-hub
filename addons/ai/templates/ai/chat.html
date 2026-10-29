@@ -1,11 +1,11 @@
-{% load static ai %}<!DOCTYPE html>
+{% load static ai tema %}<!DOCTYPE html>
 <html lang="it">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% if conversazione %}{{ conversazione.titolo }}{% else %}Nuova chat{% endif %} · {{ theme.brand }}</title>
   <script>document.documentElement.classList.add('js')</script>
-  <link rel="stylesheet" href="{% static 'theme/ui.css' %}">
+  <link rel="stylesheet" href="{% statico 'theme/ui.css' %}">
   <link rel="stylesheet" href="{% statico 'ai/chat.css' %}">
   <link rel="icon" type="image/svg+xml" href="{% url 'theme:favicon' %}">
 </head>
@@ -135,8 +135,8 @@
     {% endfor %}
   </nav>
 </div>
-<script src="{% static 'theme/vendor/htmx.min.js' %}" defer></script>
-<script src="{% static 'theme/ui.js' %}"></script>
+<script src="{% statico 'theme/vendor/htmx.min.js' %}" defer></script>
+<script src="{% statico 'theme/ui.js' %}"></script>
 <script src="{% statico 'ai/chat.js' %}" defer></script>
 </body>
 </html>
