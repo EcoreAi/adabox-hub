@@ -123,6 +123,10 @@
     const testo = bolla.querySelector('[data-testo]');
     const avanzamento = bolla.querySelector('[data-avanzamento]');
     const sorgente = new EventSource(bolla.dataset.flusso);
+    // flusso caduto per sempre (es. 502 dal proxy): la risposta è comunque nel database, si ricarica la pagina
+    sorgente.addEventListener('error', () => {
+      if (sorgente.readyState === EventSource.CLOSED) setTimeout(() => window.location.reload(), 3000);
+    });
     sorgente.addEventListener('testo', (e) => {
       const vicinoAlFondo = scorri.scrollHeight - scorri.scrollTop - scorri.clientHeight < 120;
       testo.textContent += JSON.parse(e.data).delta;
