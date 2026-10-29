@@ -1,6 +1,6 @@
 [
-  {"domanda": "Che giorno della settimana è oggi?", "strumenti": ["data_e_ora"],
-   "copione": [[["strumento", "data_e_ora", {}]], ["Oggi è il giorno indicato dallo strumento."]]},
+  {"domanda": "Che giorno della settimana è oggi?", "contiene": ["{oggi_giorno}"],
+   "copione": [[["strumento", "data_e_ora", {}]], ["Oggi è {oggi_giorno}."]]},
   {"domanda": "Quante aziende ci sono nel gestionale?", "strumenti": ["aggrega_record"], "esito": ["verificato"],
    "copione": [[["strumento", "aggrega_record", {"vista": "core.aziende"}]], ["Le aziende sono quelle contate."]]},
   {"domanda": "Quali app posso usare?", "strumenti_uno_tra": ["app_disponibili", "elenco_viste"],

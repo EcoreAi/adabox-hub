@@ -127,3 +127,12 @@ def test_pagina_degli_assistenti(scena):
         assert "Solo un assistente generale" in r.content.decode()
     r = c.post("/ai/assistenti/nuovo/", {"nome": "Rotto", "domande_oro": '[{"x": 1}]'})
     assert "almeno &quot;domanda&quot;" in r.content.decode()
+
+
+def test_con_i_copioni_mai_il_modello_vero(scena):
+    """Anche se la catena del server è un modello vero (qui: un provider che esploderebbe), --copioni usa il finto."""
+    vero = Provider.objects.create(nome="Vero", tipo="anthropic")
+    Modello.objects.filter(provider__nome="Finto").update(provider=vero)            # la chat ora punta al "vero"
+    r, = valutazione.valuta([{"domanda": "Che giorno è?", "contiene": ["{oggi_giorno}"],
+                              "copione": [["Oggi è {oggi_giorno}."]]}], scena["capo"], copioni=True)
+    assert r["ok"] and r["costo"] == 0 and Turno.objects.filter(modello__id_api="finto-valutazione").exists()

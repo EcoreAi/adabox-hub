@@ -6,12 +6,16 @@ controlli attesi (strumenti usati, testo che deve o non deve comparire, esito de
   sui dati veri in modo deterministico: in CI blocca le regressioni.
 
 Formato di una domanda: {"domanda", "app"?, "strumenti"? (tutti usati), "strumenti_uno_tra"? (almeno uno),
-"contiene"? , "non_contiene"? (senza distinzione tra maiuscole), "esito"? (lista di esiti ammessi), "copione"?}."""
+"contiene"? , "non_contiene"? (senza distinzione tra maiuscole), "esito"? (lista di esiti ammessi), "copione"?}.
+Nei testi da cercare {oggi_giorno} diventa il giorno della settimana di oggi (es. giovedì)."""
 import json
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 from django.utils import timezone
+
+GIORNI = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"]
 
 FILE = Path(__file__).parent / "domande.json"
 
@@ -39,12 +43,35 @@ def controlla(domanda, turno, usati):
     if domanda.get("strumenti_uno_tra") and not set(domanda["strumenti_uno_tra"]) & set(usati):
         problemi.append(f"nessuno tra: {', '.join(domanda['strumenti_uno_tra'])}")
     testo = turno.testo.lower()
-    problemi += [f"manca «{t}»" for t in domanda.get("contiene", []) if t.lower() not in testo]
+    problemi += [f"manca «{concreto(t).lower()}»" for t in domanda.get("contiene", [])
+                 if concreto(t).lower() not in testo]
     problemi += [f"non doveva esserci «{t}»" for t in domanda.get("non_contiene", []) if t.lower() in testo]
     esito = (turno.provenienza or {}).get("esito")
     if domanda.get("esito") and esito not in domanda["esito"]:
         problemi.append(f"esito {esito}, atteso {' o '.join(domanda['esito'])}")
     return problemi
+
+
+def concreto(testo):
+    """I segnaposto dei testi delle domande con i valori di oggi."""
+    return testo.replace("{oggi_giorno}", GIORNI[timezone.localdate().weekday()])
+
+
+@contextmanager
+def _modello_finto():
+    """Con i copioni la catena di ogni profilo è il modello finto: mai il modello vero, mai costi."""
+    from .. import catalogo
+    from ..models import Modello, Provider
+    provider, _ = Provider.objects.get_or_create(nome="Finto (valutazione)", defaults={
+        "tipo": Provider.FINTO, "locale": True, "attivo": False})
+    modello, _ = Modello.objects.get_or_create(provider=provider, id_api="finto-valutazione",
+                                               defaults={"etichetta": "Finto (valutazione)", "attivo": False})
+    originale = catalogo.catena
+    catalogo.catena = lambda profilo, azienda=None: [(modello, "")]
+    try:
+        yield
+    finally:
+        catalogo.catena = originale
 
 
 def valuta(domande, utente, azienda=None, assistente=None, copioni=False):
@@ -61,8 +88,9 @@ def valuta(domande, utente, azienda=None, assistente=None, copioni=False):
             titolo=f"Valutazione del {timezone.localtime():%d/%m/%Y %H:%M}")
         inizio = time.monotonic()
         if copioni:                                      # dal JSON i pezzi arrivano come liste: il finto vuole tuple
-            copione = [[tuple(p) if isinstance(p, list) else p for p in risposta] for risposta in d.get("copione", [])]
-            with finto.con_copione(copione):
+            copione = [[tuple(p) if isinstance(p, list) else concreto(p) for p in risposta]
+                       for risposta in d.get("copione", [])]
+            with finto.con_copione(copione), _modello_finto():
                 turno = motore.avvia(conversazione, d["domanda"], utente, azienda, compito="valutazione", sincrono=True)
         else:
             turno = motore.avvia(conversazione, d["domanda"], utente, azienda, compito="valutazione", sincrono=True)
