@@ -2,7 +2,7 @@ from django import forms
 
 from core import cifratura
 
-from .models import ChiaveAzienda, Pianificata, Provider
+from .models import Assistente, ChiaveAzienda, Pianificata, Provider
 
 
 class ProviderForm(forms.ModelForm):
@@ -118,4 +118,35 @@ class PianificataForm(forms.ModelForm):
             errori["minuti_prima"] = "Indica da 5 a 1440 minuti."
         for campo, messaggio in errori.items():
             self.add_error(campo, messaggio)
+        return dati
+
+
+class AssistenteForm(forms.ModelForm):
+    """Strumenti a caselle (tutti quelli registrati); app tra quelle installate."""
+    strumenti = forms.MultipleChoiceField(label="strumenti ammessi", required=False, widget=forms.CheckboxSelectMultiple,
+                                          help_text="nessuno spuntato = tutti quelli permessi all'utente")
+    app = forms.ChoiceField(label="app", required=False)
+
+    class Meta:
+        model = Assistente
+        fields = ["nome", "descrizione", "app", "predefinito", "istruzioni", "strumenti", "profilo", "gruppi",
+                  "domande_oro", "attivo"]
+        widgets = {"istruzioni": forms.Textarea(attrs={"rows": 6}), "domande_oro": forms.Textarea(attrs={"rows": 5})}
+
+    def __init__(self, *args, **kwargs):
+        from core.registry import modules
+
+        from .strumenti import registro
+        super().__init__(*args, **kwargs)
+        self.fields["strumenti"].choices = [(n, n) for n in sorted(registro._registro)]
+        self.fields["app"].choices = [("", "Generale (tutte le app)")] + [
+            (slug, m.name) for slug, m in modules.manifests_attivi().items() if m.application and slug != "ai"]
+
+    def clean(self):
+        dati = super().clean()
+        if dati.get("predefinito") and dati.get("app"):
+            self.add_error("predefinito", "Solo un assistente generale (senza app) può essere il predefinito.")
+        domande = dati.get("domande_oro") or []
+        if not isinstance(domande, list) or not all(isinstance(d, dict) and d.get("domanda") for d in domande):
+            self.add_error("domande_oro", 'Una lista di oggetti con almeno "domanda".')
         return dati

@@ -17,7 +17,7 @@ PANNELLI_DESTRA = [("artifact", "Artifact salvati", "ai-artifact"), ("documenti"
 
 
 def _mie(request):
-    return Conversazione.objects.filter(utente=request.user)
+    return Conversazione.objects.filter(utente=request.user, nascosta=False)
 
 
 def app_selezionabili(user):

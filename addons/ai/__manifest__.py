@@ -1,7 +1,7 @@
 {
     "name": "Assistente AI",
     "summary": "Chat con l'assistente: cronologia delle conversazioni, artifact e documenti salvati",
-    "version": "1.5.0",
+    "version": "1.6.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -13,6 +13,7 @@
     "menu": [
         {"label": "Chat", "url_name": "ai:chat", "permission": "ai.view_conversazione"},
         {"label": "Pianificate", "url_name": "ai:pianificate_lista", "permission": "ai.view_pianificata"},
+        {"label": "Assistenti", "url_name": "ai:assistenti_lista", "permission": "ai.change_assistente"},
         {"label": "Profili", "url_name": "ai:profili_lista", "permission": "ai.change_profilo"},
         {"label": "Modelli", "url_name": "ai:modelli_lista", "permission": "ai.change_modello"},
         {"label": "Provider e chiavi", "url_name": "ai:provider_lista", "permission": "ai.change_provider"},

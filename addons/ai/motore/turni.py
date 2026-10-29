@@ -41,8 +41,9 @@ MESSAGGI_ERRORE = {
 
 
 def messaggi_del_modello(conversazione):
-    """La storia neutra per il gateway, dal log degli eventi."""
-    return [ev.dati for ev in conversazione.eventi.order_by("pk")]
+    """La storia neutra per il gateway, dal log degli eventi (dall'ultimo riassunto, se la conversazione è lunga)."""
+    from .compattazione import messaggi
+    return messaggi(conversazione)
 
 
 def segna_interrotti(conversazione=None):
@@ -61,7 +62,7 @@ def _chiudi_chiamate_aperte(turno, motivo):
     """Se l'ultimo evento dell'assistente ha chiamate senza risultato, si aggiunge un risultato sintetico."""
     if turno.conversazione_id is None:
         return
-    ultimo = turno.conversazione.eventi.order_by("-pk").first()
+    ultimo = turno.conversazione.eventi.exclude(tipo=Evento.RIASSUNTO).order_by("-pk").first()
     if ultimo is None or ultimo.tipo != Evento.ASSISTENTE:
         return
     aperte = [b for b in ultimo.dati.get("blocchi", []) if b["tipo"] == "strumento"]
@@ -152,11 +153,21 @@ def esegui(turno_id):
     try:
         from .. import limiti
         limiti.verifica(turno.azienda, utente)
-        profilo = catalogo.profilo_per(turno.compito, turno.azienda, conversazione.ambito)
+        from .. import assistenti
+        assistente = assistenti.risolvi(conversazione, utente)
+        if assistente is not None and assistente.profilo_id and assistente.profilo.attivo:
+            profilo = assistente.profilo
+        else:
+            profilo = catalogo.profilo_per(turno.compito, turno.azienda, conversazione.ambito)
         catena = catalogo.catena(profilo, turno.azienda)
-        ammessi = {s.nome: s for s in strumenti.disponibili(utente, conversazione.ambito)}
+        ammessi = {s.nome: s for s in assistenti.filtra_strumenti(
+            strumenti.disponibili(utente, conversazione.ambito), assistente, esperto=turno.compito == "esperto")}
+        sistema = prompt.sistema(assistente)
         contesto = strumenti.Contesto(utente=utente, azienda=turno.azienda, conversazione=conversazione, turno=turno)
         e.protezione = protezione.Protezione(conversazione)
+        from . import compattazione
+        if compattazione.se_serve(turno):
+            e.avanzamento({"strumento": "riassunto", "stato": "fatto", "passo": 0})
         for passo in range(1, MAX_PASSI + 1):
             motivo = e.oltre_budget()
             if motivo:
@@ -166,7 +177,7 @@ def esegui(turno_id):
             modello, chiamate, fine = None, [], None
             testo_passo = []
             try:
-                for pezzo in gateway(catena, protezione=e.protezione, sistema=prompt.sistema(),
+                for pezzo in gateway(catena, protezione=e.protezione, sistema=sistema,
                                      messaggi=messaggi_del_modello(conversazione),
                                      strumenti=[s.definizione() for s in ammessi.values()],
                                      max_token=profilo.max_token, effort=profilo.effort):
@@ -256,7 +267,8 @@ def _chiudi(e, stato, coda="", errore=""):
         MessaggioChat.objects.create(conversazione=turno.conversazione, ruolo=MessaggioChat.ASSISTENTE, testo=testo,
                                      turno=turno)
         turno.conversazione.save(update_fields=["aggiornata"])
-    if stato == Turno.COMPLETATO and turno.compito == "chat" and turno.conversazione_id:
+    if stato == Turno.COMPLETATO and turno.compito == "chat" and turno.conversazione_id \
+            and not turno.conversazione.nascosta:
         from . import titoli
         try:
             titoli.genera(turno.conversazione, turno.utente, turno.azienda)

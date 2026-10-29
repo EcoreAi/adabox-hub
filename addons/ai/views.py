@@ -1,8 +1,9 @@
 from core import cifratura
 from core.viste import Inline, ModelView, register
 
-from .forms import ChiaveAziendaForm, PianificataForm, ProviderForm
-from .models import AnelloCatena, ChiaveAzienda, Modello, Pianificata, Profilo, Proposta, Provider, Turno
+from .forms import AssistenteForm, ChiaveAziendaForm, PianificataForm, ProviderForm
+from .models import (AnelloCatena, Assistente, ChiaveAzienda, Modello, Pianificata, Profilo, Proposta, Provider,
+                     Turno)
 
 
 @register
@@ -186,3 +187,22 @@ class RegistroModificheView(ModelView):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@register
+class AssistenteView(ModelView):
+    """Assistenti configurabili: istruzioni, strumenti e modello propri; quello di un'app risponde nelle chat
+    limitate a quell'app e fa da esperto per gli altri."""
+    model = Assistente
+    slug = "assistenti"
+    list_display = ["nome", "app", "predefinito", "profilo", "n_strumenti", "attivo"]
+    list_filter = ["attivo", "app"]
+    search_fields = ["nome", "descrizione", "istruzioni"]
+    form_class = AssistenteForm
+    form_layout = [("Assistente", [("nome", "app"), "descrizione", ("predefinito", "attivo"), "istruzioni"]),
+                   ("Strumenti e modello", ["strumenti", ("profilo", "gruppi")]),
+                   ("Qualità", ["domande_oro"])]
+
+    def col_n_strumenti(self, obj):
+        return len(obj.strumenti) if obj.strumenti else "tutti"
+    col_n_strumenti.short_description = "Strumenti"

@@ -8,7 +8,7 @@ from .models import Conversazione, Turno
 
 def kpi(request):
     oggi = timezone.localdate()
-    voci = [{"valore": Conversazione.objects.filter(utente=request.user).count(), "etichetta": "tue conversazioni",
+    voci = [{"valore": Conversazione.objects.filter(utente=request.user, nascosta=False).count(), "etichetta": "tue conversazioni",
              "url": reverse("ai:chat")}]
     azienda = getattr(request, "azienda", None)
     if request.user.has_perm("ai.view_turno") and azienda is not None:

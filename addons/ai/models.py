@@ -5,6 +5,40 @@ from django.db import models
 from django.utils import timezone
 
 
+class Assistente(models.Model):
+    """Un assistente configurato: istruzioni, strumenti e modello propri. Quello di un'app si usa nelle chat limitate
+    a quell'app; quello predefinito (senza app) nelle altre. Gli assistenti fanno anche da esperti per gli altri
+    (strumento chiedi_esperto), sempre in sola lettura."""
+    nome = models.CharField("nome", max_length=80, unique=True)
+    descrizione = models.CharField("descrizione", max_length=250, blank=True,
+                                   help_text="a cosa serve: la legge anche l'assistente principale per sceglierlo come esperto")
+    app = models.CharField("app", max_length=31, blank=True, help_text="slug dell'app; vuoto = generale")
+    predefinito = models.BooleanField("predefinito per le chat generali", default=False)
+    istruzioni = models.TextField("istruzioni", blank=True, help_text="si aggiungono al prompt di sistema")
+    strumenti = models.JSONField("strumenti ammessi", default=list, blank=True,
+                                 help_text="nomi degli strumenti; vuoto = tutti quelli permessi all'utente")
+    profilo = models.ForeignKey("Profilo", on_delete=models.SET_NULL, null=True, blank=True,
+                                verbose_name="profilo dei modelli", help_text="vuoto = il profilo della chat")
+    gruppi = models.ManyToManyField("auth.Group", blank=True, verbose_name="gruppi ammessi",
+                                    help_text="vuoto = tutti gli utenti dell'assistente")
+    domande_oro = models.JSONField("domande d'oro", default=list, blank=True,
+                                   help_text='[{"domanda": "...", "strumenti": ["..."], "contiene": ["..."]}]: '
+                                             "controlli di qualità con python manage.py ai_eval")
+    attivo = models.BooleanField("attivo", default=True)
+
+    class Meta:
+        verbose_name = "assistente"
+        verbose_name_plural = "assistenti"
+        ordering = ["nome"]
+
+    def __str__(self):
+        return self.nome
+
+    def ammesso(self, utente):
+        return self.attivo and (not self.gruppi.exists() or utente.is_superuser
+                                or self.gruppi.filter(pk__in=utente.groups.values("pk")).exists())
+
+
 class Conversazione(models.Model):
     """Una chat con l'assistente: personale, la vede solo chi l'ha aperta."""
     utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="conversazioni",
@@ -14,6 +48,9 @@ class Conversazione(models.Model):
                               help_text="slug dell'app a cui la chat è limitata; vuoto = tutte")
     preferita = models.BooleanField("preferita", default=False)
     titolo_generato = models.BooleanField("titolo scritto dall'assistente", default=False)
+    assistente = models.ForeignKey(Assistente, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                                   verbose_name="assistente", help_text="fisso solo per gli esperti")
+    nascosta = models.BooleanField("interna", default=False, help_text="conversazione di un esperto: non in cronologia")
     segnaposto = models.JSONField("segnaposto dei dati personali", default=dict, blank=True, editable=False,
                                   help_text="[FULLNAME_1] -> valore: stabili per conversazione (ai.protezione)")
     creata = models.DateTimeField("creata il", auto_now_add=True)
@@ -210,8 +247,9 @@ class Turno(models.Model):
 
 class Evento(models.Model):
     """Log in sola aggiunta della conversazione: ciò che il modello vede è ricostruito solo da qui."""
-    UTENTE, ASSISTENTE, STRUMENTO = "utente", "assistente", "strumento"
-    TIPI = [(UTENTE, "Utente"), (ASSISTENTE, "Assistente"), (STRUMENTO, "Risultati degli strumenti")]
+    UTENTE, ASSISTENTE, STRUMENTO, RIASSUNTO = "utente", "assistente", "strumento", "riassunto"
+    TIPI = [(UTENTE, "Utente"), (ASSISTENTE, "Assistente"), (STRUMENTO, "Risultati degli strumenti"),
+            (RIASSUNTO, "Riassunto della parte precedente")]
     conversazione = models.ForeignKey(Conversazione, on_delete=models.CASCADE, related_name="eventi")
     turno = models.ForeignKey(Turno, on_delete=models.CASCADE, null=True, blank=True, related_name="eventi")
     tipo = models.CharField("tipo", max_length=10, choices=TIPI)
