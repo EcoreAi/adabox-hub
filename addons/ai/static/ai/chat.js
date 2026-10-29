@@ -114,6 +114,7 @@
     crea_record: 'preparo il nuovo record', modifica_record: 'preparo la modifica',
     elimina_record: "preparo l'eliminazione", esegui_bottone: "preparo l'operazione",
     esegui_azione: "preparo l'operazione", pianifica_attivita: "preparo l'attività",
+    grafico: 'disegno il grafico', tabella: 'preparo la tabella',
   };
   const segui = (bolla) => {
     if (!bolla || bolla.dataset.seguita) return;

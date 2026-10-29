@@ -1,0 +1,16 @@
+{% extends 'core/base_app.html' %}{% load ai %}
+{% block title %}{{ a.titolo }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>{{ a.titolo }}</h1>
+  <div class="sub">{{ a.get_tipo_display }} dalla vista {{ a.spec.vista }} · dati di oggi, {{ adesso|date:"d/m/Y H:i" }}{% if a.conversazione_id %} · <a href="{% url 'ai:conversazione' a.conversazione_id %}">dalla chat</a>{% endif %}</div></div>
+  <a class="ui-btn ui-btn-secondary" href="{% url 'ai:artifact_csv' a.pk %}?oggi=1">Scarica CSV</a>
+</div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  {% if errore %}<div class="ui-alert ui-alert-error">{{ errore }}</div>
+  {% elif a.tipo == "grafico" %}{% if disegno %}<div class="ai-artifact-grafico">{{ disegno }}</div>
+    <table class="ui-table" style="margin-top:16px"><thead><tr><th>Gruppo</th><th>Valore</th></tr></thead>
+      <tbody>{% for etichetta, valore in dati.serie %}<tr><td>{{ etichetta }}</td><td>{{ valore }}</td></tr>{% endfor %}</tbody></table>
+    {% else %}<p>Nessun dato.</p>{% endif %}
+  {% else %}{% include "ai/_artifact_tabella.html" %}{% endif %}
+</div></section>
+{% endblock %}

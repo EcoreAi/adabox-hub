@@ -154,7 +154,9 @@
     {% for chiave, etichetta, icona in pannelli_destra %}
     <section data-contenuto="{{ chiave }}" hidden>
       <header class="ai-pannello-testa"><h2>{{ etichetta }}</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
-      <div class="ai-vuoto"><svg><use href="#{{ icona }}"/></svg><p>Nessun elemento salvato.<br>Arriveranno con il modulo AI.</p></div>
+      {% if chiave == "grafici" %}{% include "ai/_elenco_artifact.html" with voci=salvati.grafici icona=icona %}
+      {% elif chiave == "artifact" %}{% include "ai/_elenco_artifact.html" with voci=salvati.artifact icona=icona %}
+      {% else %}<div class="ai-vuoto"><svg><use href="#{{ icona }}"/></svg><p>Nessun documento salvato.<br>Arriveranno con la ricerca nei documenti.</p></div>{% endif %}
     </section>
     {% endfor %}
   </aside>

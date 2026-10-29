@@ -274,6 +274,35 @@ class Proposta(models.Model):
         return self.rischio == self.IRREVERSIBILE
 
 
+class Artifact(models.Model):
+    """Grafico o tabella mostrato sotto una risposta: specifica scritta dal modello, dati calcolati dal codice
+    (istantanea del momento). Salvato, resta nei pannelli della chat."""
+    GRAFICO, TABELLA = "grafico", "tabella"
+    TIPI = [(GRAFICO, "Grafico"), (TABELLA, "Tabella")]
+    conversazione = models.ForeignKey(Conversazione, on_delete=models.CASCADE, null=True, blank=True,
+                                      related_name="artifact", verbose_name="conversazione")
+    turno = models.ForeignKey(Turno, on_delete=models.SET_NULL, null=True, blank=True, related_name="artifact",
+                              verbose_name="turno")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+",
+                               verbose_name="utente")
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, verbose_name="azienda")
+    tipo = models.CharField("tipo", max_length=8, choices=TIPI)
+    titolo = models.CharField("titolo", max_length=200)
+    spec = models.JSONField("specifica", default=dict)
+    dati = models.JSONField("dati (istantanea)", default=dict)
+    salvato = models.BooleanField("salvato", default=False)
+    creato = models.DateTimeField("creato il", auto_now_add=True)
+    aggiornato = models.DateTimeField("ricalcolato il", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "artifact"
+        verbose_name_plural = "artifact"
+        ordering = ["pk"]
+
+    def __str__(self):
+        return self.titolo
+
+
 class Licenza(models.Model):
     """File di licenza caricato (JSON firmato da ICHNOBYTE): vale l'ultimo caricato."""
     testo = models.TextField("licenza")

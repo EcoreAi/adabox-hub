@@ -1,0 +1,19 @@
+{% load ai %}{# Grafico o tabella sotto una risposta: istantanea del momento, con salva, apri e CSV. #}
+<figure class="ai-artifact" id="ai-artifact-{{ a.pk }}">
+  <figcaption class="ai-artifact-testa">
+    <span class="ai-artifact-titolo">{{ a.titolo }}</span>
+    <span class="ai-spazio"></span>
+    <form method="post" action="{% url 'ai:salva_artifact' a.pk %}" hx-post="{% url 'ai:salva_artifact' a.pk %}"
+          hx-target="#ai-artifact-{{ a.pk }}" hx-swap="outerHTML">{% csrf_token %}
+      <button type="submit" class="ai-azione{% if a.salvato %} is-preferita{% endif %}" aria-pressed="{{ a.salvato|yesno:'true,false' }}"
+              data-tip="{% if a.salvato %}Togli dai salvati{% else %}Salva{% endif %}" aria-label="{% if a.salvato %}Togli dai salvati{% else %}Salva{% endif %}"><svg><use href="#ai-stella"/></svg></button>
+    </form>
+    <a class="ai-azione" href="{% url 'ai:artifact' a.pk %}" target="_blank" rel="noopener" data-tip="Apri con i dati di oggi" aria-label="Apri con i dati di oggi"><svg><use href="#ai-artifact"/></svg></a>
+    <a class="ai-azione" href="{% url 'ai:artifact_csv' a.pk %}" data-tip="Scarica CSV" aria-label="Scarica CSV"><svg><use href="#icon-download"/></svg></a>
+  </figcaption>
+  {% if a.tipo == "grafico" %}
+    {% with disegno=a|svg_artifact %}{% if disegno %}<div class="ai-artifact-grafico">{{ disegno }}</div>{% else %}<p class="ai-artifact-vuoto">Nessun dato per questo grafico.</p>{% endif %}{% endwith %}
+  {% else %}
+    {% include "ai/_artifact_tabella.html" with dati=a.dati %}
+  {% endif %}
+</figure>

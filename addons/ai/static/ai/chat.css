@@ -246,3 +246,14 @@ body.ai-pagina { margin: 0; height: 100vh; overflow: hidden; background: var(--u
 .ai-proposta-azioni form { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0; }
 .ai-proposta-spunta { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ui-text); }
 .ai-proposta-link { display: inline-block; margin-top: 8px; font-size: 13px; }
+
+/* ---------- grafici e tabelle sotto le risposte ---------- */
+.ai-artifact { margin: 10px 0 4px; padding: 10px 14px 12px; border: 1px solid var(--ui-border); border-radius: 14px; background: var(--ui-surface); }
+.ai-artifact-testa { display: flex; align-items: center; gap: 2px; margin-bottom: 6px; }
+.ai-artifact-testa form { margin: 0; }
+.ai-artifact-testa .ai-azione { width: 32px; height: 32px; border-radius: 9px; }
+.ai-artifact-testa .ai-azione svg { width: 17px; height: 17px; }
+.ai-artifact-titolo { font-size: 14px; font-weight: 600; color: var(--ui-text); }
+.ai-artifact-grafico svg { display: block; width: 100%; height: auto; }
+.ai-artifact-tabella { max-height: 420px; overflow: auto; margin: 0; }
+.ai-artifact-nota, .ai-artifact-vuoto { margin: 6px 0 0; font-size: 13px; color: var(--ui-text-2); }

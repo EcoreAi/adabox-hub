@@ -1,0 +1,9 @@
+{% load ai %}{% if dati.righe %}
+<div class="ai-tabella ai-artifact-tabella"><table>
+  <thead><tr>{% for c in dati.colonne %}<th scope="col">{{ c }}</th>{% endfor %}</tr></thead>
+  <tbody>{% for riga, link in dati|righe_con_link %}
+    <tr>{% for cella in riga %}<td>{% if forloop.first and link %}<a href="{{ link }}" target="_blank" rel="noopener">{{ cella }}</a>{% else %}{{ cella }}{% endif %}</td>{% endfor %}</tr>
+  {% endfor %}</tbody>
+</table></div>
+{% if dati.totale > dati.righe|length %}<p class="ai-artifact-nota">Mostrate {{ dati.righe|length }} righe su {{ dati.totale }}.</p>{% endif %}
+{% else %}<p class="ai-artifact-vuoto">Nessun record.</p>{% endif %}

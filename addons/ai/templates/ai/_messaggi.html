@@ -3,6 +3,7 @@
   {% if m.ruolo == "assistente" %}<span class="ai-msg-avatar" aria-hidden="true"><svg><use href="#ai-scintilla"/></svg></span>{% endif %}
   <div class="ai-msg-corpo">
     {% if m.ruolo == "assistente" %}<div class="ai-msg-testo ai-md">{{ m.testo|markdown_ai }}</div>
+    {% for a in m|artifact %}{% include "ai/_artifact.html" %}{% endfor %}
     {% for p in m|proposte %}{% include "ai/_proposta.html" %}{% endfor %}
     {% else %}<div class="ai-msg-testo">{{ m.testo|urlize|linebreaksbr }}</div>{% endif %}
     <time datetime="{{ m.creato|date:'c' }}">{{ m.creato|date:"H:i" }}</time>

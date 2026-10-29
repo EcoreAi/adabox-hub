@@ -9,7 +9,7 @@ from django.views.decorators.http import require_POST
 from core.registry import modules
 
 from . import motore, suggerimenti
-from .models import Conversazione, MessaggioChat, Proposta, Turno
+from .models import Artifact, Conversazione, MessaggioChat, Proposta, Turno
 
 PANNELLI_SINISTRA = [("storico", "Cronologia chat", "ai-storico"), ("preferite", "Chat preferite", "ai-stella")]
 PANNELLI_DESTRA = [("artifact", "Artifact salvati", "ai-artifact"), ("documenti", "Documenti salvati", "ai-documento"),
@@ -59,9 +59,17 @@ def chat(request, pk=None):
         "conversazione": conversazione, "ambito": ambito, "turno": in_corso, "avviso_spesa": _avviso_spesa(request),
         "messaggi": conversazione.messaggi.all() if conversazione else [],
         "storico": mie[:50], "preferite": mie.filter(preferita=True)[:50],
+        "salvati": _salvati(request),
         "pannelli_sinistra": PANNELLI_SINISTRA, "pannelli_destra": PANNELLI_DESTRA,
         "app": app, "suggerimenti": suggerimenti.per(), "suggerimenti_per_app": suggerimenti.tutti(),
     })
+
+
+def _salvati(request):
+    """Artifact salvati per pannello: grafici nel loro, tabelle in «Artifact salvati»."""
+    salvati = Artifact.objects.filter(utente=request.user, salvato=True).order_by("-pk")[:100]
+    return {"grafici": [a for a in salvati if a.tipo == Artifact.GRAFICO],
+            "artifact": [a for a in salvati if a.tipo == Artifact.TABELLA]}
 
 
 @require_POST
@@ -171,3 +179,56 @@ def annulla_proposta(request, pk):
     from . import proposte
     proposta = get_object_or_404(Proposta, pk=pk, utente=request.user, conversazione__utente=request.user)
     return _scheda(request, proposte.annulla(proposta))
+
+
+def _mio_artifact(request, pk):
+    return get_object_or_404(Artifact, pk=pk, utente=request.user)
+
+
+@login_required
+def pagina_artifact(request, pk):
+    """L'artifact con i dati di oggi (stessi permessi e azienda di quando è stato chiesto)."""
+    from django.utils import timezone
+    from django.utils.safestring import mark_safe
+
+    from . import artifact
+    from .strumenti import ErroreStrumento
+    a = _mio_artifact(request, pk)
+    dati, errore = {}, ""
+    try:
+        dati = artifact.ricalcola(a)
+    except ErroreStrumento as e:
+        errore = f"Non si può ricalcolare: {e}"
+    disegno = mark_safe(artifact.svg_di(a, dati)) if dati and a.tipo == Artifact.GRAFICO else ""
+    return render(request, "ai/artifact.html", {"a": a, "dati": dati, "disegno": disegno, "errore": errore,
+                                                "adesso": timezone.localtime()})
+
+
+@login_required
+def csv_artifact(request, pk):
+    """CSV dell'istantanea mostrata in chat, o dei dati di oggi con ?oggi=1."""
+    from django.utils.text import slugify
+
+    from . import artifact
+    from .strumenti import ErroreStrumento
+    a = _mio_artifact(request, pk)
+    dati = a.dati
+    if request.GET.get("oggi"):
+        try:
+            dati = artifact.ricalcola(a)
+        except ErroreStrumento as e:
+            return HttpResponse(str(e), status=409, content_type="text/plain; charset=utf-8")
+    risposta = HttpResponse(artifact.csv_di(a, dati), content_type="text/csv; charset=utf-8")
+    risposta["Content-Disposition"] = f'attachment; filename="{slugify(a.titolo) or "artifact"}.csv"'
+    return risposta
+
+
+@require_POST
+@login_required
+def salva_artifact(request, pk):
+    a = _mio_artifact(request, pk)
+    a.salvato = not a.salvato
+    a.save(update_fields=["salvato"])
+    if request.headers.get("HX-Request"):
+        return render(request, "ai/_artifact.html", {"a": a})
+    return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
