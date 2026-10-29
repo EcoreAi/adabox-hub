@@ -267,8 +267,8 @@ completo. Il flusso: **prodotto → preventivo → ordine → consegna (DDT) →
 
 ### Assistente AI
 
-Spec `docs/superpowers/specs/2026-10-29-adabox-hub-modulo-ai-design.md`; fasi AI-1 (fondamenta) e AI-2 (strumenti
-dalle app) completate.
+Spec `docs/superpowers/specs/2026-10-29-adabox-hub-modulo-ai-design.md`; fasi AI-1 (fondamenta), AI-2 (strumenti
+dalle app) e AI-3 (proattività) completate.
 
 - **Configurazione** (gruppo «AI / Amministratore»):
   - in `/ai/provider/` la chiave API di Anthropic, salvata cifrata con `CHIAVE_CIFRATURA` o, se manca, con una
@@ -311,6 +311,20 @@ dalle app) completate.
     `/ai/artifact/<id>/` e si esportano in CSV;
   - le app aggiungono strumenti propri con la chiave `"ai": "<app>.ai"` del manifest (un modulo che chiama
     `registra`); esempio `calendario.ai` con `calendario_agenda`.
+- **Attività pianificate** (AI-3):
+  - «ogni lunedì alle 8 mandami gli ordini aperti» in chat diventa, dopo la conferma, un'attività che l'assistente
+    esegue da solo con i permessi di chi l'ha chiesta (strumento `crea_pianificata`; `preset=riepilogo_mattino`
+    per il riepilogo della giornata). Ricorrenze: giorni della settimana, un giorno del mese, ogni N ore, N minuti
+    prima di ogni evento del calendario (una volta per evento);
+  - le gestisce la pagina **Pianificate** (`/ai/pianificate/`): ognuno le proprie, gli amministratori tutte;
+    bottoni «Esegui ora», «Sospendi», «Riattiva»;
+  - il worker le controlla ogni minuto (voce `cron` del manifest) e le esegue con il profilo «Attività
+    pianificate» e il tetto di spesa dell'azienda. Dopo 3 esecuzioni non riuscite di fila la pianificazione si
+    sospende e il proprietario riceve un'email;
+  - il risultato va sempre nella conversazione della pianificazione (grafici e tabelle compresi) e, se scelto, in
+    Discuss come messaggio diretto dell'utente di sistema `assistente-ai` (non attivo, senza password) e per email.
+    I link assoluti usano `SITO_URL`;
+  - le modifiche ai dati restano proposte da confermare nella conversazione.
 - **Produzione**: lo streaming lo serve il servizio `stream` del compose (uvicorn, ASGI), e nginx gli instrada
   `/ai/flusso/`; il resto resta su gunicorn (WSGI). Quando cambiano i moduli installati, `stream` risponde 503 e
   si riavvia da solo, come il worker.

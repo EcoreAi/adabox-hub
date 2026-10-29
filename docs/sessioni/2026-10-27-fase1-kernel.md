@@ -209,3 +209,23 @@ Piano `docs/superpowers/plans/2026-10-29-adabox-hub-ai-2-strumenti.md`.
 
 Prossimo: AI-3 (attività pianificate, riepilogo del mattino, consegna in Discuss). Resta da provare la chat con
 una chiave API vera.
+
+Dopo AI-2, su richiesta dell'utente: chat sotto l'header del tema (una sola barra), «Chat» prima voce della barra
+(`NAV_APP_IN_TESTA`, `nav_label` del manifest), applicazione rinominata «Adabox v3» con il logo a cubo, CSS e JS
+con la versione nell'URL (`{% statico %}` del tema), bottone «App» nel campo della chat. Corretti: nginx agganciato
+al vecchio IP di `stream` dopo la ricreazione dei container (502), token CSRF assente nelle schede arrivate dallo
+streaming (403 alla conferma).
+
+## Modulo AI — fase AI-3, proattività (2026-10-29)
+
+Piano `docs/superpowers/plans/2026-10-29-adabox-hub-ai-3-proattivita.md`.
+
+- `Pianificata` con ricorrenze proprie (giorni della settimana, mese, ogni N ore, prima degli eventi): le
+  pianificazioni del kernel conoscono solo intervalli fissi e restano l'orologio (`cron` ogni minuto).
+- Esecuzione nel worker con `motore.avvia(..., compito="pianificate", sincrono=True, nota=...)`: la nota va al
+  modello nel `<contesto>`, in chat resta solo l'istruzione.
+- Consegna: conversazione dedicata sempre; Discuss (messaggio diretto di `assistente-ai`) ed email facoltativi.
+- Creazione dalla chat con `crea_pianificata` (proposta da confermare), pagina «Pianificate» con i bottoni.
+- Il profilo «Attività pianificate» passa da 1024 a 16000 token (`post_upgrade`).
+
+Prossimo: AI-4 (conoscenza: RAG su documenti, chatter e record con citazioni).
