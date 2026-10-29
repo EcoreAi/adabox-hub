@@ -133,3 +133,16 @@ def test_filtro_con_data_su_campo_data_e_ora(scena, recwarn):
     oggi = timezone.localdate()
     r = viste.aggrega_record(_contesto(scena), "core.lavoro", filtri={"creato__gte": oggi.replace(day=1).isoformat()})
     assert r["totale"] == 9 and not [w for w in recwarn if "naive datetime" in str(w.message)]
+
+
+@pytest.mark.parametrize("modulo", ["ai.specialisti", "ai.pianificate", "ai.conoscenza", "ai.protezione",
+                                    "ai.artifact", "ai.strumenti"])
+def test_ogni_modulo_si_importa_per_primo(modulo):
+    """Il worker e i comandi caricano i moduli in ordini diversi: nessun import circolare a seconda di chi parte."""
+    import subprocess
+    import sys
+
+    from django.conf import settings
+    esito = subprocess.run([sys.executable, "-c", f"import django; django.setup(); import {modulo}"],
+                           cwd=settings.BASE_DIR, capture_output=True, text=True, timeout=120)
+    assert esito.returncode == 0, esito.stderr[-1500:]

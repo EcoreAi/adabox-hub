@@ -1,15 +1,17 @@
 """Strumenti degli specialisti locali: previsione di una serie dai dati del gestionale e classificazione di un testo.
 Visibili solo se il loro servizio è configurato nelle impostazioni."""
-from .. import specialisti
+from .. import specialisti        # può essere ancora a metà caricamento: i suoi nomi si usano solo nelle funzioni
 from .registro import ErroreStrumento, Strumento, registra
 from .viste import FILTRI, TESTO, VISTA
+
+MAX_ORIZZONTE = 24                # = specialisti.MAX_ORIZZONTE (qui serve già all'import, per lo schema)
 
 
 def previsione(contesto, vista, data, misura="count", per="mese", orizzonte=3, filtri=None, testo="", titolo=""):
     from .. import artifact
     from ..models import Artifact
     try:
-        orizzonte = max(1, min(int(orizzonte), specialisti.MAX_ORIZZONTE))
+        orizzonte = max(1, min(int(orizzonte), MAX_ORIZZONTE))
     except (TypeError, ValueError):
         raise ErroreStrumento("«orizzonte» è un numero intero di periodi.")
     if contesto.conversazione is None:
@@ -43,7 +45,7 @@ registra(Strumento(
         "vista": VISTA, "data": {"type": "string", "description": "campo data della serie, es. data"},
         "misura": {"type": "string", "description": "count (default) oppure sum:campo, es. sum:totale"},
         "per": {"type": "string", "enum": ["mese", "settimana", "giorno"], "description": "periodo (default mese)"},
-        "orizzonte": {"type": "integer", "description": f"periodi da prevedere (1-{specialisti.MAX_ORIZZONTE}, default 3)"},
+        "orizzonte": {"type": "integer", "description": f"periodi da prevedere (1-{MAX_ORIZZONTE}, default 3)"},
         "filtri": FILTRI, "testo": TESTO, "titolo": {"type": "string"}},
      "required": ["vista", "data"]}, previsione, disponibile=lambda: bool(specialisti.url("url_forecast"))))
 registra(Strumento(
