@@ -1,9 +1,10 @@
-{% for m in messaggi %}
+{% load ai %}{% for m in messaggi %}
 <article class="ai-msg ai-msg-{{ m.ruolo }}">
   {% if m.ruolo == "assistente" %}<span class="ai-msg-avatar" aria-hidden="true"><svg><use href="#ai-scintilla"/></svg></span>{% endif %}
   <div class="ai-msg-corpo">
-    <div class="ai-msg-testo">{{ m.testo|urlize|linebreaksbr }}</div>
+    {% if m.ruolo == "assistente" %}<div class="ai-msg-testo ai-md">{{ m.testo|markdown_ai }}</div>
+    {% else %}<div class="ai-msg-testo">{{ m.testo|urlize|linebreaksbr }}</div>{% endif %}
     <time datetime="{{ m.creato|date:'c' }}">{{ m.creato|date:"H:i" }}</time>
   </div>
 </article>
-{% endfor %}
+{% endfor %}{% if turno %}{% include "ai/_in_corso.html" %}{% endif %}

@@ -41,7 +41,7 @@
   const aggiorna = () => {
     input.style.height = 'auto';
     input.style.height = `${Math.min(input.scrollHeight, 260)}px`;
-    invia.disabled = !input.value.trim();
+    invia.disabled = !input.value.trim() || !!messaggi.querySelector('[data-flusso]');
   };
   input.addEventListener('input', aggiorna);
   input.addEventListener('keydown', (e) => {
@@ -105,21 +105,63 @@
   const togli = form.querySelector('[data-togli-ambito]');
   if (togli) togli.addEventListener('click', () => scegli(null));
 
-  // --- dopo la risposta (HTMX): campo vuoto e conversazione in fondo ---
+  // --- risposta in diretta: la bolla "in corso" segue il turno con Server-Sent Events ---
+  const csrf = form.querySelector('input[name="csrfmiddlewaretoken"]').value;
+  const NOMI = { data_e_ora: 'controllo data e ora', app_disponibili: 'guardo le app disponibili' };
+  const segui = (bolla) => {
+    if (!bolla || bolla.dataset.seguita) return;
+    bolla.dataset.seguita = '1';
+    invia.disabled = true;
+    const testo = bolla.querySelector('[data-testo]');
+    const avanzamento = bolla.querySelector('[data-avanzamento]');
+    const sorgente = new EventSource(bolla.dataset.flusso);
+    sorgente.addEventListener('testo', (e) => {
+      const vicinoAlFondo = scorri.scrollHeight - scorri.scrollTop - scorri.clientHeight < 120;
+      testo.textContent += JSON.parse(e.data).delta;
+      if (vicinoAlFondo) inFondo();
+    });
+    sorgente.addEventListener('avanzamento', (e) => {
+      const voci = JSON.parse(e.data);
+      const ultima = voci[voci.length - 1];
+      if (!ultima) return;
+      const nomi = ultima.strumento ? [ultima.strumento] : (ultima.fatti || []).map((f) => f.strumento);
+      avanzamento.textContent = ultima.strumento
+        ? `${NOMI[ultima.strumento] || `uso «${ultima.strumento}»`}…`
+        : `fatto: ${nomi.map((n) => NOMI[n] || n).join(', ')}`;
+    });
+    sorgente.addEventListener('fine', (e) => {
+      sorgente.close();
+      const dati = JSON.parse(e.data);
+      if (dati.html) bolla.outerHTML = dati.html; else bolla.remove();
+      aggiorna();
+      inFondo();
+      input.focus();
+    });
+    const ferma = bolla.querySelector('[data-ferma]');
+    if (ferma) ferma.addEventListener('click', () => {
+      ferma.disabled = true;
+      fetch(bolla.dataset.stop, { method: 'POST', headers: { 'X-CSRFToken': csrf } });
+    });
+  };
+  const seguiInCorso = () => messaggi.querySelectorAll('[data-flusso]').forEach(segui);
+
+  // --- dopo l'invio (HTMX): campo vuoto, conversazione in fondo, risposta in diretta ---
   document.body.addEventListener('htmx:afterSwap', (e) => {
     if (e.detail.target !== messaggi) return;
     input.value = '';
     aggiorna();
     inFondo();
+    seguiInCorso();
   });
   document.body.addEventListener('htmx:beforeRequest', (e) => {
     if (e.detail.elt === form) invia.disabled = true;
   });
   document.body.addEventListener('htmx:afterRequest', (e) => {
-    if (e.detail.elt === form) { aggiorna(); input.focus(); }
+    if (e.detail.elt === form && !messaggi.querySelector('[data-flusso]')) { aggiorna(); input.focus(); }
   });
 
   aggiorna();
   inFondo();
+  seguiInCorso();
   input.focus();
 })();

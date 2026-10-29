@@ -9,7 +9,7 @@ from django.views.decorators.http import require_POST
 from core.registry import modules
 
 from . import motore, suggerimenti
-from .models import Conversazione, MessaggioChat
+from .models import Conversazione, MessaggioChat, Turno
 
 PANNELLI_SINISTRA = [("storico", "Cronologia chat", "ai-storico"), ("preferite", "Chat preferite", "ai-stella")]
 PANNELLI_DESTRA = [("artifact", "Artifact salvati", "ai-artifact"), ("documenti", "Documenti salvati", "ai-documento"),
@@ -32,8 +32,11 @@ def chat(request, pk=None):
     mie = _mie(request)
     app = app_selezionabili(request.user)
     ambito = next((a for a in app if conversazione and a["slug"] == conversazione.ambito), None)
+    if conversazione is not None:
+        motore.segna_interrotti(conversazione)
+    in_corso = conversazione.turni.filter(stato=Turno.IN_CORSO).first() if conversazione else None
     return render(request, "ai/chat.html", {
-        "conversazione": conversazione, "ambito": ambito,
+        "conversazione": conversazione, "ambito": ambito, "turno": in_corso,
         "messaggi": conversazione.messaggi.all() if conversazione else [],
         "storico": mie[:50], "preferite": mie.filter(preferita=True)[:50],
         "pannelli_sinistra": PANNELLI_SINISTRA, "pannelli_destra": PANNELLI_DESTRA,
@@ -87,3 +90,11 @@ def elimina(request, pk):
     c.delete()
     messages.success(request, "Conversazione eliminata.")
     return redirect("ai:chat")
+
+
+@require_POST
+@login_required
+def stop(request, pk):
+    turno = get_object_or_404(Turno, pk=pk, conversazione__utente=request.user)
+    motore.ferma(turno)
+    return HttpResponse(status=204)

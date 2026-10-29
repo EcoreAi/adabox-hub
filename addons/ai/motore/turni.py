@@ -234,3 +234,9 @@ def _chiudi(e, stato, coda="", errore=""):
     if turno.conversazione_id and testo:
         MessaggioChat.objects.create(conversazione=turno.conversazione, ruolo=MessaggioChat.ASSISTENTE, testo=testo)
         turno.conversazione.save(update_fields=["aggiornata"])
+    if stato == Turno.COMPLETATO and turno.compito == "chat" and turno.conversazione_id:
+        from . import titoli
+        try:
+            titoli.genera(turno.conversazione, turno.utente, turno.azienda)
+        except Exception:                          # il titolo è un di più: non deve rompere il turno
+            log.exception("titolo della conversazione %s", turno.conversazione_id)

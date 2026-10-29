@@ -10,6 +10,7 @@ class Conversazione(models.Model):
     ambito = models.CharField("limitata all'app", max_length=31, blank=True,
                               help_text="slug dell'app a cui la chat è limitata; vuoto = tutte")
     preferita = models.BooleanField("preferita", default=False)
+    titolo_generato = models.BooleanField("titolo scritto dall'assistente", default=False)
     creata = models.DateTimeField("creata il", auto_now_add=True)
     aggiornata = models.DateTimeField("aggiornata il", auto_now=True)
 

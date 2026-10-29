@@ -1,0 +1,8 @@
+<article class="ai-msg ai-msg-assistente is-in-corso" data-flusso="{% url 'ai:flusso' turno.pk %}" data-stop="{% url 'ai:stop' turno.pk %}">
+  <span class="ai-msg-avatar" aria-hidden="true"><svg><use href="#ai-scintilla"/></svg></span>
+  <div class="ai-msg-corpo">
+    <div class="ai-avanzamento" data-avanzamento aria-live="polite"><span class="ai-puntini" aria-label="Sto pensando"><i></i><i></i><i></i></span></div>
+    <div class="ai-msg-testo ai-in-diretta" data-testo>{{ turno.testo }}</div>
+    <button type="button" class="ai-stop" data-ferma><svg><use href="#icon-x"/></svg> Ferma</button>
+  </div>
+</article>
