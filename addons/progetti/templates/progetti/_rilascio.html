@@ -1,0 +1,13 @@
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Compiti del rilascio ({{ obj.compiti.count }})</div><div class="spacer"></div>
+    <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'progetti:compiti_lista' %}?f_rilascio={{ obj.pk }}">Apri l'elenco</a></div>
+  <div class="ui-card-body">
+    {% if obj.stato == "pianificato" %}
+      <p class="ui-help">Note di rilascio che verranno generate (se non le scrivi tu):</p>
+      <pre class="ui-code" style="white-space:pre-wrap;">{{ obj.note_generate|default:"— nessun compito completato —" }}</pre>
+    {% else %}
+      <p class="ui-help">Rilasciato il {{ obj.rilasciato_il|date:"d/m/Y H:i" }}.</p>
+      <pre class="ui-code" style="white-space:pre-wrap;">{{ obj.note }}</pre>
+    {% endif %}
+  </div>
+</section>

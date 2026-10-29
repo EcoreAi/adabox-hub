@@ -1,0 +1,9 @@
+{% with prima=obj.bloccato_da.all dopo=obj.blocca.all %}{% if prima or dopo %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Dipendenze</div></div>
+  <div class="ui-card-body">
+    {% if prima %}<p><strong>Bloccato da:</strong> {% for c in prima %}<a href="{% url 'progetti:compiti_dettaglio' c.pk %}">{{ c.titolo }}</a> <span class="ui-pill {% if c.fase.chiusa %}ui-pill-ok{% else %}ui-pill-warn{% endif %}">{{ c.fase }}</span>{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+    {% if dopo %}<p><strong>Blocca:</strong> {% for c in dopo %}<a href="{% url 'progetti:compiti_dettaglio' c.pk %}">{{ c.titolo }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+  </div>
+</section>
+{% endif %}{% endwith %}

@@ -41,11 +41,11 @@
     try {
       const r = await fetch(card.dataset.sposta, {method: 'POST', body: dati,
         headers: {'X-CSRFToken': csrf, 'HX-Request': 'true'}, credentials: 'same-origin'});
-      if (!r.ok) throw new Error(r.status);
+      if (!r.ok) throw new Error(r.status === 409 ? await r.text() : 'Spostamento non riuscito');
     } catch (errore) {
       origine.querySelector('.ui-kanban-card-list').prepend(card);
       aggiorna(origine, +1); aggiorna(col, -1);
-      if (window.uiToast) window.uiToast('Spostamento non riuscito', 'warn');
+      if (window.uiToast) window.uiToast(errore.message || 'Spostamento non riuscito', 'warn');
     }
   });
 })();

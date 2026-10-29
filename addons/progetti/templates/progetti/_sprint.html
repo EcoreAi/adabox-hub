@@ -1,0 +1,9 @@
+{% load progetti %}{% with p=obj.punti %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Avanzamento</div>
+    <div class="ui-card-sub">{{ p.1 }} punti completati su {{ p.0 }} · {{ obj.compiti.count }} compiti (senza stima contano 1 punto)</div></div>
+    <div class="spacer"></div>
+    <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'progetti:compiti_kanban' %}?f_sprint={{ obj.pk }}">Apri il kanban</a></div>
+  <div class="ui-card-body"><div class="ui-grafico">{% burndown obj %}</div>
+    <p class="ui-help">Linea tratteggiata: andamento ideale. Linea blu: punti ancora da completare.</p></div>
+</section>{% endwith %}

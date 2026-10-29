@@ -75,6 +75,11 @@ class SpostaView(VistaBase):
             setattr(obj, campo.name, valore)
         else:
             setattr(obj, campo.attname, int(valore) if valore else None)
+        if motivo := vista.kanban_vietato(request, obj):
+            if request.headers.get("HX-Request"):
+                return HttpResponse(motivo, status=409, content_type="text/plain; charset=utf-8")
+            messages.error(request, motivo)
+            return redirect(vista.url("kanban"))
         obj.save(update_fields=[campo.name])
         if vecchi is not None:
             chatter.traccia(obj, vecchi, request.user)

@@ -63,3 +63,21 @@ def test_senza_progetto_niente_compito(scena):
     ticket = Ticket.objects.create(azienda=scena["ticket"].azienda, oggetto="Senza progetto")
     r = scena["client"].post(f"/assistenza/ticket/{ticket.pk}/compito/", follow=True)
     assert "non è collegato a un progetto" in r.content.decode() and not Compito.objects.exists()
+
+
+def test_avviso_al_cliente_quando_esce_la_versione(scena):
+    from progetti.models import Rilascio, TipoCompito
+    TipoCompito.objects.get_or_create(nome="Bug", defaults={"difetto": True})
+    ticket, c = scena["ticket"], scena["client"]
+    c.post(f"/assistenza/ticket/{ticket.pk}/compito/")
+    compito = Compito.objects.get()
+    assert compito.tipo.difetto                                                     # il bug resta un bug
+    rilascio = Rilascio.objects.create(azienda=compito.azienda, progetto=compito.progetto, versione="2.4.0")
+    compito.rilascio = rilascio
+    compito.fase = FaseCompito.objects.filter(chiusa=True).first()
+    compito.save()
+    pronta = chatter.messaggi_di(ticket).filter(tipo="messaggio").first()
+    assert "disponibile con la versione 2.4.0" in pronta.corpo
+    rilascio.rilascia(scena["sara"])
+    uscita = chatter.messaggi_di(ticket).filter(tipo="messaggio", corpo__contains="è disponibile").get()
+    assert "La versione 2.4.0 di Gestionale Rossi è disponibile" in uscita.corpo

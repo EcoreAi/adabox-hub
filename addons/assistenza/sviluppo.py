@@ -1,5 +1,6 @@
 """Dal ticket al compito di sviluppo, e ritorno: il bug diventa un compito del progetto; quando il compito arriva in
-una fase chiusa il cliente riceve un messaggio sul ticket e il ticket passa alla prima fase chiusa («Risolto»)."""
+una fase chiusa il cliente riceve un messaggio sul ticket e il ticket passa alla prima fase chiusa («Risolto»);
+quando esce la versione che contiene il compito, il cliente riceve un altro messaggio."""
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
@@ -10,7 +11,8 @@ from django.views.decorators.http import require_POST
 
 from core import chatter
 from helpdesk.models import FaseTicket, Ticket
-from progetti.models import Compito
+from progetti.models import Compito, TipoCompito
+from progetti.segnali import rilascio_pubblicato
 
 from .models import DatiTicket
 
@@ -29,7 +31,9 @@ def crea_compito(ticket, utente):
         f"Dal ticket {ticket.numero} ({dati.get_tipo_display().lower()}, cliente {ticket.contatto or '—'}).") if p)
     compito = Compito.objects.create(azienda=dati.progetto.azienda, progetto=dati.progetto,
                                      titolo=f"[{ticket.numero}] {ticket.oggetto}"[:200], descrizione=descrizione,
-                                     priorita=Compito.ALTA if ticket.priorita in PRIORITA_ALTA else Compito.NORMALE)
+                                     priorita=Compito.ALTA if ticket.priorita in PRIORITA_ALTA else Compito.NORMALE,
+                                     tipo=TipoCompito.objects.filter(difetto=True).first()
+                                     if dati.tipo == DatiTicket.BUG else None)
     if ticket.assegnatario_id:
         compito.assegnatari.add(ticket.assegnatario)
     dati.compito = compito
@@ -69,9 +73,25 @@ def compito_salvato(sender, instance, raw=False, **_):
     risolto = FaseTicket.objects.filter(chiusa=True).order_by("ordine", "pk").first()
     for dati in DatiTicket.objects.filter(compito=instance, ticket__fase__chiusa=False).select_related("ticket"):
         ticket = dati.ticket
+        quando = (f"con la versione {instance.rilascio.versione}" if instance.rilascio_id
+                  and instance.rilascio.stato != instance.rilascio.RILASCIATO else "con il prossimo rilascio")
         chatter.scrivi(ticket, ticket.assegnatario,
-                       f"Buone notizie: la correzione per «{ticket.oggetto}» è pronta e sarà disponibile con il prossimo "
-                       "rilascio. Se il problema si ripresenta rispondi pure a questo messaggio: la richiesta si riapre.")
+                       f"Buone notizie: la correzione per «{ticket.oggetto}» è pronta e sarà disponibile {quando}. "
+                       "Se il problema si ripresenta rispondi pure a questo messaggio: la richiesta si riapre.")
         if risolto is not None:
             ticket.fase = risolto
             ticket.save(update_fields=["fase"])
+
+
+@receiver(rilascio_pubblicato, dispatch_uid="assistenza.rilascio_pubblicato")
+def rilascio(sender, rilascio, utente=None, **_):
+    """Versione pubblicata: messaggio ai clienti dei ticket legati ai compiti completati del rilascio."""
+    from .segnali import attiva
+    if not attiva():
+        return
+    for dati in (DatiTicket.objects.filter(compito__rilascio=rilascio, compito__fase__chiusa=True)
+                 .select_related("ticket", "ticket__assegnatario")):
+        ticket = dati.ticket
+        chatter.scrivi(ticket, ticket.assegnatario or utente,
+                       f"La versione {rilascio.versione} di {rilascio.progetto} è disponibile: contiene la correzione "
+                       f"per «{ticket.oggetto}».")

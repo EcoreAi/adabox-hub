@@ -210,6 +210,10 @@ class ModelView:
         """[(nome, etichetta)] delle azioni di massa che l'utente può usare."""
         return [(n, self.etichetta_metodo(n)) for n in self.actions if self.permesso_metodo(request, getattr(self, n))]
 
+    def kanban_vietato(self, request, obj):
+        """Motivo per cui lo spostamento nel kanban (già applicato a obj, non salvato) non è ammesso, o None."""
+        return None
+
     def get_buttons(self, request, obj):
         """[(nome, etichetta)] dei bottoni del dettaglio che l'utente può usare."""
         return [(n, self.etichetta_metodo(n)) for n in self.buttons if self.permesso_metodo(request, getattr(self, n))]

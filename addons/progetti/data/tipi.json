@@ -1,0 +1,6 @@
+[
+  {"model": "progetti.tipocompito", "pk": 1, "fields": {"nome": "Funzionalità", "colore": "#2f80ed", "ordine": 10, "difetto": false}},
+  {"model": "progetti.tipocompito", "pk": 2, "fields": {"nome": "Bug", "colore": "#ff3b30", "ordine": 20, "difetto": true}},
+  {"model": "progetti.tipocompito", "pk": 3, "fields": {"nome": "Miglioramento", "colore": "#34c759", "ordine": 30, "difetto": false}},
+  {"model": "progetti.tipocompito", "pk": 4, "fields": {"nome": "Attività", "colore": "#8e8e93", "ordine": 40, "difetto": false}}
+]

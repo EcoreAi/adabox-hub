@@ -1,0 +1,23 @@
+{% load progetti %}{% sprint_in_corso obj as sprint %}{% prossimi_rilasci obj as rilasci %}{% with b=obj.budget ms=obj.milestone.all %}
+{% if b or sprint or rilasci or ms %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Pianificazione</div><div class="spacer"></div>
+    <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'progetti:sprint_nuovo' %}?progetto={{ obj.pk }}">Nuovo sprint</a>
+    <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'progetti:rilasci_nuovo' %}?progetto={{ obj.pk }}">Nuovo rilascio</a></div>
+  <div class="ui-card-body">
+    {% if b %}
+    <p><strong>Budget:</strong> {{ b.1|floatformat:"-2" }} ore su {{ b.0|floatformat:"-2" }} ({{ b.2 }}%){% if b.2 >= 100 %} <span class="ui-pill ui-pill-danger">superato</span>{% elif b.2 >= 80 %} <span class="ui-pill ui-pill-warn">quasi esaurito</span>{% endif %}
+      · ore previste nei compiti {{ obj.ore_previste|floatformat:"-2" }}</p>
+    <div class="ui-avanzamento" role="progressbar" aria-valuenow="{{ b.2 }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {% if b.2 > 100 %}100{% else %}{{ b.2 }}{% endif %}%"></span></div>
+    {% endif %}
+    {% if sprint %}{% with p=sprint.punti %}
+    <p style="margin-top:12px;"><strong>Sprint in corso:</strong> <a href="{% url 'progetti:sprint_dettaglio' sprint.pk %}">{{ sprint.nome }}</a>
+      fino al {{ sprint.fine|date:"d/m/Y" }} · {{ p.1 }} punti su {{ p.0 }}</p>{% endwith %}
+    {% endif %}
+    {% if ms %}<p style="margin-top:12px;"><strong>Milestone:</strong>
+      {% for m in ms %}{% with a=m.avanzamento %}<a href="{% url 'progetti:milestone_dettaglio' m.pk %}">{{ m.nome }}</a>{% if m.scadenza %} ({{ m.scadenza|date:"d/m" }}){% endif %} {{ a.2 }}%{% endwith %}{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+    {% if rilasci %}<p style="margin-top:12px;"><strong>Prossimi rilasci:</strong>
+      {% for r in rilasci %}<a href="{% url 'progetti:rilasci_dettaglio' r.pk %}">{{ r.versione }}</a>{% if r.data_prevista %} ({{ r.data_prevista|date:"d/m" }}){% endif %}{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+  </div>
+</section>
+{% endif %}{% endwith %}
