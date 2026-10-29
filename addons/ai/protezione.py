@@ -52,20 +52,30 @@ def impostazioni():
 
 
 def _analizza(url, testo, esclusi):
+    """[(inizio, fine, etichetta)] sulle posizioni di `testo`. Il servizio lavora sul testo senza spazi ai bordi e,
+    senza `include_mapping`, toglie il testo originale dai segmenti: si chiede e si controlla che i segmenti
+    ricostruiscano esattamente il testo inviato (il valore in chiaro resta sulla rete interna)."""
+    if not testo.strip():
+        return []
     richiesta = urllib.request.Request(f"{url}/analyze", headers={"Content-Type": "application/json"},
                                        data=json.dumps({"text": testo, "exclude_tags": list(esclusi),
-                                                        "include_mapping": False}).encode())
+                                                        "include_mapping": True}).encode())
     try:
         with urllib.request.urlopen(richiesta, timeout=TIMEOUT) as risposta:
-            dati = json.load(risposta)
+            segmenti = json.load(risposta)["segments"]
     except Exception as e:
         raise ServizioNonDisponibile(str(e)) from e
-    spans, posizione = [], 0
-    for segmento in dati.get("segments", []):
-        lunghezza = len(segmento["t"])
+    inizio = len(testo) - len(testo.lstrip())
+    spans, posizione = [], inizio
+    for segmento in segmenti:
+        pezzo = segmento.get("t")
+        if pezzo is None:
+            raise ServizioNonDisponibile("segmento senza testo originale")
         if segmento.get("label"):
-            spans.append((posizione, posizione + lunghezza, segmento["label"]))
-        posizione += lunghezza
+            spans.append((posizione, posizione + len(pezzo), segmento["label"]))
+        posizione += len(pezzo)
+    if posizione - inizio != len(testo.strip()):
+        raise ServizioNonDisponibile("i segmenti non ricostruiscono il testo inviato")
     return spans
 
 

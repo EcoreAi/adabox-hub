@@ -156,3 +156,29 @@ def test_registro_delle_modifiche(scena, client):
     client.force_login(utente)
     assert client.get("/ai/registro/").status_code == 403
     assert Turno.objects.model._meta.get_field("provenienza")
+
+
+def test_risposta_del_servizio_vero(monkeypatch):
+    """Il formato di adabox-pii: testo senza spazi ai bordi, segmenti con il testo originale."""
+    import io
+    import json
+
+    def risposta(segmenti):
+        class Finta(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+        return lambda richiesta, timeout: Finta(json.dumps({"segments": segmenti}).encode())
+    monkeypatch.setattr(protezione.urllib.request, "urlopen", risposta([
+        {"t": "Scrivi a "}, {"label": "FULLNAME", "ph": "[FULLNAME_1]", "t": "Mario Rossi"}, {"t": " oggi"}]))
+    testo = "  Scrivi a Mario Rossi oggi\n"
+    (inizio, fine, etichetta), = protezione._analizza("http://pii", testo, ())
+    assert testo[inizio:fine] == "Mario Rossi" and etichetta == "FULLNAME"
+    monkeypatch.setattr(protezione.urllib.request, "urlopen", risposta([{"label": "FULLNAME", "ph": "[FULLNAME_1]"}]))
+    with pytest.raises(protezione.ServizioNonDisponibile, match="senza testo"):
+        protezione._analizza("http://pii", "Mario Rossi", ())
+    monkeypatch.setattr(protezione.urllib.request, "urlopen", risposta([{"t": "Mario"}]))
+    with pytest.raises(protezione.ServizioNonDisponibile, match="non ricostruiscono"):
+        protezione._analizza("http://pii", "Mario Rossi", ())
