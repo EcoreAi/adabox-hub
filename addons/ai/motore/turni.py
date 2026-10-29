@@ -211,7 +211,10 @@ def esegui(turno_id):
         messaggio = MESSAGGI_ERRORE.get(codice, "Il modello non ha risposto: riprova tra poco.")
         if isinstance(errore, catalogo.NessunModello) or codice == "LIMITE":
             messaggio = str(errore)
-        _chiudi(e, Turno.ERRORE, f"\n\n_{messaggio}_", errore=str(errore))
+        if isinstance(errore, catalogo.NessunModello) or codice in ("AUTENTICAZIONE", "CONFIGURAZIONE", "RICHIESTA"):
+            messaggio += (" Un amministratore la sistema da **Impostazioni dell'assistente → Provider e chiavi** "
+                          "(/ai/provider/).")
+        _chiudi(e, Turno.ERRORE, f"\n\n⚠️ **{messaggio}**", errore=str(errore))
     except Exception as errore:                    # mai lasciare un turno appeso
         log.exception("turno %s", turno.pk)
         _chiudi_chiamate_aperte(turno, "il turno si è fermato per un errore interno")
