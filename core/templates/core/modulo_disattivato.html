@@ -1,0 +1,4 @@
+{% extends 'theme/base.html' %}
+{% block title %}Modulo disattivato · {{ theme.brand }}{% endblock %}
+{% block content %}{% include 'theme/partials/_scheda_errore.html' with codice='404' titolo='Modulo disattivato' testo="Questa applicazione è installata ma è stata disattivata dall'amministratore. I dati restano: si riattiva dalla pagina Moduli." %}{% endblock %}
+{% block public_content %}<main class="ui-shell"><div class="ui-container ui-content">{% include 'theme/partials/_scheda_errore.html' with codice='404' titolo='Modulo disattivato' testo="Questa applicazione è stata disattivata dall'amministratore." %}</div></main>{% endblock %}

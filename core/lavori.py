@@ -127,7 +127,9 @@ def pianifica_scadute():
     adesso = timezone.now()
     accodate = []
     with transaction.atomic():
-        qs = Pianificazione.objects.filter(attiva=True, prossima_esecuzione__lte=adesso)
+        from .registry.modules import disattivati
+        qs = Pianificazione.objects.filter(attiva=True, prossima_esecuzione__lte=adesso).exclude(
+            modulo__in=disattivati())                  # moduli spenti: le loro pianificazioni aspettano
         if connection.features.has_select_for_update_skip_locked:
             qs = qs.select_for_update(skip_locked=True)
         for p in qs:

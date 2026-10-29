@@ -55,11 +55,14 @@ def registra(strumento):
 
 def disponibili(utente, ambito=""):
     """Gli strumenti che l'utente può usare (in ordine stabile per la cache del prefisso)."""
+    from core.registry.modules import disattivati
+
     from . import app
     app.carica()
+    spenti = disattivati()
     return [s for _, s in sorted(_registro.items())
             if (s.permesso is None or utente.has_perm(s.permesso)) and (not ambito or not s.app or s.app == ambito)
-            and (s.disponibile is None or s.disponibile())]
+            and s.app not in spenti and (s.disponibile is None or s.disponibile())]
 
 
 def _testo(valore):

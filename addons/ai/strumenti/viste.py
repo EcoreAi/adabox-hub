@@ -47,8 +47,10 @@ def viste(contesto):
     ambito = _ambito(contesto)
     registry.autodiscover(["core", *settings.ADDONS_ATTIVI])
     risultato = []
+    from core.registry.modules import disattivati
+    spenti = disattivati()
     for modulo in ["core", *settings.ADDONS_ATTIVI]:
-        if modulo in ESCLUSI or (ambito and modulo != ambito):
+        if modulo in ESCLUSI or modulo in spenti or (ambito and modulo != ambito):
             continue
         for v in registry.viste_di(modulo):
             v = v.personalizzata(request)

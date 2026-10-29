@@ -18,8 +18,11 @@ def _visibilita(contesto):
     """visibile(frammento) con una cache per record: ModelView del record, permesso di vista, queryset dell'utente."""
     from core.viste import registry
 
+    from core.registry.modules import disattivati
+
     from ..conoscenza import ESCLUSI
     request = richiesta.per(contesto)
+    spenti = ESCLUSI | disattivati()
     cache = {}
 
     def visibile(frammento):
@@ -28,7 +31,7 @@ def _visibilita(contesto):
             modello = ContentType.objects.get_for_id(frammento.content_type_id).model_class()
             vista = registry.per_modello(modello) if modello else None
             cache[chiave] = None
-            if vista is not None and vista.modulo not in ESCLUSI:
+            if vista is not None and vista.modulo not in spenti:
                 vista = vista.personalizzata(request)
                 if vista.has_view_permission(request) and vista.get_queryset(request).filter(
                         pk=frammento.object_id).exists():

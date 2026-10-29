@@ -58,8 +58,9 @@ def voci_kernel(user):
 def home(request):
     """La prima pagina: quella dichiarata da un modulo installato (`home` nel manifest, es. la chat AI),
     altrimenti la dashboard."""
-    for m in modules.manifests_attivi().values():
-        if m.home:
+    spenti = modules.disattivati()
+    for slug, m in modules.manifests_attivi().items():
+        if m.home and slug not in spenti:
             try:
                 return redirect(reverse(m.home))
             except NoReverseMatch:
@@ -226,7 +227,7 @@ def _schede_moduli():
             Modulo.MANCANTE: ["disinstalla"],
             Modulo.ERRORE: ["aggiorna", "disinstalla"] if installato else (["installa"] if m else []),
         }[r.stato]
-        schede.append({"riga": r, "manifest": m, "ops": ops,
+        schede.append({"riga": r, "manifest": m, "ops": ops, "installato": installato,
                        "dati_presenti": not installato and r.slug in con_dati,
                        "origine": pacchetti.origine(info[r.slug].cartella) if r.slug in info else None})
     return schede
@@ -266,6 +267,20 @@ def moduli_azione(request):
         return _pagina_moduli(request, log)
     coda, stato = mod.leggi(log)
     return render(request, "core/partials/_moduli_stato.html", {"log": log, "coda": coda, "stato": stato})
+
+
+@require_POST
+@solo_superuser
+def moduli_attivazione(request):
+    """Accende o spegne un modulo installato, subito e senza riavvii (lo legge ogni richiesta)."""
+    slug, attivo = request.POST.get("slug", ""), request.POST.get("attivo") == "1"
+    if not modules.imposta_attivo(slug, attivo):
+        messages.error(request, f"«{slug}» non è installato.")
+        return redirect("core:moduli")
+    nome = Modulo.objects.filter(slug=slug).values_list("nome", flat=True).first() or slug
+    messages.success(request, f"{nome} riattivato: è di nuovo visibile." if attivo else
+                     f"{nome} disattivato: nascosto a tutti, dati e installazione restano.")
+    return redirect(f"{reverse('core:moduli')}#modulo-{slug}")
 
 
 @require_POST

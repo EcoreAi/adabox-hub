@@ -41,6 +41,10 @@ class Command(BaseCommand):
         p.add_argument("--elimina-dati", action="store_true", help="elimina anche le tabelle del modulo")
         p.add_argument("--riavvia", action="store_true")
         p.add_argument("--si", action="store_true", help="non chiedere conferma")
+        p = sub.add_parser("disattiva", help="spegne un modulo installato per tutti (resta installato con i dati)")
+        p.add_argument("slug")
+        p = sub.add_parser("riattiva", help="riaccende un modulo disattivato")
+        p.add_argument("slug")
         p = sub.add_parser("verifica", help="valida il manifest di una cartella")
         p.add_argument("percorso")
 
@@ -183,3 +187,14 @@ class Command(BaseCommand):
     def _sincronizza(self, **_):
         righe = modules.sincronizza()
         self.stdout.write(f"Sincronizzati {len(righe)} moduli.")
+
+    def _disattiva(self, slug, **_):
+        self._attivazione(slug, False)
+
+    def _riattiva(self, slug, **_):
+        self._attivazione(slug, True)
+
+    def _attivazione(self, slug, attivo):
+        if not modules.imposta_attivo(slug, attivo):
+            raise install.NonInstallato(f"{slug} non è installato")
+        self.stdout.write(f"{slug} {'riattivato' if attivo else 'disattivato'}.")

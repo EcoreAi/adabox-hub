@@ -19,8 +19,9 @@ class ProfiloUtenteAdmin(admin.ModelAdmin):
 @admin.register(Modulo)
 class ModuloAdmin(admin.ModelAdmin):
     """Specchio in sola lettura del file di stato: le operazioni passano dalla pagina /moduli/."""
-    list_display = ("slug", "nome", "versione_installata", "versione_disponibile", "stato", "application")
-    list_filter = ("stato", "application")
+    list_display = ("slug", "nome", "versione_installata", "versione_disponibile", "stato", "disattivato",
+                    "application")
+    list_filter = ("stato", "disattivato", "application")
     search_fields = ("slug", "nome")
 
     def has_add_permission(self, request):

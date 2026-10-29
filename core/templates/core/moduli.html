@@ -54,6 +54,7 @@
       </div>
       <div class="spacer"></div>
       <span class="ui-pill {% if r.stato == 'installato' %}ui-pill-ok{% elif r.stato == 'da_aggiornare' %}ui-pill-warn{% elif r.stato == 'disponibile' %}ui-pill-neutral{% else %}ui-pill-danger{% endif %}">{{ r.get_stato_display }}</span>
+      {% if s.installato and r.disattivato %}<span class="ui-pill ui-pill-neutral">Disattivato</span>{% endif %}
     </div>
     <div class="ui-card-body">
       {% if m.summary %}<p>{{ m.summary }}</p>{% endif %}
@@ -72,6 +73,14 @@
           <button type="submit" class="ui-btn {% if op == 'disinstalla' %}ui-btn-danger{% else %}ui-btn-primary{% endif %} ui-btn-sm">{{ op|capfirst }}</button>
         </form>
         {% endfor %}
+        {% if s.installato %}
+        <form method="post" action="{% url 'core:moduli_attivazione' %}">
+          {% csrf_token %}<input type="hidden" name="slug" value="{{ r.slug }}">
+          <input type="hidden" name="attivo" value="{% if r.disattivato %}1{% else %}0{% endif %}">
+          <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm"
+                  title="{% if r.disattivato %}Rende di nuovo visibile il modulo{% else %}Nasconde il modulo a tutti senza disinstallarlo: dati e installazione restano{% endif %}">{% if r.disattivato %}Riattiva{% else %}Disattiva{% endif %}</button>
+        </form>
+        {% endif %}
       </div>
     </div>
   </div>

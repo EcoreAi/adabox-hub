@@ -124,6 +124,25 @@ def _manifests(addons_dir, slugs):
     return trovati
 
 
+def disattivati() -> frozenset:
+    """Gli slug dei moduli installati ma disattivati (una query su una tabella di poche righe; vuoto se la tabella
+    non è ancora pronta, es. durante migrate)."""
+    from django.db import DatabaseError
+    try:
+        return frozenset(Modulo.objects.filter(disattivato=True).values_list("slug", flat=True))
+    except DatabaseError:
+        return frozenset()
+
+
+def imposta_attivo(slug, attivo):
+    """Accende o spegne un modulo installato. False se non è installato."""
+    if slug not in installati():
+        return False
+    if not Modulo.objects.filter(slug=slug).exists():
+        sincronizza()                                  # la riga nasce dalla sincronizzazione con il disco
+    return bool(Modulo.objects.filter(slug=slug).update(disattivato=not attivo))
+
+
 def manifests_attivi() -> dict[str, Manifest]:
     """Manifest dei moduli in settings.ADDONS_ATTIVI (cache per processo: non cambiano senza riavvio)."""
     return _manifests(str(settings.ADDONS_DIR), tuple(settings.ADDONS_ATTIVI))
@@ -140,8 +159,9 @@ def app_visibili(user):
     if not user.is_authenticated:
         return []
     apps = []
+    spenti = disattivati()
     for slug, m in manifests_attivi().items():
-        if not m.application:
+        if not m.application or slug in spenti:
             continue
         menu = []
         for voce in m.menu:

@@ -34,7 +34,10 @@ def voci_testata(request):
     user = getattr(request, "user", None)
     if user is None or not user.is_authenticated:
         return []
-    visibili = [v for v in _testata if v["permission"] is None or user.is_superuser or user.has_perm(v["permission"])]
+    from .modules import disattivati
+    spenti = disattivati()                         # i template delle app seguono «<modulo>/...»
+    visibili = [v for v in _testata if (v["permission"] is None or user.is_superuser or user.has_perm(v["permission"]))
+                and v["template"].split("/", 1)[0] not in spenti]
     return sorted(visibili, key=lambda v: v["order"])
 
 

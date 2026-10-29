@@ -32,6 +32,7 @@ urlpatterns = [
     path("allegati/<int:pk>/elimina/", allegati_viste.elimina, name="allegato_elimina"),
     path("moduli/", views.moduli, name="moduli"),
     path("moduli/azione/", views.moduli_azione, name="moduli_azione"),
+    path("moduli/attivazione/", views.moduli_attivazione, name="moduli_attivazione"),
     path("moduli/carica/", views.moduli_carica, name="moduli_carica"),
     path("moduli/scarica/", views.moduli_scarica, name="moduli_scarica"),
     path("moduli/stato/", views.moduli_stato, name="moduli_stato"),
