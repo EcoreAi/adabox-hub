@@ -15,7 +15,7 @@ MIN_CORE_RE = re.compile(r"^\d+\.\d+$")
 PERM_RE = re.compile(r"^[a-z][a-z0-9_]*\.([a-z_][a-z0-9_]*|\*)$")
 DOTTED_RE = re.compile(r"^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)*$")
 CHIAVI = {"name", "summary", "version", "author", "category", "depends", "min_core", "application",
-          "icon", "menu", "groups", "data", "demo", "hooks", "settings_url", "cron", "settings", "sequences",
+          "icon", "menu", "groups", "data", "demo", "hooks", "ai", "settings_url", "cron", "settings", "sequences",
           "dashboard", "home"}
 OBBLIGATORIE = {"name", "version", "min_core"}
 CHIAVI_MENU = {"label", "url_name", "permission"}
@@ -53,6 +53,7 @@ class Manifest:
     data: list = field(default_factory=list)
     demo: list = field(default_factory=list)
     hooks: str | None = None
+    ai: str | None = None                  # modulo con gli strumenti dell'assistente AI (es. "calendario.ai")
     settings_url: str | None = None
     cron: list = field(default_factory=list)
     settings: list = field(default_factory=list)
@@ -257,6 +258,9 @@ def valida(dati, slug, cartella):
     hooks = dati.get("hooks")
     if hooks is not None and not (isinstance(hooks, str) and DOTTED_RE.match(hooks)):
         errori.append(f"hooks: {hooks!r} non è un modulo Python (es. {slug}.hooks)")
+    ai = dati.get("ai")
+    if ai is not None and not (isinstance(ai, str) and DOTTED_RE.match(ai) and ai.startswith(f"{slug}.")):
+        errori.append(f"ai: {ai!r} non è un modulo Python del modulo stesso (es. {slug}.ai)")
     su = dati.get("settings_url")
     if su is not None and not isinstance(su, str):
         errori.append(f"settings_url: atteso testo o None, trovato {su!r}")

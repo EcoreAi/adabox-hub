@@ -20,5 +20,6 @@
     },
     "demo": ["data/demo.json"],
     "hooks": "calendario.hooks",
+    "ai": "calendario.ai",
     "cron": [{"nome": "Promemoria eventi", "funzione": "calendario.lavori.promemoria", "ogni": "5m"}],
 }

@@ -54,6 +54,8 @@ def registra(strumento):
 
 def disponibili(utente, ambito=""):
     """Gli strumenti che l'utente può usare (in ordine stabile per la cache del prefisso)."""
+    from . import app
+    app.carica()
     return [s for _, s in sorted(_registro.items())
             if (s.permesso is None or utente.has_perm(s.permesso)) and (not ambito or not s.app or s.app == ambito)]
 

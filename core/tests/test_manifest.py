@@ -161,3 +161,9 @@ def test_settings_non_validi(addons_tmp, voce, atteso):
 ])
 def test_sequences_non_valide(addons_tmp, voce, atteso):
     assert atteso in _errori(addons_tmp, sequences=[voce])
+
+
+def test_chiave_ai_solo_un_modulo_dell_app_stessa(addons_tmp):
+    assert manifest.leggi(addons_tmp.crea("alfa", ai="alfa.ai")).ai == "alfa.ai"
+    assert "non è un modulo Python del modulo stesso" in _errori(addons_tmp, "beta", ai="os.path")
+    assert "non è un modulo Python del modulo stesso" in _errori(addons_tmp, "gamma", ai=["gamma.ai"])
