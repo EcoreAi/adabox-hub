@@ -12,13 +12,15 @@ def piattaforma(request):
     apps = modules.app_visibili(request.user)
     corrente = modules.app_corrente(request, apps)
     voci_app = [{"label": a["label"], "url_name": a["url_name"], "slug": a["slug"]} for a in apps]
-    nav = [{"label": "Dashboard", "url_name": "core:dashboard"}, *voci_app]
+    in_testa, voci_app = barra.in_testa(voci_app)          # es. l'assistente AI: sempre per primo
+    dashboard = {"label": "Dashboard", "url_name": "core:dashboard"}
+    nav = [*in_testa, dashboard, *voci_app]
     da_fare = attivita.da_fare_oggi(request.user)
-    if da_fare:
-        nav.append({"label": f"Attività · {da_fare}", "url_name": "core:attivita"})
+    coda = [{"label": f"Attività · {da_fare}", "url_name": "core:attivita"}] if da_fare else []
+    nav += coda
     scelta = barra.leggi()
     principali, altre = barra.dividi(voci_app, corrente, scelta["quante"], scelta["fisse"])
-    principali = [nav[0], *principali] + nav[len(voci_app) + 1:]          # Dashboard, app, Attività
+    principali = [*in_testa, dashboard, *principali, *coda]              # in testa, Dashboard, app, Attività
     return {
         "theme": {**base, "nav": nav, "nav_principale": principali, "nav_altre": altre},
         "apps": apps, "app_corrente": corrente, "menu_app": corrente["menu"] if corrente else [],

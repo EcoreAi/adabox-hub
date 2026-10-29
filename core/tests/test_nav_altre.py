@@ -49,7 +49,8 @@ def test_leggi_default_e_valori_non_validi(db, settings):
     assert barra.leggi() == {"fisse": ["crm"], "quante": 3}
 
 
-def test_pagina_impostazioni(client, superuser):
+def test_pagina_impostazioni(client, superuser, settings):
+    settings.NAV_APP_IN_TESTA = []                         # qui si prova solo la scelta delle app fisse
     assert "Scegli le app della barra" in client.get("/impostazioni/").content.decode()
     html = client.get("/impostazioni/barra/").content.decode()
     assert 'name="fissa_todo"' in html and "scelta automatica" in html
@@ -74,7 +75,22 @@ def test_pagina_solo_con_permesso(client, db):
 
 def test_header_con_menu_altre(client, superuser, settings):
     settings.NAV_APP_VISIBILI = 2
+    settings.NAV_APP_IN_TESTA = []
     r = client.get("/dashboard/")
     tema = r.context["theme"]
     assert len(tema["nav_principale"]) == 3 and tema["nav_altre"]
     assert 'aria-controls="nav-altre"' in r.content.decode()
+
+
+def test_app_in_testa_sempre_per_prime(client, superuser, settings):
+    settings.NAV_APP_VISIBILI = 1
+    settings.NAV_APP_IN_TESTA = ["crm"]
+    tema = client.get("/dashboard/").context["theme"]
+    assert [v["label"] for v in tema["nav_principale"][:2]] == ["CRM", "Dashboard"]
+    assert tema["nav"][0]["slug"] == "crm" and all(v["slug"] != "crm" for v in tema["nav_altre"])
+    Parametro.objects.create(chiave=barra.CHIAVE, valore={"fisse": ["todo"], "quante": 1})
+    tema = client.get("/dashboard/").context["theme"]
+    assert [v["label"] for v in tema["nav_principale"][:3]] == ["CRM", "Dashboard", "To-Do"]
+    assert 'name="fissa_crm"' not in client.get("/impostazioni/barra/").content.decode()   # non si sceglie
+    settings.NAV_APP_IN_TESTA = ["inesistente"]                                            # non installata: niente
+    assert client.get("/dashboard/").context["theme"]["nav_principale"][0]["label"] == "Dashboard"

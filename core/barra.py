@@ -23,6 +23,13 @@ def scrivi(fisse, quante):
         "valore": {"fisse": list(fisse), "quante": max(1, min(MASSIMO, int(quante)))}})
 
 
+def in_testa(voci_app):
+    """(app sempre per prime, nell'ordine di NAV_APP_IN_TESTA; tutte le altre)."""
+    ordine = list(getattr(settings, "NAV_APP_IN_TESTA", []))
+    prime = sorted((v for v in voci_app if v["slug"] in ordine), key=lambda v: ordine.index(v["slug"]))
+    return prime, [v for v in voci_app if v["slug"] not in ordine]
+
+
 def dividi(voci_app, corrente=None, quante=None, fisse=None):
     """(principali, altre). Con app fisse: quelle, nell'ordine scelto (se l'utente le vede); altrimenti le prime
     `quante`. L'app in cui si trova l'utente è sempre tra le principali (al posto dell'ultima)."""

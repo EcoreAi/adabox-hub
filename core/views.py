@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import messages
 from functools import wraps
 
@@ -382,7 +383,8 @@ def impostazioni_barra(request):
     if not request.user.has_perm("core.change_parametro"):
         raise PermissionDenied
     manifest = modules.manifests_attivi()
-    tutte = [(slug, m.name) for slug, m in manifest.items() if m.application]
+    in_testa = set(getattr(settings, "NAV_APP_IN_TESTA", []))          # sempre per prime: non si scelgono
+    tutte = [(slug, m.name) for slug, m in manifest.items() if m.application and slug not in in_testa]
     if request.method == "POST":
         if request.POST.get("ripristina"):
             Parametro.objects.filter(chiave=barra.CHIAVE, azienda__isnull=True).delete()
