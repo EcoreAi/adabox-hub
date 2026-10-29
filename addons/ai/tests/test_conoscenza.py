@@ -1,6 +1,7 @@
 import io
 import math
 import re
+import zlib
 
 import pytest
 from django.conf import settings
@@ -24,7 +25,7 @@ def vettore_finto(testo):
                 "disdetta": "disdett", "recesso": "disdett"}
     v = [0.0] * conoscenza.DIMENSIONI
     for parola in re.findall(r"\w+", testo.lower()):
-        v[hash(sinonimi.get(parola, parola)) % conoscenza.DIMENSIONI] += 1
+        v[zlib.crc32(sinonimi.get(parola, parola).encode()) % conoscenza.DIMENSIONI] += 1   # stabile tra processi
     norma = math.sqrt(sum(x * x for x in v)) or 1
     return [x / norma for x in v]
 
