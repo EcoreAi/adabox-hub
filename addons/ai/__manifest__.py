@@ -1,7 +1,7 @@
 {
     "name": "Assistente AI",
     "summary": "Chat con l'assistente: cronologia delle conversazioni, artifact e documenti salvati",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -27,12 +27,16 @@
     },
     "hooks": "ai.hooks",
     "cron": [{"nome": "Attività pianificate dell'assistente", "funzione": "ai.pianificate.esegui_scadute",
-              "ogni": "1m"}],
+              "ogni": "1m"},
+             {"nome": "Indice della conoscenza dell'assistente", "funzione": "ai.conoscenza.indicizza_cron",
+              "ogni": "10m"}],
     "dashboard": "ai.dashboard.kpi",
     "settings": [
         {"chiave": "tetto_mensile", "label": "Tetto di spesa mensile dell'assistente ($)", "tipo": "decimale",
          "default": "50", "per_azienda": True, "help": "0 = senza tetto; raggiunto il tetto l'assistente si ferma"},
         {"chiave": "avviso_percentuale", "label": "Avviso agli amministratori oltre la percentuale del tetto",
          "tipo": "intero", "default": 80, "per_azienda": True},
+        {"chiave": "url_embeddings", "label": "URL del servizio di embedding (ricerca semantica)", "tipo": "testo",
+         "default": "", "help": "es. http://adabox-embeddings-1:8080; vuoto = ricerca solo per parole chiave"},
     ],
 }

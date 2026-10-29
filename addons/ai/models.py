@@ -372,6 +372,33 @@ class Pianificata(models.Model):
         return testo + ora
 
 
+class Frammento(models.Model):
+    """Un pezzo di testo indicizzato per la ricerca dell'assistente: un record, una nota del chatter o un pezzo di
+    documento. Il record d'origine serve ai permessi: si mostra solo se la sua ModelView lo fa vedere all'utente."""
+    RECORD, NOTA, DOCUMENTO = "record", "nota", "documento"
+    FONTI = [(RECORD, "Record"), (NOTA, "Nota o messaggio"), (DOCUMENTO, "Documento")]
+    fonte = models.CharField("fonte", max_length=10, choices=FONTI)
+    content_type = models.ForeignKey("contenttypes.ContentType", on_delete=models.CASCADE, related_name="+")
+    object_id = models.PositiveBigIntegerField()
+    chiave = models.CharField("chiave", max_length=40, help_text="es. il pezzo del documento o la nota")
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, verbose_name="azienda")
+    titolo = models.CharField("titolo", max_length=250)
+    testo = models.TextField("testo")
+    impronta = models.CharField("impronta", max_length=40)
+    vettore = models.BinaryField("vettore", null=True, blank=True)
+    aggiornato = models.DateTimeField("aggiornato il", auto_now=True)
+
+    class Meta:
+        verbose_name = "frammento"
+        verbose_name_plural = "frammenti"
+        constraints = [models.UniqueConstraint(fields=["fonte", "content_type", "object_id", "chiave"],
+                                               name="ai_frammento_unico")]
+        indexes = [models.Index(fields=["azienda", "fonte"])]
+
+    def __str__(self):
+        return self.titolo
+
+
 class Licenza(models.Model):
     """File di licenza caricato (JSON firmato da ICHNOBYTE): vale l'ultimo caricato."""
     testo = models.TextField("licenza")
