@@ -269,3 +269,19 @@ Prossimo: AI-6 (specialisti: previsioni e decisore come strumenti, con grafici a
   addestrate le probabilità non sono affidabili.
 
 Prossimo: AI-7 (assistenti configurabili per app, sotto-agenti, compattazione delle conversazioni lunghe, eval).
+
+Dopo AI-6, dalla prima previsione vera dell'utente: totale sull'orizzonte calcolato dallo strumento (il modello
+sommava a mano le mediane), al massimo una decina di etichette sull'asse, durate escluse dalla guardia sui numeri.
+
+## Modulo AI — fase AI-7, agenti e qualità (2026-10-29)
+
+Piano `docs/superpowers/plans/2026-10-29-adabox-hub-ai-7-agenti.md`. Con questa fase il modulo AI copre le sette
+fasi della proposta.
+
+- `Assistente` risolto dalla conversazione (app o predefinito, gruppi); esperti con `chiedi_esperto` in sola
+  lettura (compito `esperto`); conversazioni interne `nascosta` fuori da cronologia e dashboard.
+- Compattazione con evento `riassunto` (`fino_a`): la storia per il modello parte dal riassunto più recente.
+- `ai_eval` con domande d'oro e copioni del modello finto per la CI.
+
+Restano aperti: il passaggio a Postgres + pgvector per la conoscenza su volumi grandi, il decisore con teste
+addestrate, la licenza dei pesi di Timestral, `DEBUG=True` sul server di sviluppo.

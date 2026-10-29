@@ -268,7 +268,8 @@ completo. Il flusso: **prodotto → preventivo → ordine → consegna (DDT) →
 ### Assistente AI
 
 Spec `docs/superpowers/specs/2026-10-29-adabox-hub-modulo-ai-design.md`; fasi AI-1 (fondamenta), AI-2 (strumenti
-dalle app), AI-3 (proattività), AI-4 (conoscenza), AI-5 (fiducia) e AI-6 (specialisti) completate.
+dalle app), AI-3 (proattività), AI-4 (conoscenza), AI-5 (fiducia), AI-6 (specialisti) e AI-7 (agenti e qualità)
+completate.
 
 - **Configurazione** (gruppo «AI / Amministratore»):
   - in `/ai/provider/` la chiave API di Anthropic, salvata cifrata con `CHIAVE_CIFRATURA` o, se manca, con una
@@ -359,6 +360,17 @@ dalle app), AI-3 (proattività), AI-4 (conoscenza), AI-5 (fiducia) e AI-6 (speci
     di oggi. La licenza dei pesi di Timestral va verificata prima dell'uso commerciale;
   - `classifica`: probabilità dal decisore locale (sì/no, scelta, punteggio). Senza esempi addestrati sono solo
     indicative: per questo sul server di sviluppo resta spento.
+- **Agenti e qualità** (AI-7):
+  - «Assistenti» (`/ai/assistenti/`): nome, descrizione, app, istruzioni aggiunte al prompt, strumenti ammessi,
+    profilo dei modelli, gruppi ammessi, domande d'oro. La chat limitata a un'app usa l'assistente di quell'app,
+    le altre quello predefinito;
+  - esperti: l'assistente principale consulta gli altri assistenti con `chiedi_esperto` (conversazione interna,
+    un livello, sola lettura: le modifiche restano proposte del principale);
+  - conversazioni lunghe: oltre ~150.000 caratteri la parte conclusa diventa un riassunto strutturato (evento
+    `riassunto`, il log non si riscrive);
+  - `python manage.py ai_eval` valuta le domande d'oro (`addons/ai/valutazione/domande.json` o quelle di un
+    assistente con `--assistente`) con il modello vero e ne riporta esito e costo; `--copioni` usa il modello finto
+    (in CI, nei test). Le proposte create durante la valutazione si annullano.
 - **Produzione**: lo streaming lo serve il servizio `stream` del compose (uvicorn, ASGI), e nginx gli instrada
   `/ai/flusso/`; il resto resta su gunicorn (WSGI). Quando cambiano i moduli installati, `stream` risponde 503 e
   si riavvia da solo, come il worker.
