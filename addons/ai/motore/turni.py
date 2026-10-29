@@ -33,6 +33,8 @@ MESSAGGI_ERRORE = {
     "RATE_LIMIT": "Il servizio del modello è sovraccarico in questo momento: riprova tra poco.",
     "CONTESTO": "La conversazione è diventata troppo lunga: aprine una nuova.",
     "CONFIGURAZIONE": "L'assistente non è configurato: manca un modello o una chiave API.",
+    "RICHIESTA": "Il provider ha rifiutato la richiesta: controlla URL, modello e chiave nelle impostazioni "
+                 "dell'assistente.",
 }
 
 

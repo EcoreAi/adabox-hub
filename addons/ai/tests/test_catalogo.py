@@ -73,8 +73,26 @@ def test_viste_chiave_cifrata(client, superuser, iniziali):
     client.post(f"/ai/provider/{iniziali.pk}/modifica/", {"nome": "Anthropic", "tipo": "anthropic", "attivo": "on"})
     iniziali.refresh_from_db()
     assert iniziali.chiave_per() == "sk-ant-segretissima-9876"            # vuoto = invariata
-    r = client.post("/ai/chiavi/nuovo/", {"provider": iniziali.pk, "azienda": 1, "chiave": "sk-az-1111"})
-    assert r.status_code == 302 and iniziali.chiave_per(Azienda.objects.get(pk=1)) == "sk-az-1111"
+    r = client.post("/ai/chiavi/nuovo/", {"provider": iniziali.pk, "azienda": 1, "chiave": "sk-ant-az-1111"})
+    assert r.status_code == 302 and iniziali.chiave_per(Azienda.objects.get(pk=1)) == "sk-ant-az-1111"
+
+
+def test_form_rifiuta_password_e_url_locale_per_anthropic(client, superuser, iniziali):
+    """Il compilatore automatico del browser mette la password del login nella chiave e l'indirizzo del sito
+    nell'URL: per Anthropic il form lo riconosce e non salva."""
+    r = client.post(f"/ai/provider/{iniziali.pk}/modifica/", {"nome": "Anthropic", "tipo": "anthropic", "attivo": "on",
+                                                              "base_url": "http://localhost:8020/",
+                                                              "nuova_chiave": "PasswordDelLogin1"})
+    html = r.content.decode()
+    assert r.status_code == 200 and "lascia vuoto l&#x27;URL" in html and "sk-ant-" in html
+    iniziali.refresh_from_db()
+    assert iniziali.base_url == "" and iniziali.chiave_cifrata == ""
+    form = client.get(f"/ai/provider/{iniziali.pk}/modifica/").content.decode()
+    assert 'autocomplete="new-password"' in form
+    ollama = Provider.objects.get(nome="Ollama locale")                        # un URL locale per Ollama va bene
+    r = client.post(f"/ai/provider/{ollama.pk}/modifica/", {"nome": "Ollama locale", "tipo": "openai_compat",
+                                                            "base_url": "http://localhost:11434/v1", "locale": "on"})
+    assert r.status_code == 302
 
 
 def test_profilo_con_catena_dal_form(client, superuser, iniziali):
