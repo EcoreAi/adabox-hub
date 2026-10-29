@@ -11,6 +11,9 @@ NUMERO = re.compile(r"(?<![\w/\-.,])(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)
 DATA = re.compile(r"\b\d{1,4}[/-]\d{1,2}[/-]\d{1,4}\b|\b\d{1,2}:\d{2}\b")
 LINK = re.compile(r"\]\([^)]*\)|https?://\S+")
 MAX_SEGNALATI = 5
+# «13 settimane», «3 mesi», «2 ore»: parametri della domanda o del periodo, non dati da verificare
+UNITA_DI_TEMPO = re.compile(r"\s*(?:secondi|minut[oi]|or[ae]\b|giorn[oi]|settiman[ae]|mes[ei]|trimestr[ei]|"
+                            r"semestr[ei]|ann[oi])", re.IGNORECASE)
 
 
 def _valore(testo, italiano=True):
@@ -26,10 +29,13 @@ def _valore(testo, italiano=True):
         return None
 
 
-def numeri(testo, italiano=True):
+def numeri(testo, italiano=True, durate=True):
+    """[(come è scritto, Decimal)]; con durate=False salta i numeri seguiti da un'unità di tempo."""
     testo = DATA.sub(" ", LINK.sub(" ", testo or ""))
     risultato = []
     for m in NUMERO.finditer(testo):
+        if not durate and UNITA_DI_TEMPO.match(testo, m.end()):
+            continue
         v = _valore(m.group(1), italiano)
         if v is not None:
             risultato.append((m.group(1), v))
@@ -66,7 +72,7 @@ def calcola(turno, testo, protetti=0):
                     letture += 1
                     fonti += [v for _, v in numeri(r["contenuto"], italiano=False)]
                     fonti += [v for _, v in numeri(r["contenuto"])]
-    nella_risposta = [(t, v) for t, v in numeri(testo) if _da_verificare(v)]
+    nella_risposta = [(t, v) for t, v in numeri(testo, durate=False) if _da_verificare(v)]
     non_verificati = []
     for t, v in nella_risposta:
         if not _trovato(v, fonti) and t not in non_verificati:

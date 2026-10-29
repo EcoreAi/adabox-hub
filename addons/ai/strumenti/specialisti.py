@@ -23,10 +23,12 @@ def previsione(contesto, vista, data, misura="count", per="mese", orizzonte=3, f
                        spec, dati)
     return {"artifact": a.pk, "titolo": a.titolo, "ultimi_periodi": dati["storico"][-6:],
             "previsione": [{"periodo": p, "basso_10": b, "mediana": m, "alto_90": a_} for p, b, m, a_ in dati["futuro"]],
+            "totale_orizzonte": {**dati["totale"], "periodi": len(dati["futuro"])},
             "periodi_di_storia": len(dati["storico"]), "modello": dati["modello"],
             "nota": "Numeri calcolati dal modello di previsione sulla storia del gestionale; il periodo in corso non è "
                     "nella storia perché incompleto. Riporta la mediana con l'intervallo 10-90 % e ricorda che è una "
-                    "stima. Il grafico è sotto la risposta."}
+                    "stima. Per il totale del periodo usa totale_orizzonte (somma delle mediane, con un intervallo "
+                    "prudente più largo di quello reale): non sommare a mano. Il grafico è sotto la risposta."}
 
 
 def classifica(contesto, testo, domanda, tipo="si_no", opzioni=None):

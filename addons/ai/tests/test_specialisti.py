@@ -146,3 +146,14 @@ def test_ogni_modulo_si_importa_per_primo(modulo):
     esito = subprocess.run([sys.executable, "-c", f"import django; django.setup(); import {modulo}"],
                            cwd=settings.BASE_DIR, capture_output=True, text=True, timeout=120)
     assert esito.returncode == 0, esito.stderr[-1500:]
+
+
+def test_totale_sull_orizzonte_ed_etichette_dell_asse(scena, servizi):
+    r = strumenti_specialisti.previsione(_contesto(scena), "core.lavoro", "creato", per="settimana", orizzonte=13)
+    t = r["totale_orizzonte"]
+    assert t["periodi"] == 13 and t["mediana"] == round(sum(p["mediana"] for p in r["previsione"]), 2)
+    assert t["basso_10"] <= t["mediana"] <= t["alto_90"]
+    disegno = artifact.svg_di(Artifact.objects.get())
+    assert disegno.count('transform="rotate(-35') <= 11                     # una decina di etichette, non 40
+    pagina = scena["client"].get(f"/ai/artifact/{Artifact.objects.get().pk}/").content.decode()
+    assert "Totale (13 periodi)" in pagina

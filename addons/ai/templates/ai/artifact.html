@@ -10,7 +10,8 @@
   {% elif a.tipo == "grafico" %}{% if disegno %}<div class="ai-artifact-grafico">{{ disegno }}</div>
     {% if dati.futuro %}
     <table class="ui-table" style="margin-top:16px"><thead><tr><th>Periodo</th><th>Previsione 10 %</th><th>Mediana</th><th>90 %</th></tr></thead>
-      <tbody>{% for periodo, basso, mediana, alto in dati.futuro %}<tr><td>{{ periodo }}</td><td>{{ basso }}</td><td><strong>{{ mediana }}</strong></td><td>{{ alto }}</td></tr>{% endfor %}</tbody></table>
+      <tbody>{% for periodo, basso, mediana, alto in dati.futuro %}<tr><td>{{ periodo }}</td><td>{{ basso }}</td><td><strong>{{ mediana }}</strong></td><td>{{ alto }}</td></tr>{% endfor %}</tbody>
+      {% if dati.totale %}<tfoot><tr><th>Totale ({{ dati.futuro|length }} periodi)</th><th>{{ dati.totale.basso_10 }}</th><th>{{ dati.totale.mediana }}</th><th>{{ dati.totale.alto_90 }}</th></tr></tfoot>{% endif %}</table>
     <p style="margin:12px 0 0;font-size:13px;color:var(--ui-text-2)">Stima del modello {{ dati.modello }} sulla storia del gestionale: il periodo in corso non è nella storia perché incompleto.</p>
     {% else %}
     <table class="ui-table" style="margin-top:16px"><thead><tr><th>Gruppo</th><th>Valore</th></tr></thead>

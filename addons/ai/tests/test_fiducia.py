@@ -182,3 +182,9 @@ def test_risposta_del_servizio_vero(monkeypatch):
     monkeypatch.setattr(protezione.urllib.request, "urlopen", risposta([{"t": "Mario"}]))
     with pytest.raises(protezione.ServizioNonDisponibile, match="non ricostruiscono"):
         protezione._analizza("http://pii", "Mario Rossi", ())
+
+
+def test_durate_non_sono_numeri_da_verificare():
+    testo = "Nelle prossime 13 settimane (3 mesi) circa 1.250,00 €, in 48 ore e 2 anni."
+    assert [t for t, _ in provenienza.numeri(testo, durate=False)] == ["1.250,00"]
+    assert "13" in [t for t, _ in provenienza.numeri(testo)]                   # nelle fonti restano

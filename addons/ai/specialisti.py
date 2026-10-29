@@ -141,7 +141,14 @@ def calcola_previsione(spec, contesto):
     per = spec.get("per", "mese")
     return {"storico": [[etichetta(p, per), round(v, 2)] for p, v in storia],
             "futuro": [[etichetta(avanti(attuale, per, i), per), *q] for i, q in enumerate(futuro)],
-            "modello": modello}
+            "totale": totale(futuro), "modello": modello}
+
+
+def totale(futuro):
+    """Il totale sull'orizzonte: somma delle mediane e, come intervallo prudente, somme dei 10 % e dei 90 % (più
+    largo di quello vero, che richiederebbe le traiettorie). Lo calcola il codice: il modello non somma a mano."""
+    return {"basso_10": round(sum(q[0] for q in futuro), 2), "mediana": round(sum(q[1] for q in futuro), 2),
+            "alto_90": round(sum(q[2] for q in futuro), 2)}
 
 
 # ---------- grafico ----------
@@ -169,7 +176,7 @@ def svg_previsione(dati, titolo, larghezza=720, altezza=320):
         parti.append(f'<line x1="{sx}" y1="{yy:.1f}" x2="{sx + w}" y2="{yy:.1f}" stroke="{svg.GRIGLIA}"/>'
                      f'<text x="{sx - 8}" y="{yy + 4:.1f}" text-anchor="end" fill="{svg.TESTO}">'
                      f'{svg._fmt(i * passo)}</text>')
-    salto = max(1, n // 12)
+    salto = max(1, -(-n // 10))                      # al massimo una decina di etichette sull'asse
     for i, e in enumerate(etichette):
         if i % salto == 0 or i == len(storico):
             parti.append(f'<text x="{x[i]:.1f}" y="{su + h + 16}" text-anchor="end" fill="{svg.TESTO}" '
