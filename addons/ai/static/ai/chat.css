@@ -1,21 +1,17 @@
-/* Chat dell'assistente a tutto schermo: barre di icone ai lati, pannelli apribili, conversazione al centro.
+/* Chat dell'assistente: header del tema in alto (come in tutte le app), sotto tre colonne a tutta altezza:
+   cronologia (barra di icone e pannello), conversazione, elementi salvati (pannello e barra di icone).
    Usa i token del tema (tokens.css): stessi colori del resto dell'applicazione. */
-body.ai-pagina { margin: 0; height: 100vh; overflow: hidden; background: var(--ui-surface); }
+body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface); }
 
-.ai-chat { display: flex; height: 100vh; }
+.ai-chat { flex: 1; min-height: 0; display: flex; position: relative; }
 
 /* ---------- barre di icone ---------- */
 .ai-rail {
-  flex: 0 0 60px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 0;
+  flex: 0 0 60px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0 14px;
   background: var(--ui-surface-2); border-right: 1px solid var(--ui-border); z-index: 30;
 }
 .ai-rail-destra { border-right: 0; border-left: 1px solid var(--ui-border); background: transparent; }
 .ai-rail-spazio { flex: 1; }
-.ai-marchio {
-  display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; margin-bottom: 14px;
-  border-radius: 10px; background: var(--ui-primary); color: #fff; font-size: 12px; font-weight: 700;
-  letter-spacing: 0.02em; text-decoration: none;
-}
 .ai-rail-btn, .ai-azione {
   position: relative; display: inline-flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border-radius: 12px; border: 0; background: transparent;
@@ -40,14 +36,6 @@ body.ai-pagina { margin: 0; height: 100vh; overflow: hidden; background: var(--u
 .ai-rail-destra [data-tip]::after { left: auto; right: calc(100% + 10px); }
 .ai-testata [data-tip]::after, .ai-composer [data-tip]::after { left: 50%; top: auto; bottom: calc(100% + 8px); transform: translateX(-50%); }
 [data-tip]:hover::after, [data-tip]:focus-visible::after { opacity: 1; }
-
-/* menu utente in basso a sinistra (si apre verso l'alto) */
-.ai-avatar {
-  width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer;
-  background: var(--ui-primary-tint); color: var(--ui-primary); font-weight: 700; font-size: 13px;
-}
-.ai-menu-utente { left: 0; right: auto; top: auto; bottom: calc(100% + 8px); min-width: 210px; }
-.ai-menu-nome { padding: 8px 12px 6px; font-size: 12px; font-weight: 600; color: var(--ui-text-2); }
 
 /* ---------- pannelli laterali (chiusi di default) ---------- */
 .ai-pannello {
@@ -79,30 +67,19 @@ body.ai-pagina { margin: 0; height: 100vh; overflow: hidden; background: var(--u
 .ai-avvisi { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 40; width: min(560px, 90%); }
 /* piccolo header */
 .ai-testata { flex: none; display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 14px; border-bottom: 1px solid var(--ui-border); }
-.ai-testata h1 { margin: 0; font-size: 14px; font-weight: 500; color: var(--ui-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-testata h1 { margin: 0; font-size: 14px; font-weight: 600; color: var(--ui-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ai-testata .ai-azione { width: 36px; height: 36px; }
-.ai-testata-brand { font-size: 15px; font-weight: 700; color: var(--ui-text); text-decoration: none; white-space: nowrap; }
-.ai-testata-sep { color: var(--ui-text-3); }
+.ai-testata-icona { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; background: var(--ui-primary-tint); color: var(--ui-primary); }
+.ai-testata-icona svg { width: 15px; height: 15px; }
 .ai-corpo { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
-/* menu hamburger con tutte le app */
-.ai-menu-app-pannello { left: 0; right: auto; width: min(400px, calc(100vw - 90px)); padding: 12px; }
-.ai-menu-app-titolo { padding: 2px 6px 10px; font-size: 12px; font-weight: 600; color: var(--ui-text-3); text-transform: uppercase; letter-spacing: 0.04em; }
-.ai-menu-app-griglia { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
-.ui-dropdown-menu a.ai-menu-app-voce {
-  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; border-radius: 12px;
-  font-size: 12px; font-weight: 500; color: var(--ui-text); text-align: center;
-}
-.ui-dropdown-menu a.ai-menu-app-voce:hover { background: var(--ui-surface-2); }
-.ai-menu-app-voce .ai-ambito-icona svg, .ai-menu-app-voce .ai-ambito-icona img { margin: 0; }
-.ui-dropdown-menu a.ai-menu-app-tutte { display: block; margin-top: 8px; padding: 9px 8px 4px; border-top: 1px solid var(--ui-border); font-size: 13px; color: var(--ui-primary); }
 .ai-spazio { flex: 1; }
 .ai-colonna { width: min(760px, calc(100% - 40px)); margin: 0 auto; }
 .ai-scorri { flex: 1; overflow-y: auto; }
 .ai-corpo:not(.is-vuota) .ai-scorri { padding-top: 20px; }
 
 /* stato vuoto: tutto centrato in verticale, come una pagina iniziale */
-.ai-corpo.is-vuota { justify-content: center; overflow-y: auto; padding-bottom: 40px; }
+.ai-corpo.is-vuota { justify-content: safe center; overflow-y: auto; padding: 36px 0 40px; }   /* safe: se non ci sta, parte dall'alto senza tagliare */
 .ai-corpo.is-vuota .ai-scorri { flex: 0 0 auto; overflow: visible; }
 .ai-saluto { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 0 0 28px; }
 .ai-saluto h1 { margin: 0; font-size: clamp(28px, 4vw, 40px); font-weight: 500; letter-spacing: -0.02em; color: var(--ui-text); }

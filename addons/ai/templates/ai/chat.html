@@ -9,35 +9,22 @@
   <link rel="stylesheet" href="{% static 'ai/chat.css' %}">
   <link rel="icon" type="image/svg+xml" href="{% url 'theme:favicon' %}">
 </head>
-{# Pagina a tutto schermo: niente header, barra dell'app e footer del tema, solo le tre colonne. #}
+{# Pagina a tutto schermo sotto l'header del tema (lo stesso di tutte le app): tre colonne, senza footer. #}
 <body class="ui-body ai-pagina" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 {% include 'theme/partials/_icons.html' %}
 {% include "ai/_icone.html" %}
+{% include 'theme/partials/_header.html' %}
 <div class="ai-chat" data-ai-chat>
 
   {# ---------- colonna sinistra: barra di icone ---------- #}
   <nav class="ai-rail" aria-label="Navigazione">
-    <a class="ai-marchio" href="{% url 'core:home' %}" aria-label="{{ theme.brand }}">{{ theme.mark }}</a>
     <a class="ai-rail-btn" href="{% url 'ai:chat' %}" data-tip="Nuova chat" aria-label="Nuova chat"><svg><use href="#ai-piu"/></svg></a>
     {% for chiave, etichetta, icona in pannelli_sinistra %}
     <button type="button" class="ai-rail-btn" data-pannello="{{ chiave }}" data-lato="sinistra" aria-expanded="false"
             aria-controls="ai-pannello-sinistra" data-tip="{{ etichetta }}" aria-label="{{ etichetta }}"><svg><use href="#{{ icona }}"/></svg></button>
     {% endfor %}
-    <a class="ai-rail-btn" href="{% url 'core:dashboard' %}" data-tip="Dashboard" aria-label="Dashboard"><svg><use href="#ai-dashboard"/></svg></a>
     <span class="ai-rail-spazio"></span>
     {% if perms.ai.change_provider %}<a class="ai-rail-btn" href="{% url 'ai:provider_lista' %}" data-tip="Impostazioni dell'assistente: provider, chiavi API, modelli, profili" aria-label="Impostazioni dell'assistente"><svg><use href="#icon-tool"/></svg></a>{% endif %}
-    <div class="ui-dropdown ai-utente">
-      <button type="button" class="ai-avatar" aria-haspopup="true" aria-expanded="false" aria-controls="ai-menu-utente"
-              aria-label="Menu di {{ user.get_full_name|default:user.username }}">{{ user.username|slice:":1"|upper }}</button>
-      <div id="ai-menu-utente" class="ui-dropdown-menu ai-menu-utente" role="menu">
-        <div class="ai-menu-nome">{{ user.get_full_name|default:user.username }}</div>
-        {% url 'core:profilo' as url_profilo %}<a href="{{ url_profilo }}"><svg><use href="#icon-user"/></svg> Profilo</a>
-        {% if user.is_staff %}<a href="{% url 'admin:index' %}"><svg><use href="#icon-tool"/></svg> Amministrazione</a>{% endif %}
-        <hr>
-        <form method="post" action="{% url 'logout' %}" class="ui-logout-form">{% csrf_token %}
-          <button type="submit"><svg><use href="#icon-log-out"/></svg> Esci</button></form>
-      </div>
-    </div>
   </nav>
   <aside class="ai-pannello" id="ai-pannello-sinistra" hidden>
     <section data-contenuto="storico" hidden>
@@ -54,28 +41,10 @@
   <main class="ai-centro">
     {% if messages %}<div class="ai-avvisi">{% for m in messages %}<div class="ui-alert ui-alert-{{ m.tags|default:'info' }}">{{ m }}</div>{% endfor %}</div>{% endif %}
 
-    {# piccolo header: menu delle app, nome del prodotto, titolo e azioni della conversazione #}
+    {# testata della conversazione: titolo, app a cui è limitata, preferita, elimina #}
     <header class="ai-testata">
-      <div class="ui-dropdown ai-menu-app">
-        <button type="button" class="ai-azione" aria-haspopup="true" aria-expanded="false" aria-controls="ai-menu-app"
-                aria-label="Tutte le app"><svg><use href="#icon-menu"/></svg></button>
-        <div id="ai-menu-app" class="ui-dropdown-menu ai-menu-app-pannello" role="menu">
-          <div class="ai-menu-app-titolo">Le tue app</div>
-          <div class="ai-menu-app-griglia">
-            <a class="ai-menu-app-voce" href="{% url 'core:dashboard' %}" role="menuitem">
-              <span class="ai-ambito-icona"><svg><use href="#ai-dashboard"/></svg></span><span>Dashboard</span></a>
-            {% for a in app %}
-            <a class="ai-menu-app-voce" href="{{ a.url }}" role="menuitem">
-              <span class="ai-ambito-icona">{% if "/" in a.icon %}<img src="{% static a.icon %}" alt="">{% else %}<svg><use href="#icon-{{ a.icon|default:'zap' }}"/></svg>{% endif %}</span>
-              <span>{{ a.label }}</span></a>
-            {% endfor %}
-          </div>
-          <a class="ai-menu-app-tutte" href="{% url 'core:launcher' %}">Tutte le app e la piattaforma →</a>
-        </div>
-      </div>
-      <a class="ai-testata-brand" href="{% url 'core:home' %}">{{ theme.brand }}</a>
+      <span class="ai-testata-icona" aria-hidden="true"><svg><use href="#ai-scintilla"/></svg></span>
       {% if conversazione %}
-      <span class="ai-testata-sep" aria-hidden="true">/</span>
       <h1>{{ conversazione.titolo }}</h1>
       {% if ambito %}<span class="ai-chip"><img src="{% static ambito.icon %}" alt="">{{ ambito.label }}</span>{% endif %}
       <span class="ai-spazio"></span>
@@ -86,6 +55,8 @@
       <form method="post" action="{% url 'ai:elimina' conversazione.pk %}" onsubmit="return confirm('Eliminare questa conversazione?')">{% csrf_token %}
         <button type="submit" class="ai-azione" data-tip="Elimina" aria-label="Elimina la conversazione"><svg><use href="#icon-trash"/></svg></button>
       </form>
+      {% else %}
+      <h1>Nuova chat</h1>
       {% endif %}
     </header>
 

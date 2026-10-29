@@ -11,23 +11,36 @@
 
   const inFondo = () => { scorri.scrollTop = scorri.scrollHeight; };
 
-  // --- pannelli: un'icona apre il suo contenuto; di nuovo (o Esc, o la X) lo richiude ---
-  const chiudi = (lato) => {
+  // --- pannelli: un'icona apre il suo contenuto; di nuovo (o Esc, o la X) lo richiude. Il pannello aperto di
+  //     ogni lato si ricorda; la prima volta, su schermi larghi, la cronologia è aperta ---
+  const LARGO = window.matchMedia('(min-width: 1200px)');
+  const ricorda = (lato, chiave) => {
+    try { localStorage.setItem(`ai-pannello-${lato}`, chiave); } catch (e) { /* archivio non disponibile */ }
+  };
+  const ricordato = (lato) => {
+    try { return localStorage.getItem(`ai-pannello-${lato}`); } catch (e) { return null; }
+  };
+  const chiudi = (lato, salva = true) => {
     const pannello = chat.querySelector(`#ai-pannello-${lato}`);
     pannello.hidden = true;
     pannello.querySelectorAll('section').forEach((s) => { s.hidden = true; });
     chat.querySelectorAll(`[data-lato="${lato}"]`).forEach((b) => b.setAttribute('aria-expanded', 'false'));
+    if (salva) ricorda(lato, '');
+  };
+  const apri = (lato, chiave) => {
+    const bottone = chat.querySelector(`[data-lato="${lato}"][data-pannello="${chiave}"]`);
+    const sezione = chat.querySelector(`#ai-pannello-${lato} [data-contenuto="${chiave}"]`);
+    if (!bottone || !sezione) return;
+    chiudi(lato, false);
+    chat.querySelector(`#ai-pannello-${lato}`).hidden = false;
+    sezione.hidden = false;
+    bottone.setAttribute('aria-expanded', 'true');
+    ricorda(lato, chiave);
   };
   chat.querySelectorAll('[data-pannello]').forEach((bottone) => {
     bottone.addEventListener('click', () => {
       const lato = bottone.dataset.lato;
-      const aperto = bottone.getAttribute('aria-expanded') === 'true';
-      chiudi(lato);
-      if (aperto) return;
-      const pannello = chat.querySelector(`#ai-pannello-${lato}`);
-      pannello.hidden = false;
-      pannello.querySelector(`[data-contenuto="${bottone.dataset.pannello}"]`).hidden = false;
-      bottone.setAttribute('aria-expanded', 'true');
+      if (bottone.getAttribute('aria-expanded') === 'true') chiudi(lato); else apri(lato, bottone.dataset.pannello);
     });
   });
   chat.querySelectorAll('[data-chiudi]').forEach((x) => x.addEventListener('click', () => {
@@ -36,6 +49,12 @@
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { chiudi('sinistra'); chiudi('destra'); }
   });
+  if (LARGO.matches) {                            // su schermi stretti i pannelli coprono la chat: chiusi
+    const sinistra = ricordato('sinistra');
+    if (sinistra === null) apri('sinistra', 'storico'); else if (sinistra) apri('sinistra', sinistra);
+    const destra = ricordato('destra');
+    if (destra) apri('destra', destra);
+  }
 
   // --- composer: cresce con il testo; Invio invia, Maiusc+Invio va a capo ---
   const aggiorna = () => {

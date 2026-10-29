@@ -23,8 +23,8 @@ def test_pagina_vuota_a_tre_colonne(client, utente):
     assert "Ciao, Chiara" in html and 'id="ai-pannello-sinistra" hidden' in html and 'id="ai-pannello-destra" hidden' in html
     for etichetta in ("Nuova chat", "Cronologia chat", "Artifact salvati", "Documenti salvati"):
         assert etichetta in html
-    assert 'class="ui-header"' not in html and 'class="ui-appbar"' not in html     # niente header del tema
-    assert 'aria-controls="ai-menu-app"' in html and "Le tue app" in html         # header con il menu delle app
+    assert html.count('class="ui-header"') == 1 and 'id="profile-menu"' in html  # header del tema, come nelle app
+    assert 'ai-menu-app' not in html and 'ai-menu-utente' not in html                 # niente doppioni nella chat
     assert "data-sugg" in html and "ai-suggerimenti-app" in html
 
 
