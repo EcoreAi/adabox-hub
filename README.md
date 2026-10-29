@@ -267,7 +267,8 @@ completo. Il flusso: **prodotto → preventivo → ordine → consegna (DDT) →
 
 ### Assistente AI
 
-Spec `docs/superpowers/specs/2026-10-29-adabox-hub-modulo-ai-design.md`; fase AI-1 completata (fondamenta).
+Spec `docs/superpowers/specs/2026-10-29-adabox-hub-modulo-ai-design.md`; fasi AI-1 (fondamenta) e AI-2 (strumenti
+dalle app) completate.
 
 - **Configurazione** (gruppo «AI / Amministratore»):
   - in `/ai/provider/` la chiave API di Anthropic, salvata cifrata con `CHIAVE_CIFRATURA` o, se manca, con una
@@ -293,6 +294,23 @@ Spec `docs/superpowers/specs/2026-10-29-adabox-hub-modulo-ai-design.md`; fase AI
   - budget per turno: 12 passi, 300 secondi, 0,50 $;
   - lo streaming è Server-Sent Events su `/ai/flusso/<turno>/` e riprende da dove era rimasto se la connessione
     cade.
+- **Strumenti dalle app** (AI-2):
+  - letture generiche con la vista come argomento (`vendite.ordini`): `elenco_viste`, `descrivi_vista`,
+    `cerca_record`, `leggi_record`, `aggrega_record`. Usano le `ModelView` con l'utente e l'azienda di chi chiede,
+    comprese le personalizzazioni di Studio; i campi sensibili (password, chiavi, token, segreti) sono esclusi;
+  - scritture: `crea_record` (anche con le righe del documento), `modifica_record`, `elimina_record`,
+    `esegui_bottone`, `esegui_azione`, `pianifica_attivita`. Non eseguono nulla: preparano una **proposta**
+    validata con lo stesso form del browser, mostrata sotto la risposta con «Conferma» / «Annulla». Alla conferma
+    si esegue l'operazione salvata, con i permessi ricontrollati; si rifiuta se è passato più di un giorno o se
+    il record è cambiato nel frattempo. Le irreversibili chiedono anche una spunta. L'esito finisce nel chatter
+    del record e arriva al modello nel messaggio successivo;
+  - nei bottoni e nelle azioni delle `ModelView`, l'attributo `rischio = "irreversibile"` (invio, emissione,
+    conferma con numero, movimenti di magazzino) e `ai = False` (download, stampe) come `short_description`;
+  - `grafico` (barre, linee, torta) e `tabella`: il modello scrive solo la specifica, i dati li calcola il
+    database e il disegno lo fa il kernel in SVG. Si salvano con la stella, si riaprono con i dati di oggi in
+    `/ai/artifact/<id>/` e si esportano in CSV;
+  - le app aggiungono strumenti propri con la chiave `"ai": "<app>.ai"` del manifest (un modulo che chiama
+    `registra`); esempio `calendario.ai` con `calendario_agenda`.
 - **Produzione**: lo streaming lo serve il servizio `stream` del compose (uvicorn, ASGI), e nginx gli instrada
   `/ai/flusso/`; il resto resta su gunicorn (WSGI). Quando cambiano i moduli installati, `stream` risponde 503 e
   si riavvia da solo, come il worker.

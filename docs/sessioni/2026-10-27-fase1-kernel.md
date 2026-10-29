@@ -190,3 +190,22 @@ Spec `docs/superpowers/specs/2026-10-29-adabox-hub-modulo-ai-design.md`, piano
 - Manca la prova con Claude Haiku 5.5 vera: sul server non c'è una chiave API. Va inserita in `/ai/provider/`.
 
 Prossimo: AI-2 (strumenti generati dalle `ModelView`, scritture con conferma, ChartSpec e artifact).
+
+## Modulo AI — fase AI-2, strumenti dalle app (2026-10-29)
+
+Piano `docs/superpowers/plans/2026-10-29-adabox-hub-ai-2-strumenti.md`.
+
+- Strumenti generici con la vista come argomento, non sette per vista: con 20 app sarebbero centinaia di
+  definizioni in ogni richiesta e un prefisso diverso per utente. Il modello scopre le viste con `elenco_viste`.
+- Letture (`ai/strumenti/viste.py`) con una richiesta finta (`richiesta.py`) che passa dalle `ModelView` come il
+  browser; filtri con al massimo un salto su una relazione e operatori ammessi; campi sensibili esclusi.
+- Scritture come `Proposta` (`ai/proposte.py`, `ai/strumenti/scritture.py`): anteprima validata, conferma con
+  bottone, esecuzione dell'operazione salvata, impronta del record contro le modifiche nel frattempo, scadenza
+  di 24 ore, nota nel chatter, esito al modello nel `<contesto>` del messaggio successivo.
+- `Artifact` (grafico, tabella) con istantanea in chat, pagina con i dati di oggi e CSV; pannelli dei salvati.
+- Chiave `"ai"` del manifest (solo moduli dell'app stessa); `calendario.ai` con l'agenda.
+- Test: `AI_STRUMENTI_SINCRONI` (default come `AI_TURNI_SINCRONI`) fa girare gli strumenti nel thread del turno,
+  perché sotto SQLite un altro thread non vede la transazione del test.
+
+Prossimo: AI-3 (attività pianificate, riepilogo del mattino, consegna in Discuss). Resta da provare la chat con
+una chiave API vera.

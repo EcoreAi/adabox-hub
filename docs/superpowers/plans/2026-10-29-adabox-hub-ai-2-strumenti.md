@@ -12,7 +12,7 @@ sette strumenti per ogni vista. Con 20 app sarebbero centinaia di definizioni: t
 prefisso diverso per ogni utente. Il modello scopre le viste con `elenco_viste` e `descrivi_vista`; il codice
 valida vista, campi, filtri e permessi a ogni chiamata.
 
-### Task 1: letture — viste, ricerca, dettaglio, aggregazioni
+### Task 1: letture — viste, ricerca, dettaglio, aggregazioni — fatto (commit unico con il task 2)
 - `ai/strumenti/richiesta.py`: richiesta finta (utente, azienda, messaggi raccolti) per usare le `ModelView` come
   dal browser, con le personalizzazioni di Studio.
 - `ai/strumenti/viste.py`: `elenco_viste`, `descrivi_vista`, `cerca_record`, `leggi_record`, `aggrega_record`.
@@ -23,7 +23,7 @@ valida vista, campi, filtri e permessi a ogni chiamata.
 - Markdown della chat: link relativi (`/vendite/ordini/3/`) ammessi.
 - Prompt di sistema (sempre byte-stabile) con il modo d'uso degli strumenti.
 
-### Task 2: scritture con conferma
+### Task 2: scritture con conferma — fatto
 - Modello `Proposta`: operazione salvata (strumento e argomenti), anteprima, rischio, stato (in attesa,
   eseguita, annullata, fallita, scaduta), esito, impronta del record al momento della proposta.
 - Registro: uno strumento non di lettura non si esegue. Si chiama la sua `anteprima` (valida e descrive) e si
@@ -37,16 +37,16 @@ valida vista, campi, filtri e permessi a ogni chiamata.
 - Nota nel chatter del record («tramite l'assistente»). L'esito arriva al modello nel `<contesto>` del messaggio
   successivo: il log resta in sola aggiunta.
 
-### Task 3: grafici (ChartSpec) e artifact tabella
+### Task 3: grafici (ChartSpec) e artifact tabella — fatto
 - Modello `Artifact` (grafico o tabella): spec JSON scritta dal modello, dati calcolati dal codice, istantanea al
   momento della risposta.
 - Strumenti `grafico` (barre, linee, torta, disegnati in SVG dal kernel) e `tabella` (righe di una ricerca).
 - Grafici e tabelle sotto la risposta; si salvano nei pannelli «Grafici salvati» e «Artifact salvati»; la
   pagina dell'artifact ricalcola con i dati di oggi ed esporta in CSV.
 
-### Task 4: strumenti dichiarati dalle app (chiave `"ai"` nel manifest)
+### Task 4: strumenti dichiarati dalle app (chiave `"ai"` nel manifest) — fatto
 - `"ai": "<app>.ai"` nel manifest: il modulo indicato registra i suoi `Strumento` (con `app` = slug).
 - Esempi: `calendario.agenda` (eventi di un periodo, lettura).
 
-### Task 5: installazione, collaudo, README, verifica dal vivo
+### Task 5: installazione, collaudo, README, verifica dal vivo — fatto
 - Versione `ai` 1.1.0 con migrazioni, collaudo, README, note di sessione; prova sul server con il modello finto.
