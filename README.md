@@ -268,7 +268,7 @@ completo. Il flusso: **prodotto → preventivo → ordine → consegna (DDT) →
 ### Assistente AI
 
 Spec `docs/superpowers/specs/2026-10-29-adabox-hub-modulo-ai-design.md`; fasi AI-1 (fondamenta), AI-2 (strumenti
-dalle app), AI-3 (proattività), AI-4 (conoscenza) e AI-5 (fiducia) completate.
+dalle app), AI-3 (proattività), AI-4 (conoscenza), AI-5 (fiducia) e AI-6 (specialisti) completate.
 
 - **Configurazione** (gruppo «AI / Amministratore»):
   - in `/ai/provider/` la chiave API di Anthropic, salvata cifrata con `CHIAVE_CIFRATURA` o, se manca, con una
@@ -352,6 +352,13 @@ dalle app), AI-3 (proattività), AI-4 (conoscenza) e AI-5 (fiducia) completate.
     consumi;
   - «Registro modifiche» (`/ai/registro/`, amministratori): ogni proposta dell'assistente con utente, azienda,
     operazione, argomenti ed esito.
+- **Specialisti** (AI-6), facoltativi, attivi solo con l'URL del servizio nelle impostazioni:
+  - `previsione`: la storia di una misura (conteggio o somma per mese, settimana o giorno) la costruisce il codice
+    dai dati, con i permessi dell'utente e senza il periodo in corso; i prossimi periodi li calcola il servizio
+    Timestral di adabox (mediana e fascia 10-90 %); grafico con storia, previsione e fascia, CSV, pagina con i dati
+    di oggi. La licenza dei pesi di Timestral va verificata prima dell'uso commerciale;
+  - `classifica`: probabilità dal decisore locale (sì/no, scelta, punteggio). Senza esempi addestrati sono solo
+    indicative: per questo sul server di sviluppo resta spento.
 - **Produzione**: lo streaming lo serve il servizio `stream` del compose (uvicorn, ASGI), e nginx gli instrada
   `/ai/flusso/`; il resto resta su gunicorn (WSGI). Quando cambiano i moduli installati, `stream` risponde 503 e
   si riavvia da solo, come il worker.

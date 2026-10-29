@@ -258,3 +258,14 @@ Piano `docs/superpowers/plans/2026-10-29-adabox-hub-ai-5-fiducia.md`.
 - Registro delle modifiche (proposte, sola lettura) e dati protetti nei consumi.
 
 Prossimo: AI-6 (specialisti: previsioni e decisore come strumenti, con grafici a quantili).
+
+## Modulo AI — fase AI-5 corretta dal vivo e fase AI-6, specialisti (2026-10-29)
+
+- AI-5: la prima prova con il servizio vero ha mostrato che senza `include_mapping` i segmenti non hanno il testo
+  e che le posizioni partono dopo gli spazi iniziali: si chiede il mapping e si controlla la ricostruzione (la
+  protezione era rimasta chiusa: nessun dato uscito).
+- AI-6 (piano `docs/superpowers/plans/2026-10-29-adabox-hub-ai-6-specialisti.md`): `previsione` e `classifica`,
+  visibili solo con il servizio configurato (`Strumento.disponibile`). Decisore spento sul server: senza teste
+  addestrate le probabilità non sono affidabili.
+
+Prossimo: AI-7 (assistenti configurabili per app, sotto-agenti, compattazione delle conversazioni lunghe, eval).
