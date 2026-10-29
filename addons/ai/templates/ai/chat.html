@@ -25,6 +25,7 @@
     {% endfor %}
     <a class="ai-rail-btn" href="{% url 'core:dashboard' %}" data-tip="Dashboard" aria-label="Dashboard"><svg><use href="#ai-dashboard"/></svg></a>
     <span class="ai-rail-spazio"></span>
+    {% if perms.ai.change_provider %}<a class="ai-rail-btn" href="{% url 'ai:provider_lista' %}" data-tip="Impostazioni dell'assistente: provider, chiavi API, modelli, profili" aria-label="Impostazioni dell'assistente"><svg><use href="#icon-tool"/></svg></a>{% endif %}
     <div class="ui-dropdown ai-utente">
       <button type="button" class="ai-avatar" aria-haspopup="true" aria-expanded="false" aria-controls="ai-menu-utente"
               aria-label="Menu di {{ user.get_full_name|default:user.username }}">{{ user.username|slice:":1"|upper }}</button>

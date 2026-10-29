@@ -87,3 +87,12 @@ def test_senza_permesso(client, db):
 
 def test_manifest_dichiara_la_home():
     assert manifest.leggi(Path(ai.__file__).parent).home == "ai:chat"
+
+
+def test_impostazioni_raggiungibili_dalla_chat(client, utente):
+    assert "Impostazioni dell" not in client.get("/ai/chat/").content.decode()       # utente normale: no
+    from django.contrib.auth.models import Permission
+    utente.user_permissions.add(Permission.objects.get(codename="change_provider"))
+    from django.contrib.auth.models import User
+    client.force_login(User.objects.get(pk=utente.pk))
+    assert 'href="/ai/provider/"' in client.get("/ai/chat/").content.decode()
