@@ -168,3 +168,25 @@ il limite dei link pubblici con più processi; campanella anche nella pagina del
 - **Modulo AI**: proposta in `docs/superpowers/specs/2026-10-28-adabox-hub-modulo-ai-proposta.md`, dallo studio di
   adabox (`/opt/adabox`, spec `docs/MODULO_AI_SPEC.md`, adabox-pii, villasalto-rag) e di deepseek-harness (MIT).
   In attesa delle decisioni della sezione 7 prima della spec.
+
+## Modulo AI — fase AI-1, fondamenta (2026-10-29)
+
+Spec `docs/superpowers/specs/2026-10-29-adabox-hub-modulo-ai-design.md`, piano
+`docs/superpowers/plans/2026-10-29-adabox-hub-ai-1-fondamenta.md`, eseguiti in autonomia (autorizzazione esplicita).
+
+- Kernel: `core/cifratura.py` (Fernet), `config/asgi.py` con riavvio al cambio dei moduli, servizio `stream`
+  (uvicorn) accanto a gunicorn e instradamento nginx di `/ai/flusso/`.
+- `ai` 1.0.0:
+  - catalogo di provider, modelli e profili con catena di fallback;
+  - gateway con l'SDK `anthropic` 1.17 (cache del prefisso, effort), adattatore compatibile OpenAI su
+    `httpx2` e modello finto;
+  - motore con log degli eventi in sola aggiunta, strumenti di base, budget, stop e turni interrotti;
+  - SSE con ripresa, Markdown sicuro, titoli automatici;
+  - licenza Ed25519, tetto di spesa, consumi e dashboard.
+- Corretto: una `SECRET_KEY` che iniziava con `$` veniva sostituita in silenzio dal default di sviluppo
+  (interpolazione di django-environ). Era la causa del test intermittente `test_deploy`.
+- Verificato sul server di sviluppo con un provider finto temporaneo, poi rimosso: turno in un thread, streaming
+  in diretta sotto WSGI (`runserver`) e ASGI (uvicorn).
+- Manca la prova con Claude Haiku 5.5 vera: sul server non c'è una chiave API. Va inserita in `/ai/provider/`.
+
+Prossimo: AI-2 (strumenti generati dalle `ModelView`, scritture con conferma, ChartSpec e artifact).

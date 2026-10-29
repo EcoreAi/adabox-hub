@@ -188,7 +188,7 @@ con `core.mixins.ProprietaMixin` (valori nel JSON `proprieta`): compaiono nel fo
 | `helpdesk` | contatti | ticket con SLA per priorità; il cliente riceve i messaggi e risponde per email; ticket aperti dalle email all'indirizzo dell'helpdesk |
 | `progetti` | contatti | progetti e compiti (kanban, calendario, avanzamento); ognuno vede i progetti di cui è membro |
 | `timesheet` | progetti | ore su progetti e compiti, griglia settimanale, totali e analisi; ognuno vede le proprie ore |
-| `ai` | — | pagina di chat (home dell'applicazione se installata), conversazioni limitabili a un'app |
+| `ai` | — | assistente agentico: chat in diretta (home se installata), catalogo di provider e modelli con profili per compito, strumenti con i permessi dell'utente, licenza e tetto di spesa |
 | `fiscale` | — | aliquote IVA con natura ed esigibilità, termini di pagamento a rate; calcolo di importi, riepilogo IVA e scadenze |
 | `prodotti` | fiscale | beni e servizi con codice, unità, IVA, costo e prezzo; listini a scaglioni di quantità |
 | `vendite` | prodotti, contatti | preventivi e ordini con righe, listini, sconti e IVA; stampa, invio per email, conferma |
@@ -264,6 +264,38 @@ completo. Il flusso: **prodotto → preventivo → ordine → consegna (DDT) →
 - **Discuss** (`/discuss/`): la conversazione aperta si aggiorna ogni 3 secondi e la campanella ogni 30 (niente
   websocket). All'installazione tutti entrano nel canale «generale». Le menzioni (`@username`) e i messaggi
   diretti non letti da 15 minuti arrivano per email (lavoro pianificato ogni 10 minuti: serve il worker).
+
+### Assistente AI
+
+Spec `docs/superpowers/specs/2026-10-29-adabox-hub-modulo-ai-design.md`; fase AI-1 completata (fondamenta).
+
+- **Configurazione** (gruppo «AI / Amministratore»):
+  - in `/ai/provider/` la chiave API di Anthropic, salvata cifrata con `CHIAVE_CIFRATURA` o, se manca, con una
+    chiave derivata da `SECRET_KEY`; in `/ai/chiavi/` una chiave diversa per azienda;
+  - in `/ai/modelli/` modelli e prezzi (all'installazione: Claude Haiku, Sonnet e Opus 5.5);
+  - in `/ai/profili/` quale catena di modelli usa ogni compito (chat, titoli, riassunti, pianificate,
+    classificazione), anche per singola app o azienda. Il modello successivo della catena entra solo se il
+    precedente fallisce prima di rispondere;
+  - Ollama, OpenRouter, OpenAI, vLLM e Gemini si aggiungono come provider "compatibile OpenAI" con il loro URL.
+- **Licenza**:
+  - si carica in `/ai/licenza/` il file JSON firmato da ICHNOBYTE con
+    `python manage.py ai_licenza --chiave privata.pem --cliente ... --scadenza AAAA-MM-GG --utenti N`;
+  - la firma si verifica con `MODULI_CHIAVI_FIDATE`, le stesse chiavi dei pacchetti;
+  - in sviluppo `AI_LICENZA_SVILUPPO=True` simula una licenza;
+  - il tetto di spesa mensile per azienda (default 50 $) e la soglia dell'avviso agli amministratori stanno in
+    `/impostazioni/`. I consumi di ogni chiamata sono in `/ai/consumi/`.
+- **Come funziona**:
+  - ogni domanda è un turno eseguito in un thread (o nel processo con `AI_TURNI_SINCRONI=True`);
+  - il contesto del modello si ricostruisce dal log degli eventi, in sola aggiunta: i blocchi di ragionamento
+    di Claude tornano invariati;
+  - il prompt di sistema è stabile e la cache del prefisso è attiva. Data, utente e azienda viaggiano nel
+    messaggio dell'utente;
+  - budget per turno: 12 passi, 300 secondi, 0,50 $;
+  - lo streaming è Server-Sent Events su `/ai/flusso/<turno>/` e riprende da dove era rimasto se la connessione
+    cade.
+- **Produzione**: lo streaming lo serve il servizio `stream` del compose (uvicorn, ASGI), e nginx gli instrada
+  `/ai/flusso/`; il resto resta su gunicorn (WSGI). Quando cambiano i moduli installati, `stream` risponde 503 e
+  si riavvia da solo, come il worker.
 
 ## Distribuire i moduli
 
@@ -355,6 +387,8 @@ installato prima del backup va tolta a mano) e riavvia.
   esegue lavori e pianificazioni; nginx serve gli allegati con `X-Accel-Redirect` (`ALLEGATI_X_ACCEL=True`).
   Installare un modulo nel container:
   `docker compose exec web python manage.py modulo installa <slug> --si --riavvia`.
+- Servizio `stream` (uvicorn) per lo streaming dell'assistente AI su `/ai/flusso/`: nginx lo raggiunge senza
+  buffer (`proxy_buffering off`, vedi `deploy/nginx.conf`).
 - Database: Postgres (`DATABASE_URL=postgres://...`); SQLite solo in sviluppo. L'immagine
   include `postgresql-client` per `pg_dump`.
 

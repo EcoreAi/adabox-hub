@@ -14,4 +14,4 @@ collaudo del modulo `ai`.
 ### Task 4: motore — turni, log degli eventi, loop con strumenti di base, budget, battito, contesto con cache — fatto
 ### Task 5: streaming SSE e interfaccia della chat (invio, testo in diretta, stop, titoli automatici) — fatto
 ### Task 6: licenza firmata, tetto di spesa, consumi e dashboard — fatto
-### Task 7: installazione, collaudo, README, verifica (anche dal vivo con una chiave API, se disponibile)
+### Task 7: installazione, collaudo, README, verifica (anche dal vivo con una chiave API, se disponibile) — fatto (dal vivo con provider finto; manca la chiave API Anthropic)
