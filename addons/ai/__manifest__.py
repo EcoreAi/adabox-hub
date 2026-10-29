@@ -1,7 +1,7 @@
 {
     "name": "Assistente AI",
     "summary": "Chat con l'assistente: cronologia delle conversazioni, artifact e documenti salvati",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -12,6 +12,7 @@
     "home": "ai:chat",
     "menu": [
         {"label": "Chat", "url_name": "ai:chat", "permission": "ai.view_conversazione"},
+        {"label": "Pianificate", "url_name": "ai:pianificate_lista", "permission": "ai.view_pianificata"},
         {"label": "Profili", "url_name": "ai:profili_lista", "permission": "ai.change_profilo"},
         {"label": "Modelli", "url_name": "ai:modelli_lista", "permission": "ai.change_modello"},
         {"label": "Provider e chiavi", "url_name": "ai:provider_lista", "permission": "ai.change_provider"},
@@ -20,10 +21,13 @@
     ],
     "groups": {
         "AI / Utente": ["ai.view_conversazione", "ai.add_conversazione", "ai.change_conversazione",
-                        "ai.delete_conversazione"],
+                        "ai.delete_conversazione", "ai.view_pianificata", "ai.add_pianificata",
+                        "ai.change_pianificata", "ai.delete_pianificata"],
         "AI / Amministratore": ["ai.*"],
     },
     "hooks": "ai.hooks",
+    "cron": [{"nome": "Attività pianificate dell'assistente", "funzione": "ai.pianificate.esegui_scadute",
+              "ogni": "1m"}],
     "dashboard": "ai.dashboard.kpi",
     "settings": [
         {"chiave": "tetto_mensile", "label": "Tetto di spesa mensile dell'assistente ($)", "tipo": "decimale",

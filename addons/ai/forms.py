@@ -2,7 +2,7 @@ from django import forms
 
 from core import cifratura
 
-from .models import ChiaveAzienda, Provider
+from .models import ChiaveAzienda, Pianificata, Provider
 
 
 class ProviderForm(forms.ModelForm):
@@ -78,3 +78,44 @@ class ChiaveAziendaForm(forms.ModelForm):
         if commit:
             riga.save()
         return riga
+
+
+class PianificataForm(forms.ModelForm):
+    """Giorni della settimana a caselle; i campi che servono dipendono da «quando»."""
+    giorni = forms.TypedMultipleChoiceField(label="giorni della settimana", coerce=int, required=False,
+                                            choices=Pianificata.GIORNI_SETTIMANA, widget=forms.CheckboxSelectMultiple)
+    ambito = forms.ChoiceField(label="solo per l'app", required=False)
+
+    class Meta:
+        model = Pianificata
+        fields = ["nome", "istruzioni", "ambito", "ricorrenza", "alle", "giorni", "giorno_mese", "ogni_ore",
+                  "minuti_prima", "in_discuss", "per_email", "attiva"]
+        widgets = {"alle": forms.TimeInput(attrs={"type": "time"}, format="%H:%M"),
+                   "istruzioni": forms.Textarea(attrs={"rows": 4})}
+
+    def __init__(self, *args, **kwargs):
+        from core.registry import modules
+        super().__init__(*args, **kwargs)
+        self.fields["ambito"].choices = [("", "Tutte le app")] + [
+            (slug, m.name) for slug, m in modules.manifests_attivi().items() if m.application and slug != "ai"]
+        if self.instance.pk:
+            self.initial["giorni"] = self.instance.elenco_giorni()
+
+    def clean_giorni(self):
+        return ",".join(str(g) for g in sorted(set(self.cleaned_data["giorni"])))
+
+    def clean(self):
+        dati = super().clean()
+        quando = dati.get("ricorrenza")
+        errori = {}
+        if quando == Pianificata.GIORNI and not dati.get("giorni"):
+            errori["giorni"] = "Scegli almeno un giorno."
+        if quando == Pianificata.MESE and not 1 <= (dati.get("giorno_mese") or 0) <= 28:
+            errori["giorno_mese"] = "Indica un giorno da 1 a 28."
+        if quando == Pianificata.ORE and not 1 <= (dati.get("ogni_ore") or 0) <= 168:
+            errori["ogni_ore"] = "Indica un numero di ore da 1 a 168."
+        if quando == Pianificata.EVENTI and not 5 <= (dati.get("minuti_prima") or 0) <= 1440:
+            errori["minuti_prima"] = "Indica da 5 a 1440 minuti."
+        for campo, messaggio in errori.items():
+            self.add_error(campo, messaggio)
+        return dati

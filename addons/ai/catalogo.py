@@ -66,7 +66,7 @@ def crea_iniziali():
             ("Attività pianificate", "pianificate", "low", ["claude-haiku-5-5"]),
             ("Classificazione", "classificazione", "low", ["claude-haiku-5-5"])]:
         profilo = Profilo.objects.create(nome=nome, compito=compito, effort=effort,
-                                         max_token=16000 if compito == "chat" else 1024)
+                                         max_token=16000 if compito in ("chat", "pianificate") else 1024)
         for i, id_api in enumerate(catena_ids, start=1):
             AnelloCatena.objects.create(profilo=profilo, modello=modelli[id_api], ordine=i)
     return True

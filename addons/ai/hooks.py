@@ -10,4 +10,7 @@ def post_install(modulo):
 
 def post_upgrade(modulo, da_versione):
     from . import catalogo
+    from .models import Profilo
     catalogo.crea_iniziali()
+    # 1.2: le attività pianificate scrivono riepiloghi interi, non titoli
+    Profilo.objects.filter(compito="pianificate", max_token=1024).update(max_token=16000)

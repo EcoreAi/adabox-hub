@@ -3,7 +3,7 @@
 GENERALI = [
     "Riassumi cosa c'è da fare oggi",
     "Quali scadenze ho questa settimana?",
-    "Prepara un riepilogo per la riunione di lunedì",
+    "Ogni mattina alle 8 mandami il riepilogo della giornata",
     "Quali clienti non sento da più di un mese?",
 ]
 

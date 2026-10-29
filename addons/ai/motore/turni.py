@@ -69,19 +69,21 @@ def _chiudi_chiamate_aperte(turno, motivo):
                                                  "errore": True} for b in aperte]})
 
 
-def avvia(conversazione, testo, utente, azienda=None):
-    """Registra la domanda e avvia il turno (in un thread; in modo sincrono con AI_TURNI_SINCRONI)."""
+def avvia(conversazione, testo, utente, azienda=None, compito="chat", sincrono=False, nota=""):
+    """Registra la domanda e avvia il turno: in un thread, oppure nel processo stesso con `sincrono` (worker delle
+    pianificate) o AI_TURNI_SINCRONI (test). `nota` va al modello nel <contesto>, non nella chat."""
     segna_interrotti(conversazione)
     in_corso = conversazione.turni.filter(stato=Turno.IN_CORSO).first()
     if in_corso is not None:
         return in_corso
     with transaction.atomic():
-        turno = Turno.objects.create(conversazione=conversazione, utente=utente, azienda=azienda)
+        turno = Turno.objects.create(conversazione=conversazione, utente=utente, azienda=azienda, compito=compito)
         esiti = proposte.da_comunicare(conversazione)
         Evento.objects.create(conversazione=conversazione, turno=turno, tipo=Evento.UTENTE, dati={
-            "ruolo": "utente", "testo": prompt.con_contesto(testo, utente, azienda, conversazione.ambito, esiti)})
+            "ruolo": "utente", "testo": prompt.con_contesto(testo, utente, azienda, conversazione.ambito, esiti,
+                                                            nota)})
         MessaggioChat.objects.create(conversazione=conversazione, ruolo=MessaggioChat.UTENTE, testo=testo)
-    if getattr(settings, "AI_TURNI_SINCRONI", False):
+    if sincrono or getattr(settings, "AI_TURNI_SINCRONI", False):
         esegui(turno.pk)
     else:
         threading.Thread(target=_in_thread, args=(turno.pk,), daemon=True, name=f"ai-turno-{turno.pk}").start()

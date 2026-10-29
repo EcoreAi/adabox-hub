@@ -303,6 +303,75 @@ class Artifact(models.Model):
         return self.titolo
 
 
+class Pianificata(models.Model):
+    """Un'istruzione che l'assistente esegue da solo a intervalli (o prima degli eventi del calendario), con i
+    permessi del proprietario. Il risultato va nella sua conversazione e, se scelto, in Discuss o per email."""
+    ORE, GIORNI, MESE, EVENTI = "ore", "giorni", "mese", "eventi"
+    RICORRENZE = [(GIORNI, "Nei giorni della settimana scelti"), (MESE, "Ogni mese"), (ORE, "Ogni N ore"),
+                  (EVENTI, "Prima degli eventi del calendario")]
+    GIORNI_SETTIMANA = [(0, "lunedì"), (1, "martedì"), (2, "mercoledì"), (3, "giovedì"), (4, "venerdì"),
+                        (5, "sabato"), (6, "domenica")]
+    MAX_ERRORI = 3
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="pianificate_ai",
+                               verbose_name="proprietario")
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, verbose_name="azienda")
+    nome = models.CharField("nome", max_length=120)
+    istruzioni = models.TextField("istruzioni", help_text="cosa deve fare l'assistente, come in chat")
+    ambito = models.CharField("solo per l'app", max_length=31, blank=True, help_text="slug; vuoto = tutte")
+    ricorrenza = models.CharField("quando", max_length=6, choices=RICORRENZE, default=GIORNI)
+    alle = models.TimeField("alle ore", null=True, blank=True, help_text="per giorni della settimana e mese")
+    giorni = models.CharField("giorni della settimana", max_length=20, blank=True, default="0,1,2,3,4",
+                              help_text="0 = lunedì … 6 = domenica, separati da virgole")
+    giorno_mese = models.PositiveSmallIntegerField("giorno del mese", null=True, blank=True,
+                                                   help_text="1-28; per «ogni mese»")
+    ogni_ore = models.PositiveSmallIntegerField("ogni quante ore", null=True, blank=True)
+    minuti_prima = models.PositiveSmallIntegerField("minuti prima dell'evento", null=True, blank=True)
+    in_discuss = models.BooleanField("invia anche in Discuss", default=True)
+    per_email = models.BooleanField("invia anche per email", default=False)
+    attiva = models.BooleanField("attiva", default=True)
+    prossima = models.DateTimeField("prossima esecuzione", null=True, blank=True)
+    ultima = models.DateTimeField("ultima esecuzione", null=True, blank=True)
+    esito = models.CharField("ultimo esito", max_length=300, blank=True)
+    errori = models.PositiveSmallIntegerField("errori di fila", default=0)
+    eventi_fatti = models.JSONField("eventi già preparati", default=list, blank=True, editable=False)
+    conversazione = models.ForeignKey(Conversazione, on_delete=models.SET_NULL, null=True, blank=True,
+                                      related_name="+", verbose_name="conversazione")
+    creata = models.DateTimeField("creata il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "attività pianificata"
+        verbose_name_plural = "attività pianificate"
+        ordering = ["nome", "pk"]
+        indexes = [models.Index(fields=["attiva", "prossima"])]
+
+    def __str__(self):
+        return self.nome
+
+    def elenco_giorni(self):
+        return sorted({int(g) for g in self.giorni.split(",") if g.strip().isdigit() and 0 <= int(g) <= 6})
+
+    def frequenza(self):
+        """La ricorrenza in italiano: «lun-ven alle 08:00», «ogni 2 ore», «il 1 di ogni mese alle 09:00»."""
+        ora = f" alle {self.alle:%H:%M}" if self.alle else ""
+        if self.ricorrenza == self.ORE:
+            return f"ogni {self.ogni_ore or 1} ore" if (self.ogni_ore or 1) > 1 else "ogni ora"
+        if self.ricorrenza == self.MESE:
+            return f"il {self.giorno_mese or 1} di ogni mese{ora}"
+        if self.ricorrenza == self.EVENTI:
+            return f"{self.minuti_prima or 30} minuti prima di ogni evento del calendario"
+        giorni = self.elenco_giorni()
+        nomi = dict(self.GIORNI_SETTIMANA)
+        if giorni == list(range(7)):
+            testo = "ogni giorno"
+        elif giorni == list(range(5)):
+            testo = "dal lunedì al venerdì"
+        elif len(giorni) == 1:
+            testo = f"ogni {nomi[giorni[0]]}"
+        else:
+            testo = "ogni " + ", ".join(nomi[g] for g in giorni[:-1]) + f" e {nomi[giorni[-1]]}"
+        return testo + ora
+
+
 class Licenza(models.Model):
     """File di licenza caricato (JSON firmato da ICHNOBYTE): vale l'ultimo caricato."""
     testo = models.TextField("licenza")

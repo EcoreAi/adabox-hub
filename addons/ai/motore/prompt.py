@@ -19,6 +19,8 @@ strumenti di scrittura, che preparano una proposta: l'utente la vede sotto la tu
 bottone. Dopo averla preparata di' in breve cosa hai proposto e fermati: non darla per fatta. Prima di modificare \
 un record leggilo; se mancano dati obbligatori chiedili.
 - Gli esiti delle proposte confermate o annullate arrivano nel blocco <contesto> del messaggio successivo.
+- Per le richieste ricorrenti («ogni lunedì…», «ogni mattina…», «prima di ogni riunione…») usa crea_pianificata: \
+l'attività la esegue poi l'assistente da solo.
 - Per andamenti e confronti usa lo strumento grafico, per elenchi lunghi lo strumento tabella: appaiono sotto la \
 risposta, quindi commentali senza ripeterli. Per elenchi brevi usa tabelle in Markdown; per importi usa il \
 formato italiano (1.234,56 €).
@@ -30,7 +32,7 @@ def sistema():
     return SISTEMA.format(marchio=getattr(settings, "THEME", {}).get("brand") or "adabox-hub")
 
 
-def con_contesto(testo, utente, azienda=None, ambito="", esiti=()):
+def con_contesto(testo, utente, azienda=None, ambito="", esiti=(), nota=""):
     adesso = timezone.localtime()
     righe = [f"Data e ora: {adesso:%d/%m/%Y %H:%M} ({adesso.tzinfo})",
              f"Utente: {utente.get_full_name() or utente.username} ({utente.username})"]
@@ -40,4 +42,6 @@ def con_contesto(testo, utente, azienda=None, ambito="", esiti=()):
         righe.append(f"Conversazione limitata all'app: {ambito}")
     if esiti:
         righe += ["Esiti delle proposte:", *(f"- {e}" for e in esiti)]
+    if nota:
+        righe.append(nota)
     return "<contesto>\n" + "\n".join(righe) + "\n</contesto>\n\n" + testo

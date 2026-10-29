@@ -178,6 +178,7 @@
     elimina_record: "preparo l'eliminazione", esegui_bottone: "preparo l'operazione",
     esegui_azione: "preparo l'operazione", pianifica_attivita: "preparo l'attività",
     grafico: 'disegno il grafico', tabella: 'preparo la tabella',
+    crea_pianificata: "preparo l'attività pianificata", elenco_pianificate: 'guardo le attività pianificate',
   };
   const segui = (bolla) => {
     if (!bolla || bolla.dataset.seguita) return;
