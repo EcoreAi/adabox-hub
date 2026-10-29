@@ -1,5 +1,5 @@
 {% extends 'core/base_app.html' %}
-{% load static %}
+{% load static tema %}
 {% block title %}{{ vista.verbose_name_plural|capfirst }} · Kanban · {{ theme.brand }}{% endblock %}
 {% block app_content %}
 <div class="ui-pagehead">
@@ -37,5 +37,5 @@
   {% endfor %}
 </div>
 {% csrf_token %}
-<script src="{% static 'core/kanban.js' %}" defer></script>
+<script src="{% statico 'core/kanban.js' %}" defer></script>
 {% endblock %}

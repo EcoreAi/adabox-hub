@@ -1,8 +1,8 @@
 {% extends 'core/base_app.html' %}
-{% load static %}
+{% load static tema %}
 {% block title %}{% if canale %}{{ titolo }} · {% endif %}Discuss · {{ theme.brand }}{% endblock %}
 {% block app_content %}
-<link rel="stylesheet" href="{% static 'discuss/discuss.css' %}">
+<link rel="stylesheet" href="{% statico 'discuss/discuss.css' %}">
 <div class="ds-layout">
   <aside class="ds-barra ui-card is-revealed" aria-label="Conversazioni">
     <a class="ds-voce{% if in_posta %} is-active{% endif %}{% if posta_non_letta %} has-nuovi{% endif %}" href="{% url 'discuss:posta' %}"><svg class="ds-icona"><use href="#icon-inbox"/></svg><span class="ds-voce-nome">Posta in arrivo</span>{% if posta_non_letta %}<span class="ds-contatore">{{ posta_non_letta }}</span>{% endif %}</a>
@@ -76,5 +76,5 @@
     {% endif %}{% endblock %}
   </section>
 </div>
-<script src="{% static 'discuss/discuss.js' %}" defer></script>
+<script src="{% statico 'discuss/discuss.js' %}" defer></script>
 {% endblock %}

@@ -1,6 +1,6 @@
 {% extends 'core/base_app.html' %}
 {% load vista %}
-{% block title %}{% if obj %}{{ obj }}{% else %}Nuovo{% endif %} · {{ vista.verbose_name_plural|capfirst }} · {{ theme.brand }}{% if formsets %}{% load static %}<script src="{% static 'core/righe.js' %}" defer></script>{% endif %}
+{% block title %}{% if obj %}{{ obj }}{% else %}Nuovo{% endif %} · {{ vista.verbose_name_plural|capfirst }} · {{ theme.brand }}{% if formsets %}{% load static tema %}<script src="{% statico 'core/righe.js' %}" defer></script>{% endif %}
 {% endblock %}
 {% block app_content %}
 <div class="ui-pagehead">

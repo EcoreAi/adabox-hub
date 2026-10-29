@@ -1,8 +1,8 @@
 {% extends 'core/base_app.html' %}
-{% load static %}
+{% load static tema %}
 {% block title %}Documenti · {{ theme.brand }}{% endblock %}
 {% block app_content %}
-<link rel="stylesheet" href="{% static 'documenti/documenti.css' %}">
+<link rel="stylesheet" href="{% statico 'documenti/documenti.css' %}">
 <div class="ui-pagehead">
   <div><h1>{% if cestino %}Cestino{% elif corrente %}{{ corrente.nome }}{% else %}Tutti i documenti{% endif %}</h1>
     <div class="sub">{% if corrente %}{{ corrente.percorso }} · {% endif %}{{ documenti|length }} documenti{% if not uso %} · {{ spazio|filesizeformat }} archiviati{% if quota_azienda %} su {{ quota_azienda|filesizeformat }}{% endif %}{% endif %} · file fino a {{ max_file_mb }} MB</div>
@@ -73,5 +73,5 @@
   </aside>
 </div>
 {% if puo_caricare %}<span data-url-carica="{% url 'documenti:carica' %}" data-cartella="{{ corrente.pk }}" hidden></span>{% endif %}
-<script src="{% static 'documenti/documenti.js' %}" defer></script>
+<script src="{% statico 'documenti/documenti.js' %}" defer></script>
 {% endblock %}
