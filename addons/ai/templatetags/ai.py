@@ -40,3 +40,18 @@ def svg_artifact(a):
 def righe_con_link(dati):
     righe = dati.get("righe", [])
     return zip(righe, list(dati.get("link", [])) + [""] * (len(righe) - len(dati.get("link", []))))
+
+
+@register.simple_tag
+def statico(percorso):
+    """URL di un file statico con la sua data di modifica: dopo un aggiornamento il browser non usa la copia vecchia
+    (i file statici hanno una cache lunga e nomi senza versione)."""
+    import os
+
+    from django.contrib.staticfiles import finders
+    from django.templatetags.static import static
+    file = finders.find(percorso)
+    try:
+        return f"{static(percorso)}?v={int(os.path.getmtime(file))}" if file else static(percorso)
+    except OSError:
+        return static(percorso)

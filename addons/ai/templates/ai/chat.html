@@ -1,4 +1,4 @@
-{% load static %}<!DOCTYPE html>
+{% load static ai %}<!DOCTYPE html>
 <html lang="it">
 <head>
   <meta charset="UTF-8">
@@ -6,7 +6,7 @@
   <title>{% if conversazione %}{{ conversazione.titolo }}{% else %}Nuova chat{% endif %} · {{ theme.brand }}</title>
   <script>document.documentElement.classList.add('js')</script>
   <link rel="stylesheet" href="{% static 'theme/ui.css' %}">
-  <link rel="stylesheet" href="{% static 'ai/chat.css' %}">
+  <link rel="stylesheet" href="{% statico 'ai/chat.css' %}">
   <link rel="icon" type="image/svg+xml" href="{% url 'theme:favicon' %}">
 </head>
 {# Pagina a tutto schermo sotto l'header del tema (lo stesso di tutte le app): tre colonne, senza footer. #}
@@ -41,28 +41,25 @@
   <main class="ai-centro">
     {% if messages %}<div class="ai-avvisi">{% for m in messages %}<div class="ui-alert ui-alert-{{ m.tags|default:'info' }}">{{ m }}</div>{% endfor %}</div>{% endif %}
 
-    {# testata della conversazione: titolo, app a cui è limitata, preferita, elimina #}
-    <header class="ai-testata">
-      <span class="ai-testata-icona" aria-hidden="true"><svg><use href="#ai-scintilla"/></svg></span>
-      {% if conversazione %}
-      <h1>{{ conversazione.titolo }}</h1>
-      {% if ambito %}<span class="ai-chip"><img src="{% static ambito.icon %}" alt="">{{ ambito.label }}</span>{% endif %}
-      <span class="ai-spazio"></span>
-      <form method="post" action="{% url 'ai:preferita' conversazione.pk %}">{% csrf_token %}
-        <button type="submit" class="ai-azione{% if conversazione.preferita %} is-preferita{% endif %}" aria-pressed="{{ conversazione.preferita|yesno:'true,false' }}"
-                data-tip="{% if conversazione.preferita %}Togli dalle preferite{% else %}Aggiungi alle preferite{% endif %}" aria-label="Preferita"><svg><use href="#ai-stella"/></svg></button>
-      </form>
-      <form method="post" action="{% url 'ai:elimina' conversazione.pk %}" onsubmit="return confirm('Eliminare questa conversazione?')">{% csrf_token %}
-        <button type="submit" class="ai-azione" data-tip="Elimina" aria-label="Elimina la conversazione"><svg><use href="#icon-trash"/></svg></button>
-      </form>
-      {% else %}
-      <h1>Nuova chat</h1>
-      {% endif %}
-    </header>
 
     <div class="ai-corpo{% if not messaggi %} is-vuota{% endif %}">
     <div class="ai-scorri" id="ai-scorri">
       <div class="ai-colonna">
+        {% if conversazione %}
+        {# titolo e azioni della conversazione: una riga che scorre con i messaggi, non una seconda barra #}
+        <div class="ai-titolo-chat">
+          <h1>{{ conversazione.titolo }}</h1>
+          {% if ambito %}<span class="ai-chip"><img src="{% static ambito.icon %}" alt="">{{ ambito.label }}</span>{% endif %}
+          <span class="ai-spazio"></span>
+          <form method="post" action="{% url 'ai:preferita' conversazione.pk %}">{% csrf_token %}
+            <button type="submit" class="ai-azione{% if conversazione.preferita %} is-preferita{% endif %}" aria-pressed="{{ conversazione.preferita|yesno:'true,false' }}"
+                    data-tip="{% if conversazione.preferita %}Togli dalle preferite{% else %}Aggiungi alle preferite{% endif %}" aria-label="Preferita"><svg><use href="#ai-stella"/></svg></button>
+          </form>
+          <form method="post" action="{% url 'ai:elimina' conversazione.pk %}" onsubmit="return confirm('Eliminare questa conversazione?')">{% csrf_token %}
+            <button type="submit" class="ai-azione" data-tip="Elimina" aria-label="Elimina la conversazione"><svg><use href="#icon-trash"/></svg></button>
+          </form>
+        </div>
+        {% endif %}
         {% if not messaggi %}
         <div class="ai-saluto">
           <span class="ai-scintilla" aria-hidden="true"><svg><use href="#ai-scintilla"/></svg></span>
@@ -140,6 +137,6 @@
 </div>
 <script src="{% static 'theme/vendor/htmx.min.js' %}" defer></script>
 <script src="{% static 'theme/ui.js' %}"></script>
-<script src="{% static 'ai/chat.js' %}" defer></script>
+<script src="{% statico 'ai/chat.js' %}" defer></script>
 </body>
 </html>
