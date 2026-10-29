@@ -280,3 +280,6 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-ambiti-griglia[hidden] { display: none; }
 /* chat nuova: il campo è in alto, la scheda si apre verso il basso */
 .ai-corpo.is-vuota .ai-scheda-app { bottom: auto; top: calc(100% + 10px); }
+
+/* separatore nella barra di icone (es. tra i pannelli dei salvati e il link alle attività pianificate) */
+.ai-rail-sep { width: 24px; height: 1px; margin: 6px 0; border: 0; background: var(--ui-border); }

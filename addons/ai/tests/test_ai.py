@@ -1,5 +1,5 @@
 import pytest
-from django.contrib.auth.models import Group, User
+from django.contrib.auth.models import Group, Permission, User
 from pathlib import Path
 
 import ai
@@ -26,6 +26,16 @@ def test_pagina_vuota_a_tre_colonne(client, utente):
     assert html.count('class="ui-header"') == 1 and 'id="profile-menu"' in html  # header del tema, come nelle app
     assert 'ai-menu-app' not in html and 'ai-menu-utente' not in html                 # niente doppioni nella chat
     assert "data-sugg" in html and "ai-suggerimenti-app" in html
+
+
+def test_link_alle_attivita_pianificate_nella_colonna_destra(client, utente):
+    html = client.get("/ai/chat/").content.decode()
+    destra = html.split('class="ai-rail ai-rail-destra"', 1)[1].split("</nav>", 1)[0]
+    assert 'href="/ai/pianificate/"' in destra and 'data-tip="Attività pianificate"' in destra
+    utente.groups.clear()
+    utente.user_permissions.add(*Permission.objects.filter(codename="view_conversazione"))
+    html = client.get("/ai/chat/").content.decode()
+    assert 'href="/ai/pianificate/"' not in html                       # senza permesso, niente link
 
 
 def test_app_per_limitare_la_chat(client, utente, monkeypatch):

@@ -150,6 +150,10 @@
     <button type="button" class="ai-rail-btn" data-pannello="{{ chiave }}" data-lato="destra" aria-expanded="false"
             aria-controls="ai-pannello-destra" data-tip="{{ etichetta }}" aria-label="{{ etichetta }}"><svg><use href="#{{ icona }}"/></svg></button>
     {% endfor %}
+    {% if perms.ai.view_pianificata %}
+    <hr class="ai-rail-sep">
+    <a class="ai-rail-btn" href="{% url 'ai:pianificate_lista' %}" data-tip="Attività pianificate" aria-label="Attività pianificate"><svg><use href="#ai-sveglia"/></svg></a>
+    {% endif %}
   </nav>
 </div>
 <script src="{% statico 'theme/vendor/htmx.min.js' %}" defer></script>
