@@ -1,4 +1,4 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 
 from .models import Azienda, Modulo, Parametro, Pianificazione, ProfiloUtente, Sequenza, TokenApi
 
@@ -18,10 +18,35 @@ class ProfiloUtenteAdmin(admin.ModelAdmin):
 
 @admin.register(Modulo)
 class ModuloAdmin(admin.ModelAdmin):
-    """Specchio in sola lettura del file di stato: le operazioni passano dalla pagina /moduli/."""
-    list_display = ("slug", "nome", "versione_installata", "versione_disponibile", "stato", "disattivato",
-                    "application")
+    """Specchio in sola lettura del file di stato: installare, aggiornare e disinstallare passano dalla pagina /moduli/;
+    qui (solo superuser) le azioni per accendere e spegnere i moduli installati."""
+    list_display = ("slug", "nome", "versione_installata", "versione_disponibile", "stato", "attivo", "application")
     list_filter = ("stato", "disattivato", "application")
+    actions = ["disattiva", "riattiva"]
+
+    @admin.display(boolean=True, description="attivo", ordering="disattivato")
+    def attivo(self, obj):
+        return not obj.disattivato
+
+    def _attivazione(self, request, queryset, attivo):
+        from .registry import modules
+        if not request.user.is_superuser:
+            self.message_user(request, "Solo un superuser accende e spegne i moduli.", messages.ERROR)
+            return
+        fatti = [m.nome for m in queryset if modules.imposta_attivo(m.slug, attivo)]
+        saltati = queryset.count() - len(fatti)
+        if fatti:
+            self.message_user(request, f"{'Riattivati' if attivo else 'Disattivati'}: {', '.join(fatti)}.")
+        if saltati:
+            self.message_user(request, f"{saltati} non installati: saltati.", messages.WARNING)
+
+    @admin.action(description="Disattiva i moduli selezionati (nascosti a tutti, i dati restano)")
+    def disattiva(self, request, queryset):
+        self._attivazione(request, queryset, False)
+
+    @admin.action(description="Riattiva i moduli selezionati")
+    def riattiva(self, request, queryset):
+        self._attivazione(request, queryset, True)
     search_fields = ("slug", "nome")
 
     def has_add_permission(self, request):

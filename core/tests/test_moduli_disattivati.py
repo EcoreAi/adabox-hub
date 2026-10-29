@@ -1,7 +1,7 @@
 """Interruttore dei moduli: installato ma spento per tutti (menu, pagine, API, pianificazioni, assistente)."""
 import pytest
 from django.conf import settings
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission, User
 from django.core.management import call_command
 from django.utils import timezone
 
@@ -87,3 +87,19 @@ def test_l_assistente_non_vede_il_modulo_spento(superuser, installati):
 def test_nessuna_query_per_kernel_e_file(client, django_assert_num_queries, db):
     with django_assert_num_queries(0):
         client.get("/favicon.ico")
+
+
+def test_dall_admin_di_django(client, superuser, installati):
+    modules.sincronizza()
+    todo = Modulo.objects.get(slug="todo").pk
+    r = client.post("/admin/core/modulo/", {"action": "disattiva", "_selected_action": [todo]}, follow=True)
+    assert "Disattivati: To-Do." in r.content.decode() and modules.disattivati() == {"todo"}
+    html = client.get("/admin/core/modulo/").content.decode()
+    assert "Disattiva i moduli selezionati" in html and "spunta la riga" in html
+    client.post("/admin/core/modulo/", {"action": "riattiva", "_selected_action": [todo]})
+    assert modules.disattivati() == set()
+    staff = User.objects.create_user("staff2", password="x", is_staff=True)
+    staff.user_permissions.add(Permission.objects.get(codename="view_modulo"))
+    client.force_login(staff)
+    client.post("/admin/core/modulo/", {"action": "disattiva", "_selected_action": [todo]}, follow=True)
+    assert modules.disattivati() == set()                                  # solo i superuser

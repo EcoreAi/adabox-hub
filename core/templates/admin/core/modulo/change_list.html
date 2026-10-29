@@ -1,5 +1,7 @@
 {% extends "admin/change_list.html" %}
 {% block content %}
-<p class="help">Questa tabella è in sola lettura: si installa, aggiorna e disinstalla dalla <a href="{% url 'core:moduli' %}">pagina Moduli</a> o con <code>manage.py modulo</code>.</p>
+<p class="help">Per <strong>disattivare</strong> o <strong>riattivare</strong> un modulo: spunta la riga, scegli l'azione dal
+menu «Azione» e premi «Esegui» (oppure il bottone sulla <a href="{% url 'core:moduli' %}">pagina Moduli</a>).
+Installare, aggiornare e disinstallare si fa dalla pagina Moduli o con <code>manage.py modulo</code>.</p>
 {{ block.super }}
 {% endblock %}
