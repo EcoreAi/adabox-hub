@@ -19,6 +19,7 @@ from array import array
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
+from django.utils import timezone
 
 from .models import Frammento
 
@@ -161,21 +162,25 @@ def frammenti_documenti():
     from documenti.models import Documento
     ct = ContentType.objects.get_for_model(Documento)
     for d in Documento.objects.filter(cestinato_il__isnull=True).iterator(chunk_size=200):
-        file = d.contenuto
-        if not file:
-            continue
-        try:
-            with file.open("rb") as f:
-                dati = f.read(20 * 1024 * 1024)
-        except (OSError, ValueError):
-            continue
-        testo = testo_da_file(d.nome, dati)[:MAX_TESTO_DOCUMENTO]
-        if d.descrizione:
-            testo = f"{d.descrizione}\n\n{testo}"
-        for i, pezzo in enumerate(pezzi(testo)):
-            yield {"fonte": Frammento.DOCUMENTO, "content_type": ct, "object_id": d.pk, "chiave": str(i),
-                   "azienda_id": d.azienda_id, "titolo": f"Documento «{d.nome}»" + (f", parte {i + 1}" if i else ""),
-                   "testo": pezzo}
+        yield from frammenti_di_un_documento(d, ct)
+
+
+def frammenti_di_un_documento(d, ct):
+    file = d.contenuto
+    if not file:
+        return
+    try:
+        with file.open("rb") as f:
+            dati = f.read(20 * 1024 * 1024)
+    except (OSError, ValueError):
+        return
+    testo = testo_da_file(d.nome, dati)[:MAX_TESTO_DOCUMENTO]
+    if d.descrizione:
+        testo = f"{d.descrizione}\n\n{testo}"
+    for i, pezzo in enumerate(pezzi(testo)):
+        yield {"fonte": Frammento.DOCUMENTO, "content_type": ct, "object_id": d.pk, "chiave": str(i),
+               "azienda_id": d.azienda_id, "titolo": f"Documento «{d.nome}»" + (f", parte {i + 1}" if i else ""),
+               "testo": pezzo}
 
 
 SORGENTI = {Frammento.RECORD: frammenti_record, Frammento.NOTA: frammenti_note,
@@ -221,32 +226,32 @@ def _da_binario(dati):
 
 # ---------- indicizzazione ----------
 
-def indicizza(fonti=None, limite_secondi=240):
-    """Allinea l'indice alle sorgenti. Restituisce un riepilogo {nuovi, aggiornati, tolti, vettori}."""
-    inizio = time.monotonic()
-    conti = {"nuovi": 0, "aggiornati": 0, "tolti": 0, "vettori": 0}
-    for fonte in fonti or list(SORGENTI):
-        esistenti = {(f.content_type_id, f.object_id, f.chiave): f for f in
-                     Frammento.objects.filter(fonte=fonte).only("pk", "content_type_id", "object_id", "chiave",
-                                                                "impronta", "azienda_id", "titolo")}
-        visti = set()
-        for dati in SORGENTI[fonte]():
-            chiave = (dati["content_type"].pk, dati["object_id"], dati["chiave"])
-            visti.add(chiave)
-            impronta = _impronta(dati["titolo"] + "\n" + dati["testo"])
-            f = esistenti.get(chiave)
-            if f is None:
-                Frammento.objects.create(impronta=impronta, **dati)
-                conti["nuovi"] += 1
-            elif f.impronta != impronta or f.azienda_id != dati["azienda_id"]:
-                Frammento.objects.filter(pk=f.pk).update(impronta=impronta, titolo=dati["titolo"], testo=dati["testo"],
-                                                         azienda_id=dati["azienda_id"], vettore=None)
-                conti["aggiornati"] += 1
-        spariti = [f.pk for k, f in esistenti.items() if k not in visti]
-        for i in range(0, len(spariti), 500):
-            conti["tolti"] += Frammento.objects.filter(pk__in=spariti[i:i + 500]).delete()[0]
+def _allinea(esistenti_qs, sorgente, conti):
+    """Allinea i frammenti di `esistenti_qs` a quelli prodotti da `sorgente`: nuovi, cambiati (vettore da rifare),
+    spariti."""
+    esistenti = {(f.content_type_id, f.object_id, f.chiave): f for f in
+                 esistenti_qs.only("pk", "content_type_id", "object_id", "chiave", "impronta", "azienda_id", "titolo")}
+    visti = set()
+    for dati in sorgente:
+        chiave = (dati["content_type"].pk, dati["object_id"], dati["chiave"])
+        visti.add(chiave)
+        impronta = _impronta(dati["titolo"] + "\n" + dati["testo"])
+        f = esistenti.get(chiave)
+        if f is None:
+            Frammento.objects.create(impronta=impronta, **dati)
+            conti["nuovi"] += 1
+        elif f.impronta != impronta or f.azienda_id != dati["azienda_id"]:
+            Frammento.objects.filter(pk=f.pk).update(impronta=impronta, titolo=dati["titolo"], testo=dati["testo"],
+                                                     azienda_id=dati["azienda_id"], vettore=None)
+            conti["aggiornati"] += 1
+    spariti = [f.pk for k, f in esistenti.items() if k not in visti]
+    for i in range(0, len(spariti), 500):
+        conti["tolti"] += Frammento.objects.filter(pk__in=spariti[i:i + 500]).delete()[0]
+
+
+def _vettori(qs, conti, limite_secondi, inizio):
     while time.monotonic() - inizio < limite_secondi:             # vettori mancanti, a lotti
-        da_fare = list(Frammento.objects.filter(vettore__isnull=True).only("pk", "titolo", "testo")[:LOTTO])
+        da_fare = list(qs.filter(vettore__isnull=True).only("pk", "titolo", "testo")[:LOTTO])
         if not da_fare:
             break
         vettori = embedding([f"{f.titolo}\n{f.testo}" for f in da_fare])
@@ -255,10 +260,80 @@ def indicizza(fonti=None, limite_secondi=240):
         for f, v in zip(da_fare, vettori):
             Frammento.objects.filter(pk=f.pk).update(vettore=_binario(v))
         conti["vettori"] += len(da_fare)
+
+
+def indicizza(fonti=None, limite_secondi=240):
+    """Allinea l'indice alle sorgenti. Restituisce un riepilogo {nuovi, aggiornati, tolti, vettori}."""
+    inizio = time.monotonic()
+    conti = {"nuovi": 0, "aggiornati": 0, "tolti": 0, "vettori": 0}
+    for fonte in fonti or list(SORGENTI):
+        _allinea(Frammento.objects.filter(fonte=fonte), SORGENTI[fonte](), conti)
+    _vettori(Frammento.objects.all(), conti, limite_secondi, inizio)
     return conti
 
 
+def indicizza_documento(documento_id):
+    """Un documento solo, subito dopo un caricamento, una versione nuova, uno spostamento, un cambio di nome o il
+    cestino: in chat si trova in pochi secondi, senza aspettare il giro programmato."""
+    from documenti.models import Documento
+    ct = ContentType.objects.get_for_model(Documento)
+    conti = {"nuovi": 0, "aggiornati": 0, "tolti": 0, "vettori": 0}
+    esistenti = Frammento.objects.filter(fonte=Frammento.DOCUMENTO, content_type=ct, object_id=documento_id)
+    d = Documento.objects.filter(pk=documento_id, cestinato_il__isnull=True).first()
+    _allinea(esistenti, frammenti_di_un_documento(d, ct) if d is not None else [], conti)
+    _vettori(esistenti, conti, 120, time.monotonic())
+    return json.dumps(conti)
+
+
+def accoda_documento(documento_id):
+    """In coda per il worker, una volta sola per documento (più modifiche di fila = un'indicizzazione)."""
+    from core import lavori
+    from core.models import Lavoro
+    funzione = "ai.conoscenza.indicizza_documento"
+    if not Lavoro.objects.filter(funzione=funzione, argomenti={"documento_id": documento_id},
+                                 stato=Lavoro.IN_CODA).exists():
+        lavori.accoda(funzione, documento_id=documento_id, max_tentativi=2)
+
+
+# ---------- quando gira l'indicizzazione programmata ----------
+
+INTERVALLI = {"5m": 5, "10m": 10, "30m": 30, "1h": 60}
+TOLLERANZA = 60                       # secondi: il controllo del worker non cade mai esattamente sul minuto
+
+
+def intervallo():
+    from core import parametri
+    try:
+        return parametri.leggi("ai.intervallo_indice") or "10m"
+    except KeyError:
+        return "10m"
+
+
+def _ultima_esecuzione():
+    from core.models import Lavoro
+    return (Lavoro.objects.filter(funzione="ai.conoscenza.indicizza_cron", stato=Lavoro.FATTO)
+            .exclude(risultato__startswith="saltata").order_by("-finito").values_list("finito", flat=True).first())
+
+
+def dovuta(scelta, ultima, adesso):
+    """Se l'indicizzazione programmata tocca adesso: ogni N minuti, di notte (una volta dopo le 2) o mai."""
+    if scelta == "spento":
+        return False
+    if ultima is None:
+        return True
+    if scelta == "notte":
+        locale = timezone.localtime(adesso)
+        soglia = locale.replace(hour=2, minute=0, second=0, microsecond=0)
+        return locale >= soglia and timezone.localtime(ultima) < soglia
+    minuti = INTERVALLI.get(scelta, 10)
+    return (adesso - ultima).total_seconds() >= minuti * 60 - TOLLERANZA
+
+
 def indicizza_cron():
+    """Chiamata dal worker ogni 5 minuti: indicizza solo quando lo dice l'impostazione «Indicizzazione programmata»."""
+    scelta = intervallo()
+    if not dovuta(scelta, _ultima_esecuzione(), timezone.now()):
+        return f"saltata: impostazione «{scelta}»"
     return json.dumps(indicizza(), ensure_ascii=False)
 
 

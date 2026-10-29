@@ -349,8 +349,11 @@ completate.
     passano dalla `ModelView` della fonte: l'utente vede solo quello che vedrebbe nell'interfaccia (anche le
     cartelle dei Documenti). `leggi_documento` legge un documento a pagine, `leggi_foglio` le righe di un
     Excel/CSV;
-  - l'indice (`Frammento`) si aggiorna ogni 10 minuti (voce `cron`) o con `python manage.py ai_indicizza`; solo i
-    testi cambiati si ricalcolano;
+  - l'indice (`Frammento`) si aggiorna da solo: un documento caricato, salvato come nuova versione, rinominato,
+    spostato o cestinato si reindicizza subito (lavoro in background dopo il salvataggio, segnale
+    `documenti_cambiati` per le modifiche di massa); il giro completo su record, note e documenti segue
+    l'impostazione «Indicizzazione programmata» (ogni 5, 10, 30 minuti, ogni ora, di notte dopo le 2, mai; il
+    worker controlla ogni 5 minuti); a mano `python manage.py ai_indicizza`. Solo i testi cambiati si ricalcolano;
   - ricerca semantica con il servizio di embedding indicato in `/impostazioni/` → «URL del servizio di
     embedding» (EmbeddingGemma 2 di adabox, vettori a 256 dimensioni); senza, solo per parole chiave. Per
     raggiungere i servizi di adabox sullo stesso server: `deploy/compose.servizi-adabox.yml` come

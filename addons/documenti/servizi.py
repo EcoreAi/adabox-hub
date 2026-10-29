@@ -86,17 +86,28 @@ def risposta(documento, in_linea=True):
     return allegati.risposta(finto)
 
 
+def _avvisa(documenti):
+    from .segnali import documenti_cambiati
+    documenti_cambiati.send(sender=Documento, pks=[d.pk for d in documenti])
+
+
 def sposta(documenti, cartella):
-    return Documento.objects.filter(pk__in=[d.pk for d in documenti]).update(cartella=cartella, azienda=cartella.azienda)
+    n = Documento.objects.filter(pk__in=[d.pk for d in documenti]).update(cartella=cartella, azienda=cartella.azienda)
+    _avvisa(documenti)
+    return n
 
 
 def cestina(documenti):
-    return Documento.objects.filter(pk__in=[d.pk for d in documenti], cestinato_il__isnull=True).update(
+    n = Documento.objects.filter(pk__in=[d.pk for d in documenti], cestinato_il__isnull=True).update(
         cestinato_il=timezone.now())
+    _avvisa(documenti)
+    return n
 
 
 def ripristina(documenti):
-    return Documento.objects.filter(pk__in=[d.pk for d in documenti]).update(cestinato_il=None)
+    n = Documento.objects.filter(pk__in=[d.pk for d in documenti]).update(cestinato_il=None)
+    _avvisa(documenti)
+    return n
 
 
 @transaction.atomic

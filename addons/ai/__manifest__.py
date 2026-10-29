@@ -1,7 +1,7 @@
 {
     "name": "Assistente AI",
     "summary": "Chat con l'assistente: cronologia delle conversazioni, artifact e documenti salvati",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -31,7 +31,7 @@
     "cron": [{"nome": "Attività pianificate dell'assistente", "funzione": "ai.pianificate.esegui_scadute",
               "ogni": "1m"},
              {"nome": "Indice della conoscenza dell'assistente", "funzione": "ai.conoscenza.indicizza_cron",
-              "ogni": "10m"}],
+              "ogni": "5m"}],
     "dashboard": "ai.dashboard.kpi",
     "settings": [
         {"chiave": "tetto_mensile", "label": "Tetto di spesa mensile dell'assistente ($)", "tipo": "decimale",
@@ -40,6 +40,11 @@
          "tipo": "intero", "default": 80, "per_azienda": True},
         {"chiave": "url_embeddings", "label": "URL del servizio di embedding (ricerca semantica)", "tipo": "testo",
          "default": "", "help": "es. http://adabox-embeddings-1:8080; vuoto = ricerca solo per parole chiave"},
+        {"chiave": "intervallo_indice", "label": "Indicizzazione programmata di documenti, note e record",
+         "tipo": "scelta", "default": "10m",
+         "scelte": [["5m", "Ogni 5 minuti"], ["10m", "Ogni 10 minuti"], ["30m", "Ogni 30 minuti"], ["1h", "Ogni ora"],
+                    ["notte", "Di notte (una volta, dopo le 2)"], ["spento", "Mai (solo dopo i caricamenti e a mano)"]],
+         "help": "i documenti caricati o modificati si indicizzano comunque subito; questo è il giro completo"},
         {"chiave": "url_pii", "label": "URL del servizio di protezione dei dati personali", "tipo": "testo",
          "default": "", "help": "es. http://adabox-pii-1:5005; con l'URL i dati personali arrivano mascherati "
                                 "ai modelli cloud (se il servizio non risponde non si invia nulla); "

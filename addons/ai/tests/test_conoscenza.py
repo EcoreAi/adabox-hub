@@ -190,3 +190,65 @@ def test_viste_tecniche_fuori_dall_indice(db):
     modelli = {v.opts.label_lower for v, _ in conoscenza._viste_indicizzabili()}
     assert "core.aziende" not in modelli and "core.azienda" in modelli
     assert not modelli & conoscenza.MODELLI_ESCLUSI and not any(m.startswith("ai.") for m in modelli)
+
+
+def test_quando_tocca_l_indicizzazione_programmata():
+    import datetime
+
+    from django.utils import timezone
+    adesso = timezone.make_aware(datetime.datetime(2026, 10, 29, 10, 0))
+    prima = lambda minuti: adesso - datetime.timedelta(minutes=minuti)          # noqa: E731
+    assert conoscenza.dovuta("10m", None, adesso)
+    assert not conoscenza.dovuta("10m", prima(5), adesso) and conoscenza.dovuta("10m", prima(10), adesso)
+    assert conoscenza.dovuta("10m", prima(9.5), adesso)                                 # tolleranza del controllo
+    assert not conoscenza.dovuta("1h", prima(30), adesso) and conoscenza.dovuta("1h", prima(60), adesso)
+    assert not conoscenza.dovuta("spento", None, adesso)
+    notte = timezone.make_aware(datetime.datetime(2026, 10, 29, 2, 5))
+    assert conoscenza.dovuta("notte", timezone.make_aware(datetime.datetime(2026, 10, 28, 2, 3)), notte)
+    assert not conoscenza.dovuta("notte", timezone.make_aware(datetime.datetime(2026, 10, 29, 2, 3)), notte)
+    assert not conoscenza.dovuta("notte", timezone.make_aware(datetime.datetime(2026, 10, 28, 2, 3)),
+                                 timezone.make_aware(datetime.datetime(2026, 10, 29, 1, 50)))
+
+
+def test_giro_programmato_saltato_o_eseguito(scena):
+    from core import lavori, parametri
+    parametri.scrivi("ai.intervallo_indice", "1h")
+    primo = lavori.accoda("ai.conoscenza.indicizza_cron")
+    secondo = lavori.accoda("ai.conoscenza.indicizza_cron")
+    assert '"nuovi"' in primo.risultato and secondo.risultato == "saltata: impostazione «1h»"
+    parametri.scrivi("ai.intervallo_indice", "spento")
+    assert Frammento.objects.exists()
+
+
+@con_documenti
+def test_documenti_indicizzati_subito(scena, settings, tmp_path, django_capture_on_commit_callbacks):
+    from core.models import Lavoro
+    from documenti import servizi
+    from documenti.models import Cartella
+    settings.PRIVATE_MEDIA_ROOT = tmp_path
+    cartella = Cartella.objects.create(azienda=scena["azienda"], nome="Contratti")
+
+    def frammenti():
+        return list(Frammento.objects.filter(fonte="documento").values_list("titolo", flat=True))
+    with django_capture_on_commit_callbacks(execute=True):
+        d = servizi.carica(cartella, ContentFile(b"Clausola di rinnovo annuale.", name="rinnovo.txt"), scena["capo"])
+    assert frammenti() == ["Documento «rinnovo.txt»"]                              # subito, senza il giro programmato
+    with django_capture_on_commit_callbacks(execute=True):
+        d.nome = "rinnovo-2027.txt"
+        d.save()
+    assert frammenti() == ["Documento «rinnovo-2027.txt»"]
+    with django_capture_on_commit_callbacks(execute=True):
+        servizi.cestina([d])
+    assert frammenti() == []
+    with django_capture_on_commit_callbacks(execute=True):
+        servizi.ripristina([d])
+    assert frammenti() == ["Documento «rinnovo-2027.txt»"]
+    d.refresh_from_db()
+    servizi.cestina([d])
+    d.refresh_from_db()
+    servizi.elimina([d])
+    assert frammenti() == []
+    settings.LAVORI_SINCRONI = False                                                # in coda una volta sola
+    conoscenza.accoda_documento(99)
+    conoscenza.accoda_documento(99)
+    assert Lavoro.objects.filter(funzione="ai.conoscenza.indicizza_documento", stato="in_coda").count() == 1
