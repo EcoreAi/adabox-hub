@@ -14,6 +14,8 @@ class Conversazione(models.Model):
                               help_text="slug dell'app a cui la chat è limitata; vuoto = tutte")
     preferita = models.BooleanField("preferita", default=False)
     titolo_generato = models.BooleanField("titolo scritto dall'assistente", default=False)
+    segnaposto = models.JSONField("segnaposto dei dati personali", default=dict, blank=True, editable=False,
+                                  help_text="[FULLNAME_1] -> valore: stabili per conversazione (ai.protezione)")
     creata = models.DateTimeField("creata il", auto_now_add=True)
     aggiornata = models.DateTimeField("aggiornata il", auto_now=True)
 
@@ -186,6 +188,8 @@ class Turno(models.Model):
     costo = models.DecimalField("costo ($)", max_digits=12, decimal_places=6, default=0)
     errore = models.TextField("errore", blank=True)
     richiesta_stop = models.BooleanField("stop richiesto", default=False)
+    provenienza = models.JSONField("provenienza", default=dict, blank=True,
+                                   help_text="strumenti usati, dati protetti, numeri non verificati, esito")
     iniziato = models.DateTimeField("iniziato il", auto_now_add=True)
     battito = models.DateTimeField("ultimo segno di vita", auto_now_add=True)
     finito = models.DateTimeField("finito il", null=True, blank=True)

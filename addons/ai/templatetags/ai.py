@@ -41,3 +41,12 @@ def righe_con_link(dati):
     righe = dati.get("righe", [])
     return zip(righe, list(dati.get("link", [])) + [""] * (len(righe) - len(dati.get("link", []))))
 
+
+
+@register.filter
+def provenienza(messaggio):
+    """La provenienza calcolata a fine turno di una risposta dell'assistente ({} se non c'è)."""
+    if getattr(messaggio, "ruolo", "") != "assistente" or not messaggio.turno_id:
+        return {}
+    turno = messaggio.turno
+    return {**(turno.provenienza or {}), "modello": turno.modello, "costo": turno.costo} if turno.provenienza else {}

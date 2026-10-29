@@ -1,0 +1,11 @@
+{# Da dove vengono i dati della risposta (calcolato dal codice a fine turno, non dichiarato dal modello). #}
+{% if pv and pv.esito != "conversazione" or pv.pii %}
+<div class="ai-provenienza" aria-label="Provenienza della risposta">
+  {% if pv.esito == "verificato" %}<span class="ai-badge is-ok" title="Strumenti: {{ pv.strumenti|join:', ' }}">✓ Dati dal gestionale ({{ pv.letture }} letture)</span>
+  {% elif pv.esito == "parziale" %}<span class="ai-badge is-ok" title="Strumenti: {{ pv.strumenti|join:', ' }}">✓ Dati dal gestionale ({{ pv.letture }} letture)</span>
+    <span class="ai-badge is-avviso" title="Numeri non trovati nei dati letti: {{ pv.non_verificati|join:', ' }}">⚠ {{ pv.n_non_verificati }} {{ pv.n_non_verificati|pluralize:"numero non trovato,numeri non trovati" }} nei dati letti</span>
+  {% elif pv.esito == "senza fonti" %}<span class="ai-badge is-neutro" title="La risposta non viene da dati letti con gli strumenti">Senza dati del gestionale</span>{% endif %}
+  {% if pv.pii %}<span class="ai-badge is-protetto" title="Inviati al modello come segnaposto, mai in chiaro">🛡 {{ pv.pii }} {{ pv.pii|pluralize:"dato personale protetto,dati personali protetti" }}</span>{% endif %}
+  {% if perms.ai.view_turno and pv.modello %}<span class="ai-badge-meta">{{ pv.modello.etichetta }} · {{ pv.costo|floatformat:4 }} $</span>{% endif %}
+</div>
+{% endif %}

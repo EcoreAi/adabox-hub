@@ -283,3 +283,12 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 
 /* separatore nella barra di icone (es. tra i pannelli dei salvati e il link alle attività pianificate) */
 .ai-rail-sep { width: 24px; height: 1px; margin: 6px 0; border: 0; background: var(--ui-border); }
+
+/* ---------- provenienza sotto la risposta ---------- */
+.ai-provenienza { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
+.ai-badge { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 9px; border-radius: 11px; font-size: 11.5px; font-weight: 600; cursor: default; }
+.ai-badge.is-ok { background: var(--ui-success-tint); color: #1f7a3a; }
+.ai-badge.is-avviso { background: var(--ui-warning-tint); color: #b46300; }
+.ai-badge.is-neutro { background: var(--ui-surface-2); color: var(--ui-text-2); }
+.ai-badge.is-protetto { background: var(--ui-primary-tint); color: var(--ui-primary); }
+.ai-badge-meta { font-size: 11px; color: var(--ui-text-3); }

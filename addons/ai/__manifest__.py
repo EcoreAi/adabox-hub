@@ -1,7 +1,7 @@
 {
     "name": "Assistente AI",
     "summary": "Chat con l'assistente: cronologia delle conversazioni, artifact e documenti salvati",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -17,6 +17,7 @@
         {"label": "Modelli", "url_name": "ai:modelli_lista", "permission": "ai.change_modello"},
         {"label": "Provider e chiavi", "url_name": "ai:provider_lista", "permission": "ai.change_provider"},
         {"label": "Consumi", "url_name": "ai:consumi_lista", "permission": "ai.view_turno"},
+        {"label": "Registro modifiche", "url_name": "ai:registro_lista", "permission": "ai.view_proposta"},
         {"label": "Licenza", "url_name": "ai:licenza", "permission": "ai.change_licenza"},
     ],
     "groups": {
@@ -38,5 +39,12 @@
          "tipo": "intero", "default": 80, "per_azienda": True},
         {"chiave": "url_embeddings", "label": "URL del servizio di embedding (ricerca semantica)", "tipo": "testo",
          "default": "", "help": "es. http://adabox-embeddings-1:8080; vuoto = ricerca solo per parole chiave"},
+        {"chiave": "url_pii", "label": "URL del servizio di protezione dei dati personali", "tipo": "testo",
+         "default": "", "help": "es. http://adabox-pii-1:5005; con l'URL i dati personali arrivano mascherati "
+                                "ai modelli cloud (se il servizio non risponde non si invia nulla); "
+                                "vuoto = nessuna protezione"},
+        {"chiave": "pii_escludi", "label": "Categorie da non mascherare", "tipo": "testo",
+         "default": "DATE,TIME,AMOUNT,AGE,GENDER",
+         "help": "separate da virgole: date, ore, importi servono ai calcoli"},
     ],
 }

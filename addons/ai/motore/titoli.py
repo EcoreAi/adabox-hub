@@ -6,6 +6,7 @@ from django.utils import timezone
 from .. import catalogo
 from ..gateway import ErroreModello, Inizio, Testo, Uso, esegui as gateway
 from ..models import MessaggioChat, Turno
+from ..protezione import Protezione
 
 log = logging.getLogger("ai.motore")
 
@@ -24,7 +25,7 @@ def genera(conversazione, utente, azienda=None):
     try:
         profilo = catalogo.profilo_per("titoli", azienda, conversazione.ambito)
         richiesta = f"Domanda: {messaggi[0].testo[:1500]}\n\nRisposta: {messaggi[1].testo[:1500]}"
-        for pezzo in gateway(catalogo.catena(profilo, azienda), sistema=SISTEMA,
+        for pezzo in gateway(catalogo.catena(profilo, azienda), protezione=Protezione(conversazione), sistema=SISTEMA,
                              messaggi=[{"ruolo": "utente", "testo": richiesta}], max_token=60, effort=profilo.effort):
             if isinstance(pezzo, Inizio):
                 modello = turno.modello = pezzo.modello

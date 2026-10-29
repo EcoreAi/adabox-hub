@@ -15,7 +15,7 @@ from django.conf import settings
 from django.db import close_old_connections, connection, transaction
 from django.utils import timezone
 
-from .. import catalogo, proposte, strumenti
+from .. import catalogo, proposte, protezione, strumenti
 from ..gateway import ChiamataStrumento, ErroreModello, Fine, Inizio, Testo, Uso, esegui as gateway
 from ..models import Evento, MessaggioChat, Turno
 from . import prompt
@@ -35,6 +35,8 @@ MESSAGGI_ERRORE = {
     "CONFIGURAZIONE": "L'assistente non è configurato: manca un modello o una chiave API.",
     "RICHIESTA": "Il provider ha rifiutato la richiesta: controlla URL, modello e chiave nelle impostazioni "
                  "dell'assistente.",
+    "PII": "Il servizio che protegge i dati personali non risponde: per sicurezza non ho inviato nulla al modello. "
+           "Riprova tra poco o avvisa l'amministratore.",
 }
 
 
@@ -112,6 +114,7 @@ class _Esecuzione:
         self.inizio = time.monotonic()
         self.ultimo_salvataggio = 0.0
         self.testo_turno = []                     # tutto il testo visibile del turno (tra un passo e l'altro)
+        self.protezione = None
 
     def salva_testo(self, forza=False):
         adesso = time.monotonic()
@@ -153,6 +156,7 @@ def esegui(turno_id):
         catena = catalogo.catena(profilo, turno.azienda)
         ammessi = {s.nome: s for s in strumenti.disponibili(utente, conversazione.ambito)}
         contesto = strumenti.Contesto(utente=utente, azienda=turno.azienda, conversazione=conversazione, turno=turno)
+        e.protezione = protezione.Protezione(conversazione)
         for passo in range(1, MAX_PASSI + 1):
             motivo = e.oltre_budget()
             if motivo:
@@ -162,7 +166,8 @@ def esegui(turno_id):
             modello, chiamate, fine = None, [], None
             testo_passo = []
             try:
-                for pezzo in gateway(catena, sistema=prompt.sistema(), messaggi=messaggi_del_modello(conversazione),
+                for pezzo in gateway(catena, protezione=e.protezione, sistema=prompt.sistema(),
+                                     messaggi=messaggi_del_modello(conversazione),
                                      strumenti=[s.definizione() for s in ammessi.values()],
                                      max_token=profilo.max_token, effort=profilo.effort):
                     if isinstance(pezzo, Inizio):
@@ -186,6 +191,8 @@ def esegui(turno_id):
                                                                                  "testo": "".join(testo_passo)}]}
             if fine and fine.nativo:
                 dati["nativo"] = fine.nativo
+            if e.protezione.ultima_mascherata:
+                dati["mascherato"] = True                 # i blocchi nativi contengono i segnaposto
             Evento.objects.create(conversazione=conversazione, turno=turno, tipo=Evento.ASSISTENTE, dati=dati)
             if not chiamate:
                 if fine and fine.motivo == "limite":
@@ -238,6 +245,12 @@ def _chiudi(e, stato, coda="", errore=""):
     testo = "".join(e.testo_turno).strip()
     turno.testo, turno.stato, turno.finito, turno.errore = testo, stato, timezone.now(), errore[:2000]
     turno.battito = turno.finito
+    if stato == Turno.COMPLETATO and turno.conversazione_id:
+        from .. import provenienza
+        try:
+            turno.provenienza = provenienza.calcola(turno, testo, len(e.protezione.protetti) if e.protezione else 0)
+        except Exception:                          # la provenienza è un di più: non deve rompere il turno
+            log.exception("provenienza del turno %s", turno.pk)
     turno.save()
     if turno.conversazione_id and testo:
         MessaggioChat.objects.create(conversazione=turno.conversazione, ruolo=MessaggioChat.ASSISTENTE, testo=testo,

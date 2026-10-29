@@ -2,7 +2,7 @@ from core import cifratura
 from core.viste import Inline, ModelView, register
 
 from .forms import ChiaveAziendaForm, PianificataForm, ProviderForm
-from .models import AnelloCatena, ChiaveAzienda, Modello, Pianificata, Profilo, Provider, Turno
+from .models import AnelloCatena, ChiaveAzienda, Modello, Pianificata, Profilo, Proposta, Provider, Turno
 
 
 @register
@@ -70,7 +70,7 @@ class ConsumiView(ModelView):
     model = Turno
     slug = "consumi"
     verbose_name_plural = "consumi"
-    list_display = ["iniziato", "utente", "azienda", "compito", "modello", "passi", "costo", "stato"]
+    list_display = ["iniziato", "utente", "azienda", "compito", "modello", "passi", "costo", "protetti", "stato"]
     list_filter = ["compito", "stato", "modello", "azienda", "iniziato"]
     search_fields = ["utente__username", "testo", "errore"]
     form_layout = [("Turno", [("iniziato", "finito"), ("utente", "azienda"), ("compito", "modello"),
@@ -85,6 +85,10 @@ class ConsumiView(ModelView):
     def col_costo(self, obj):
         return f"{obj.costo:.4f} $"
     col_costo.short_description = "Costo"
+
+    def col_protetti(self, obj):
+        return (obj.provenienza or {}).get("pii") or "—"
+    col_protetti.short_description = "Dati protetti"
 
     def has_add_permission(self, request):
         return False
@@ -156,3 +160,29 @@ class PianificataView(ModelView):
         obj.save(update_fields=["attiva", "errori", "prossima"])
         return f"«{obj}» riattivata: prossima esecuzione {obj.frequenza()}."
     riattiva.short_description = "Riattiva"
+
+
+@register
+class RegistroModificheView(ModelView):
+    """Registro delle modifiche proposte dall'assistente: chi, cosa, quando, esito (solo lettura)."""
+    model = Proposta
+    slug = "registro"
+    verbose_name = "modifica dell'assistente"
+    verbose_name_plural = "registro delle modifiche"
+    list_display = ["creata", "utente", "azienda", "titolo", "rischio", "stato", "decisa"]
+    list_filter = ["stato", "rischio", "utente", "azienda", "creata"]
+    search_fields = ["titolo", "esito", "utente__username"]
+    list_group_by = ["stato", "utente", "creata:mese"]
+    form_layout = [("Proposta", [("creata", "decisa"), ("utente", "azienda"), "titolo", ("rischio", "stato"),
+                                 "strumento", "argomenti", "dettagli", "riepilogo", "esito", "url"])]
+    readonly_fields = ["creata", "decisa", "utente", "azienda", "titolo", "rischio", "stato", "strumento", "argomenti",
+                       "dettagli", "riepilogo", "esito", "url"]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
