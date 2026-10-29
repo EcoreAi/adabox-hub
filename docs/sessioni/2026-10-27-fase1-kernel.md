@@ -243,3 +243,18 @@ Piano `docs/superpowers/plans/2026-10-29-adabox-hub-ai-4-conoscenza.md`.
 - Dipendenze nuove: `pypdf`, `python-docx`.
 
 Prossimo: AI-5 (fiducia: dati personali mascherati verso il cloud, provenienza, audit).
+
+## Modulo AI — fase AI-5, fiducia (2026-10-29)
+
+Piano `docs/superpowers/plans/2026-10-29-adabox-hub-ai-5-fiducia.md`.
+
+- `ai/protezione.py` (ripreso dal plugin pii di adabox, semplificato): vault per conversazione
+  (`Conversazione.segnaposto`), cache degli span, filtri di plausibilità, smascheramento di streaming (buffer da
+  `[` a `]`), argomenti e blocchi finali; i blocchi nativi restano mascherati con `mascherato` nell'evento.
+- Gateway: politica per anello, protezione creata di default se il chiamante non la passa; errore `PII` non
+  ripetibile che fa passare all'anello successivo.
+- `ai/provenienza.py`: esito (`verificato`, `parziale`, `senza fonti`, `conversazione`) calcolato dagli eventi del
+  turno; numeri all'italiana e all'inglese, arrotondamento all'unità ammesso, date, link, anni e piccoli interi esclusi.
+- Registro delle modifiche (proposte, sola lettura) e dati protetti nei consumi.
+
+Prossimo: AI-6 (specialisti: previsioni e decisore come strumenti, con grafici a quantili).

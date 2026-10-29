@@ -268,7 +268,7 @@ completo. Il flusso: **prodotto → preventivo → ordine → consegna (DDT) →
 ### Assistente AI
 
 Spec `docs/superpowers/specs/2026-10-29-adabox-hub-modulo-ai-design.md`; fasi AI-1 (fondamenta), AI-2 (strumenti
-dalle app), AI-3 (proattività) e AI-4 (conoscenza) completate.
+dalle app), AI-3 (proattività), AI-4 (conoscenza) e AI-5 (fiducia) completate.
 
 - **Configurazione** (gruppo «AI / Amministratore»):
   - in `/ai/provider/` la chiave API di Anthropic, salvata cifrata con `CHIAVE_CIFRATURA` o, se manca, con una
@@ -339,6 +339,19 @@ dalle app), AI-3 (proattività) e AI-4 (conoscenza) completate.
     `docker-compose.override.yml`;
   - i vettori stanno nel database e si confrontano in Python (adatto fino a decine di migliaia di frammenti);
     pgvector è il passo successivo quando il database sarà Postgres.
+- **Fiducia** (AI-5):
+  - con l'URL del servizio `adabox-pii` nelle impostazioni («URL del servizio di protezione dei dati personali»)
+    ai modelli **non locali** i dati personali arrivano come segnaposto (`[FULLNAME_1]`, `[IBAN_1]`...), stabili
+    per conversazione; risposta, streaming e argomenti degli strumenti tornano in chiaro prima di arrivare
+    all'utente, al log e agli strumenti. La politica è per anello della catena: i modelli locali ricevono il testo
+    in chiaro. Se il servizio non risponde, a quell'anello non parte nulla (si passa al successivo, altrimenti un
+    messaggio chiaro). Anche i titoli delle chat passano dalla protezione; il gateway la applica di default;
+  - categorie non mascherate (date, ore, importi, età, genere: servono ai calcoli) nelle impostazioni;
+  - sotto ogni risposta la provenienza, calcolata dal codice: letture dal gestionale, dati personali protetti,
+    numeri della risposta che non compaiono nei dati letti (avviso, non blocco), modello e costo per chi vede i
+    consumi;
+  - «Registro modifiche» (`/ai/registro/`, amministratori): ogni proposta dell'assistente con utente, azienda,
+    operazione, argomenti ed esito.
 - **Produzione**: lo streaming lo serve il servizio `stream` del compose (uvicorn, ASGI), e nginx gli instrada
   `/ai/flusso/`; il resto resta su gunicorn (WSGI). Quando cambiano i moduli installati, `stream` risponde 503 e
   si riavvia da solo, come il worker.
