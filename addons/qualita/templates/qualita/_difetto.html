@@ -1,0 +1,5 @@
+{% load qualita %}{% esecuzioni_del_difetto obj as trovati %}{% if trovati %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Trovato dal collaudo</div></div>
+  <div class="ui-card-body">{% for e in trovati %}<p><a href="{% url 'qualita:esegui' e.collaudo_id %}#e{{ e.pk }}">{{ e.collaudo }}</a> · {{ e.caso }} · <span class="ui-pill ui-pill-danger">{{ e.get_esito_display }}</span></p>{% endfor %}</div>
+</section>{% endif %}

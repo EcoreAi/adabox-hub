@@ -1,0 +1,12 @@
+{% with r=obj.riepilogo c=obj %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Esecuzione ({{ r.percentuale }}% eseguito)</div>
+    <div class="ui-card-sub">{% include "qualita/_riepilogo.html" %}</div></div>
+    <div class="spacer"></div>
+    <a class="ui-btn ui-btn-primary ui-btn-sm" href="{% url 'qualita:esegui' obj.pk %}">{% if obj.stato == "aperto" %}Esegui i test{% else %}Vedi gli esiti{% endif %}</a></div>
+  <div class="ui-card-body">
+    <div class="ui-avanzamento" role="progressbar" aria-valuenow="{{ r.percentuale }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ r.percentuale }}%"></span></div>
+    {% if not r.totale %}<p class="ui-help" style="margin-top:8px;">Nessun caso: scrivi i <a href="{% url 'qualita:casi_nuovo' %}?progetto={{ obj.progetto_id }}">casi di test</a> del progetto, poi «Aggiungi i casi nuovi».</p>{% endif %}
+  </div>
+</section>
+{% endwith %}

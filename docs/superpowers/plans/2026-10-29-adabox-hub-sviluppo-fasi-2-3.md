@@ -29,7 +29,7 @@ collaudo dei moduli prima del deploy di ogni fase; un commit per task con push.
 
 ## Fase 3 — moduli `qualita` e `github`
 
-### Task 5: modulo `qualita`
+### Task 5: modulo `qualita` — fatto
 - `Ambiente` (progetto, tipo, url, rilascio installato); `CasoTest` (area, precondizioni, passi, risultato atteso,
   priorità); `Collaudo` (progetto, rilascio, ambiente) con `Esecuzione` per caso (esito, note, chi, quando).
 - Pagina di esecuzione: esito per caso; da un caso fallito «Apri difetto» crea un compito di tipo Bug collegato.

@@ -1,0 +1,2 @@
+{% load qualita %}<span class="ui-pill {{ c.esito|pill_esito }}">{{ c.esito }}</span>
+{% with r=c.riepilogo %}{{ r.superato }} superati · {{ r.fallito }} falliti · {{ r.bloccato }} bloccati · {{ r.da_fare }} da fare su {{ r.totale }}{% endwith %}

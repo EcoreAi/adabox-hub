@@ -1,0 +1,9 @@
+{% load qualita %}{% collaudi_del_rilascio obj as collaudi %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Collaudi</div><div class="spacer"></div>
+    <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'qualita:collaudi_nuovo' %}?progetto={{ obj.progetto_id }}&rilascio={{ obj.pk }}&nome=Collaudo {{ obj.versione|urlencode }}">Nuovo collaudo</a></div>
+  <div class="ui-card-body">
+    {% for c in collaudi %}<p><a href="{% url 'qualita:collaudi_dettaglio' c.pk %}">{{ c.nome }}</a>{% if c.ambiente %} su {{ c.ambiente.nome }}{% endif %}: {% include "qualita/_riepilogo.html" %}</p>
+    {% empty %}<p class="ui-help">Nessun collaudo per questa versione.</p>{% endfor %}
+  </div>
+</section>

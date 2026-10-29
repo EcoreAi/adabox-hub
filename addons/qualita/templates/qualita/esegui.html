@@ -1,0 +1,36 @@
+{% extends 'core/base_app.html' %}{% load qualita %}
+{% block title %}{{ collaudo }} · Qualità · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>{{ collaudo.nome }}</h1>
+    <div class="sub">{{ collaudo.progetto }}{% if collaudo.rilascio %} · versione {{ collaudo.rilascio.versione }}{% endif %}{% if collaudo.ambiente %} · {{ collaudo.ambiente.nome }}{% if collaudo.ambiente.url %} (<a class="ui-link" href="{{ collaudo.ambiente.url }}" target="_blank" rel="noopener">{{ collaudo.ambiente.url }}</a>){% endif %}{% endif %}</div>
+    <div class="sub">{% include "qualita/_riepilogo.html" with c=collaudo %}</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'qualita:collaudi_dettaglio' collaudo.pk %}">Scheda del collaudo</a></div>
+</div>
+{% for e in esecuzioni %}
+<section class="ui-card is-revealed ui-section" id="e{{ e.pk }}">
+  <div class="ui-card-head"><div><div class="ui-card-title">{{ e.caso.titolo }}</div>
+    <div class="ui-card-sub">{% if e.caso.area %}{{ e.caso.area }} · {% endif %}priorità {{ e.caso.get_priorita_display|lower }}{% if e.eseguito_da %} · {{ e.eseguito_da }} il {{ e.eseguito_il|date:"d/m H:i" }}{% endif %}</div></div>
+    <div class="spacer"></div><span class="ui-pill {% if e.esito == 'superato' %}ui-pill-ok{% elif e.esito == 'fallito' %}ui-pill-danger{% elif e.esito == 'bloccato' %}ui-pill-warn{% else %}ui-pill-neutral{% endif %}">{{ e.get_esito_display }}</span></div>
+  <div class="ui-card-body">
+    {% if e.caso.precondizioni %}<p><strong>Precondizioni:</strong> {{ e.caso.precondizioni|linebreaksbr }}</p>{% endif %}
+    <ol>{% for p in e.caso.elenco_passi %}<li>{{ p }}</li>{% endfor %}</ol>
+    <p><strong>Atteso:</strong> {{ e.caso.atteso|linebreaksbr }}</p>
+    {% if modificabile %}
+    <form method="post" class="ui-form-row" style="align-items:flex-end;gap:8px;flex-wrap:wrap;">{% csrf_token %}
+      <input type="hidden" name="esecuzione" value="{{ e.pk }}">
+      <div class="ui-form-group" style="flex:1;min-width:220px;"><label class="ui-label" for="n{{ e.pk }}">Note (cosa è successo)</label>
+        <textarea class="ui-input" id="n{{ e.pk }}" name="note" rows="2">{{ e.note }}</textarea></div>
+      {% for valore, etichetta in esiti %}{% if valore != "da_fare" %}<button class="ui-btn ui-btn-sm {% if valore == 'superato' %}ui-btn-primary{% else %}ui-btn-secondary{% endif %}" name="esito" value="{{ valore }}">{{ etichetta }}</button>{% endif %}{% endfor %}
+      <button class="ui-btn ui-btn-sm ui-btn-ghost" name="esito" value="da_fare">Azzera</button>
+    </form>
+    {% elif e.note %}<p><strong>Note:</strong> {{ e.note|linebreaksbr }}</p>{% endif %}
+    {% if e.difetto %}<p style="margin-top:8px;">Difetto: <a class="ui-link" href="{% url 'progetti:compiti_dettaglio' e.difetto.pk %}">{{ e.difetto }}</a> <span class="ui-pill {% if e.difetto.fase.chiusa %}ui-pill-ok{% else %}ui-pill-warn{% endif %}">{{ e.difetto.fase }}</span></p>
+    {% elif e.esito == "fallito" or e.esito == "bloccato" %}{% if perms.progetti.add_compito %}
+    <form method="post" action="{% url 'qualita:difetto' collaudo.pk e.pk %}" style="margin-top:8px;">{% csrf_token %}<button class="ui-btn ui-btn-sm ui-btn-danger">Apri difetto</button></form>{% endif %}{% endif %}
+  </div>
+</section>
+{% empty %}
+<div class="ui-card is-revealed"><div class="ui-card-body"><p class="ui-empty">Nessun caso in questo collaudo.</p></div></div>
+{% endfor %}
+{% endblock %}
