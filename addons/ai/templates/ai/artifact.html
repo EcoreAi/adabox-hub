@@ -8,8 +8,14 @@
 <section class="ui-card is-revealed ui-section"><div class="ui-card-body">
   {% if errore %}<div class="ui-alert ui-alert-error">{{ errore }}</div>
   {% elif a.tipo == "grafico" %}{% if disegno %}<div class="ai-artifact-grafico">{{ disegno }}</div>
+    {% if dati.futuro %}
+    <table class="ui-table" style="margin-top:16px"><thead><tr><th>Periodo</th><th>Previsione 10 %</th><th>Mediana</th><th>90 %</th></tr></thead>
+      <tbody>{% for periodo, basso, mediana, alto in dati.futuro %}<tr><td>{{ periodo }}</td><td>{{ basso }}</td><td><strong>{{ mediana }}</strong></td><td>{{ alto }}</td></tr>{% endfor %}</tbody></table>
+    <p style="margin:12px 0 0;font-size:13px;color:var(--ui-text-2)">Stima del modello {{ dati.modello }} sulla storia del gestionale: il periodo in corso non è nella storia perché incompleto.</p>
+    {% else %}
     <table class="ui-table" style="margin-top:16px"><thead><tr><th>Gruppo</th><th>Valore</th></tr></thead>
       <tbody>{% for etichetta, valore in dati.serie %}<tr><td>{{ etichetta }}</td><td>{{ valore }}</td></tr>{% endfor %}</tbody></table>
+    {% endif %}
     {% else %}<p>Nessun dato.</p>{% endif %}
   {% else %}{% include "ai/_artifact_tabella.html" %}{% endif %}
 </div></section>

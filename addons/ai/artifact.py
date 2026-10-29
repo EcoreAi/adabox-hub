@@ -43,6 +43,9 @@ def _cella(v):
 
 def calcola(spec, contesto):
     """I dati di una specifica, calcolati ora per l'utente del contesto."""
+    if spec.get("grafico") == "previsione":
+        from .specialisti import calcola_previsione
+        return calcola_previsione(spec, contesto)
     v = vista_per(contesto, spec["vista"])
     request = richiesta.per(contesto)
     if spec["tipo"] == Artifact.GRAFICO:
@@ -60,6 +63,9 @@ def calcola(spec, contesto):
 
 def svg_di(artifact, dati=None):
     dati = dati or artifact.dati
+    if artifact.spec.get("grafico") == "previsione":
+        from .specialisti import svg_previsione
+        return svg_previsione(dati, artifact.titolo)
     serie = [tuple(c) for c in dati.get("serie", [])]
     if not serie:
         return ""
@@ -69,7 +75,11 @@ def svg_di(artifact, dati=None):
 def csv_di(artifact, dati):
     uscita = io.StringIO()
     scrittore = csv.writer(uscita, delimiter=";")
-    if artifact.tipo == Artifact.GRAFICO:
+    if "futuro" in dati:
+        scrittore.writerow(["Periodo", "Valore", "Previsione 10 %", "Previsione mediana", "Previsione 90 %"])
+        scrittore.writerows([[e, v, "", "", ""] for e, v in dati.get("storico", [])])
+        scrittore.writerows([[e, "", b, m, a] for e, b, m, a in dati.get("futuro", [])])
+    elif artifact.tipo == Artifact.GRAFICO:
         scrittore.writerow(["Gruppo", "Valore"])
         scrittore.writerows(dati.get("serie", []))
     else:

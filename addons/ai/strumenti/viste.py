@@ -28,6 +28,7 @@ LIMITE_MASSIMO = 100
 GRUPPI_MASSIMI = 100
 AGGREGATI = {"sum": Sum, "avg": Avg, "min": Min, "max": Max}
 TRONCATURE = {"giorno": TruncDay, "mese": TruncMonth, "anno": TruncYear}
+SOLO_DATA = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
 # ---------- viste e campi ----------
@@ -140,6 +141,9 @@ def filtra(vista, request, qs, testo="", filtri=None):
         lookup, f, operatore = _percorso(vista, chiave)
         if operatore == "in" and not isinstance(valore, list):
             raise ErroreStrumento(f"Il filtro «{chiave}» vuole una lista di valori.")
+        if isinstance(f, models.DateTimeField) and operatore in ("", "exact", "gt", "gte", "lt", "lte") \
+                and isinstance(valore, str) and SOLO_DATA.fullmatch(valore.strip()):
+            lookup = f"{lookup}__date"                    # «2026-07-01» su data e ora: il giorno, nel fuso locale
         try:
             qs = qs.filter(**{f"{lookup}__{operatore}" if operatore else lookup: valore})
         except (ValueError, TypeError, ValidationError) as e:

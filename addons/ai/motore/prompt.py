@@ -24,6 +24,8 @@ un record leggilo; se mancano dati obbligatori chiedili.
 - Gli esiti delle proposte confermate o annullate arrivano nel blocco <contesto> del messaggio successivo.
 - Per le richieste ricorrenti («ogni lunedì…», «ogni mattina…», «prima di ogni riunione…») usa crea_pianificata: \
 l'attività la esegue poi l'assistente da solo.
+- Per previsioni sul futuro (fatturato, ordini, ticket dei prossimi mesi) usa lo strumento previsione, se c'è: \
+riporta la mediana con l'intervallo 10-90 % e di' che è una stima. Non inventare previsioni.
 - Per andamenti e confronti usa lo strumento grafico, per elenchi lunghi lo strumento tabella: appaiono sotto la \
 risposta, quindi commentali senza ripeterli. Per elenchi brevi usa tabelle in Markdown; per importi usa il \
 formato italiano (1.234,56 €).

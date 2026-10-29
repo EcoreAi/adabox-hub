@@ -186,7 +186,10 @@ SORGENTI = {Frammento.RECORD: frammenti_record, Frammento.NOTA: frammenti_note,
 
 def url_servizio():
     from core import parametri
-    return (parametri.leggi("ai.url_embeddings") or "").strip().rstrip("/")
+    try:
+        return (parametri.leggi("ai.url_embeddings") or "").strip().rstrip("/")
+    except KeyError:                                   # impostazione non dichiarata (modulo non installato)
+        return ""
 
 
 def embedding(testi, tipo="document"):

@@ -180,7 +180,7 @@
     grafico: 'disegno il grafico', tabella: 'preparo la tabella',
     crea_pianificata: "preparo l'attività pianificata", elenco_pianificate: 'guardo le attività pianificate',
     cerca_conoscenza: 'cerco nei documenti e nelle note', leggi_documento: 'leggo il documento',
-    leggi_foglio: 'leggo il foglio',
+    leggi_foglio: 'leggo il foglio', previsione: 'calcolo la previsione', classifica: 'valuto il testo',
   };
   const segui = (bolla) => {
     if (!bolla || bolla.dataset.seguita) return;

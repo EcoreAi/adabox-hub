@@ -45,8 +45,11 @@ class ServizioNonDisponibile(Exception):
 
 def impostazioni():
     from core import parametri
-    url = (parametri.leggi("ai.url_pii") or "").strip().rstrip("/")
-    esclusi = parametri.leggi("ai.pii_escludi")
+    try:
+        url = (parametri.leggi("ai.url_pii") or "").strip().rstrip("/")
+        esclusi = parametri.leggi("ai.pii_escludi")
+    except KeyError:                                   # impostazioni non dichiarate (modulo non installato)
+        return "", ()
     esclusi = ESCLUSI_DEFAULT if esclusi is None else esclusi
     return url, tuple(sorted({e.strip().upper() for e in str(esclusi).split(",") if e.strip()}))
 

@@ -1,7 +1,7 @@
 {
     "name": "Assistente AI",
     "summary": "Chat con l'assistente: cronologia delle conversazioni, artifact e documenti salvati",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -43,6 +43,12 @@
          "default": "", "help": "es. http://adabox-pii-1:5005; con l'URL i dati personali arrivano mascherati "
                                 "ai modelli cloud (se il servizio non risponde non si invia nulla); "
                                 "vuoto = nessuna protezione"},
+        {"chiave": "url_forecast", "label": "URL del servizio di previsione (Timestral)", "tipo": "testo",
+         "default": "", "help": "es. http://adabox-forecast-1:8080; vuoto = previsioni spente. Verifica la licenza "
+                                "dei pesi del modello prima dell'uso commerciale"},
+        {"chiave": "url_decider", "label": "URL del decisore locale", "tipo": "testo", "default": "",
+         "help": "es. http://adabox-decider-1:8080; vuoto = spento. Senza esempi addestrati le probabilità sono "
+                 "solo indicative"},
         {"chiave": "pii_escludi", "label": "Categorie da non mascherare", "tipo": "testo",
          "default": "DATE,TIME,AMOUNT,AGE,GENDER",
          "help": "separate da virgole: date, ore, importi servono ai calcoli"},

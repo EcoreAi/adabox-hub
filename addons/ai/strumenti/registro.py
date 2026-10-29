@@ -30,6 +30,7 @@ class Strumento:
     # scritture: anteprima(contesto, **argomenti) -> {titolo, dettagli, riepilogo, rischio, impronta, url} valida e
     # descrive senza toccare nulla; la funzione gira solo alla conferma dell'utente (ai.proposte)
     anteprima: object = None
+    disponibile: object = None                          # funzione() -> bool: es. solo se il suo servizio è configurato
 
     def definizione(self):
         return {"nome": self.nome, "descrizione": self.descrizione, "schema": self.schema}
@@ -57,7 +58,8 @@ def disponibili(utente, ambito=""):
     from . import app
     app.carica()
     return [s for _, s in sorted(_registro.items())
-            if (s.permesso is None or utente.has_perm(s.permesso)) and (not ambito or not s.app or s.app == ambito)]
+            if (s.permesso is None or utente.has_perm(s.permesso)) and (not ambito or not s.app or s.app == ambito)
+            and (s.disponibile is None or s.disponibile())]
 
 
 def _testo(valore):
