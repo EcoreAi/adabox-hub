@@ -157,3 +157,59 @@ class AnelloCatena(models.Model):
         verbose_name = "modello della catena"
         verbose_name_plural = "catena dei modelli"
         ordering = ["ordine", "pk"]
+
+
+class Turno(models.Model):
+    """Un'esecuzione dell'assistente: dalla domanda alla risposta, con i passi, il costo e lo stato.
+    `testo` cresce mentre il modello scrive (lo streaming lo segue); il resto è nel log degli eventi."""
+    IN_CORSO, COMPLETATO, ERRORE, INTERROTTO, FERMATO = "in_corso", "completato", "errore", "interrotto", "fermato"
+    STATI = [(IN_CORSO, "In corso"), (COMPLETATO, "Completato"), (ERRORE, "Errore"), (INTERROTTO, "Interrotto"),
+             (FERMATO, "Fermato dall'utente")]
+    conversazione = models.ForeignKey(Conversazione, on_delete=models.CASCADE, null=True, blank=True,
+                                      related_name="turni", verbose_name="conversazione")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+",
+                               verbose_name="utente")
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="azienda")
+    compito = models.CharField("compito", max_length=20, default="chat")
+    stato = models.CharField("stato", max_length=10, choices=STATI, default=IN_CORSO)
+    modello = models.ForeignKey(Modello, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="modello")
+    testo = models.TextField("testo della risposta", blank=True)
+    avanzamento = models.JSONField("avanzamento", default=list, blank=True)
+    passi = models.PositiveSmallIntegerField("passi", default=0)
+    uso = models.JSONField("token", default=dict, blank=True)
+    costo = models.DecimalField("costo ($)", max_digits=12, decimal_places=6, default=0)
+    errore = models.TextField("errore", blank=True)
+    richiesta_stop = models.BooleanField("stop richiesto", default=False)
+    iniziato = models.DateTimeField("iniziato il", auto_now_add=True)
+    battito = models.DateTimeField("ultimo segno di vita", auto_now_add=True)
+    finito = models.DateTimeField("finito il", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "turno"
+        verbose_name_plural = "turni"
+        ordering = ["-pk"]
+        indexes = [models.Index(fields=["azienda", "iniziato"])]
+
+    def __str__(self):
+        return f"Turno {self.pk} · {self.get_stato_display()}"
+
+    @property
+    def concluso(self):
+        return self.stato != self.IN_CORSO
+
+
+class Evento(models.Model):
+    """Log in sola aggiunta della conversazione: ciò che il modello vede è ricostruito solo da qui."""
+    UTENTE, ASSISTENTE, STRUMENTO = "utente", "assistente", "strumento"
+    TIPI = [(UTENTE, "Utente"), (ASSISTENTE, "Assistente"), (STRUMENTO, "Risultati degli strumenti")]
+    conversazione = models.ForeignKey(Conversazione, on_delete=models.CASCADE, related_name="eventi")
+    turno = models.ForeignKey(Turno, on_delete=models.CASCADE, null=True, blank=True, related_name="eventi")
+    tipo = models.CharField("tipo", max_length=10, choices=TIPI)
+    dati = models.JSONField("dati", default=dict)
+    creato = models.DateTimeField("creato il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "evento"
+        verbose_name_plural = "eventi"
+        ordering = ["pk"]
+        indexes = [models.Index(fields=["conversazione", "id"])]

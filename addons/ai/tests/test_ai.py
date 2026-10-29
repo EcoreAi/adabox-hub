@@ -51,7 +51,7 @@ def test_primo_messaggio_crea_la_conversazione(client, utente):
     assert [m.ruolo for m in c.messaggi.all()] == ["utente", "assistente"]
     r = client.post(f"/ai/chat/{c.pk}/invia/", {"testo": "E ieri?"}, HTTP_HX_REQUEST="true")
     html = r.content.decode()
-    assert "E ieri?" in html and "non è ancora collegato a un modello" in html and "<html" not in html
+    assert "E ieri?" in html and "configura l&#x27;assistente" in html and "<html" not in html
     assert c.messaggi.count() == 4
 
 

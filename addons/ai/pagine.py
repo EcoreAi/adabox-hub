@@ -8,8 +8,7 @@ from django.views.decorators.http import require_POST
 
 from core.registry import modules
 
-from . import suggerimenti
-from .assistente import rispondi
+from . import motore, suggerimenti
 from .models import Conversazione, MessaggioChat
 
 PANNELLI_SINISTRA = [("storico", "Cronologia chat", "ai-storico"), ("preferite", "Chat preferite", "ai-stella")]
@@ -58,15 +57,16 @@ def invia(request, pk=None):
         ambito = request.POST.get("ambito", "")
         conversazione = Conversazione.objects.create(utente=request.user, ambito=ambito if ambito in ammessi else "",
                                                      titolo=titolo[:60] + ("…" if len(titolo) > 60 else ""))
-    domanda = MessaggioChat.objects.create(conversazione=conversazione, ruolo=MessaggioChat.UTENTE, testo=testo)
-    risposta = MessaggioChat.objects.create(conversazione=conversazione, ruolo=MessaggioChat.ASSISTENTE,
-                                            testo=rispondi(conversazione, testo))
+    primo = conversazione.messaggi.order_by("-pk").values_list("pk", flat=True).first() or 0
+    turno = motore.avvia(conversazione, testo, request.user, getattr(request, "azienda", None))
     conversazione.save(update_fields=["aggiornata"])
     url = reverse("ai:conversazione", args=[conversazione.pk])
     if request.headers.get("HX-Request"):
         if nuova:                                        # nuova chat: si carica la pagina della conversazione
             return HttpResponse(status=204, headers={"HX-Redirect": url})
-        return render(request, "ai/_messaggi.html", {"messaggi": [domanda, risposta]})
+        turno.refresh_from_db()
+        return render(request, "ai/_messaggi.html", {
+            "messaggi": conversazione.messaggi.filter(pk__gt=primo), "turno": None if turno.concluso else turno})
     return redirect(url)
 
 

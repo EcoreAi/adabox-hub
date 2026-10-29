@@ -2,6 +2,7 @@
 Settings unico: sviluppo e produzione differiscono solo per DEBUG e per le
 variabili in .env (vedi .env.example).
 """
+import os
 import sys
 from datetime import timedelta
 from pathlib import Path
@@ -24,7 +25,9 @@ if str(ADDONS_DIR) not in sys.path:
     sys.path.insert(0, str(ADDONS_DIR))
 ADDONS_ATTIVI = bootstrap.moduli_installati(ADDONS_DIR, forzati=env.list("ADDONS_FORCE", default=[]))
 
-SECRET_KEY = env("SECRET_KEY", default="solo-sviluppo-cambiami")
+# letta da os.environ e non con env(): django-environ tratta un valore che inizia con "$" come riferimento a
+# un'altra variabile, e una chiave casuale che inizia con "$" diventerebbe in silenzio quella di sviluppo
+SECRET_KEY = os.environ.get("SECRET_KEY") or "solo-sviluppo-cambiami"
 # chiave Fernet per i segreti salvati nel database (chiavi API...): senza, derivata da SECRET_KEY
 CHIAVE_CIFRATURA = env("CHIAVE_CIFRATURA", default="")
 DEBUG = env("DEBUG")
@@ -131,6 +134,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Lavori in background: con True `accoda` esegue subito, nello stesso processo
 # (sviluppo e test); in produzione False e `manage.py worker` in un container.
 LAVORI_SINCRONI = env.bool("LAVORI_SINCRONI", default=DEBUG)
+# turni dell'assistente AI nella richiesta stessa invece che in un thread (test)
+AI_TURNI_SINCRONI = env.bool("AI_TURNI_SINCRONI", default=False)
 # File privati (allegati): mai serviti direttamente, solo dalla vista con i permessi
 PRIVATE_MEDIA_ROOT = Path(env("PRIVATE_MEDIA_ROOT", default=str(BASE_DIR / "private")))
 ALLEGATI_MAX_MB = env.int("ALLEGATI_MAX_MB", default=20)
