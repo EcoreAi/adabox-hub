@@ -1,0 +1,41 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Agate · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Agate</h1>
+  <div class="sub">{% if c %}{{ c.get_modalita_display }}{% if c.esito_controllo %} · {{ c.esito_controllo }}{% endif %}{% else %}Non collegato{% endif %}</div></div></div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <p>Con Agate le modifiche preparate dall'assistente AI, prima di essere eseguite, passano dalle regole dell'azienda: si eseguono, aspettano l'approvazione di una persona nella console di Agate, oppure si fermano con il motivo. Tutto resta nel registro di Agate. In più l'assistente può usare i modelli attraverso Agate, che maschera i dati personali e conta i costi.</p>
+  {% if c %}
+  <dl class="ui-totali-documento" style="justify-content:start;border:0;padding:0;">
+    {% for stato, n in conteggi.items %}{% if n %}<div><dt>{{ stato }}</dt><dd>{{ n }}</dd></div>{% endif %}{% endfor %}
+  </dl>
+  {% endif %}
+</div></section>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Collegamento</div></div>
+  <div class="ui-card-body"><form method="post">{% csrf_token %}
+    <input type="hidden" name="azione" value="salva">
+    <label class="ui-label" for="gateway_url">Gateway di Agate</label>
+    <input class="ui-input" id="gateway_url" name="gateway_url" type="url" required value="{{ c.gateway_url|default:'' }}">
+    <label class="ui-label" for="console_url">Console di Agate (per i link a chi approva)</label>
+    <input class="ui-input" id="console_url" name="console_url" type="url" value="{{ c.console_url|default:'' }}">
+    <label class="ui-label" for="chiave">Chiave di Agate (scope evaluate e llm){% if chiave %}: salvata {{ chiave }}, lascia vuoto per non cambiarla{% endif %}</label>
+    <input class="ui-input" id="chiave" name="chiave" type="password" autocomplete="off" {% if not chiave %}required{% endif %}>
+    <label class="ui-label" for="segreto">Segreto dei webhook di Agate (whsec_…){% if segreto %}: salvato, lascia vuoto per non cambiarlo{% endif %}</label>
+    <input class="ui-input" id="segreto" name="segreto" type="password" autocomplete="off">
+    <label class="ui-label" for="prefisso">Prefisso degli strumenti in Agate</label>
+    <input class="ui-input" id="prefisso" name="prefisso" value="{{ c.prefisso|default:'adabox' }}">
+    <label class="ui-label" for="modalita">Modalità</label>
+    <select class="ui-input" id="modalita" name="modalita">{% for valore, etichetta in modalita %}<option value="{{ valore }}"{% if c.modalita == valore %} selected{% endif %}>{{ etichetta }}</option>{% endfor %}</select>
+    <button class="ui-btn ui-btn-primary" type="submit" style="margin-top:10px">Salva e prova</button>
+  </form>
+  <p class="ui-help">Webhook da registrare in Agate (Impostazioni → Webhook, evento approval.decided): <code>{{ webhook_url }}</code>. Senza webhook l'esito delle approvazioni si controlla comunque ogni minuto.</p>
+  <p class="ui-help">Gli strumenti dell'assistente si registrano in Agate con <code>python manage.py agate_strumenti --output strumenti.json</code> qui e <code>manage.py agate_add_internal_tools &lt;tenant&gt; production strumenti.json</code> in Agate.</p></div></section>
+{% if c %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Modelli attraverso Agate</div></div>
+  <div class="ui-card-body">
+    <p>Crea il provider «Agate» con i modelli che l'azienda ha scelto in Agate. Poi, nei Profili dell'assistente, mettilo nella catena dei compiti.</p>
+    <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="azione" value="modelli"><button class="ui-btn ui-btn-primary" type="submit">Usa Agate per i modelli</button></form>
+    <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="azione" value="prova"><button class="ui-btn ui-btn-ghost" type="submit">Prova il collegamento</button></form>
+  </div></section>
+{% endif %}
+{% endblock %}

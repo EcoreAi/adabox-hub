@@ -13,6 +13,16 @@ from .strumenti import Contesto, ErroreStrumento, disponibili
 
 log = logging.getLogger("ai.proposte")
 
+# Funzioni (proposta, utente, azienda) -> Proposta | None chiamate prima di eseguire: un modulo (es. Agate) può
+# fermare la proposta (la chiude) o rimandarla (la lascia in attesa con un esito che lo spiega). None = avanti.
+GUARDIE = []
+
+
+def registra_guardia(funzione):
+    if funzione not in GUARDIE:
+        GUARDIE.append(funzione)
+    return funzione
+
 def prepara(strumento, contesto, argomenti):
     if contesto.conversazione is None:
         raise ErroreStrumento("Le modifiche si propongono solo in una chat con l'utente.")
@@ -40,9 +50,15 @@ def annulla(proposta):
     return proposta
 
 
-def conferma(proposta, utente, azienda):
+def chiudi(proposta, stato, esito, url=None):
+    """Per i moduli che fermano una proposta (le guardie)."""
+    return _chiudi(proposta, stato, esito, url)
+
+
+def conferma(proposta, utente, azienda, *, guardie=True):
     """Esegue la proposta se è ancora valida: in attesa, non scaduta, stessa azienda, strumento ancora permesso,
-    record non cambiato dopo l'anteprima. Una sola esecuzione anche con due clic."""
+    record non cambiato dopo l'anteprima. Una sola esecuzione anche con due clic. Prima passano le guardie dei
+    moduli (`registra_guardia`); `guardie=False` solo per chi le ha già passate (es. dopo un'approvazione)."""
     if proposta.stato != Proposta.IN_ATTESA:
         return proposta
     if proposta.scaduta:
@@ -52,6 +68,11 @@ def conferma(proposta, utente, azienda):
                               "confermarla.")
     ambito = proposta.conversazione.ambito
     strumento = next((s for s in disponibili(utente, ambito) if s.nome == proposta.strumento), None)
+    if guardie and strumento is not None:
+        for guardia in GUARDIE:
+            fermata = guardia(proposta, utente, azienda)
+            if fermata is not None:
+                return fermata
     if not Proposta.objects.filter(pk=proposta.pk, stato=Proposta.IN_ATTESA).update(stato=Proposta.ESEGUITA,
                                                                                      decisa=timezone.now()):
         proposta.refresh_from_db()                                  # già decisa da un altro clic
