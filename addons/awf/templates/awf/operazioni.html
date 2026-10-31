@@ -1,0 +1,34 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Operazioni ammesse · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Operazioni ammesse</h1>
+  <div class="sub">L'elenco chiuso di ciò che arriva agli agenti: {{ esposte|length }} strument{{ esposte|length|pluralize:"o,i" }} esposti ad Agate</div></div></div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <p>Ogni voce è uno strumento dell'assistente AI, su una vista o su tutte le viste che gli agenti possono vedere. Una voce con la vista dà agli agenti i permessi che servono su quel modello; una voce senza vista vale solo sulle viste già concesse. Dopo ogni cambio rimetti gli strumenti in Agate: uno schema cambiato resta in quarantena finché qualcuno non lo rivede.</p>
+  {% if voci %}
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Strumento</th><th>Vista</th><th>Effetto</th><th>Stato</th>{% if puo_modificare %}<th></th>{% endif %}</tr></thead>
+    <tbody>{% for x in voci %}<tr>
+      <td><code>{{ x.voce.strumento }}</code>{% if not x.strumento %} <span class="ui-pill ui-pill-danger">non disponibile</span>{% endif %}</td>
+      <td>{{ x.voce.vista|default:"tutte" }}</td>
+      <td>{% if x.effetto == "read" %}<span class="ui-pill ui-pill-info">lettura</span>{% elif x.effetto == "write" %}<span class="ui-pill ui-pill-warn">scrittura</span>{% elif x.effetto == "irreversible" %}<span class="ui-pill ui-pill-danger">irreversibile</span>{% else %}—{% endif %}</td>
+      <td>{% if x.voce.attiva %}<span class="ui-pill ui-pill-ok">attiva</span>{% else %}<span class="ui-pill ui-pill-neutral">spenta</span>{% endif %}</td>
+      {% if puo_modificare %}<td>
+        <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="pk" value="{{ x.voce.pk }}"><button class="ui-btn ui-btn-ghost ui-btn-sm" name="azione" value="alterna" type="submit">{% if x.voce.attiva %}Spegni{% else %}Accendi{% endif %}</button></form>
+        <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="pk" value="{{ x.voce.pk }}"><button class="ui-btn ui-btn-ghost ui-btn-sm" name="azione" value="elimina" type="submit">Togli</button></form>
+      </td>{% endif %}
+    </tr>{% endfor %}</tbody></table></div>
+  {% else %}<p class="ui-help">Elenco vuoto: agli agenti non arriva nulla.</p>{% endif %}
+</div></section>
+{% if puo_modificare %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Aggiungi un'operazione</div></div>
+  <div class="ui-card-body"><form method="post">{% csrf_token %}
+    <input type="hidden" name="azione" value="aggiungi">
+    <label class="ui-label" for="strumento">Strumento</label>
+    <select class="ui-input" id="strumento" name="strumento" required>{% for s in strumenti %}<option value="{{ s.nome }}">{{ s.nome }} — {{ s.rischio }}</option>{% endfor %}</select>
+    <label class="ui-label" for="vista">Vista (vuota = tutte quelle concesse)</label>
+    <select class="ui-input" id="vista" name="vista"><option value="">—</option>{% for v in viste %}<option value="{{ v }}">{{ v }}</option>{% endfor %}</select>
+    <button class="ui-btn ui-btn-primary" type="submit" style="margin-top:10px">Aggiungi</button>
+  </form></div></section>
+{% endif %}
+{% endblock %}

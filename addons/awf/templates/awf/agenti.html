@@ -1,0 +1,22 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Agenti · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Agenti</h1>
+  <div class="sub">Lavorano in {{ azienda|default:"(azienda non impostata)" }} con i permessi del gruppo «{{ gruppo }}»</div></div></div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <p>Ogni agente dell'ingaggio ha un utente <code>awf-…</code> che firma le sue azioni nel gestionale (chatter, attività). Non entra mai nell'interfaccia: niente password, niente email, niente token API; se qualcuno lo facesse entrare, la sessione si chiude subito. I suoi permessi vengono solo dalle <a class="ui-link" href="{% url 'awf:operazioni' %}">operazioni ammesse</a>.</p>
+  {% if agenti %}
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Nome</th><th>Ruolo</th><th>Utente</th><th>Id in Agate</th><th>Stato</th><th>Ultima chiamata</th></tr></thead>
+    <tbody>{% for a in agenti %}<tr>
+      <td>{{ a.nome }}{% if a.tecnico %} <span class="ui-pill ui-pill-neutral">tecnico</span>{% endif %}</td><td>{{ a.ruolo|default:"—" }}</td>
+      <td><code>{{ a.utente.username }}</code></td><td>{{ a.agate_agent_id|default:"—" }}</td>
+      <td>{% if a.attivo %}<span class="ui-pill ui-pill-ok">nell'ingaggio</span>{% else %}<span class="ui-pill ui-pill-neutral">uscito</span>{% endif %}</td>
+      <td>{{ a.ultimo_uso|date:"d/m/Y H:i"|default:"—" }}</td>
+    </tr>{% endfor %}</tbody></table></div>
+  {% else %}<p class="ui-help">Nessun agente: arrivano con il collegamento e con il battito.</p>{% endif %}
+</div></section>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Permessi degli agenti</div></div>
+  <div class="ui-card-body">{% if permessi %}<ul>{% for p in permessi %}<li>{{ p }}</li>{% endfor %}</ul>
+  {% else %}<p class="ui-help">Nessun permesso: aggiungi operazioni su una vista per far vedere dei dati agli agenti.</p>{% endif %}</div></section>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Approvazioni in attesa · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Approvazioni in attesa</h1>
+  <div class="sub">Le azioni degli agenti che aspettano una persona in Agate: {{ in_attesa|length }}</div></div></div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <p>Qui si vedono e basta: si approva o si rifiuta nella console di Agate, con il secondo fattore. Il riepilogo arriva da Agate già mascherato.</p>
+  {% if in_attesa %}
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Riepilogo</th><th>Strumento</th><th>Ricevuta</th><th>Scade</th><th></th></tr></thead>
+    <tbody>{% for x in in_attesa %}<tr>
+      <td>{{ x.a.riepilogo }}</td><td>{{ x.a.strumento|default:"—" }}</td><td>{{ x.a.ricevuta|date:"d/m/Y H:i" }}</td>
+      <td>{% if x.scaduta %}<span class="ui-pill ui-pill-neutral">scaduta</span>{% else %}{{ x.a.scade|date:"d/m/Y H:i"|default:"—" }}{% endif %}</td>
+      <td>{% if x.link %}<a class="ui-btn ui-btn-secondary ui-btn-sm" href="{{ x.link }}" target="_blank" rel="noopener">Decidi in Agate</a>{% endif %}</td>
+    </tr>{% endfor %}</tbody></table></div>
+  {% if not console %}<p class="ui-help">Indirizzo della console di Agate sconosciuto: impostalo in Stato e collegamento.</p>{% endif %}
+  {% else %}<p class="ui-help">Nessuna approvazione in attesa.</p>{% endif %}
+</div></section>
+{% if decise %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Decise di recente</div></div>
+  <div class="ui-card-body"><div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Riepilogo</th><th>Esito</th><th>Decisa</th></tr></thead>
+    <tbody>{% for a in decise %}<tr><td>{{ a.riepilogo|default:a.approval_id }}</td><td>{{ a.stato }}</td><td>{{ a.decisa|date:"d/m/Y H:i"|default:"—" }}</td></tr>{% endfor %}</tbody>
+  </table></div></div></section>
+{% endif %}
+{% endblock %}
