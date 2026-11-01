@@ -1,26 +1,32 @@
-"""Chiamate alla fabbrica degli agenti: collegamento, battito, stato, eventi (docs/plugin-api.md, §1-3 e §5).
+"""Chiamate alla fabbrica degli agenti: collegamento, battito, stato, eventi, catalogo e richieste d'ingaggio
+(docs/plugin-api.md, §1-3, §5 e §7).
 
-Il token della fabbrica (`wpt_...`) si salva cifrato e non finisce mai nei log né a video. Il bearer del server MCP
-nasce qui, al collegamento: se ne salva solo l'impronta e si mostra una volta sola a chi ha collegato. Ogni chiamata
+Il token della fabbrica (`wpt_...`) e quello di una richiesta d'ingaggio (`wfr_...`) si salvano cifrati e non
+finiscono mai nei log né a video. Il bearer del server MCP nasce qui, al collegamento con il codice o quando lo chiede
+una persona dopo una richiesta approvata: se ne salva solo l'impronta e si mostra una volta sola. Ogni chiamata
 ha un timeout di 10 secondi e non segue i redirect. HTTPS obbligatorio, salvo in sviluppo (`DEBUG`)."""
+import datetime
 import hashlib
 import hmac
 import json
 import logging
+import os
 import re
 import secrets
 import urllib.error
 import urllib.request
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlencode, urlsplit
 
 from django.conf import settings
+from django.core.cache import cache
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from core import cifratura
 
 from . import agenti, operazioni
-from .models import Collegamento
+from .models import Collegamento, RichiestaAgenti
 
 log = logging.getLogger("awf.fabbrica")
 
@@ -30,6 +36,12 @@ PREFISSO_BEARER = "awf_"
 TIPI_EVENTO = ("record.assigned", "record.created", "record.mentioned", "receipt.ready")
 MODELLO_RE = re.compile(r"^[a-z][a-z0-9_.]{1,79}$")
 AGENTE_RE = re.compile(r"^[\w .'-]{1,100}$")
+SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,99}$")
+REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+DURATA_CATALOGO = 600                                   # secondi: il listino cambia di rado
+STATI_RICHIESTA = {"received": RichiestaAgenti.INVIATA, "proposed": RichiestaAgenti.DA_APPROVARE,
+                   "connected": RichiestaAgenti.COLLEGATA, "rejected": RichiestaAgenti.RIFIUTATA,
+                   "withdrawn": RichiestaAgenti.RITIRATA}
 
 # Trasporto HTTP: funzione(metodo, url, intestazioni, corpo | None, timeout) -> (stato, corpo in byte).
 # I test lo sostituiscono con uno finto: nessuna rete vera.
@@ -146,15 +158,31 @@ def collega(codice, forge_url, base_url, azienda=None):
     token = corpo.get("token")
     if not isinstance(token, str) or not token.startswith("wpt_"):
         raise ErroreFabbrica("la fabbrica non ha restituito un token valido", stato)
-    ingaggio = corpo.get("engagement") if isinstance(corpo.get("engagement"), dict) else {}
     bearer = nuovo_bearer()
+    c = completa(forge, base, token, corpo.get("install_id"), corpo.get("engagement"), dati["version"], azienda,
+                 bearer=bearer)
+    return c, bearer
+
+
+def completa(forge, base, token, install_id, ingaggio, versione, azienda=None, bearer=None, dopo_il_salvataggio=None,
+             tieni_bearer=False):
+    """La parte comune del collegamento (§1) e della richiesta approvata (§7.3): c'è un token `wpt_...` e un
+    ingaggio. Salva il token cifrato, l'installazione, la versione e lo stato, sceglie l'azienda e crea gli agenti.
+    Con `bearer` imposta il nuovo bearer MCP. Senza: con `tieni_bearer` resta quello che l'azienda ha già dato ad
+    Agate preparando la richiesta (gli strumenti della squadra devono essere attivi in Agate prima della proposta);
+    altrimenti si toglie (era di un'altra installazione) e quello nuovo lo genera una persona, che deve vederlo.
+    `dopo_il_salvataggio` gira nella stessa transazione."""
+    ingaggio = ingaggio if isinstance(ingaggio, dict) else {}
     with transaction.atomic():
         c = Collegamento.attuale()
         c.forge_url, c.base_url = forge, base
-        c.install_id = str(corpo.get("install_id") or "")[:100]
+        c.install_id = str(install_id or "")[:100]
         c.token_cifrato = cifratura.cifra(token)
-        c.mcp_impronta, c.mcp_indizio = impronta(bearer), bearer[:8]
-        c.versione = dati["version"]
+        if bearer:
+            c.mcp_impronta, c.mcp_indizio = impronta(bearer), bearer[:8]
+        elif not tieni_bearer:
+            c.mcp_impronta, c.mcp_indizio = "", ""
+        c.versione = versione
         c.ultimo_stato, c.stato_il, c.ultimo_errore = ingaggio, timezone.now(), ""
         c.collegato_il = timezone.now()
         if azienda is not None:
@@ -163,9 +191,11 @@ def collega(codice, forge_url, base_url, azienda=None):
             from core.models import Azienda
             c.azienda = Azienda.objects.filter(attiva=True).order_by("pk").first()
         c.save()
+        if dopo_il_salvataggio is not None:
+            dopo_il_salvataggio(c)
     agenti.sincronizza(ingaggio, c.azienda)
     log.info("collegato alla fabbrica %s (installazione %s)", forge, c.install_id)
-    return c, bearer
+    return c
 
 
 def _collegamento():
@@ -241,3 +271,236 @@ def invia_evento(tipo, modello, record_id, agente=None):
     if stato not in (200, 202):
         raise ErroreFabbrica(f"evento rifiutato dalla fabbrica (HTTP {stato})", stato)
     return corpo
+
+
+# ---------- catalogo e richieste d'ingaggio (§7): la squadra si chiede dal gestionale ----------
+
+def indirizzo_fabbrica():
+    """L'indirizzo della fabbrica: quello del collegamento o, se manca, `AWF_FORGE_URL` (impostazioni o ambiente)."""
+    return (Collegamento.attuale().forge_url or getattr(settings, "AWF_FORGE_URL", "")
+            or os.environ.get("AWF_FORGE_URL", "")).strip()
+
+
+def _forge(forge_url=None):
+    valore = forge_url or indirizzo_fabbrica()
+    if not valore:
+        raise ErroreFabbrica("indirizzo della fabbrica non impostato: indicalo in Agenti → Catalogo")
+    return controlla_url(valore, "della fabbrica")
+
+
+def _testo(valore, massimo):
+    return valore.strip()[:massimo] if isinstance(valore, str) else ""
+
+
+def _intero(valore, minimo=0):
+    if isinstance(valore, bool):
+        return None
+    try:
+        n = int(valore)
+    except (TypeError, ValueError):
+        return None
+    return n if n >= minimo else None
+
+
+def _operazione(o):
+    effetto = o.get("effect") if o.get("effect") in ("read", "write", "irreversible") else "irreversible"
+    return {"tool": _testo(o.get("tool"), 100), "view": _testo(o.get("view"), 80), "effect": effetto,
+            "risk": _testo(o.get("risk"), 10), "line": _testo(o.get("line"), 300)}
+
+
+def _squadra(t):
+    """Una squadra del listino, controllata: solo i campi che servono, con i tipi attesi. None se non valida."""
+    if not isinstance(t, dict) or not isinstance(t.get("slug"), str) or not SLUG_RE.match(t["slug"]):
+        return None
+    versione = _intero(t.get("version", 1), 1)
+    if versione is None:
+        return None
+    prezzo = t.get("price") if isinstance(t.get("price"), dict) else {}
+    return {
+        "slug": t["slug"], "versione": versione, "nome": _testo(t.get("name"), 200) or t["slug"],
+        "reparto": _testo(t.get("department"), 60).lower(), "descrizione": _testo(t.get("description"), 2000),
+        "giorni_prova": _intero(t.get("observe_days"), 0) or 0,
+        "membri": [{"ruolo": _testo(m.get("role"), 100), "nome": _testo(m.get("name"), 100),
+                    "descrizione": _testo(m.get("description"), 500)}
+                   for m in t.get("members") or [] if isinstance(m, dict) and _testo(m.get("name"), 100)],
+        "operazioni": [_operazione(o) for o in t.get("operations") or [] if isinstance(o, dict)
+                       and _testo(o.get("tool"), 100)],
+        "prezzo": {k: v for k, v in prezzo.items() if isinstance(k, str) and isinstance(v, (str, int, float))
+                   and not isinstance(v, bool)}}
+
+
+def _chiave_catalogo(forge, reparto):
+    return "awf:catalogo:" + hashlib.sha256(f"{forge}|{reparto}".encode()).hexdigest()
+
+
+def catalogo(reparto=None, forge_url=None):
+    """Le squadre del listino per adabox (§7.1, pubblico), eventualmente di un reparto. Tenute 10 minuti."""
+    forge = _forge(forge_url)
+    reparto = (reparto or "").strip().lower()[:60]
+    chiave = _chiave_catalogo(forge, reparto)
+    squadre = cache.get(chiave)
+    if squadre is not None:
+        return squadre
+    parametri = {"kind": "django", "saas": "adabox", **({"department": reparto} if reparto else {})}
+    stato, corpo = richiesta("GET", f"/api/catalog?{urlencode(parametri)}", forge_url=forge)
+    if stato != 200 or not isinstance(corpo.get("teams"), list):
+        raise ErroreFabbrica(f"catalogo non disponibile (HTTP {stato})", stato)
+    squadre = [s for s in map(_squadra, corpo["teams"]) if s is not None]
+    cache.set(chiave, squadre, DURATA_CATALOGO)
+    return squadre
+
+
+def dimentica_catalogo(forge_url=None, *reparti):
+    forge = _forge(forge_url)
+    cache.delete_many([_chiave_catalogo(forge, r) for r in ("", *reparti)])
+
+
+def squadra(slug, forge_url=None):
+    """La squadra del listino con questo slug, o None."""
+    return next((s for s in catalogo(forge_url=forge_url) if s["slug"] == slug), None)
+
+
+def _agate():
+    """Il blocco facoltativo `agate` della richiesta, dal modulo agate se è attivo e collegato."""
+    from core.registry.modules import disattivati
+    if "agate" not in settings.ADDONS_ATTIVI or "agate" in disattivati():
+        return None
+    try:
+        from agate.models import Collegamento as CollegamentoAgate
+        a = CollegamentoAgate.attuale()
+    except Exception:                                   # modulo non migrato o rotto: la richiesta parte lo stesso
+        log.warning("collegamento ad Agate non leggibile", exc_info=True)
+        return None
+    if a is None or not a.gateway_url:
+        return None
+    return {k: v for k, v in {"gateway_url": a.gateway_url, "console_url": a.console_url}.items() if v}
+
+
+def richiedi(team, versione, settimane, note="", utente=None, azienda=None, base_url=""):
+    """Chiede alla fabbrica una squadra del catalogo (§7.2). Restituisce la `RichiestaAgenti` salvata, con il token
+    `wfr_...` cifrato. Le operazioni dichiarate sono quelle ammesse ora, come nel collegamento con il codice."""
+    from core.models import Azienda
+    forge = _forge()
+    s = squadra(team, forge_url=forge)
+    if s is None:
+        raise ErroreFabbrica("squadra sconosciuta o non più in catalogo", 404)
+    versione = s["versione"] if versione in (None, "") else _intero(versione, 1)
+    settimane = _intero(settimane, 1)
+    if versione is None:
+        raise ErroreFabbrica("versione della squadra non valida")
+    if settimane is None or settimane > 52:
+        raise ErroreFabbrica("settimane: un numero da 1 a 52")
+    note = (note or "").strip()
+    if len(note) > 1000:
+        raise ErroreFabbrica("note troppo lunghe: al massimo 1000 caratteri")
+    c = Collegamento.attuale()
+    base = controlla_url(base_url or c.base_url or settings.SITO_URL, "di questa istanza")
+    azienda = azienda or c.azienda or Azienda.objects.filter(attiva=True).order_by("pk").first()
+    if azienda is None:
+        raise ErroreFabbrica("nessuna azienda attiva per cui chiedere la squadra")
+    contatto = (utente.get_full_name() or utente.get_username()) if utente is not None else ""
+    dati = {"team": s["slug"], "team_version": versione, "weeks": settimane,
+            "company": {"name": azienda.nome, "vat": azienda.partita_iva,
+                        "email": getattr(utente, "email", "") or azienda.email, "contact": contatto},
+            "plugin": {"kind": "django", "saas": "adabox", "version": operazioni.versione(), "base_url": base,
+                       "operations": [e.dichiarazione() for e in operazioni.esposte()]}}
+    if note:
+        dati["notes"] = note
+    agate = _agate()
+    if agate:
+        dati["agate"] = agate
+    stato, corpo = richiesta("POST", "/api/hire-requests", forge_url=forge, dati=dati)
+    if stato in (404, 409):
+        dimentica_catalogo(forge, s["reparto"])
+        raise ErroreFabbrica("squadra sconosciuta o non più in catalogo" if stato == 404 else
+                             "la squadra è cambiata nel frattempo: rileggi il catalogo e richiedila di nuovo", stato)
+    if stato == 422:
+        raise ErroreFabbrica(f"la fabbrica ha rifiutato i dati{_dettaglio(corpo)}", stato)
+    if stato == 429:
+        raise ErroreFabbrica("troppe richieste: la fabbrica ne accetta al massimo 10 l'ora, riprova più tardi", stato)
+    if stato != 201:
+        raise ErroreFabbrica(f"risposta inattesa della fabbrica (HTTP {stato})", stato)
+    request_id, token = corpo.get("request_id"), corpo.get("token")
+    if not isinstance(request_id, str) or not REQUEST_ID_RE.match(request_id):
+        raise ErroreFabbrica("la fabbrica non ha restituito l'id della richiesta", stato)
+    if not isinstance(token, str) or not token.startswith("wfr_"):
+        raise ErroreFabbrica("la fabbrica non ha restituito un token valido", stato)
+    r = RichiestaAgenti.objects.create(
+        request_id=request_id, forge_url=forge, base_url=base, team_slug=s["slug"], team_nome=s["nome"],
+        team_versione=versione, reparto=s["reparto"], settimane=settimane, note=note,
+        stato=STATI_RICHIESTA.get(corpo.get("status"), RichiestaAgenti.INVIATA),
+        token_cifrato=cifratura.cifra(token), operazioni=s["operazioni"], prezzo=s["prezzo"], azienda=azienda,
+        creata_da=utente if getattr(utente, "pk", None) else None)
+    log.info("richiesta d'ingaggio %s inviata (squadra %s)", request_id, s["slug"])
+    return r
+
+
+def _percorso(r):
+    return f"/api/hire-requests/{quote(r.request_id, safe='')}"
+
+
+def aggiorna(r):
+    """Lo stato della richiesta (§7.3). Alla prima lettura `connected` arriva il token della fabbrica e adabox si
+    collega da solo, come con il codice `wfc_...`; il bearer MCP no: lo genera una persona, che deve vederlo."""
+    if not r.aperta:
+        return r
+    stato, corpo = richiesta("GET", _percorso(r), forge_url=r.forge_url, token=r.token())
+    if stato in (401, 404):
+        raise ErroreFabbrica("la fabbrica non riconosce più questa richiesta", stato)
+    if stato != 200:
+        raise ErroreFabbrica(f"risposta inattesa della fabbrica (HTTP {stato})", stato)
+    nuovo = STATI_RICHIESTA.get(corpo.get("status"))
+    if nuovo is None:
+        raise ErroreFabbrica("stato della richiesta sconosciuto", stato)
+    adesso = timezone.now()
+    campi = {"messaggio": _testo(corpo.get("message"), 2000), "letta_il": adesso, "aggiornata": adesso}
+    url = corpo.get("approve_url")
+    if isinstance(url, str) and url.startswith(("https://", "http://")) and len(url) <= 500:
+        campi["approve_url"] = url
+    token = corpo.get("plugin_token")
+    righe = RichiestaAgenti.objects.filter(pk=r.pk)
+    if nuovo == RichiestaAgenti.COLLEGATA and isinstance(token, str) and token.startswith("wpt_"):
+        completa(r.forge_url, r.base_url or Collegamento.attuale().base_url, token, corpo.get("install_id"),
+                 corpo.get("engagement"), operazioni.versione(), r.azienda, tieni_bearer=True,
+                 dopo_il_salvataggio=lambda c: righe.update(stato=nuovo, collegata_il=adesso, **campi))
+        log.info("richiesta d'ingaggio %s approvata: collegato", r.request_id)
+    else:
+        if nuovo == RichiestaAgenti.COLLEGATA and not campi["messaggio"]:
+            campi["messaggio"] = ("Approvata, ma il token della fabbrica non è arrivato qui: chiedi ad Agentlia un "
+                                  "codice di collegamento (wfc_) e usalo in Stato e collegamento.")
+        righe.filter(collegata_il__isnull=True).update(stato=nuovo, **campi)    # mai indietro da collegata
+    r.refresh_from_db()
+    return r
+
+
+def aggiorna_aperte(piu_vecchie_di=0):
+    """Legge lo stato delle richieste aperte (lette più di `piu_vecchie_di` secondi fa). Restituisce gli errori."""
+    aperte = RichiestaAgenti.objects.filter(stato__in=RichiestaAgenti.APERTE)
+    if piu_vecchie_di:
+        limite = timezone.now() - datetime.timedelta(seconds=piu_vecchie_di)
+        aperte = aperte.filter(Q(letta_il__isnull=True) | Q(letta_il__lt=limite))
+    errori = []
+    for r in aperte:
+        try:
+            aggiorna(r)
+        except ErroreFabbrica as e:
+            log.warning("richiesta d'ingaggio %s: %s", r.request_id, e)
+            errori.append(f"{r.team_nome or r.team_slug}: {e}")
+    return errori
+
+
+def ritira(r):
+    """Ritira la richiesta (§7.3): solo finché la fabbrica non l'ha presa in carico."""
+    if r.stato != RichiestaAgenti.INVIATA:
+        raise ErroreFabbrica("si ritira solo una richiesta appena inviata: dopo, si rifiuta nella console di Agate")
+    stato, _ = richiesta("DELETE", _percorso(r), forge_url=r.forge_url, token=r.token())
+    if stato in (200, 204):
+        RichiestaAgenti.objects.filter(pk=r.pk).update(stato=RichiestaAgenti.RITIRATA, aggiornata=timezone.now(),
+                                                       messaggio="Ritirata da adabox.")
+        r.refresh_from_db()
+        return r
+    if stato == 409:
+        raise ErroreFabbrica("la fabbrica l'ha già presa in carico: ora si rifiuta nella console di Agate", stato)
+    if stato in (401, 404):
+        raise ErroreFabbrica("la fabbrica non riconosce più questa richiesta", stato)
+    raise ErroreFabbrica(f"risposta inattesa della fabbrica (HTTP {stato})", stato)

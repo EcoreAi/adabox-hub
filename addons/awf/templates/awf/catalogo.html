@@ -1,0 +1,67 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Catalogo degli agenti · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Catalogo degli agenti</h1>
+  <div class="sub">Squadre di agenti AI in affitto da Agentic Workforce, pronte per adabox{% if aperte %} · <a class="ui-link" href="{% url 'awf:richieste' %}">{{ aperte }} richiest{{ aperte|pluralize:"a,e" }} in corso</a>{% endif %}</div></div></div>
+
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <p>Scegli una squadra e chiedila da qui: niente codice da incollare. Gli agenti lavorano nel gestionale solo attraverso Agate, il garante: ogni loro azione passa dalle sue regole e, se serve, da una persona.</p>
+  <p><strong>Cosa succede dopo la richiesta</strong></p>
+  <ol>{% for p in passi %}<li>{{ p }}</li>{% endfor %}</ol>
+  <p class="ui-help">Puoi anche chiederlo all'assistente AI: «Ho bisogno di agenti AI per il reparto CRM, mi puoi aiutare?».</p>
+  {% if c.collegato %}<div class="ui-alert ui-alert-info">Questa istanza è già collegata a un ingaggio: una nuova squadra, quando la approvate, prende il suo posto (un solo collegamento per istanza).</div>{% endif %}
+</div></section>
+
+{% if not forge or not c.collegato %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Indirizzo della fabbrica</div></div>
+  <div class="ui-card-body">
+  {% if c.collegato %}<p><code>{{ forge }}</code> (quello del collegamento)</p>
+  {% else %}<form method="post">{% csrf_token %}
+    <input type="hidden" name="azione" value="fabbrica">
+    <label class="ui-label" for="forge_url">Indirizzo della fabbrica di Agentic Workforce</label>
+    <input class="ui-input" id="forge_url" name="forge_url" type="url" required value="{{ forge }}" placeholder="https://forge.agentlia.it">
+    <button class="ui-btn ui-btn-secondary" type="submit" style="margin-top:10px">Salva</button>
+  </form>{% endif %}
+  </div></section>
+{% endif %}
+
+{% if errore %}
+<div class="ui-alert ui-alert-error">La fabbrica non risponde, il catalogo non si può leggere ora ({{ errore }}). Riprova tra qualche minuto; le richieste già inviate restano in <a class="ui-link" href="{% url 'awf:richieste' %}">Richieste</a>.</div>
+{% elif forge %}
+<form method="get" style="margin:0 0 12px">
+  <label class="ui-label" for="reparto">Reparto</label>
+  <input class="ui-input" id="reparto" name="reparto" value="{{ reparto }}" placeholder="tutti (es. crm, vendite, acquisti)" style="max-width:320px;display:inline-block">
+  <button class="ui-btn ui-btn-ghost" type="submit">Filtra</button>
+</form>
+{% for nome_reparto, elenco in gruppi %}
+<h2 style="margin:18px 0 8px">{{ nome_reparto }}</h2>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px">
+  {% for s in elenco %}
+  <section class="ui-card is-revealed"><div class="ui-card-head"><div class="ui-card-title">{{ s.nome }}</div>
+    <div class="ui-card-sub">{{ s.prezzo_testo }}</div></div>
+    <div class="ui-card-body">
+      {% if s.descrizione %}<p>{{ s.descrizione }}</p>{% endif %}
+      {% if s.membri %}<p><strong>Chi c'è</strong></p>
+      <ul>{% for m in s.membri %}<li><strong>{{ m.nome }}</strong>{% if m.descrizione %}: {{ m.descrizione }}{% endif %}</li>{% endfor %}</ul>{% endif %}
+      {% if s.operazioni_parole %}<p><strong>Cosa chiede di poter fare in adabox</strong></p>
+      <ul>{% for o in s.operazioni_parole %}<li>{{ o }}</li>{% endfor %}</ul>{% endif %}
+      <p>{% if s.giorni_prova %}<span class="ui-pill ui-pill-info">{{ s.giorni_prova }} giorn{{ s.giorni_prova|pluralize:"o,i" }} di prova in osservazione</span>{% endif %}
+        <span class="ui-pill ui-pill-neutral">versione {{ s.versione }}</span></p>
+      <form method="post">{% csrf_token %}
+        <input type="hidden" name="azione" value="richiedi"><input type="hidden" name="team" value="{{ s.slug }}"><input type="hidden" name="versione" value="{{ s.versione }}">
+        <label class="ui-label" for="settimane-{{ s.slug }}">Per quante settimane</label>
+        <input class="ui-input" id="settimane-{{ s.slug }}" name="settimane" type="number" min="1" max="52" value="4" required>
+        <label class="ui-label" for="note-{{ s.slug }}">Note per Agentlia (facoltative: volumi, esigenze)</label>
+        <textarea class="ui-input" id="note-{{ s.slug }}" name="note" maxlength="1000" rows="2" placeholder="es. circa 10 opportunità al giorno"></textarea>
+        {% if not c.base_url %}<label class="ui-label" for="base-{{ s.slug }}">Indirizzo pubblico di adabox (dove Agate lo raggiunge)</label>
+        <input class="ui-input" id="base-{{ s.slug }}" name="base_url" type="url" required value="{{ base_url_proposta }}">{% endif %}
+        <button class="ui-btn ui-btn-primary" type="submit" style="margin-top:10px">Richiedi</button>
+      </form>
+    </div></section>
+  {% endfor %}
+</div>
+{% empty %}
+<p class="ui-help">{% if reparto %}Nessuna squadra per il reparto «{{ reparto }}»: <a class="ui-link" href="{% url 'awf:catalogo' %}">vedi tutto il catalogo</a>.{% else %}Il catalogo per adabox è vuoto.{% endif %}</p>
+{% endfor %}
+{% endif %}
+{% endblock %}

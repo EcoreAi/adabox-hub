@@ -32,6 +32,8 @@ Il modulo implementa il contratto dei plugin di reparto di tipo `django` (`docs/
   `classifica`, `previsione`, `crea_pianificata`, `grafico`, `tabella`...) né le viste di `ai` e `awf`.
 - **Collegamento alla fabbrica** (`/awf/stato/`): codice `wfc_...`, battito ogni 15 minuti (e all'apertura
   della pagina), stato dell'ingaggio (stato, giorni rimasti, agenti, blocco, link alla console di Agate).
+- **Catalogo e richieste** (`/awf/catalogo/`, `/awf/richieste/`): la squadra si sceglie e si chiede dal
+  gestionale, o dalla chat con l'assistente AI; quando l'azienda approva in Agate adabox si collega da solo.
 - **Agenti**: un utente `awf-<nome>` per ogni agente dell'ingaggio, più `awf-tecnico` per le chiamate che non
   indicano un agente.
 - **Approvazioni in attesa** (`/awf/approvazioni/`): dal webhook firmato di Agate, con il link per decidere in
@@ -68,14 +70,86 @@ Per i test: `awf` è in `ADDONS_FORCE` di `pytest.ini`;
 La versione dichiarata è quella del modulo più l'impronta delle operazioni (es. `1.0.0+3fa2c91b`): cambia quando
 cambia l'elenco, e si dichiara al battito.
 
+## Catalogo e richiesta dal gestionale
+
+L'azienda può scegliere e chiedere una squadra **da adabox**, senza codice `wfc_` (§7 del contratto). Le pagine
+sono per chi gestisce AWF (permesso `awf.change_collegamento`, come «Stato e collegamento»).
+
+- **Agenti → Catalogo** (`/awf/catalogo/`): `GET {fabbrica}/api/catalog?kind=django&saas=adabox` (con
+  `&department=` se si filtra per reparto), pubblico, tenuto 10 minuti in cache. Le squadre sono raggruppate per
+  reparto: cosa fanno, chi c'è (ruoli), le operazioni che chiedono in parole («Leggere: Opportunità»,
+  «Modificare: Opportunità — Cambia priorità e probabilità», con il nome della vista di adabox), i giorni di prova
+  in osservazione e il prezzo («150 € ogni 7 giorni + consumo AI (ricarico 40%) · credito iniziale 30 €»). Ogni
+  squadra ha il modulo «Richiedi» (settimane 1-52, note per Agentlia). Se la fabbrica non risponde la pagina lo
+  dice e basta.
+- **Indirizzo della fabbrica**: quello del collegamento; se manca, `AWF_FORGE_URL` (impostazione Django o variabile
+  d'ambiente); se manca anche quello, la pagina del catalogo lo chiede.
+- **Richiesta**: `POST {fabbrica}/api/hire-requests` con squadra e versione, settimane, note, i dati dell'azienda
+  (nome, partita IVA, email di chi chiede o dell'azienda, nome di chi chiede), il blocco `plugin` (`kind: django`,
+  `saas: adabox`, versione, `base_url` e le operazioni ammesse **ora**, come nel collegamento con il codice) e, se
+  il modulo `agate` è attivo e collegato, il blocco `agate` (`gateway_url`, `console_url`). Il token `wfr_...` si
+  salva cifrato in `RichiestaAgenti` e serve solo a leggere lo stato e a ritirarla.
+- **Agenti → Richieste** (`/awf/richieste/`): per ogni richiesta la linea del tempo Inviata → Da approvare in
+  Agate (bottone verso `approve_url`) → Collegata, oppure Rifiutata (con il messaggio della fabbrica) o
+  Ritirata. «Ritira» (`DELETE`) finché è inviata; dopo si rifiuta nella console di Agate.
+- **Stato**: ogni 5 minuti (lavoro «Stato delle richieste di agenti», `awf.lavori.richieste`) e all'apertura della
+  pagina (se l'ultima lettura ha più di un minuto) si legge `GET /api/hire-requests/{id}` per le richieste
+  inviate o da approvare. Una richiesta collegata, rifiutata o ritirata non si legge più, e non torna mai
+  indietro da collegata.
+- **Collegamento da solo**: alla prima lettura `connected` arriva `plugin_token` (`wpt_...`). adabox fa quello che
+  fa il collegamento con il codice (`fabbrica.completa`, la parte comune): salva il token cifrato,
+  l'installazione, la versione e lo stato dell'ingaggio, sceglie l'azienda della richiesta e crea gli utenti
+  agente. Il bearer del server MCP resta quello che l'azienda ha dato ad Agate preparando la richiesta (sotto). Se
+  la lettura con il token si perde, la richiesta resta collegata con un messaggio: serve un codice `wfc_` da
+  Agentlia.
+- **Prepara adabox per la squadra, subito dopo la richiesta** (pagina delle richieste). Va fatto **prima** che
+  Agentlia proponga il contratto: Agate accetta un ingaggio solo se gli strumenti che la squadra userà
+  (`awf.modifica_record`...) sono già attivi nel suo catalogo. Gli agenti comunque non lavorano finché il contratto
+  non è approvato.
+  1. «Ammetti le operazioni che la squadra chiede»: un clic crea le voci di «Operazioni ammesse» dalle operazioni
+     della squadra (strumento senza il prefisso `awf.`, vista), riaccende quelle spente e riallinea i permessi del
+     gruppo «AWF / Agenti»; si vede quali c'erano già e quali non sono disponibili in questa istanza (strumento
+     non ammissibile o app non installata). Poi un battito dichiara la versione nuova.
+  2. «Collega adabox in Agate»: genera il bearer MCP e lo mostra **una volta** con l'indirizzo MCP, da incollare
+     nella console di Agate → Collegamenti → «Applicazione dell'azienda (server MCP)» con il prefisso `awf`.
+  3. Il link a «Stato e collegamento» (ingaggio, agenti, webhook delle approvazioni).
+
+Un'istanza ha un solo collegamento: una squadra approvata prende il posto dell'ingaggio precedente.
+
+## Assunzione guidata dalla chat
+
+Con la chiave `"ai": "awf.ai"` del manifest il modulo dà all'assistente AI tre strumenti, visibili solo a chi
+gestisce AWF (permesso `awf.change_collegamento`; anche le funzioni lo ricontrollano):
+
+- `catalogo_agenti` (lettura, `reparto` facoltativo): le squadre in breve (slug, nome, reparto, cosa fa, ruoli,
+  operazioni in parole, prezzo, giorni di prova);
+- `richiedi_squadra` (scrittura: `team`, `settimane`, `note`): diventa una **proposta** che la persona conferma con
+  il bottone. L'anteprima mostra squadra, ruoli, durata, prezzo, il costo fisso stimato
+  (`period_eur × ⌈settimane·7 / period_days⌉`), il consumo AI con il ricarico, i giorni di prova, le operazioni e i
+  prossimi passi. Alla conferma la richiesta parte e l'esito porta i prossimi passi e il link a `/awf/richieste/`;
+- `stato_richieste_agenti` (lettura): le richieste con stato, messaggio e prossimo passo (e legge lo stato di
+  quelle aperte).
+
+Le descrizioni fanno da guida: prima di proporre l'assistente chiede reparto, quanti record al giorno circa e per
+quante settimane, mette volumi ed esigenze nelle note e spiega che il contratto lo approva una persona in Agate.
+Esempio: «Ho bisogno di agenti AI di AWF per il mio reparto CRM, mi puoi aiutare?».
+
+I tre strumenti sono in `operazioni.ESCLUSI` (e nessuno strumento dell'app `awf` è ammissibile): non arrivano mai
+agli agenti via MCP. Con il modulo `agate` attivo, `richiedi_squadra` è una scrittura come le altre: alla conferma
+la guardia di Agate la valuta come `adabox.richiedi_squadra`, e `agate_strumenti` la esporta da sola.
+
 ## Configurare Agate
 
-1. Metti il bearer in una variabile d'ambiente del gateway di Agate (es. `ADABOX_MCP_TOKEN`) e importa gli
-   strumenti:
+1. Dalla console di Agate: Collegamenti → «Applicazione dell'azienda (server MCP)», con indirizzo, bearer e
+   prefisso `awf`. Oppure dalla riga di comando, con il bearer in una variabile d'ambiente del gateway di Agate
+   (es. `AWF_MCP_TOKEN`):
    ```bash
    manage.py agate_import_mcp_tools <tenant> production https://erp.cliente.it/awf/mcp/ \
-       --prefix adabox --auth-ref env:ADABOX_MCP_TOKEN --internal
+       --prefix awf --auth-ref env:AWF_MCP_TOKEN --internal
    ```
+   Il prefisso è **`awf`**: in Agate gli strumenti si chiamano `awf.cerca_record`, `awf.modifica_record`…, come
+   nel catalogo della fabbrica (§7 del contratto). `adabox.*` è già degli strumenti interni dell'assistente,
+   registrati dal modulo `agate` (`agate_strumenti`).
    Gli strumenti nascono **disattivati**: rivedi effetto, rischio e schema nell'Admin di Agate e attivali.
    Dopo ogni cambio dell'elenco delle operazioni ammesse rifai l'importazione: in Agate uno schema cambiato va in
    quarantena finché qualcuno non lo rivede.

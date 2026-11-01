@@ -27,9 +27,10 @@ from .models import OperazioneAmmessa
 
 NOME_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 # strumenti che non hanno senso per un agente esterno: parlano con altri modelli o servizi (il plugin non chiama
-# modelli), vivono in una conversazione della chat, o gestiscono l'assistente stesso
+# modelli), vivono in una conversazione della chat, o gestiscono l'assistente stesso o gli agenti (un agente non
+# assume altri agenti)
 ESCLUSI = {"chiedi_esperto", "elenco_esperti", "classifica", "previsione", "crea_pianificata", "elenco_pianificate",
-           "grafico", "tabella"}
+           "grafico", "tabella", "catalogo_agenti", "richiedi_squadra", "stato_richieste_agenti"}
 # moduli le cui viste non arrivano mai agli agenti
 MODULI_ESCLUSI = {"ai", "awf"}
 PREDEFINITE = ["elenco_viste", "descrivi_vista", "cerca_record", "leggi_record", "aggrega_record", "data_e_ora"]
@@ -50,7 +51,8 @@ class _Tutti:
 def esponibili():
     """{nome: Strumento} degli strumenti che si possono ammettere (moduli attivi, servizi configurati)."""
     from ai.strumenti import disponibili
-    return {s.nome: s for s in disponibili(_Tutti()) if s.nome not in ESCLUSI and NOME_RE.match(s.nome)}
+    return {s.nome: s for s in disponibili(_Tutti()) if s.nome not in ESCLUSI and s.app != "awf"
+            and NOME_RE.match(s.nome)}
 
 
 def ha_vista(strumento):

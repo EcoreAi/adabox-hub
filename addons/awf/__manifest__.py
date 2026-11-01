@@ -12,6 +12,8 @@
     "home": "awf:stato",
     "menu": [
         {"label": "Stato e collegamento", "url_name": "awf:stato", "permission": "awf.change_collegamento"},
+        {"label": "Catalogo", "url_name": "awf:catalogo", "permission": "awf.change_collegamento"},
+        {"label": "Richieste", "url_name": "awf:richieste", "permission": "awf.change_collegamento"},
         {"label": "Agenti", "url_name": "awf:agenti", "permission": "awf.view_agente"},
         {"label": "Operazioni ammesse", "url_name": "awf:operazioni", "permission": "awf.view_operazioneammessa"},
         {"label": "Approvazioni in attesa", "url_name": "awf:approvazioni", "permission": "awf.view_approvazione"},
@@ -20,8 +22,10 @@
         "AWF / Amministratore": ["awf.*"],
     },
     "hooks": "awf.hooks",
+    "ai": "awf.ai",
     "cron": [
         {"nome": "Battito verso la fabbrica degli agenti", "funzione": "awf.lavori.battito", "ogni": "15m"},
+        {"nome": "Stato delle richieste di agenti", "funzione": "awf.lavori.richieste", "ogni": "5m"},
     ],
     "settings": [
         {"chiave": "osservazione", "label": "Scritture degli agenti sempre in osservazione", "tipo": "booleano",

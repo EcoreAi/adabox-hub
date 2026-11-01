@@ -171,3 +171,52 @@ class Chiamata(models.Model):
 
     def __str__(self):
         return f"{self.strumento} ({self.get_esito_display()})"
+
+
+class RichiestaAgenti(models.Model):
+    """Una squadra del catalogo chiesta dal gestionale (§7 del contratto). Il token della richiesta (`wfr_...`) si
+    salva cifrato e serve solo a leggerne lo stato e a ritirarla; quando l'azienda approva in Agate arriva il token
+    della fabbrica e adabox si collega da solo."""
+    INVIATA, DA_APPROVARE, COLLEGATA, RIFIUTATA, RITIRATA = "inviata", "da_approvare", "collegata", "rifiutata", \
+        "ritirata"
+    STATI = [(INVIATA, "Inviata"), (DA_APPROVARE, "Da approvare in Agate"), (COLLEGATA, "Collegata"),
+             (RIFIUTATA, "Rifiutata"), (RITIRATA, "Ritirata")]
+    APERTE = (INVIATA, DA_APPROVARE)
+    request_id = models.CharField("id della richiesta", max_length=64, unique=True)
+    forge_url = models.URLField("indirizzo della fabbrica")
+    base_url = models.URLField("indirizzo pubblico dichiarato", blank=True)
+    team_slug = models.CharField("squadra", max_length=100)
+    team_nome = models.CharField("nome della squadra", max_length=200, blank=True)
+    team_versione = models.PositiveIntegerField("versione della squadra", default=1)
+    reparto = models.CharField("reparto", max_length=60, blank=True)
+    settimane = models.PositiveSmallIntegerField("settimane")
+    note = models.TextField("note", blank=True)
+    stato = models.CharField("stato", max_length=20, choices=STATI, default=INVIATA)
+    messaggio = models.TextField("messaggio della fabbrica", blank=True)
+    approve_url = models.URLField("dove approvare in Agate", max_length=500, blank=True)
+    token_cifrato = models.TextField("token della richiesta (cifrato)", blank=True, editable=False)
+    operazioni = models.JSONField("operazioni chieste dalla squadra", default=list, blank=True)
+    prezzo = models.JSONField("prezzo", default=dict, blank=True)
+    azienda = models.ForeignKey(Azienda, on_delete=models.SET_NULL, null=True, blank=True,
+                                verbose_name="azienda in cui lavoreranno gli agenti")
+    creata_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                  related_name="+", editable=False)
+    creata = models.DateTimeField("creata il", auto_now_add=True)
+    aggiornata = models.DateTimeField("aggiornata il", auto_now=True)
+    letta_il = models.DateTimeField("ultimo stato letto", null=True, blank=True)
+    collegata_il = models.DateTimeField("collegata il", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "richiesta di agenti"
+        verbose_name_plural = "richieste di agenti"
+        ordering = ["-creata", "-pk"]
+
+    def __str__(self):
+        return f"{self.team_nome or self.team_slug} ({self.get_stato_display()})"
+
+    @property
+    def aperta(self):
+        return self.stato in self.APERTE
+
+    def token(self):
+        return cifratura.decifra(self.token_cifrato)

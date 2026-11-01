@@ -1,0 +1,55 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Richieste di agenti · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Richieste di agenti</h1>
+  <div class="sub">Le squadre chieste ad Agentlia dal gestionale</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="{% url 'awf:catalogo' %}">Apri il catalogo</a></div></div>
+
+{% if bearer %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Da copiare ora: non si vedrà più</div></div>
+  <div class="ui-card-body">
+    <p>Indirizzo del server MCP: <code>{{ c.mcp_url }}</code></p>
+    <p>Bearer: <code>{{ bearer }}</code></p>
+    <p>Nella console di Agate apri <strong>Collegamenti → «Applicazione dell'azienda (server MCP)»</strong>, incolla indirizzo e bearer e usa il prefisso <code>awf</code>: gli strumenti arrivano in Agate come <code>awf.cerca_record</code>, <code>awf.modifica_record</code>… Rivedi effetto e rischio prima di attivarli.</p>
+    <p class="ui-help">Se lo perdi, generane uno nuovo: quello vecchio smette di valere.</p>
+  </div></section>
+{% endif %}
+
+{% if errori %}<div class="ui-alert ui-alert-warning">Stato non aggiornato per: {% for e in errori %}{{ e }}{% if not forloop.last %}; {% endif %}{% endfor %}. Si riprova da solo ogni 5 minuti.</div>{% endif %}
+
+{% for v in voci %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">{{ v.r.team_nome|default:v.r.team_slug }} · {{ v.r.settimane }} settiman{{ v.r.settimane|pluralize:"a,e" }}</div>
+  <div class="ui-card-sub">chiesta il {{ v.r.creata|date:"d/m/Y H:i" }}{% if v.r.creata_da %} da {{ v.r.creata_da.get_full_name|default:v.r.creata_da.username }}{% endif %}{% if v.r.azienda %} per {{ v.r.azienda }}{% endif %}</div></div>
+  <div class="ui-card-body">
+    <p>{% for etichetta, stato in v.tappe %}<span class="ui-pill {% if stato == 'fatto' %}ui-pill-ok{% elif stato == 'attuale' %}ui-pill-warn{% elif stato == 'errore' %}ui-pill-danger{% else %}ui-pill-neutral{% endif %}">{{ etichetta }}</span>{% if not forloop.last %} → {% endif %}{% endfor %}</p>
+    {% if v.r.messaggio %}<p>{% if v.r.stato == 'rifiutata' %}<strong>Motivo:</strong> {% endif %}{{ v.r.messaggio }}</p>{% endif %}
+    <p class="ui-help">{{ v.prossimo }}</p>
+    {% if v.r.note %}<p class="ui-help">Note: {{ v.r.note }}</p>{% endif %}
+    {% if v.r.stato == 'da_approvare' and v.r.approve_url %}<a class="ui-btn ui-btn-primary" href="{{ v.r.approve_url }}" target="_blank" rel="noopener">Approva in Agate</a>{% endif %}
+    {% if v.r.aperta %}<form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="pk" value="{{ v.r.pk }}"><button class="ui-btn ui-btn-ghost" name="azione" value="aggiorna" type="submit">Aggiorna ora</button></form>{% endif %}
+    {% if v.r.stato == 'inviata' %}<form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="pk" value="{{ v.r.pk }}"><button class="ui-btn ui-btn-ghost" name="azione" value="ritira" type="submit">Ritira</button></form>{% endif %}
+
+    {% if v.operazioni is not None %}
+    <h3 style="margin-top:16px">{% if v.r.stato == 'collegata' %}Prossimi passi{% else %}Prepara adabox per la squadra{% endif %}</h3>
+    {% if v.r.stato != 'collegata' %}<p class="ui-help">Fallo subito: Agate accetta il contratto solo se gli strumenti che la squadra userà sono già attivi. Gli agenti non lavorano finché il contratto non è approvato.</p>{% endif %}
+    <ol>
+      <li><strong>Ammetti le operazioni che la squadra chiede.</strong>
+        {% if v.operazioni %}<ul>{% for x in v.operazioni %}<li>{{ x.parole }} <code>{{ x.strumento }}{% if x.vista %} · {{ x.vista }}{% endif %}</code>
+          {% if x.stato == 'ammessa' %}<span class="ui-pill ui-pill-ok">già ammessa</span>{% elif x.stato == 'da_ammettere' %}<span class="ui-pill ui-pill-warn">da ammettere</span>{% else %}<span class="ui-pill ui-pill-neutral">non disponibile qui</span>{% endif %}</li>{% endfor %}</ul>
+        {% if v.da_ammettere %}<form method="post">{% csrf_token %}<input type="hidden" name="pk" value="{{ v.r.pk }}"><button class="ui-btn ui-btn-primary ui-btn-sm" name="azione" value="ammetti" type="submit">Ammetti con un clic</button></form>
+        {% else %}<p class="ui-help">Fatto. L'elenco completo è in <a class="ui-link" href="{% url 'awf:operazioni' %}">Operazioni ammesse</a>.</p>{% endif %}
+        {% else %}<p class="ui-help">La squadra non chiede operazioni particolari.</p>{% endif %}</li>
+      <li><strong>Collega adabox in Agate.</strong>
+        {% if c.mcp_indizio %}<p class="ui-help">Bearer generato (inizia con <code>{{ c.mcp_indizio }}…</code>). Se non l'hai messo in Agate o l'hai perso, generane uno nuovo.</p>
+        {% else %}<p class="ui-help">Genera l'indirizzo e il bearer del server MCP e incollali nella console di Agate (Collegamenti → «Applicazione dell'azienda (server MCP)», prefisso <code>awf</code>). Si vedono una volta sola.</p>{% endif %}
+        <form method="post">{% csrf_token %}<input type="hidden" name="pk" value="{{ v.r.pk }}"><button class="ui-btn {% if c.mcp_indizio %}ui-btn-ghost{% else %}ui-btn-primary{% endif %} ui-btn-sm" name="azione" value="bearer" type="submit">{% if c.mcp_indizio %}Genera un nuovo bearer{% else %}Genera indirizzo e bearer{% endif %}</button></form></li>
+      <li><strong>Controlla lo stato</strong> dell'ingaggio, gli agenti e il webhook delle approvazioni in <a class="ui-link" href="{% url 'awf:stato' %}">Stato e collegamento</a>.</li>
+    </ol>
+    {% endif %}
+  </div></section>
+{% empty %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <p class="ui-help">Nessuna richiesta finora. Scegli una squadra nel <a class="ui-link" href="{% url 'awf:catalogo' %}">catalogo</a> o chiedila all'assistente AI.</p>
+</div></section>
+{% endfor %}
+{% endblock %}

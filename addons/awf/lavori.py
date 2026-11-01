@@ -21,3 +21,14 @@ def battito():
     except fabbrica.ErroreFabbrica as e:
         return f"battito non riuscito: {e}"
     return f"ingaggio {ingaggio.get('status') or '?'}, agenti {len(ingaggio.get('agents') or [])}"
+
+
+def richieste():
+    """Ogni 5 minuti: lo stato delle richieste d'ingaggio aperte (§7.3). Una richiesta approvata in Agate porta il
+    token della fabbrica: adabox si collega da solo."""
+    from .models import RichiestaAgenti
+    aperte = RichiestaAgenti.objects.filter(stato__in=RichiestaAgenti.APERTE).count()
+    if not aperte:
+        return "nessuna richiesta aperta"
+    errori = fabbrica.aggiorna_aperte()
+    return f"richieste aperte: {aperte}" + (f", errori: {'; '.join(errori)}" if errori else "")

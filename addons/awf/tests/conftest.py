@@ -14,7 +14,9 @@ AGENTI = [{"name": "Buyer", "role": "coordinator", "agate_agent_id": "agt_buyer"
 
 
 class Fabbrica:
-    """Trasporto HTTP finto: registra le richieste e risponde con le risposte preparate per percorso."""
+    """Trasporto HTTP finto: registra le richieste e risponde con le risposte preparate per percorso (con o senza
+    la query, eventualmente preceduto dal metodo: "DELETE /api/..."). Una lista dà le risposte in sequenza; l'ultima
+    resta."""
 
     def __init__(self):
         self.richieste = []
@@ -23,8 +25,13 @@ class Fabbrica:
     def __call__(self, metodo, url, intestazioni, corpo, timeout):
         self.richieste.append({"metodo": metodo, "url": url, "intestazioni": intestazioni,
                                "corpo": json.loads(corpo) if corpo else None, "grezzo": corpo or b""})
-        percorso = url.split("://", 1)[1].split("/", 1)[1]
-        stato, risposta = self.risposte.get("/" + percorso, (404, {}))
+        percorso = "/" + url.split("://", 1)[1].split("/", 1)[1]
+        senza_query = percorso.split("?", 1)[0]
+        chiavi = [f"{metodo} {percorso}", percorso, f"{metodo} {senza_query}", senza_query]
+        voce = next((self.risposte[k] for k in chiavi if k in self.risposte), (404, {}))
+        if isinstance(voce, list):
+            voce = voce.pop(0) if len(voce) > 1 else voce[0]
+        stato, risposta = voce
         if isinstance(stato, Exception):
             raise stato
         return stato, json.dumps(risposta).encode()

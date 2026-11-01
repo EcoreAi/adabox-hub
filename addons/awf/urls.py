@@ -8,6 +8,8 @@ from . import mcp, pagine, webhook
 urlpatterns = [
     path("", RedirectView.as_view(pattern_name="awf:stato"), name="indice"),
     path("stato/", pagine.stato, name="stato"),
+    path("catalogo/", pagine.catalogo, name="catalogo"),
+    path("richieste/", pagine.richieste, name="richieste"),
     path("agenti/", pagine.elenco_agenti, name="agenti"),
     path("operazioni/", pagine.elenco_operazioni, name="operazioni"),
     path("approvazioni/", pagine.elenco_approvazioni, name="approvazioni"),

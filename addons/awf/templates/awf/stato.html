@@ -9,8 +9,8 @@
   <div class="ui-card-body">
     <p>Indirizzo del server MCP: <code>{{ c.mcp_url }}</code></p>
     <p>Bearer: <code>{{ bearer }}</code></p>
-    <p class="ui-help">In Agate metti il bearer in una variabile d'ambiente (es. <code>ADABOX_MCP_TOKEN</code>) e importa gli strumenti:
-      <code>manage.py agate_import_mcp_tools &lt;tenant&gt; production {{ c.mcp_url }} --prefix adabox --auth-ref env:ADABOX_MCP_TOKEN --internal</code>.
+    <p class="ui-help">In Agate metti il bearer in una variabile d'ambiente (es. <code>AWF_MCP_TOKEN</code>) e importa gli strumenti:
+      <code>manage.py agate_import_mcp_tools &lt;tenant&gt; production {{ c.mcp_url }} --prefix awf --auth-ref env:AWF_MCP_TOKEN --internal</code>.
       Gli strumenti nascono disattivati: rivedi effetto, rischio e schema nell'Admin di Agate prima di attivarli.
       Se perdi il bearer, rigeneralo qui sotto (il vecchio smette di valere).</p>
   </div></section>
