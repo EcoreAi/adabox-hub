@@ -28,8 +28,8 @@ R = RichiestaAgenti
 TETTI = {"llm_eur_max": ("Spesa massima per l'AI", "€"), "spend_eur_max": ("Spesa massima degli agenti", "€"),
          "tasks_max": ("Compiti al massimo", "")}
 PREZZO = {"pricing": "Tipo di prezzo", "period_eur": "Canone", "period_days": "Giorni del periodo",
-          "task_eur": "Prezzo a compito", "llm_markup": "Ricarico sul consumo AI",
-          "prepaid_credit_eur": "Credito iniziale"}
+          "task_eur": "Prezzo a compito", "llm_markup": "Ricarico sul credito dei modelli AI",
+          "prepaid_credit_eur": "Credito iniziale dei modelli AI (€ al costo del provider)"}
 
 
 def garante():
@@ -158,9 +158,16 @@ def differenze(c, proposta):
     return righe
 
 
-def tetti_in_parole(tetti):
-    """{"llm_eur_max": 60} → ["Spesa massima per l'AI: 60 €"] (solo i tetti impostati)."""
-    return [f"{TETTI.get(k, (k,))[0]}: {_tetto(k, _numero(v))}" for k, v in sorted((tetti or {}).items())
+def tetti_in_parole(tetti, prezzo=None):
+    """{"llm_eur_max": 60} → ["Spesa massima per l'AI: 60 €"] (solo i tetti impostati). Con il listino (`prezzo`) il
+    tetto dei modelli dice anche quanto vale per l'azienda: è al costo del provider (B9, `squadre.tetto_ai`)."""
+    from . import squadre
+
+    def parole(k, n):
+        if k == "llm_eur_max" and prezzo is not None:
+            return squadre.tetto_ai(prezzo, n)
+        return _tetto(k, n)
+    return [f"{TETTI.get(k, (k,))[0]}: {parole(k, _numero(v))}" for k, v in sorted((tetti or {}).items())
             if _numero(v) is not None]
 
 

@@ -245,7 +245,7 @@ def test_assistente_legge_il_catalogo(scena):
     assert not risultato["errore"]
     testo = risultato["contenuto"]
     assert "lead-crm-adabox" in testo and "Qualificatore lead" in testo and "Modificare: Opportunità" in testo
-    assert "ricarico 40%" in testo and '"giorni_di_prova": 3' in testo
+    assert "credito prepagato 42 € (30 € al costo del provider)" in testo and '"giorni_di_prova": 3' in testo
     assert "/awf/negozio/lead-crm-adabox/" in testo and "Qualifica i lead" in testo
 
 
@@ -259,7 +259,8 @@ def test_assistente_propone_e_alla_conferma_chiede_la_squadra(scena):
     assert p.strumento == "richiedi_squadra" and p.rischio == "scrittura" and "Lead e CRM" in p.titolo
     assert p.url == "/awf/negozio/lead-crm-adabox/"                                  # la scheda dell'agente
     dettagli = {d["campo"]: d["dopo"] for d in p.dettagli}
-    assert dettagli["Costo fisso stimato"] == "600 €" and "ricarico del 40%" in dettagli["Consumo AI"]
+    assert dettagli["Costo fisso stimato"] == "600 €" and "credito iniziale 42 € (30 € al costo" in dettagli["Modelli AI"]
+    assert "costo del provider + 40%" in dettagli["Modelli AI"]
     assert "periodo di prova" in dettagli["Prova"] and "osservazione" not in str(p.dettagli)
     assert "conferma il contratto" in dettagli["Poi"] and dettagli["Durata"] == "4 settimane"
     assert not [x for x in finta.richieste if x["metodo"] == "POST"] and not RichiestaAgenti.objects.exists()

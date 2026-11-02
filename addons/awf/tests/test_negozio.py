@@ -112,7 +112,7 @@ def test_scheda_con_tutte_le_sezioni_e_il_calcolo(client, superuser, vetrina):
     assert "Non promette prezzi né sconti" in pagina and "niente password" in pagina
     assert "Vede soltanto: <strong>Opportunità</strong>" in pagina and "Vede le mie fatture?" in pagina
     assert '<strong id="stima">600 €</strong>' in pagina                            # 4 settimane: 150 × 4
-    assert "consumo AI con ricarico 40%" in pagina and "credito iniziale di 30 €" in pagina
+    assert "credito iniziale di 42 € (30 € al costo del provider)" in pagina and "costo del provider + 40%" in pagina
     assert "I primi 3 giorni sono di prova" in pagina and 'data-periodo="150" data-giorni="7"' in pagina
     assert "awf.lancia_razzi" not in pagina and "Non disponibile in questa versione" in pagina
     pagina = client.get("/awf/negozio/lead-crm-adabox/?settimane=3").content.decode()
@@ -366,3 +366,33 @@ def test_pagine_tecniche_nella_scheda_avanzate(client, superuser, collegato, fin
     r = client.get("/awf/stato/")
     attive = [v["label"] for v in r.context["menu_app"] if v["attiva"]]
     assert attive == ["Avanzate"] and r.context["app_corrente"]["label"] == "Agenti AI"
+
+
+def test_modelli_ai_costo_e_prezzo():
+    """B9: credito e tetto sono al costo del provider; per l'azienda valgono costo × ricarico. Senza credito i modelli
+    li paga l'azienda al suo provider e Agentlia non li fattura."""
+    from decimal import Decimal
+
+    from awf import contratto, squadre
+    prepagato = {"period_eur": 150, "period_days": 7, "llm_markup": 1.4, "prepaid_credit_eur": 40}
+    m = squadre.modelli_ai(prepagato)
+    assert m["prepagato"] and m["credito"] == "56 € (40 € al costo del provider)"
+    assert "costo del provider + 40%" in m["spiega"] and "in fattura non c'è altro" in m["spiega"]
+    assert squadre.prezzo(prepagato) == ("150 € ogni 7 giorni · modelli AI: credito prepagato 56 € "
+                                         "(40 € al costo del provider)")
+    assert squadre.tetto_ai(prepagato, Decimal(100)) == ("100 € al costo del provider (fino a 140 € di credito al "
+                                                          "prezzo di Agentlia)")
+    assert contratto.tetti_in_parole({"llm_eur_max": 100, "tasks_max": 5}, prepagato) == [
+        "Spesa massima per l'AI: 100 € al costo del provider (fino a 140 € di credito al prezzo di Agentlia)",
+        "Compiti al massimo: 5"]
+    assert contratto.tetti_in_parole({"llm_eur_max": 100}) == ["Spesa massima per l'AI: 100 €"]
+
+    chiave_sua = {"period_eur": 150, "period_days": 7, "llm_markup": 1.4}
+    m = squadre.modelli_ai(chiave_sua)
+    assert not m["prepagato"] and m["credito"] == "" and "Agentlia non li fattura" in m["spiega"]
+    assert squadre.prezzo(chiave_sua) == "150 € ogni 7 giorni · modelli AI pagati da voi al vostro provider"
+    assert squadre.tetto_ai(chiave_sua, Decimal(100)) == "100 € al costo del provider, pagati da voi al provider"
+
+    al_costo = {"prepaid_credit_eur": 40}
+    assert squadre.modelli_ai(al_costo)["credito"] == "40 €"
+    assert squadre.tetto_ai(al_costo, Decimal(100)) == "100 € al costo del provider"

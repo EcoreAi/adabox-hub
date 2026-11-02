@@ -26,10 +26,16 @@ quattro schede, nella barra dell'app come le altre app:
   poco». Senza indirizzo della fabbrica, un solo campo («Prima di iniziare»). `/awf/catalogo/` porta qui.
 - **Scheda dell'agente** (`/awf/negozio/<slug>/`): Cosa fa per te, Una giornata tipo, Cosa può fare ✓ (in parole, con
   i nomi delle viste di adabox), Cosa non farà mai ✗, Quali dati vede (e cosa non vede), Quanto costa con il calcolo
-  (settimane → `period_eur × ⌈settimane·7 / period_days⌉`, in pagina senza ricaricare e con `?settimane=`), consumo AI
-  con il ricarico, credito iniziale, giorni di prova, Domande frequenti, **Assumi**. Avvisa se l'agente usa un'app non
-  installata. La vetrina viene da `showcase` del catalogo (§7.1, facoltativo); quando manca si ricava da descrizione,
-  ruoli e operazioni, con alcune domande frequenti di base.
+  (settimane → `period_eur × ⌈settimane·7 / period_days⌉`, in pagina senza ricaricare e con `?settimane=`), i modelli
+  AI, giorni di prova, Domande frequenti, **Assumi**. Avvisa se l'agente usa un'app non installata. La vetrina viene
+  da `showcase` del catalogo (§7.1, facoltativo); quando manca si ricava da descrizione, ruoli e operazioni, con alcune
+  domande frequenti di base.
+- **I modelli AI: costo e prezzo** (`squadre.modelli_ai`, `squadre.tetto_ai`). Credito iniziale e tetto dei modelli
+  sono al costo del provider, quello che conta Agate; per l'azienda valgono costo × `llm_markup`. Scheda, cassa,
+  assistente e contratto da riconfermare dicono tutti e due i numeri: «Credito iniziale: 56 € (40 € al costo del
+  provider)», «Spesa massima per l'AI: 100 € al costo del provider (fino a 140 € di credito al prezzo di Agentlia)».
+  Con il credito prepagato la fabbrica non fattura altro per i modelli; senza credito i modelli li paga l'azienda al
+  suo provider, con la sua chiave in Agate, e la fabbrica non li fattura.
 - **Assumi** (`/awf/assumi/<slug>/`): **una pagina sola**, già compilata con valori prudenti — 4 settimane,
   responsabile chi chiede, nessuna persona, «cosa può fare» con le scelte proposte — un riepilogo (agente, cosa fa
   come elenco puntato diviso in **Sì / Con il tuo ok / Mai**, costo stimato, prova, cosa succede adesso) e un bottone
@@ -216,7 +222,7 @@ gestisce AWF (permesso `awf.change_collegamento`; anche le funzioni lo ricontrol
   ruoli, cosa può fare, cosa non farà mai, prezzo, giorni di prova, link alla scheda);
 - `richiedi_squadra` (scrittura: `team`, `settimane`, `note`): diventa una **proposta** che la persona conferma con
   il bottone (il link porta alla scheda dell'agente). L'anteprima mostra agente, ruoli, durata, prezzo, il costo fisso
-  stimato, il consumo AI con il ricarico, i giorni di prova, cosa può fare e i prossimi passi. Alla conferma la
+  stimato, i modelli AI (credito a prezzo e a costo, o pagati dall'azienda al suo provider), i giorni di prova, cosa può fare e i prossimi passi. Alla conferma la
   richiesta parte come dal Negozio, con le scelte proposte (si cambiano poi da I miei agenti), e l'esito porta a
   `/awf/richieste/`;
 - `stato_richieste_agenti` (lettura): le richieste con stato, messaggio e prossimo passo.

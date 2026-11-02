@@ -92,7 +92,7 @@ def in_parole(op, tutte=None):
 
 
 def prezzo(p):
-    """«150 € ogni 7 giorni + consumo AI (ricarico 40%) · credito iniziale 30 €»."""
+    """«150 € ogni 7 giorni · modelli AI: credito prepagato 42 € (30 € al costo del provider)»."""
     parti = []
     periodo, giorni = decimale(p.get("period_eur")), decimale(p.get("period_days"))
     if periodo and giorni:
@@ -100,13 +100,48 @@ def prezzo(p):
     compito = decimale(p.get("task_eur"))
     if compito:
         parti.append(f"{euro(compito)} € a compito")
-    ricarico = decimale(p.get("llm_markup"))
-    if ricarico is not None:
-        percento = (ricarico - 1) * 100
-        parti.append(f"consumo AI (ricarico {numero(percento)}%)" if percento > 0 else "consumo AI al costo")
     testo = " + ".join(parti) or "prezzo da concordare con Agentlia"
-    credito = decimale(p.get("prepaid_credit_eur"))
-    return f"{testo} · credito iniziale {euro(credito)} €" if credito else testo
+    m = modelli_ai(p)
+    return f"{testo} · " + (f"modelli AI: credito prepagato {m['credito']}" if m["prepagato"] else m["breve"])
+
+
+def _ricarico(p):
+    r = decimale(p.get("llm_markup"))
+    return r if r is not None and r > 1 else Decimal(1)
+
+
+def modelli_ai(p):
+    """Chi paga i modelli AI e quanto, in parole, dal listino della vetrina (B9). Credito e tetto sono al costo del
+    provider, quello che conta Agate; al prezzo di Agentlia valgono costo × ricarico (`llm_markup`). Con il credito
+    prepagato l'azienda lo compra a prezzo e Agentlia non fattura altro per i modelli; senza, i modelli li paga
+    l'azienda al suo provider (la sua chiave in Agate) e Agentlia non li fattura."""
+    ricarico, credito = _ricarico(p), decimale(p.get("prepaid_credit_eur")) or Decimal(0)
+    percento = numero((ricarico - 1) * 100)
+    if credito <= 0:
+        return {"prepagato": False, "ricarico": ricarico, "percento": percento, "credito": "",
+                "breve": "modelli AI pagati da voi al vostro provider",
+                "spiega": "I modelli AI li paga la vostra azienda al suo provider, con la sua chiave in Agate: "
+                          "Agentlia non li fattura."}
+    costo = f"{euro(credito)} € al costo del provider"
+    return {"prepagato": True, "ricarico": ricarico, "percento": percento,
+            "credito": f"{euro(credito * ricarico)} € ({costo})" if ricarico > 1 else f"{euro(credito)} €",
+            "breve": "modelli AI con credito prepagato",
+            "spiega": ("Il credito dei modelli AI si compra al prezzo di Agentlia (costo del provider + "
+                       f"{percento}%) e si consuma al costo del provider: in fattura non c'è altro per i modelli."
+                       if ricarico > 1 else "Il credito dei modelli AI si compra e si consuma al costo del "
+                                            "provider: in fattura non c'è altro per i modelli.")}
+
+
+def tetto_ai(p, valore):
+    """Il tetto dei modelli AI (a costo) con quanto vale per l'azienda: «100 € al costo del provider (fino a 140 €
+    di credito al prezzo di Agentlia)»."""
+    m = modelli_ai(p or {})
+    testo = f"{euro(valore)} € al costo del provider"
+    if not m["prepagato"]:
+        return f"{testo}, pagati da voi al provider"
+    if m["ricarico"] > 1:
+        return f"{testo} (fino a {euro(valore * m['ricarico'])} € di credito al prezzo di Agentlia)"
+    return testo
 
 
 def settimanale(p):

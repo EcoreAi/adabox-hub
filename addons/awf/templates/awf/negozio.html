@@ -39,7 +39,7 @@
     {% if s.slogan %}<p style="margin:0">{{ s.slogan }}</p>{% endif %}
     {% if s.vantaggi %}<ul class="ui-elenco-si">{% for v in s.vantaggi|slice:":3" %}<li>{{ v }}</li>{% endfor %}</ul>{% endif %}
     <div>{% if s.giorni_prova %}<span class="ui-pill ui-pill-info">{{ s.giorni_prova }} giorn{{ s.giorni_prova|pluralize:"o,i" }} di prova</span>{% endif %}</div>
-    <div class="ui-vetrina-prezzo">{% if s.settimana %}da {{ s.settimana }} €/settimana{% else %}prezzo su misura{% endif %} <span class="ui-help">+ consumo AI</span></div>
+    <div class="ui-vetrina-prezzo">{% if s.settimana %}da {{ s.settimana }} €/settimana{% else %}prezzo su misura{% endif %} <span class="ui-help">+ modelli AI</span></div>
     <div class="ui-vetrina-azioni">
       <a class="ui-btn ui-btn-secondary" href="{% url 'awf:scheda' s.slug %}">Scopri</a>
       <a class="ui-btn ui-btn-primary" href="{% url 'awf:assumi' s.slug %}">Assumi</a>

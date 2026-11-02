@@ -73,17 +73,14 @@ def anteprima_richiedi(contesto, team="", settimane=None, note=""):
     s, settimane, note = _valida(team, settimane, note)
     d = squadre.descrivi(s)
     stima = squadre.stima(s["prezzo"], settimane)
-    ricarico = squadre.decimale(s["prezzo"].get("llm_markup"))
-    consumo = (f"a consumo, con ricarico del {squadre.numero((ricarico - 1) * 100)}%" if ricarico and ricarico > 1
-               else "a consumo")
-    credito = squadre.decimale(s["prezzo"].get("prepaid_credit_eur"))
+    m = squadre.modelli_ai(s["prezzo"])
     dettagli = [{"campo": "Agente", "dopo": d["nome_e_reparto"]},
                 {"campo": "Ruoli", "dopo": ", ".join(m["nome"] for m in d["membri"]) or "—"},
                 {"campo": "Durata", "dopo": _settimane(settimane)},
                 {"campo": "Prezzo", "dopo": d["prezzo_testo"]},
                 {"campo": "Costo fisso stimato", "dopo": f"{squadre.euro(stima)} €" if stima is not None else "—"},
-                {"campo": "Consumo AI", "dopo": consumo + (f"; credito iniziale {squadre.euro(credito)} €"
-                                                           if credito else "")},
+                {"campo": "Modelli AI", "dopo": (f"credito iniziale {m['credito']}. " if m["prepagato"] else "")
+                 + m["spiega"]},
                 {"campo": "Prova", "dopo": f"{d['giorni_prova']} giorni di periodo di prova (gli agenti leggono, le "
                                            "modifiche si registrano senza eseguirle)" if d["giorni_prova"] else "—"},
                 {"campo": "Cosa può fare", "dopo": "; ".join(d["operazioni_parole"]) or "—"}]

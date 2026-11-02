@@ -209,17 +209,15 @@ def _settimane(valore, altrimenti=4):
 
 
 def costo(s, settimane):
-    """Il costo in parole per la scheda e il riepilogo: fisso stimato, consumo AI, credito iniziale."""
+    """Il costo in parole per la scheda e il riepilogo: fisso stimato e i modelli AI (chi li paga, il credito a prezzo
+    e a costo: `squadre.modelli_ai`)."""
     p = s["prezzo"]
     stima = squadre.stima(p, settimane)
-    ricarico = squadre.decimale(p.get("llm_markup"))
-    credito = squadre.decimale(p.get("prepaid_credit_eur"))
+    m = squadre.modelli_ai(p)
     periodo, giorni = squadre.decimale(p.get("period_eur")), squadre.decimale(p.get("period_days"))
     return {"stima": squadre.euro(stima) if stima is not None else "",
             "periodo": squadre.euro(periodo) if periodo else "", "giorni": squadre.numero(giorni) if giorni else "",
-            "consumo": (f"consumo AI con ricarico {squadre.numero((ricarico - 1) * 100)}%"
-                        if ricarico is not None and ricarico > 1 else "consumo AI al costo"),
-            "credito": squadre.euro(credito) if credito else ""}
+            "consumo": m["breve"], "credito": m["credito"], "spiega": m["spiega"]}
 
 
 @login_required
@@ -342,7 +340,7 @@ def _pagina_assumi(request, s, b, righe, errori, password_sbagliata=False, inclu
         "costo": costo(s, b["settimane"]), "gruppi": gruppi, "con_ok": len(gruppi[1][2]),
         "app_mancanti": squadre.app_mancanti(righe), "c": c,
         "base_url_proposta": b["base_url"] or c.base_url or _url_base(request),
-        "password_sbagliata": password_sbagliata, "tetti": contratto.tetti_in_parole(s.get("tetti")),
+        "password_sbagliata": password_sbagliata, "tetti": contratto.tetti_in_parole(s.get("tetti"), s["prezzo"]),
         "pronto": pronto(), "configura": configura_url(), "agate": agate_attivo(),
         "incluso": incluso_possibile(), "incluso_errore": incluso_errore, "chiedi_email": not request.user.email,
         "passi_avvio": passi_incluso(0),
@@ -498,7 +496,7 @@ def avanzamento(r, c):
                 "testo": "Agentlia ha proposto un contratto diverso da quello che hai confermato:",
                 "conferma": {"differenze": contratto.differenze(r.consenso, r.proposta),
                              "settimane": r.proposta.get("weeks"),
-                             "tetti": contratto.tetti_in_parole(r.proposta.get("caps")),
+                             "tetti": contratto.tetti_in_parole(r.proposta.get("caps"), r.proposta.get("price") or {}),
                              "prezzo": squadre.prezzo(r.proposta.get("price") or {})}}
     if r.decisione == R.RIFIUTATA_QUI:
         return {"titolo": "Contratto rifiutato", "pill": "ui-pill-neutral", "ricarica": RICARICA_PERSONE,
