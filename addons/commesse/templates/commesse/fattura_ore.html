@@ -1,0 +1,20 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Fattura le ore · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Fattura le ore</h1><div class="sub">{{ progetto }} · {{ progetto.cliente|default:"senza cliente" }}</div></div>
+  <a class="ui-btn ui-btn-secondary" href="{% url 'commesse:condizioni_progetto' progetto.pk %}">Tariffe</a></div>
+{% if voci %}
+<form method="post" data-ore-form>{% csrf_token %}
+<section class="ui-card is-revealed"><div class="ui-table-wrap"><table class="ui-table is-revealed">
+  <thead><tr><th></th><th>Data</th><th>Persona</th><th>Attività</th><th class="num">Ore</th><th class="num">Tariffa</th><th class="num">Importo</th></tr></thead>
+  <tbody>{% for v in voci %}<tr>
+    <td><input type="checkbox" name="riga" value="{{ v.riga.pk }}" checked data-ore-riga data-ore="{{ v.ore|stringformat:'s' }}" data-importo="{{ v.importo|stringformat:'s' }}" aria-label="Fattura le ore del {{ v.riga.data|date:'d/m/Y' }}"></td>
+    <td>{{ v.riga.data|date:"d/m/Y" }}</td><td>{{ v.riga.utente|default:"—" }}</td>
+    <td>{% if v.riga.compito %}{{ v.riga.compito }}{% else %}{{ v.riga.descrizione }}{% endif %}{% if v.ore != v.riga.ore %} <span class="ui-pill ui-pill-info">{{ v.riga.ore|floatformat:"-2" }} h, in parte nel monte ore</span>{% endif %}</td>
+    <td class="num">{{ v.ore|floatformat:"-2" }}</td><td class="num">{% if v.tariffa %}{{ v.tariffa|floatformat:2 }} €{% else %}<span class="ui-pill ui-pill-warn">Manca</span>{% endif %}</td><td class="num">{{ v.importo|floatformat:2 }} €</td></tr>{% endfor %}</tbody>
+</table></div></section>
+<div class="cm-totale-vivo"><span><span data-ore-somma>0</span> ore · imponibile <strong data-ore-totale>0</strong></span>
+  <button class="ui-btn ui-btn-primary" type="submit"><svg><use href="#icon-check"/></svg> Crea la fattura in bozza</button></div>
+</form>
+{% else %}<div class="ui-card is-revealed"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Non ci sono ore da fatturare su questo progetto.</p></div></div>{% endif %}
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends 'theme/base.html' %}
+{% block title %}La tua opinione · {{ theme.brand }}{% endblock %}
+{% block public_content %}
+<div class="ui-login df-sfondo"><div class="ui-login-card hd-valuta df-entra">
+  {% if scaduto %}
+  <div class="ui-login-header"><h1>Link non valido</h1><p>Il link è scaduto o non è corretto.</p></div>
+  {% elif grazie %}
+  <div class="ui-login-header hd-grazie"><div class="hd-grande" aria-hidden="true">{{ esistente.stelle }}</div><h1>Grazie!</h1>
+    <p>{% if esistente.voto >= 4 %}Ci fa molto piacere: lo diremo a chi ti ha seguito.{% else %}Ci dispiace: qualcuno di noi ti ricontatterà presto.{% endif %}</p></div>
+  {% else %}
+  <div class="ui-login-header"><h1>Com'è andata?</h1><p>{{ ticket.numero }} · {{ ticket.oggetto }}</p></div>
+  <form method="post" class="ui-login-body">{% csrf_token %}
+    {% if errore %}<div class="ui-alert ui-alert-danger">Scegli quante stelle dare.</div>{% endif %}
+    <fieldset class="hd-scelta-stelle"><legend class="ui-sr-only">Voto da 1 a 5</legend>
+      {% for v in voti reversed %}<input type="radio" id="v{{ v }}" name="voto" value="{{ v }}" required{% if esistente.voto == v %} checked{% endif %}><label for="v{{ v }}" title="{{ v }} su 5" aria-label="{{ v }} su 5">★</label>{% endfor %}
+    </fieldset>
+    <label class="ui-label" for="hd-commento">Vuoi aggiungere qualcosa?</label>
+    <textarea class="ui-input" id="hd-commento" name="commento" rows="3" maxlength="4000">{{ esistente.commento }}</textarea>
+    <button class="ui-btn ui-btn-primary" type="submit" style="width:100%;justify-content:center;margin-top:14px">Invia</button>
+  </form>
+  {% endif %}
+</div></div>
+{% endblock %}

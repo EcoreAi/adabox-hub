@@ -8,6 +8,8 @@ class HelpdeskConfig(AppConfig):
 
     def ready(self):
         from core.chatter import entrata
+        from core.registry import hooks
 
         from .email import apri_ticket
         entrata.registra_gestore(apri_ticket)
+        hooks.sezione_dettaglio("helpdesk.Ticket", "helpdesk/_ticket.html", order=8)

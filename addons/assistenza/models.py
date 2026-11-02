@@ -50,6 +50,9 @@ class Contratto(AziendaMixin):
     fine = models.DateField("al", null=True, blank=True, help_text="vuoto = senza scadenza")
     attivo = models.BooleanField("attivo", default=True)
     note = models.TextField("note", blank=True)
+    ore_incluse = models.DecimalField("monte ore incluso", max_digits=8, decimal_places=2, default=0,
+                                      help_text="ore comprese nel contratto; 0 = nessun monte ore, si fattura tutto")
+    monte_avvisato = models.PositiveSmallIntegerField("avviso sul monte ore mandato al", default=0, editable=False)
 
     class Meta(AziendaMixin.Meta):
         verbose_name = "contratto"

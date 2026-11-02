@@ -18,6 +18,7 @@
       {% with nome=request.resolver_match.url_name %}
       <a href="{% url 'assistenza:portale' %}" class="{% if nome == 'portale' or nome == 'portale_ticket' %}is-active{% endif %}">Le mie richieste</a>
       <a href="{% url 'assistenza:portale_progetti' %}" class="{% if nome == 'portale_progetti' %}is-active{% endif %}">Progetti</a>
+      <a href="{% url 'assistenza:portale_guida' %}" class="{% if nome == 'portale_guida' or nome == 'portale_articolo' %}is-active{% endif %}">Guida</a>
       <a href="{% url 'assistenza:portale_nuovo' %}" class="{% if nome == 'portale_nuovo' %}is-active{% endif %}">Nuova segnalazione</a>
       {% endwith %}
     </nav>

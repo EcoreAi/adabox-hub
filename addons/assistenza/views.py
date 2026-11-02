@@ -25,7 +25,7 @@ class ContrattoView(ModelView):
     list_display = ["nome", "cliente", "politica", "inizio", "fine", "valido"]
     list_filter = ["politica", "attivo"]
     search_fields = ["nome", "cliente__nome"]
-    form_layout = [("Contratto", [("nome", "cliente"), ("politica", "attivo"), ("inizio", "fine"), "note"])]
+    form_layout = [("Contratto", [("nome", "cliente"), ("politica", "attivo"), ("inizio", "fine"), "ore_incluse", "note"])]
     company_field = "azienda"
     chatter = True
 

@@ -92,7 +92,9 @@ class Ticket(AziendaMixin, ProprietaMixin):
             partenza = self.creato or timezone.now()
             self.scadenza_sla, self.sla_avvisato = partenza + timedelta(hours=self.ore_sla()), False
             extra |= {"scadenza_sla", "sla_avvisato"}
+        appena_chiuso = False
         if self.fase_id and self.fase.chiusa:
+            appena_chiuso = self.chiuso_il is None
             self.chiuso_il = self.chiuso_il or timezone.now()
         else:
             self.chiuso_il = None
@@ -100,3 +102,65 @@ class Ticket(AziendaMixin, ProprietaMixin):
             kwargs["update_fields"] = set(kwargs["update_fields"]) | extra | {"chiuso_il"}
         super().save(*args, **kwargs)
         self._priorita_caricata = self.priorita
+        if appena_chiuso and self.email_cliente:
+            from core import lavori
+            lavori.accoda("helpdesk.lavori.chiedi_valutazione", ticket_id=self.pk)
+
+
+class Valutazione(models.Model):
+    """Il giudizio del cliente su un ticket chiuso: si dà dal link nell'email, senza accesso."""
+    VOTI = [(1, "Pessimo"), (2, "Scarso"), (3, "Sufficiente"), (4, "Buono"), (5, "Ottimo")]
+    ticket = models.OneToOneField(Ticket, on_delete=models.CASCADE, related_name="valutazione", verbose_name="ticket")
+    voto = models.PositiveSmallIntegerField("voto", choices=VOTI)
+    commento = models.TextField("commento", blank=True)
+    creata = models.DateTimeField("data", auto_now=True)
+
+    class Meta:
+        verbose_name = "valutazione"
+        verbose_name_plural = "valutazioni"
+        ordering = ["-creata"]
+
+    def __str__(self):
+        return f"{self.ticket.numero}: {self.voto}/5"
+
+    @property
+    def stelle(self):
+        return "★" * self.voto + "☆" * (5 - self.voto)
+
+
+class CategoriaArticolo(models.Model):
+    nome = models.CharField("nome", max_length=80, unique=True)
+    descrizione = models.CharField("descrizione", max_length=200, blank=True)
+    ordine = models.PositiveSmallIntegerField("ordine", default=10)
+
+    class Meta:
+        verbose_name = "categoria della guida"
+        verbose_name_plural = "categorie della guida"
+        ordering = ["ordine", "nome"]
+
+    def __str__(self):
+        return self.nome
+
+
+class Articolo(AziendaMixin):
+    """Un articolo della guida: risponde alle domande prima che diventino ticket."""
+    titolo = models.CharField("titolo", max_length=200)
+    categoria = models.ForeignKey(CategoriaArticolo, on_delete=models.SET_NULL, null=True, blank=True, related_name="articoli",
+                                  verbose_name="categoria")
+    corpo = models.TextField("testo")
+    pubblicato = models.BooleanField("pubblicato", default=False, help_text="i clienti lo vedono nel portale")
+    pubblico = models.BooleanField("visibile a tutti", default=False, help_text="anche senza accesso, nella guida online")
+    visite = models.PositiveIntegerField("visite", default=0, editable=False)
+    utile_si = models.PositiveIntegerField("utile", default=0, editable=False)
+    utile_no = models.PositiveIntegerField("non utile", default=0, editable=False)
+    autore = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, editable=False,
+                               related_name="+", verbose_name="autore")
+    aggiornato = models.DateTimeField("aggiornato il", auto_now=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "articolo della guida"
+        verbose_name_plural = "articoli della guida"
+        ordering = ["categoria__ordine", "titolo"]
+
+    def __str__(self):
+        return self.titolo

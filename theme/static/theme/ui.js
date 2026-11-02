@@ -126,4 +126,52 @@
       window.uiToast('Codici copiati');
     });
   });
+
+  // --- Cronometro delle ore nella barra in alto
+  document.querySelectorAll('[data-cronometro-da]').forEach((el) => {
+    const da = Number(el.dataset.cronometroDa);
+    const due = (n) => String(n).padStart(2, '0');
+    const scrivi = () => {
+      const s = Math.max(0, Math.floor(Date.now() / 1000) - da);
+      el.textContent = `${due(Math.floor(s / 3600))}:${due(Math.floor(s / 60) % 60)}:${due(s % 60)}`;
+    };
+    scrivi();
+    setInterval(scrivi, 1000);
+  });
+  // --- Guida: articoli suggeriti mentre si scrive l'oggetto
+  document.querySelectorAll('[data-guida-cerca]').forEach((campo) => {
+    const elenco = document.getElementById(campo.dataset.guidaCerca);
+    let attesa;
+    campo.addEventListener('input', () => {
+      clearTimeout(attesa);
+      attesa = setTimeout(async () => {
+        const testo = campo.value.trim();
+        if (testo.length < 3) { elenco.hidden = true; return; }
+        const risposta = await fetch(`${elenco.dataset.url}?q=${encodeURIComponent(testo)}`, { credentials: 'same-origin' });
+        if (!risposta.ok) return;
+        const { articoli } = await risposta.json();
+        elenco.replaceChildren(...articoli.map((a) => {
+          const voce = document.createElement('a');
+          voce.href = a.url; voce.target = '_blank'; voce.rel = 'noopener'; voce.textContent = a.titolo;
+          return voce;
+        }));
+        elenco.hidden = !articoli.length;
+      }, 300);
+    });
+  });
+
+  // --- Fatturazione delle ore: il totale segue le righe scelte
+  document.querySelectorAll('[data-ore-form]').forEach((form) => {
+    const totale = form.querySelector('[data-ore-totale]');
+    const ore = form.querySelector('[data-ore-somma]');
+    const formato = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' });
+    const ricalcola = () => {
+      let euro = 0; let h = 0;
+      form.querySelectorAll('[data-ore-riga]:checked').forEach((c) => { euro += Number(c.dataset.importo); h += Number(c.dataset.ore); });
+      totale.textContent = formato.format(euro);
+      ore.textContent = h.toLocaleString('it-IT', { maximumFractionDigits: 2 });
+    };
+    form.addEventListener('change', ricalcola);
+    ricalcola();
+  });
 })();

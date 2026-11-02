@@ -1,0 +1,11 @@
+<article class="hd-articolo df-entra">
+  <a class="ui-link" href="{{ indietro }}">← Tutti gli articoli</a>
+  <h1>{{ articolo.titolo }}</h1>
+  <div class="ui-help">{% if articolo.categoria %}{{ articolo.categoria }} · {% endif %}Aggiornato il {{ articolo.aggiornato|date:"d/m/Y" }}</div>
+  <div class="hd-testo">{{ articolo.corpo|linebreaks }}</div>
+  <form method="post" action="{{ utile_url }}" class="hd-utile">{% csrf_token %}
+    {% if voto_dato %}<span>Grazie per il riscontro!</span>{% else %}<span>Ti è stato utile?</span>
+    <button class="ui-btn ui-btn-secondary ui-btn-sm" name="utile" value="si">Sì</button>
+    <button class="ui-btn ui-btn-ghost ui-btn-sm" name="utile" value="no">No</button>{% endif %}
+  </form>
+</article>

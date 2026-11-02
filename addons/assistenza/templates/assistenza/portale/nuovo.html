@@ -9,7 +9,8 @@
     <select class="ui-input" id="pt-progetto" name="progetto" required>{% for p in progetti %}<option value="{{ p.pk }}">{{ p.nome }}</option>{% endfor %}</select>
     <label class="ui-label" for="pt-tipo">Tipo</label>
     <select class="ui-input" id="pt-tipo" name="tipo">{% for valore, nome in tipi %}<option value="{{ valore }}">{{ nome }}</option>{% endfor %}</select>
-    <label class="ui-label" for="pt-oggetto">Oggetto</label><input class="ui-input" id="pt-oggetto" name="oggetto" maxlength="200" required>
+    <label class="ui-label" for="pt-oggetto">Oggetto</label><input class="ui-input" id="pt-oggetto" name="oggetto" maxlength="200" required autocomplete="off" data-guida-cerca="pt-suggeriti">
+    <div id="pt-suggeriti" class="hd-suggeriti" data-url="{% url 'assistenza:portale_guida_cerca' %}" aria-live="polite" hidden></div>
     <label class="ui-label" for="pt-descrizione">Descrizione</label>
     <textarea class="ui-input" id="pt-descrizione" name="descrizione" rows="6" placeholder="Cosa stavi facendo, cosa ti aspettavi, cosa è successo"></textarea>
     <label class="ui-label" for="pt-file">Allegati (fino a 5)</label><input id="pt-file" type="file" name="file" multiple>

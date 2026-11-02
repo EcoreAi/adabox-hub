@@ -1,7 +1,7 @@
 {
     "name": "Assistenza clienti",
     "summary": "Assistenza per progetto: portale clienti, widget di segnalazione, contratti SLA, ticket e compiti",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Servizi",
     "depends": ["helpdesk", "progetti"],

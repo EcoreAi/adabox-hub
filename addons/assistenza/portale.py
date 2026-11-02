@@ -1,6 +1,7 @@
 """Portale clienti: il cliente (utente esterno con un accesso legato al suo contatto) vede i ticket e i progetti
 della sua azienda, apre ticket, risponde e allega file. Vede solo i messaggi pubblici: mai le note interne, i
 tracciamenti o gli eventi di sistema. Gli utenti interni non entrano qui: hanno l'helpdesk."""
+from django.apps import apps
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -10,8 +11,8 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
 from django.db import transaction
-from django.db.models import Q
-from django.http import Http404
+from django.db.models import F, Q
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.crypto import get_random_string
@@ -22,7 +23,9 @@ from django.views.decorators.http import require_POST
 from contatti.models import Contatto
 from core import allegati, chatter
 from core.models import Allegato, Messaggio, ProfiloUtente
-from helpdesk.models import FaseTicket, Ticket
+from helpdesk.guida import cerca
+from helpdesk.models import Articolo, FaseTicket, Ticket
+from helpdesk.pagine import _voto_dato, contesto_guida, registra_utilita
 from progetti.models import Progetto
 
 from .instradamento import instrada
@@ -77,12 +80,54 @@ def _file(request, ticket):
     return caricati
 
 
+def _monte_ore(accesso):
+    """I contratti con monte ore del cliente, se il modulo Commesse conta le ore."""
+    if not apps.is_installed("commesse"):
+        return []
+    from commesse.operazioni import monte_ore
+    from .models import Contratto
+    return [monte_ore(c) for c in Contratto.objects.filter(cliente=accesso.cliente, attivo=True, ore_incluse__gt=0)]
+
+
 @portale
 def home(request):
     ticket = _ticket(request.accesso)
     return render(request, "assistenza/portale/home.html", _contesto(
         request, ticket=ticket[:100], aperti=ticket.filter(fase__chiusa=False).count(),
-        progetti=_progetti(request.accesso)))
+        progetti=_progetti(request.accesso), monti=_monte_ore(request.accesso)))
+
+
+def _articoli(accesso):
+    return Articolo.objects.filter(azienda=accesso.contatto.azienda, pubblicato=True)
+
+
+@portale
+def guida(request):
+    return render(request, "assistenza/portale/guida.html", _contesto(
+        request, **contesto_guida(_articoli(request.accesso), request.GET.get("q", "").strip()),
+        url_articolo="assistenza:portale_articolo"))
+
+
+@portale
+def articolo(request, pk):
+    voce = get_object_or_404(_articoli(request.accesso), pk=pk)
+    Articolo.objects.filter(pk=pk).update(visite=F("visite") + 1)
+    return render(request, "assistenza/portale/articolo.html", _contesto(
+        request, articolo=voce, indietro=reverse("assistenza:portale_guida"),
+        utile_url=reverse("assistenza:portale_utile", args=[pk]), voto_dato=_voto_dato(request, pk)))
+
+
+@portale
+@require_POST
+def utile(request, pk):
+    registra_utilita(request, _articoli(request.accesso), pk)
+    return redirect("assistenza:portale_articolo", pk=pk)
+
+
+@portale
+def guida_cerca(request):
+    return JsonResponse({"articoli": [{"titolo": a.titolo, "url": reverse("assistenza:portale_articolo", args=[a.pk])}
+                                      for a in cerca(_articoli(request.accesso), request.GET.get("q", ""))]})
 
 
 @portale

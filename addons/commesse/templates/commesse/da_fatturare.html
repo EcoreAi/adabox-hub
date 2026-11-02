@@ -1,0 +1,13 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Da fatturare · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Da fatturare</h1><div class="sub">{{ totale|floatformat:2 }} € di ore lavorate e non ancora in fattura</div></div></div>
+<section class="ui-card is-revealed"><div class="ui-table-wrap">
+  {% if schede %}<table class="ui-table is-revealed"><thead><tr><th>Progetto</th><th>Cliente</th><th class="num">Ore</th><th class="num">Importo</th><th class="actions"></th></tr></thead>
+  <tbody>{% for s in schede %}<tr>
+    <td><a class="ui-link" href="{% url 'progetti:progetti_dettaglio' s.progetto.pk %}">{{ s.progetto }}</a></td><td>{{ s.progetto.cliente|default:"—" }}</td>
+    <td class="num">{{ s.ore|floatformat:"-2" }}</td><td class="num">{% if s.senza_tariffa %}<span class="ui-pill ui-pill-warn">Manca la tariffa</span>{% else %}{{ s.importo|floatformat:2 }} €{% endif %}</td>
+    <td class="actions"><a class="ui-btn ui-btn-primary ui-btn-sm" href="{% url 'commesse:fattura_ore' s.progetto.pk %}">Fattura</a></td></tr>{% endfor %}</tbody></table>
+  {% else %}<div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Tutte le ore sono già in fattura.</p></div>{% endif %}
+</div></section>
+{% endblock %}

@@ -9,6 +9,7 @@ class TimesheetConfig(AppConfig):
     def ready(self):
         """Estende progetti senza modificarlo: sezioni Ore nei dettagli di progetto e compito."""
         from core.registry import hooks
+        hooks.voce_testata("timesheet/_cronometro.html", order=5, permission="timesheet.add_rigaore")
         hooks.sezione_dettaglio("progetti.Progetto", "timesheet/_ore_progetto.html", order=20,
                                 permission="timesheet.view_rigaore")
         hooks.sezione_dettaglio("progetti.Compito", "timesheet/_ore_compito.html", order=20,

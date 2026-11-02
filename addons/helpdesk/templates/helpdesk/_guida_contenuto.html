@@ -1,0 +1,14 @@
+<div class="hd-eroe">
+  <h1>Come possiamo aiutarti?</h1>
+  <form method="get" class="hd-cerca" role="search"><svg aria-hidden="true"><use href="#icon-search"/></svg>
+    <input class="ui-input" type="search" name="q" value="{{ q }}" placeholder="Cerca nella guida…" aria-label="Cerca nella guida" autofocus></form>
+</div>
+{% if q %}
+  <h2 class="hd-titolo">{{ risultati|length }} risultat{{ risultati|length|pluralize:"o,i" }} per «{{ q }}»</h2>
+  <div class="hd-griglia">{% for a in risultati %}<a class="hd-scheda" href="{% url url_articolo a.pk %}"><strong>{{ a.titolo }}</strong><small>{{ a.corpo|truncatechars:110 }}</small></a>
+  {% empty %}<div class="ui-empty"><p>Nessun articolo: prova con altre parole.</p></div>{% endfor %}</div>
+{% else %}
+  {% if popolari %}<h2 class="hd-titolo">I più letti</h2><div class="hd-griglia">{% for a in popolari %}<a class="hd-scheda" href="{% url url_articolo a.pk %}"><strong>{{ a.titolo }}</strong><small>{{ a.corpo|truncatechars:90 }}</small></a>{% endfor %}</div>{% endif %}
+  {% for g in categorie %}<h2 class="hd-titolo">{{ g.categoria }}</h2><div class="hd-griglia">{% for a in g.articoli %}<a class="hd-scheda" href="{% url url_articolo a.pk %}"><strong>{{ a.titolo }}</strong></a>{% endfor %}</div>{% endfor %}
+  {% if senza %}<h2 class="hd-titolo">Altri articoli</h2><div class="hd-griglia">{% for a in senza %}<a class="hd-scheda" href="{% url url_articolo a.pk %}"><strong>{{ a.titolo }}</strong></a>{% endfor %}</div>{% endif %}
+{% endif %}

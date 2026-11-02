@@ -1,3 +1,6 @@
+from django.utils import timezone
+from django.utils.html import format_html
+
 from core.viste import ModelView, register
 from progetti.models import Compito, progetti_visibili
 
@@ -12,8 +15,8 @@ def vede_tutte(user):
 class RigaOreView(ModelView):
     model = RigaOre
     slug = "ore"
-    list_display = ["data", "utente", "progetto", "compito", "descrizione", "ore", "fatturabile"]
-    list_filter = ["progetto", "utente", "fatturabile", "data"]
+    list_display = ["data", "utente", "progetto", "compito", "descrizione", "ore", "fatturabile", "stato"]
+    list_filter = ["progetto", "utente", "fatturabile", "approvata", "bloccata", "data"]
     search_fields = ["descrizione", "progetto__nome", "compito__titolo"]
     form_layout = [("Ore", [("data", "ore"), ("progetto", "compito"), "descrizione", ("utente", "fatturabile")])]
     company_field = "azienda"
@@ -23,7 +26,34 @@ class RigaOreView(ModelView):
     graph = {"tipi": ["barre", "torta", "linee"], "misure": ["sum:ore", "count"],
              "per": ["progetto", "utente", "data:mese"]}
     export_fields = ["data", "utente", "progetto", "compito", "descrizione", "ore", "fatturabile"]
+    actions = ["approva", "riapri"]
     api = True
+
+    def col_stato(self, obj):
+        if obj.bloccata:
+            return format_html('<span class="ui-pill ui-pill-info">Fatturata</span>')
+        if obj.approvata:
+            return format_html('<span class="ui-pill ui-pill-ok">Approvata</span>')
+        return format_html('<span class="ui-pill ui-pill-neutral">Da approvare</span>')
+    col_stato.short_description = "Stato"
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and (obj is None or obj.modificabile)
+
+    def has_delete_permission(self, request, obj=None):
+        return super().has_delete_permission(request, obj) and (obj is None or obj.modificabile)
+
+    def approva(self, request, queryset):
+        n = queryset.filter(approvata=False).update(approvata=True, approvata_da=request.user, approvata_il=timezone.now())
+        return f"Ore approvate: {n} righe."
+    approva.short_description = "Approva"
+    approva.permission = "timesheet.approva_ore"
+
+    def riapri(self, request, queryset):
+        n = queryset.filter(approvata=True, bloccata=False).update(approvata=False, approvata_da=None, approvata_il=None)
+        return f"Ore riaperte: {n} righe."
+    riapri.short_description = "Riapri"
+    riapri.permission = "timesheet.approva_ore"
 
     def get_queryset(self, request):
         """Chi non ha timesheet.vedi_tutte_ore vede solo le proprie ore (e solo dei progetti che vede)."""

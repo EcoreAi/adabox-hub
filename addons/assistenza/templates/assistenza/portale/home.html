@@ -3,6 +3,10 @@
 {% block contenuto %}
 <div class="ui-pagehead"><div><h1>Le richieste di {{ cliente }}</h1><div class="sub">{{ aperti }} aperte</div></div>
   <a class="ui-btn ui-btn-primary" href="{% url 'assistenza:portale_nuovo' %}"><svg><use href="#icon-plus"/></svg> Nuova segnalazione</a></div>
+{% for m in monti %}<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <div class="cm-azioni"><strong>{{ m.contratto.nome }}</strong><span class="ui-help">{{ m.usate|floatformat:"-2" }} ore usate su {{ m.incluse|floatformat:"-2" }}{% if m.oltre %} · {{ m.oltre|floatformat:"-2" }} oltre il monte ore{% else %} · ne restano {{ m.residue|floatformat:"-2" }}{% endif %}</span></div>
+  <div class="cm-barra" style="margin-top:10px" role="img" aria-label="Usato il {{ m.percentuale }}%"><span class="is-{{ m.livello }}" style="--cm-l:{{ m.percentuale_barra }}%"></span></div>
+</div></section>{% endfor %}
 <section class="ui-card is-revealed"><div class="ui-table-wrap">
   {% if ticket %}
   <table class="ui-table"><thead><tr><th>Numero</th><th>Oggetto</th><th>Aperta da</th><th>Stato</th><th>Aperta il</th></tr></thead>

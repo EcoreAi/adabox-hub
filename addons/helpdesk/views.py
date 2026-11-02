@@ -1,3 +1,4 @@
+from django.db.models import Avg, Count
 from django.utils import timezone
 from django.utils.html import format_html
 
@@ -5,7 +6,7 @@ from core import chatter
 from core.viste import ModelView, register
 
 from .email import segui_team
-from .models import FaseTicket, Team, Ticket
+from .models import Articolo, CategoriaArticolo, FaseTicket, Team, Ticket, Valutazione
 
 
 @register
@@ -94,7 +95,12 @@ class TicketView(ModelView):
 class TeamView(ModelView):
     model = Team
     slug = "team"
-    list_display = ["nome"]
+    list_display = ["nome", "gradimento"]
+
+    def col_gradimento(self, obj):
+        dati = Valutazione.objects.filter(ticket__team=obj).aggregate(m=Avg("voto"), n=Count("pk"))
+        return f"{dati['m']:.1f} ★ su {dati['n']} valutazioni" if dati["n"] else "—"
+    col_gradimento.short_description = "Gradimento dei clienti"
 
 
 @register
@@ -102,3 +108,75 @@ class FaseTicketView(ModelView):
     model = FaseTicket
     slug = "fasi"
     list_display = ["nome", "ordine", "chiusa"]
+
+
+@register
+class ValutazioneView(ModelView):
+    model = Valutazione
+    slug = "valutazioni"
+    list_display = ["creata", "ticket", "stelle", "commento"]
+    list_filter = ["voto", "ticket__team", "creata"]
+    search_fields = ["ticket__numero", "ticket__oggetto", "commento"]
+    readonly_fields = ["ticket", "voto", "commento", "creata"]
+    form_layout = [("Valutazione", ["ticket", "voto", "commento", "creata"])]
+    ordering = ["-creata"]
+    list_group_by = ["voto", "ticket__team", "creata:mese"]
+    graph = {"tipi": ["barre", "torta"], "misure": ["count"], "per": ["voto", "ticket__team", "creata:mese"]}
+
+    def col_stelle(self, obj):
+        return format_html('<span class="hd-stelle" aria-label="{} su 5">{}</span>', obj.voto, obj.stelle)
+    col_stelle.short_description = "Voto"
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request).select_related("ticket")
+        azienda_id = getattr(getattr(request, "azienda", None), "pk", None)
+        return qs.filter(ticket__azienda_id=azienda_id) if azienda_id is not None else qs
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@register
+class ArticoloView(ModelView):
+    model = Articolo
+    slug = "articoli"
+    list_display = ["titolo", "categoria", "stato", "visite", "utilita", "aggiornato"]
+    list_filter = ["pubblicato", "pubblico", "categoria"]
+    search_fields = ["titolo", "corpo"]
+    form_layout = [("Articolo", ["titolo", "categoria", "corpo"]), ("Pubblicazione", [("pubblicato", "pubblico")])]
+    readonly_fields = ["visite", "utile_si", "utile_no", "aggiornato"]
+    company_field = "azienda"
+    list_group_by = ["categoria", "pubblicato"]
+    import_key = "titolo"
+    actions = ["pubblica"]
+
+    def col_stato(self, obj):
+        if not obj.pubblicato:
+            return format_html('<span class="ui-pill ui-pill-neutral">Bozza</span>')
+        return format_html('<span class="ui-pill {}">{}</span>', "ui-pill-ok" if obj.pubblico else "ui-pill-info",
+                           "Online" if obj.pubblico else "Solo clienti")
+    col_stato.short_description = "Stato"
+
+    def col_utilita(self, obj):
+        voti = obj.utile_si + obj.utile_no
+        return f"{obj.utile_si * 100 // voti}% su {voti}" if voti else "—"
+    col_utilita.short_description = "Utile"
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.autore = request.user
+        super().save_model(request, obj, form, change)
+
+    def pubblica(self, request, queryset):
+        return f"Articoli pubblicati: {queryset.update(pubblicato=True)}."
+    pubblica.short_description = "Pubblica per i clienti"
+
+
+@register
+class CategoriaArticoloView(ModelView):
+    model = CategoriaArticolo
+    slug = "categorie-guida"
+    list_display = ["nome", "descrizione", "ordine"]

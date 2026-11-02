@@ -1,0 +1,7 @@
+{% load timesheet %}{% cronometro_attivo as crono %}{% if crono %}
+<form class="ts-crono" method="post" action="{% url 'timesheet:cronometro_ferma' %}" title="{{ crono.etichetta }}">{% csrf_token %}
+  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+  <span class="ts-crono-punto" aria-hidden="true"></span>
+  <span class="ts-crono-tempo" data-cronometro-da="{{ crono.avviato|date:'U' }}">00:00:00</span>
+  <button class="ts-crono-ferma" type="submit" aria-label="Ferma il cronometro su {{ crono.etichetta }}">Ferma</button>
+</form>{% endif %}
