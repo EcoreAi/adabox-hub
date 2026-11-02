@@ -1,7 +1,7 @@
 {
     "name": "Assistenza clienti",
     "summary": "Assistenza per progetto: portale clienti, widget di segnalazione, contratti SLA, ticket e compiti",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Servizi",
     "depends": ["helpdesk", "progetti"],
@@ -21,4 +21,19 @@
         "Assistenza / Responsabile": ["assistenza.*"],
     },
     "hooks": "assistenza.hooks",
+    "email": [
+        {"codice": "assistenza.ricevuta", "nome": "Conferma di ricezione dal widget", "gruppo": "Assistenza",
+         "oggetto": "Segnalazione ricevuta: {{ numero }}",
+         "corpo": "Abbiamo ricevuto la tua segnalazione «{{ oggetto_ticket }}» con il numero {{ numero }}.\nTi scriveremo a questo indirizzo.\n\nSe hai l'accesso al portale clienti e vuoi seguirla da lì, conferma che l'indirizzo è tuo:\n{{ link }}\n",
+         "campi": {"numero": ["Numero del ticket", "HD/2026/0042"], "oggetto_ticket": ["Oggetto", "Il pulsante non funziona"],
+                    "link": ["Link per confermare l'indirizzo", "https://hub.example.it/assistenza/widget/conferma/abc/"]},
+         "obbligatori": ["link"]},
+        {"codice": "assistenza.invito", "nome": "Invito al portale clienti", "gruppo": "Assistenza",
+         "oggetto": "Il tuo accesso al portale clienti di {{ marchio }}",
+         "corpo": "Ciao {{ nome }},\n\nda qui segui le richieste di assistenza e i progetti di {{ cliente }} e ne apri di nuove.\n\nScegli la tua password:\n{{ link_password }}\n\nPoi entri da {{ link_accesso }} con il nome utente {{ nome_utente }}.\n",
+         "campi": {"nome": ["Nome della persona", "Anna"], "cliente": ["Il cliente", "Rossi Srl"],
+                    "link_password": ["Link per scegliere la password", "https://hub.example.it/accounts/reset/abc/"],
+                    "link_accesso": ["Pagina di accesso", "https://hub.example.it/accounts/login/"], "nome_utente": ["Nome utente", "anna@rossi.it"]},
+         "obbligatori": ["link_password"]},
+    ],
 }

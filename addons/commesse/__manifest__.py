@@ -1,7 +1,7 @@
 {
     "name": "Commesse",
     "summary": "Dalle ore alla fattura: tariffe e costi, ore sui ticket, monte ore dei contratti, redditività dei progetti",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Servizi",
     "depends": ["timesheet", "fatturazione", "assistenza"],
@@ -23,5 +23,11 @@
     "settings": [
         {"chiave": "solo_approvate", "label": "Fattura solo le ore approvate", "tipo": "booleano", "default": False,
          "per_azienda": True, "help": "Le ore non approvate non compaiono tra quelle da fatturare"},
+    ],
+    "email": [
+        {"codice": "commesse.monte_ore", "nome": "Avviso interno sul monte ore", "gruppo": "Commesse",
+         "oggetto": "Monte ore al {{ soglia }}%: {{ contratto }}",
+         "corpo": "Il contratto {{ contratto }} ha usato {{ usate }} ore su {{ incluse }}.",
+         "campi": {"contratto": ["Il contratto", "Premium 2026"], "soglia": ["Soglia raggiunta", "80"], "usate": ["Ore usate", "32"], "incluse": ["Ore incluse", "40"]}},
     ],
 }

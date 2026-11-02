@@ -1,7 +1,7 @@
 {
     "name": "Acquisti",
     "summary": "Ordini ai fornitori con costi, IVA, stampa e invio; ricevimento in magazzino",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Acquisti",
     "depends": ["prodotti", "contatti"],
@@ -21,4 +21,11 @@
     },
     "hooks": "acquisti.hooks",
     "sequences": [{"codice": "acquisti.ordine", "formato": "OA/{anno}/{numero:04d}", "azzera": "anno"}],
+    "email": [
+        {"codice": "acquisti.ordine", "nome": "Invio dell'ordine al fornitore", "gruppo": "Acquisti",
+         "oggetto": "Ordine {{ numero }} — {{ azienda }}",
+         "corpo": "Gentile {{ fornitore }},\nin allegato il nostro ordine {{ numero }}.\n\nCordiali saluti\n{{ azienda }}",
+         "campi": {"numero": ["Numero", "OA/2026/0003"], "fornitore": ["Nome del fornitore", "Grossista Spa"],
+                    "data": ["Data", "02/11/2026"], "totale": ["Totale", "480,00 €"]}},
+    ],
 }

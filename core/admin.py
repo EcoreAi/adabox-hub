@@ -1,6 +1,6 @@
 from django.contrib import admin, messages
 
-from .models import Azienda, DueFattori, Modulo, Parametro, Pianificazione, ProfiloUtente, Sequenza, TokenApi
+from .models import Azienda, DueFattori, ModelloEmail, Modulo, Parametro, Pianificazione, ProfiloUtente, Sequenza, TokenApi
 
 
 @admin.register(Azienda)
@@ -99,6 +99,13 @@ class SequenzaAdmin(admin.ModelAdmin):
     list_display = ("codice", "azienda", "formato", "prossimo", "azzera", "anno")
     list_filter = ("azienda", "azzera")
     search_fields = ("codice",)
+
+
+@admin.register(ModelloEmail)
+class ModelloEmailAdmin(admin.ModelAdmin):
+    list_display = ("codice", "nome", "azienda", "aggiornato")
+    list_filter = ("azienda",)
+    search_fields = ("codice", "nome", "oggetto")
 
 
 @admin.register(Parametro)

@@ -421,3 +421,26 @@ class CampoPersonalizzato(models.Model):
                 valore, _, etichetta = riga.partition("|")
                 voci.append((valore.strip(), (etichetta or valore).strip()))
         return voci
+
+
+class ModelloEmail(models.Model):
+    """Il testo di un'email scritto dall'azienda: sostituisce quello del modulo, o è un modello suo per le automazioni
+    (allora ha `dominio`, il tipo di record su cui si usa, e `nome`)."""
+    azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE, related_name="modelli_email", verbose_name="azienda")
+    codice = models.CharField("codice", max_length=80)
+    nome = models.CharField("nome", max_length=120, blank=True)
+    dominio = models.CharField("si usa su", max_length=30, blank=True)
+    oggetto = models.CharField("oggetto", max_length=250)
+    corpo = models.TextField("testo")
+    aggiornato = models.DateTimeField("modificato il", auto_now=True)
+    aggiornato_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                      related_name="+", verbose_name="modificato da")
+
+    class Meta:
+        verbose_name = "modello di email"
+        verbose_name_plural = "modelli di email"
+        ordering = ["nome", "codice"]
+        constraints = [models.UniqueConstraint(fields=["azienda", "codice"], name="modello_email_unico")]
+
+    def __str__(self):
+        return self.nome or self.codice

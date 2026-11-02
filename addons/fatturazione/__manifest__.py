@@ -1,7 +1,7 @@
 {
     "name": "Fatturazione",
     "summary": "Fatture e note di credito, scadenze e incassi, fattura elettronica XML e registro IVA",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Contabilità",
     "depends": ["vendite", "fiscale"],
@@ -34,4 +34,14 @@
     "hooks": "fatturazione.hooks",
     "sequences": [{"codice": "fatturazione.fattura", "formato": "{numero}/{anno}", "azzera": "anno"},
                   {"codice": "fatturazione.autofattura", "formato": "AF{numero}/{anno}", "azzera": "anno"}],
+    "email": [
+        {"codice": "fatturazione.invio", "nome": "Invio della fattura al cliente", "gruppo": "Fatture",
+         "oggetto": "{{ documento }} — {{ azienda }}",
+         "corpo": "Gentile {{ cliente }},\nin allegato {{ documento_testo }}.\n\nCordiali saluti\n{{ azienda }}",
+         "campi": {
+        "documento": ["Il documento (con la maiuscola)", "Fattura 12/2026"], "documento_testo": ["Il documento, dentro una frase", "fattura 12/2026"],
+        "numero": ["Numero", "12/2026"], "cliente": ["Nome del cliente", "Rossi Srl"], "data": ["Data", "02/11/2026"],
+        "totale": ["Totale", "1.220,00 €"],
+             "da_pagare": ["Importo da pagare", "1.220,00 €"]}},
+    ],
 }

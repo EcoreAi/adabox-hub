@@ -1,7 +1,7 @@
 {
     "name": "Vendite",
     "summary": "Preventivi e ordini dei clienti, con listini, sconti, IVA, stampa e invio per email",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Vendite",
     "depends": ["prodotti", "contatti"],
@@ -24,5 +24,17 @@
     "sequences": [
         {"codice": "vendite.preventivo", "formato": "PV/{anno}/{numero:04d}", "azzera": "anno"},
         {"codice": "vendite.ordine", "formato": "OV/{anno}/{numero:04d}", "azzera": "anno"},
+    ],
+    "email": [
+        {"codice": "vendite.preventivo", "nome": "Invio del preventivo al cliente", "gruppo": "Vendite",
+         "oggetto": "Preventivo {{ numero }} — {{ azienda }}",
+         "corpo": "Gentile {{ cliente }},\nin allegato il preventivo {{ numero }}.\n\nCordiali saluti\n{{ azienda }}",
+         "campi": {"numero": ["Numero", "SO/2026/0007"], "cliente": ["Nome del cliente", "Rossi Srl"], "data": ["Data", "02/11/2026"],
+                    "totale": ["Totale", "1.220,00 €"], "valido_fino_al": ["Valido fino al", "30/11/2026"]}},
+        {"codice": "vendite.ordine", "nome": "Invio dell'ordine al cliente", "gruppo": "Vendite",
+         "oggetto": "Ordine {{ numero }} — {{ azienda }}",
+         "corpo": "Gentile {{ cliente }},\nin allegato l'ordine {{ numero }}.\n\nCordiali saluti\n{{ azienda }}",
+         "campi": {"numero": ["Numero", "SO/2026/0007"], "cliente": ["Nome del cliente", "Rossi Srl"], "data": ["Data", "02/11/2026"],
+                    "totale": ["Totale", "1.220,00 €"]}},
     ],
 }

@@ -13,7 +13,6 @@ from datetime import timedelta
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core import signing
-from django.core.mail import send_mail
 from django.core.validators import validate_email
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
@@ -22,7 +21,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
 from contatti.models import Contatto
-from core import allegati
+from core import allegati, modelli_email
 from helpdesk.models import Ticket
 
 from .instradamento import instrada
@@ -107,11 +106,9 @@ def conferma_email(request, token):
 
 def _conferma(ticket, email, nome):
     try:
-        send_mail(f"Segnalazione ricevuta: {ticket.numero}",
-                  f"Abbiamo ricevuto la tua segnalazione «{ticket.oggetto}» con il numero {ticket.numero}.\n"
-                  f"Ti scriveremo a questo indirizzo.\n\n"
-                  f"Se hai l'accesso al portale clienti e vuoi seguirla da lì, conferma che l'indirizzo è tuo:\n"
-                  f"{link_conferma(ticket, email, nome)}\n", None, [email], fail_silently=True)
+        modelli_email.messaggio("assistenza.ricevuta", ticket.azienda, {
+            "numero": ticket.numero, "oggetto_ticket": ticket.oggetto, "link": link_conferma(ticket, email, nome)},
+            [email]).send(fail_silently=True)
     except Exception:
         log.exception("conferma del ticket %s", ticket.pk)
 

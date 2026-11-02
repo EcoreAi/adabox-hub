@@ -16,7 +16,7 @@ PERM_RE = re.compile(r"^[a-z][a-z0-9_]*\.([a-z_][a-z0-9_]*|\*)$")
 DOTTED_RE = re.compile(r"^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)*$")
 CHIAVI = {"name", "summary", "version", "author", "category", "depends", "min_core", "application",
           "icon", "nav_label", "menu", "groups", "data", "demo", "hooks", "ai", "settings_url", "cron", "settings", "sequences",
-          "dashboard", "home", "menu_profilo"}
+          "dashboard", "home", "menu_profilo", "email"}
 OBBLIGATORIE = {"name", "version", "min_core"}
 CHIAVI_MENU = {"label", "url_name", "permission"}
 CHIAVI_MENU_PROFILO = {"label", "url_name", "permission", "icon", "conteggio"}
@@ -24,6 +24,7 @@ ICONA_RE = re.compile(r"^[a-z][a-z0-9-]{0,30}$")
 CHIAVI_CRON = {"nome", "funzione", "ogni", "alle"}
 CHIAVI_SETTING = {"chiave", "label", "tipo", "default", "per_azienda", "help", "scelte"}
 CHIAVI_SEQUENZA = {"codice", "formato", "azzera"}
+CHIAVI_EMAIL = {"codice", "nome", "gruppo", "oggetto", "corpo", "campi", "obbligatori"}
 TIPI_PARAMETRO = {"testo", "intero", "decimale", "booleano", "scelta", "data"}
 OGNI_RE = re.compile(r"^[1-9]\d*[mhd]$")
 ALLE_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -62,6 +63,7 @@ class Manifest:
     cron: list = field(default_factory=list)
     settings: list = field(default_factory=list)
     sequences: list = field(default_factory=list)
+    email: list = field(default_factory=list)   # modelli delle email che l'azienda può personalizzare
     dashboard: str | None = None
     home: str | None = None
 
@@ -178,6 +180,20 @@ def _sequenze(errori, valore):
     _unici(errori, "sequences", voci, "codice")
 
 
+def _email(errori, valore):
+    voci = _lista_di_dict(errori, "email", valore, CHIAVI_EMAIL)
+    for v in voci:
+        if not (isinstance(v.get("codice"), str) and CODICE_SEQ_RE.match(v["codice"])):
+            errori.append(f"email: codice {v.get('codice')!r} non valido (atteso modulo.nome)")
+        for k in ("nome", "oggetto", "corpo"):
+            if not isinstance(v.get(k), str) or not v.get(k):
+                errori.append(f"email: {v.get('codice')!r} senza {k}")
+        campi = v.get("campi", {})
+        if not (isinstance(campi, dict) and all(isinstance(c, (list, tuple)) and len(c) == 2 for c in campi.values())):
+            errori.append(f"email: {v.get('codice')!r}: campi deve essere {{nome: [etichetta, esempio]}}")
+    _unici(errori, "email", voci, "codice")
+
+
 def _menu_profilo(errori, valore):
     """Voci del menu del profilo: label, url_name, permission facoltativo, icon facoltativa (nome dello sprite),
     conteggio facoltativo (modulo.funzione(user) -> int: il numero accanto all'etichetta, se maggiore di zero)."""
@@ -273,6 +289,7 @@ def valida(dati, slug, cartella):
     _cron(errori, dati.get("cron", []))
     _settings(errori, dati.get("settings", []))
     _sequenze(errori, dati.get("sequences", []))
+    _email(errori, dati.get("email", []))
     dash = dati.get("dashboard")
     if dash is not None and not (isinstance(dash, str) and DOTTED_RE.match(dash) and "." in dash):
         errori.append(f"dashboard: {dash!r} non è una funzione (atteso modulo.funzione)")

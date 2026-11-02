@@ -173,3 +173,13 @@ def test_etichetta_nella_barra(addons_tmp):
     assert manifest.leggi(addons_tmp.crea("alfa", nav_label="Chat")).nav_label == "Chat"
     assert manifest.leggi(addons_tmp.crea("beta")).nav_label == ""
     assert "nav_label" in _errori(addons_tmp, "gamma", nav_label=3)
+
+
+def test_email_valida_e_non_valida(addons_tmp):
+    buona = {"codice": "alfa.invio", "nome": "Invio", "oggetto": "Ciao", "corpo": "Testo", "campi": {"x": ["Etichetta", "es"]}}
+    m = manifest.leggi(addons_tmp.crea("alfa", email=[buona]))
+    assert m.email[0]["codice"] == "alfa.invio"
+    assert "codice" in _errori(addons_tmp, slug="beta", email=[{**buona, "codice": "senza_punto"}])
+    assert "corpo" in _errori(addons_tmp, slug="gamma", email=[{"codice": "alfa.x", "nome": "N", "oggetto": "O"}])
+    assert "campi" in _errori(addons_tmp, slug="delta", email=[{**buona, "campi": {"x": "solo testo"}}])
+    assert "ripetuto" in _errori(addons_tmp, slug="epsilon", email=[buona, buona])

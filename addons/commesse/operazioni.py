@@ -3,12 +3,11 @@ from collections import OrderedDict
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
-from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Sum
 
 from assistenza.models import Contratto, DatiTicket, Supporto
-from core import parametri
+from core import modelli_email, parametri
 from fatturazione.models import Fattura, RigaFattura
 from fiscale import calcoli
 from timesheet.models import RigaOre
@@ -85,9 +84,9 @@ def _avvisa_monte(contratto):
     supporti = Supporto.objects.filter(contratto=contratto).select_related("responsabile", "progetto__responsabile")
     indirizzi = {u.email for s in supporti for u in (s.responsabile, s.progetto.responsabile) if u and u.email}
     if indirizzi:
-        send_mail(f"Monte ore al {soglia}%: {contratto}",
-                  f"Il contratto {contratto} ha usato {stato['usate']} ore su {stato['incluse']}.", None, sorted(indirizzi),
-                  fail_silently=True)
+        modelli_email.messaggio("commesse.monte_ore", contratto.azienda, {
+            "contratto": str(contratto), "soglia": soglia, "usate": stato["usate"], "incluse": stato["incluse"]},
+            sorted(indirizzi)).send(fail_silently=True)
 
 
 # ---------- ore sui ticket

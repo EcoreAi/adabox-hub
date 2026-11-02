@@ -9,7 +9,6 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
-from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import F, Q
 from django.http import Http404, JsonResponse
@@ -21,7 +20,7 @@ from django.utils.http import urlsafe_base64_encode
 from django.views.decorators.http import require_POST
 
 from contatti.models import Contatto
-from core import allegati, chatter
+from core import allegati, chatter, modelli_email
 from core.models import Allegato, Messaggio, ProfiloUtente
 from helpdesk.guida import cerca
 from helpdesk.models import Articolo, FaseTicket, Ticket
@@ -220,12 +219,9 @@ def invita(contatto, da_utente):
     if not utente.is_active:
         utente.is_active = True
         utente.save(update_fields=["is_active"])
-    marchio = settings.THEME.get("brand", "")
-    send_mail(f"Il tuo accesso al portale clienti di {marchio}",
-              f"Ciao {contatto.nome},\n\nda qui segui le richieste di assistenza e i progetti di {accesso.cliente} e "
-              f"ne apri di nuove.\n\nScegli la tua password:\n{link_password(utente)}\n\n"
-              f"Poi entri da {settings.SITO_URL}{reverse('login')} con il nome utente {utente.username}.\n",
-              None, [contatto.email])
+    modelli_email.messaggio("assistenza.invito", contatto.azienda, {
+        "nome": contatto.nome, "cliente": accesso.cliente, "link_password": link_password(utente),
+        "link_accesso": f"{settings.SITO_URL}{reverse('login')}", "nome_utente": utente.username}, [contatto.email]).send()
     return accesso
 
 

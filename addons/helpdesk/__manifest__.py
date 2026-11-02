@@ -1,7 +1,7 @@
 {
     "name": "Helpdesk",
     "summary": "Richieste di assistenza dei clienti, anche per email, con tempi di risposta (SLA)",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Servizi",
     "depends": ["contatti"],
@@ -38,5 +38,19 @@
         {"chiave": "ore_alta", "label": "SLA alta (ore)", "tipo": "intero", "default": 8, "per_azienda": True},
         {"chiave": "ore_media", "label": "SLA media (ore)", "tipo": "intero", "default": 24, "per_azienda": True},
         {"chiave": "ore_bassa", "label": "SLA bassa (ore)", "tipo": "intero", "default": 72, "per_azienda": True},
+    ],
+    "email": [
+        {"codice": "helpdesk.valutazione", "nome": "Richiesta di valutazione alla chiusura", "gruppo": "Assistenza",
+         "oggetto": "Com'è andata? {{ numero }}",
+         "corpo": "La tua richiesta «{{ oggetto_ticket }}» è stata chiusa.\n\nCi dedichi dieci secondi? Il tuo giudizio ci aiuta a migliorare:\n{{ link }}\n",
+         "campi": {"numero": ["Numero del ticket", "HD/2026/0042"], "oggetto_ticket": ["Oggetto del ticket", "Non riesco a stampare"],
+                    "link": ["Link per dare il voto", "https://hub.example.it/helpdesk/valuta/abc/"]},
+         "obbligatori": ["link"]},
+        {"codice": "helpdesk.sla", "nome": "Avviso interno di SLA in scadenza", "gruppo": "Assistenza",
+         "oggetto": "[{{ marchio }}] SLA {{ stato }}: {{ ticket }}",
+         "corpo": "Il ticket {{ ticket }} {{ azione }} il tempo di risposta ({{ scadenza }}).\n{{ link }}\n",
+         "campi": {"ticket": ["Il ticket", "HD/2026/0042 Non riesco a stampare"], "stato": ["Scaduto o in scadenza", "in scadenza"],
+                    "azione": ["«ha superato» o «sta per superare»", "sta per superare"], "scadenza": ["Scadenza", "02/11/2026 15:00"],
+                    "link": ["Link al ticket", "https://hub.example.it/helpdesk/ticket/42/"]}},
     ],
 }
