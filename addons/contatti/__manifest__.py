@@ -1,7 +1,7 @@
 {
     "name": "Contatti",
     "summary": "Anagrafica di aziende e persone: clienti, fornitori, recapiti e dati fiscali",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Anagrafiche",
     "depends": [],

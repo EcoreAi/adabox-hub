@@ -1,4 +1,4 @@
-"""Fattura elettronica FatturaPA 1.2 (formato FPR12, tra privati): XML e nome del file.
+"""Fattura elettronica FatturaPA 1.2 (FPR12 tra privati, FPA12 verso la Pubblica Amministrazione): XML e nome del file.
 
 Struttura secondo le specifiche tecniche dell'Agenzia delle Entrate; lo schema XSD ufficiale e l'invio allo SDI
 sono del modulo `sdi` (spec fase 5, decisione 9)."""
@@ -8,8 +8,11 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
+from contatti.validatori import UE
+
 from .models import DatiFiscali, Fattura
 
+SAN_MARINO = "2R4GTO8"
 NS = "http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2"
 ET.register_namespace("p", NS)
 
@@ -48,8 +51,10 @@ def errori(fattura):
     for chi, obj in (("dell'azienda", az), ("del cliente", cl)):
         if not (obj.indirizzo and obj.citta and (obj.cap or getattr(obj, "nazione", "IT") != "IT")):
             mancano.append(f"Manca l'indirizzo completo (via, CAP, città) {chi}.")
-    if not (cl.partita_iva or cl.codice_fiscale):
+    if (cl.nazione or "IT") == "IT" and not (cl.partita_iva or cl.codice_fiscale):
         mancano.append("Il cliente non ha né partita IVA né codice fiscale.")
+    if cl.pubblica_amministrazione and len(cl.codice_sdi) != 6:
+        mancano.append("Per la Pubblica Amministrazione serve il codice univoco ufficio di 6 caratteri.")
     return mancano
 
 
@@ -69,27 +74,19 @@ def assegna_progressivo(fattura):
     return fattura.progressivo_invio
 
 
-def genera(fattura):
-    """(nome del file, XML in bytes). ValidationError se mancano dati."""
-    problemi = errori(fattura)
-    if problemi:
-        raise ValidationError(problemi)
-    assegna_progressivo(fattura)
-    az, cl, dati = fattura.azienda, fattura.cliente, fattura.azienda.dati_fiscali
-    radice = ET.Element(f"{{{NS}}}FatturaElettronica", {"versione": "FPR12"})
+def _id_fiscale(anag, contatto):
+    """IdFiscaleIVA di un contatto: all'estero senza partita IVA valgono i codici convenzionali dello SDI."""
+    nazione = contatto.nazione or "IT"
+    codice = contatto.partita_iva or ("" if nazione == "IT" else ("0000000" if nazione in UE else "OO99999999999"))
+    if codice:
+        idf = _sub(anag, "IdFiscaleIVA")
+        _sub(idf, "IdPaese", nazione)
+        _sub(idf, "IdCodice", codice)
+    if contatto.codice_fiscale and nazione == "IT":
+        _sub(anag, "CodiceFiscale", contatto.codice_fiscale.upper())
 
-    testata = _sub(radice, "FatturaElettronicaHeader")
-    tx = _sub(testata, "DatiTrasmissione")
-    idt = _sub(tx, "IdTrasmittente")
-    _sub(idt, "IdPaese", "IT")
-    _sub(idt, "IdCodice", az.codice_fiscale or az.partita_iva)
-    _sub(tx, "ProgressivoInvio", fattura.progressivo_invio)
-    _sub(tx, "FormatoTrasmissione", "FPR12")
-    estero = (cl.nazione or "IT") != "IT"
-    _sub(tx, "CodiceDestinatario", "XXXXXXX" if estero else (cl.codice_sdi or "0000000").upper())
-    if not cl.codice_sdi and cl.pec and not estero:
-        _sub(tx, "PECDestinatario", cl.pec)
 
+def _cedente_azienda(testata, az, dati):
     cedente = _sub(testata, "CedentePrestatore")
     anag = _sub(cedente, "DatiAnagrafici")
     idf = _sub(anag, "IdFiscaleIVA")
@@ -110,16 +107,113 @@ def genera(fattura):
             _sub(rea, "SocioUnico", dati.socio_unico)
         _sub(rea, "StatoLiquidazione", "LN")
 
+
+def _cedente_contatto(testata, cl):
+    """Autofattura: il fornitore è il cedente, con il regime «altro» come chiedono le regole dello SDI."""
+    cedente = _sub(testata, "CedentePrestatore")
+    anag = _sub(cedente, "DatiAnagrafici")
+    _id_fiscale(anag, cl)
+    _sub(_sub(anag, "Anagrafica"), "Denominazione", cl.nome[:80])
+    _sub(anag, "RegimeFiscale", "RF18")
+    _sede(cedente, cl)
+
+
+def _cessionario_contatto(testata, cl):
     cessionario = _sub(testata, "CessionarioCommittente")
     anag = _sub(cessionario, "DatiAnagrafici")
-    if cl.partita_iva:
-        idf = _sub(anag, "IdFiscaleIVA")
-        _sub(idf, "IdPaese", cl.nazione or "IT")
-        _sub(idf, "IdCodice", cl.partita_iva)
-    if cl.codice_fiscale:
-        _sub(anag, "CodiceFiscale", cl.codice_fiscale.upper())
+    _id_fiscale(anag, cl)
     _sub(_sub(anag, "Anagrafica"), "Denominazione", cl.nome[:80])
     _sede(cessionario, cl)
+
+
+def _cessionario_azienda(testata, az):
+    cessionario = _sub(testata, "CessionarioCommittente")
+    anag = _sub(cessionario, "DatiAnagrafici")
+    idf = _sub(anag, "IdFiscaleIVA")
+    _sub(idf, "IdPaese", "IT")
+    _sub(idf, "IdCodice", az.partita_iva)
+    if az.codice_fiscale:
+        _sub(anag, "CodiceFiscale", az.codice_fiscale.upper())
+    _sub(_sub(anag, "Anagrafica"), "Denominazione", az.nome[:80])
+    _sede(cessionario, az)
+
+
+def _codice_destinatario(fattura, cl):
+    if fattura.tipo in Fattura.SCAMBIO_RUOLI:
+        return "0000000"                 # l'autofattura torna a noi dal cassetto fiscale
+    nazione = cl.nazione or "IT"
+    if nazione == "SM":
+        return SAN_MARINO
+    if nazione != "IT":
+        return "XXXXXXX"
+    return (cl.codice_sdi or "0000000").upper()
+
+
+def _riferimento(generali, tag, numero, data=None, fattura=None):
+    nodo = _sub(generali, tag)
+    _sub(nodo, "IdDocumento", numero[:20])
+    if data:
+        _sub(nodo, "Data", data.isoformat())
+    if fattura is not None:
+        if fattura.commessa:
+            _sub(nodo, "CodiceCommessaConvenzione", fattura.commessa[:100])
+        if fattura.cup:
+            _sub(nodo, "CodiceCUP", fattura.cup.upper())
+        if fattura.cig:
+            _sub(nodo, "CodiceCIG", fattura.cig.upper())
+
+
+def _riferimenti(generali, fattura):
+    """In ordine di schema: ordine, contratto, convenzione, ricezione, fatture collegate, DDT."""
+    tag_rif = {"ordine": "DatiOrdineAcquisto", "contratto": "DatiContratto", "convenzione": "DatiConvenzione",
+               "ricezione": "DatiRicezione"}
+    per_tag = {}
+    if fattura.rif_numero:
+        per_tag[tag_rif.get(fattura.rif_tipo, "DatiOrdineAcquisto")] = (fattura.rif_numero, fattura.rif_data, fattura)
+    elif fattura.ordine_id and fattura.ordine.numero_ordine and not fattura.fattura_origine_id:
+        per_tag["DatiOrdineAcquisto"] = (fattura.ordine.riferimento_cliente or fattura.ordine.numero_ordine,
+                                         fattura.ordine.confermato_il or fattura.ordine.data, None)
+    for tag in tag_rif.values():
+        if tag in per_tag:
+            _riferimento(generali, tag, *per_tag[tag])
+    if fattura.fattura_origine_id:
+        _riferimento(generali, "DatiFattureCollegate", fattura.fattura_origine.numero, fattura.fattura_origine.data)
+    elif fattura.collegata_numero:
+        _riferimento(generali, "DatiFattureCollegate", fattura.collegata_numero, fattura.collegata_data)
+    for ddt in fattura.ddt.all():
+        nodo = _sub(generali, "DatiDDT")
+        _sub(nodo, "NumeroDDT", ddt.numero[:20])
+        _sub(nodo, "DataDDT", ddt.data.isoformat())
+
+
+def genera(fattura):
+    """(nome del file, XML in bytes). ValidationError se mancano dati."""
+    problemi = errori(fattura)
+    if problemi:
+        raise ValidationError(problemi)
+    assegna_progressivo(fattura)
+    az, cl, dati = fattura.azienda, fattura.cliente, fattura.azienda.dati_fiscali
+    formato = "FPA12" if cl.pubblica_amministrazione and fattura.tipo not in Fattura.SCAMBIO_RUOLI else "FPR12"
+    radice = ET.Element(f"{{{NS}}}FatturaElettronica", {"versione": formato})
+
+    testata = _sub(radice, "FatturaElettronicaHeader")
+    tx = _sub(testata, "DatiTrasmissione")
+    idt = _sub(tx, "IdTrasmittente")
+    _sub(idt, "IdPaese", "IT")
+    _sub(idt, "IdCodice", az.codice_fiscale or az.partita_iva)
+    _sub(tx, "ProgressivoInvio", fattura.progressivo_invio)
+    _sub(tx, "FormatoTrasmissione", formato)
+    destinatario = _codice_destinatario(fattura, cl)
+    _sub(tx, "CodiceDestinatario", destinatario)
+    if destinatario == "0000000" and cl.pec and (cl.nazione or "IT") == "IT" and fattura.tipo not in Fattura.SCAMBIO_RUOLI:
+        _sub(tx, "PECDestinatario", cl.pec)
+
+    if fattura.tipo in Fattura.SCAMBIO_RUOLI:
+        _cedente_contatto(testata, cl)
+        _cessionario_azienda(testata, az)
+    else:
+        _cedente_azienda(testata, az, dati)
+        _cessionario_contatto(testata, cl)
 
     corpo = _sub(radice, "FatturaElettronicaBody")
     generali = _sub(corpo, "DatiGenerali")
@@ -128,17 +222,31 @@ def genera(fattura):
     _sub(doc, "Divisa", "EUR")
     _sub(doc, "Data", fattura.data.isoformat())
     _sub(doc, "Numero", fattura.numero)
+    for r in fattura.righe_ritenuta.all():
+        nodo = _sub(doc, "DatiRitenuta")
+        _sub(nodo, "TipoRitenuta", r.tipo)
+        _sub(nodo, "ImportoRitenuta", _d(r.importo))
+        _sub(nodo, "AliquotaRitenuta", _d(r.aliquota_ritenuta))
+        _sub(nodo, "CausalePagamento", r.causale)
+    if fattura.bollo:
+        nodo = _sub(doc, "DatiBollo")
+        _sub(nodo, "BolloVirtuale", "SI")
+        _sub(nodo, "ImportoBollo", _d(fattura.bollo))
+    for c in fattura.casse.select_related("aliquota"):
+        nodo = _sub(doc, "DatiCassaPrevidenziale")
+        _sub(nodo, "TipoCassa", c.tipo)
+        _sub(nodo, "AlCassa", _d(c.aliquota_cassa))
+        _sub(nodo, "ImportoContributoCassa", _d(c.importo))
+        _sub(nodo, "ImponibileCassa", _d(c.imponibile))
+        _sub(nodo, "AliquotaIVA", _d(c.aliquota.percentuale))
+        if c.soggetta_ritenuta and fattura.ritenute:
+            _sub(nodo, "Ritenuta", "SI")
+        if c.aliquota.natura:
+            _sub(nodo, "Natura", c.aliquota.natura)
     _sub(doc, "ImportoTotaleDocumento", _d(fattura.totale))
     if fattura.causale:
         _sub(doc, "Causale", fattura.causale[:200])
-    if fattura.fattura_origine_id:
-        coll = _sub(generali, "DatiFattureCollegate")
-        _sub(coll, "IdDocumento", fattura.fattura_origine.numero)
-        _sub(coll, "Data", fattura.fattura_origine.data.isoformat())
-    elif fattura.ordine_id and fattura.ordine.numero_ordine:
-        ord_ = _sub(generali, "DatiOrdineAcquisto")
-        _sub(ord_, "IdDocumento", fattura.ordine.riferimento_cliente or fattura.ordine.numero_ordine)
-        _sub(ord_, "Data", (fattura.ordine.confermato_il or fattura.ordine.data).isoformat())
+    _riferimenti(generali, fattura)
 
     beni = _sub(corpo, "DatiBeniServizi")
     for n, r in enumerate(fattura.righe.select_related("aliquota", "prodotto__unita"), start=1):
@@ -159,6 +267,8 @@ def genera(fattura):
             _sub(sc, "Percentuale", _d(r.sconto))
         _sub(linea, "PrezzoTotale", _d(r.importo))
         _sub(linea, "AliquotaIVA", _d(r.aliquota.percentuale))
+        if fattura.ritenute and r.soggetta_ritenuta:
+            _sub(linea, "Ritenuta", "SI")
         if r.aliquota.natura:
             _sub(linea, "Natura", r.aliquota.natura)
     for g in fattura.riepilogo_iva():

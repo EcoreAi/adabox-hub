@@ -6,10 +6,34 @@
     {% if obj.ordine %}<p>Dall'ordine <a class="ui-link" href="{% url 'vendite:ordini_dettaglio' obj.ordine.pk %}">{{ obj.ordine.numero_ordine }}</a></p>{% endif %}
     {% if obj.fattura_origine %}<p>Storna <a class="ui-link" href="{% url 'fatturazione:fatture_dettaglio' obj.fattura_origine.pk %}">{{ obj.fattura_origine }}</a></p>{% endif %}
     {% for n in note %}<p>Stornata da <a class="ui-link" href="{% url 'fatturazione:fatture_dettaglio' n.pk %}">{{ n }}</a> ({{ n.get_stato_display|lower }})</p>{% endfor %}
-    {% for s in scadenze %}<div class="ui-allegato"><a class="ui-link" href="{% url 'fatturazione:scadenze_dettaglio' s.pk %}">{{ s.data|date:"d/m/Y" }}</a>
-      <span class="ui-allegato-info">{{ s.importo|floatformat:2 }} € · {% if s.pagata %}incassata il {{ s.pagata_il|date:"d/m/Y" }}{% else %}da incassare{% endif %}</span>
-      {% if not s.pagata and perms.fatturazione.change_scadenza %}<form method="post" action="{% url 'fatturazione:scadenze_bottone' s.pk 'incassa' %}" style="display:inline">{% csrf_token %}<button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit">Segna incassata</button></form>{% endif %}
+    {% if scadenze %}
+    <div class="ft-incassi">
+      <div class="ft-anello" style="--ft-p:{{ obj.percentuale_incassata }}" role="img" aria-label="Incassato il {{ obj.percentuale_incassata }}%">
+        <span>{{ obj.percentuale_incassata }}%</span></div>
+      <dl class="ft-cifre">
+        <div><dt>Da pagare</dt><dd>{{ obj.da_incassare|floatformat:2 }} €</dd></div>
+        <div><dt>Incassato</dt><dd class="is-ok">{{ obj.incassato|floatformat:2 }} €</dd></div>
+        <div><dt>Residuo</dt><dd{% if obj.residuo %} class="is-attesa"{% endif %}>{{ obj.residuo|floatformat:2 }} €</dd></div>
+      </dl>
+    </div>
+    {% for s in scadenze %}
+    <div class="ft-rata{% if s.pagata %} is-pagata{% endif %}">
+      <a class="ui-link" href="{% url 'fatturazione:scadenze_dettaglio' s.pk %}">{{ s.data|date:"d/m/Y" }}</a>
+      <span class="ui-allegato-info">{{ s.importo|floatformat:2 }} € · {% if s.pagata %}incassata il {{ s.pagata_il|date:"d/m/Y" }}{% elif s.incassato %}restano {{ s.residuo|floatformat:2 }} €{% else %}da incassare{% endif %}</span>
+      {% for i in s.incassi.all %}<div class="ft-movimento"><span>{{ i.data|date:"d/m/Y" }} · {{ i.get_tipo_display }}{% if i.tipo == "incasso" %} · {{ i.get_metodo_display }}{% endif %}{% if i.riferimento %} · {{ i.riferimento }}{% endif %}</span>
+        <strong>{{ i.importo|floatformat:2 }} €</strong>
+        {% if perms.fatturazione.change_scadenza and i.tipo != "compensazione" %}<form method="post" action="{% url 'fatturazione:incasso_annulla' i.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit">Annulla</button></form>{% endif %}</div>{% endfor %}
     </div>{% endfor %}
+    {% if obj.residuo and perms.fatturazione.change_scadenza %}
+    <form method="post" action="{% url 'fatturazione:incasso' obj.pk %}" class="ft-form">{% csrf_token %}
+      <div class="ui-form-group"><label class="ui-label" for="ft-importo">Importo</label><input class="ui-input" id="ft-importo" name="importo" type="number" step="0.01" min="0.01" max="{{ obj.residuo|stringformat:'.2f' }}" value="{{ obj.residuo|stringformat:'.2f' }}" required></div>
+      <div class="ui-form-group"><label class="ui-label" for="ft-data">Data</label><input class="ui-input" id="ft-data" name="data" type="date" value="{% now 'Y-m-d' %}" required></div>
+      <div class="ui-form-group"><label class="ui-label" for="ft-tipo">Tipo</label><select class="ui-input" id="ft-tipo" name="tipo"><option value="incasso">Incasso</option><option value="abbuono">Abbuono</option></select></div>
+      <div class="ui-form-group"><label class="ui-label" for="ft-metodo">Metodo</label><select class="ui-input" id="ft-metodo" name="metodo"><option value="bonifico">Bonifico</option><option value="contanti">Contanti</option><option value="carta">Carta</option><option value="assegno">Assegno</option><option value="riba">RIBA</option><option value="sdd">Addebito SEPA</option><option value="altro">Altro</option></select></div>
+      <div class="ui-form-group"><label class="ui-label" for="ft-rif">Riferimento</label><input class="ui-input" id="ft-rif" name="riferimento" placeholder="CRO, assegno…" maxlength="120"></div>
+      <button class="ui-btn ui-btn-primary" type="submit"><svg><use href="#icon-check"/></svg> Registra</button>
+    </form>{% endif %}
+    {% endif %}
   </div>
 </section>
 {% endif %}

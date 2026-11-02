@@ -145,7 +145,7 @@ def azienda_di(cessionario, predefinita=None):
 
 
 def fornitore_di(azienda, cedente):
-    piva = cedente["partita_iva"] if cedente["paese"] in ("", "IT") else ""
+    piva = cedente["partita_iva"]
     qs = Contatto.objects.filter(azienda=azienda)
     trovato = (piva and qs.filter(partita_iva=piva).first()) or (
         cedente["codice_fiscale"] and qs.filter(codice_fiscale=cedente["codice_fiscale"]).first())
@@ -154,9 +154,9 @@ def fornitore_di(azienda, cedente):
             trovato.fornitore = True
             trovato.save(update_fields=["fornitore"])
         return trovato
-    note = "" if piva or not cedente["partita_iva"] else f"Identificativo IVA {cedente['paese']}{cedente['partita_iva']}"
+    note = ""
     return Contatto.objects.create(
-        azienda=azienda, nome=cedente["nome"][:200] or "Fornitore", fornitore=True, partita_iva=piva[:11],
+        azienda=azienda, nome=cedente["nome"][:200] or "Fornitore", fornitore=True, partita_iva=piva[:28],
         codice_fiscale=cedente["codice_fiscale"][:16], indirizzo=cedente["indirizzo"][:200], cap=cedente["cap"][:10],
         citta=cedente["citta"][:100], provincia=cedente["provincia"][:2], nazione=cedente["nazione"][:2], note=note)
 

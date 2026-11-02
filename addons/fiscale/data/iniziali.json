@@ -198,5 +198,265 @@
       "modalita": "MP12",
       "attivo": true
     }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 10,
+    "fields": {
+      "codice": "N1",
+      "descrizione": "N1 · Escluse ex art. 15",
+      "percentuale": "0.00",
+      "natura": "N1",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 11,
+    "fields": {
+      "codice": "N2.1",
+      "descrizione": "N2.1 · Non soggette, artt. da 7 a 7-septies",
+      "percentuale": "0.00",
+      "natura": "N2.1",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 12,
+    "fields": {
+      "codice": "N3.3",
+      "descrizione": "N3.3 · Non imponibili, cessioni verso San Marino",
+      "percentuale": "0.00",
+      "natura": "N3.3",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 13,
+    "fields": {
+      "codice": "N3.4",
+      "descrizione": "N3.4 · Non imponibili, operazioni assimilate alle esportazioni",
+      "percentuale": "0.00",
+      "natura": "N3.4",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 14,
+    "fields": {
+      "codice": "N3.5",
+      "descrizione": "N3.5 · Non imponibili, dichiarazioni d'intento",
+      "percentuale": "0.00",
+      "natura": "N3.5",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 15,
+    "fields": {
+      "codice": "N3.6",
+      "descrizione": "N3.6 · Non imponibili, altre operazioni",
+      "percentuale": "0.00",
+      "natura": "N3.6",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 16,
+    "fields": {
+      "codice": "N5",
+      "descrizione": "N5 · Regime del margine",
+      "percentuale": "0.00",
+      "natura": "N5",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 17,
+    "fields": {
+      "codice": "N6.1",
+      "descrizione": "N6.1 · Inversione contabile, cessione di rottami",
+      "percentuale": "0.00",
+      "natura": "N6.1",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 18,
+    "fields": {
+      "codice": "N6.2",
+      "descrizione": "N6.2 · Inversione contabile, oro e argento",
+      "percentuale": "0.00",
+      "natura": "N6.2",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 19,
+    "fields": {
+      "codice": "N6.3",
+      "descrizione": "N6.3 · Inversione contabile, subappalto edile",
+      "percentuale": "0.00",
+      "natura": "N6.3",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 20,
+    "fields": {
+      "codice": "N6.4",
+      "descrizione": "N6.4 · Inversione contabile, cessione di fabbricati",
+      "percentuale": "0.00",
+      "natura": "N6.4",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 21,
+    "fields": {
+      "codice": "N6.5",
+      "descrizione": "N6.5 · Inversione contabile, telefoni cellulari",
+      "percentuale": "0.00",
+      "natura": "N6.5",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 22,
+    "fields": {
+      "codice": "N6.6",
+      "descrizione": "N6.6 · Inversione contabile, prodotti elettronici",
+      "percentuale": "0.00",
+      "natura": "N6.6",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 23,
+    "fields": {
+      "codice": "N6.8",
+      "descrizione": "N6.8 · Inversione contabile, settore energetico",
+      "percentuale": "0.00",
+      "natura": "N6.8",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 24,
+    "fields": {
+      "codice": "N6.9",
+      "descrizione": "N6.9 · Inversione contabile, altri casi",
+      "percentuale": "0.00",
+      "natura": "N6.9",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 25,
+    "fields": {
+      "codice": "N7",
+      "descrizione": "N7 · IVA assolta in altro stato UE",
+      "percentuale": "0.00",
+      "natura": "N7",
+      "riferimento_normativo": "",
+      "esigibilita": "I",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 26,
+    "fields": {
+      "codice": "22S",
+      "descrizione": "IVA 22% · scissione dei pagamenti (PA)",
+      "percentuale": "22.00",
+      "natura": "",
+      "riferimento_normativo": "art. 17-ter DPR 633/72",
+      "esigibilita": "S",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 27,
+    "fields": {
+      "codice": "10S",
+      "descrizione": "IVA 10% · scissione dei pagamenti (PA)",
+      "percentuale": "10.00",
+      "natura": "",
+      "riferimento_normativo": "art. 17-ter DPR 633/72",
+      "esigibilita": "S",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 28,
+    "fields": {
+      "codice": "5S",
+      "descrizione": "IVA 5% · scissione dei pagamenti (PA)",
+      "percentuale": "5.00",
+      "natura": "",
+      "riferimento_normativo": "art. 17-ter DPR 633/72",
+      "esigibilita": "S",
+      "attiva": true
+    }
+  },
+  {
+    "model": "fiscale.aliquotaiva",
+    "pk": 29,
+    "fields": {
+      "codice": "4S",
+      "descrizione": "IVA 4% · scissione dei pagamenti (PA)",
+      "percentuale": "4.00",
+      "natura": "",
+      "riferimento_normativo": "art. 17-ter DPR 633/72",
+      "esigibilita": "S",
+      "attiva": true
+    }
   }
 ]

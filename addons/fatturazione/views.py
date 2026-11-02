@@ -7,7 +7,7 @@ from core import chatter, lavori
 from core.viste import Inline, ModelView, register
 
 from . import fatturapa, operazioni
-from .models import DatiFiscali, Fattura, RigaFattura, Scadenza
+from .models import CassaPrevidenziale, DatiFiscali, Fattura, Incasso, RigaFattura, RiferimentoDDT, Ritenuta, Scadenza
 
 
 def euro(valore):
@@ -23,13 +23,20 @@ class FatturaView(ModelView):
     list_filter = ["tipo", "stato", "pagata", "cliente", "data"]
     search_fields = ["numero", "cliente__nome", "cliente__partita_iva", "causale"]
     form_layout = [
-        ("Documento", [("cliente", "tipo"), ("data", "termine_pagamento"), "causale"]),
+        ("Documento", [("cliente", "tipo"), ("data", "termine_pagamento"), "causale", "bollo_modo"]),
+        ("Riferimenti per la PA e autofatture", [("rif_tipo", "rif_numero", "rif_data"), ("cig", "cup", "commessa"),
+                                                 ("collegata_numero", "collegata_data")]),
         ("Note", ["note", "@proprieta"]),
     ]
     readonly_fields = ["numero", "stato", "ordine", "fattura_origine", "emessa_il"]
     company_field = "azienda"
     inlines = [Inline(RigaFattura, "fattura", ["prodotto", "descrizione", "quantita", "prezzo", "sconto", "aliquota"],
-                      titolo="Righe", extra=2)]
+                      titolo="Righe", extra=2),
+               Inline(CassaPrevidenziale, "fattura", ["tipo", "aliquota_cassa", "aliquota", "soggetta_ritenuta"],
+                      titolo="Cassa previdenziale", extra=0),
+               Inline(Ritenuta, "fattura", ["tipo", "aliquota_ritenuta", "percentuale_base", "causale"],
+                      titolo="Ritenute", extra=0),
+               Inline(RiferimentoDDT, "fattura", ["numero", "data"], titolo="DDT (fatture differite)", extra=0)]
     list_group_by = ["stato", "tipo", "cliente", "data:mese"]
     list_sum = ["totale"]
     kanban_group = "stato"
@@ -63,12 +70,21 @@ class FatturaView(ModelView):
     def totali(self, obj):
         voci = [("Imponibile", euro(obj.imponibile))]
         voci += [(f"IVA {g['aliquota']}", euro(g["imposta"])) for g in obj.riepilogo_iva()]
-        return voci + [("Totale", euro(obj.totale))]
+        voci.append(("Totale", euro(obj.totale)))
+        if obj.iva_in_scissione:
+            voci.append(("IVA versata dal cliente (scissione)", euro(-obj.iva_in_scissione)))
+        if obj.ritenute:
+            voci.append(("Ritenute", euro(-obj.ritenute)))
+        if obj.iva_in_scissione or obj.ritenute:
+            voci.append(("Netto a pagare", euro(obj.da_incassare)))
+        if obj.bollo:
+            voci.append(("Bollo virtuale", euro(obj.bollo)))
+        return voci
 
     def get_buttons(self, request, obj):
         ammessi = {Fattura.BOZZA: {"emetti", "annulla"}, Fattura.EMESSA: {"xml", "invia", "nota_di_credito"},
                    Fattura.ANNULLATA: set()}[obj.stato]
-        if obj.tipo == Fattura.NOTA_CREDITO:
+        if obj.tipo not in Fattura.STORNABILI:
             ammessi.discard("nota_di_credito")
         return [(n, e) for n, e in super().get_buttons(request, obj) if n in ammessi]
 
@@ -170,8 +186,9 @@ class ScadenzaView(ModelView):
     def incassa(self, request, obj):
         if obj.pagata:
             return "Scadenza già incassata."
+        residuo = obj.residuo
         operazioni.incassa(obj)
-        return f"Incassati {euro(obj.importo)} di {obj.fattura}."
+        return f"Incassati {euro(residuo)} di {obj.fattura}."
     incassa.short_description = "Segna incassata"
 
     def incassa_selezionate(self, request, queryset):
@@ -183,9 +200,52 @@ class ScadenzaView(ModelView):
 
 
 @register
+class IncassoView(ModelView):
+    """Il registro degli incassi: si creano dalla fattura e si annullano da lì."""
+    model = Incasso
+    slug = "incassi"
+    list_display = ["data", "documento", "cliente", "tipo", "metodo", "importo", "riferimento"]
+    list_filter = ["tipo", "metodo", "data"]
+    search_fields = ["scadenza__fattura__numero", "scadenza__fattura__cliente__nome", "riferimento"]
+    readonly_fields = ["scadenza", "tipo", "data", "importo", "metodo", "riferimento", "nota_credito", "utente"]
+    form_layout = [("Incasso", [("scadenza", "tipo"), ("data", "importo"), ("metodo", "riferimento"),
+                                ("nota_credito", "utente")])]
+    ordering = ["-data", "-pk"]
+    list_group_by = ["tipo", "metodo", "data:mese"]
+    list_sum = ["importo"]
+    graph = {"tipi": ["barre", "linee"], "misure": ["sum:importo", "count"], "per": ["data:mese", "metodo", "tipo"]}
+
+    def col_documento(self, obj):
+        return obj.scadenza.fattura
+    col_documento.short_description = "Documento"
+
+    def col_cliente(self, obj):
+        return obj.scadenza.fattura.cliente
+    col_cliente.short_description = "Cliente"
+
+    def col_importo(self, obj):
+        return euro(obj.importo)
+    col_importo.short_description = "Importo"
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request).select_related("scadenza__fattura__cliente")
+        azienda_id = getattr(getattr(request, "azienda", None), "pk", None)
+        return qs.filter(scadenza__fattura__azienda_id=azienda_id) if azienda_id is not None else qs
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@register
 class DatiFiscaliView(ModelView):
     model = DatiFiscali
     slug = "dati"
     list_display = ["azienda", "regime_fiscale", "iban"]
-    form_layout = [("Emittente", ["azienda", "regime_fiscale", ("iban", "banca")]),
+    form_layout = [("Emittente", ["azienda", "regime_fiscale", ("iban", "banca"), "bollo_al_cliente"]),
                    ("Registro delle imprese", [("rea_ufficio", "rea_numero"), ("capitale_sociale", "socio_unico")])]

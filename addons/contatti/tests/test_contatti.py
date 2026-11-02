@@ -109,3 +109,50 @@ def test_post_install_numera_i_demo(prima):
     hooks.post_install(None)
     a.refresh_from_db()
     assert a.codice.startswith("C")
+
+
+def _contatto_form(**campi):
+    from contatti.models import Contatto
+    from core.models import Azienda
+    c = Contatto(azienda=Azienda.objects.get(pk=1), nome="Prova", **campi)
+    c.clean()
+    return c
+
+
+@pytest.mark.django_db
+def test_partita_iva_estera_valida_per_paese():
+    from django.core.exceptions import ValidationError
+    assert _contatto_form(nazione="DE", partita_iva="DE 811 907 980").partita_iva == "811907980"
+    assert _contatto_form(nazione="US", partita_iva="12-3456789").partita_iva == "123456789"
+    assert _contatto_form(nazione="GR", partita_iva="EL094259216").partita_iva == "094259216"
+    for nazione, piva in (("DE", "123"), ("IT", "12345678901"), ("US", "!")):
+        with pytest.raises(ValidationError):
+            _contatto_form(nazione=nazione, partita_iva=piva)
+
+
+@pytest.mark.django_db
+def test_codice_ufficio_pa():
+    from django.core.exceptions import ValidationError
+    assert _contatto_form(codice_sdi="uf1234", pubblica_amministrazione=True).codice_sdi == "UF1234"
+    with pytest.raises(ValidationError):
+        _contatto_form(codice_sdi="ABC1234", pubblica_amministrazione=True)
+    with pytest.raises(ValidationError):
+        _contatto_form(codice_sdi="UF1234")
+
+
+def test_bottone_vies(client, superuser, monkeypatch):
+    from contatti import vies
+    from contatti.models import Contatto
+    from core.models import Azienda
+    c = Contatto.objects.create(azienda=Azienda.objects.get(pk=1), nome="Müller", nazione="DE", partita_iva="811907980")
+    assert b"Verifica nel VIES" in client.get(f"/contatti/contatti/{c.pk}/").content
+    monkeypatch.setattr(vies, "controlla", lambda *a: {"valido": True, "nome": "MULLER GMBH", "indirizzo": ""})
+    r = client.post(f"/contatti/contatti/{c.pk}/bottone/verifica_vies/", follow=True)
+    c.refresh_from_db()
+    assert c.vies_valido is True and c.vies_il and "MULLER GMBH" in r.content.decode()
+    def giu(*a):
+        raise vies.ViesNonDisponibile
+    monkeypatch.setattr(vies, "controlla", giu)
+    assert "non risponde" in client.post(f"/contatti/contatti/{c.pk}/bottone/verifica_vies/", follow=True).content.decode()
+    c.refresh_from_db()
+    assert c.vies_valido is True

@@ -60,8 +60,13 @@ class AliquotaIva(models.Model):
 
 
 class TerminePagamento(models.Model):
-    MODALITA = [("MP01", "Contanti"), ("MP02", "Assegno"), ("MP05", "Bonifico"), ("MP08", "Carta di pagamento"),
-                ("MP12", "RIBA"), ("MP19", "SEPA Direct Debit")]
+    MODALITA = [("MP01", "Contanti"), ("MP02", "Assegno"), ("MP03", "Assegno circolare"), ("MP04", "Contanti presso Tesoreria"),
+                ("MP05", "Bonifico"), ("MP06", "Vaglia cambiario"), ("MP07", "Bollettino bancario"),
+                ("MP08", "Carta di pagamento"), ("MP09", "RID"), ("MP10", "RID utenze"), ("MP11", "RID veloce"),
+                ("MP12", "RIBA"), ("MP13", "MAV"), ("MP14", "Quietanza erario"), ("MP15", "Giroconto su conti di contabilità speciale"),
+                ("MP16", "Domiciliazione bancaria"), ("MP17", "Domiciliazione postale"), ("MP18", "Bollettino di c/c postale"),
+                ("MP19", "SEPA Direct Debit"), ("MP20", "SEPA Direct Debit CORE"), ("MP21", "SEPA Direct Debit B2B"),
+                ("MP22", "Trattenuta su somme già riscosse"), ("MP23", "PagoPA")]
     nome = models.CharField("nome", max_length=80, unique=True)
     rate = models.JSONField("rate", default=list,
                             help_text='es. [{"giorni": 30, "percentuale": 50, "fine_mese": true}, …]')

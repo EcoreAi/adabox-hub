@@ -25,8 +25,13 @@
 </table>
 <table class="totali">
   <tr><td>Imponibile</td><td class="num">{{ obj.imponibile|floatformat:2 }} €</td></tr>
+  {% for c in obj.casse.all %}<tr><td>{{ c.get_tipo_display }} {{ c.aliquota_cassa|floatformat:"-2" }}%</td><td class="num">{{ c.importo|floatformat:2 }} €</td></tr>{% endfor %}
   {% for g in obj.riepilogo_iva %}<tr><td>IVA {{ g.aliquota }}{% if g.aliquota.natura %} ({{ g.aliquota.riferimento_normativo|default:g.aliquota.get_natura_display }}){% endif %}</td><td class="num">{{ g.imposta|floatformat:2 }} €</td></tr>{% endfor %}
   <tr><td>Totale</td><td class="num">{{ obj.totale|floatformat:2 }} €</td></tr>
+  {% if obj.iva_in_scissione %}<tr><td>IVA versata dal cliente (art. 17-ter DPR 633/72)</td><td class="num">{{ obj.iva_in_scissione|floatformat:2 }} €</td></tr>{% endif %}
+  {% for r in obj.righe_ritenuta.all %}<tr><td>{{ r.get_tipo_display }} {{ r.aliquota_ritenuta|floatformat:"-2" }}%</td><td class="num">-{{ r.importo|floatformat:2 }} €</td></tr>{% endfor %}
+  {% if obj.iva_in_scissione or obj.ritenute %}<tr><td>Netto a pagare</td><td class="num">{{ obj.da_incassare|floatformat:2 }} €</td></tr>{% endif %}
+  {% if obj.bollo %}<tr><td>Bollo assolto in modo virtuale</td><td class="num">{{ obj.bollo|floatformat:2 }} €</td></tr>{% endif %}
 </table>
 {% if obj.scadenze.exists %}<h2>Scadenze</h2>
 <table class="righe"><tbody>{% for s in obj.scadenze.all %}<tr><td>{{ s.data|date:"d/m/Y" }}</td><td class="num">{{ s.importo|floatformat:2 }} €</td></tr>{% endfor %}</tbody></table>{% endif %}

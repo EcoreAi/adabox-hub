@@ -1,3 +1,4 @@
+from django.apps import apps
 from django.core.exceptions import ValidationError
 
 from core.viste import Inline, ModelView, register
@@ -65,6 +66,7 @@ class ConsegnaView(ModelView):
     chatter = True
     tracked_fields = ["stato"]
     buttons = ["spedisci", "annulla"]
+    actions = ["fattura_differita"]
     reports = [{"nome": "DDT", "template": "magazzino/report/ddt.html"}]
     api = True
 
@@ -77,6 +79,24 @@ class ConsegnaView(ModelView):
 
     def get_buttons(self, request, obj):
         return super().get_buttons(request, obj) if obj.stato == Consegna.BOZZA else []
+
+    def get_actions(self, request):
+        azioni = super().get_actions(request)
+        return azioni if apps.is_installed("fatturazione") and request.user.has_perm("fatturazione.add_fattura") else [
+            (n, e) for n, e in azioni if n != "fattura_differita"]
+
+    def fattura_differita(self, request, queryset):
+        from django.contrib import messages
+        from django.shortcuts import redirect
+        from django.urls import reverse
+        from fatturazione import operazioni as fatturazione
+        try:
+            fattura = fatturazione.da_consegne(list(queryset))
+        except ValidationError as e:
+            return " ".join(e.messages)
+        messages.success(request, f"{fattura} creata con {fattura.ddt.count()} DDT: controllala ed emettila.")
+        return redirect(reverse("fatturazione:fatture_dettaglio", args=[fattura.pk]))
+    fattura_differita.short_description = "Crea fattura differita"
 
     def spedisci(self, request, obj):
         return _bottone(request, operazioni.spedisci, obj, lambda c: f"Consegna spedita con il DDT {c.numero}.")

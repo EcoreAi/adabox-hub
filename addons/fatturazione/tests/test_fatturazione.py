@@ -47,6 +47,8 @@ def _fattura(azienda, cliente, righe, **extra):
 def _form(cliente, righe, **extra):
     dati = {"cliente": cliente.pk, "tipo": "TD01", "data": OGGI.isoformat(), "righe0-TOTAL_FORMS": str(len(righe)),
             "righe0-INITIAL_FORMS": "0", "righe0-MIN_NUM_FORMS": "0", "righe0-MAX_NUM_FORMS": "1000", **extra}
+    for n in (1, 2, 3):
+        dati.update({f"righe{n}-TOTAL_FORMS": "0", f"righe{n}-INITIAL_FORMS": "0", f"righe{n}-MIN_NUM_FORMS": "0", f"righe{n}-MAX_NUM_FORMS": "1000"})
     for i, r in enumerate(righe):
         dati.update({f"righe0-{i}-{k}": v for k, v in {"quantita": "1", "sconto": "0", **r}.items()})
     return dati
@@ -183,7 +185,7 @@ def test_dashboard(client, superuser, scena):
     operazioni.emetti(nota)
     richiesta = type("R", (), {"user": superuser, "azienda": azienda})()
     dati = kpi(richiesta)
-    assert dati["kpi"][0]["valore"].startswith("100") and dati["kpi"][1]["valore"].startswith("244")
+    assert dati["kpi"][0]["valore"].startswith("100") and dati["kpi"][1]["valore"].startswith("122")       # la nota ha scalato metà dalla scadenza
 
 
 def test_demo(scena):
@@ -246,6 +248,22 @@ def test_ordine_si_rifattura_dopo_lo_storno_completo(scena):
         operazioni.da_ordine(ordine)
     operazioni.emetti(nota)
     assert fattura.stornata and operazioni.da_ordine(ordine).stato == Fattura.BOZZA
+
+
+def test_scissione_dei_pagamenti_scadenze_sul_netto(client, superuser, scena):
+    azienda, cliente, _, corso = scena
+    split = AliquotaIva.objects.get(codice="22S")
+    normale = AliquotaIva.objects.get(codice="22")
+    termine = TerminePagamento.objects.create(nome="30/60", rate=[{"giorni": 30, "percentuale": 50},
+                                                                  {"giorni": 60, "percentuale": 50}])
+    f = Fattura.objects.create(azienda=azienda, cliente=cliente, termine_pagamento=termine)
+    RigaFattura.objects.create(fattura=f, descrizione="PA", prezzo=Decimal(100), aliquota=split)
+    RigaFattura.objects.create(fattura=f, descrizione="Altro", prezzo=Decimal(100), aliquota=normale)
+    f.ricalcola()
+    assert f.totale == Decimal("244.00") and f.iva_in_scissione == Decimal("22.00") and f.da_incassare == Decimal("222.00")
+    operazioni.emetti(f)
+    assert sum(s.importo for s in f.scadenze.all()) == Decimal("222.00")
+    assert b"Netto a pagare" in client.get(f"/fatturazione/fatture/{f.pk}/").content
 
 
 def test_annullo_ordine_annulla_le_bozze_e_si_ferma_sulle_emesse(client, superuser, scena):
