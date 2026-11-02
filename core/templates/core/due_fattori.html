@@ -1,0 +1,57 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Verifica in due passaggi · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Verifica in due passaggi</h1>
+  <div class="sub">Anche chi scopre la tua password non può entrare senza il codice sul tuo telefono</div></div>
+  <a class="ui-btn ui-btn-secondary" href="{% url 'core:profilo' %}">Torna al profilo</a></div>
+
+{% if codici %}
+<section class="ui-card is-revealed ui-section df-codici-card df-entra">
+  <div class="ui-card-head"><div><div class="ui-card-title">I tuoi codici di recupero</div>
+    <div class="ui-card-sub">Salvali ora, non li vedrai più. Ognuno vale una volta sola, se perdi il telefono.</div></div></div>
+  <div class="ui-card-body">
+    <ol class="df-codici" id="df-codici">{% for c in codici %}<li>{{ c }}</li>{% endfor %}</ol>
+    <button type="button" class="ui-btn ui-btn-primary" data-df-copia="df-codici"><svg><use href="#icon-check"/></svg> Copia i codici</button>
+  </div>
+</section>
+{% endif %}
+
+{% if attiva %}
+<section class="ui-card is-revealed ui-section df-stato">
+  <div class="ui-card-body df-stato-riga">
+    <span class="df-scudo df-scudo-grande is-attivo"><svg><use href="#icon-shield"/></svg></span>
+    <div><strong>Il tuo account è protetto</strong>
+      <div class="ui-help">Attiva dal {{ df.attiva_dal|date:"d/m/Y" }} · {{ codici_rimasti }} codici di recupero disponibili</div></div>
+  </div>
+</section>
+<div class="df-griglia">
+  <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Dispositivi fidati</div></div>
+    <div class="ui-card-body"><p class="ui-help" style="margin-top:0">I dispositivi che hai ricordato non chiedono il codice per {{ giorni_fidato }} giorni. Se ne hai perso uno, revocali tutti.</p>
+      <form method="post">{% csrf_token %}<input type="hidden" name="azione" value="revoca_fidati"><button class="ui-btn ui-btn-secondary" type="submit">Revoca tutti i dispositivi</button></form></div></section>
+  <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Nuovi codici di recupero</div></div>
+    <div class="ui-card-body"><form method="post">{% csrf_token %}<input type="hidden" name="azione" value="rigenera">
+      <div class="ui-form-group"><label class="ui-label" for="df-p1">Password</label><input class="ui-input" id="df-p1" type="password" name="password" required autocomplete="current-password"></div>
+      <div class="ui-form-group"><label class="ui-label" for="df-c1">Codice dall'app</label><input class="ui-input" id="df-c1" name="codice" required autocomplete="one-time-code" inputmode="numeric"></div>
+      <button class="ui-btn ui-btn-secondary" type="submit">Crea nuovi codici</button></form></div></section>
+  {% if not obbligatoria %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Disattiva</div></div>
+    <div class="ui-card-body"><form method="post">{% csrf_token %}<input type="hidden" name="azione" value="disattiva">
+      <div class="ui-form-group"><label class="ui-label" for="df-p2">Password</label><input class="ui-input" id="df-p2" type="password" name="password" required autocomplete="current-password"></div>
+      <div class="ui-form-group"><label class="ui-label" for="df-c2">Codice dall'app</label><input class="ui-input" id="df-c2" name="codice" required autocomplete="one-time-code"></div>
+      <button class="ui-btn ui-btn-danger" type="submit">Disattiva la verifica</button></form></div></section>{% endif %}
+</div>
+{% else %}
+{% if obbligatoria %}<div class="ui-alert ui-alert-warning">La tua azienda richiede la verifica in due passaggi: attivala per continuare a lavorare.</div>{% endif %}
+<section class="ui-card is-revealed ui-section df-entra"><div class="ui-card-body df-passi">
+  <div class="df-passo"><span class="df-numero">1</span><h2>Installa un'app</h2>
+    <p>Google Authenticator, Microsoft Authenticator, 1Password o simili. Se ne hai già una, passa oltre.</p></div>
+  <div class="df-passo"><span class="df-numero">2</span><h2>Inquadra il codice</h2>
+    <div class="df-qr">{{ qr|safe }}</div>
+    <details class="df-manuale"><summary>Non riesci a inquadrarlo?</summary><p>Inserisci questa chiave nell'app:</p><code class="ui-code ui-mono">{{ segreto }}</code></details></div>
+  <div class="df-passo"><span class="df-numero">3</span><h2>Scrivi il codice</h2>
+    <p>L'app ti mostra 6 cifre che cambiano ogni 30 secondi.</p>
+    <form method="post" data-df-form>{% csrf_token %}<input type="hidden" name="azione" value="attiva">
+      <input class="ui-input df-codice" name="codice" required autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" aria-label="Codice di 6 cifre" data-df-codice>
+      <button class="ui-btn ui-btn-primary" type="submit" style="width:100%;justify-content:center"><svg><use href="#icon-shield"/></svg> Attiva</button></form></div>
+</div></section>
+{% endif %}
+{% endblock %}

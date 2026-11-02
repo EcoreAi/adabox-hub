@@ -1150,3 +1150,46 @@ td.ui-num { text-align: right; font-variant-numeric: tabular-nums; white-space: 
   .ui-passi > li { font-size: 11px; }
   .ui-scelta label { padding: 6px 10px; }
 }
+
+/* Verifica in due passaggi */
+.df-sfondo { background: radial-gradient(1100px 500px at 50% -10%, var(--ui-primary-tint), transparent 70%), var(--ui-surface-2); }
+.df-entra { animation: df-entra .5s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes df-entra { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+.df-scudo { flex: none; width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px;
+  background: var(--ui-surface-2); color: var(--ui-text-3); }
+.df-scudo svg { width: 22px; height: 22px; }
+.df-scudo.is-attivo { background: var(--ui-primary-tint); color: var(--ui-primary); box-shadow: 0 0 0 0 var(--ui-primary-tint); animation: df-pulsa 2.6s ease-out infinite; }
+.df-scudo-grande { width: 64px; height: 64px; border-radius: 20px; margin-bottom: 14px; }
+.df-scudo-grande svg { width: 32px; height: 32px; }
+@keyframes df-pulsa { 70% { box-shadow: 0 0 0 16px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.df-codice { font-family: var(--ui-mono, ui-monospace, monospace); font-size: 30px; font-weight: 600; letter-spacing: .42em; text-align: center; padding: 14px 0 14px .42em; height: auto; }
+.df-codice.is-recupero { font-size: 20px; letter-spacing: .12em; padding-left: .12em; }
+.df-ricorda { display: flex; gap: 8px; align-items: center; margin: 14px 0; font-size: 13px; color: var(--ui-text-2); }
+.df-link { margin: 12px 0 0; text-align: center; font-size: 13px; }
+.df-testo { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; color: var(--ui-primary-lift); }
+.df-scuoti { animation: df-scuoti .4s ease; }
+@keyframes df-scuoti { 25% { transform: translateX(-6px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
+.df-riquadro { display: flex; align-items: center; gap: 14px; padding: 16px 20px; color: inherit; transition: transform .2s ease, box-shadow .2s ease; }
+.df-riquadro:hover { color: inherit; text-decoration: none; transform: translateY(-2px); }
+.df-riquadro > span:nth-child(2) { flex: 1; min-width: 0; }
+.df-riquadro small { display: block; margin-top: 2px; font-size: 12.5px; color: var(--ui-text-2); }
+.df-passi { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.df-passo h2 { margin: 10px 0 6px; font-size: 16px; font-weight: 600; }
+.df-passo p { margin: 0 0 12px; font-size: 13.5px; color: var(--ui-text-2); }
+.df-numero { display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center; border-radius: 50%; background: var(--ui-primary-lift); color: #fff; font-size: 13px; font-weight: 600; }
+.df-qr { display: inline-block; padding: 10px; background: #fff; border-radius: 14px; box-shadow: var(--shadow-card); line-height: 0; }
+.df-qr svg { width: 180px; height: 180px; }
+.df-manuale { margin-top: 12px; font-size: 13px; }
+.df-manuale summary { cursor: pointer; color: var(--ui-primary-lift); }
+.df-manuale code { display: block; margin-top: 6px; overflow-wrap: anywhere; }
+.df-codici { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin: 0 0 16px; padding: 0; font-family: var(--ui-mono, ui-monospace, monospace); font-size: 15px; font-weight: 600; }
+.df-codici li { padding: 10px; text-align: center; border-radius: 10px; background: var(--ui-surface-2); }
+.df-stato-riga { display: flex; align-items: center; gap: 18px; }
+.df-stato-riga .df-scudo-grande { margin: 0; }
+.df-griglia { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; align-items: start; }
+.df-griglia > .ui-section { margin: 0; }
+.df-scelte { display: grid; gap: 8px; }
+.df-scelta { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border: 1px solid var(--ui-border); border-radius: 12px; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+.df-scelta:has(input:checked) { border-color: var(--ui-primary); background: var(--ui-primary-tint); }
+@media (max-width: 860px) { .df-passi { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .df-entra, .df-scuoti, .df-scudo.is-attivo { animation: none; } .df-riquadro:hover { transform: none; } }

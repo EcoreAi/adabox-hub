@@ -21,6 +21,12 @@
   </div>
 </div>
 
+<a class="ui-card is-revealed df-riquadro" style="max-width:560px;" href="{% url 'core:due_fattori' %}">
+  <span class="df-scudo{% if due_fattori_attiva %} is-attivo{% endif %}"><svg><use href="#icon-shield"/></svg></span>
+  <span><strong>Verifica in due passaggi</strong><small>{% if due_fattori_attiva %}Attiva: il tuo account è protetto anche se qualcuno scopre la password{% else %}Non attiva: proteggi il tuo account in un minuto{% endif %}</small></span>
+  <span class="ui-pill {% if due_fattori_attiva %}ui-pill-ok{% else %}ui-pill-warn{% endif %}">{% if due_fattori_attiva %}Attiva{% else %}Da attivare{% endif %}</span>
+</a>
+
 {% if form_azienda %}
 <div class="ui-card is-revealed" style="max-width:560px;">
   <div class="ui-card-head"><div><div class="ui-card-title">Azienda predefinita</div>

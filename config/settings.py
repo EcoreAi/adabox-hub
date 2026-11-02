@@ -68,6 +68,7 @@ MIDDLEWARE = [
     "core.middleware.AziendaCorrenteMiddleware",
     "core.middleware.ModuloDisattivatoMiddleware",
     "core.middleware.UtenteEsternoMiddleware",
+    "core.middleware.DueFattoriObbligoMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "axes.middleware.AxesMiddleware",

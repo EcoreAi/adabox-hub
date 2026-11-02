@@ -34,6 +34,26 @@ class UtenteEsternoMiddleware:
         return self.get_response(request)
 
 
+class DueFattoriObbligoMiddleware:
+    """Con la 2FA obbligatoria, chi non l'ha ancora attivata resta sulla pagina di attivazione. Le API con il token
+    restano fuori: non hanno una pagina da mostrare."""
+    SEMPRE = ("/accounts/", "/static/", "/favicon.", "/profilo/due-fattori/", "/api/")
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        user = getattr(request, "user", None)
+        if user is not None and user.is_authenticated and not esterno(user) \
+                and not request.path_info.startswith(self.SEMPRE):
+            from django.shortcuts import redirect
+
+            from . import due_fattori
+            if due_fattori.obbligatoria_per(user) and not due_fattori.attiva(user):
+                return redirect("core:due_fattori")
+        return self.get_response(request)
+
+
 class ModuloDisattivatoMiddleware:
     """Le pagine e le API di un modulo disattivato rispondono 404 con un avviso, per tutti: il modulo resta
     installato con i suoi dati e si riaccende dalla pagina Moduli."""

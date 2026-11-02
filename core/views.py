@@ -15,7 +15,7 @@ from django.views.decorators.http import require_GET, require_POST
 from . import azienda as az
 from . import moduli as mod
 from . import attivita as attivita_servizio
-from . import barra, parametri
+from . import barra, due_fattori, parametri
 
 from .forms import AziendaPredefinitaForm, CampoPersonalizzatoForm, ProfiloForm, TokenApiForm
 from .models import (Azienda, CampoPersonalizzato, EmailRicevuta, Lavoro, Modulo, Parametro, ProfiloUtente,
@@ -108,7 +108,7 @@ def profilo(request):
     if len(az.consentite(request.user)) > 1:
         form_azienda = AziendaPredefinitaForm(instance=crea_profilo(request.user))
     return render(request, "core/profilo.html", {
-        "form": form, "form_azienda": form_azienda,
+        "form": form, "form_azienda": form_azienda, "due_fattori_attiva": due_fattori.attiva(request.user),
         "form_token": TokenApiForm(), "token": request.user.token_api.all(),
         "token_chiaro": request.session.pop(CHIAVE_TOKEN_NUOVO, None),   # mostrato una sola volta
     })
@@ -382,6 +382,11 @@ def impostazioni(request):
     manifest = modules.manifests_attivi()
     moduli_con = [slug for slug, m in manifest.items() if m.settings]
     inviato = request.POST.get("modulo") if request.method == "POST" else None
+    if inviato == "sicurezza":
+        if request.user.is_superuser and request.POST.get("obbligo") in dict(due_fattori.OBBLIGHI):
+            due_fattori.scrivi_obbligo(request.POST["obbligo"])
+            messages.success(request, "Regola della verifica in due passaggi salvata.")
+        return redirect(f"{reverse('core:impostazioni')}#sicurezza")
     if inviato is not None and inviato not in moduli_con:
         return HttpResponseBadRequest("modulo sconosciuto")
     schede = []
@@ -392,7 +397,8 @@ def impostazioni(request):
             messages.success(request, f"Impostazioni di {manifest[slug].name} salvate.")
             return redirect(f"{reverse('core:impostazioni')}#{slug}")
         schede.append({"slug": slug, "nome": manifest[slug].name, "form": form})
-    return render(request, "core/impostazioni.html", {"schede": schede})
+    return render(request, "core/impostazioni.html", {"schede": schede, "obblighi": due_fattori.OBBLIGHI,
+                                                      "obbligo": due_fattori.leggi_obbligo()})
 
 
 @login_required

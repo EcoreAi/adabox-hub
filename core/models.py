@@ -51,6 +51,28 @@ class ProfiloUtente(models.Model):
         return f"profilo di {self.utente}"
 
 
+class DueFattori(models.Model):
+    """Autenticazione a due fattori di un utente: segreto TOTP cifrato e codici di recupero (solo le impronte)."""
+    utente = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="due_fattori",
+                                  verbose_name="utente")
+    segreto_cifrato = models.TextField("segreto cifrato", editable=False)
+    attiva_dal = models.DateTimeField("attiva dal", null=True, blank=True, editable=False,
+                                      help_text="vuoto finché la procedura di attivazione non è conclusa")
+    codici_recupero = models.JSONField("codici di recupero", default=list, editable=False)
+    ultimo_passo = models.BigIntegerField("ultimo passo usato", default=0, editable=False,
+                                          help_text="un codice già usato non vale una seconda volta")
+    fallimenti = models.PositiveSmallIntegerField("tentativi falliti", default=0, editable=False)
+    bloccata_fino = models.DateTimeField("bloccata fino a", null=True, blank=True, editable=False)
+    generazione = models.PositiveIntegerField("generazione dei dispositivi fidati", default=1, editable=False)
+
+    class Meta:
+        verbose_name = "autenticazione a due fattori"
+        verbose_name_plural = "autenticazioni a due fattori"
+
+    def __str__(self):
+        return f"2FA di {self.utente}"
+
+
 class Modulo(models.Model):
     DISPONIBILE, INSTALLATO, DA_AGGIORNARE, MANCANTE, ERRORE = (
         "disponibile", "installato", "da_aggiornare", "mancante", "errore")

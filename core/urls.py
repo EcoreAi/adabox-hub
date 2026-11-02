@@ -1,6 +1,6 @@
 from django.urls import include, path
 
-from . import views
+from . import due_fattori_viste, views
 from .viste import allegati as allegati_viste
 from .viste import chatter as chatter_viste
 from .viste import registry
@@ -12,6 +12,7 @@ urlpatterns = [
     path("app/", views.launcher, name="launcher"),
     path("stile/", views.stile, name="stile"),
     path("profilo/", views.profilo, name="profilo"),
+    path("profilo/due-fattori/", due_fattori_viste.gestione, name="due_fattori"),
     path("profilo/azienda/", views.azienda_predefinita, name="azienda_predefinita"),
     path("profilo/token/", views.token_nuovo, name="token_nuovo"),
     path("profilo/token/<int:pk>/revoca/", views.token_revoca, name="token_revoca"),

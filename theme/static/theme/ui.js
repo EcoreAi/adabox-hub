@@ -96,4 +96,34 @@
     clearTimeout(el._t);
     el._t = setTimeout(() => el.classList.remove('is-visible'), 3000);
   };
+
+  // --- Verifica in due passaggi: 6 cifre e parte da sola; codice di recupero; copia dei codici
+  document.querySelectorAll('[data-df-codice]').forEach((campo) => {
+    campo.addEventListener('input', () => {
+      if (campo.classList.contains('is-recupero')) return;
+      campo.value = campo.value.replace(/\D/g, '').slice(0, 6);
+      if (campo.value.length === 6) campo.form.requestSubmit();
+    });
+  });
+  document.querySelectorAll('[data-df-recupero]').forEach((bottone) => {
+    bottone.addEventListener('click', () => {
+      const campo = bottone.closest('form').querySelector('[data-df-codice]');
+      campo.classList.add('is-recupero');
+      campo.removeAttribute('pattern');
+      campo.inputMode = 'text';
+      campo.autocomplete = 'off';
+      campo.maxLength = 9;
+      campo.placeholder = 'XXXX-XXXX';
+      campo.value = '';
+      campo.focus();
+      bottone.closest('p').hidden = true;
+    });
+  });
+  document.querySelectorAll('[data-df-copia]').forEach((bottone) => {
+    bottone.addEventListener('click', async () => {
+      const voci = [...document.getElementById(bottone.dataset.dfCopia).children].map((li) => li.textContent);
+      await navigator.clipboard.writeText(voci.join('\n'));
+      window.uiToast('Codici copiati');
+    });
+  });
 })();

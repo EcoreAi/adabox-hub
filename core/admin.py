@@ -1,6 +1,6 @@
 from django.contrib import admin, messages
 
-from .models import Azienda, Modulo, Parametro, Pianificazione, ProfiloUtente, Sequenza, TokenApi
+from .models import Azienda, DueFattori, Modulo, Parametro, Pianificazione, ProfiloUtente, Sequenza, TokenApi
 
 
 @admin.register(Azienda)
@@ -8,6 +8,17 @@ class AziendaAdmin(admin.ModelAdmin):
     list_display = ("nome", "partita_iva", "citta", "attiva")
     list_filter = ("attiva",)
     search_fields = ("nome", "partita_iva")
+
+
+@admin.register(DueFattori)
+class DueFattoriAdmin(admin.ModelAdmin):
+    """Chi ha perso il telefono e i codici: eliminando la riga, l'utente riaccede con la sola password."""
+    list_display = ("utente", "attiva_dal", "bloccata_fino")
+    search_fields = ("utente__username", "utente__email")
+    readonly_fields = ("utente", "attiva_dal", "bloccata_fino")
+
+    def has_add_permission(self, request):
+        return False
 
 
 @admin.register(ProfiloUtente)
