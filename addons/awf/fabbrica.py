@@ -1,5 +1,5 @@
-"""Chiamate alla fabbrica degli agenti: collegamento, battito, stato, eventi, catalogo e richieste d'ingaggio
-(docs/plugin-api.md, §1-3, §5 e §7).
+"""Chiamate alla fabbrica degli agenti: collegamento, battito, stato, eventi, catalogo e richieste d'ingaggio, e
+l'Agate incluso per l'azienda che non ne ha uno (docs/plugin-api.md, §1-3, §5, §7 e §8.6).
 
 Il token della fabbrica (`wpt_...`) e quello di una richiesta d'ingaggio (`wfr_...`) si salvano cifrati e non
 finiscono mai nei log né a video. Il bearer del server MCP nasce qui, al collegamento con il codice o quando lo chiede
@@ -410,6 +410,111 @@ def _agate():
         except cifratura.SegretoIlleggibile:
             log.warning("codice per la fabbrica illeggibile: la richiesta parte senza")
     return blocco
+
+
+# ---------- Agate incluso (§8.6): l'azienda senza Agate ----------
+
+AGATE_CODICE_RE = re.compile(r"^agc_[A-Za-z0-9_-]{32}$")
+INCLUSO_SPENTO = 600                                    # secondi: dopo un 503 si ripropone il codice per 10 minuti
+DURATA_PROVA = 600                                      # secondi: la prova del gestionale vale 10 minuti
+PROVA_RE = re.compile(r"^prv_[A-Za-z0-9_-]{32}$")
+NON_RAGGIUNGIBILE = "il gestionale non risponde all'indirizzo indicato"
+
+
+class GestionaleIrraggiungibile(ErroreFabbrica):
+    """La fabbrica non ha trovato la prova all'indirizzo pubblico di adabox (§8.6, 422): adabox non è raggiungibile
+    da internet in https a quell'indirizzo."""
+
+
+def nuova_prova():
+    """Una prova nuova (`prv_` + 32 caratteri), salvata nel database (vale per tutti i processi) per 10 minuti: la
+    pubblica `GET /awf/agate-incluso/prova/` finché la fabbrica non l'ha letta."""
+    prova = "prv_" + secrets.token_urlsafe(24)
+    Collegamento.objects.filter(pk=Collegamento.attuale().pk).update(
+        prova_incluso=prova, prova_scade=timezone.now() + datetime.timedelta(seconds=DURATA_PROVA))
+    return prova
+
+
+def prova_in_attesa():
+    """La prova da mostrare alla fabbrica, o "" se non ce n'è una valida."""
+    c = Collegamento.attuale()
+    if not PROVA_RE.match(c.prova_incluso or "") or c.prova_scade is None or c.prova_scade <= timezone.now():
+        return ""
+    return c.prova_incluso
+
+
+def dimentica_prova(prova):
+    Collegamento.objects.filter(prova_incluso=prova).update(prova_incluso="", prova_scade=None)
+
+
+def _chiave_incluso(forge):
+    return "awf:incluso-spento:" + hashlib.sha256(forge.encode()).hexdigest()
+
+
+def incluso_disponibile():
+    """La fabbrica può aprire l'Agate dell'azienda (§8.6): c'è il suo indirizzo e non ha appena detto che il servizio
+    non c'è (503 o, una fabbrica di prima, 404)."""
+    try:
+        forge = _forge()
+    except ErroreFabbrica:
+        return False
+    return not cache.get(_chiave_incluso(forge))
+
+
+def agate_incluso(utente, azienda, base_url, email=""):
+    """Chiede alla fabbrica di aprire l'Agate dell'azienda, ospitato da Agentlia (§8.6). Titolare è chi conferma:
+    serve la sua email (o `email`, scritta nella cassa), dove arriva l'invito alla console. Restituisce
+    (app_code, gateway_url, console_url, tenant): il codice `agc_` del §8.1, da usare subito. Una ripetizione per la
+    stessa azienda (stessa partita IVA o email) dà un codice nuovo per lo stesso Agate, finché nessuna applicazione è
+    collegata. Solleva ErroreFabbrica con un messaggio per le persone e lo stato HTTP."""
+    from core.models import Azienda
+    email = (email or getattr(utente, "email", "") or "").strip()
+    if not email:
+        raise ErroreFabbrica("serve la tua email: lì arriva l'invito al vostro Agate")
+    forge = _forge()
+    c = Collegamento.attuale()
+    base = controlla_url(base_url or c.base_url or settings.SITO_URL, "di questa istanza")
+    azienda = azienda or c.azienda or Azienda.objects.filter(attiva=True).order_by("pk").first()
+    if azienda is None:
+        raise ErroreFabbrica("nessuna azienda attiva per cui aprire Agate")
+    contatto = (utente.get_full_name() or utente.get_username()) if utente is not None else ""
+    societa = {"name": azienda.nome, "email": email, "contact": contatto}
+    if azienda.partita_iva:
+        societa["vat"] = azienda.partita_iva
+    prova = nuova_prova()                               # la fabbrica la legge all'indirizzo dichiarato, poi sparisce
+    dati = {"company": societa, "app": {"name": "adabox-hub", "prefix": "awf", "base_url": base, "proof": prova}}
+    try:
+        stato, corpo = richiesta("POST", "/api/agate/included", forge_url=forge, dati=dati)
+    finally:
+        dimentica_prova(prova)
+    if stato in (404, 503):                             # servizio non attivo (o fabbrica di prima): il codice a mano
+        cache.set(_chiave_incluso(forge), True, INCLUSO_SPENTO)
+        dettaglio = corpo.get("detail") if stato == 503 and isinstance(corpo.get("detail"), str) else ""
+        raise ErroreFabbrica(dettaglio.strip().rstrip(".")[:300] or "Agentlia non apre Agate da qui", stato)
+    if stato == 409:
+        raise ErroreFabbrica("la vostra azienda ha già un Agate: collegatelo con il codice dalla sua console", stato)
+    if stato == 422 and NON_RAGGIUNGIBILE in str(corpo.get("detail") or corpo.get("title") or ""):
+        raise GestionaleIrraggiungibile(f"Agentlia non raggiunge adabox all'indirizzo {base}: l'indirizzo pubblico di "
+                                        "adabox deve rispondere da internet in https", stato)
+    if stato == 422:
+        raise ErroreFabbrica(f"Agentlia non ha accettato i dati dell'azienda{_dettaglio(corpo)}", stato)
+    if stato == 429:
+        raise ErroreFabbrica("troppi tentativi in poco tempo: Agentlia ne accetta 3 l'ora, riprova più tardi", stato)
+    if stato == 502:
+        raise ErroreFabbrica("il servizio che apre Agate non risponde in questo momento: riprova tra qualche minuto",
+                             stato)
+    if stato not in (200, 201):
+        raise ErroreFabbrica(f"risposta inattesa di Agentlia (HTTP {stato}): riprova tra poco", stato)
+    codice, tenant = corpo.get("app_code"), _testo(corpo.get("tenant"), 200)
+    if not isinstance(codice, str) or not AGATE_CODICE_RE.match(codice):
+        raise ErroreFabbrica("Agentlia non ha restituito un codice valido: riprova tra poco", stato)
+    try:
+        gateway = controlla_url(corpo.get("gateway_url"), "di Agate")
+    except ErroreFabbrica:
+        raise ErroreFabbrica("Agentlia non ha restituito l'indirizzo di Agate: riprova tra poco", stato) from None
+    console = _testo(corpo.get("console_url"), 500)
+    log.info("Agate incluso aperto da Agentlia per %s", tenant or azienda.nome)
+    return codice, gateway, console.rstrip("/") if console.startswith(("https://", "http://")) else "", tenant
 
 
 def richiedi(team, versione, settimane, note="", utente=None, azienda=None, base_url=""):

@@ -34,6 +34,7 @@
 <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Collegamento con un codice</div>
   <div class="ui-card-sub">{% if semplice %}<span class="ui-pill ui-pill-ok">fatto</span>{% else %}<span class="ui-pill ui-pill-neutral">collegato a mano</span>{% endif %}</div></div>
   <div class="ui-card-body">
+    {% if c.incluso %}<p><strong>Agate incluso, aperto per voi da Agentlia</strong>{% if c.console_url %} — console: <a class="ui-link" href="{{ c.console_url }}" target="_blank" rel="noopener">{{ c.console_url }}</a>{% endif %}. L'azienda ne è la titolare: l'invito alla console è arrivato a chi ha confermato il primo agente.</p>{% endif %}
     {% if semplice %}
     <p>Collegato{% if c.tenant %} a «{{ c.tenant }}»{% endif %} il {{ c.con_codice_il|date:"d/m/Y H:i" }}: le decisioni si prendono in adabox, in <a class="ui-link" href="{% url 'agate:da_approvare' %}">Da approvare</a>, a nome di chi clicca.</p>
     <p class="ui-help">Strumenti in Agate: {% if c.da_sincronizzare %}<strong>l'ultima risincronizzazione non è riuscita</strong> ({{ c.esito_sincronizzazione }}), si riprova da sola ogni minuto{% elif c.sincronizzato_il %}risincronizzati il {{ c.sincronizzato_il|date:"d/m/Y H:i" }}{% if c.esito_sincronizzazione %} ({{ c.esito_sincronizzazione }}){% endif %}{% else %}—{% endif %}.</p>

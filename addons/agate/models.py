@@ -6,7 +6,9 @@ modalità decide quanto conta Agate: spenta, in prova (Agate valuta e registra s
 comunque) o attiva (decide Agate). I valori salvati restano spento, osservazione e attivo.
 
 Collegato con un codice (§8.1 di plugin-api.md) ci sono anche la chiave `decide` (solo approve: le decisioni delle
-persone, prese in adabox) e la chiave `sync` (solo app: risincronizzare gli strumenti), cifrate come l'altra."""
+persone, prese in adabox) e la chiave `sync` (solo app: risincronizzare gli strumenti), cifrate come l'altra.
+L'azienda senza Agate lo riceve incluso (§8.6): Agentlia lo apre alla prima assunzione degli agenti e adabox si collega
+da solo con il codice; `incluso` lo ricorda."""
 from django.conf import settings
 from django.db import models
 
@@ -40,6 +42,9 @@ class Collegamento(models.Model):
                                            help_text="l'ultima risincronizzazione non è riuscita: si riprova da sola")
     sincronizzato_il = models.DateTimeField("ultima risincronizzazione", null=True, blank=True)
     esito_sincronizzazione = models.CharField("esito della risincronizzazione", max_length=300, blank=True)
+    incluso = models.BooleanField("Agate incluso", default=False,
+                                  help_text="aperto da Agentlia alla prima assunzione degli agenti (§8.6): l'azienda "
+                                            "ne è la titolare e lo vede dalla console")
 
     class Meta:
         verbose_name = "collegamento ad Agate"

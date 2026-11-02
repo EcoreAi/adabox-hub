@@ -1,6 +1,7 @@
 """«Da approvare»: in una pagina sola quello che aspetta una persona, deciso in adabox a nome di chi clicca (§8.4).
 
-- **Le azioni degli agenti** (modulo `awf`, dal webhook `approval.requested`), per chi gestisce gli agenti;
+- **Le azioni degli agenti** (modulo `awf`, dal webhook `approval.requested`), per chi gestisce gli agenti, in una
+  frase semplice («Il Qualificatore lead chiede di cambiare «Preventivo…»: fase → Qualificata», `awf.frasi`);
 - **le proposte dell'assistente** in attesa dell'ok (le valutazioni `in_attesa`), per chi gestisce il Controllo AI;
 - **i contratti degli agenti** da confermare di nuovo (proposti diversi da quello confermato): qui c'è il link alla
   pagina della richiesta, che mostra cosa è cambiato.
@@ -103,11 +104,13 @@ def voci(utente, console=""):
                                    "che è stato confermato: va rivisto.",
                           "dettaglio": "; ".join(contratto.differenze(r.consenso, r.proposta)),
                           "link": _url("awf:richiesta", r.pk), "link_agate": r.approve_url, "in_conferma": False})
+        from awf import frasi
         for a in _approvazioni():
-            frase = (f"Contratto degli agenti: «{a.riepilogo}»" if a.contratto
-                     else f"Un agente chiede il tuo ok: «{a.riepilogo}»")
+            testo = ({"frase": f"Contratto degli agenti: «{a.riepilogo}»", "dettaglio": ""} if a.contratto
+                     else frasi.approvazione(a))
             righe.append({"tipo": AGENTE, "pk": a.pk, "quando": a.ricevuta, "scade": a.scade,
-                          "password": irreversibile_agente(a), "frase": frase, "dettaglio": "", "link": "",
+                          "password": irreversibile_agente(a), "frase": testo["frase"],
+                          "dettaglio": testo["dettaglio"], "link": "",
                           "link_agate": f"{console}/console/approvals/{a.approval_id}/" if console else "",
                           "in_conferma": a.in_conferma})
     if vede_assistente(utente):

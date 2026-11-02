@@ -8,9 +8,15 @@ operazioni che gli agenti useranno (§7.2: `plugin.operations` sono quelle ammes
 resta ammesso nulla.
 
 «Con il tuo ok» per ora vale come «Sì» qui: la conferma di una persona la chiedono le regole di Agate (le imposta
-chi gestisce Agate). La scelta resta salvata nella richiesta per quando le regole nasceranno da sole."""
+chi gestisce Agate). La scelta resta salvata nella richiesta per quando le regole nasceranno da sole.
+
+**Agate incluso** (§8.6): se l'azienda non ha ancora un Agate, alla conferma adabox chiede alla fabbrica di aprirlo
+(ospitato da Agentlia, titolare chi conferma) e si collega subito con il codice ricevuto, come con un codice incollato
+(§8.1): poi la richiesta parte con il codice per la fabbrica e il contratto si approva da solo. Se uno dei due passi
+non riesce non resta nulla a metà e si può riprovare: la fabbrica dà un codice nuovo per lo stesso Agate."""
 import logging
 
+from django.conf import settings
 from django.db import transaction
 
 from . import contratto, fabbrica, operazioni, squadre
@@ -44,6 +50,65 @@ def reparti_suggeriti(azienda=None):
     except Exception:                                   # app non migrata o cambiata: solo testo libero
         log.warning("reparti di Personale non leggibili", exc_info=True)
         return []
+
+
+APRI, COLLEGA = "apri", "collega"                       # i due passi di Agate incluso
+
+
+class ErroreIncluso(Exception):
+    """Agate incluso non riuscito al `passo` APRI (la fabbrica non l'ha aperto) o COLLEGA (adabox non si è collegato).
+    Il messaggio è per le persone; `stato` è quello HTTP, se c'è. Non resta nulla a metà: si può riprovare."""
+
+    def __init__(self, messaggio, passo, stato=None, indirizzo=False):
+        super().__init__(messaggio)
+        self.passo, self.stato, self.indirizzo = passo, stato, indirizzo
+
+
+class InclusoNonDisponibile(Exception):
+    """La fabbrica non apre Agate (§8.6: 503, o una fabbrica di prima): resta il collegamento con un codice."""
+
+
+def includi_agate(utente, azienda=None, base_url="", email=""):
+    """Agate incluso (§8.6): la fabbrica apre l'Agate dell'azienda, poi adabox si collega con il codice ricevuto
+    (§8.1: chiavi, segreto dei webhook, codice per la fabbrica, protezione «Attiva»). Restituisce il collegamento ad
+    Agate. Solleva InclusoNonDisponibile o ErroreIncluso. `email` è quella scritta nella cassa da chi non l'aveva:
+    si salva sulla persona solo se tutto riesce."""
+    from agate import applicazione
+    try:
+        codice, gateway, console, tenant = fabbrica.agate_incluso(utente, azienda, base_url, email=email)
+    except fabbrica.ErroreFabbrica as e:
+        if e.stato in (404, 503):
+            raise InclusoNonDisponibile(str(e)) from None
+        messaggio = ("Agentlia non risponde in questo momento: riprova tra poco"
+                     if str(e).startswith("fabbrica non raggiungibile") else str(e))
+        raise ErroreIncluso(messaggio, APRI, e.stato,
+                            indirizzo=isinstance(e, fabbrica.GestionaleIrraggiungibile)) from None
+    base = base_url or Collegamento.attuale().base_url or settings.SITO_URL
+    try:
+        c = applicazione.collega(gateway, codice, base, incluso=True)
+    except applicazione.ErroreCollegamento as e:
+        log.warning("Agate incluso: collegamento non riuscito (%s): %s", e.stato, e)
+        raise ErroreIncluso(_messaggio_collega(e), COLLEGA, e.stato) from None
+    if email and email != utente.email:
+        utente.email = email
+        utente.save(update_fields=["email"])
+    if console and not c.console_url:
+        c.console_url = console
+        c.save(update_fields=["console_url"])
+    log.info("Agate incluso: adabox collegato a %s", tenant or gateway)
+    return c
+
+
+def _messaggio_collega(e):
+    if e.stato in (404, 409):
+        return "il vostro Agate non ha accettato il codice per adabox: riprova, ne chiediamo uno nuovo"
+    if e.stato == 502:
+        return (f"il vostro Agate non riesce a raggiungere adabox all'indirizzo {Collegamento.attuale().mcp_url}: "
+                "controlla che adabox sia raggiungibile da internet e riprova")
+    if e.stato is None and str(e).startswith("Agate non risponde"):
+        return "il vostro Agate non risponde ancora: riprova tra poco"
+    testo = str(e).rstrip(".")
+    return testo[:1].lower() + testo[1:]
 
 
 def invia(team, versione, settimane, note="", utente=None, azienda=None, base_url="", scelte=None, reparto="",

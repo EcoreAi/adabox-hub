@@ -25,4 +25,5 @@ urlpatterns = [
     path("approvazioni/", pagine.elenco_approvazioni, name="approvazioni"),
     path("mcp/", mcp.mcp, name="mcp"),
     path("agate-webhook/", webhook.ricevi, name="agate_webhook"),
+    path("agate-incluso/prova/", pagine.prova_incluso, name="prova_incluso"),
 ]

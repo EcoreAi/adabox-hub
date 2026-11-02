@@ -31,8 +31,10 @@ quattro schede, nella barra dell'app come le altre app:
   installata. La vetrina viene da `showcase` del catalogo (§7.1, facoltativo); quando manca si ricava da descrizione,
   ruoli e operazioni, con alcune domande frequenti di base.
 - **Assumi** (`/awf/assumi/<slug>/`): **una pagina sola**, già compilata con valori prudenti — 4 settimane,
-  responsabile chi chiede, nessuna persona, «cosa può fare» con le scelte proposte — un riepilogo (agente, cosa fa,
-  costo stimato, prova, cosa succede adesso) e un bottone **Conferma**. Tutto si cambia in **Personalizza** (chiuso):
+  responsabile chi chiede, nessuna persona, «cosa può fare» con le scelte proposte — un riepilogo (agente, cosa fa
+  come elenco puntato diviso in **Sì / Con il tuo ok / Mai**, costo stimato, prova, cosa succede adesso) e un bottone
+  **Conferma**. Se l'azienda non ha ancora Agate una riga dice «Il Controllo AI (Agate) è incluso: lo attiviamo noi
+  alla conferma. Riceverai un invito a <email> per vedere il registro quando vuoi.» (vedi sotto, Agate incluso). Tutto si cambia in **Personalizza** (chiuso):
   settimane, note per Agentlia, reparto (testo libero, con i reparti di Personale come suggerimenti se l'app c'è),
   responsabile, persone a cui passa il lavoro (persone attive: mai utenti agente né clienti del portale) e, per ogni
   operazione, **Sì / Con il tuo ok / Mai**: le letture sono sempre sì (senza l'agente non lavora), le modifiche sì, le
@@ -66,6 +68,57 @@ annulla e non resta ammesso nulla. La richiesta salva reparto, responsabile, per
 `{"strumento|vista": "si" | "ok" | "mai"}`); nelle note per Agentlia, dopo quelle della persona, va una riga «Lavora
 per: reparto …; responsabile …; passa il lavoro a …» (solo i nomi). Se adabox è già collegato, un battito dichiara la
 versione nuova. Il bearer MCP resta un passaggio a parte, in Avanzate.
+
+### Agate incluso: l'azienda senza Agate (§8.6)
+
+Se il Controllo AI (modulo `agate`) c'è ma l'azienda non ha ancora un Agate — nessun indirizzo salvato, nemmeno a mano
+— la **Conferma** fa tutto da sola, in ordine (`assunzione.includi_agate`, poi `assunzione.invia`):
+
+1. **Apriamo il vostro Agate…** — `fabbrica.agate_incluso`: `POST {forge}/api/agate/included` con l'azienda (nome,
+   partita IVA se c'è, email di chi conferma, che ne diventa il titolare e riceve l'invito alla console) e l'app
+   (`adabox-hub`, prefisso `awf`, indirizzo di adabox e la **prova** `proof`). La risposta (201, o 200 a una
+   ripetizione) porta il codice `agc_`, l'indirizzo di Agate, la console e il nome del tenant. Contro gli abusi, prima
+   della richiesta adabox genera una prova `prv_` + 32 caratteri, la salva nel database (`Collegamento.prova_incluso`,
+   vale per tutti i processi, al più 10 minuti) e la pubblica in `GET /awf/agate-incluso/prova/` →
+   `{"proof": "prv_…"}`, senza autenticazione, solo finché è in attesa (altrimenti 404; solo GET, mai in cache): la
+   fabbrica la legge all'indirizzo dichiarato prima di aprire Agate. Alla risposta della fabbrica (o se non risponde)
+   la prova si cancella. L'invito al titolare Agate lo manda quando adabox si collega (passo 2).
+2. **Colleghiamo adabox…** — lo stesso collegamento del codice incollato (`agate.applicazione.collega(...,
+   incluso=True)`, §8.1): chiavi `evaluate` / `decide` / `sync` e segreto dei webhook cifrati, codice `agf_` per la
+   fabbrica, protezione «Attiva». Il Controllo AI ricorda che è incluso: Impostazioni e Stato dicono «Agate incluso,
+   aperto per voi da Agentlia — console: <link>».
+3. **Chiediamo il contratto…** — la richiesta di sempre, ora con `agate.factory_code`: la fabbrica propone da sola e,
+   se il contratto combacia con quello confermato, adabox lo approva a nome di chi ha confermato.
+
+Durante l'invio la pagina mostra le tre righe; dopo, la pagina della richiesta le mostra con i primi due passi fatti
+finché il contratto non è confermato. Chi non ha un'email nel profilo la scrive nella cassa (obbligatoria): si salva
+sulla persona solo se Agate si apre e si collega.
+
+Errori: se il passo 1 o 2 non riesce non resta nulla a metà (nessuna richiesta, nessuna operazione ammessa, il bearer
+MCP di prima; il collegamento ad Agate non nasce) e la pagina torna con il messaggio, le righe con il passo non
+riuscito, il bottone **Riprova** (la password si riscrive) e il link per collegare un Agate che si ha già con un
+codice. Riprovare è sicuro: per la stessa azienda la fabbrica dà un codice nuovo per lo stesso Agate. In dettaglio:
+409 «La vostra azienda ha già un Agate: collegatelo con il codice dalla sua console» (con il link); 422 i dati non
+accettati, con il dettaglio, e 422 «il gestionale non risponde all'indirizzo indicato» (prova non trovata) →
+«Agentlia non raggiunge adabox all'indirizzo …: l'indirizzo pubblico di adabox deve rispondere da internet in https»,
+con il link ad Agenti AI → Avanzate dove si imposta; 429 al più 3 tentativi l'ora; 502 il servizio che apre Agate non risponde; rete giù
+«Agentlia non risponde»; al passo 2 un codice non accettato (404/409) «riprova, ne chiediamo uno nuovo», 502 «il
+vostro Agate non riesce a raggiungere adabox all'indirizzo …». **503** (servizio non attivo su questa fabbrica,
+limite di Agate aperti oggi raggiunto, o 404 da una fabbrica di prima): si torna al percorso di prima — la richiesta
+parte, un avviso dice il motivo della fabbrica («Agate incluso ha raggiunto il limite di oggi…: per questa volta il
+Controllo AI non si attiva da solo…») e la pagina chiede di collegare il Controllo AI con un codice; per 10 minuti la cassa non ripropone Agate incluso. Se Agate si apre ma la richiesta non
+parte: «Il Controllo AI è attivo ✓, ma la richiesta non è partita: …», e la conferma seguente chiede solo il contratto.
+
+### «Da approvare» in parole
+
+Le azioni degli agenti in attesa si leggono come una frase (`awf.frasi`): «Il Qualificatore lead chiede di cambiare
+«Preventivo gestionale per 3 negozi»: fase → Qualificata», mai il nome tecnico dello strumento. Il verbo viene dallo
+strumento (modifica_record → cambiare, crea_record → creare, elimina_record → eliminare, pianifica_attivita →
+lasciare un'attività su, esegui_bottone → premere «…» su); il record e i campi (con le etichette e i valori come in
+adabox) dai parametri, se il webhook `approval.requested` li porta (`params`, salvati in `Approvazione.parametri`);
+chi chiede da `actor` / `agent` (in `Approvazione.attore`) o, se manca, l'unico agente del contratto. Senza parametri
+la cosa di cui si parla è il primo «…» del riepilogo di Agate, che resta sotto come dettaglio (senza il nome dello
+strumento in testa).
 
 «Con il tuo ok» per ora vale come «Sì» nelle operazioni ammesse: la conferma di una persona la chiede una regola di
 Agate impostata da chi gestisce Agate. La pagina lo dice. La scelta è salvata per quando le regole nasceranno da sole.
@@ -232,6 +285,8 @@ agli agenti via MCP. Con il modulo `agate` attivo, `richiedi_squadra` è una scr
 - Il bearer MCP è uno per installazione: l'identità dell'agente la dichiara Agate nella chiamata.
 - Lo stato del contratto è quello dell'ultimo battito (al più 15 minuti di ritardo); se la fabbrica non risponde
   resta valido l'ultimo stato noto.
-- Le richieste di ok (approvazioni) non dicono quale agente le ha chieste: in I miei agenti si contano per contratto.
+- Oggi il webhook `approval.requested` di Agate porta strumento e riepilogo, non i parametri né l'agente: «Da
+  approvare» ricava la cosa dal riepilogo e l'agente quando il contratto ne ha uno solo (altrimenti «Un agente»); in I
+  miei agenti si contano per contratto.
 - Gli eventi coprono le attività del kernel e i modelli con un campo `assegnatario` verso gli utenti.
 - Le letture del registro si tengono 90 giorni; le scritture restano.

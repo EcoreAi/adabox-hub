@@ -7,6 +7,9 @@ non lo vede mai.
   di sempre), `decide` (solo le decisioni delle persone), `sync` (solo risincronizzare gli strumenti) — il segreto
   dei webhook e, se l'azienda lo permette, il codice `agf_` per la fabbrica degli agenti. Le chiavi e il codice si
   salvano cifrati; la protezione diventa «Attiva».
+- **Agate incluso** (§8.6): l'azienda che non ha Agate non incolla nessun codice. Alla prima assunzione degli agenti
+  la fabbrica apre il suo Agate (ospitato da Agentlia, titolare chi conferma) e restituisce il codice; adabox fa
+  subito lo stesso collegamento (`collega(..., incluso=True)`, modulo `awf.assunzione`).
 - **Le decisioni** (§8.4) si prendono in adabox, sempre a nome della persona che clicca (`decided_by`
   «Nome Cognome <email>»): il contratto degli agenti, le loro azioni, le proposte dell'assistente in attesa.
 - **La risincronizzazione** (§8.1): dopo ogni cambio di «cosa può fare» degli agenti adabox chiede ad Agate di
@@ -38,7 +41,12 @@ DECISA, IN_CONFERMA = "decisa", "in_conferma"
 
 
 class ErroreCollegamento(Exception):
-    """Il collegamento con il codice non è riuscito. Il messaggio è per le persone."""
+    """Il collegamento con il codice non è riuscito. Il messaggio è per le persone; `stato` è quello HTTP di Agate,
+    se ha risposto."""
+
+    def __init__(self, messaggio, stato=None):
+        super().__init__(messaggio)
+        self.stato = stato
 
 
 def awf_attivo():
@@ -113,10 +121,11 @@ def _testo(risposta, chiave):
     return valore.strip() if isinstance(valore, str) else ""
 
 
-def collega(gateway_url, codice, base_url):
+def collega(gateway_url, codice, base_url, incluso=False):
     """Collega adabox ad Agate con il codice `agc_` (§8.1). Restituisce il `Collegamento` attivo. Solleva
     ErroreCollegamento con un messaggio per le persone; se non riesce, non cambia nulla (nemmeno la chiave del
-    server MCP già data ad Agate a mano)."""
+    server MCP già data ad Agate a mano). `incluso`: il codice è quello dell'Agate appena aperto da Agentlia (§8.6);
+    ricollegarsi con un codice allo stesso Agate lo lascia incluso."""
     if not awf_attivo():
         raise ErroreCollegamento("Serve anche il modulo «Agenti AI» (awf): è lui che dà ad Agate gli strumenti "
                                  "degli agenti.")
@@ -150,11 +159,12 @@ def collega(gateway_url, codice, base_url):
         log.warning("collegamento con il codice non riuscito: %s", e)
         if e.stato == 0:
             raise ErroreCollegamento("Agate ha risposto in modo inatteso (mancano le chiavi): riprova tra poco o "
-                                     "chiedi a chi gestisce il Controllo AI.") from None
-        raise ErroreCollegamento(_messaggio(e, a.mcp_url)) from None
+                                     "chiedi a chi gestisce il Controllo AI.", 0) from None
+        raise ErroreCollegamento(_messaggio(e, a.mcp_url), e.stato) from None
     console = _testo(risposta, "console_url")
     with transaction.atomic():
         c = c or Collegamento(prefisso="adabox")
+        c.incluso = incluso or (c.incluso and c.gateway_url == gateway)
         c.gateway_url = gateway
         if console.startswith(("https://", "http://")):
             c.console_url = console.rstrip("/")

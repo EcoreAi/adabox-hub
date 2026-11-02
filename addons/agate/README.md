@@ -65,10 +65,22 @@ Una volta sola, all'installazione (§8 del contratto dei plugin, `agentlia-workf
 Da lì nessuno deve più aprire Agate: gli strumenti si risincronizzano da soli quando cambia «cosa può fare» degli
 agenti, e le decisioni si prendono in adabox.
 
+## Agate incluso: l'azienda senza Agate (§8.6)
+
+L'azienda che non ha Agate non incolla nessun codice: alla **prima assunzione** dal Negozio degli Agenti AI la
+conferma (con la password) chiede alla fabbrica di aprire il suo Agate, ospitato da Agentlia (`POST
+{forge}/api/agate/included`), e adabox si collega subito con il codice ricevuto, come al passo 2 qui sopra
+(`applicazione.collega(..., incluso=True)`). Chi conferma è il titolare: riceve l'invito alla console per vedere il
+registro quando vuole. Il collegamento ricorda che è incluso (`Collegamento.incluso`): Impostazioni e Stato dicono
+«Agate incluso, aperto per voi da Agentlia — console: <link>». Ricollegarsi con un codice allo stesso Agate lo lascia
+incluso. Errori, «Riprova» e il ritorno al codice quando la fabbrica non offre il servizio (503) sono descritti nel
+README del modulo `awf` (Agate incluso).
+
 ## Le decisioni in adabox: «Da approvare»
 
 **Controllo AI → Da approvare** (anche nel menu del profilo, con il numero quando ce ne sono): le richieste degli
-agenti e le proposte dell'assistente che aspettano una persona, ognuna in una frase, con **Approva / Rifiuta** e
+agenti e le proposte dell'assistente che aspettano una persona, ognuna in una frase (per gli agenti: «Il
+Qualificatore lead chiede di cambiare «Preventivo gestionale per 3 negozi»: fase → Qualificata», da `awf.frasi`), con **Approva / Rifiuta** e
 un motivo facoltativo. Per le azioni irreversibili e per i contratti si riscrive la password. adabox decide con la
 chiave `decide`, sempre a nome di chi clicca («Nome Cognome <email>»): Agate registra chi ha deciso e da dove
 (`app:adabox-hub`) e tiene regole, tetti e scadenze. Se l'azienda ha acceso in Agate la doppia conferma per i

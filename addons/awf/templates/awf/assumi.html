@@ -8,15 +8,21 @@
 
 {% for e in errori %}<div class="ui-alert ui-alert-error">{{ e }}</div>{% endfor %}
 {% if password_sbagliata %}<div class="ui-alert ui-alert-error">Password sbagliata: riscrivila per confermare. Non è stato inviato nulla.</div>{% endif %}
-{% if agate and not pronto %}<div class="ui-alert ui-alert-info">Prima serve un passaggio da fare una volta sola: collegare il Controllo AI, che controlla quello che fanno gli agenti. <a class="ui-link" href="{{ configura }}">Fallo ora</a>, poi torna qui.</div>{% endif %}
+{% if incluso_errore %}<div class="ui-alert ui-alert-error" role="alert"><strong>Non siamo riusciti ad attivare il Controllo AI.</strong> {{ incluso_errore|capfirst }}. Non è stata inviata nessuna richiesta e in adabox non è cambiato nulla: puoi riprovare.
+  {% include "awf/_passi_incluso.html" with passi=passi_errore %}
+  {% if incluso_errore.indirizzo %}<p style="margin:4px 0">L'indirizzo pubblico di adabox (dove Agentlia e Agate lo raggiungono) si imposta in <a class="ui-link" href="{% url 'awf:avanzate' %}">Agenti AI → Avanzate</a>{% if not c.base_url %} o qui sotto, in Personalizza{% endif %}: deve essere in https e aperto verso internet.</p>{% endif %}
+  {% if incluso_errore.stato == 409 %}<a class="ui-link" href="{{ configura }}">Collega il vostro Agate con il codice</a>{% else %}Avete già un Agate? <a class="ui-link" href="{{ configura }}">Collegatelo con un codice</a>.{% endif %}</div>
+{% elif incluso %}<div class="ui-alert ui-alert-info">Il Controllo AI (Agate) è incluso: lo attiviamo noi alla conferma. Riceverai un invito {% if chiedi_email %}all'email che scrivi qui sotto{% else %}a <strong>{{ request.user.email }}</strong>{% endif %} per vedere il registro quando vuoi.</div>
+{% elif agate and not pronto %}<div class="ui-alert ui-alert-info">Prima serve un passaggio da fare una volta sola: collegare il Controllo AI, che controlla quello che fanno gli agenti. <a class="ui-link" href="{{ configura }}">Fallo ora</a>, poi torna qui.</div>{% endif %}
 {% if app_mancanti %}<div class="ui-alert ui-alert-warning">Manca {% for a in app_mancanti %}l'app «{{ a }}»{% if not forloop.last %}, {% endif %}{% endfor %}: quello che la usa non sarà possibile.</div>{% endif %}
 
-<form method="post">{% csrf_token %}
+<form method="post" id="cassa">{% csrf_token %}
 <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Riepilogo</div></div>
   <div class="ui-card-body">
     <div class="ui-table-wrap"><table class="ui-table is-revealed"><tbody>
       <tr><th style="width:30%">Agente</th><td>{{ s.nome_e_reparto }}{% if s.slogan %}<br><span class="ui-help">{{ s.slogan }}</span>{% endif %}</td></tr>
-      <tr><th>Cosa fa</th><td>{% for etichetta, voci in gruppi %}{% if voci %}<div style="margin-bottom:6px"><strong>{{ etichetta }}:</strong> {{ voci|join:"; " }}</div>{% endif %}{% endfor %}</td></tr>
+      <tr><th>Cosa fa</th><td>{% for etichetta, spiegazione, voci in gruppi %}{% if voci %}<div style="margin-bottom:6px"><strong>{{ etichetta }}</strong> <span class="ui-help">({{ spiegazione }})</span>
+        <ul style="margin:2px 0 0;padding-left:20px">{% for voce in voci %}<li>{{ voce }}</li>{% endfor %}</ul></div>{% endif %}{% endfor %}</td></tr>
       <tr><th>Durata</th><td id="durata">{{ b.settimane }} settiman{{ b.settimane|pluralize:"a,e" }}</td></tr>
       <tr><th>Costo stimato</th><td>{% if costo.stima %}<strong id="stima" data-periodo="{{ costo.periodo }}" data-giorni="{{ costo.giorni }}">{{ costo.stima }} €</strong> fissi + {{ costo.consumo }}{% else %}{{ s.prezzo_testo }}{% endif %}{% if costo.credito %}<br><span class="ui-help">credito iniziale {{ costo.credito }} €</span>{% endif %}</td></tr>
       {% if tetti %}<tr><th>Tetti di spesa</th><td>{{ tetti|join:"; " }}</td></tr>{% endif %}
@@ -25,6 +31,7 @@
     </tbody></table></div>
     <p style="margin:16px 0 4px"><strong>Cosa succede adesso</strong></p>
     <ol style="margin:0">
+      {% if incluso %}<li>Attiviamo il Controllo AI (Agate), incluso: controlla ogni azione degli agenti con le regole dell'azienda.</li>{% endif %}
       <li>adabox si prepara subito e Agentlia prepara il contratto. Se è quello che confermi qui, parte da solo a tuo nome; se cambia qualcosa te lo chiediamo.</li>
       <li>{% if s.giorni_prova %}Per {{ s.giorni_prova }} giorn{{ s.giorni_prova|pluralize:"o,i" }} l'agente è in prova, poi lavora davvero.{% else %}Poi l'agente inizia a lavorare.{% endif %} Puoi cambiare cosa può fare quando vuoi.</li>
     </ol>
@@ -45,16 +52,27 @@
   </div></details>
 
 <div class="ui-form-actions" style="align-items:flex-end;flex-wrap:wrap">
-  <div><label class="ui-label" for="password">Per confermare, scrivi la tua password</label>
+  {% if incluso and chiedi_email %}<div><label class="ui-label" for="email">La tua email, per l'invito al Controllo AI</label>
+    <input class="ui-input" id="email" name="email" type="email" required autocomplete="email" value="{{ b.email }}" style="max-width:280px"></div>{% endif %}
+  <div><label class="ui-label" for="password">{% if incluso_errore %}Per riprovare, riscrivi la tua password{% else %}Per confermare, scrivi la tua password{% endif %}</label>
     <input class="ui-input" id="password" name="password" type="password" required autocomplete="current-password" style="max-width:240px"></div>
-  <button class="ui-btn ui-btn-primary ui-btn-lg" type="submit">Conferma</button>
+  {% if incluso_errore %}<button class="ui-btn ui-btn-primary ui-btn-lg" type="submit">Riprova</button>{% else %}<button class="ui-btn ui-btn-primary ui-btn-lg" type="submit">Conferma</button>{% endif %}
   <a class="ui-btn ui-btn-ghost" href="{% url 'awf:negozio' %}">Annulla</a></div>
+{% if incluso %}<div id="passi-incluso" hidden aria-live="polite">{% include "awf/_passi_incluso.html" with passi=passi_avvio %}</div>{% endif %}
 <p class="ui-help">Con la password confermi agente, durata, prezzo e tetti di spesa qui sopra: resta registrato a tuo nome.</p>
 {% if not agate and not c.mcp_impronta %}<p class="ui-help">Se è il primo agente che assumi, dopo la conferma ti chiederemo un passaggio tecnico, una volta sola.</p>{% endif %}
 </form>
 {% endblock %}
 {% block scripts %}
 <script>
+(function () {
+  var cassa = document.getElementById('cassa'), passi = document.getElementById('passi-incluso');
+  if (cassa && passi) cassa.addEventListener('submit', function () {
+    passi.hidden = false;
+    var bottone = cassa.querySelector('button[type="submit"]');
+    if (bottone) { bottone.disabled = true; bottone.textContent = 'Un momento…'; }
+  });
+})();
 (function () {
   var campo = document.getElementById('settimane'), durata = document.getElementById('durata'), stima = document.getElementById('stima');
   if (!campo) return;

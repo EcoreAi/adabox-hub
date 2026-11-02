@@ -157,7 +157,8 @@ def test_cassa_gia_compilata(client, superuser, vetrina, persone, collegato):
     assert "spento" not in pagina and "awf-buyer" not in pagina and ">Buyer<" not in pagina   # mai gli agenti
     assert "Serve per lavorare: sempre sì." in pagina and 'name="op-1" value="si" checked' in pagina
     assert 'name="op-2" value="ok" checked' in pagina and "non disponibile" in pagina
-    assert "Lo fa da solo:" in pagina and "Lo fa con il tuo ok:" in pagina and "Non lo farà mai" not in pagina
+    assert "<strong>Sì</strong> <span class=\"ui-help\">(lo fa da solo)</span>" in pagina
+    assert "<strong>Con il tuo ok</strong>" in pagina and "<strong>Mai</strong>" not in pagina
     assert 'name="persone" value' in pagina and " checked>Mario" not in pagina     # nessuna persona
     for parola in (*PAROLE_TECNICHE, "in Agate"):
         assert parola not in pagina, parola
@@ -175,7 +176,7 @@ def test_conferma_con_i_valori_proposti(client, superuser, vetrina):
     r = client.post(URL, PASSWORD)
     rich = RichiestaAgenti.objects.get()
     assert r.status_code == 302 and r["Location"] == f"/awf/richieste/{rich.pk}/"
-    corpo = next(x for x in vetrina.richieste if x["metodo"] == "POST")["corpo"]
+    corpo = next(x for x in vetrina.richieste if x["url"].endswith("/api/hire-requests"))["corpo"]
     assert corpo["weeks"] == 4 and corpo["notes"] == "Lavora per: responsabile root."
     assert rich.responsabile == superuser and not rich.persone.exists() and rich.settimane == 4
     assert rich.scelte == {"cerca_record|crm.opportunita": "si", "modifica_record|crm.opportunita": "si",
@@ -191,7 +192,7 @@ def test_conferma_personalizzata_prepara_adabox_e_segue_il_contratto(client, sup
     mario, anna = persone
     r = client.post(URL, {**PERSONALIZZATA, "responsabile": mario.pk, "persone": [anna.pk, 99999]})
     assert r.status_code == 302 and r["Location"] == f"/awf/richieste/{RichiestaAgenti.objects.get().pk}/"
-    corpo = next(x for x in vetrina.richieste if x["metodo"] == "POST")["corpo"]
+    corpo = next(x for x in vetrina.richieste if x["url"].endswith("/api/hire-requests"))["corpo"]
     assert {k: corpo[k] for k in ("team", "team_version", "weeks")} == {"team": "lead-crm-adabox", "team_version": 1,
                                                                         "weeks": 6}
     assert corpo["notes"] == ("circa 10 richieste al giorno\nLavora per: reparto Vendite; responsabile Mario Rossi; "

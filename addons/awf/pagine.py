@@ -6,9 +6,11 @@ Non sono `ModelView` di proposito: così non compaiono fra le viste che l'assist
 leggere o modificare. L'elenco delle operazioni ammesse si cambia solo da qui, da una persona."""
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
+from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_GET
 
 from core import cifratura
 from core.models import Azienda
@@ -180,3 +182,14 @@ def elenco_approvazioni(request):
         **schede(request, "avanzate"), "in_attesa": [{"a": a, "scaduta": a.scade is not None and a.scade < adesso,
                        "link": f"{console}/console/approvals/{a.approval_id}/" if console else ""} for a in attesa],
         "decise": Approvazione.objects.exclude(stato=Approvazione.IN_ATTESA)[:20], "console": console})
+
+
+@never_cache
+@require_GET
+def prova_incluso(request):
+    """Agate incluso (§8.6): la prova che adabox è davvero qui, per la fabbrica che la legge prima di aprire Agate.
+    Senza autenticazione e solo finché una prova è in attesa (10 minuti al più); altrimenti 404. Nient'altro."""
+    prova = fabbrica.prova_in_attesa()
+    if not prova:
+        raise Http404
+    return JsonResponse({"proof": prova})

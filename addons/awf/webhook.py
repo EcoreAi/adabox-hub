@@ -29,6 +29,7 @@ log = logging.getLogger("awf.webhook")
 INTESTAZIONE = "X-Agate-Signature"
 TOLLERANZA = 300
 MAX_CORPO = 256_000
+MAX_PARAMETRI = 20_000
 ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
@@ -135,12 +136,34 @@ def _richiesta(dati):
                      f"Azione {strumento} in attesa di approvazione" if strumento else
                      "Azione in attesa di approvazione")
     valori = {"strumento": strumento, "riepilogo": riepilogo[:2000], "scade": _data(dati.get("expires_at")),
-              "contratto": contratto}
+              "contratto": contratto, "parametri": _parametri(dati.get("params")), "attore": _attore(dati)}
     # una consegna ripetuta aggiorna la riga ma non riapre un'approvazione già decisa
     approvazione, creata = Approvazione.objects.get_or_create(approval_id=approval_id, defaults=valori)
     if not creata:
         Approvazione.objects.filter(pk=approvazione.pk).update(**valori)
     return JsonResponse({"ok": True})
+
+
+def _parametri(valore):
+    """I parametri dell'azione, se ci sono (già mascherati da Agate): un oggetto JSON piccolo, o niente."""
+    if not isinstance(valore, dict):
+        return {}
+    try:
+        return valore if len(json.dumps(valore, ensure_ascii=False, default=str)) <= MAX_PARAMETRI else {}
+    except (TypeError, ValueError):
+        return {}
+
+
+def _attore(dati):
+    """Chi chiede, se il webhook lo dice: `actor` ({"id"} o {"name"}), `agent` (testo o come `actor`), `agent_id`."""
+    for chiave in ("actor", "agent"):
+        valore = dati.get(chiave)
+        if isinstance(valore, dict):
+            valore = valore.get("name") or valore.get("id")
+        if isinstance(valore, str) and valore.strip():
+            return valore.strip()[:200]
+    valore = dati.get("agent_name") or dati.get("agent_id")
+    return valore.strip()[:200] if isinstance(valore, str) else ""
 
 
 def _decisa(dati):

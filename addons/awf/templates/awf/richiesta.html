@@ -14,6 +14,7 @@
     <div><h2 style="margin:0" id="avanzamento" aria-live="polite">{{ a.titolo }}</h2>
       {% if a.testo %}<p style="margin:4px 0 0">{{ a.testo }}</p>{% endif %}</div>
   </div>
+  {% if passi_incluso %}{% include "awf/_passi_incluso.html" with passi=passi_incluso %}{% endif %}
 
   {% if a.conferma %}
   <ul style="margin:12px 0">{% for d in a.conferma.differenze %}<li>{{ d }}</li>{% endfor %}</ul>

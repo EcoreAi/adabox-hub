@@ -35,6 +35,9 @@ class Collegamento(models.Model):
     factory_code_cifrato = models.TextField("codice per la fabbrica (cifrato)", blank=True, editable=False,
                                             help_text="agf_...: dal collegamento ad Agate con un codice, va in ogni "
                                                       "richiesta d'ingaggio")
+    # Agate incluso (§8.6): la prova che adabox è davvero all'indirizzo dichiarato, pubblica finché la fabbrica la legge
+    prova_incluso = models.CharField("prova per Agate incluso", max_length=40, blank=True, editable=False)
+    prova_scade = models.DateTimeField("la prova scade il", null=True, blank=True, editable=False)
 
     class Meta:
         verbose_name = "collegamento"
@@ -146,6 +149,10 @@ class Approvazione(models.Model):
     motivo = models.CharField("motivo", max_length=1000, blank=True)
     in_conferma = models.BooleanField("aspetta la doppia conferma", default=False,
                                       help_text="approvata in adabox: Agate ha scritto ai responsabili")
+    parametri = models.JSONField("parametri dell'azione", default=dict, blank=True,
+                                 help_text="se il webhook li porta (già mascherati da Agate): per dirla in parole")
+    attore = models.CharField("chi la chiede", max_length=200, blank=True,
+                              help_text="l'agente, se il webhook lo dice (id in Agate o nome)")
 
     class Meta:
         verbose_name = "approvazione"

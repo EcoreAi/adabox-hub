@@ -68,6 +68,38 @@ def pronto():
     return bool(Collegamento.attuale().mcp_impronta)
 
 
+def incluso_possibile():
+    """Agate incluso (§8.6): il Controllo AI c'è ma l'azienda non ha ancora un Agate (nessun indirizzo salvato, nemmeno
+    a mano), e la fabbrica non ha appena detto che il servizio non c'è. Allora la conferma lo attiva da sola."""
+    if not agate_attivo() or pronto():
+        return False
+    try:
+        from agate.models import Collegamento as CollegamentoAgate
+        a = CollegamentoAgate.attuale()
+    except Exception:                                   # modulo non migrato o rotto: il percorso di prima
+        return False
+    return (a is None or not a.gateway_url) and fabbrica.incluso_disponibile()
+
+
+PASSI_INCLUSO = ["Apriamo il vostro Agate…", "Colleghiamo adabox…", "Chiediamo il contratto…"]
+
+
+def passi_incluso(fatti, errore=False):
+    """[(testo, fatto | attuale | errore | futuro)]: i primi `fatti` riusciti, il seguente in corso (o non riuscito)."""
+    return [(t, "fatto" if n < fatti else ("errore" if errore else "attuale") if n == fatti else "futuro")
+            for n, t in enumerate(PASSI_INCLUSO)]
+
+
+def _email_sbagliata(email):
+    from django.core.exceptions import ValidationError
+    from django.core.validators import validate_email
+    try:
+        validate_email(email)
+    except ValidationError:
+        return True
+    return False
+
+
 def _url_base(request):
     return request.build_absolute_uri("/").rstrip("/")
 
@@ -245,31 +277,60 @@ def assumi(request, slug):
              "persone": [], "base_url": "", "scelte": squadre.scelte(righe)}
         return _pagina_assumi(request, s, b, righe, [])
     b, errori = leggi_scelte(request.POST, righe, request.user)
+    incluso = incluso_possibile()
+    b["email"] = request.POST.get("email", "").strip()[:254] if incluso and not request.user.email else ""
+    if incluso and not request.user.email and _email_sbagliata(b["email"]):
+        errori.append("Scrivi la tua email: lì arriva l'invito al Controllo AI (Agate).")
     if errori:
         return _pagina_assumi(request, s, b, righe, errori)
     if not request.user.check_password(request.POST.get("password", "")):
         return _pagina_assumi(request, s, b, righe, [], password_sbagliata=True)
     utenti = {u.pk: u for u in assunzione.persone_possibili()}
+    azienda = getattr(request, "azienda", None)
+    attivato, non_incluso = False, ""
+    if incluso:                                         # Agate incluso (§8.6): apri, collega, poi la richiesta
+        try:
+            assunzione.includi_agate(request.user, azienda, b["base_url"] or Collegamento.attuale().base_url
+                                     or _url_base(request), email=b["email"])
+        except assunzione.InclusoNonDisponibile as e:
+            non_incluso = str(e)                        # come prima: la richiesta parte, poi il codice a mano
+        except assunzione.ErroreIncluso as e:
+            return _pagina_assumi(request, s, b, righe, [], incluso_errore=e)
+        else:
+            attivato = True
     consenso = contratto.consenso(request.user, s["slug"], s["versione"], b["settimane"], s.get("tetti"),
                                   s["prezzo"], s["giorni_prova"])
+    if attivato:
+        consenso["agate_incluso"] = True
     try:
-        r = assunzione.invia(s["slug"], s["versione"], b["settimane"], b["note"], request.user,
-                             getattr(request, "azienda", None), base_url=b["base_url"], scelte=b["scelte"],
-                             reparto=b["reparto"], responsabile=utenti.get(b["responsabile"]),
+        r = assunzione.invia(s["slug"], s["versione"], b["settimane"], b["note"], request.user, azienda,
+                             base_url=b["base_url"], scelte=b["scelte"], reparto=b["reparto"],
+                             responsabile=utenti.get(b["responsabile"]),
                              persone=[utenti[p] for p in b["persone"] if p in utenti], consenso=consenso)
     except fabbrica.ErroreFabbrica as e:
+        if attivato:
+            return _pagina_assumi(request, s, b, righe, [f"Il Controllo AI è attivo ✓, ma la richiesta non è partita: "
+                                                         f"{e}. Puoi riprovare."])
         return _pagina_assumi(request, s, b, righe, [f"Richiesta non inviata: {e}. Non è cambiato nulla."])
+    if attivato:
+        messages.success(request, f"Il Controllo AI (Agate) è attivo ✓: riceverai un invito a {request.user.email} "
+                                  "per vedere il registro quando vuoi.")
+    elif non_incluso:
+        messages.warning(request, f"{_maiuscola(non_incluso)}: per questa volta il Controllo AI (Agate) non si attiva "
+                                  "da solo. La richiesta è partita; per farla proseguire collega il Controllo AI con "
+                                  "un codice di Agate.")
     return redirect("awf:richiesta", r.pk)
 
 
-def _pagina_assumi(request, s, b, righe, errori, password_sbagliata=False):
+def _pagina_assumi(request, s, b, righe, errori, password_sbagliata=False, incluso_errore=None):
     utenti = list(assunzione.persone_possibili())
     per_pk = {u.pk: u for u in utenti}
     scelte = b["scelte"]
     disponibili = [x for x in righe if x["stato"] != squadre.NON_DISPONIBILE]
-    gruppi = [(titolo, [x["parole"] for x in disponibili if scelte[x["chiave"]] == valore])
-              for valore, titolo in ((squadre.SI, "Lo fa da solo"), (squadre.OK, "Lo fa con il tuo ok"),
-                                     (squadre.MAI, "Non lo farà mai"))]
+    gruppi = [(titolo, spiegazione, [x["parole"] for x in disponibili if scelte[x["chiave"]] == valore])
+              for valore, titolo, spiegazione in ((squadre.SI, "Sì", "lo fa da solo"),
+                                                  (squadre.OK, "Con il tuo ok", "prima chiede a una persona"),
+                                                  (squadre.MAI, "Mai", "non lo farà"))]
     c = Collegamento.attuale()
     personalizzato = bool(errori) or b["settimane"] != assunzione.SETTIMANE or bool(b["note"] or b["reparto"]
                                                                                     or b["persone"])
@@ -278,11 +339,15 @@ def _pagina_assumi(request, s, b, righe, errori, password_sbagliata=False):
         "righe": [{**x, "scelta": scelte[x["chiave"]]} for x in righe], "scelte_possibili": RichiestaAgenti.SCELTE,
         "utenti": utenti, "reparti": assunzione.reparti_suggeriti(getattr(request, "azienda", None)),
         "responsabile": per_pk.get(b["responsabile"]), "persone": [per_pk[p] for p in b["persone"] if p in per_pk],
-        "costo": costo(s, b["settimane"]), "gruppi": gruppi, "con_ok": len(gruppi[1][1]),
+        "costo": costo(s, b["settimane"]), "gruppi": gruppi, "con_ok": len(gruppi[1][2]),
         "app_mancanti": squadre.app_mancanti(righe), "c": c,
         "base_url_proposta": b["base_url"] or c.base_url or _url_base(request),
         "password_sbagliata": password_sbagliata, "tetti": contratto.tetti_in_parole(s.get("tetti")),
-        "pronto": pronto(), "configura": configura_url(), "agate": agate_attivo()})
+        "pronto": pronto(), "configura": configura_url(), "agate": agate_attivo(),
+        "incluso": incluso_possibile(), "incluso_errore": incluso_errore, "chiedi_email": not request.user.email,
+        "passi_avvio": passi_incluso(0),
+        "passi_errore": passi_incluso(0 if incluso_errore.passo == assunzione.APRI else 1, errore=True)
+        if incluso_errore else []})
 
 
 # ---------- Richieste: il contratto passo per passo ----------
@@ -488,9 +553,12 @@ def richiesta(request, pk):
     elenco = list(RichiestaAgenti.objects.filter(collegata_il__isnull=False).order_by("-collegata_il")[:1])
     ultima = elenco[0] if elenco else None
     f = fase(c) if c.collegato else PROVA
+    R = RichiestaAgenti
+    in_corso = r.stato == R.INVIATA or (r.stato == R.DA_APPROVARE and r.decisione in ("", R.ERRORE))
     return render(request, "awf/richiesta.html", {
         **schede(request, "richieste"), "r": r, "a": avanzamento(r, c), "tappe": _tappe(r, ultima, f),
-        "errore": errore})
+        "errore": errore,
+        "passi_incluso": passi_incluso(2) if (r.consenso or {}).get("agate_incluso") and in_corso else []})
 
 
 # ---------- I miei agenti ----------
