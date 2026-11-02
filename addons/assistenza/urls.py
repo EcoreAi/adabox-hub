@@ -4,6 +4,7 @@ from django.urls import path
 from . import portale, sviluppo, widget
 
 urlpatterns = [
+    path("widget/conferma/<str:token>/", widget.conferma_email, name="widget_conferma"),
     path("widget/<str:chiave>/", widget.segnala, name="widget"),
     path("portale/", portale.home, name="portale"),
     path("portale/nuovo/", portale.nuovo, name="portale_nuovo"),

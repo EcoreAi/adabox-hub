@@ -1,10 +1,12 @@
+from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.utils import timezone
 
 from core import chatter, lavori
 from core.viste import Inline, ModelView, register
 
 from .models import OrdineAcquisto, RigaAcquisto
-from .segnali import ordine_acquisto_confermato
+from .segnali import ordine_acquisto_annullato, ordine_acquisto_confermato
 
 
 def euro(valore):
@@ -101,6 +103,13 @@ class OrdineAcquistoView(ModelView):
     def annulla(self, request, obj):
         if obj.stato == OrdineAcquisto.ANNULLATO:
             return f"{obj} è già annullato."
-        self._stato(request, obj, OrdineAcquisto.ANNULLATO)
-        return f"{obj} annullato."
+        stato = obj.stato
+        try:
+            with transaction.atomic():
+                self._stato(request, obj, OrdineAcquisto.ANNULLATO)
+                risposte = ordine_acquisto_annullato.send(sender=OrdineAcquisto, ordine=obj, utente=request.user)
+        except ValidationError as e:
+            obj.stato = stato
+            return " ".join(e.messages)
+        return " ".join([f"{obj} annullato.", *(testo for _, testo in risposte if testo)])
     annulla.short_description = "Annulla"

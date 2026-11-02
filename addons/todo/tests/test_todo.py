@@ -241,3 +241,21 @@ def test_scheda_pdf(client, membro, aziende):
     a = Attivita.objects.get(titolo="Mia attività")
     r = client.get(f"/todo/attivita/{a.pk}/stampa/0/")
     assert r["Content-Type"] == "application/pdf" and r.content.startswith(b"%PDF")
+
+
+def test_attivita_riservate(client, membro, aziende):
+    azienda = aziende[0]
+    collega = User.objects.create_user("marco", "marco@example.com", "pass12345!")
+    mia = Attivita.objects.create(azienda=azienda, titolo="Assegnata a me", assegnatario=membro)
+    creata = Attivita.objects.create(azienda=azienda, titolo="Creata da me", creato_da=membro)
+    altrui = Attivita.objects.create(azienda=azienda, titolo="Riservata del collega", assegnatario=collega, creato_da=collega)
+    lista = client.get("/todo/attivita/").content.decode()
+    assert mia.titolo in lista and creata.titolo in lista and "Mia attività" in lista      # senza titolare: di squadra
+    assert altrui.titolo not in lista
+    assert client.get(f"/todo/attivita/{altrui.pk}/").status_code == 404
+    assert altrui.pk not in [r["id"] for r in client.get("/api/v1/todo/attivita/", HTTP_X_AZIENDA=str(azienda.pk)).json().get("items", [])]
+
+    responsabile = User.objects.create_user("capo", "capo@example.com", "pass12345!")
+    responsabile.groups.add(Group.objects.get(name="To-Do / Responsabile"))
+    client.force_login(User.objects.get(pk=responsabile.pk))
+    assert client.get(f"/todo/attivita/{altrui.pk}/").status_code == 200

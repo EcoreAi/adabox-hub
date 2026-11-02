@@ -1,0 +1,30 @@
+{% load static tema %}<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Conferma il tuo indirizzo · {{ theme.brand }}</title>
+  <link rel="stylesheet" href="{% statico 'theme/ui.css' %}">
+  <link rel="icon" type="image/svg+xml" href="{% url 'theme:favicon' %}">
+</head>
+<body class="ui-body">
+<main class="ui-container" style="max-width:520px;padding-top:12vh">
+  <section class="ui-card is-revealed">
+    <div class="ui-card-body">
+      {% if scaduto %}
+      <h1 class="ui-card-title">Link non valido</h1>
+      <p>Il link è scaduto o non è corretto. La segnalazione resta aperta: ti rispondiamo comunque via email.</p>
+      {% elif confermata %}
+      <h1 class="ui-card-title">Indirizzo confermato</h1>
+      <p>La segnalazione <strong>{{ ticket.numero }}</strong> è collegata a te: se hai l'accesso, la trovi nel portale clienti.</p>
+      <a class="ui-btn ui-btn-primary" href="{% url 'assistenza:portale' %}">Vai al portale</a>
+      {% else %}
+      <h1 class="ui-card-title">Conferma il tuo indirizzo</h1>
+      <p>Collega la segnalazione <strong>{{ ticket.numero }}</strong> a <strong>{{ ticket.email_cliente }}</strong> per seguirla dal portale clienti.</p>
+      <form method="post">{% csrf_token %}<button type="submit" class="ui-btn ui-btn-primary">Conferma</button></form>
+      {% endif %}
+    </div>
+  </section>
+</main>
+</body>
+</html>

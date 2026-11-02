@@ -5,17 +5,27 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from core import sequenze
+from core import chatter, sequenze
 from fiscale import calcoli
 
 from .models import Fattura, RigaFattura, Scadenza
 
 
+def fatture_attive(ordine):
+    """Le fatture dell'ordine che lo coprono ancora: non annullate e non interamente stornate."""
+    return [f for f in ordine.fatture.exclude(tipo=Fattura.NOTA_CREDITO).exclude(stato=Fattura.ANNULLATA) if not f.stornata]
+
+
 @transaction.atomic
 def da_ordine(ordine):
-    """Fattura in bozza con le righe dell'ordine di vendita confermato."""
+    """Fattura in bozza con le righe dell'ordine di vendita confermato; un ordine già fatturato non si rifattura."""
+    ordine = type(ordine).objects.select_for_update().get(pk=ordine.pk)      # due clic insieme: passa uno solo
     if ordine.stato != "confermato":
         raise ValidationError("Si fattura solo un ordine confermato.")
+    attive = fatture_attive(ordine)
+    if attive:
+        raise ValidationError(f"L'ordine {ordine.numero_ordine} è già fatturato con {attive[0]}: "
+                              "per rifarla, storna prima la fattura con una nota di credito.")
     fattura = Fattura.objects.create(azienda=ordine.azienda, cliente=ordine.cliente, ordine=ordine,
                                      termine_pagamento=ordine.termine_pagamento,
                                      causale=f"Ordine {ordine.numero_ordine} del {ordine.data:%d/%m/%Y}")
@@ -87,8 +97,23 @@ def nota_di_credito(fattura):
     return nota
 
 
+def annulla_da_ordine(sender, ordine, utente=None, **kwargs):
+    """Ordine annullato: le bozze si annullano con lui; se c'è una fattura emessa va prima stornata."""
+    emesse = [f for f in fatture_attive(ordine) if f.stato == Fattura.EMESSA]
+    if emesse:
+        raise ValidationError(f"{ordine} non si può annullare: è fatturato con {emesse[0]}. "
+                              "Stornala prima con una nota di credito.")
+    bozze = list(ordine.fatture.filter(stato=Fattura.BOZZA))
+    for fattura in bozze:
+        vecchi = chatter.valori(fattura, ["stato"])
+        fattura.stato = Fattura.ANNULLATA
+        fattura.save(update_fields=["stato"])
+        chatter.traccia(fattura, vecchi, utente)
+    return f"Fatture in bozza annullate: {len(bozze)}." if bozze else None
+
+
 def importo_con_segno(fattura):
     return fattura.totale * fattura.segno
 
 
-__all__ = ["Decimal", "da_ordine", "emetti", "incassa", "nota_di_credito", "controlla", "importo_con_segno"]
+__all__ = ["Decimal", "da_ordine", "fatture_attive", "annulla_da_ordine", "emetti", "incassa", "nota_di_credito", "controlla", "importo_con_segno"]

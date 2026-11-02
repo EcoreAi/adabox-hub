@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.utils.html import format_html
 
 from core import chatter
@@ -37,6 +38,14 @@ class AttivitaView(ModelView):
     actions = ["archivia"]
     buttons = ["segna_fatta"]
     api = True
+
+    def get_queryset(self, request):
+        """Si vedono le attività proprie (assegnate o create) e quelle senza titolare; tutte con vedi_tutte_attivita."""
+        qs = super().get_queryset(request)
+        user = request.user
+        if user.is_superuser or user.has_perm("todo.vedi_tutte_attivita"):
+            return qs
+        return qs.filter(Q(assegnatario=user) | Q(creato_da=user) | Q(assegnatario=None, creato_da=None))
 
     def save_model(self, request, obj, form, change):
         if not change:

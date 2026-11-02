@@ -36,6 +36,7 @@ class Attivita(AziendaMixin, ProprietaMixin):
         verbose_name = "attività"
         verbose_name_plural = "attività"
         ordering = ["-scadenza", "-creato"]
+        permissions = [("vedi_tutte_attivita", "Può vedere le attività di tutti")]
 
     def __str__(self):
         return self.titolo

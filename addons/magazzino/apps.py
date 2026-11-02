@@ -12,12 +12,14 @@ class MagazzinoConfig(AppConfig):
 
         from . import collegamenti
         if apps.is_installed("vendite"):
-            from vendite.segnali import ordine_confermato
+            from vendite.segnali import ordine_annullato, ordine_confermato
             ordine_confermato.connect(collegamenti.consegna_da_ordine, dispatch_uid="magazzino.consegna")
+            ordine_annullato.connect(collegamenti.annulla_consegne, dispatch_uid="magazzino.annulla_consegne")
             hooks.sezione_dettaglio("vendite.OrdineVendita", "magazzino/_consegne_ordine.html", order=20,
                                     permission="magazzino.view_consegna")
         if apps.is_installed("acquisti"):
-            from acquisti.segnali import ordine_acquisto_confermato
+            from acquisti.segnali import ordine_acquisto_annullato, ordine_acquisto_confermato
             ordine_acquisto_confermato.connect(collegamenti.ricevimento_da_ordine, dispatch_uid="magazzino.ricevimento")
+            ordine_acquisto_annullato.connect(collegamenti.annulla_ricevimenti, dispatch_uid="magazzino.annulla_ricevimenti")
             hooks.sezione_dettaglio("acquisti.OrdineAcquisto", "magazzino/_ricevimenti_ordine.html", order=20,
                                     permission="magazzino.view_ricevimento")

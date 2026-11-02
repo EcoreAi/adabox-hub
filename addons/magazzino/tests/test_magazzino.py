@@ -138,3 +138,53 @@ def test_demo_crea_consegne_e_ricevimenti_degli_ordini_confermati(scena):
     Consegna.objects.all().delete()                   # come se il magazzino fosse arrivato dopo
     hooks.demo(None)
     assert Consegna.objects.count() == 2 and collegamenti.recupera_ordini(scena[0]) == 0
+
+
+def _annulla(client, percorso, obj):
+    client.post(f"/{percorso}/{obj.pk}/bottone/annulla/")
+    obj.refresh_from_db()
+
+
+def test_annullo_ordine_vendita_e_consegne(client, superuser, scena):
+    from magazzino import collegamenti
+    from vendite.models import OrdineVendita, RigaVendita
+    azienda, _, cliente, _, monitor, _ = scena
+
+    def ordine(numero):
+        o = OrdineVendita.objects.create(azienda=azienda, cliente=cliente, stato=OrdineVendita.CONFERMATO,
+                                         numero_ordine=numero)
+        RigaVendita.objects.create(ordine=o, prodotto=monitor, quantita=Decimal(1))
+        return o, collegamenti.consegna_da_ordine(OrdineVendita, o)
+
+    primo, consegna = ordine("SO/1")
+    _annulla(client, "vendite/ordini", primo)
+    consegna.refresh_from_db()
+    assert primo.stato == OrdineVendita.ANNULLATO and consegna.stato == Consegna.ANNULLATO
+
+    secondo, spedita = ordine("SO/2")
+    operazioni.spedisci(spedita)
+    _annulla(client, "vendite/ordini", secondo)
+    spedita.refresh_from_db()
+    assert secondo.stato == OrdineVendita.CONFERMATO and spedita.stato == Consegna.FATTO
+
+
+def test_annullo_ordine_acquisto_e_ricevimenti(client, superuser, scena):
+    from acquisti.models import OrdineAcquisto, RigaAcquisto
+    from magazzino import collegamenti
+    azienda, _, _, fornitore, monitor, _ = scena
+
+    def ordine():
+        o = OrdineAcquisto.objects.create(azienda=azienda, fornitore=fornitore, stato=OrdineAcquisto.CONFERMATO)
+        RigaAcquisto.objects.create(ordine=o, prodotto=monitor, quantita=Decimal(1))
+        return o, collegamenti.ricevimento_da_ordine(OrdineAcquisto, o)
+
+    primo, ricevimento = ordine()
+    _annulla(client, "acquisti/ordini", primo)
+    ricevimento.refresh_from_db()
+    assert primo.stato == OrdineAcquisto.ANNULLATO and ricevimento.stato == Ricevimento.ANNULLATO
+
+    secondo, ricevuto = ordine()
+    operazioni.ricevi(ricevuto)
+    _annulla(client, "acquisti/ordini", secondo)
+    ricevuto.refresh_from_db()
+    assert secondo.stato == OrdineAcquisto.CONFERMATO and ricevuto.stato == Ricevimento.FATTO

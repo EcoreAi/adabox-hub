@@ -78,6 +78,12 @@ class Fattura(AziendaMixin, ProprietaMixin):
     def riepilogo_iva(self):
         return calcoli.riepilogo_iva([(r.importo, r.aliquota) for r in self.righe.select_related("aliquota")])
 
+    @property
+    def stornata(self):
+        """Interamente stornata da note di credito emesse."""
+        note = self.note_credito.filter(stato=self.EMESSA).aggregate(t=models.Sum("totale"))["t"] or Decimal(0)
+        return self.stato == self.EMESSA and note >= self.totale
+
     def ricalcola(self):
         self.imponibile, self.imposta, self.totale = calcoli.totali(
             [(r.importo, r.aliquota) for r in self.righe.select_related("aliquota")])

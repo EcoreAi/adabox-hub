@@ -212,3 +212,52 @@ def test_stampa_pdf_e_invio_con_allegato(client, superuser, scena):
     client.post(f"/fatturazione/fatture/{f.pk}/bottone/invia/")
     nome, contenuto, tipo = mail.outbox[-1].attachments[0]
     assert nome == f"Fattura 1-{ANNO}.pdf" and contenuto.startswith(b"%PDF")
+
+
+def _ordine_confermato(azienda, cliente, prodotto):
+    ordine = OrdineVendita.objects.create(azienda=azienda, cliente=cliente, stato=OrdineVendita.CONFERMATO,
+                                          numero_ordine="SO/1")
+    RigaVendita.objects.create(ordine=ordine, prodotto=prodotto, quantita=Decimal(1))
+    ordine.ricalcola()
+    return ordine
+
+
+def test_ordine_non_si_fattura_due_volte(client, superuser, scena):
+    azienda, cliente, monitor, _ = scena
+    ordine = _ordine_confermato(azienda, cliente, monitor)
+    fattura = operazioni.da_ordine(ordine)
+    with pytest.raises(ValidationError, match="già fatturato"):
+        operazioni.da_ordine(ordine)
+    assert b"Crea la fattura" not in client.get(f"/vendite/ordini/{ordine.pk}/").content
+    assert client.post(f"/fatturazione/da-ordine/{ordine.pk}/").status_code == 302
+    assert ordine.fatture.count() == 1
+    fattura.stato = Fattura.ANNULLATA                                    # annullata la bozza si può rifare
+    fattura.save(update_fields=["stato"])
+    assert b"Crea la fattura" in client.get(f"/vendite/ordini/{ordine.pk}/").content
+    assert operazioni.da_ordine(ordine).pk != fattura.pk
+
+
+def test_ordine_si_rifattura_dopo_lo_storno_completo(scena):
+    azienda, cliente, monitor, _ = scena
+    ordine = _ordine_confermato(azienda, cliente, monitor)
+    fattura = operazioni.emetti(operazioni.da_ordine(ordine))
+    nota = operazioni.nota_di_credito(fattura)
+    with pytest.raises(ValidationError):                                 # la nota in bozza non storna ancora
+        operazioni.da_ordine(ordine)
+    operazioni.emetti(nota)
+    assert fattura.stornata and operazioni.da_ordine(ordine).stato == Fattura.BOZZA
+
+
+def test_annullo_ordine_annulla_le_bozze_e_si_ferma_sulle_emesse(client, superuser, scena):
+    azienda, cliente, monitor, _ = scena
+    ordine = _ordine_confermato(azienda, cliente, monitor)
+    bozza = operazioni.da_ordine(ordine)
+    client.post(f"/vendite/ordini/{ordine.pk}/bottone/annulla/")
+    bozza.refresh_from_db(); ordine.refresh_from_db()
+    assert ordine.stato == OrdineVendita.ANNULLATO and bozza.stato == Fattura.ANNULLATA
+
+    secondo = _ordine_confermato(azienda, cliente, monitor)
+    emessa = operazioni.emetti(operazioni.da_ordine(secondo))
+    client.post(f"/vendite/ordini/{secondo.pk}/bottone/annulla/")
+    secondo.refresh_from_db(); emessa.refresh_from_db()
+    assert secondo.stato == OrdineVendita.CONFERMATO and emessa.stato == Fattura.EMESSA
