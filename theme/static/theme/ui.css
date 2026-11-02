@@ -1280,3 +1280,86 @@ td.ui-num { text-align: right; font-variant-numeric: tabular-nums; white-space: 
 .cm-totale-vivo { position: sticky; bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 16px; padding: 14px 18px; border-radius: 14px; background: var(--ui-surface); box-shadow: 0 10px 30px rgba(15, 23, 42, .14); }
 .cm-totale-vivo strong { font-size: 22px; font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { .cm-tessera, .cm-barra span { animation: none; } }
+
+/* Automazioni: regole e modelli di email */
+.au-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.au-regola, .au-modello { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 14px; color: inherit; text-decoration: none; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; animation: au-entra .35s ease both; animation-delay: calc(var(--i, 0) * 40ms); }
+.au-regola:hover, .au-modello:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(15, 23, 42, .1); border-color: var(--ui-primary); }
+.au-regola-testa { display: flex; align-items: center; gap: 10px; }
+.au-regola-testa strong { flex: 1; min-width: 0; }
+.au-lampo { display: inline-flex; width: 32px; height: 32px; flex: none; align-items: center; justify-content: center; border-radius: 10px; background: var(--ui-surface-2); color: var(--ui-text-2); }
+.au-lampo svg { width: 16px; height: 16px; }
+.au-regola.is-attiva .au-lampo { background: var(--ui-primary-tint); color: var(--ui-primary); animation: au-pulsa 2.4s ease-in-out infinite; }
+.au-regola-quando { color: var(--ui-text-2); font-size: 13px; }
+.au-regola-azioni { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.au-regola-azioni li { display: flex; gap: 8px; align-items: flex-start; }
+.au-regola-azioni svg { width: 14px; height: 14px; flex: none; margin-top: 3px; color: var(--ui-primary); }
+.au-regola-piede { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--ui-border); color: var(--ui-text-3); font-size: 12px; }
+.au-titolo { font-size: 17px; margin: 28px 0 4px; }
+.au-sotto, .au-tenue { color: var(--ui-text-2); font-size: 13px; }
+.au-sotto { margin: 0 0 14px; }
+.au-ricette { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.au-ricetta { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 16px; border-radius: 14px; border: 1px dashed var(--ui-border); background: var(--ui-surface); animation: au-entra .35s ease both; animation-delay: calc(var(--i, 0) * 30ms); transition: border-color .18s ease, transform .18s ease; }
+.au-ricetta:hover { border-color: var(--ui-primary); transform: translateY(-2px); }
+.au-ricetta p { margin: 0; flex: 1; color: var(--ui-text-2); font-size: 13px; }
+.au-ricetta-icona { display: inline-flex; width: 36px; height: 36px; align-items: center; justify-content: center; border-radius: 12px; background: var(--ui-primary-tint); color: var(--ui-primary); }
+.au-ricetta-icona svg { width: 18px; height: 18px; }
+.au-flusso { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; margin-bottom: 20px; }
+.au-flusso-verticale { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+.au-passo { position: relative; padding: 18px; border-radius: 14px; background: var(--ui-surface); border: 1px solid var(--ui-border); animation: au-entra .35s ease both; }
+.au-passo p { margin: 8px 0 0; }
+.au-passo ul:not(.au-regola-azioni) { margin: 8px 0 0; padding-left: 18px; }
+.au-passo .au-regola-azioni { margin-top: 8px; }
+.au-passo-tag { display: inline-block; margin-bottom: 8px; padding: 2px 10px; border-radius: 999px; background: var(--ui-primary-tint); color: var(--ui-primary); font-size: 12px; font-weight: 600; }
+.au-flusso:not(.au-flusso-verticale) .au-passo:not(:last-child)::after { content: ""; position: absolute; top: 50%; left: 100%; width: 28px; height: 2px; background: repeating-linear-gradient(90deg, var(--ui-primary) 0 6px, transparent 6px 12px); background-size: 12px 2px; opacity: .35; }
+.au-flusso.is-attiva:not(.au-flusso-verticale) .au-passo:not(:last-child)::after { opacity: 1; animation: au-scorri .8s linear infinite; }
+.au-flusso-verticale .au-passo:not(:last-child)::after { content: ""; position: absolute; left: 34px; top: 100%; width: 2px; height: 22px; background: var(--ui-primary); opacity: .35; }
+.au-azioni-testa { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.au-avviso { display: flex; gap: 8px; align-items: center; padding: 10px 14px; margin-bottom: 12px; border-radius: 10px; background: var(--ui-warning-tint); }
+.au-avviso svg { width: 16px; height: 16px; flex: none; }
+.au-attese { margin: 0 0 12px; padding-left: 18px; font-size: 13px; }
+.au-scelta { display: flex; gap: 8px; align-items: baseline; margin-bottom: 8px; cursor: pointer; }
+.au-prova { margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: var(--ui-surface-2); animation: au-entra .25s ease both; }
+.au-prova ul { list-style: none; margin: 8px 0 0; padding: 0; }
+.au-corpo { margin: 6px 0 0; padding: 10px; white-space: pre-wrap; border-radius: 8px; background: var(--ui-surface); font: inherit; font-size: 13px; }
+.au-storico { list-style: none; margin: 0; padding: 8px 18px; }
+.au-storico-voce { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--ui-border); }
+.au-storico-voce:last-child { border-bottom: 0; }
+.au-punto { width: 10px; height: 10px; flex: none; margin-top: 6px; border-radius: 50%; background: var(--ui-text-3); }
+.is-fatta > .au-punto { background: #22a55b; box-shadow: 0 0 0 4px var(--ui-success-tint); }
+.is-errore > .au-punto { background: #d9342b; box-shadow: 0 0 0 4px var(--ui-danger-tint); }
+.is-saltata > .au-punto { background: #d98a00; box-shadow: 0 0 0 4px var(--ui-warning-tint); }
+.au-storico-corpo { flex: 1; min-width: 0; }
+.au-storico-testa { display: flex; flex-wrap: wrap; gap: 6px; }
+.au-storico-data { margin-left: auto; }
+.au-storico-passo { margin-top: 4px; font-size: 13px; color: var(--ui-text-2); }
+.au-storico-passo.is-errore { color: #c4271f; }
+.au-storico-passo.is-saltata { color: #b46300; }
+.au-filtri { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.au-pagine { display: flex; gap: 12px; align-items: center; justify-content: center; margin-top: 16px; }
+.au-riga { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--ui-border); animation: au-entra .2s ease both; }
+.au-riga .ui-input { width: auto; flex: 0 1 auto; min-width: 120px; }
+.au-riga input[type=number] { width: 90px; min-width: 0; }
+.au-riga-valore { display: contents; }
+.au-togli { margin-left: auto; width: 26px; height: 26px; border: 0; border-radius: 50%; background: var(--ui-surface-2); color: var(--ui-text-2); cursor: pointer; }
+.au-togli:hover { background: var(--ui-danger-tint); color: #c4271f; }
+.au-aggiungi { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.au-giorni { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.au-giorni .ui-input { width: 90px; }
+.au-editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.au-testo { font-family: inherit; line-height: 1.55; resize: vertical; }
+.au-chip-titolo { font-size: 12px; color: var(--ui-text-2); margin-bottom: 6px; }
+.au-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.au-chip { padding: 4px 10px; border: 1px solid var(--ui-border); border-radius: 999px; background: var(--ui-surface); color: var(--ui-text); font-size: 12px; cursor: pointer; transition: transform .12s ease, background .12s ease, color .12s ease; }
+.au-chip:hover { background: var(--ui-primary); color: #fff; transform: translateY(-1px); }
+.au-errore { color: #c4271f; font-size: 13px; }
+.au-anteprima { position: sticky; top: 16px; border-radius: 14px; overflow: hidden; border: 1px solid var(--ui-border); background: var(--ui-surface); box-shadow: 0 12px 28px rgba(15, 23, 42, .08); }
+.au-anteprima-oggetto { padding: 12px 16px; font-weight: 600; border-bottom: 1px solid var(--ui-border); min-height: 44px; }
+.au-anteprima iframe { display: block; width: 100%; height: 520px; border: 0; background: #f4f5f7; }
+.au-nuovo-modello { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+.au-nuovo-modello .ui-input { width: auto; }
+@keyframes au-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes au-pulsa { 50% { box-shadow: 0 0 0 6px var(--ui-primary-tint); } }
+@keyframes au-scorri { to { background-position-x: 12px; } }
+@media (max-width: 860px) { .au-flusso, .au-editor { grid-template-columns: minmax(0, 1fr); } .au-flusso:not(.au-flusso-verticale) .au-passo::after { display: none; } .au-anteprima { position: static; } }
+@media (prefers-reduced-motion: reduce) { .au-regola, .au-modello, .au-ricetta, .au-passo, .au-prova, .au-riga, .au-lampo, .au-flusso .au-passo::after { animation: none !important; } .au-regola:hover, .au-modello:hover, .au-ricetta:hover { transform: none; } }

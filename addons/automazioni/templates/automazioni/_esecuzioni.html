@@ -1,0 +1,7 @@
+{% if voci %}<ul class="au-storico">{% for v in voci %}<li class="au-storico-voce is-{{ v.e.esito }}"><span class="au-punto"></span><div class="au-storico-corpo">
+  <div class="au-storico-testa">{% if v.url %}<a class="ui-link" href="{{ v.url }}">{{ v.e.nome_record }}</a>{% else %}{{ v.e.nome_record }}{% endif %}
+    {% if con_regola %}<span class="au-tenue">· <a class="ui-link" href="{% url 'automazioni:regola' v.e.regola_id %}">{{ v.e.regola }}</a></span>{% endif %}
+    <span class="au-tenue au-storico-data">{{ v.e.creata|date:"d/m/Y H:i" }}</span></div>
+  {% for p in v.e.dettaglio %}<div class="au-storico-passo is-{{ p.esito }}">{{ p.testo }}</div>{% endfor %}
+  {% if puo_cambiare and v.e.esito != "fatta" and con_regola %}<form method="post" action="{% url 'automazioni:riprova' v.e.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Riprova</button></form>{% endif %}
+</div></li>{% endfor %}</ul>{% else %}<div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Non è ancora successo nulla.</p></div>{% endif %}

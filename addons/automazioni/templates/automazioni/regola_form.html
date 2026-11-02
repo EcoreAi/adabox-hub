@@ -1,0 +1,28 @@
+{% extends 'core/base_app.html' %}
+{% load tema %}
+{% block title %}{% if regola %}Modifica {{ regola.nome }}{% else %}Nuova regola{% endif %} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>{% if regola %}Modifica la regola{% else %}Nuova regola{% endif %}</h1><div class="sub">Si legge come una frase: quando succede questo, se è vero quest'altro, allora fai così</div></div></div>
+<form method="post" class="au-costruttore" data-costruttore data-nuovo-modello="{% url 'automazioni:modello_nuovo' %}" data-elenco-modelli="{% url 'automazioni:modelli_elenco' %}">{% csrf_token %}
+  <input type="hidden" name="condizioni" data-c-condizioni><input type="hidden" name="azioni" data-c-azioni>
+  <div class="ui-form-group"><label for="au-nome">Nome della regola</label><input class="ui-input" id="au-nome" name="nome" maxlength="120" required data-c-nome></div>
+  <div class="au-flusso au-flusso-verticale">
+    <div class="au-passo"><span class="au-passo-tag">Quando</span>
+      <select class="ui-input" name="evento" required data-c-evento></select>
+      <div class="au-giorni" data-c-giorni-riga hidden><span data-c-giorni-prima></span> <input class="ui-input" type="number" name="giorni" min="0" max="3650" data-c-giorni> <span data-c-giorni-dopo></span></div></div>
+    <div class="au-passo"><span class="au-passo-tag">Se</span><div data-c-lista-condizioni></div>
+      <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-c-aggiungi-condizione><svg><use href="#icon-plus"/></svg> Aggiungi una condizione</button><p class="au-tenue" data-c-sempre>Senza condizioni scatta sempre.</p></div>
+    <div class="au-passo"><span class="au-passo-tag">Allora</span><div data-c-lista-azioni></div>
+      <div class="au-aggiungi"><button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-c-aggiungi="email"><svg><use href="#icon-inbox"/></svg> Manda un'email</button>
+        <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-c-aggiungi="attivita"><svg><use href="#icon-check"/></svg> Crea un'attività</button>
+        <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-c-aggiungi="nota"><svg><use href="#icon-edit"/></svg> Scrivi una nota</button>
+        <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-c-aggiungi="assegna"><svg><use href="#icon-user"/></svg> Assegna</button></div>
+      <p class="au-tenue" data-c-campi></p></div>
+  </div>
+  <div class="au-azioni-testa"><button class="ui-btn ui-btn-primary" type="submit"><svg><use href="#icon-save"/></svg> Salva</button>
+    <a class="ui-btn ui-btn-secondary" href="{% if regola %}{% url 'automazioni:regola' regola.pk %}{% else %}{% url 'automazioni:regole' %}{% endif %}">Annulla</a>
+    {% if not regola %}<span class="au-tenue">La regola si salva spenta: la accendi dopo averla provata.</span>{% endif %}</div>
+</form>
+{{ dati|json_script:"au-dati" }}{{ iniziale|json_script:"au-iniziale" }}
+{% endblock %}
+{% block scripts %}<script src="{% statico 'automazioni/costruttore.js' %}"></script>{% endblock %}

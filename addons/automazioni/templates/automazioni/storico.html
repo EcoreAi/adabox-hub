@@ -1,0 +1,8 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Storico delle automazioni · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Storico</h1><div class="sub">Tutto quello che le regole hanno fatto</div></div></div>
+<div class="au-filtri"><a class="ui-pill {% if not esito %}ui-pill-info{% else %}ui-pill-neutral{% endif %}" href="{% url 'automazioni:storico' %}">Tutte</a>{% for k, t in esiti %}<a class="ui-pill {% if esito == k %}ui-pill-info{% else %}ui-pill-neutral{% endif %}" href="?esito={{ k }}">{{ t }}</a>{% endfor %}</div>
+<section class="ui-card is-revealed">{% include 'automazioni/_esecuzioni.html' with con_regola=True %}</section>
+{% if pagina.paginator.num_pages > 1 %}<div class="au-pagine">{% if pagina.has_previous %}<a class="ui-btn ui-btn-secondary ui-btn-sm" href="?pagina={{ pagina.previous_page_number }}{% if esito %}&esito={{ esito }}{% endif %}">Più recenti</a>{% endif %}<span class="au-tenue">Pagina {{ pagina.number }} di {{ pagina.paginator.num_pages }}</span>{% if pagina.has_next %}<a class="ui-btn ui-btn-secondary ui-btn-sm" href="?pagina={{ pagina.next_page_number }}{% if esito %}&esito={{ esito }}{% endif %}">Meno recenti</a>{% endif %}</div>{% endif %}
+{% endblock %}

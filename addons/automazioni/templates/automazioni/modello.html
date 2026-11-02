@@ -1,0 +1,22 @@
+{% extends 'core/base_app.html' %}
+{% load tema %}
+{% block title %}{{ voce.nome|default:"Nuovo modello" }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>{{ voce.nome|default:"Nuovo modello" }}</h1><div class="sub"><a class="ui-link" href="{% url 'automazioni:modelli' %}">Modelli email</a> · {{ voce.gruppo }}{% if usato_da %} · usato da «{{ usato_da.0 }}»{% endif %}</div></div></div>
+<div class="au-editor" data-editor data-anteprima="{% url 'automazioni:modello_anteprima' %}" {% if not nuovo %}data-prova="{% url 'automazioni:modello_prova' voce.codice %}"{% endif %} data-codice="{% if voce.del_modulo %}{{ voce.codice }}{% endif %}" data-dominio="{{ dominio }}">
+  <form method="post" class="ui-card is-revealed au-editor-testi" data-editor-form>{% csrf_token %}<div class="ui-card-body">
+    {% if nuovo %}<input type="hidden" name="dominio" value="{{ dominio }}">{% endif %}
+    {% if not voce.del_modulo %}<div class="ui-form-group"><label for="me-nome">Nome del modello</label><input class="ui-input" id="me-nome" name="nome" value="{{ voce.nome }}" maxlength="120" required></div>{% endif %}
+    <div class="ui-form-group"><label for="me-oggetto">Oggetto</label><input class="ui-input" id="me-oggetto" name="oggetto" value="{{ voce.oggetto }}" maxlength="250" required data-editor-campo></div>
+    <div class="ui-form-group"><label for="me-corpo">Testo</label><textarea class="ui-input au-testo" id="me-corpo" name="corpo" rows="12" required data-editor-campo>{{ voce.corpo }}</textarea></div>
+    <div class="au-chip-titolo">Clicca per inserire nel testo</div>
+    <div class="au-chips">{% for nome, c in voce.campi.items %}<button type="button" class="au-chip" data-inserisci="{{ nome }}" title="{{ c.1 }}">{{ c.0 }}</button>{% endfor %}</div>
+    <p class="au-errore" data-editor-errore hidden></p>
+    <div class="au-azioni-testa">{% if nuovo or puo_cambiare %}<button class="ui-btn ui-btn-primary" type="submit"><svg><use href="#icon-save"/></svg> Salva</button>{% endif %}
+      {% if not nuovo and puo_cambiare %}<button class="ui-btn ui-btn-secondary" type="button" data-editor-prova><svg><use href="#icon-inbox"/></svg> Manda a me una prova</button>{% endif %}</div>
+  </div></form>
+  <section class="au-anteprima"><div class="au-anteprima-oggetto" data-editor-oggetto></div><iframe title="Anteprima dell'email" sandbox="" data-editor-iframe></iframe></section>
+</div>
+{% if voce.proprio and perms.core.delete_modelloemail %}<form method="post" action="{% url 'automazioni:modello_ripristina' voce.codice %}" class="au-pagine" onsubmit="return confirm('{% if voce.del_modulo %}Tornare al testo originale?{% else %}Eliminare questo modello?{% endif %}')">{% csrf_token %}<button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">{% if voce.del_modulo %}Ripristina il testo originale{% else %}Elimina il modello{% endif %}</button></form>{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{% statico 'automazioni/editor.js' %}"></script>{% endblock %}

@@ -1,0 +1,10 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Modelli email · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Modelli email</h1><div class="sub">I testi che il gestionale manda ai clienti e ai colleghi. Cambiali senza chiedere a nessuno</div></div></div>
+{% for gruppo, voci in gruppi %}<h2 class="au-titolo">{{ gruppo }}</h2><div class="au-griglia">{% for v in voci %}{% include 'automazioni/_modello_scheda.html' %}{% endfor %}</div>{% endfor %}
+<h2 class="au-titolo">Per le automazioni</h2><p class="au-sotto">I modelli che le regole possono mandare.</p>
+{% if automazioni %}<div class="au-griglia">{% for v in automazioni %}{% include 'automazioni/_modello_scheda.html' %}{% endfor %}</div>{% endif %}
+{% if puo_cambiare %}<form method="get" action="{% url 'automazioni:modello_nuovo' %}" class="au-nuovo-modello"><select class="ui-input" name="dominio" aria-label="Si usa su">{% for d in domini %}<option value="{{ d.codice }}">{{ d.nome }}</option>{% endfor %}</select>
+  <button class="ui-btn ui-btn-secondary" type="submit"><svg><use href="#icon-plus"/></svg> Nuovo modello</button></form>{% endif %}
+{% endblock %}
