@@ -1,10 +1,10 @@
 {% extends 'core/base_app.html' %}
-{% block title %}Operazioni ammesse · {{ theme.brand }}{% endblock %}
+{% block title %}Cosa può fare, in dettaglio · Agenti AI · {{ theme.brand }}{% endblock %}
 {% block app_content %}
-<div class="ui-pagehead"><div><h1>Operazioni ammesse</h1>
+<div class="ui-pagehead"><div><h1>Cosa può fare, in dettaglio</h1>
   <div class="sub">L'elenco chiuso di ciò che arriva agli agenti: {{ esposte|length }} strument{{ esposte|length|pluralize:"o,i" }} esposti ad Agate</div></div></div>
 <section class="ui-card is-revealed ui-section"><div class="ui-card-body">
-  <p>Ogni voce è uno strumento dell'assistente AI, su una vista o su tutte le viste che gli agenti possono vedere. Una voce con la vista dà agli agenti i permessi che servono su quel modello; una voce senza vista vale solo sulle viste già concesse. Dopo ogni cambio rimetti gli strumenti in Agate: uno schema cambiato resta in quarantena finché qualcuno non lo rivede.</p>
+  <p>Ogni voce è uno strumento dell'assistente AI, su una vista o su tutte le viste che gli agenti possono vedere. Una voce con la vista dà agli agenti i permessi che servono su quel modello; una voce senza vista vale solo sulle viste già concesse. Dopo ogni cambio rimetti gli strumenti in Agate: uno schema cambiato resta in quarantena finché qualcuno non lo rivede. Per le scelte semplici (Sì, Con il tuo ok, Mai) usa «Cosa può fare» in <a class="ui-link" href="{% url 'awf:miei' %}">I miei agenti</a>.</p>
   {% if voci %}
   <div class="ui-table-wrap"><table class="ui-table is-revealed">
     <thead><tr><th>Strumento</th><th>Vista</th><th>Effetto</th><th>Stato</th>{% if puo_modificare %}<th></th>{% endif %}</tr></thead>

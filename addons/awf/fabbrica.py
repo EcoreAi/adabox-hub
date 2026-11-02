@@ -25,7 +25,7 @@ from django.utils import timezone
 
 from core import cifratura
 
-from . import agenti, operazioni
+from . import agenti, operazioni, squadre
 from .models import Collegamento, RichiestaAgenti
 
 log = logging.getLogger("awf.fabbrica")
@@ -38,6 +38,7 @@ MODELLO_RE = re.compile(r"^[a-z][a-z0-9_.]{1,79}$")
 AGENTE_RE = re.compile(r"^[\w .'-]{1,100}$")
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,99}$")
 REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+ORA_RE = re.compile(r"^([01]?\d|2[0-3])[:.][0-5]\d$")
 DURATA_CATALOGO = 600                                   # secondi: il listino cambia di rado
 STATI_RICHIESTA = {"received": RichiestaAgenti.INVIATA, "proposed": RichiestaAgenti.DA_APPROVARE,
                    "connected": RichiestaAgenti.COLLEGATA, "rejected": RichiestaAgenti.RIFIUTATA,
@@ -284,7 +285,7 @@ def indirizzo_fabbrica():
 def _forge(forge_url=None):
     valore = forge_url or indirizzo_fabbrica()
     if not valore:
-        raise ErroreFabbrica("indirizzo della fabbrica non impostato: indicalo in Agenti → Catalogo")
+        raise ErroreFabbrica("indirizzo del negozio degli agenti non impostato: indicalo in Agenti AI → Negozio")
     return controlla_url(valore, "della fabbrica")
 
 
@@ -308,6 +309,25 @@ def _operazione(o):
             "risk": _testo(o.get("risk"), 10), "line": _testo(o.get("line"), 300)}
 
 
+def _testi(valore, quanti, massimo):
+    return [x for x in (_testo(v, massimo) for v in (valore if isinstance(valore, list) else [])[:quanti]) if x]
+
+
+def _vetrina(v):
+    """La vetrina facoltativa della squadra (§7.1, `showcase`): solo testi semplici, con i limiti del contratto.
+    Quello che manca le pagine lo ricavano da descrizione, ruoli e operazioni."""
+    if not isinstance(v, dict):
+        return {}
+    giornata = [{"ora": _testo(g.get("time"), 5) if ORA_RE.match(_testo(g.get("time"), 5)) else "",
+                 "testo": _testo(g.get("text"), 300)}
+                for g in (v.get("day") if isinstance(v.get("day"), list) else [])[:8] if isinstance(g, dict)]
+    domande = [{"domanda": _testo(f.get("q"), 300), "risposta": _testo(f.get("a"), 1000)}
+               for f in (v.get("faq") if isinstance(v.get("faq"), list) else [])[:6] if isinstance(f, dict)]
+    return {"icona": _testo(v.get("icon"), 8), "slogan": _testo(v.get("tagline"), 200),
+            "vantaggi": _testi(v.get("benefits"), 5, 300), "giornata": [g for g in giornata if g["testo"]],
+            "mai": _testi(v.get("never"), 6, 300), "domande": [d for d in domande if d["domanda"] and d["risposta"]]}
+
+
 def _squadra(t):
     """Una squadra del listino, controllata: solo i campi che servono, con i tipi attesi. None se non valida."""
     if not isinstance(t, dict) or not isinstance(t.get("slug"), str) or not SLUG_RE.match(t["slug"]):
@@ -316,8 +336,10 @@ def _squadra(t):
     if versione is None:
         return None
     prezzo = t.get("price") if isinstance(t.get("price"), dict) else {}
+    tetti = t.get("caps") if isinstance(t.get("caps"), dict) else {}
     return {
-        "slug": t["slug"], "versione": versione, "nome": _testo(t.get("name"), 200) or t["slug"],
+        "slug": t["slug"], "versione": versione,
+        "nome": squadre.nome_pulito(_testo(t.get("name"), 200)) or t["slug"],
         "reparto": _testo(t.get("department"), 60).lower(), "descrizione": _testo(t.get("description"), 2000),
         "giorni_prova": _intero(t.get("observe_days"), 0) or 0,
         "membri": [{"ruolo": _testo(m.get("role"), 100), "nome": _testo(m.get("name"), 100),
@@ -326,7 +348,10 @@ def _squadra(t):
         "operazioni": [_operazione(o) for o in t.get("operations") or [] if isinstance(o, dict)
                        and _testo(o.get("tool"), 100)],
         "prezzo": {k: v for k, v in prezzo.items() if isinstance(k, str) and isinstance(v, (str, int, float))
-                   and not isinstance(v, bool)}}
+                   and not isinstance(v, bool)},
+        "tetti": {k: v for k, v in tetti.items() if isinstance(k, str) and k.isidentifier()
+                  and (v is None or (isinstance(v, (int, float)) and not isinstance(v, bool)))},
+        "vetrina": _vetrina(t.get("showcase"))}
 
 
 def _chiave_catalogo(forge, reparto):
@@ -361,7 +386,9 @@ def squadra(slug, forge_url=None):
 
 
 def _agate():
-    """Il blocco facoltativo `agate` della richiesta, dal modulo agate se è attivo e collegato."""
+    """Il blocco facoltativo `agate` della richiesta, dal modulo agate se è attivo e collegato. Con il codice per la
+    fabbrica (`factory_code`, dal collegamento ad Agate con un codice) in **ogni** richiesta (§8.2): la fabbrica si
+    collega all'Agate dell'azienda da sola e propone da sola il contratto (§8.3)."""
     from core.registry.modules import disattivati
     if "agate" not in settings.ADDONS_ATTIVI or "agate" in disattivati():
         return None
@@ -373,7 +400,14 @@ def _agate():
         return None
     if a is None or not a.gateway_url:
         return None
-    return {k: v for k, v in {"gateway_url": a.gateway_url, "console_url": a.console_url}.items() if v}
+    blocco = {k: v for k, v in {"gateway_url": a.gateway_url, "console_url": a.console_url}.items() if v}
+    c = Collegamento.attuale()
+    if c.factory_code_cifrato:
+        try:
+            blocco["factory_code"] = c.factory_code()
+        except cifratura.SegretoIlleggibile:
+            log.warning("codice per la fabbrica illeggibile: la richiesta parte senza")
+    return blocco
 
 
 def richiedi(team, versione, settimane, note="", utente=None, azienda=None, base_url=""):
@@ -441,7 +475,9 @@ def _percorso(r):
 
 def aggiorna(r):
     """Lo stato della richiesta (§7.3). Alla prima lettura `connected` arriva il token della fabbrica e adabox si
-    collega da solo, come con il codice `wfc_...`; il bearer MCP no: lo genera una persona, che deve vederlo."""
+    collega da solo, come con il codice `wfc_...`; il bearer MCP no: lo genera una persona, che deve vederlo.
+    Quando il contratto è proposto (§8.3) adabox lo confronta con quello che la persona ha confermato e, se
+    combacia, lo approva a suo nome (`contratto.automatico`)."""
     if not r.aperta:
         return r
     stato, corpo = richiesta("GET", _percorso(r), forge_url=r.forge_url, token=r.token())
@@ -457,6 +493,11 @@ def aggiorna(r):
     url = corpo.get("approve_url")
     if isinstance(url, str) and url.startswith(("https://", "http://")) and len(url) <= 500:
         campi["approve_url"] = url
+    approval_id, proposta = corpo.get("approval_id"), corpo.get("proposal")
+    if nuovo == RichiestaAgenti.DA_APPROVARE and isinstance(approval_id, str) and REQUEST_ID_RE.match(approval_id)             and isinstance(proposta, dict):
+        campi["approval_id"], campi["proposta"] = approval_id, proposta     # §8.3: da confrontare con il consenso
+        if approval_id != r.approval_id:                                   # un contratto nuovo: si decide di nuovo
+            campi.update(decisione="", decisione_il=None, decisione_msg="")
     token = corpo.get("plugin_token")
     righe = RichiestaAgenti.objects.filter(pk=r.pk)
     if nuovo == RichiestaAgenti.COLLEGATA and isinstance(token, str) and token.startswith("wpt_"):
@@ -466,11 +507,12 @@ def aggiorna(r):
         log.info("richiesta d'ingaggio %s approvata: collegato", r.request_id)
     else:
         if nuovo == RichiestaAgenti.COLLEGATA and not campi["messaggio"]:
-            campi["messaggio"] = ("Approvata, ma il token della fabbrica non è arrivato qui: chiedi ad Agentlia un "
-                                  "codice di collegamento (wfc_) e usalo in Stato e collegamento.")
+            campi["messaggio"] = ("Approvata, ma il collegamento non è arrivato fin qui: chiedi ad Agentlia un codice "
+                                  "di collegamento e usalo in Agenti AI → Avanzate → Stato e collegamento.")
         righe.filter(collegata_il__isnull=True).update(stato=nuovo, **campi)    # mai indietro da collegata
     r.refresh_from_db()
-    return r
+    from . import contratto
+    return contratto.automatico(r)
 
 
 def aggiorna_aperte(piu_vecchie_di=0):

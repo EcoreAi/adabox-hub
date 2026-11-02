@@ -2,8 +2,11 @@
 
 Il collegamento è uno solo per istanza: indirizzo del gateway e della console di Agate, la chiave
 (scope `evaluate` e `llm`) e il segreto dei webhook, cifrati come le chiavi dei provider. La
-modalità decide quanto conta Agate: spento, osservazione (Agate valuta e registra, adabox esegue
-comunque) o attivo (decide Agate)."""
+modalità decide quanto conta Agate: spenta, in prova (Agate valuta e registra soltanto, adabox esegue
+comunque) o attiva (decide Agate). I valori salvati restano spento, osservazione e attivo.
+
+Collegato con un codice (§8.1 di plugin-api.md) ci sono anche la chiave `decide` (solo approve: le decisioni delle
+persone, prese in adabox) e la chiave `sync` (solo app: risincronizzare gli strumenti), cifrate come l'altra."""
 from django.conf import settings
 from django.db import models
 
@@ -12,9 +15,12 @@ from core import cifratura
 
 class Collegamento(models.Model):
     SPENTO, OSSERVAZIONE, ATTIVO = "spento", "osservazione", "attivo"
-    MODALITA = [(SPENTO, "Spento: Agate non viene chiamato"),
-                (OSSERVAZIONE, "Osservazione: Agate valuta e registra, adabox esegue comunque"),
-                (ATTIVO, "Attivo: decide Agate (regole, approvazioni, blocchi)")]
+    MODALITA = [(SPENTO, "Spenta"), (OSSERVAZIONE, "In prova (registra soltanto)"), (ATTIVO, "Attiva")]
+    SPIEGAZIONI = {SPENTO: "Agate non viene chiamato: l'assistente fa come prima.",
+                   OSSERVAZIONE: "Agate valuta e registra ogni modifica, ma adabox la esegue comunque: per vedere "
+                                 "cosa cambierebbe prima di accendere.",
+                   ATTIVO: "Decide Agate: consente, chiede l'ok di una persona o blocca. Se Agate non risponde, non si "
+                           "esegue nulla."}
     gateway_url = models.URLField("gateway di Agate", help_text="es. https://api.agate.esempio.it")
     console_url = models.URLField("console di Agate", blank=True, help_text="per i link a chi approva")
     chiave_cifrata = models.TextField("chiave API (cifrata)", blank=True, editable=False)
@@ -24,6 +30,16 @@ class Collegamento(models.Model):
     modalita = models.CharField("modalità", max_length=12, choices=MODALITA, default=OSSERVAZIONE)
     ultimo_controllo = models.DateTimeField("ultimo controllo", null=True, blank=True)
     esito_controllo = models.CharField("esito del controllo", max_length=300, blank=True)
+    # il percorso semplice (§8.1): adabox collegato una volta sola con un codice agc_
+    chiave_decide_cifrata = models.TextField("chiave per le decisioni (cifrata)", blank=True, editable=False)
+    chiave_sync_cifrata = models.TextField("chiave per risincronizzare gli strumenti (cifrata)", blank=True,
+                                           editable=False)
+    tenant = models.CharField("azienda in Agate", max_length=200, blank=True)
+    con_codice_il = models.DateTimeField("collegato con un codice il", null=True, blank=True)
+    da_sincronizzare = models.BooleanField("strumenti da risincronizzare", default=False,
+                                           help_text="l'ultima risincronizzazione non è riuscita: si riprova da sola")
+    sincronizzato_il = models.DateTimeField("ultima risincronizzazione", null=True, blank=True)
+    esito_sincronizzazione = models.CharField("esito della risincronizzazione", max_length=300, blank=True)
 
     class Meta:
         verbose_name = "collegamento ad Agate"
@@ -48,6 +64,17 @@ class Collegamento(models.Model):
     def imposta_segreto(self, segreto):
         self.segreto_cifrato = cifratura.cifra(segreto)
 
+    def chiave_decide(self):
+        return cifratura.decifra(self.chiave_decide_cifrata)
+
+    def chiave_sync(self):
+        return cifratura.decifra(self.chiave_sync_cifrata)
+
+    @property
+    def puo_decidere(self):
+        """Collegato con il codice: le decisioni si prendono in adabox, a nome di chi clicca."""
+        return bool(self.chiave_decide_cifrata)
+
     def strumento(self, nome):
         return f"{self.prefisso}.{nome}"
 
@@ -58,7 +85,7 @@ class Valutazione(models.Model):
         "consentita", "in_attesa", "approvata", "rifiutata", "negata", "osservata", "errore")
     STATI = [(CONSENTITA, "Consentita"), (IN_ATTESA, "In attesa di approvazione"), (APPROVATA, "Approvata"),
              (RIFIUTATA, "Rifiutata o scaduta"), (NEGATA, "Bloccata dalle regole"),
-             (OSSERVATA, "Solo osservata"), (ERRORE, "Agate non raggiungibile")]
+             (OSSERVATA, "Solo registrata (in prova)"), (ERRORE, "Agate non raggiungibile")]
     proposta = models.OneToOneField("ai.Proposta", on_delete=models.CASCADE, related_name="agate",
                                     verbose_name="proposta")
     strumento = models.CharField("strumento in Agate", max_length=100)

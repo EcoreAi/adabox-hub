@@ -1,0 +1,15 @@
+{% extends 'core/base_app.html' %}
+{% load awf %}
+{% block title %}Per chi lavora · Agenti AI · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Per chi lavora</h1>
+  <div class="sub">{{ r.team_nome|nome_squadra|default:r.team_slug }}</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'awf:miei' %}"><svg><use href="#icon-arrow-left"/></svg> I miei agenti</a></div></div>
+<form method="post">{% csrf_token %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  {% include "awf/_persone.html" with reparto=r.reparto_azienda responsabile_pk=r.responsabile_id persone_pk=scelte_persone %}
+</div></section>
+<div class="ui-form-actions"><button class="ui-btn ui-btn-primary" type="submit">Salva</button>
+  <a class="ui-btn ui-btn-ghost" href="{% url 'awf:miei' %}">Annulla</a></div>
+</form>
+{% endblock %}

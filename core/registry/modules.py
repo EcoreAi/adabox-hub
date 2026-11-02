@@ -188,6 +188,44 @@ def app_visibili(user):
     return apps
 
 
+def _conteggio(slug, funzione, user):
+    """Il numero accanto all'etichetta (es. «Da approvare (3)»): `funzione(user)` del modulo. Un errore non rompe
+    il menu: la voce resta, senza numero."""
+    from django.utils.module_loading import import_string
+    try:
+        n = import_string(funzione)(user)
+    except Exception:
+        log.warning("%s: conteggio %r della voce del profilo non riuscito", slug, funzione, exc_info=True)
+        return 0
+    return n if isinstance(n, int) and not isinstance(n, bool) and n > 0 else 0
+
+
+def voci_profilo(user):
+    """Le voci dei moduli attivi nel menu del profilo (`menu_profilo` del manifest) permesse all'utente, con il
+    numero di cose da fare accanto all'etichetta se la voce ha un `conteggio` e il numero è maggiore di zero.
+    [{label, url, icon, conteggio}]"""
+    from django.urls import NoReverseMatch, reverse
+    if not user.is_authenticated:
+        return []
+    voci = []
+    spenti = disattivati()
+    for slug, m in manifests_attivi().items():
+        if slug in spenti:
+            continue
+        for voce in m.menu_profilo:
+            if not _voce_visibile(user, voce):
+                continue
+            try:
+                url = reverse(voce["url_name"])
+            except NoReverseMatch:
+                log.warning("%s: voce del profilo %r con url_name non risolvibile", slug, voce["url_name"])
+                continue
+            n = _conteggio(slug, voce["conteggio"], user) if voce.get("conteggio") else 0
+            voci.append({"label": f"{voce['label']} ({n})" if n else voce["label"], "url": url,
+                         "icon": voce.get("icon") or "zap", "conteggio": n})
+    return voci
+
+
 def app_corrente(request, apps=None):
     """L'app del namespace della richiesta (se è un'app visibile), con la voce attiva marcata."""
     match = getattr(request, "resolver_match", None)

@@ -1,0 +1,9 @@
+{# Le tre modalità come scelte con una frase ciascuna. Contesto: modalita [(valore, etichetta, spiegazione)], attuale #}
+<fieldset style="border:0;padding:0;margin:0"><legend class="ui-label">Modalità</legend>
+  {% for valore, etichetta, spiegazione in modalita %}
+  <label style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--ui-border);border-radius:var(--radius-input);margin-bottom:8px;cursor:pointer">
+    <input type="radio" name="modalita" value="{{ valore }}"{% if attuale == valore %} checked{% endif %} required style="margin-top:4px">
+    <span><strong>{{ etichetta }}</strong><br><span class="ui-help">{{ spiegazione }}</span></span>
+  </label>
+  {% endfor %}
+</fieldset>

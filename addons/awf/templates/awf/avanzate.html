@@ -1,0 +1,53 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Avanzate · Agenti AI · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Avanzate</h1>
+  <div class="sub">Per chi installa e assiste adabox: collegamenti, chiavi e dettagli tecnici</div></div></div>
+
+{% if bearer %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Da copiare ora: non si vedrà più</div></div>
+  <div class="ui-card-body">
+    <p>Indirizzo del server MCP: <code>{{ c.mcp_url }}</code></p>
+    <p>Chiave (bearer): <code>{{ bearer }}</code></p>
+    <p>Nella console di Agate apri <strong>Collegamenti → «Applicazione dell'azienda (server MCP)»</strong>, incolla indirizzo e chiave e usa il prefisso <code>awf</code>: gli strumenti arrivano in Agate come <code>awf.cerca_record</code>, <code>awf.modifica_record</code>… Rivedi effetto e rischio prima di attivarli.</p>
+    <p class="ui-help">Se la perdi, generane una nuova: quella vecchia smette di valere.</p>
+  </div></section>
+{% endif %}
+
+<section class="ui-card is-revealed ui-section" id="agate"><div class="ui-card-head"><div class="ui-card-title">Collega adabox ad Agate (una volta sola)</div>
+  <div class="ui-card-sub">{% if c.mcp_indizio %}<span class="ui-pill ui-pill-ok">fatto</span>{% else %}<span class="ui-pill ui-pill-warn">da fare</span>{% endif %}</div></div>
+  <div class="ui-card-body">
+    <p>Agate raggiunge adabox attraverso un indirizzo e una chiave: senza, gli agenti non possono lavorare e Agate non accetta il contratto.</p>
+    {% if agate %}<div class="ui-alert ui-alert-info">Più semplice: <a class="ui-link" href="{% url 'agate:impostazioni' %}">collega il Controllo AI con un codice</a>. Indirizzo e chiave si danno ad Agate da soli, e le decisioni si prendono in adabox. Questa è la strada a mano, se preferisci.</div>{% endif %}
+    {% if not c.base_url %}
+    <form method="post">{% csrf_token %}<input type="hidden" name="azione" value="base_url">
+      <label class="ui-label" for="base_url">Indirizzo pubblico di adabox (dove Agate lo raggiunge)</label>
+      <input class="ui-input" id="base_url" name="base_url" type="url" required value="{{ base_url_proposta }}" style="max-width:420px">
+      <div class="ui-form-actions"><button class="ui-btn ui-btn-secondary" type="submit">Salva l'indirizzo</button></div>
+    </form>
+    {% else %}
+    <p class="ui-help">Indirizzo del server MCP: <code>{{ c.mcp_url }}</code>{% if c.mcp_indizio %} · chiave che inizia con <code>{{ c.mcp_indizio }}…</code>{% endif %}</p>
+    <form method="post">{% csrf_token %}<input type="hidden" name="azione" value="bearer">
+      <button class="ui-btn {% if c.mcp_indizio %}ui-btn-ghost{% else %}ui-btn-primary{% endif %}" type="submit">{% if c.mcp_indizio %}Genera una chiave nuova{% else %}Genera indirizzo e chiave{% endif %}</button></form>
+    {% endif %}
+  </div></section>
+
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Indirizzo del negozio (la fabbrica di Agentlia)</div></div>
+  <div class="ui-card-body">
+    <p class="ui-help">Da dove arrivano gli agenti del Negozio e dove vanno le richieste.</p>
+    {% if c.collegato %}<p><code>{{ forge }}</code> (quello del contratto in corso)</p>
+    {% else %}<form method="post">{% csrf_token %}<input type="hidden" name="azione" value="fabbrica">
+      <input class="ui-input" name="forge_url" type="url" required value="{{ forge }}" placeholder="https://forge.agentlia.it" aria-label="Indirizzo del negozio" style="max-width:420px">
+      <div class="ui-form-actions"><button class="ui-btn ui-btn-secondary" type="submit">Salva</button></div>
+    </form>{% endif %}
+  </div></section>
+
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Altre pagine tecniche</div></div>
+  <div class="ui-card-body"><ul class="ui-checkbox-list">
+    <li style="margin-bottom:10px"><a class="ui-link" href="{% url 'awf:stato' %}"><strong>Stato e collegamento</strong></a><br><span class="ui-help">Lo stato del contratto ricevuto dalla fabbrica, il collegamento con un codice <code>wfc_</code> preparato da Agentlia, il segreto dei webhook di Agate, l'azienda in cui lavorano gli agenti e le ultime chiamate.</span></li>
+    <li style="margin-bottom:10px"><a class="ui-link" href="{% url 'awf:operazioni' %}"><strong>Cosa può fare, in dettaglio</strong></a><br><span class="ui-help">L'elenco chiuso degli strumenti e delle viste che arrivano agli agenti (le operazioni ammesse).</span></li>
+    <li style="margin-bottom:10px"><a class="ui-link" href="{% url 'awf:approvazioni' %}"><strong>Approvazioni</strong></a><br><span class="ui-help">Le azioni degli agenti che aspettano una persona in Agate, dal webhook firmato.</span></li>
+    <li style="margin-bottom:10px"><a class="ui-link" href="{% url 'awf:agenti' %}"><strong>Utenti degli agenti</strong></a><br><span class="ui-help">Gli utenti <code>awf-…</code> che firmano le azioni degli agenti, e i loro permessi.</span></li>
+    {% if impostazioni %}<li><a class="ui-link" href="{% url 'core:impostazioni' %}#awf"><strong>Impostazioni</strong></a><br><span class="ui-help">Agenti sempre in prova; avvisi alla fabbrica quando un'attività è assegnata a un agente.</span></li>{% endif %}
+  </ul></div></section>
+{% endblock %}

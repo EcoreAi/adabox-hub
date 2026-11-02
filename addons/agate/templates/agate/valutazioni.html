@@ -1,14 +1,31 @@
 {% extends 'core/base_app.html' %}
-{% block title %}Valutazioni di Agate · {{ theme.brand }}{% endblock %}
+{% block title %}Registro delle azioni AI · Controllo AI · {{ theme.brand }}{% endblock %}
 {% block app_content %}
-<div class="ui-pagehead"><div><h1>Valutazioni di Agate</h1><div class="sub">Le modifiche dell'assistente e cosa ha detto Agate</div></div></div>
-<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
-  <table class="ui-table"><thead><tr><th>Quando</th><th>Modifica</th><th>Strumento</th><th>Esito</th><th>Motivo</th></tr></thead><tbody>
-  {% for v in righe %}
-    <tr><td>{{ v.creata|date:"d/m/Y H:i" }}</td><td>{{ v.proposta.titolo }}<br><span class="ui-help">{{ v.utente }}</span></td><td><code>{{ v.strumento }}</code></td>
-      <td>{{ v.get_stato_display }}{% if v.approval_id and v.stato == "in_attesa" and console %}<br><a class="ui-link" href="{{ console }}/console/approvals/{{ v.approval_id }}/" target="_blank" rel="noopener">decidi in Agate ↗</a>{% endif %}</td>
-      <td>{{ v.motivo }}</td></tr>
-  {% empty %}<tr><td colspan="5">Nessuna valutazione ancora.</td></tr>{% endfor %}
-  </tbody></table>
-</div></section>
+<div class="ui-pagehead"><div><h1>Registro delle azioni AI</h1><div class="sub">Cosa ha chiesto chi all'assistente, e cosa ha deciso Agate</div></div></div>
+<section class="ui-card is-revealed ui-section">
+  <form method="get" class="ui-filtri">
+    <select class="ui-input" name="esito" aria-label="Esito">{% for valore, etichetta in esiti %}<option value="{{ valore }}"{% if filtri.esito == valore %} selected{% endif %}>{{ etichetta }}</option>{% endfor %}</select>
+    <select class="ui-input" name="periodo" aria-label="Periodo">{% for valore, etichetta in periodi %}<option value="{{ valore }}"{% if filtri.periodo == valore %} selected{% endif %}>{{ etichetta }}</option>{% endfor %}</select>
+    <select class="ui-input" name="utente" aria-label="Chi"><option value="">Tutte le persone</option>{% for u in utenti %}<option value="{{ u.pk }}"{% if filtri.utente == u.pk|stringformat:"d" %} selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>{% endfor %}</select>
+    <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Filtra</button>
+    {% if filtri.esito or filtri.periodo or filtri.utente %}<a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'agate:valutazioni' %}">Togli i filtri</a>{% endif %}
+  </form>
+  <div class="ui-card-body">
+  {% for x in righe %}
+    <div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;{% if not forloop.last %}border-bottom:1px solid var(--ui-border){% endif %}">
+      <span class="ui-pill {{ x.pill }}" style="flex:none" title="{{ x.v.get_stato_display }}"><svg style="width:14px;height:14px"><use href="#icon-{{ x.icona }}"/></svg></span>
+      <div style="flex:1;min-width:0">
+        <div><strong>{{ x.chi }}</strong> ha chiesto all'assistente: «{{ x.cosa }}» — <span class="ui-pill {{ x.pill }}">{{ x.esito }}</span></div>
+        {% if x.motivo %}<div class="ui-help">{{ x.motivo }}</div>{% endif %}
+        <div class="ui-help">{{ x.v.creata|date:"d/m/Y H:i" }}{% if x.v.decisa %} · decisa il {{ x.v.decisa|date:"d/m/Y H:i" }}{% endif %}</div>
+      </div>
+      {% if x.v.stato == "in_attesa" and x.v.approval_id and semplice %}<a class="ui-btn ui-btn-secondary ui-btn-sm" style="flex:none" href="{% url 'agate:da_approvare' %}">Decidi</a>
+      {% elif x.v.stato == "in_attesa" and x.v.approval_id and console %}<a class="ui-btn ui-btn-secondary ui-btn-sm" style="flex:none" href="{{ console }}/console/approvals/{{ x.v.approval_id }}/" target="_blank" rel="noopener">Decidi in Agate</a>{% endif %}
+    </div>
+  {% empty %}
+    <div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>{% if filtri.esito or filtri.periodo or filtri.utente %}Nessuna azione con questi filtri.{% else %}Nessuna azione dell'assistente controllata finora.{% endif %}</p></div>
+  {% endfor %}
+  {% if righe|length == 200 %}<p class="ui-help">Si vedono le ultime 200: usa i filtri per cercare più indietro.</p>{% endif %}
+  </div>
+</section>
 {% endblock %}

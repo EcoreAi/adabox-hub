@@ -1,0 +1,15 @@
+{# Cosa può fare: una riga per operazione, con Sì / Con il tuo ok / Mai. Le letture sono sempre sì. Contesto: righe, scelte_possibili #}
+<div class="ui-table-wrap"><table class="ui-table is-revealed">
+  <thead><tr><th>Cosa</th><th style="width:1%">Può farlo?</th></tr></thead>
+  <tbody>{% for x in righe %}<tr>
+    <td>{{ x.parole }}
+      {% if x.stato == 'non_disponibile' %}<br><span class="ui-help">{% if x.app_mancante %}Serve l'app «{{ x.app_mancante }}», non installata: non potrà farlo.{% else %}Non disponibile in questa versione di adabox.{% endif %}</span>
+      {% elif x.lettura %}<br><span class="ui-help">Serve per lavorare: sempre sì.</span>
+      {% elif x.effetto == 'irreversible' %}<br><span class="ui-help">Non si può annullare: ti consigliamo «Con il tuo ok».</span>{% endif %}</td>
+    <td>{% if x.stato == 'non_disponibile' %}<span class="ui-pill ui-pill-neutral">non disponibile</span>
+      {% elif x.lettura %}<span class="ui-pill ui-pill-ok">Sì</span><input type="hidden" name="op-{{ forloop.counter0 }}" value="si">
+      {% else %}<div class="ui-scelta" role="radiogroup" aria-label="{{ x.parole }}">{% with riga=forloop.counter0 %}{% for valore, etichetta in scelte_possibili %}
+        <input type="radio" id="op-{{ riga }}-{{ valore }}" name="op-{{ riga }}" value="{{ valore }}"{% if x.scelta == valore %} checked{% endif %}><label for="op-{{ riga }}-{{ valore }}">{{ etichetta }}</label>{% endfor %}{% endwith %}</div>{% endif %}</td>
+  </tr>{% endfor %}</tbody>
+</table></div>
+<p class="ui-help">«Sì»: lo fa da solo. «Con il tuo ok»: prima di farlo aspetta che una persona lo confermi. «Mai»: non può farlo.</p>

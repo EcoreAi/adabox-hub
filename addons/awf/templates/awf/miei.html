@@ -1,0 +1,53 @@
+{% extends 'core/base_app.html' %}
+{% load awf %}
+{% block title %}I miei agenti · Agenti AI · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>I miei agenti</h1>
+  <div class="sub">{% if agenti %}{{ ingaggio.title|default:r.team_nome|nome_squadra|default:"Il contratto in corso" }}{% if fase %} · {{ fase.0 }}{% endif %}{% if ingaggio.days_left is not None %} · {{ ingaggio.days_left }} giorn{{ ingaggio.days_left|pluralize:"o,i" }} rimast{{ ingaggio.days_left|pluralize:"o,i" }}{% endif %}{% else %}Gli agenti AI che lavorano per te{% endif %}</div></div></div>
+
+{% if not agenti %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body"><div class="ui-empty">
+  <svg><use href="#icon-users"/></svg>
+  <p>Non hai ancora agenti.</p>
+  {% if aperte %}<p class="ui-help">Hai {{ aperte }} richiest{{ aperte|pluralize:"a,e" }} in corso: <a class="ui-link" href="{% url 'awf:richieste' %}">seguil{{ aperte|pluralize:"a,e" }} in Richieste</a>.</p>{% endif %}
+  <a class="ui-btn ui-btn-primary" href="{% url 'awf:negozio' %}">Vai al Negozio</a>
+</div></div></section>
+{% else %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Il contratto</div>
+  <div class="ui-card-sub">{% if fase %}<span class="ui-pill {{ fase.1 }}">{{ fase.0 }}</span>{% endif %}</div></div>
+  <div class="ui-card-body">
+    <div class="ui-kpis" style="margin-bottom:16px">
+      <a class="ui-kpi ui-kpi-link" href="{{ link_attesa }}"{% if link_attesa|slice:":4" == "http" %} target="_blank" rel="noopener"{% endif %}><div class="label">Aspettano il tuo ok</div><div class="value">{{ in_attesa }}</div><div class="sub">{% if in_attesa %}{% if decidi_qui %}decidi in Da approvare{% else %}si decide in Agate{% endif %}{% else %}niente da decidere{% endif %}</div></a>
+      {% if ingaggio.days_left is not None %}<div class="ui-kpi"><div class="label">Giorni rimasti</div><div class="value">{{ ingaggio.days_left }}</div></div>{% endif %}
+      {% if ingaggio.llm %}<div class="ui-kpi"><div class="label">Consumo AI</div><div class="value">{{ ingaggio.llm.spent_eur|default:0 }} €</div>{% if ingaggio.llm.cap_eur %}<div class="sub">su un tetto di {{ ingaggio.llm.cap_eur }} €</div>{% endif %}</div>{% endif %}
+    </div>
+    {% if r %}<p>{% if r.reparto_azienda %}Lavora per il reparto <strong>{{ r.reparto_azienda }}</strong>. {% endif %}Lo segue <strong>{% if r.responsabile %}{{ r.responsabile.get_full_name|default:r.responsabile.username }}{% else %}nessuno{% endif %}</strong>{% with persone=r.persone.all %}{% if persone %}; passa il lavoro a {% for p in persone %}{{ p.get_full_name|default:p.username }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}{% endwith %}.</p>{% endif %}
+    {% if in_prova %}<p class="ui-help">Nel periodo di prova gli agenti leggono e preparano, ma non cambiano nulla: le modifiche si registrano soltanto.</p>{% endif %}
+    <div class="ui-form-actions" style="margin-bottom:0">
+      {% if r %}<a class="ui-btn ui-btn-secondary" href="{% url 'awf:cosa_puo_fare' r.pk %}">Cosa può fare</a>
+      <a class="ui-btn ui-btn-secondary" href="{% url 'awf:persone' r.pk %}">Cambia persone</a>
+      {% else %}<a class="ui-btn ui-btn-secondary" href="{% url 'awf:operazioni' %}">Cosa può fare</a>{% endif %}
+      {% if console_contratto %}<a class="ui-btn ui-btn-ghost" href="{{ console_contratto }}" target="_blank" rel="noopener">Metti in pausa · Rinnova · Disdici</a>{% endif %}
+    </div>
+    {% if console_contratto %}<p class="ui-help">Pausa, rinnovo e disdetta si decidono in Agate, il garante: lì c'è chi decide, con il secondo fattore.</p>{% endif %}
+  </div></section>
+
+<div class="ui-vetrina">
+  {% for x in agenti %}
+  <section class="ui-card is-revealed"><div class="ui-card-body">
+    <div class="ui-vetrina-testa"><span class="ui-vetrina-icona" aria-hidden="true"><svg><use href="#icon-user"/></svg></span>
+      <div><div class="ui-card-title">{{ x.a.nome }}</div><div class="ui-help">{{ x.a.ruolo|default:"agente" }}</div></div>
+      {% if fase %}<span class="ui-pill {{ fase.1 }}" style="margin-left:auto">{{ fase.0 }}</span>{% endif %}</div>
+    <p style="margin:0"><strong>Oggi</strong></p>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px">
+      <div class="ui-dato"><div class="ui-dato-label">Ha letto</div><div class="ui-dato-valore">{{ x.letture }}</div></div>
+      <div class="ui-dato"><div class="ui-dato-label">Ha cambiato</div><div class="ui-dato-valore">{{ x.modifiche }}</div></div>
+      {% if x.in_prova %}<div class="ui-dato"><div class="ui-dato-label">Avrebbe cambiato (prova)</div><div class="ui-dato-valore">{{ x.in_prova }}</div></div>{% endif %}
+      <div class="ui-dato"><div class="ui-dato-label">Fermato</div><div class="ui-dato-valore">{{ x.rifiutate }}</div></div>
+    </div>
+    <p class="ui-help" style="margin:0">Ultima attività: {{ x.a.ultimo_uso|date:"d/m/Y H:i"|default:"ancora nessuna" }}</p>
+  </div></section>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

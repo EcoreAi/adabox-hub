@@ -12,7 +12,12 @@ log = logging.getLogger("agate.lavori")
 
 
 def controlla_approvazioni():
+    """Ogni minuto: l'esito delle approvazioni in attesa e, se l'ultima non è riuscita, la risincronizzazione degli
+    strumenti di adabox in Agate (§8.1)."""
     collegamento = Collegamento.attuale()
+    if collegamento is not None and collegamento.da_sincronizzare:
+        from . import applicazione
+        applicazione.sincronizza(collegamento)
     if collegamento is None or collegamento.modalita == Collegamento.SPENTO:
         return 0
     fatte = 0

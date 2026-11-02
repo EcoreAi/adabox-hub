@@ -1,5 +1,5 @@
 {% extends 'core/base_app.html' %}
-{% block title %}Approvazioni in attesa · {{ theme.brand }}{% endblock %}
+{% block title %}Approvazioni · Agenti AI · {{ theme.brand }}{% endblock %}
 {% block app_content %}
 <div class="ui-pagehead"><div><h1>Approvazioni in attesa</h1>
   <div class="sub">Le azioni degli agenti che aspettano una persona in Agate: {{ in_attesa|length }}</div></div></div>
@@ -13,7 +13,7 @@
       <td>{% if x.scaduta %}<span class="ui-pill ui-pill-neutral">scaduta</span>{% else %}{{ x.a.scade|date:"d/m/Y H:i"|default:"—" }}{% endif %}</td>
       <td>{% if x.link %}<a class="ui-btn ui-btn-secondary ui-btn-sm" href="{{ x.link }}" target="_blank" rel="noopener">Decidi in Agate</a>{% endif %}</td>
     </tr>{% endfor %}</tbody></table></div>
-  {% if not console %}<p class="ui-help">Indirizzo della console di Agate sconosciuto: impostalo in Stato e collegamento.</p>{% endif %}
+  {% if not console %}<p class="ui-help">Indirizzo della console di Agate sconosciuto: impostalo in <a class="ui-link" href="{% url 'awf:stato' %}">Stato e collegamento</a>.</p>{% endif %}
   {% else %}<p class="ui-help">Nessuna approvazione in attesa.</p>{% endif %}
 </div></section>
 {% if decise %}

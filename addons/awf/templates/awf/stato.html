@@ -1,8 +1,9 @@
 {% extends 'core/base_app.html' %}
-{% block title %}Agentic Workforce · {{ theme.brand }}{% endblock %}
+{% load awf %}
+{% block title %}Stato e collegamento · Agenti AI · {{ theme.brand }}{% endblock %}
 {% block app_content %}
-<div class="ui-pagehead"><div><h1>Agentic Workforce</h1>
-  <div class="sub">{% if c.collegato %}{{ ingaggio.title|default:"Ingaggio" }} · {{ stato_ingaggio|default:"stato sconosciuto" }}{% if ingaggio.days_left is not None %} · {{ ingaggio.days_left }} giorni rimasti{% endif %}{% else %}Non collegato alla fabbrica{% endif %}</div></div></div>
+<div class="ui-pagehead"><div><h1>Stato e collegamento</h1>
+  <div class="sub">{% if c.collegato %}{{ ingaggio.title|nome_squadra|default:"Contratto" }} · {{ stato_ingaggio|default:"stato sconosciuto" }}{% if ingaggio.days_left is not None %} · {{ ingaggio.days_left }} giorni rimasti{% endif %}{% else %}Non collegato alla fabbrica{% endif %}</div></div></div>
 
 {% if bearer %}
 <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Da copiare ora: non si vedrà più</div></div>
@@ -17,30 +18,31 @@
 {% endif %}
 
 <section class="ui-card is-revealed ui-section"><div class="ui-card-body">
-  <p>Gli agenti dell'ingaggio lavorano nel gestionale solo attraverso Agate: ogni loro azione arriva qui come chiamata a uno strumento ammesso, dopo che le regole di Agate (o una persona) l'hanno decisa. Rinnovare, mettere in pausa e disinstallare si fa nella console di Agate.</p>
+  <p>Gli agenti del contratto lavorano nel gestionale solo attraverso Agate: ogni loro azione arriva qui come chiamata a uno strumento ammesso, dopo che le regole di Agate (o una persona) l'hanno decisa. Rinnovare, mettere in pausa e disdire si fa nella console di Agate.</p>
   {% if c.collegato %}
   <dl class="ui-totali-documento" style="justify-content:start;border:0;padding:0;">
     <div><dt>Stato</dt><dd>{{ stato_ingaggio|default:"—" }}</dd></div>
     {% if ingaggio.days_left is not None %}<div><dt>Giorni rimasti</dt><dd>{{ ingaggio.days_left }}</dd></div>{% endif %}
-    {% if ingaggio.observe_until %}<div><dt>Osservazione fino al</dt><dd>{{ ingaggio.observe_until }}</dd></div>{% endif %}
+    {% if ingaggio.observe_until %}<div><dt>Periodo di prova fino al</dt><dd>{{ ingaggio.observe_until }}</dd></div>{% endif %}
     <div><dt>Agenti</dt><dd>{% for a in agenti_ingaggio %}{{ a.name }}{% if a.role %} ({{ a.role }}){% endif %}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</dd></div>
     {% if ingaggio.llm %}<div><dt>Spesa dei modelli</dt><dd>{{ ingaggio.llm.spent_eur|default:0 }} €{% if ingaggio.llm.cap_eur %} su {{ ingaggio.llm.cap_eur }} €{% endif %}</dd></div>{% endif %}
     <div><dt>Approvazioni in attesa</dt><dd><a class="ui-link" href="{% url 'awf:approvazioni' %}">{{ in_attesa }}</a></dd></div>
     <div><dt>Ultimo battito</dt><dd>{{ c.stato_il|date:"d/m/Y H:i"|default:"—" }}</dd></div>
   </dl>
-  {% if bloccato %}<div class="ui-alert ui-alert-error">Ingaggio bloccato{% if bloccato.code %} ({{ bloccato.code }}){% endif %}{% if bloccato.detail %}: {{ bloccato.detail }}{% endif %}</div>{% endif %}
+  {% if bloccato %}<div class="ui-alert ui-alert-error">Contratto bloccato{% if bloccato.code %} ({{ bloccato.code }}){% endif %}{% if bloccato.detail %}: {{ bloccato.detail }}{% endif %}</div>{% endif %}
   {% if c.ultimo_errore %}<div class="ui-alert ui-alert-error">Ultimo errore verso la fabbrica: {{ c.ultimo_errore }}</div>{% endif %}
   {% endif %}
-  {% if motivo_osservazione %}<p><span class="ui-pill ui-pill-warn">scritture ferme</span> {{ motivo_osservazione }}: gli agenti leggono, le scritture si registrano come «cosa sarebbe successo».</p>
-  {% else %}<p><span class="ui-pill ui-pill-ok">scritture attive</span> le scritture ammesse e decise da Agate si eseguono.</p>{% endif %}
+  {% if motivo_osservazione %}<p><span class="ui-pill ui-pill-warn">modifiche ferme</span> {{ motivo_osservazione }}: gli agenti leggono, le modifiche si registrano come «cosa sarebbe successo».</p>
+  {% else %}<p><span class="ui-pill ui-pill-ok">modifiche attive</span> le modifiche ammesse e decise da Agate si eseguono.</p>{% endif %}
   {% if c.collegato %}<form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="azione" value="aggiorna"><button class="ui-btn ui-btn-secondary" type="submit">Aggiorna ora</button></form>
-  {% if console_ingaggio %}<a class="ui-btn ui-btn-ghost" href="{{ console_ingaggio }}" target="_blank" rel="noopener">Apri l'ingaggio nella console di Agate</a>{% endif %}{% endif %}
+  {% if console_ingaggio %}<a class="ui-btn ui-btn-ghost" href="{{ console_ingaggio }}" target="_blank" rel="noopener">Apri il contratto nella console di Agate</a>{% endif %}{% endif %}
 </div></section>
 
 <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">{% if c.collegato %}Ricollega{% else %}Collega{% endif %} alla fabbrica</div></div>
   <div class="ui-card-body"><form method="post">{% csrf_token %}
     <input type="hidden" name="azione" value="collega">
-    <label class="ui-label" for="codice">Codice di collegamento (wfc_…, dalla pagina dell'ingaggio; vale 7 giorni, una volta sola)</label>
+    <p class="ui-help">Solo per un contratto preparato da Agentlia con un codice: i contratti chiesti dal Negozio si collegano da soli.</p>
+    <label class="ui-label" for="codice">Codice di collegamento (wfc_…, dalla pagina del contratto nella fabbrica; vale 7 giorni, una volta sola)</label>
     <input class="ui-input" id="codice" name="codice" required autocomplete="off" pattern="wfc_[A-Za-z0-9_\-]{32}">
     <label class="ui-label" for="forge_url">Indirizzo della fabbrica</label>
     <input class="ui-input" id="forge_url" name="forge_url" type="url" required value="{{ c.forge_url }}">
@@ -50,7 +52,7 @@
     <select class="ui-input" id="azienda_collega" name="azienda">{% for a in aziende %}<option value="{{ a.pk }}"{% if c.azienda_id == a.pk %} selected{% endif %}>{{ a }}</option>{% endfor %}</select>
     <button class="ui-btn ui-btn-primary" type="submit" style="margin-top:10px">Collega</button>
   </form>
-  <p class="ui-help">Alla fabbrica si dichiarano le operazioni ammesse (versione {{ versione }}). Un nuovo collegamento genera un nuovo bearer MCP: quello vecchio smette di valere.</p></div></section>
+  <p class="ui-help">Alla fabbrica si dichiarano le operazioni ammesse (versione {{ versione }}). Un nuovo collegamento genera un nuovo bearer MCP: quello vecchio smette di valere. La chiave per Agate si genera anche da <a class="ui-link" href="{% url 'awf:avanzate' %}#agate">Avanzate</a>.</p></div></section>
 
 <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Agate</div></div>
   <div class="ui-card-body">

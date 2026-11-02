@@ -16,9 +16,11 @@ PERM_RE = re.compile(r"^[a-z][a-z0-9_]*\.([a-z_][a-z0-9_]*|\*)$")
 DOTTED_RE = re.compile(r"^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)*$")
 CHIAVI = {"name", "summary", "version", "author", "category", "depends", "min_core", "application",
           "icon", "nav_label", "menu", "groups", "data", "demo", "hooks", "ai", "settings_url", "cron", "settings", "sequences",
-          "dashboard", "home"}
+          "dashboard", "home", "menu_profilo"}
 OBBLIGATORIE = {"name", "version", "min_core"}
 CHIAVI_MENU = {"label", "url_name", "permission"}
+CHIAVI_MENU_PROFILO = {"label", "url_name", "permission", "icon", "conteggio"}
+ICONA_RE = re.compile(r"^[a-z][a-z0-9-]{0,30}$")
 CHIAVI_CRON = {"nome", "funzione", "ogni", "alle"}
 CHIAVI_SETTING = {"chiave", "label", "tipo", "default", "per_azienda", "help", "scelte"}
 CHIAVI_SEQUENZA = {"codice", "formato", "azzera"}
@@ -50,6 +52,7 @@ class Manifest:
     icon: str = ""
     nav_label: str = ""                   # etichetta nella barra in alto, se diversa dal nome (es. "Chat")
     menu: list = field(default_factory=list)
+    menu_profilo: list = field(default_factory=list)   # voci nel menu del profilo (es. pagine per gli amministratori)
     groups: dict = field(default_factory=dict)
     data: list = field(default_factory=list)
     demo: list = field(default_factory=list)
@@ -175,6 +178,25 @@ def _sequenze(errori, valore):
     _unici(errori, "sequences", voci, "codice")
 
 
+def _menu_profilo(errori, valore):
+    """Voci del menu del profilo: label, url_name, permission facoltativo, icon facoltativa (nome dello sprite),
+    conteggio facoltativo (modulo.funzione(user) -> int: il numero accanto all'etichetta, se maggiore di zero)."""
+    for v in _lista_di_dict(errori, "menu_profilo", valore, CHIAVI_MENU_PROFILO):
+        for k in ("label", "url_name"):
+            if not isinstance(v.get(k), str) or not v.get(k):
+                errori.append(f"menu_profilo: voce {v!r} senza {k}")
+        if isinstance(v.get("url_name"), str) and v["url_name"] and ":" not in v["url_name"]:
+            errori.append(f"menu_profilo: url_name {v['url_name']!r} non valido (atteso app:nome)")
+        p = v.get("permission")
+        if "permission" in v and (not isinstance(p, str) or not PERM_RE.match(p) or p.endswith("*")):
+            errori.append(f"menu_profilo: permission {p!r} non valido (atteso app.codename, senza *)")
+        if "icon" in v and not (isinstance(v["icon"], str) and ICONA_RE.match(v["icon"])):
+            errori.append(f"menu_profilo: icon {v['icon']!r} non valida (nome di un'icona del tema, es. users)")
+        if "conteggio" in v and not (isinstance(v["conteggio"], str) and DOTTED_RE.match(v["conteggio"])
+                                     and "." in v["conteggio"]):
+            errori.append(f"menu_profilo: conteggio {v['conteggio']!r} non valido (atteso modulo.funzione)")
+
+
 def valida(dati, slug, cartella):
     errori = []
     if not isinstance(dati, dict):
@@ -229,6 +251,8 @@ def valida(dati, slug, cartella):
                 p = voce["permission"]
                 if not isinstance(p, str) or not PERM_RE.match(p) or p.endswith("*"):
                     errori.append(f"menu: permission {p!r} non valido (atteso app.codename, senza *)")
+
+    _menu_profilo(errori, dati.get("menu_profilo", []))
 
     gruppi = dati.get("groups", {})
     if not isinstance(gruppi, dict):

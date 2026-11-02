@@ -217,7 +217,7 @@ def chiama(nome, argomenti, meta):
     try:
         agente = agenti.risolvi(nome_agente, azienda)
     except agenti.AgenteSconosciuto:
-        return _risultato("Agente sconosciuto o non attivo nell'ingaggio.", {"stato": "agente_sconosciuto"},
+        return _risultato("Agente sconosciuto o non attivo nel contratto.", {"stato": "agente_sconosciuto"},
                           errore=True)
     agenti.confina(agente, azienda)
     type(agente).objects.filter(pk=agente.pk).update(ultimo_uso=timezone.now())

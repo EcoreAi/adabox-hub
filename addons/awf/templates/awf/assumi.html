@@ -1,0 +1,71 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Assumi {{ s.nome }} · Agenti AI · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div class="ui-vetrina-testa">
+  <span class="ui-vetrina-icona" aria-hidden="true">{% if s.icona %}{{ s.icona }}{% else %}<svg><use href="#icon-users"/></svg>{% endif %}</span>
+  <div><h1>Assumi {{ s.nome }}</h1><div class="sub">Abbiamo già scelto per te le opzioni più prudenti: controlla e conferma.</div></div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'awf:scheda' s.slug %}">Torna alla scheda</a></div></div>
+
+{% for e in errori %}<div class="ui-alert ui-alert-error">{{ e }}</div>{% endfor %}
+{% if password_sbagliata %}<div class="ui-alert ui-alert-error">Password sbagliata: riscrivila per confermare. Non è stato inviato nulla.</div>{% endif %}
+{% if agate and not pronto %}<div class="ui-alert ui-alert-info">Prima serve un passaggio da fare una volta sola: collegare il Controllo AI, che controlla quello che fanno gli agenti. <a class="ui-link" href="{{ configura }}">Fallo ora</a>, poi torna qui.</div>{% endif %}
+{% if app_mancanti %}<div class="ui-alert ui-alert-warning">Manca {% for a in app_mancanti %}l'app «{{ a }}»{% if not forloop.last %}, {% endif %}{% endfor %}: quello che la usa non sarà possibile.</div>{% endif %}
+
+<form method="post">{% csrf_token %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Riepilogo</div></div>
+  <div class="ui-card-body">
+    <div class="ui-table-wrap"><table class="ui-table is-revealed"><tbody>
+      <tr><th style="width:30%">Agente</th><td>{{ s.nome_e_reparto }}{% if s.slogan %}<br><span class="ui-help">{{ s.slogan }}</span>{% endif %}</td></tr>
+      <tr><th>Cosa fa</th><td>{% for etichetta, voci in gruppi %}{% if voci %}<div style="margin-bottom:6px"><strong>{{ etichetta }}:</strong> {{ voci|join:"; " }}</div>{% endif %}{% endfor %}</td></tr>
+      <tr><th>Durata</th><td id="durata">{{ b.settimane }} settiman{{ b.settimane|pluralize:"a,e" }}</td></tr>
+      <tr><th>Costo stimato</th><td>{% if costo.stima %}<strong id="stima" data-periodo="{{ costo.periodo }}" data-giorni="{{ costo.giorni }}">{{ costo.stima }} €</strong> fissi + {{ costo.consumo }}{% else %}{{ s.prezzo_testo }}{% endif %}{% if costo.credito %}<br><span class="ui-help">credito iniziale {{ costo.credito }} €</span>{% endif %}</td></tr>
+      {% if tetti %}<tr><th>Tetti di spesa</th><td>{{ tetti|join:"; " }}</td></tr>{% endif %}
+      <tr><th>Prova</th><td>{% if s.giorni_prova %}{{ s.giorni_prova }} giorn{{ s.giorni_prova|pluralize:"o,i" }}: legge e prepara, senza cambiare nulla{% else %}—{% endif %}</td></tr>
+      <tr><th>Lo segue</th><td>{% if responsabile %}{{ responsabile.get_full_name|default:responsabile.username }}{% else %}—{% endif %}{% if persone %}; passa il lavoro a {% for p in persone %}{{ p.get_full_name|default:p.username }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}{% if b.reparto %} · reparto {{ b.reparto }}{% endif %}</td></tr>
+    </tbody></table></div>
+    <p style="margin:16px 0 4px"><strong>Cosa succede adesso</strong></p>
+    <ol style="margin:0">
+      <li>adabox si prepara subito e Agentlia prepara il contratto. Se è quello che confermi qui, parte da solo a tuo nome; se cambia qualcosa te lo chiediamo.</li>
+      <li>{% if s.giorni_prova %}Per {{ s.giorni_prova }} giorn{{ s.giorni_prova|pluralize:"o,i" }} l'agente è in prova, poi lavora davvero.{% else %}Poi l'agente inizia a lavorare.{% endif %} Puoi cambiare cosa può fare quando vuoi.</li>
+    </ol>
+  </div></section>
+
+<details class="ui-card is-revealed ui-section"{% if aperto %} open{% endif %}><summary class="ui-card-head" style="cursor:pointer"><div class="ui-card-title">Personalizza</div><div class="ui-card-sub">durata, note, per chi lavora, cosa può fare</div></summary>
+  <div class="ui-card-body">
+    <label class="ui-label" for="settimane">Per quante settimane? (da 1 a 52)</label>
+    <input class="ui-input" id="settimane" name="settimane" type="number" min="1" max="52" required value="{{ b.settimane }}" style="max-width:120px">
+    <label class="ui-label" for="note" style="margin-top:14px">Qualcosa da dire ad Agentlia? <span class="ui-help">(facoltativo)</span></label>
+    <textarea class="ui-input" id="note" name="note" rows="2" maxlength="700" placeholder="es. circa 10 richieste al giorno, soprattutto dal sito">{{ b.note }}</textarea>
+    <div style="margin-top:14px">{% include "awf/_persone.html" with reparto=b.reparto responsabile_pk=b.responsabile persone_pk=b.persone %}</div>
+    <h3 style="margin:20px 0 8px">Cosa può fare</h3>
+    {% include "awf/_scelte.html" %}
+    {% if con_ok %}<p class="ui-help">«Con il tuo ok»: per ora la conferma la chiede una regola impostata da chi gestisce il controllo delle azioni AI; presto nascerà da sola dalla tua scelta.</p>{% endif %}
+    {% if not c.base_url %}<label class="ui-label" for="base_url" style="margin-top:14px">Indirizzo pubblico di adabox <span class="ui-help">(dettaglio tecnico: di solito va bene così)</span></label>
+    <input class="ui-input" id="base_url" name="base_url" type="url" value="{{ base_url_proposta }}" style="max-width:420px">{% endif %}
+  </div></details>
+
+<div class="ui-form-actions" style="align-items:flex-end;flex-wrap:wrap">
+  <div><label class="ui-label" for="password">Per confermare, scrivi la tua password</label>
+    <input class="ui-input" id="password" name="password" type="password" required autocomplete="current-password" style="max-width:240px"></div>
+  <button class="ui-btn ui-btn-primary ui-btn-lg" type="submit">Conferma</button>
+  <a class="ui-btn ui-btn-ghost" href="{% url 'awf:negozio' %}">Annulla</a></div>
+<p class="ui-help">Con la password confermi agente, durata, prezzo e tetti di spesa qui sopra: resta registrato a tuo nome.</p>
+{% if not agate and not c.mcp_impronta %}<p class="ui-help">Se è il primo agente che assumi, dopo la conferma ti chiederemo un passaggio tecnico, una volta sola.</p>{% endif %}
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var campo = document.getElementById('settimane'), durata = document.getElementById('durata'), stima = document.getElementById('stima');
+  if (!campo) return;
+  campo.addEventListener('input', function () {
+    var n = Math.min(Math.max(parseInt(campo.value, 10) || 1, 1), 52);
+    durata.textContent = n + (n === 1 ? ' settimana' : ' settimane');
+    if (!stima) return;
+    var periodo = parseFloat(stima.dataset.periodo.replace(',', '.')), giorni = parseFloat(stima.dataset.giorni.replace(',', '.'));
+    var totale = periodo * Math.ceil(n * 7 / giorni);
+    stima.textContent = (Number.isInteger(totale) ? totale : totale.toFixed(2).replace('.', ',')) + ' €';
+  });
+})();
+</script>
+{% endblock %}

@@ -25,5 +25,5 @@ def piattaforma(request):
         "theme": {**base, "nav": nav, "nav_principale": principali, "nav_altre": altre},
         "apps": apps, "app_corrente": corrente, "menu_app": corrente["menu"] if corrente else [],
         "aziende": azienda.consentite(request.user), "azienda": getattr(request, "azienda", None),
-        "voci_testata": hooks.voci_testata(request),
+        "voci_testata": hooks.voci_testata(request), "voci_profilo": modules.voci_profilo(request.user),
     }

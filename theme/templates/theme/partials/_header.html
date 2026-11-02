@@ -37,6 +37,10 @@
           {% url 'core:profilo' as url_profilo %}
           {% if url_profilo %}<a href="{{ url_profilo }}"><svg><use href="#icon-user"/></svg> Profilo</a>{% endif %}
           <a href="{% url 'password_change' %}"><svg><use href="#icon-lock"/></svg> Cambia password</a>
+          {% if voci_profilo %}
+          <hr>
+          {% for voce in voci_profilo %}<a href="{{ voce.url }}"><svg><use href="#icon-{{ voce.icon }}"/></svg> {{ voce.label }}</a>{% endfor %}
+          {% endif %}
           {% if user.is_staff %}
           <hr>
           <a href="{% url 'admin:index' %}"><svg><use href="#icon-tool"/></svg> Amministrazione</a>

@@ -1,0 +1,75 @@
+{% extends 'core/base_app.html' %}
+{% block title %}{{ s.nome }} · Agenti AI · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div class="ui-vetrina-testa">
+  <span class="ui-vetrina-icona" aria-hidden="true">{% if s.icona %}{{ s.icona }}{% else %}<svg><use href="#icon-users"/></svg>{% endif %}</span>
+  <div><h1>{{ s.nome }}</h1><div class="sub">{{ s.reparto_extra }}{% if s.slogan %}{% if s.reparto_extra %} · {% endif %}{{ s.slogan }}{% endif %}</div></div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'awf:negozio' %}"><svg><use href="#icon-arrow-left"/></svg> Negozio</a>
+    <a class="ui-btn ui-btn-primary" href="{% url 'awf:assumi' s.slug %}">Assumi</a></div></div>
+
+{% if app_mancanti %}<div class="ui-alert ui-alert-warning">Per fare tutto il suo lavoro questo agente usa anche {% for a in app_mancanti %}l'app «{{ a }}»{% if not forloop.last %}, {% endif %}{% endfor %}, che in adabox non {{ app_mancanti|length|pluralize:"è installata,sono installate" }}: quelle cose non potrà farle. Chiedi a chi gestisce adabox di installar{{ app_mancanti|length|pluralize:"la,le" }} prima di assumerlo.</div>{% endif %}
+
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Cosa fa per te</div></div>
+  <div class="ui-card-body">
+    {% if s.descrizione %}<p>{{ s.descrizione }}</p>{% endif %}
+    {% if s.vantaggi %}<ul class="ui-elenco-si">{% for v in s.vantaggi %}<li>{{ v }}</li>{% endfor %}</ul>{% endif %}
+  </div></section>
+
+{% if s.giornata %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Una giornata tipo</div></div>
+  <div class="ui-card-body"><div class="ui-table-wrap"><table class="ui-table is-revealed"><tbody>
+    {% for g in s.giornata %}<tr><td style="width:80px"><strong>{{ g.ora|default:"·" }}</strong></td><td>{{ g.testo }}</td></tr>{% endfor %}
+  </tbody></table></div></div></section>
+{% elif s.membri %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Chi c'è nella squadra</div></div>
+  <div class="ui-card-body"><ul>{% for m in s.membri %}<li><strong>{{ m.nome }}</strong>{% if m.descrizione %}: {{ m.descrizione }}{% endif %}</li>{% endfor %}</ul></div></section>
+{% endif %}
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px" class="ui-section">
+  <section class="ui-card is-revealed"><div class="ui-card-head"><div class="ui-card-title">Cosa può fare</div><div class="ui-card-sub">Prima di inviare la richiesta scegli tu, una per una</div></div>
+    <div class="ui-card-body">{% if puo %}<ul class="ui-elenco-si">{% for x in puo %}<li>{{ x.parole }}{% if x.proposta == 'ok' %} <span class="ui-pill ui-pill-warn">con il tuo ok</span>{% endif %}</li>{% endfor %}</ul>
+      {% else %}<p class="ui-help">Solo leggere quello che gli concedi.</p>{% endif %}
+      {% if non_qui %}<p class="ui-help">Non disponibile in questa versione di adabox: {% for x in non_qui %}{{ x.parole }}{% if not forloop.last %}; {% endif %}{% endfor %}.</p>{% endif %}</div></section>
+  <section class="ui-card is-revealed"><div class="ui-card-head"><div class="ui-card-title">Cosa non farà mai</div></div>
+    <div class="ui-card-body"><ul class="ui-elenco-no">{% for m in mai %}<li>{{ m }}</li>{% endfor %}</ul></div></section>
+</div>
+
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Quali dati vede</div></div>
+  <div class="ui-card-body">
+    {% if viste %}<p>Vede soltanto: <strong>{{ viste|join:", " }}</strong>.</p>{% else %}<p>Solo quello che gli concedi in «Cosa può fare».</p>{% endif %}
+    <p class="ui-help">Non vede le altre app di adabox, gli utenti e le loro password, le conversazioni con l'assistente AI e le impostazioni. Ogni cosa che legge passa da Agate, che nasconde i dati personali.</p>
+  </div></section>
+
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Quanto costa</div></div>
+  <div class="ui-card-body">
+    <p>{{ s.prezzo_testo }}</p>
+    {% if costo.periodo %}
+    <form method="get" class="ui-filtri" style="padding:0;border:0" id="calcolatore" data-periodo="{{ costo.periodo }}" data-giorni="{{ costo.giorni }}">
+      <label class="ui-label" for="settimane" style="margin:0">Per quante settimane?</label>
+      <input class="ui-input" id="settimane" name="settimane" type="number" min="1" max="52" value="{{ settimane }}" style="width:90px;min-width:0">
+      <button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit">Calcola</button>
+    </form>
+    <p style="margin-top:12px">Costo fisso stimato: <strong id="stima">{{ costo.stima }} €</strong> <span class="ui-help">({{ costo.periodo }} € ogni {{ costo.giorni }} giorni)</span></p>
+    {% endif %}
+    <p class="ui-help">In più il {{ costo.consumo }}{% if costo.credito %}, scalato da un credito iniziale di {{ costo.credito }} €{% endif %}.{% if s.giorni_prova %} I primi {{ s.giorni_prova }} giorni sono di prova: l'agente legge e prepara, ma non cambia nulla.{% endif %}</p>
+  </div></section>
+
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Domande frequenti</div></div>
+  <div class="ui-card-body">{% for d in domande %}<details style="margin-bottom:10px"><summary><strong>{{ d.domanda }}</strong></summary><p style="margin:6px 0 0">{{ d.risposta }}</p></details>{% endfor %}</div></section>
+
+<div class="ui-form-actions"><a class="ui-btn ui-btn-primary ui-btn-lg" href="{% url 'awf:assumi' s.slug %}">Assumi {{ s.nome }}</a></div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var f = document.getElementById('calcolatore'); if (!f) return;
+  var periodo = parseFloat(f.dataset.periodo.replace(',', '.')), giorni = parseFloat(f.dataset.giorni.replace(',', '.'));
+  var campo = document.getElementById('settimane'), stima = document.getElementById('stima');
+  campo.addEventListener('input', function () {
+    var n = Math.min(Math.max(parseInt(campo.value, 10) || 1, 1), 52);
+    var totale = periodo * Math.ceil(n * 7 / giorni);
+    stima.textContent = (Number.isInteger(totale) ? totale : totale.toFixed(2).replace('.', ',')) + ' €';
+  });
+})();
+</script>
+{% endblock %}

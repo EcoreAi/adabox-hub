@@ -24,7 +24,7 @@ class Collegamento(models.Model):
     mcp_impronta = models.CharField("impronta del bearer MCP", max_length=64, blank=True, editable=False)
     mcp_indizio = models.CharField("inizio del bearer MCP", max_length=12, blank=True, editable=False)
     versione = models.CharField("versione dichiarata", max_length=30, blank=True)
-    ultimo_stato = models.JSONField("ultimo stato dell'ingaggio", default=dict, blank=True)
+    ultimo_stato = models.JSONField("ultimo stato del contratto", default=dict, blank=True)
     stato_il = models.DateTimeField("ultimo battito riuscito", null=True, blank=True)
     ultimo_errore = models.CharField("ultimo errore", max_length=300, blank=True)
     collegato_il = models.DateTimeField("collegato il", null=True, blank=True)
@@ -32,6 +32,9 @@ class Collegamento(models.Model):
                                 verbose_name="azienda in cui lavorano gli agenti")
     agate_url = models.URLField("indirizzo della console di Agate", blank=True,
                                 help_text="vuoto = quello indicato dalla fabbrica")
+    factory_code_cifrato = models.TextField("codice per la fabbrica (cifrato)", blank=True, editable=False,
+                                            help_text="agf_...: dal collegamento ad Agate con un codice, va in ogni "
+                                                      "richiesta d'ingaggio")
 
     class Meta:
         verbose_name = "collegamento"
@@ -54,6 +57,9 @@ class Collegamento(models.Model):
 
     def segreto_webhook(self):
         return cifratura.decifra(self.segreto_webhook_cifrato)
+
+    def factory_code(self):
+        return cifratura.decifra(self.factory_code_cifrato)
 
     @property
     def ingaggio(self):
@@ -79,14 +85,14 @@ class Collegamento(models.Model):
 
 
 class Agente(models.Model):
-    """Un agente dell'ingaggio, con il suo utente Django (`awf-<nome>`): attivo, senza password usabile, senza
+    """Un agente del contratto (l'ingaggio della fabbrica), con il suo utente Django (`awf-<nome>`): attivo, senza password usabile, senza
     email, mai nell'interfaccia. Agisce solo nelle chiamate MCP che Agate ha già deciso."""
     utente = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="agente_awf",
                                   verbose_name="utente")
     nome = models.CharField("nome", max_length=100)
     ruolo = models.CharField("ruolo", max_length=100, blank=True)
     agate_agent_id = models.CharField("id in Agate", max_length=100, blank=True, db_index=True)
-    attivo = models.BooleanField("nell'ingaggio", default=True,
+    attivo = models.BooleanField("nel contratto", default=True,
                                  help_text="falso se la fabbrica non lo elenca più: le sue chiamate si rifiutano")
     tecnico = models.BooleanField("agente tecnico", default=False,
                                   help_text="usato quando la chiamata non indica un agente")
@@ -124,7 +130,8 @@ class OperazioneAmmessa(models.Model):
 
 class Approvazione(models.Model):
     """Un'approvazione chiesta in Agate (webhook `approval.requested`), chiusa da `approval.decided`.
-    Qui si mostra e basta: si decide solo nella console di Agate."""
+    Collegato ad Agate con un codice si decide in adabox («Da approvare»), a nome di chi clicca; altrimenti nella
+    console di Agate."""
     IN_ATTESA = "in_attesa"
     approval_id = models.CharField("id in Agate", max_length=64, unique=True)
     strumento = models.CharField("strumento", max_length=200, blank=True)
@@ -133,6 +140,12 @@ class Approvazione(models.Model):
     stato = models.CharField("stato", max_length=20, default=IN_ATTESA)
     ricevuta = models.DateTimeField("ricevuta il", auto_now_add=True)
     decisa = models.DateTimeField("decisa il", null=True, blank=True)
+    contratto = models.BooleanField("riguarda il contratto", default=False,
+                                    help_text="rinnovo o cambio del contratto degli agenti, non un'azione")
+    decisa_da = models.CharField("decisa da", max_length=200, blank=True)
+    motivo = models.CharField("motivo", max_length=1000, blank=True)
+    in_conferma = models.BooleanField("aspetta la doppia conferma", default=False,
+                                      help_text="approvata in adabox: Agate ha scritto ai responsabili")
 
     class Meta:
         verbose_name = "approvazione"
@@ -145,9 +158,9 @@ class Approvazione(models.Model):
 
 class Chiamata(models.Model):
     """Registro delle chiamate degli agenti. Delle scritture tiene argomenti, anteprima ed esito (anche quelle
-    ferme in osservazione: «cosa sarebbe successo»); delle letture solo strumento, vista ed esito."""
+    ferme nel periodo di prova: «cosa sarebbe successo»); delle letture solo strumento, vista ed esito."""
     ESEGUITA, OSSERVAZIONE, RIFIUTATA, ERRORE = "eseguita", "osservazione", "rifiutata", "errore"
-    ESITI = [(ESEGUITA, "Eseguita"), (OSSERVAZIONE, "In osservazione (non eseguita)"), (RIFIUTATA, "Rifiutata"),
+    ESITI = [(ESEGUITA, "Eseguita"), (OSSERVAZIONE, "Periodo di prova (non eseguita)"), (RIFIUTATA, "Rifiutata"),
              (ERRORE, "Errore")]
     creato = models.DateTimeField("il", auto_now_add=True, db_index=True)
     agente = models.ForeignKey(Agente, on_delete=models.SET_NULL, null=True, blank=True, related_name="chiamate",
@@ -174,14 +187,25 @@ class Chiamata(models.Model):
 
 
 class RichiestaAgenti(models.Model):
-    """Una squadra del catalogo chiesta dal gestionale (§7 del contratto). Il token della richiesta (`wfr_...`) si
-    salva cifrato e serve solo a leggerne lo stato e a ritirarla; quando l'azienda approva in Agate arriva il token
-    della fabbrica e adabox si collega da solo."""
+    """Una squadra del catalogo chiesta dal gestionale (§7 del contratto con la fabbrica). Il token della richiesta
+    (`wfr_...`) si salva cifrato e serve solo a leggerne lo stato e a ritirarla; quando l'azienda approva il contratto
+    in Agate arriva il token della fabbrica e adabox si collega da solo.
+
+    Dalla procedura «Assumi» arrivano anche per chi lavora (reparto, responsabile, persone) e cosa può fare
+    (`scelte`: {"strumento|vista": "si" | "ok" | "mai"}). «ok» vale come «si» nelle operazioni ammesse: la conferma
+    di una persona la chiederanno le regole di Agate."""
+    SI, OK, MAI = "si", "ok", "mai"
+    SCELTE = [(SI, "Sì"), (OK, "Con il tuo ok"), (MAI, "Mai")]
     INVIATA, DA_APPROVARE, COLLEGATA, RIFIUTATA, RITIRATA = "inviata", "da_approvare", "collegata", "rifiutata", \
         "ritirata"
-    STATI = [(INVIATA, "Inviata"), (DA_APPROVARE, "Da approvare in Agate"), (COLLEGATA, "Collegata"),
+    STATI = [(INVIATA, "Inviata"), (DA_APPROVARE, "Contratto da approvare in Agate"), (COLLEGATA, "Collegata"),
              (RIFIUTATA, "Rifiutata"), (RITIRATA, "Ritirata")]
     APERTE = (INVIATA, DA_APPROVARE)
+    APPROVATA, IN_CONFERMA, DA_CONFERMARE, RIFIUTATA_QUI, ERRORE = (
+        "approvata", "in_conferma", "da_confermare", "rifiutata", "errore")
+    DECISIONI = [(APPROVATA, "Approvata in adabox"), (IN_CONFERMA, "Aspetta la doppia conferma"),
+                 (DA_CONFERMARE, "Da confermare: diverso da quello confermato"), (RIFIUTATA_QUI, "Rifiutata in adabox"),
+                 (ERRORE, "Decisione non arrivata: si riprova")]
     request_id = models.CharField("id della richiesta", max_length=64, unique=True)
     forge_url = models.URLField("indirizzo della fabbrica")
     base_url = models.URLField("indirizzo pubblico dichiarato", blank=True)
@@ -201,10 +225,26 @@ class RichiestaAgenti(models.Model):
                                 verbose_name="azienda in cui lavoreranno gli agenti")
     creata_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
                                   related_name="+", editable=False)
+    reparto_azienda = models.CharField("reparto in cui lavora", max_length=80, blank=True)
+    responsabile = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                     related_name="+", verbose_name="responsabile",
+                                     help_text="la persona che segue gli agenti: riepiloghi e approvazioni")
+    persone = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="+",
+                                     verbose_name="persone a cui passa il lavoro")
+    scelte = models.JSONField("cosa può fare", default=dict, blank=True,
+                              help_text='{"strumento|vista": "si" | "ok" | "mai"}')
     creata = models.DateTimeField("creata il", auto_now_add=True)
     aggiornata = models.DateTimeField("aggiornata il", auto_now=True)
     letta_il = models.DateTimeField("ultimo stato letto", null=True, blank=True)
     collegata_il = models.DateTimeField("collegata il", null=True, blank=True)
+    # il contratto deciso in adabox (§8.4)
+    consenso = models.JSONField("cosa ha confermato la persona", default=dict, blank=True,
+                                help_text="chi, quando (con la password), squadra e versione, settimane, tetti e prezzo")
+    approval_id = models.CharField("approvazione del contratto in Agate", max_length=64, blank=True)
+    proposta = models.JSONField("contratto proposto", default=dict, blank=True)
+    decisione = models.CharField("decisione del contratto", max_length=20, choices=DECISIONI, blank=True)
+    decisione_il = models.DateTimeField("decisione presa il", null=True, blank=True)
+    decisione_msg = models.CharField("dettaglio della decisione", max_length=300, blank=True)
 
     class Meta:
         verbose_name = "richiesta di agenti"

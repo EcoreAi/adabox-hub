@@ -1,0 +1,41 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Configura il Controllo AI · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Configura il Controllo AI</h1>
+  <div class="sub">Tre passi: dove si trova Agate, una prova, poi scegli quanto deve contare.</div></div></div>
+
+<ol class="ui-passi" aria-label="Passi">
+  {% for n, nome, stato in passi %}<li class="is-{{ stato }}"{% if stato == 'attuale' %} aria-current="step"{% endif %}>{% if stato == 'fatto' %}<a href="?passo={{ n }}">{{ nome }}</a>{% else %}{{ nome }}{% endif %}</li>{% endfor %}
+</ol>
+
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+{% if passo == 1 %}
+  <form method="post">{% csrf_token %}<input type="hidden" name="passo" value="1">
+    <p>Te li dà chi gestisce Agate per la tua azienda: l'indirizzo di Agate e una chiave (nella console di Agate, pagina Chiavi, con i permessi <em>evaluate</em> e <em>llm</em>).</p>
+    <label class="ui-label" for="gateway_url">Indirizzo di Agate</label>
+    <input class="ui-input" id="gateway_url" name="gateway_url" type="url" required value="{{ c.gateway_url|default:'' }}" placeholder="https://api.agate.esempio.it" style="max-width:420px">
+    <label class="ui-label" for="console_url" style="margin-top:12px">Indirizzo della console di Agate <span class="ui-help">(facoltativo: per i link a chi approva)</span></label>
+    <input class="ui-input" id="console_url" name="console_url" type="url" value="{{ c.console_url|default:'' }}" style="max-width:420px">
+    <label class="ui-label" for="chiave" style="margin-top:12px">Chiave{% if chiave %}: salvata {{ chiave }}, lascia vuoto per non cambiarla{% endif %}</label>
+    <input class="ui-input" id="chiave" name="chiave" type="password" autocomplete="off"{% if not chiave %} required{% endif %} style="max-width:420px">
+    <div class="ui-form-actions"><button class="ui-btn ui-btn-primary" type="submit">Avanti</button></div>
+  </form>
+{% elif passo == 2 %}
+  <h2 style="margin-top:0">Prova</h2>
+  {% if riuscita %}<div class="ui-alert ui-alert-success">Funziona: adabox parla con Agate. {{ c.esito_controllo }}</div>
+  {% else %}<div class="ui-alert ui-alert-error">Agate non risponde ancora. {{ c.esito_controllo }}</div>
+    <p class="ui-help">Controlla l'indirizzo e la chiave (torna al passo 1), poi riprova.</p>{% endif %}
+  <div class="ui-form-actions">
+    <a class="ui-btn ui-btn-ghost" href="?passo=1">Indietro</a>
+    <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="passo" value="2"><button class="ui-btn {% if riuscita %}ui-btn-ghost{% else %}ui-btn-primary{% endif %}" type="submit">Riprova</button></form>
+    {% if riuscita %}<a class="ui-btn ui-btn-primary" href="?passo=3">Avanti</a>{% endif %}
+  </div>
+{% else %}
+  <form method="post">{% csrf_token %}<input type="hidden" name="passo" value="3">
+    <p>Ti consigliamo di iniziare <strong>in prova</strong>: per qualche giorno guardi nel registro cosa farebbe Agate, poi la attivi.</p>
+    {% if c.modalita == "spento" %}{% include "agate/_modalita.html" with attuale="osservazione" %}{% else %}{% include "agate/_modalita.html" with attuale=c.modalita %}{% endif %}
+    <div class="ui-form-actions"><a class="ui-btn ui-btn-ghost" href="?passo=2">Indietro</a><button class="ui-btn ui-btn-primary" type="submit">Fatto</button></div>
+  </form>
+{% endif %}
+</div></section>
+{% endblock %}

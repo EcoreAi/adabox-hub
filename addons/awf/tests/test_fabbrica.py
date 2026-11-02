@@ -98,7 +98,7 @@ def test_pagina_di_stato(client, superuser, collegato, finta):
     finta.risposte["/api/plugins/heartbeat"] = (200, {"engagement": ingaggio(
         blocked={"code": "credit_exhausted", "detail": "credito finito"})})
     pagina = client.get("/awf/stato/").content.decode()
-    assert "credit_exhausted" in pagina and "scritture ferme" in pagina and "5 giorni rimasti" in pagina
+    assert "credit_exhausted" in pagina and "modifiche ferme" in pagina and "5 giorni rimasti" in pagina
     assert "https://agate.esempio.it/console/engagements/eng_1/" in pagina
     for url in ("/awf/agenti/", "/awf/operazioni/", "/awf/approvazioni/"):
         assert client.get(url).status_code == 200

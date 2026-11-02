@@ -1,0 +1,34 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Controllo AI · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Controllo AI</h1>
+  <div class="sub">Le modifiche che l'assistente AI prepara passano da Agate, il garante: regole dell'azienda, ok di una persona, registro di tutto.</div></div></div>
+
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <div class="ui-vetrina-testa">
+    <span class="ui-vetrina-icona" aria-hidden="true"><svg><use href="#icon-{% if attiva %}check{% else %}shield{% endif %}"/></svg></span>
+    <div><h2 style="margin:0">{{ protezione.0 }}{% if attiva %} ✓{% endif %}</h2>
+      <p style="margin:4px 0 0">{{ protezione.2 }}</p></div>
+    <span class="ui-pill {{ protezione.1 }}" style="margin-left:auto">{{ protezione.0 }}</span>
+  </div>
+  {% if configurato %}
+  <div class="ui-kpis" style="margin:20px 0 8px">
+    <div class="ui-kpi"><div class="label">Controllate oggi</div><div class="value">{{ controllate }}</div></div>
+    <a class="ui-kpi ui-kpi-link" href="{% url 'agate:valutazioni' %}?esito=consentite&periodo=oggi"><div class="label">Consentite oggi</div><div class="value">{{ oggi.consentite }}</div></a>
+    <a class="ui-kpi ui-kpi-link" href="{% url 'agate:valutazioni' %}?esito=in_attesa"><div class="label">In attesa dell'ok</div><div class="value">{{ in_attesa }}</div><div class="sub">tutte, non solo di oggi</div></a>
+    <a class="ui-kpi ui-kpi-link" href="{% url 'agate:valutazioni' %}?esito=bloccate&periodo=oggi"><div class="label">Bloccate oggi</div><div class="value">{{ oggi.bloccate }}</div></a>
+  </div>
+  {% if oggi.prova or oggi.errori %}<p class="ui-help">{% if oggi.prova %}Solo registrate oggi (prova): {{ oggi.prova }}. {% endif %}{% if oggi.errori %}Agate non ha risposto {{ oggi.errori }} volt{{ oggi.errori|pluralize:"a,e" }} oggi.{% endif %}</p>{% endif %}
+  {% if c.esito_controllo %}<p class="ui-help">Ultima prova del collegamento ({{ c.ultimo_controllo|date:"d/m/Y H:i" }}): {{ c.esito_controllo }}</p>{% endif %}
+  {% endif %}
+  <div class="ui-form-actions" style="margin-bottom:0">
+    {% if not configurato %}<a class="ui-btn ui-btn-primary" href="{% url 'agate:impostazioni' %}">Configura il Controllo AI</a>
+    {% elif semplice and da_approvare %}<a class="ui-btn ui-btn-primary" href="{% url 'agate:da_approvare' %}">Vedi le {{ da_approvare }} da approvare</a>
+      <a class="ui-btn ui-btn-ghost" href="{% url 'agate:valutazioni' %}">Registro delle azioni AI</a>
+    {% elif in_attesa %}<a class="ui-btn ui-btn-primary" href="{% url 'agate:valutazioni' %}?esito=in_attesa">Vedi le {{ in_attesa }} in attesa</a>
+      <a class="ui-btn ui-btn-ghost" href="{% url 'agate:valutazioni' %}">Registro delle azioni AI</a>
+    {% else %}<a class="ui-btn ui-btn-secondary" href="{% url 'agate:valutazioni' %}">Registro delle azioni AI</a>{% endif %}
+    {% if configurato %}<a class="ui-btn ui-btn-ghost" href="{% url 'agate:impostazioni' %}">Impostazioni</a>{% endif %}
+  </div>
+</div></section>
+{% endblock %}

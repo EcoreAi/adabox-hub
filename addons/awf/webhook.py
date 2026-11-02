@@ -5,7 +5,9 @@ L'azienda registra in Agate (Impostazioni → Webhook) l'indirizzo `{base_url}/a
 
 La firma è quella di Agate (`agategw.contracts.webhooks`), ricalcolata qui byte per byte:
 `X-Agate-Signature: t=<unix>,v1=<hmac-sha256 hex di f"{t}.".encode() + corpo>`, confronto a tempo costante,
-tolleranza 5 minuti. Qui non si decide nulla: le approvazioni si registrano e si chiudono, si decidono in Agate."""
+tolleranza 5 minuti. Qui le approvazioni si registrano e si chiudono; si decidono in «Da approvare» (collegato ad Agate
+con un codice: allora l'indirizzo dei webhook è quello del modulo `agate`, che passa qui gli eventi con `gestisci`) o
+nella console di Agate. Le approvazioni del contratto le segue la richiesta (`RichiestaAgenti.approval_id`)."""
 import hashlib
 import hmac
 import json
@@ -20,7 +22,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from core.cifratura import SegretoIlleggibile
 
-from .models import Approvazione, Collegamento
+from .models import Approvazione, Collegamento, RichiestaAgenti
 
 log = logging.getLogger("awf.webhook")
 
@@ -93,7 +95,12 @@ def ricevi(request):
         return JsonResponse({"error": "JSON non valido"}, status=400)
     if not isinstance(evento, dict) or not isinstance(evento.get("data"), dict):
         return JsonResponse({"error": "evento non valido"}, status=400)
-    tipo, dati = evento.get("type"), evento["data"]
+    return gestisci(evento.get("type"), evento["data"])
+
+
+def gestisci(tipo, dati):
+    """Un evento di Agate già verificato: lo usa anche il webhook del modulo `agate` (un solo indirizzo per
+    l'applicazione collegata con un codice), che passa qui le approvazioni che non sono dell'assistente."""
     if tipo == "approval.requested":
         return _richiesta(dati)
     if tipo == "approval.decided":
@@ -118,11 +125,17 @@ def _richiesta(dati):
     approval_id = _id(dati)
     if approval_id is None:
         return JsonResponse({"error": "approval_id mancante o non valido"}, status=400)
+    if RichiestaAgenti.objects.filter(approval_id=approval_id).exists():
+        return JsonResponse({"ok": True, "contratto": True})       # il contratto lo segue la sua richiesta
     strumento = str(dati.get("tool") or "")[:200]
+    contratto = bool(dati.get("engagement_id")) and not strumento    # rinnovo o cambio del contratto
     riepilogo = dati.get("summary")                     # già mascherato da Agate
     if not isinstance(riepilogo, str) or not riepilogo.strip():
-        riepilogo = f"Azione {strumento} in attesa di approvazione" if strumento else "Azione in attesa di approvazione"
-    valori = {"strumento": strumento, "riepilogo": riepilogo[:2000], "scade": _data(dati.get("expires_at"))}
+        riepilogo = ("Il contratto degli agenti chiede una decisione (rinnovo o modifica)" if contratto else
+                     f"Azione {strumento} in attesa di approvazione" if strumento else
+                     "Azione in attesa di approvazione")
+    valori = {"strumento": strumento, "riepilogo": riepilogo[:2000], "scade": _data(dati.get("expires_at")),
+              "contratto": contratto}
     # una consegna ripetuta aggiorna la riga ma non riapre un'approvazione già decisa
     approvazione, creata = Approvazione.objects.get_or_create(approval_id=approval_id, defaults=valori)
     if not creata:
@@ -136,7 +149,14 @@ def _decisa(dati):
         return JsonResponse({"error": "approval_id mancante o non valido"}, status=400)
     decisione = dati.get("decision")
     stato = decisione[:20] if isinstance(decisione, str) and ID_RE.match(decisione) else "decisa"
+    richiesta = RichiestaAgenti.objects.filter(approval_id=approval_id).first()
+    if richiesta is not None:                           # il contratto: anche dopo la doppia conferma dei responsabili
+        if richiesta.stato == RichiestaAgenti.DA_APPROVARE:
+            RichiestaAgenti.objects.filter(pk=richiesta.pk).update(
+                decisione=RichiestaAgenti.APPROVATA if stato == "approved" else RichiestaAgenti.RIFIUTATA_QUI,
+                decisione_il=timezone.now(), aggiornata=timezone.now())
+        return JsonResponse({"ok": True, "contratto": True})
     # se la decisione arriva prima della richiesta (consegne fuori ordine) la riga nasce già chiusa
     Approvazione.objects.update_or_create(approval_id=approval_id,
-                                          defaults={"stato": stato, "decisa": timezone.now()})
+                                          defaults={"stato": stato, "decisa": timezone.now(), "in_conferma": False})
     return JsonResponse({"ok": True})

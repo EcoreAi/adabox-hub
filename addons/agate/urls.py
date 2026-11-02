@@ -4,7 +4,9 @@ from django.urls import path
 from . import pagine
 
 urlpatterns = [
-    path("", pagine.collegamento, name="collegamento"),
+    path("", pagine.stato, name="stato"),
     path("valutazioni/", pagine.valutazioni, name="valutazioni"),
+    path("da-approvare/", pagine.da_approvare, name="da_approvare"),
+    path("impostazioni/", pagine.impostazioni, name="impostazioni"),
     path("webhook/", pagine.webhook, name="webhook"),
 ]

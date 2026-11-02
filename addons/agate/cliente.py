@@ -14,9 +14,10 @@ TOLLERANZA_FIRMA = 300
 
 
 class ErroreAgate(Exception):
-    def __init__(self, messaggio, stato=None):
+    def __init__(self, messaggio, stato=None, dettaglio=""):
         super().__init__(messaggio)
         self.stato = stato
+        self.dettaglio = dettaglio
 
 
 def _trasporto(metodo, url, intestazioni, corpo):
@@ -31,9 +32,10 @@ def _trasporto(metodo, url, intestazioni, corpo):
 trasporto = _trasporto
 
 
-def chiama(collegamento, metodo, percorso, dati=None):
-    url = collegamento.gateway_url.rstrip("/") + percorso
-    intestazioni = {"Authorization": f"Bearer {collegamento.chiave()}", "Accept": "application/json"}
+def _invia(metodo, url, chiave, dati):
+    intestazioni = {"Accept": "application/json"}
+    if chiave:
+        intestazioni["Authorization"] = f"Bearer {chiave}"
     corpo = None
     if dati is not None:
         corpo = json.dumps(dati, ensure_ascii=False, default=str).encode()
@@ -46,11 +48,19 @@ def chiama(collegamento, metodo, percorso, dati=None):
         risposta = json.loads(testo or b"{}")
     except ValueError:
         risposta = {}
+    if not isinstance(risposta, dict):
+        risposta = {}
     if stato >= 400:
-        titolo = risposta.get("title") if isinstance(risposta, dict) else None
-        dettaglio = risposta.get("detail") if isinstance(risposta, dict) else None
-        raise ErroreAgate(f"{titolo or f'HTTP {stato}'}: {dettaglio or ''}".strip(": "), stato)
-    return risposta
+        titolo, dettaglio = risposta.get("title"), risposta.get("detail")
+        dettaglio = dettaglio if isinstance(dettaglio, str) else ""
+        raise ErroreAgate(f"{titolo or f'HTTP {stato}'}: {dettaglio}".strip(": "), stato, dettaglio[:300])
+    return stato, risposta
+
+
+def chiama(collegamento, metodo, percorso, dati=None, chiave=None):
+    """Con la chiave dell'assistente (`evaluate` + `llm`), salvo un'altra chiave indicata (`decide`, `sync`)."""
+    url = collegamento.gateway_url.rstrip("/") + percorso
+    return _invia(metodo, url, collegamento.chiave() if chiave is None else chiave, dati)[1]
 
 
 def valuta(collegamento, strumento, argomenti, motivazione, attore):
@@ -68,6 +78,27 @@ def esito(collegamento, evaluation_id):
 def modelli(collegamento):
     """I nomi logici dei modelli che l'azienda ha scelto in Agate per questa chiave."""
     return chiama(collegamento, "GET", "/v1/llm/models").get("data", [])
+
+
+def connetti(gateway_url, codice, app):
+    """`POST /v1/apps/connect` (§8.1): senza chiave, vale il codice `agc_`. Restituisce la risposta (201)."""
+    return _invia("POST", gateway_url.rstrip("/") + "/v1/apps/connect", None, {"code": codice, "app": app})[1]
+
+
+def decidi(collegamento, approval_id, decisione, chi, motivo=""):
+    """`POST /v1/approvals/{id}/decide` con la chiave `decide` (§8.4), sempre a nome di una persona.
+    (stato HTTP, risposta): 200 decisa, 202 `awaiting_confirmation` (doppia conferma)."""
+    from urllib.parse import quote
+    url = f"{collegamento.gateway_url.rstrip('/')}/v1/approvals/{quote(approval_id, safe='')}/decide"
+    return _invia("POST", url, collegamento.chiave_decide(),
+                  {"decision": decisione, "decided_by": chi, "reason": motivo[:1000]})
+
+
+def sincronizza(collegamento, strumenti_interni=None):
+    """`POST /v1/apps/sync` con la chiave `sync` (§8.1): Agate rilegge gli strumenti MCP di adabox (e quelli interni,
+    se ci sono)."""
+    dati = {} if strumenti_interni is None else {"internal_tools": strumenti_interni}
+    return chiama(collegamento, "POST", "/v1/apps/sync", dati, chiave=collegamento.chiave_sync())
 
 
 def verifica_firma(segreto, intestazione, corpo, adesso=None):

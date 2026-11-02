@@ -3,7 +3,7 @@ from pathlib import Path
 ICONE = [
     "zap", "user", "lock", "tool", "chevron-down", "menu", "x", "check", "alert-triangle",
     "search", "arrow-left", "download", "log-out", "eye", "eye-off", "save", "plus",
-    "edit", "trash", "inbox", "info",
+    "edit", "trash", "inbox", "info", "users", "shield",
 ]
 
 

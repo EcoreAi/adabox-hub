@@ -1,11 +1,9 @@
-import hashlib
-
 import pytest
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 
-from awf import fabbrica, lavori, operazioni
+from awf import fabbrica, lavori, operazioni, squadre
 from awf.models import Agente, Collegamento, OperazioneAmmessa, RichiestaAgenti
 from core.models import Azienda
 
@@ -15,14 +13,16 @@ from .test_mcp import rpc
 FORGE = "https://fabbrica.esempio.it"
 SQUADRA = {
     "slug": "lead-crm-adabox", "version": 1, "name": "Lead e CRM", "department": "crm",
-    "description": "Qualifica i lead e tiene in ordine le opportunità.", "kind": "django", "saas": "adabox",
-    "observe_days": 3,
+    "description": "Qualifica i lead e tiene in ordine le opportunità. Lavora ogni mattina.", "kind": "django",
+    "saas": "adabox", "observe_days": 3,
     "members": [{"role": "adabox.crm.qualifier", "name": "Qualificatore lead", "position": "single",
                  "kind": "conversational", "description": "Dà un punteggio ai lead"}],
     "operations": [{"tool": "awf.cerca_record", "view": "crm.opportunita", "effect": "read", "risk": "low",
                     "line": ""},
                    {"tool": "awf.modifica_record", "view": "crm.opportunita", "effect": "write", "risk": "medium",
                     "line": "Cambia priorità e probabilità"},
+                   {"tool": "awf.elimina_record", "view": "crm.opportunita", "effect": "irreversible",
+                    "risk": "high", "line": "Toglie i doppioni"},
                    {"tool": "awf.lancia_razzi", "view": "", "effect": "irreversible", "risk": "high"}],
     "price": {"pricing": "mixed", "period_eur": "150", "period_days": 7, "task_eur": "0", "llm_markup": "1.4",
               "prepaid_credit_eur": "30"},
@@ -68,10 +68,11 @@ def _richiesta(capo=None, **altro):
 # ---------- catalogo ----------
 
 def test_catalogo_letto_controllato_e_tenuto(listino):
-    squadre = fabbrica.catalogo()
-    assert [s["slug"] for s in squadre] == ["lead-crm-adabox"]                    # quella non valida resta fuori
-    assert squadre[0]["operazioni"][1] == {"tool": "awf.modifica_record", "view": "crm.opportunita",
-                                           "effect": "write", "risk": "medium", "line": "Cambia priorità e probabilità"}
+    squadre_ = fabbrica.catalogo()
+    assert [s["slug"] for s in squadre_] == ["lead-crm-adabox"]                    # quella non valida resta fuori
+    assert squadre_[0]["operazioni"][1] == {"tool": "awf.modifica_record", "view": "crm.opportunita",
+                                            "effect": "write", "risk": "medium", "line": "Cambia priorità e probabilità"}
+    assert squadre_[0]["vetrina"] == {}                                             # vetrina facoltativa
     fabbrica.catalogo()
     fabbrica.catalogo("CRM")
     url = [r["url"] for r in listino.richieste]
@@ -80,82 +81,32 @@ def test_catalogo_letto_controllato_e_tenuto(listino):
     assert "Authorization" not in listino.richieste[0]["intestazioni"]                # pubblico
 
 
-def test_pagina_del_catalogo(client, superuser, listino):
-    pagina = client.get("/awf/catalogo/").content.decode()
-    assert "Lead e CRM" in pagina and "Qualificatore lead" in pagina and "Dà un punteggio ai lead" in pagina
-    assert "Leggere: Opportunità" in pagina and "Modificare: Opportunità — Cambia priorità e probabilità" in pagina
-    assert "awf.lancia_razzi" not in pagina and "Operazioni irreversibili: le viste concesse (irreversibile)" in pagina
-    assert "150 € ogni 7 giorni + consumo AI (ricarico 40%) · credito iniziale 30 €" in pagina
-    assert "3 giorni di prova" in pagina and "lo approva nella console di Agate" in pagina
+def test_vetrina_controllata(finta, fabbrica_nota):
+    vetrina = {"icon": "🎯", "tagline": "Qualifica le richieste nuove", "benefits": ["Uno", 3, "Due"] + ["x"] * 9,
+               "day": [{"time": "07:30", "text": "Legge le richieste"}, {"time": "domani", "text": "Ora strana"},
+                       {"time": "08:00"}, "non un dizionario"],
+               "never": ["Non promette sconti"], "faq": [{"q": "Vede le fatture?", "a": "No."}, {"q": "Senza risposta"}]}
+    finta.risposte["/api/catalog"] = (200, {"teams": [{**SQUADRA, "showcase": vetrina}]})
+    v = fabbrica.catalogo()[0]["vetrina"]
+    assert v["icona"] == "🎯" and v["slogan"] == "Qualifica le richieste nuove"
+    assert v["vantaggi"] == ["Uno", "Due", "x", "x"]                                  # al più 5, solo testi
+    assert v["giornata"] == [{"ora": "07:30", "testo": "Legge le richieste"}, {"ora": "", "testo": "Ora strana"}]
+    assert v["mai"] == ["Non promette sconti"] and v["domande"] == [{"domanda": "Vede le fatture?", "risposta": "No."}]
 
 
-def test_catalogo_con_la_fabbrica_giu(client, superuser, finta, fabbrica_nota):
-    finta.risposte["/api/catalog"] = (fabbrica.ErroreFabbrica("fabbrica non raggiungibile (URLError)"), {})
-    r = client.get("/awf/catalogo/")
-    assert r.status_code == 200 and "La fabbrica non risponde" in r.content.decode()
-    finta.risposte["/api/catalog"] = (503, {})
-    assert "La fabbrica non risponde" in client.get("/awf/catalogo/").content.decode()
-
-
-def test_catalogo_senza_indirizzo_lo_chiede(client, superuser, finta, monkeypatch):
-    monkeypatch.delenv("AWF_FORGE_URL", raising=False)
-    pagina = client.get("/awf/catalogo/").content.decode()
-    assert 'name="forge_url"' in pagina and finta.richieste == []
-    client.post("/awf/catalogo/", {"azione": "fabbrica", "forge_url": "ftp://x"})
-    assert Collegamento.attuale().forge_url == ""
-    client.post("/awf/catalogo/", {"azione": "fabbrica", "forge_url": FORGE + "/"})
-    assert Collegamento.attuale().forge_url == FORGE
+def test_catalogo_vecchio_url_porta_al_negozio(client, superuser, listino):
+    r = client.get("/awf/catalogo/?reparto=crm")
+    assert r.status_code == 302 and r["Location"] == "/awf/negozio/?reparto=crm"
 
 
 def test_pagine_nuove_solo_per_chi_gestisce_awf(client, utente):
     client.force_login(utente)
-    assert client.get("/awf/catalogo/").status_code == 403
-    assert client.get("/awf/richieste/").status_code == 403
+    for url in ("/awf/negozio/", "/awf/negozio/lead-crm-adabox/", "/awf/assumi/lead-crm-adabox/", "/awf/richieste/",
+                "/awf/miei/", "/awf/miei/1/cosa-puo-fare/", "/awf/miei/1/persone/", "/awf/avanzate/"):
+        assert client.get(url).status_code == 403, url
 
 
 # ---------- richiesta ----------
-
-def test_richiesta_dalla_pagina_segue_il_contratto(client, superuser, listino, ammesse):
-    from agate.models import Collegamento as CollegamentoAgate
-    CollegamentoAgate.objects.create(gateway_url="https://api.agate.esempio.it",
-                                     console_url="https://console.agate.esempio.it")
-    superuser.first_name, superuser.last_name = "Mario", "Rossi"
-    superuser.save()
-    azienda = Azienda.objects.get(pk=1)
-    azienda.partita_iva = "01234567890"
-    azienda.save()
-    r = client.post("/awf/catalogo/", {"azione": "richiedi", "team": SQUADRA["slug"], "versione": 1,
-                                       "settimane": 4, "note": "circa 10 opportunità al giorno"})
-    assert r.status_code == 302 and r["Location"] == "/awf/richieste/"
-    invio = next(x for x in listino.richieste if x["metodo"] == "POST")
-    assert invio["url"] == f"{FORGE}/api/hire-requests"
-    corpo = invio["corpo"]
-    assert {k: corpo[k] for k in ("team", "team_version", "weeks", "notes")} == {
-        "team": "lead-crm-adabox", "team_version": 1, "weeks": 4, "notes": "circa 10 opportunità al giorno"}
-    assert corpo["company"] == {"name": azienda.nome, "vat": "01234567890", "email": "root@example.com",
-                                "contact": "Mario Rossi"}
-    plugin = corpo["plugin"]
-    assert plugin["kind"] == "django" and plugin["saas"] == "adabox" and plugin["base_url"] == "https://erp.esempio.it"
-    assert plugin["version"] == operazioni.versione()
-    assert plugin["operations"] == [e.dichiarazione() for e in operazioni.esposte()]
-    assert {o["name"] for o in plugin["operations"]} >= {"cerca_record", "modifica_record"}
-    assert corpo["agate"] == {"gateway_url": "https://api.agate.esempio.it",
-                              "console_url": "https://console.agate.esempio.it"}
-
-    rich = RichiestaAgenti.objects.get()
-    assert rich.request_id == ID and rich.stato == "inviata" and rich.token() == "wfr_" + "r" * 40
-    assert "wfr_" not in rich.token_cifrato and rich.creata_da == superuser and rich.team_nome == "Lead e CRM"
-    assert rich.operazioni == fabbrica.catalogo()[0]["operazioni"]
-    assert not Collegamento.attuale().collegato                                       # niente collegamento ancora
-
-
-@pytest.mark.parametrize("stato,messaggio", [(409, "è cambiata"), (429, "10 l&#x27;ora"), (404, "non più in catalogo")])
-def test_richiesta_rifiutata_dalla_fabbrica(client, superuser, listino, stato, messaggio):
-    listino.risposte["/api/hire-requests"] = (stato, {"detail": "no"})
-    r = client.post("/awf/catalogo/", {"azione": "richiedi", "team": SQUADRA["slug"], "versione": 1,
-                                       "settimane": 4}, follow=True)
-    assert messaggio in r.content.decode() and not RichiestaAgenti.objects.exists()
-
 
 def test_richiesta_controllata_prima_di_partire(listino):
     for team, settimane in [("inesistente", 4), (SQUADRA["slug"], 0), (SQUADRA["slug"], 53)]:
@@ -197,7 +148,7 @@ def test_dalla_richiesta_al_collegamento_da_solo(listino, superuser):
     assert c.collegato and c.token() == "wpt_" + "p" * 40 and "wpt_" not in c.token_cifrato
     assert c.install_id == "ins_9" and c.forge_url == FORGE and c.base_url == "https://erp.esempio.it"
     assert c.azienda_id == 1 and c.ingaggio["status"] == "active"
-    assert c.mcp_impronta == "a" * 64                         # il bearer già dato ad Agate resta: è di adabox, non dell'ingaggio
+    assert c.mcp_impronta == "a" * 64                         # il bearer già dato ad Agate resta: è di adabox
     assert {a.nome for a in Agente.objects.filter(attivo=True, tecnico=False)} == {a["name"] for a in AGENTI}
 
     letture = len(listino.richieste)
@@ -209,7 +160,7 @@ def test_collegata_senza_token_non_torna_indietro(listino):
     r = _richiesta()
     listino.risposte[STATO] = _stato("connected")
     fabbrica.aggiorna(r)
-    assert r.stato == "collegata" and r.collegata_il is None and "wfc_" in r.messaggio
+    assert r.stato == "collegata" and r.collegata_il is None and "codice di collegamento" in r.messaggio
     assert not Collegamento.attuale().collegato
 
 
@@ -226,7 +177,7 @@ def test_ritira(client, superuser, listino):
     listino.risposte[STATO] = _stato("received")
     listino.risposte[f"DELETE {STATO}"] = (204, {})
     pagina = client.get("/awf/richieste/").content.decode()
-    assert 'value="ritira"' in pagina
+    assert 'value="ritira"' in pagina and "Ritira la richiesta" in pagina
     client.post("/awf/richieste/", {"pk": r.pk, "azione": "ritira"})
     r.refresh_from_db()
     assert r.stato == "ritirata" and listino.richieste[-1]["metodo"] == "DELETE"
@@ -237,82 +188,33 @@ def test_ritira(client, superuser, listino):
         fabbrica.ritira(r)
 
 
-# ---------- dopo il collegamento: operazioni con un clic e bearer per Agate ----------
+# ---------- cosa può fare: le scelte diventano operazioni ammesse ----------
 
-@pytest.fixture
-def collegata(listino, superuser):
-    r = _richiesta(superuser)
-    listino.risposte[STATO] = _stato("connected", plugin_token="wpt_" + "p" * 40, install_id="ins_9",
-                                     engagement=ingaggio())
-    listino.risposte["/api/plugins/heartbeat"] = (200, {"engagement": ingaggio()})
-    fabbrica.aggiorna(r)
-    OperazioneAmmessa.objects.create(strumento="cerca_record", vista="crm.opportunita")
-    return r
-
-
-def test_operazioni_della_squadra_con_un_clic(client, collegata):
-    pagina = client.get("/awf/richieste/").content.decode()
-    assert "già ammessa" in pagina and "da ammettere" in pagina and "non disponibile qui" in pagina
-    assert "Ammetti con un clic" in pagina and "Genera indirizzo e bearer" in pagina
-    buyer = User.objects.get(username="awf-buyer")
-    assert not buyer.has_perm("crm.change_opportunita")
-    r = client.post("/awf/richieste/", {"pk": collegata.pk, "azione": "ammetti"}, follow=True)
-    assert "1 aggiunta" in r.content.decode() and "1 non disponibile" in r.content.decode()
-    voci = set(OperazioneAmmessa.objects.values_list("strumento", "vista"))
-    assert {("cerca_record", "crm.opportunita"), ("modifica_record", "crm.opportunita")} <= voci
-    assert not OperazioneAmmessa.objects.filter(strumento__in=["lancia_razzi", "awf.modifica_record"]).exists()
-    buyer = User.objects.get(username="awf-buyer")
-    assert buyer.has_perm("crm.change_opportunita") and buyer.has_perm("crm.view_opportunita")
-    assert "/api/plugins/heartbeat" in collegata_ultima_url(client)
-    client.post("/awf/richieste/", {"pk": collegata.pk, "azione": "ammetti"})       # di nuovo: niente doppioni
+def test_scelte_proposte_e_applicate(listino, superuser):
+    righe = squadre.righe_operazioni(fabbrica.squadra(SQUADRA["slug"])["operazioni"])
+    per_strumento = {x["strumento"]: x for x in righe}
+    assert per_strumento["cerca_record"]["lettura"] and per_strumento["cerca_record"]["proposta"] == "si"
+    assert per_strumento["modifica_record"]["proposta"] == "si"
+    assert per_strumento["elimina_record"]["proposta"] == "ok"                       # irreversibile: con il tuo ok
+    assert per_strumento["lancia_razzi"]["stato"] == squadre.NON_DISPONIBILE
+    # le letture restano sì anche se qualcuno manda «mai»
+    scelte = squadre.scelte(righe, {"cerca_record|crm.opportunita": "mai", "modifica_record|crm.opportunita": "mai",
+                                    "elimina_record|crm.opportunita": "boh"})
+    assert scelte["cerca_record|crm.opportunita"] == "si" and scelte["modifica_record|crm.opportunita"] == "mai"
+    assert scelte["elimina_record|crm.opportunita"] == "ok"
+    squadre.applica(righe, scelte, superuser)
+    voci = dict(OperazioneAmmessa.objects.values_list("strumento", "attiva"))
+    assert voci == {"cerca_record": True, "elimina_record": True}
+    buyer_perm = operazioni.permessi_derivati().values_list("codename", flat=True)
+    assert "delete_opportunita" in buyer_perm and "change_opportunita" not in buyer_perm
+    # cambio idea: «mai» spegne, «sì» riaccende, niente doppioni
+    righe = squadre.righe_operazioni(fabbrica.squadra(SQUADRA["slug"])["operazioni"])
+    nuove, spente = squadre.applica(righe, {"elimina_record|crm.opportunita": "mai",
+                                            "modifica_record|crm.opportunita": "si"})
+    assert [x["strumento"] for x in nuove] == ["modifica_record"] and [x["strumento"] for x in spente] == [
+        "elimina_record"]
+    assert not OperazioneAmmessa.objects.get(strumento="elimina_record").attiva
     assert OperazioneAmmessa.objects.filter(strumento="modifica_record").count() == 1
-
-
-def collegata_ultima_url(client):
-    return fabbrica.trasporto.richieste[-1]["url"]
-
-
-def test_bearer_per_agate_si_vede_una_volta(client, collegata):
-    pagina = client.post("/awf/richieste/", {"pk": collegata.pk, "azione": "bearer"}).content.decode()
-    bearer = next(p for p in pagina.split("<code>") if p.startswith("awf_")).split("</code>")[0]
-    assert "https://erp.esempio.it/awf/mcp/" in pagina and "Applicazione dell'azienda (server MCP)" in pagina
-    assert "<code>awf</code>" in pagina
-    c = Collegamento.attuale()
-    assert c.mcp_impronta == hashlib.sha256(bearer.encode()).hexdigest()
-    seguente = client.get("/awf/richieste/").content.decode()
-    assert bearer not in seguente and "Genera un nuovo bearer" in seguente
-    assert rpc(client, "tools/list", bearer=bearer).status_code == 200
-
-
-def test_adabox_si_prepara_prima_della_proposta_e_il_bearer_resta(client, superuser, listino):
-    """Agate accetta il contratto solo con gli strumenti della squadra già attivi: operazioni e bearer si fanno appena
-    la richiesta parte, e il collegamento da solo non toglie il bearer già dato ad Agate."""
-    r = _richiesta(superuser)
-    listino.risposte[STATO] = _stato("received")
-    pagina = client.get("/awf/richieste/").content.decode()
-    assert "Prepara adabox per la squadra" in pagina and "Ammetti con un clic" in pagina
-    client.post("/awf/richieste/", {"pk": r.pk, "azione": "ammetti"})
-    assert OperazioneAmmessa.objects.filter(strumento="modifica_record", vista="crm.opportunita").exists()
-    pagina = client.post("/awf/richieste/", {"pk": r.pk, "azione": "bearer"}).content.decode()
-    bearer = next(p for p in pagina.split("<code>") if p.startswith("awf_")).split("</code>")[0]
-    impronta = Collegamento.attuale().mcp_impronta
-    assert impronta == hashlib.sha256(bearer.encode()).hexdigest()
-
-    listino.risposte[STATO] = _stato("connected", plugin_token="wpt_" + "p" * 40, install_id="ins_9",
-                                     engagement=ingaggio())
-    lavori.richieste()
-    c = Collegamento.attuale()
-    assert c.collegato and c.mcp_impronta == impronta                    # Agate continua a raggiungere adabox
-    assert rpc(client, "tools/list", bearer=bearer).status_code == 200
-
-
-def test_bearer_e_operazioni_non_per_richieste_chiuse(client, superuser, listino):
-    r = _richiesta(superuser)
-    RichiestaAgenti.objects.filter(pk=r.pk).update(stato="ritirata")
-    client.post("/awf/richieste/", {"pk": r.pk, "azione": "bearer"})
-    client.post("/awf/richieste/", {"pk": r.pk, "azione": "ammetti"})
-    assert Collegamento.attuale().mcp_impronta == ""
-    assert not OperazioneAmmessa.objects.filter(strumento="modifica_record").exists()
 
 
 # ---------- assistente AI ----------
@@ -344,6 +246,7 @@ def test_assistente_legge_il_catalogo(scena):
     testo = risultato["contenuto"]
     assert "lead-crm-adabox" in testo and "Qualificatore lead" in testo and "Modificare: Opportunità" in testo
     assert "ricarico 40%" in testo and '"giorni_di_prova": 3' in testo
+    assert "/awf/negozio/lead-crm-adabox/" in testo and "Qualifica i lead" in testo
 
 
 def test_assistente_propone_e_alla_conferma_chiede_la_squadra(scena):
@@ -354,23 +257,29 @@ def test_assistente_propone_e_alla_conferma_chiede_la_squadra(scena):
     assert not risultato["errore"] and "NON è ancora eseguita" in risultato["contenuto"]
     p = Proposta.objects.get()
     assert p.strumento == "richiedi_squadra" and p.rischio == "scrittura" and "Lead e CRM" in p.titolo
+    assert p.url == "/awf/negozio/lead-crm-adabox/"                                  # la scheda dell'agente
     dettagli = {d["campo"]: d["dopo"] for d in p.dettagli}
     assert dettagli["Costo fisso stimato"] == "600 €" and "ricarico del 40%" in dettagli["Consumo AI"]
-    assert "console di Agate" in dettagli["Poi"] and dettagli["Durata"] == "4 settimane"
+    assert "periodo di prova" in dettagli["Prova"] and "osservazione" not in str(p.dettagli)
+    assert "conferma il contratto" in dettagli["Poi"] and dettagli["Durata"] == "4 settimane"
     assert not [x for x in finta.richieste if x["metodo"] == "POST"] and not RichiestaAgenti.objects.exists()
 
     r = scena["client"].post(f"/ai/proposta/{p.pk}/conferma/", {}, HTTP_HX_REQUEST="true")
     p.refresh_from_db()
     assert r.status_code == 200 and p.stato == "eseguita" and p.url == "/awf/richieste/"
-    assert "Prossimi passi" in p.esito and "Agenti → Richieste" in p.esito
+    assert "Prossimi passi" in p.esito and "Agenti AI → Richieste" in p.esito
     invio = next(x for x in finta.richieste if x["metodo"] == "POST")
     assert invio["corpo"]["weeks"] == 4 and invio["corpo"]["notes"] == "CRM, circa 10 opportunità al giorno"
     rich = RichiestaAgenti.objects.get()
     assert rich.creata_da == scena["capo"] and rich.azienda_id == 1
+    # adabox si è preparato da solo con le scelte proposte, e la richiesta lo dichiara alla fabbrica
+    assert set(OperazioneAmmessa.objects.filter(vista="crm.opportunita").values_list("strumento", flat=True)) == {
+        "cerca_record", "modifica_record", "elimina_record"}
+    assert {"modifica_record", "elimina_record"} <= {o["name"] for o in invio["corpo"]["plugin"]["operations"]}
 
     finta.risposte[STATO] = _stato("proposed", approve_url="https://console.agate.esempio.it/console/engagements/e/")
     stato = _turno(scena, [("stato_richieste_agenti", {})], testo="A che punto siamo?")[0]
-    assert not stato["errore"] and "Da approvare in Agate" in stato["contenuto"]
+    assert not stato["errore"] and "Contratto da approvare in Agate" in stato["contenuto"]
     assert "console.agate.esempio.it/console/engagements/e/" in stato["contenuto"]
     assert "Lead e CRM" in stato["contenuto"]
 

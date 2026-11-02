@@ -6,17 +6,10 @@
     "category": "Produttività",
     "depends": ["ai"],
     "min_core": "1.0",
-    "application": True,
-    "nav_label": "Agenti",
+    "application": False,
     "icon": "awf/icon.svg",
-    "home": "awf:stato",
-    "menu": [
-        {"label": "Stato e collegamento", "url_name": "awf:stato", "permission": "awf.change_collegamento"},
-        {"label": "Catalogo", "url_name": "awf:catalogo", "permission": "awf.change_collegamento"},
-        {"label": "Richieste", "url_name": "awf:richieste", "permission": "awf.change_collegamento"},
-        {"label": "Agenti", "url_name": "awf:agenti", "permission": "awf.view_agente"},
-        {"label": "Operazioni ammesse", "url_name": "awf:operazioni", "permission": "awf.view_operazioneammessa"},
-        {"label": "Approvazioni in attesa", "url_name": "awf:approvazioni", "permission": "awf.view_approvazione"},
+    "menu_profilo": [
+        {"label": "Agenti AI", "url_name": "awf:indice", "permission": "awf.change_collegamento", "icon": "users"},
     ],
     "groups": {
         "AWF / Amministratore": ["awf.*"],
@@ -28,9 +21,9 @@
         {"nome": "Stato delle richieste di agenti", "funzione": "awf.lavori.richieste", "ogni": "5m"},
     ],
     "settings": [
-        {"chiave": "osservazione", "label": "Scritture degli agenti sempre in osservazione", "tipo": "booleano",
+        {"chiave": "osservazione", "label": "Agenti sempre come nel periodo di prova", "tipo": "booleano",
          "default": False,
-         "help": "le scritture degli agenti non si eseguono e si registrano come «cosa sarebbe successo»; "
+         "help": "le modifiche degli agenti non si eseguono e si registrano come «cosa sarebbe successo»; "
                  "le letture continuano"},
         {"chiave": "eventi", "label": "Avvisa la fabbrica quando un'attività è assegnata a un agente",
          "tipo": "booleano", "default": True,

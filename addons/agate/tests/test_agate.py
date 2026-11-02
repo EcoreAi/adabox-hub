@@ -1,11 +1,13 @@
 """Le proposte dell'assistente passano da Agate: consentite, bloccate, da approvare, in osservazione."""
 import hashlib
 import hmac
+import datetime
 import json
 import time
 
 import pytest
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 from agate import cliente, lavori
 from agate.models import Collegamento, Valutazione
@@ -205,16 +207,18 @@ def test_spento_non_chiama_agate(scena, agate):
     assert p.stato == "eseguita" and agate.chiamate == []
 
 
-def test_pagina_di_collegamento_e_modelli_attraverso_agate(scena, agate):
-    pagina = scena["client"].get("/agate/").content.decode()
+def test_impostazioni_e_modelli_attraverso_agate(scena, agate):
+    pagina = scena["client"].get("/agate/impostazioni/").content.decode()
     assert CHIAVE not in pagina and "••••" in pagina and "/agate/webhook/" in pagina
-    r = scena["client"].post("/agate/", {"azione": "modelli"})
+    assert pagina.index("Quanto conta Agate") < pagina.index("Avanzate") < pagina.index("whsec_")
+    assert "In prova (registra soltanto)" in pagina and "Spenta" in pagina and "Attiva" in pagina
+    r = scena["client"].post("/agate/impostazioni/", {"azione": "modelli"})
     assert r.status_code == 302
     provider = Provider.objects.get(nome="Agate")
     assert provider.tipo == "openai_compat" and provider.base_url == "https://agate.test/v1/llm"
     assert provider.chiave_per() == CHIAVE
     assert sorted(provider.modelli.values_list("id_api", flat=True)) == ["solo-locale", "vendite-eu"]
-    salva = scena["client"].post("/agate/", {"azione": "salva", "gateway_url": "https://agate2.test",
+    salva = scena["client"].post("/agate/impostazioni/", {"azione": "salva", "gateway_url": "https://agate2.test",
                                             "console_url": "", "prefisso": "hub", "modalita": "attivo"})
     assert salva.status_code == 302
     c = Collegamento.attuale()
@@ -237,4 +241,101 @@ def test_gli_strumenti_per_agate_sono_solo_le_scritture(scena, capsys):
 def test_un_utente_senza_permesso_non_vede_il_collegamento(scena, client):
     utente = User.objects.create_user("mario", "m@example.com", "pass12345!")
     client.force_login(utente)
-    assert client.get("/agate/").status_code == 403
+    for url in ("/agate/", "/agate/impostazioni/", "/agate/valutazioni/"):
+        assert client.get(url).status_code == 403
+    assert "Controllo AI" not in client.get("/dashboard/").content.decode()
+
+
+# ---------- Controllo AI: stato, registro, prima configurazione ----------
+
+def _valutazione(scena, stato, titolo="Crea l'azienda Delta Spa", utente=None, **altro):
+    p = Proposta.objects.create(conversazione=scena["conversazione"], utente=scena["capo"], strumento="crea_record",
+                                titolo=titolo)
+    return Valutazione.objects.create(proposta=p, strumento="adabox.crea_record", stato=stato,
+                                      utente=utente or scena["capo"], **altro)
+
+
+def test_voce_nel_profilo_e_niente_in_testata(scena):
+    r = scena["client"].get("/agate/")
+    assert "Controllo AI" in [v["label"] for v in r.context["voci_profilo"]]
+    assert "Agate" not in [v["label"] for v in r.context["theme"]["nav"]]
+    assert '<svg><use href="#icon-shield"/></svg> Controllo AI' in r.content.decode()
+
+
+def test_stato_con_i_conti_di_oggi(scena):
+    for stato in ("consentita", "approvata", "in_attesa", "in_attesa", "negata", "rifiutata", "osservata"):
+        _valutazione(scena, stato)
+    vecchia = _valutazione(scena, "negata")
+    Valutazione.objects.filter(pk=vecchia.pk).update(creata=timezone.now() - datetime.timedelta(days=3))
+    r = scena["client"].get("/agate/")
+    pagina = r.content.decode()
+    assert r.context["controllate"] == 7 and r.context["in_attesa"] == 2
+    assert r.context["oggi"]["consentite"] == 2 and r.context["oggi"]["bloccate"] == 2
+    assert "Protezione attiva ✓" in pagina and "Solo registrate oggi (prova): 1" in pagina
+    assert 'class="ui-btn ui-btn-primary" href="/agate/valutazioni/?esito=in_attesa">Vedi le 2 in attesa' in pagina
+    c = scena["collegamento"]
+    c.modalita = Collegamento.OSSERVAZIONE
+    c.save()
+    assert "In prova (registra soltanto)" in scena["client"].get("/agate/").content.decode()
+    c.modalita = Collegamento.SPENTO
+    c.save()
+    assert "Spenta" in scena["client"].get("/agate/").content.decode()
+    Collegamento.objects.all().delete()
+    pagina = scena["client"].get("/agate/").content.decode()
+    assert "Spenta" in pagina and "Configura il Controllo AI" in pagina
+
+
+def test_registro_in_parole_con_i_filtri(scena):
+    mario = User.objects.create_user("mario", "m@example.com", "x", first_name="Mario", last_name="Rossi")
+    _valutazione(scena, "in_attesa", "Elimina l'attività Richiamare", utente=mario, approval_id="apr_9")
+    _valutazione(scena, "negata", "Crea l'azienda Zeta", motivo="Nuove aziende solo dall'ufficio")
+    _valutazione(scena, "osservata", "Crea l'azienda Eta", verdetto="deny")
+    vecchia = _valutazione(scena, "consentita", "Crea l'azienda Vecchia")
+    Valutazione.objects.filter(pk=vecchia.pk).update(creata=timezone.now() - datetime.timedelta(days=10))
+    client = scena["client"]
+    pagina = client.get("/agate/valutazioni/").content.decode()
+    assert "<strong>Mario Rossi</strong> ha chiesto all'assistente: «Elimina l&#x27;attività Richiamare»" in pagina
+    assert "in attesa dell&#x27;ok in Agate" in pagina
+    assert 'href="https://console.agate.test/console/approvals/apr_9/"' in pagina and "Decidi in Agate" in pagina
+    assert "bloccata dalle regole" in pagina and "Nuove aziende solo dall&#x27;ufficio" in pagina
+    assert "avrebbe scelto di bloccarla" in pagina and "Vecchia" in pagina
+    bloccate = client.get("/agate/valutazioni/?esito=bloccate").content.decode()
+    assert "Zeta" in bloccate and "Richiamare" not in bloccate and "Eta»" not in bloccate
+    settimana = client.get("/agate/valutazioni/?periodo=7").content.decode()
+    assert "Vecchia" not in settimana and "Zeta" in settimana
+    di_mario = client.get(f"/agate/valutazioni/?utente={mario.pk}").content.decode()
+    assert "Richiamare" in di_mario and "Zeta" not in di_mario
+    assert "Nessuna azione con questi filtri" in client.get("/agate/valutazioni/?esito=errori").content.decode()
+
+
+def test_prima_configurazione_in_tre_passi(scena, agate):
+    client = scena["client"]
+    Collegamento.objects.all().delete()
+    pagina = client.get("/agate/impostazioni/").content.decode()
+    assert "Collega il Controllo AI" in pagina and 'name="codice"' in pagina and 'href="?passo=1"' in pagina
+    pagina = client.get("/agate/impostazioni/?passo=1").content.decode()                # a mano, da Avanzate
+    assert 'aria-current="step">Indirizzo e chiave' in pagina and 'name="chiave"' in pagina
+    r = client.post("/agate/impostazioni/", {"passo": 1, "gateway_url": "https://agate.test", "console_url": ""},
+                    follow=True)
+    assert "serve la chiave" in r.content.decode() and not Collegamento.objects.exists()
+    r = client.post("/agate/impostazioni/", {"passo": 1, "gateway_url": "https://agate.test",
+                                             "console_url": "https://console.agate.test", "chiave": CHIAVE})
+    assert r["Location"] == "/agate/impostazioni/?passo=2"
+    c = Collegamento.attuale()
+    assert c.modalita == Collegamento.SPENTO and c.chiave() == CHIAVE                # nasce spento
+    pagina = client.get(r["Location"]).content.decode()
+    assert "Funziona" in pagina and "vendite-eu" in pagina and 'href="?passo=3"' in pagina
+    pagina = client.get("/agate/impostazioni/?passo=3").content.decode()
+    assert 'value="osservazione" checked' in pagina and "registra soltanto" in pagina
+    r = client.post("/agate/impostazioni/", {"passo": 3, "modalita": "attivo"})
+    assert r["Location"] == "/agate/" and Collegamento.attuale().modalita == Collegamento.ATTIVO
+    pagina = client.get("/agate/impostazioni/").content.decode()
+    assert "Quanto conta Agate" in pagina and "Salva e prova" in pagina               # ora il modulo completo
+
+
+def test_prova_che_non_riesce(scena, agate):
+    agate.giu = True
+    Collegamento.objects.all().delete()
+    scena["client"].post("/agate/impostazioni/", {"passo": 1, "gateway_url": "https://agate.test", "chiave": CHIAVE})
+    pagina = scena["client"].get("/agate/impostazioni/?passo=2").content.decode()
+    assert "Agate non risponde ancora" in pagina and 'href="?passo=3"' not in pagina

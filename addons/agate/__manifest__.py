@@ -6,12 +6,13 @@
     "category": "Produttività",
     "depends": ["ai"],
     "min_core": "1.0",
-    "application": True,
+    "application": False,
     "icon": "agate/icon.svg",
-    "home": "agate:collegamento",
-    "menu": [
-        {"label": "Collegamento", "url_name": "agate:collegamento", "permission": "agate.change_collegamento"},
-        {"label": "Valutazioni", "url_name": "agate:valutazioni", "permission": "agate.view_valutazione"},
+    "menu_profilo": [
+        {"label": "Controllo AI", "url_name": "agate:stato", "permission": "agate.change_collegamento",
+         "icon": "shield"},
+        {"label": "Da approvare", "url_name": "agate:da_approvare", "permission": "agate.change_collegamento",
+         "icon": "inbox", "conteggio": "agate.decisioni.conteggio"},
     ],
     "groups": {
         "Agate / Amministratore": ["agate.*"],
