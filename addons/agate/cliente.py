@@ -20,8 +20,15 @@ class ErroreAgate(Exception):
         self.dettaglio = dettaglio
 
 
+def _user_agent():
+    """Un nome proprio: alcuni proxy (Cloudflare) rifiutano lo User-Agent predefinito di Python."""
+    from core import __version__
+    return f"adabox-hub/{__version__} (Controllo AI)"
+
+
 def _trasporto(metodo, url, intestazioni, corpo):
-    richiesta = urllib.request.Request(url, data=corpo, headers=intestazioni, method=metodo)
+    richiesta = urllib.request.Request(url, data=corpo, headers={"User-Agent": _user_agent(), **intestazioni},
+                                       method=metodo)
     try:
         with urllib.request.urlopen(richiesta, timeout=TIMEOUT) as risposta:  # noqa: S310 (URL scelto dall'admin)
             return risposta.status, risposta.read()

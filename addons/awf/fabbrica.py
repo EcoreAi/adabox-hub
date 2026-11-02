@@ -91,7 +91,9 @@ class _NessunRedirect(urllib.request.HTTPRedirectHandler):
 
 def _urllib(metodo, url, intestazioni, corpo, timeout):
     apri = urllib.request.build_opener(_NessunRedirect()).open
-    richiesta = urllib.request.Request(url, data=corpo, method=metodo, headers=intestazioni)
+    from core import __version__                        # alcuni proxy (Cloudflare) rifiutano lo User-Agent di Python
+    richiesta = urllib.request.Request(url, data=corpo, method=metodo,
+                                       headers={"User-Agent": f"adabox-hub/{__version__} (Agenti AI)", **intestazioni})
     try:
         with apri(richiesta, timeout=timeout) as risposta:
             return risposta.status, risposta.read(1_000_000)
