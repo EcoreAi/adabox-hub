@@ -1,11 +1,12 @@
 {
     "name": "Agate",
     "summary": "Le modifiche dell'assistente AI passano dalle regole e dalle approvazioni di Agate; i modelli dal suo proxy",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": ["ai"],
     "min_core": "1.0",
+    "riepilogo": "agate.riepilogo.voci",
     "application": False,
     "icon": "agate/icon.svg",
     "menu_profilo": [

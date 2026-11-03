@@ -1,11 +1,12 @@
 {
     "name": "Acquisti",
     "summary": "Ordini ai fornitori con costi, IVA, stampa e invio; ricevimento in magazzino",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Acquisti",
     "depends": ["prodotti", "contatti"],
     "min_core": "1.0",
+    "riepilogo": "acquisti.riepilogo.voci",
     "application": True,
     "icon": "acquisti/icon.svg",
     "dashboard": "acquisti.dashboard.kpi",

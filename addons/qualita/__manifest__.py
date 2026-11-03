@@ -1,11 +1,12 @@
 {
     "name": "Qualità",
     "summary": "Collaudi dei progetti: casi di test, ambienti, esecuzioni ed esiti, difetti aperti come compiti",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Servizi",
     "depends": ["progetti"],
     "min_core": "1.0",
+    "riepilogo": "qualita.riepilogo.voci",
     "application": True,
     "icon": "qualita/icon.svg",
     "menu": [

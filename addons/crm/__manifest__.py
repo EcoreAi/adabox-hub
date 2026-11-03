@@ -1,11 +1,12 @@
 {
     "name": "CRM",
     "summary": "Opportunità commerciali in pipeline, dal primo contatto al contratto",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Vendite",
     "depends": ["contatti"],
     "min_core": "1.0",
+    "riepilogo": "crm.riepilogo.voci",
     "dashboard": "crm.dashboard.kpi",
     "application": True,
     "icon": "crm/icon.svg",

@@ -1,11 +1,12 @@
 {
     "name": "SDI",
     "summary": "Fatture elettroniche allo SDI e dai fornitori: validazione, invio, notifiche, fatture passive",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Contabilità",
     "depends": ["fatturazione"],
     "min_core": "1.0",
+    "riepilogo": "sdi.riepilogo.voci",
     "application": True,
     "icon": "sdi/icon.svg",
     "dashboard": "sdi.dashboard.kpi",

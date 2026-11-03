@@ -1,11 +1,12 @@
 {
     "name": "Fatturazione",
     "summary": "Fatture e note di credito, scadenze e incassi, fattura elettronica XML e registro IVA",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Contabilità",
     "depends": ["vendite", "fiscale"],
     "min_core": "1.0",
+    "riepilogo": "fatturazione.riepilogo.voci",
     "application": True,
     "icon": "fatturazione/icon.svg",
     "dashboard": "fatturazione.dashboard.kpi",

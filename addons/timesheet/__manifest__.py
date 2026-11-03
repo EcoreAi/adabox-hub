@@ -1,11 +1,12 @@
 {
     "name": "Timesheet",
     "summary": "Ore lavorate su progetti e compiti, con totali e analisi",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Servizi",
     "depends": ["progetti"],
     "min_core": "1.0",
+    "riepilogo": "timesheet.riepilogo.voci",
     "dashboard": "timesheet.dashboard.kpi",
     "application": True,
     "icon": "timesheet/icon.svg",

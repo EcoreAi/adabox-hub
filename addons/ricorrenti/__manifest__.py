@@ -1,11 +1,12 @@
 {
     "name": "Contratti ricorrenti",
     "summary": "Canoni di manutenzione, hosting, licenze e assistenza: fatture a ogni periodo, rinnovi, disdette, ISTAT e ricavi ricorrenti",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Contabilità",
     "depends": ["fatturazione"],
     "min_core": "1.0",
+    "riepilogo": "ricorrenti.riepilogo.voci",
     "application": True,
     "icon": "ricorrenti/icon.svg",
     "dashboard": "ricorrenti.dashboard.kpi",

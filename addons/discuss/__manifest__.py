@@ -1,11 +1,12 @@
 {
     "name": "Discuss",
     "summary": "Messaggi tra colleghi: canali, messaggi diretti, menzioni e posta in arrivo",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
     "min_core": "1.0",
+    "riepilogo": "discuss.riepilogo.voci",
     "application": True,
     "icon": "discuss/icon.svg",
     "dashboard": "discuss.dashboard.kpi",

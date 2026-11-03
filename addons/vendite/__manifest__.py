@@ -1,11 +1,12 @@
 {
     "name": "Vendite",
     "summary": "Preventivi e ordini dei clienti, con listini, sconti, IVA, stampa e invio per email",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Vendite",
     "depends": ["prodotti", "contatti"],
     "min_core": "1.0",
+    "riepilogo": "vendite.riepilogo.voci",
     "application": True,
     "icon": "vendite/icon.svg",
     "dashboard": "vendite.dashboard.kpi",

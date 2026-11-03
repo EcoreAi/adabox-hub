@@ -1,0 +1,8 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Il mio riepilogo · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>{{ saluto }}</h1><div class="sub">{{ dal_testo|capfirst }}{% if urgenti %} · {{ urgenti }} urgent{{ urgenti|pluralize:"e,i" }}{% endif %}</div></div>
+  <div class="ui-pagehead-actions"><form method="get" class="rp-azioni"><select class="ui-input" name="da" aria-label="Da quando" onchange="this.form.submit()">{% for codice, nome in scelte %}<option value="{{ codice }}"{% if codice == scelta %} selected{% endif %}>{{ nome|capfirst }}</option>{% endfor %}</select><button class="ui-btn ui-btn-secondary" type="submit">Aggiorna</button></form></div></div>
+<section class="ui-card is-revealed"><div class="ui-card-body rp-pagina">{% include "riepilogo/_contenuto.html" %}</div>
+  <div class="ui-card-body rp-piede"><form method="post" action="{% url 'riepilogo:preferenza' %}" hx-post="{% url 'riepilogo:preferenza' %}" hx-trigger="change" hx-swap="none">{% csrf_token %}<label class="rp-toggle"><input type="checkbox" name="mostra" value="1"{% if preferenza.mostra_al_login %} checked{% endif %}> Apri da solo quando accedo</label></form></div></section>
+{% endblock %}

@@ -1,11 +1,12 @@
 {
     "name": "Personale",
     "summary": "Dipendenti e reparti, richieste di ferie e permessi con approvazione, saldi e calendario delle assenze",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Risorse umane",
     "depends": [],
     "min_core": "1.0",
+    "riepilogo": "personale.riepilogo.voci",
     "application": True,
     "icon": "personale/icon.svg",
     "dashboard": "personale.dashboard.kpi",

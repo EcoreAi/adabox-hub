@@ -1,11 +1,12 @@
 {
     "name": "Capacità e consegne",
     "summary": "Quando finisce ogni compito e progetto: capacità delle persone, ferie e festività, dipendenze, carico, Gantt e simulazioni",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Servizi",
     "depends": ["timesheet"],
     "min_core": "1.0",
+    "riepilogo": "capacita.riepilogo.voci",
     "application": True,
     "icon": "capacita/icon.svg",
     "menu": [

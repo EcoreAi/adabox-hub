@@ -1,11 +1,12 @@
 {
     "name": "Helpdesk",
     "summary": "Richieste di assistenza dei clienti, anche per email, con tempi di risposta (SLA)",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Servizi",
     "depends": ["contatti"],
     "min_core": "1.0",
+    "riepilogo": "helpdesk.riepilogo.voci",
     "dashboard": "helpdesk.dashboard.kpi",
     "application": True,
     "icon": "helpdesk/icon.svg",

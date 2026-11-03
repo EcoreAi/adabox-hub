@@ -183,3 +183,8 @@ def test_email_valida_e_non_valida(addons_tmp):
     assert "corpo" in _errori(addons_tmp, slug="gamma", email=[{"codice": "alfa.x", "nome": "N", "oggetto": "O"}])
     assert "campi" in _errori(addons_tmp, slug="delta", email=[{**buona, "campi": {"x": "solo testo"}}])
     assert "ripetuto" in _errori(addons_tmp, slug="epsilon", email=[buona, buona])
+
+
+def test_riepilogo_deve_essere_una_funzione(addons_tmp):
+    assert "riepilogo" in _errori(addons_tmp, riepilogo="nonfunzione")
+    assert manifest.leggi(addons_tmp.crea("beta", riepilogo="beta.riepilogo.voci")).riepilogo == "beta.riepilogo.voci"
