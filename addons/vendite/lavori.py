@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from core import chatter, modelli_email, report
 from core.viste.gruppi import numero
 
+from . import operazioni
 from .models import OrdineVendita
 
 
@@ -16,7 +17,8 @@ def invia(ordine_id, utente_id=None):
     codice = "vendite.ordine" if ordine.titolo_documento == "Ordine" else "vendite.preventivo"
     email = modelli_email.messaggio(codice, ordine.azienda, {
         "numero": str(ordine), "cliente": ordine.cliente.nome, "data": f"{ordine.data:%d/%m/%Y}",
-        "totale": f"{numero(ordine.totale)} €", "valido_fino_al": f"{ordine.validita:%d/%m/%Y}" if ordine.validita else ""},
+        "totale": f"{numero(ordine.totale)} €", "valido_fino_al": f"{ordine.validita:%d/%m/%Y}" if ordine.validita else "",
+        "link": operazioni.link(ordine) if ordine.stato == OrdineVendita.INVIATO else ""},
         [ordine.cliente.email])
     try:
         email.attach(f"{ordine}".replace("/", "-") + ".pdf", report.pdf(report.html(vista, richiesta, [ordine], 0)),

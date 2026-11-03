@@ -11,6 +11,7 @@ from fiscale import calcoli
 
 class OrdineVendita(AziendaMixin, ProprietaMixin):
     BOZZA, INVIATO, CONFERMATO, ANNULLATO = "bozza", "inviato", "confermato", "annullato"
+    ACCETTATO, RIFIUTATO = "accettato", "rifiutato"
     STATI = [(BOZZA, "Preventivo"), (INVIATO, "Preventivo inviato"), (CONFERMATO, "Ordine confermato"),
              (ANNULLATO, "Annullato")]
     numero = models.CharField("numero preventivo", max_length=30, blank=True, editable=False, db_index=True)
@@ -32,6 +33,13 @@ class OrdineVendita(AziendaMixin, ProprietaMixin):
     imposta = models.DecimalField("IVA", max_digits=14, decimal_places=2, default=0, editable=False)
     totale = models.DecimalField("totale", max_digits=14, decimal_places=2, default=0, editable=False)
     confermato_il = models.DateField("confermato il", null=True, blank=True, editable=False)
+    risposta = models.CharField("risposta del cliente", max_length=10, blank=True, editable=False,
+                                choices=[(ACCETTATO, "Accettato online"), (RIFIUTATO, "Rifiutato online")])
+    risposta_il = models.DateTimeField("risposta il", null=True, blank=True, editable=False)
+    risposta_nome = models.CharField("accettato da", max_length=120, blank=True, editable=False)
+    risposta_ip = models.GenericIPAddressField("indirizzo IP", null=True, blank=True, editable=False)
+    risposta_motivo = models.TextField("motivo del rifiuto", blank=True, editable=False)
+    risposta_impronta = models.CharField("impronta del documento accettato", max_length=32, blank=True, editable=False)
 
     class Meta(AziendaMixin.Meta):
         verbose_name = "preventivo / ordine"

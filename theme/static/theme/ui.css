@@ -1372,3 +1372,23 @@ td.ui-num { text-align: right; font-variant-numeric: tabular-nums; white-space: 
 .rc-barra { display: block; height: 12px; width: var(--rc-l); min-width: 2px; border-radius: 0 4px 4px 0; background: var(--ui-primary); animation: rc-cresce .8s cubic-bezier(.2, .8, .2, 1) both; transform-origin: left; }
 @keyframes rc-cresce { from { transform: scaleX(0); } }
 @media (prefers-reduced-motion: reduce) { .rc-barra { animation: none; } }
+
+/* ---------- preventivo online */
+.vn-pagina { min-height: 100vh; padding: 32px 16px; }
+.vn-foglio { max-width: 880px; margin: 0 auto; padding: 32px; border-radius: 18px; background: var(--ui-surface); box-shadow: 0 18px 50px rgba(15, 23, 42, .1); }
+.vn-testa { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+.vn-testa small { color: var(--ui-text-2); } .vn-testa h1 { margin: 2px 0 4px; font-size: 26px; letter-spacing: -.02em; } .vn-testa p { margin: 0; color: var(--ui-text-2); }
+.vn-totale { text-align: right; } .vn-totale small { display: block; } .vn-totale strong { font-size: 28px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.vn-somme { max-width: 320px; margin: 16px 0 0 auto; } .vn-somme div { display: flex; justify-content: space-between; padding: 4px 0; } .vn-somme dt { color: var(--ui-text-2); } .vn-somme dd { margin: 0; font-variant-numeric: tabular-nums; }
+.vn-somme .is-totale { margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--ui-border); font-weight: 700; } .vn-somme .is-totale dt { color: inherit; }
+.vn-nota { margin: 14px 0 0; color: var(--ui-text-2); font-size: 14px; }
+.vn-risposta { margin-top: 26px; padding: 22px; border-radius: 14px; background: var(--ui-surface-2); } .vn-risposta h2 { margin: 0 0 12px; font-size: 18px; }
+.vn-conferma { display: flex; gap: 10px; align-items: flex-start; margin: 14px 0; font-size: 14px; }
+.vn-accetta { width: 100%; justify-content: center; } .vn-rifiuto { margin-top: 14px; font-size: 14px; } .vn-rifiuto summary { cursor: pointer; color: var(--ui-text-2); } .vn-rifiuto form { margin-top: 10px; } .vn-rifiuto .ui-btn { margin-top: 10px; }
+.vn-esito { margin-bottom: 20px; padding: 18px; border-radius: 14px; background: var(--ui-surface-2); text-align: center; } .vn-esito h1, .vn-esito h2 { margin: 0 0 6px; font-size: 20px; } .vn-esito p { margin: 0; }
+.vn-avviso { background: #fef3c7; color: #78350f; } .vn-ok { background: #dcfce7; color: #14532d; }
+.vn-ok svg { width: 52px; height: 52px; margin-bottom: 6px; fill: none; stroke: #15803d; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.vn-ok.is-appena circle { stroke-dasharray: 151; animation: vn-traccia .6s ease-out both; } .vn-ok.is-appena path { stroke-dasharray: 40; animation: vn-traccia .35s .5s ease-out both; }
+@keyframes vn-traccia { from { stroke-dashoffset: 151; } to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .vn-ok.is-appena circle, .vn-ok.is-appena path { animation: none; } }
+@media (max-width: 600px) { .vn-foglio { padding: 20px; } .vn-totale { text-align: left; } }

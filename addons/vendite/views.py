@@ -1,12 +1,12 @@
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.utils import timezone
 
-from core import chatter, lavori, sequenze
+from core import chatter, lavori
 from core.viste import Inline, ModelView, register
 
 from .models import OrdineVendita, RigaVendita
-from .segnali import ordine_annullato, ordine_confermato
+from . import operazioni
+from .segnali import ordine_annullato
 
 
 def euro(valore):
@@ -91,9 +91,12 @@ class OrdineView(ModelView):
             return f"Il cliente {obj.cliente} non ha un indirizzo email."
         if not obj.righe.exists():
             return "Il documento non ha righe."
-        lavori.accoda("vendite.lavori.invia", ordine_id=obj.pk, utente_id=request.user.pk)
         if obj.stato == OrdineVendita.BOZZA:
             self._stato(request, obj, OrdineVendita.INVIATO)
+        if obj.risposta == OrdineVendita.RIFIUTATO:      # un nuovo invio riapre la risposta
+            obj.risposta, obj.risposta_il, obj.risposta_ip, obj.risposta_motivo = "", None, None, ""
+            obj.save(update_fields=["risposta", "risposta_il", "risposta_ip", "risposta_motivo"])
+        lavori.accoda("vendite.lavori.invia", ordine_id=obj.pk, utente_id=request.user.pk)
         return f"{obj.titolo_documento} {obj} inviato a {obj.cliente.email}."
     invia.short_description = "Invia per email"
     invia.rischio = "irreversibile"
@@ -103,9 +106,7 @@ class OrdineView(ModelView):
             return f"{obj} non è un preventivo da confermare."
         if not obj.righe.exists():
             return "Il documento non ha righe."
-        self._stato(request, obj, OrdineVendita.CONFERMATO, confermato_il=timezone.localdate(),
-                    numero_ordine=sequenze.prossimo("vendite.ordine", obj.azienda))
-        ordine_confermato.send(sender=OrdineVendita, ordine=obj, utente=request.user)
+        operazioni.conferma(obj, request.user)
         return f"Ordine {obj.numero_ordine} confermato."
     conferma.short_description = "Conferma l'ordine"
     conferma.rischio = "irreversibile"
