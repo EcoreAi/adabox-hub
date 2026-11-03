@@ -1,0 +1,9 @@
+{% with lista=obj.abbinamenti.all %}{% if lista or obj.stato == 'ignorato' or obj.stato == 'da_abbinare' or obj.stato == 'parziale' %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Abbinamenti</div></div>
+  <div class="ui-card-body">
+    {% for a in lista %}<div class="bn-proposta"><div>{% if a.incasso %}<a class="ui-link" href="{% url 'fatturazione:fatture_dettaglio' a.incasso.scadenza.fattura_id %}">{{ a.incasso.scadenza.fattura }}</a> {{ a.incasso.scadenza.fattura.cliente }}{% else %}{{ a.scadenza_passiva.fattura }}{% endif %} · {{ a.importo|floatformat:2 }} €</div>
+      {% if perms.banca.add_abbinamento %}<form method="post" action="{% url 'banca:annulla' a.pk %}">{% csrf_token %}<input type="hidden" name="ritorno" value="{{ request.get_full_path }}"><button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit">Togli</button></form>{% endif %}</div>{% empty %}<p class="sub">Nessun abbinamento.</p>{% endfor %}
+    {% if perms.banca.add_abbinamento %}<div class="bn-azioni">{% if obj.stato == 'ignorato' %}<form method="post" action="{% url 'banca:ripristina' obj.pk %}">{% csrf_token %}<input type="hidden" name="ritorno" value="{{ request.get_full_path }}"><button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Ripristina</button></form>{% elif obj.stato != 'abbinato' %}<a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'banca:scegli' obj.pk %}">Abbina</a>{% endif %}</div>{% endif %}
+  </div>
+</section>{% endif %}{% endwith %}

@@ -1,0 +1,13 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Abbina a mano · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>{% if m.importo > 0 %}+{% endif %}{{ m.importo|floatformat:2 }} € del {{ m.data|date:"d/m/Y" }}</h1><div class="sub">{{ m.controparte }} {{ m.descrizione|truncatechars:200 }}</div></div></div>
+<form method="get" class="ui-card is-revealed"><div class="ui-card-body bn-barra"><input class="ui-input" type="search" name="q" value="{{ q }}" placeholder="Cerca per numero o nome" aria-label="Cerca"><button class="ui-btn ui-btn-secondary" type="submit">Cerca</button></div></form>
+<form method="post" action="{% url 'banca:abbina' m.pk %}" class="ui-card is-revealed ui-section">{% csrf_token %}
+  {% if scelte %}<div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Scegli</th><th>Documento</th><th>Di</th><th>Scadenza</th><th class="num">Aperto</th></tr></thead><tbody>
+    {% for p in scelte %}<tr><td><input type="checkbox" name="scadenza" value="{{ p.chiave }}" aria-label="Scegli {{ p.documento }}"></td><td>{{ p.documento }}</td><td>{{ p.controparte }}</td><td>{{ p.scadenza.data|date:"d/m/Y"|default:"—" }}</td><td class="num">{{ p.residuo|floatformat:2 }} €</td></tr>{% endfor %}</tbody></table></div>
+  <div class="ui-card-body"><p class="sub">Con più scadenze, il movimento le copre dall'alto verso il basso finché basta. Restano da abbinare {{ m.da_coprire|floatformat:2 }} €.</p><button class="ui-btn ui-btn-primary" type="submit">Abbina alle scelte</button></div>
+  {% else %}<div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessuna scadenza aperta trovata.</p></div>{% endif %}
+  {% if altre %}<div class="ui-card-body"><p class="sub">Altre {{ altre }}: restringi la ricerca.</p></div>{% endif %}
+</form>
+{% endblock %}

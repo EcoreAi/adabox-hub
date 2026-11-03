@@ -1,0 +1,11 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Importa estratto · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Importa un estratto conto</h1><div class="sub">CAMT.053 (XML), MT940, CBI, CSV o Excel scaricati dalla tua banca. Puoi reimportare lo stesso file: i movimenti già presenti non si ripetono</div></div></div>
+{% if conti %}<form method="post" enctype="multipart/form-data" class="ui-card is-revealed">{% csrf_token %}<div class="ui-card-body bn-form">
+  <div><label class="ui-label" for="bn-conto">Conto</label><select class="ui-input" id="bn-conto" name="conto" required>{% for c in conti %}<option value="{{ c.pk }}">{{ c }} · {{ c.iban }}</option>{% endfor %}</select></div>
+  <div><label class="ui-label" for="bn-file">File</label><input class="ui-input" id="bn-file" type="file" name="file" required accept=".xml,.csv,.txt,.xlsx,.sta,.mt940,.940,.cbi,.rh"></div>
+  <button class="ui-btn ui-btn-primary" type="submit">Importa</button>
+</div></form>
+{% else %}<section class="ui-card is-revealed"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Prima crea un conto.</p><a class="ui-btn ui-btn-primary" href="{% url 'banca:conti_nuovo' %}">Nuovo conto</a></div></section>{% endif %}
+{% endblock %}

@@ -1451,3 +1451,15 @@ body.is-trascinando, body.is-trascinando * { cursor: url("data:image/svg+xml,%3C
 .cp-legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 2px; font-size: 12px; color: var(--ui-text-2); } .cp-campione { display: inline-block; width: 14px; height: 8px; margin-left: 8px; border-radius: 3px; background: var(--ui-primary); } .cp-campione.is-tardi { background: #dc2626; } .cp-campione.is-oggi { width: 2px; height: 12px; border-radius: 0; background: #ea580c; }
 .cp-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; align-items: end; } .cp-form .ui-alert { grid-column: 1 / -1; }
 .ui-kanban-persone { display: inline-flex; flex: none; } .ui-kanban-persone .ui-kanban-persona + .ui-kanban-persona { margin-left: -6px; box-shadow: 0 0 0 2px var(--ui-surface); }
+
+/* ---------- banca */
+.bn-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; align-items: end; }
+.bn-barra { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 14px; } .ui-card-body.bn-barra { margin: 0; flex-wrap: nowrap; }
+.bn-scheda { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(320px, 1.5fr); gap: 20px; padding: 18px; }
+.bn-movimento strong { font-size: 20px; font-weight: 700; letter-spacing: -.01em; font-variant-numeric: tabular-nums; } .bn-movimento .bn-entra { color: #15803d; } .bn-movimento p { margin: 6px 0; font-size: 13px; overflow-wrap: anywhere; }
+.bn-azioni { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; } .bn-proposte { display: flex; flex-direction: column; gap: 8px; } .bn-niente { margin: 0; }
+.bn-proposta { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--ui-border); border-radius: 12px; }
+.bn-proposta.is-sicura { border-color: #16a34a; background: color-mix(in srgb, #16a34a 8%, var(--ui-surface)); }
+.bn-doc { font-weight: 600; font-size: 14px; } .bn-doc span { font-weight: 400; color: var(--ui-text-2); }
+.bn-motivi { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; font-size: 12px; color: var(--ui-text-2); }
+@media (max-width: 760px) { .bn-scheda { grid-template-columns: 1fr; } }
