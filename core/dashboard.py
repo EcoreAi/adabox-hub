@@ -1,4 +1,5 @@
-"""Dashboard: KPI e grafici forniti dalle app installate (chiave `dashboard` del manifest).
+"""Dashboard: KPI e grafici forniti dalle app installate (chiave `dashboard` del manifest), disposti come widget
+che ogni utente ordina, allarga, toglie e rimette.
 
 La funzione di un'app riceve la richiesta e restituisce
     {"kpi": [{"valore": 4, "etichetta": "da fare", "url": "/todo/attivita/?f_stato=aperta"}, ...],
@@ -9,6 +10,8 @@ azienda corrente, visibilità e permessi della ModelView del modello.
 import logging
 
 from django.utils.safestring import mark_safe
+
+from .models import DashboardUtente
 
 from . import attivita, svg
 from .lavori import risolvi
@@ -70,3 +73,79 @@ def grafici(schede_app):
                               "svg": mark_safe(svg.DISEGNI.get(g.get("tipo", "barre"), svg.barre)(dati, g["titolo"]))
                               if any(v for _, v in dati) else None})
     return disegnati
+
+
+# ---------- widget
+
+LARGHEZZE = (1, 2, 3, 4)
+LARGHEZZA_PREDEFINITA = {"kpi": 1, "grafico": 2}
+MAX_WIDGET = 200
+
+
+def _serie(g):
+    """I dati di un grafico come li disegna il client (Chart.js), più le righe per la tabella."""
+    dati = [(str(e), float(v)) for e, v in g.get("dati", []) if v is not None]
+    return {"tipo": g.get("tipo", "barre"), "titolo": g["titolo"], "etichette": [e for e, _ in dati], "valori": [v for _, v in dati],
+            "righe": dati, "vuoto": not any(v for _, v in dati)}
+
+
+def catalogo(request):
+    """(widget, schede): tutti i widget che l'utente può mettere in dashboard, cioè la card con i KPI e i grafici di ogni app
+    che vede, più «Le mie attività». Gli id restano stabili tra una visita e l'altra: «todo:kpi», «vendite:g0»."""
+    schede_app = schede(request)
+    widget = []
+    attivita_kernel = scheda_attivita(request)
+    if attivita_kernel:
+        widget.append({"id": "core:attivita", "tipo": "kpi", "titolo": attivita_kernel["label"], "scheda": attivita_kernel})
+    for s in schede_app:
+        widget.append({"id": f"{s['slug']}:kpi", "tipo": "kpi", "titolo": s["label"], "scheda": s})
+        for i, g in enumerate(s["grafici"]):
+            widget.append({"id": f"{s['slug']}:g{i}", "tipo": "grafico", "titolo": g["titolo"], "app": s["label"],
+                           "url": g.get("url") or s["url"], "serie": _serie(g)})
+    return widget, ([attivita_kernel] if attivita_kernel else []) + schede_app
+
+
+def layout_di(utente):
+    return DashboardUtente.objects.filter(utente=utente).values_list("layout", flat=True).first() or {}
+
+
+def disposizione(utente, widget):
+    """(visibili, nascosti) nell'ordine e con la larghezza scelti dall'utente; i widget nuovi vanno in coda, quelli tolti a parte."""
+    layout = layout_di(utente)
+    per_id = {w["id"]: w for w in widget}
+    visibili = []
+    for voce in layout.get("widget", []):
+        w = per_id.pop(voce.get("id"), None) if isinstance(voce, dict) else None
+        if w:
+            w["w"] = voce.get("w") if voce.get("w") in LARGHEZZE else LARGHEZZA_PREDEFINITA[w["tipo"]]
+            visibili.append(w)
+    da_nascondere = set(layout.get("nascosti", []))
+    nascosti = []
+    for w in widget:
+        if w["id"] in per_id:
+            w["w"] = LARGHEZZA_PREDEFINITA[w["tipo"]]
+            (nascosti if w["id"] in da_nascondere else visibili).append(w)
+    return visibili, nascosti
+
+
+def salva_layout(utente, dati, widget):
+    """Dal client: {"widget": [{"id", "w"}], "nascosti": [id]}. Passano solo gli id del catalogo e le larghezze ammesse."""
+    if not isinstance(dati, dict):
+        raise ValueError("formato non valido")
+    ammessi = {w["id"] for w in widget}
+    visti, voci = set(), []
+    for v in list(dati.get("widget") or [])[:MAX_WIDGET]:
+        if isinstance(v, dict) and v.get("id") in ammessi and v["id"] not in visti:
+            visti.add(v["id"])
+            voci.append({"id": v["id"], "w": v["w"]} if v.get("w") in LARGHEZZE else {"id": v["id"]})
+    nascosti = [i for i in list(dati.get("nascosti") or [])[:MAX_WIDGET] if isinstance(i, str) and i in ammessi and i not in visti]
+    DashboardUtente.objects.update_or_create(utente=utente, defaults={"layout": {"widget": voci, "nascosti": sorted(set(nascosti))}})
+    return {"widget": voci, "nascosti": sorted(set(nascosti))}
+
+
+def contesto_per_ada(visibili):
+    """Che cosa c'è sulla dashboard, per chi chiede all'assistente di spiegarla."""
+    kpi = [{"app": w["titolo"], "indicatori": [{"etichetta": k["etichetta"], "valore": str(k["valore"])} for k in w["scheda"]["kpi"]]}
+           for w in visibili if w["tipo"] == "kpi"]
+    grafici = [{"app": w["app"], "titolo": w["titolo"], "tipo": w["serie"]["tipo"], "dati": w["serie"]["righe"]} for w in visibili if w["tipo"] == "grafico"]
+    return {"pagina": "Dashboard", "kpi": kpi, "grafici": grafici}

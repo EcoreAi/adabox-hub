@@ -1,4 +1,5 @@
 {% extends 'core/base_app.html' %}
+{% load tema %}
 {% block title %}{{ vista.verbose_name_plural|capfirst }} · Grafico · {{ theme.brand }}{% endblock %}
 {% block app_content %}
 <div class="ui-pagehead">
@@ -15,7 +16,7 @@
     <noscript><button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Aggiorna</button></noscript>
   </form>
   <div class="ui-card-body">
-    {% if svg %}<div class="ui-grafico">{{ svg }}</div>
+    {% if svg %}<div class="wd-canvas wd-canvas-pagina"><canvas data-grafico="vista-serie" role="img" aria-label="{{ titolo }}"></canvas></div>{{ serie_json|json_script:"vista-serie" }}<noscript><div class="ui-grafico">{{ svg }}</div></noscript>
     {% else %}<div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun dato con questi filtri.</p></div>{% endif %}
   </div>
   {% if righe %}
@@ -27,4 +28,9 @@
   </table></div>
   {% endif %}
 </div>
+{{ contesto_ada|json_script:"ada-contesto" }}
+{% endblock %}
+{% block scripts %}
+<script src="{% statico 'theme/vendor/chart.umd.js' %}" defer></script>
+<script src="{% statico 'core/grafici.js' %}" defer></script>
 {% endblock %}

@@ -35,6 +35,21 @@ class Azienda(ProprietaMixin):
         return self.nome
 
 
+class DashboardUtente(models.Model):
+    """La dashboard come l'ha disposta l'utente: ordine e larghezza dei widget, e quelli che ha tolto."""
+    utente = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="dashboard", verbose_name="utente")
+    layout = models.JSONField("disposizione", default=dict, blank=True,
+                              help_text='{"widget": [{"id": "todo:kpi", "w": 1}, …], "nascosti": ["crm:g0", …]}')
+    aggiornato = models.DateTimeField("aggiornata il", auto_now=True)
+
+    class Meta:
+        verbose_name = "dashboard dell'utente"
+        verbose_name_plural = "dashboard degli utenti"
+
+    def __str__(self):
+        return f"dashboard di {self.utente}"
+
+
 class Ruolo(models.Model):
     """Che cosa può fare una persona in ogni modulo: un livello di partenza e, dove serve, un livello diverso per modulo.
     I livelli diventano i gruppi Django dei moduli (vedi core.ruoli)."""

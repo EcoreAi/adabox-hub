@@ -5,7 +5,7 @@ from functools import wraps
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.migrations.recorder import MigrationRecorder
-from django.http import HttpResponseBadRequest
+from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import NoReverseMatch, reverse
 from django.utils.html import format_html
@@ -77,10 +77,35 @@ def home(request):
 @login_required
 def dashboard(request):
     from . import dashboard as dash
-    schede = dash.schede(request)
-    attivita_kernel = dash.scheda_attivita(request)
+    widget, schede = dash.catalogo(request)
+    visibili, nascosti = dash.disposizione(request.user, widget)
     return render(request, "core/dashboard.html", {
-        "schede": ([attivita_kernel] if attivita_kernel else []) + schede, "grafici": dash.grafici(schede)})
+        "widget": visibili, "nascosti": nascosti, "schede": schede, "personalizzata": bool(dash.layout_di(request.user)),
+        "contesto_ada": dash.contesto_per_ada(visibili)})
+
+
+@login_required
+@require_POST
+def dashboard_layout(request):
+    """Ordine, larghezze e widget tolti, dal client in JSON."""
+    import json
+
+    from . import dashboard as dash
+    try:
+        dati = json.loads(request.body or b"{}")
+        salvato = dash.salva_layout(request.user, dati, dash.catalogo(request)[0])
+    except (ValueError, TypeError):
+        return JsonResponse({"errore": "disposizione non valida"}, status=400)
+    return JsonResponse({"ok": True, **salvato})
+
+
+@login_required
+@require_POST
+def dashboard_reset(request):
+    from .models import DashboardUtente
+    DashboardUtente.objects.filter(utente=request.user).delete()
+    messages.success(request, "Dashboard riportata a quella di partenza.")
+    return redirect("core:dashboard")
 
 
 @login_required

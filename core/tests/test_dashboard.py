@@ -62,3 +62,37 @@ def test_manifest_dashboard_e_home_validati(addons_tmp):
     with pytest.raises(ManifestNonValido):
         manifest.leggi(addons_tmp.crea("beta", home="senza_namespace"))
     assert manifest.leggi(addons_tmp.crea("gamma", dashboard="gamma.dashboard.kpi", home="gamma:pagina")).home == "gamma:pagina"
+
+
+@pytest.mark.django_db
+def test_widget_si_ordinano_allargano_tolgono_e_rimettono(client, superuser):
+    import json
+
+    from core.models import Azienda, DashboardUtente
+    from todo.models import Attivita
+    Attivita.objects.create(azienda=Azienda.objects.get(pk=1), titolo="Da fare oggi")
+    r = client.get(reverse("core:dashboard"))
+    ids = [w["id"] for w in r.context["widget"]]
+    assert "todo:kpi" in ids and "todo:g0" in ids and r.context["nascosti"] == [] and "wd-serie-" in r.content.decode()
+    assert "ada-contesto" in r.content.decode() and "chart.umd.js" in r.content.decode()
+    nuovo = {"widget": [{"id": "todo:g0", "w": 4}, {"id": "todo:kpi", "w": 2}, {"id": "finto:kpi", "w": 1}, {"id": "todo:kpi", "w": 9}],
+             "nascosti": ["crm:kpi", "finto:g9", "todo:kpi"]}
+    r = client.post(reverse("core:dashboard_layout"), json.dumps(nuovo), content_type="application/json")
+    assert r.status_code == 200 and r.json()["widget"] == [{"id": "todo:g0", "w": 4}, {"id": "todo:kpi", "w": 2}] and r.json()["nascosti"] == ["crm:kpi"]
+    r = client.get(reverse("core:dashboard"))
+    visibili = [(w["id"], w["w"]) for w in r.context["widget"]]
+    assert visibili[:2] == [("todo:g0", 4), ("todo:kpi", 2)] and ("crm:kpi", 1) not in visibili and "crm:kpi" not in [i for i, _ in visibili]
+    assert [w["id"] for w in r.context["nascosti"]] == ["crm:kpi"] and 'data-aggiungi="crm:kpi"' in r.content.decode()
+    assert {i for i, _ in visibili} >= {"contatti:kpi", "helpdesk:kpi"}                 # i widget nuovi restano in coda
+    assert client.post(reverse("core:dashboard_layout"), "[1, 2]", content_type="application/json").status_code == 400
+    assert client.post(reverse("core:dashboard_layout"), "{non json", content_type="application/json").status_code == 400
+    assert client.post(reverse("core:dashboard_reset")).status_code == 302 and not DashboardUtente.objects.filter(utente=superuser).exists()
+    assert client.get(reverse("core:dashboard")).context["nascosti"] == []
+
+
+@pytest.mark.django_db
+def test_layout_di_un_altro_non_si_vede(client, superuser):
+    from core.models import DashboardUtente
+    altro = User.objects.create_user("altro", "a@example.com", "x")
+    DashboardUtente.objects.create(utente=altro, layout={"widget": [], "nascosti": ["todo:kpi"]})
+    assert "todo:kpi" in [w["id"] for w in client.get(reverse("core:dashboard")).context["widget"]]
