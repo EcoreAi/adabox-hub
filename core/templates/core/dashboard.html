@@ -35,12 +35,12 @@
     {% endwith %}{% else %}
     <div class="ui-card wd-card">
       <div class="ui-card-head"><div><div class="ui-card-title">{{ w.titolo }}</div><div class="ui-card-sub">{{ w.app }}</div></div><div class="spacer"></div>
-        {% if not w.serie.vuoto %}<button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-tabella aria-pressed="false" aria-controls="wd-tab-{{ forloop.counter }}">Tabella</button>{% endif %}<a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ w.url }}">Apri</a></div>
+        {% if not w.serie.vuoto %}<button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-tabella aria-pressed="false" aria-controls="{{ w.dom }}-tab">Tabella</button>{% endif %}<a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ w.url }}">Apri</a></div>
       <div class="ui-card-body">
         {% if w.serie.vuoto %}<p class="ui-help">Ancora nessun dato.</p>{% else %}
-        <div class="wd-canvas"><canvas data-grafico="wd-serie-{{ forloop.counter }}" role="img" aria-label="{{ w.titolo }}"></canvas></div>
-        {{ w.serie|json_script:"wd-serie-"|add:forloop.counter|stringformat:"s" }}
-        <div class="ui-table-wrap wd-tabella" id="wd-tab-{{ forloop.counter }}" hidden><table class="ui-table"><thead><tr><th>Categoria</th><th class="num">Valore</th></tr></thead>
+        <div class="wd-canvas"><canvas data-grafico="{{ w.dom }}" role="img" aria-label="{{ w.titolo }}"></canvas></div>
+        {{ w.serie|json_script:w.dom }}
+        <div class="ui-table-wrap wd-tabella" id="{{ w.dom }}-tab" hidden><table class="ui-table"><thead><tr><th>Categoria</th><th class="num">Valore</th></tr></thead>
           <tbody>{% for e, v in w.serie.righe %}<tr><td>{{ e }}</td><td class="num">{{ v|floatformat:"-2" }}</td></tr>{% endfor %}</tbody></table></div>
         {% endif %}
       </div>

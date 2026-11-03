@@ -8,8 +8,10 @@
   // --- numeri che salgono fino al valore (solo se il testo comincia con un numero) ---
   document.querySelectorAll('[data-contatore]').forEach((el) => {
     const m = el.textContent.trim().match(/^(\d{1,3}(?:\.\d{3})*|\d+)(,\d+)?(.*)$/);
-    if (!m || ridotto) return;
+    if (!m) return;
     const fine = parseFloat(m[1].replace(/\./g, '') + (m[2] ? m[2].replace(',', '.') : ''));
+    el.classList.toggle('is-zero', fine === 0);       // gli zeri restano in secondo piano: l'occhio va ai numeri veri
+    if (ridotto || fine === 0) return;
     const decimali = m[2] ? m[2].length - 1 : 0;
     const inizio = performance.now();
     const passo = (t) => {
@@ -114,26 +116,71 @@
     }
   });
 
-  // --- trascinamento dalla maniglia: il widget segue il puntatore e si infila dove lo lasci ---
+  // --- trascinamento dalla maniglia: una copia del widget segue il puntatore, il widget vero resta nella griglia come
+  //     segnaposto e si infila al posto di quello su cui si passa (dopo se si va avanti, prima se si torna indietro).
+  //     Si ascolta sul documento, come nel kanban: la presa non si perde quando il widget cambia posto nel DOM
+  //     né quando il puntatore esce dalla griglia; Esc rimette tutto com'era.
+  const SOGLIA = 4;
   let presa = null;
-  griglia.addEventListener('pointerdown', (e) => {
-    const maniglia = e.target.closest('.wd-maniglia');
-    if (!maniglia || !griglia.classList.contains('is-modifica') || e.button !== 0) return;
-    e.preventDefault();
-    presa = maniglia.closest('.wd-widget');
-    presa.classList.add('is-trascinato');
-    maniglia.setPointerCapture(e.pointerId);
-  });
-  griglia.addEventListener('pointermove', (e) => {
+  const inizia = (e) => {
+    const r = presa.widget.getBoundingClientRect();
+    presa.dx = presa.x - r.left; presa.dy = presa.y - r.top;
+    presa.volante = presa.widget.cloneNode(true);
+    presa.volante.classList.add('wd-volante');
+    Object.assign(presa.volante.style, { position: 'fixed', left: '0', top: '0', width: `${r.width}px`, height: `${r.height}px`, margin: '0' });
+    // la copia di un canvas nasce bianca: ci si ridisegna sopra il grafico
+    const copie = presa.volante.querySelectorAll('canvas');
+    presa.widget.querySelectorAll('canvas').forEach((c, i) => {
+      try { copie[i].width = c.width; copie[i].height = c.height; copie[i].getContext('2d').drawImage(c, 0, 0); } catch (err) { /* la copia va bene anche senza */ }
+    });
+    griglia.append(presa.volante);             // dentro la griglia, così tiene gli stili del widget
+    presa.widget.classList.add('is-trascinato');
+    document.body.classList.add('is-trascinando');
+    muovi(e);
+  };
+  const muovi = (e) => {
     if (!presa) return;
+    if (!presa.volante) { if (Math.hypot(e.clientX - presa.x, e.clientY - presa.y) >= SOGLIA) inizia(e); return; }
+    e.preventDefault();
+    presa.volante.style.transform = `translate(${e.clientX - presa.dx}px, ${e.clientY - presa.dy}px) scale(1.02)`;
     const sotto = document.elementFromPoint(e.clientX, e.clientY);
     const altro = sotto && sotto.closest('.wd-widget');
-    if (!altro || altro === presa || altro.parentElement !== griglia) return;
-    const r = altro.getBoundingClientRect();
-    const prima = (e.clientX - r.left) / r.width < 0.5 && (e.clientY - r.top) / r.height < 0.75;
-    if (prima) altro.before(presa); else altro.after(presa);
+    if (!altro || altro === presa.widget || altro === presa.volante || altro.parentElement !== griglia) {
+      if (!altro || altro === presa.widget) presa.ultimo = null;
+      return;
+    }
+    if (altro === presa.ultimo) return;        // la griglia si è riassestata sotto il puntatore: niente rimbalzi
+    presa.ultimo = altro;
+    const avanti = Boolean(altro.compareDocumentPosition(presa.widget) & Node.DOCUMENT_POSITION_PRECEDING);
+    if (avanti) altro.after(presa.widget); else altro.before(presa.widget);
+  };
+  const fine = (e, conferma) => {
+    if (!presa) return;
+    const { widget, volante, genitore, dopo } = presa;
+    presa = null;
+    document.removeEventListener('pointermove', muovi);
+    document.removeEventListener('pointerup', suRilascio);
+    document.removeEventListener('pointercancel', suAnnullo);
+    document.removeEventListener('keydown', suTasto);
+    if (!volante) return;
+    volante.remove();
+    widget.classList.remove('is-trascinato');
+    document.body.classList.remove('is-trascinando');
+    if (conferma) salva(); else genitore.insertBefore(widget, dopo);
+  };
+  const suRilascio = (e) => fine(e, true);
+  const suAnnullo = (e) => fine(e, false);
+  const suTasto = (e) => { if (e.key === 'Escape') fine(e, false); };
+  griglia.addEventListener('pointerdown', (e) => {
+    const maniglia = e.target.closest('.wd-maniglia');
+    if (!maniglia || !griglia.classList.contains('is-modifica') || e.button !== 0 || presa) return;
+    e.preventDefault();
+    const widget = maniglia.closest('.wd-widget');
+    presa = { widget, x: e.clientX, y: e.clientY, volante: null, ultimo: null, genitore: widget.parentElement, dopo: widget.nextElementSibling };
+    document.addEventListener('pointermove', muovi);
+    document.addEventListener('pointerup', suRilascio);
+    document.addEventListener('pointercancel', suAnnullo);
+    document.addEventListener('keydown', suTasto);
   });
-  const lascia = () => { if (!presa) return; presa.classList.remove('is-trascinato'); presa = null; salva(); };
-  griglia.addEventListener('pointerup', lascia);
-  griglia.addEventListener('pointercancel', lascia);
+  griglia.addEventListener('dragstart', (e) => e.preventDefault());
 })();

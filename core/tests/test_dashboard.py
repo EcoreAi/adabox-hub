@@ -67,14 +67,19 @@ def test_manifest_dashboard_e_home_validati(addons_tmp):
 @pytest.mark.django_db
 def test_widget_si_ordinano_allargano_tolgono_e_rimettono(client, superuser):
     import json
+    import re
 
     from core.models import Azienda, DashboardUtente
     from todo.models import Attivita
     Attivita.objects.create(azienda=Azienda.objects.get(pk=1), titolo="Da fare oggi")
     r = client.get(reverse("core:dashboard"))
+    html = r.content.decode()
     ids = [w["id"] for w in r.context["widget"]]
-    assert "todo:kpi" in ids and "todo:g0" in ids and r.context["nascosti"] == [] and "wd-serie-" in r.content.decode()
-    assert "ada-contesto" in r.content.decode() and "chart.umd.js" in r.content.decode()
+    assert "todo:kpi" in ids and "todo:g0" in ids and r.context["nascosti"] == []
+    # il canvas e il blocco JSON con la serie portano lo stesso id, altrimenti il grafico non si disegna
+    serie = re.search(r'<script id="wd-serie-todo-0" type="application/json">(.*?)</script>', html)
+    assert serie and json.loads(serie.group(1))["etichette"] and 'data-grafico="wd-serie-todo-0"' in html
+    assert "ada-contesto" in html and "chart.umd.js" in html
     nuovo = {"widget": [{"id": "todo:g0", "w": 4}, {"id": "todo:kpi", "w": 2}, {"id": "finto:kpi", "w": 1}, {"id": "todo:kpi", "w": 9}],
              "nascosti": ["crm:kpi", "finto:g9", "todo:kpi"]}
     r = client.post(reverse("core:dashboard_layout"), json.dumps(nuovo), content_type="application/json")

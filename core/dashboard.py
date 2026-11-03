@@ -101,7 +101,7 @@ def catalogo(request):
         widget.append({"id": f"{s['slug']}:kpi", "tipo": "kpi", "titolo": s["label"], "scheda": s})
         for i, g in enumerate(s["grafici"]):
             widget.append({"id": f"{s['slug']}:g{i}", "tipo": "grafico", "titolo": g["titolo"], "app": s["label"],
-                           "url": g.get("url") or s["url"], "serie": _serie(g)})
+                           "url": g.get("url") or s["url"], "serie": _serie(g), "dom": f"wd-serie-{s['slug']}-{i}"})
     return widget, ([attivita_kernel] if attivita_kernel else []) + schede_app
 
 
