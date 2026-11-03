@@ -1,0 +1,14 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Adeguamento ISTAT · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Adeguamento ISTAT</h1><div class="sub">Indica la percentuale pubblicata dall'ISTAT: vale dalle prossime fatture dei contratti scelti</div></div></div>
+{% if voci %}<form method="post" class="ui-card is-revealed">{% csrf_token %}
+  <div class="ui-card-body"><label class="ui-label" for="rc-percentuale">Percentuale</label>
+    <input class="ui-input" id="rc-percentuale" name="percentuale" inputmode="decimal" required placeholder="1,5" style="max-width:160px"></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Applica</th><th>Contratto</th><th>Cliente</th><th class="num">A periodo</th><th>Ultimo adeguamento</th></tr></thead><tbody>
+    {% for v in voci %}<tr><td><input type="checkbox" name="canone" value="{{ v.canone.pk }}" aria-label="Adegua {{ v.canone }}"{% if not v.recente %} checked{% endif %}></td>
+      <td><a class="ui-link" href="{% url 'ricorrenti:canoni_dettaglio' v.canone.pk %}">{{ v.canone }}</a></td><td>{{ v.canone.cliente }}</td><td class="num">{{ v.canone.imponibile|floatformat:2 }} €</td>
+      <td>{% if v.ultimo %}{{ v.ultimo.percentuale|floatformat:"-2" }}% il {{ v.ultimo.data|date:"d/m/Y" }}{% if v.recente %} <span class="ui-pill ui-pill-warn">Meno di un anno fa</span>{% endif %}{% else %}Mai{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+  <div class="ui-card-body"><button class="ui-btn ui-btn-primary" type="submit">Applica ai contratti scelti</button></div>
+</form>{% else %}<section class="ui-card is-revealed"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun contratto in corso ha l'adeguamento ISTAT attivo.</p></div></section>{% endif %}
+{% endblock %}

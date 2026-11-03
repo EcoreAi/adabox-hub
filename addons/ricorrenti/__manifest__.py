@@ -1,0 +1,37 @@
+{
+    "name": "Contratti ricorrenti",
+    "summary": "Canoni di manutenzione, hosting, licenze e assistenza: fatture a ogni periodo, rinnovi, disdette, ISTAT e ricavi ricorrenti",
+    "version": "1.0.0",
+    "author": "ICHNOBYTE S.R.L.",
+    "category": "Contabilità",
+    "depends": ["fatturazione"],
+    "min_core": "1.0",
+    "application": True,
+    "icon": "ricorrenti/icon.svg",
+    "dashboard": "ricorrenti.dashboard.kpi",
+    "menu": [
+        {"label": "Ricavi ricorrenti", "url_name": "ricorrenti:cruscotto", "permission": "ricorrenti.view_canone"},
+        {"label": "Contratti", "url_name": "ricorrenti:canoni_lista", "permission": "ricorrenti.view_canone"},
+        {"label": "Adeguamento ISTAT", "url_name": "ricorrenti:adeguamento", "permission": "ricorrenti.change_canone"},
+    ],
+    "groups": {
+        "Contratti ricorrenti / Utente": ["ricorrenti.view_canone", "ricorrenti.view_rigacanone", "ricorrenti.view_fatturacanone",
+                                          "ricorrenti.view_adeguamento"],
+        "Contratti ricorrenti / Responsabile": ["ricorrenti.*", "fatturazione.view_fattura", "fatturazione.add_fattura",
+                                                "fatturazione.add_rigafattura"],
+    },
+    "sequences": [{"codice": "ricorrenti.contratto", "formato": "CT/{anno}/{numero:04d}", "azzera": "anno"}],
+    "cron": [{"nome": "Fatture e rinnovi dei contratti", "funzione": "ricorrenti.operazioni.giro", "ogni": "1h"}],
+    "settings": [
+        {"chiave": "giorni_avviso", "label": "Avvisa della scadenza con quanti giorni di anticipo", "tipo": "intero", "default": 30,
+         "per_azienda": True, "help": "Prima dell'ultimo giorno utile per la disdetta, al responsabile del contratto"},
+    ],
+    "email": [
+        {"codice": "ricorrenti.in_scadenza", "nome": "Avviso interno sul contratto in scadenza", "gruppo": "Contratti",
+         "oggetto": "Contratto in scadenza: {{ contratto }}",
+         "corpo": "Il contratto {{ contratto }} di {{ cliente }} scade il {{ scadenza }}.\n{{ cosa_succede }}\n\n{{ link }}",
+         "campi": {"contratto": ["Il contratto", "CT/2026/0003 Manutenzione"], "cliente": ["Il cliente", "Rossi Srl"],
+                   "scadenza": ["Scadenza", "31/12/2026"], "cosa_succede": ["Che cosa succede", "Si rinnova da solo: per disdirlo c'è tempo fino al 30/09/2026."],
+                   "link": ["Link al contratto", "https://esempio.it/ricorrenti/canoni/3/"]}},
+    ],
+}

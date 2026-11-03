@@ -1,0 +1,18 @@
+{% with fatturati=obj.fatturati.all adeguamenti=obj.adeguamenti.all %}{% if obj.stato != 'bozza' %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Andamento</div></div>
+  <div class="ui-card-body">
+    <div class="cm-tessere">
+      <div class="cm-tessera"><small>Prossimo periodo</small><strong>{{ obj.prossimo_periodo|date:"d/m/Y"|default:"—" }}</strong></div>
+      {% if obj.cessa_il %}<div class="cm-tessera is-negativo"><small>Cessa il</small><strong>{{ obj.cessa_il|date:"d/m/Y" }}</strong></div>
+      {% elif obj.scadenza %}<div class="cm-tessera"><small>{% if obj.rinnovo_tacito %}Si rinnova il{% else %}Scade il{% endif %}</small><strong>{{ obj.scadenza|date:"d/m/Y" }}</strong></div>
+      <div class="cm-tessera"><small>Disdetta entro il</small><strong>{{ obj.limite_disdetta|date:"d/m/Y" }}</strong></div>{% endif %}
+      <div class="cm-tessera"><small>Periodi fatturati</small><strong>{{ fatturati|length }}</strong></div>
+    </div>
+    {% if fatturati %}<div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Periodo</th><th>Fattura</th><th>Stato</th><th class="num">Totale</th></tr></thead>
+    <tbody>{% for v in fatturati|slice:":24" %}<tr><td>{{ v.dal|date:"d/m/Y" }} – {{ v.al|date:"d/m/Y" }}</td>
+      <td><a class="ui-link" href="{% url 'fatturazione:fatture_dettaglio' v.fattura_id %}">{{ v.fattura }}</a></td><td>{{ v.fattura.get_stato_display }}</td>
+      <td class="num">{{ v.fattura.totale|floatformat:2 }} €</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+    {% if adeguamenti %}<p class="sub" style="margin-top:12px">Adeguamenti: {% for a in adeguamenti %}{{ a.percentuale|floatformat:"-2" }}% il {{ a.data|date:"d/m/Y" }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+  </div>
+</section>{% endif %}{% endwith %}
