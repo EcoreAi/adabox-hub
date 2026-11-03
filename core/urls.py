@@ -1,6 +1,6 @@
 from django.urls import include, path
 
-from . import due_fattori_viste, views
+from . import due_fattori_viste, utenti, views
 from .viste import allegati as allegati_viste
 from .viste import chatter as chatter_viste
 from .viste import registry
@@ -31,6 +31,17 @@ urlpatterns = [
     path("allegati/carica/<int:ct>/<int:pk>/", allegati_viste.carica, name="allegato_carica"),
     path("allegati/<int:pk>/", allegati_viste.scarica, name="allegato_scarica"),
     path("allegati/<int:pk>/elimina/", allegati_viste.elimina, name="allegato_elimina"),
+    path("utenti/", utenti.lista, name="utenti"),
+    path("utenti/nuovo/", utenti.scheda, name="utente_nuovo"),
+    path("utenti/matrice/", utenti.matrice, name="matrice"),
+    path("utenti/ruoli/", utenti.ruoli_lista, name="ruoli"),
+    path("utenti/ruoli/nuovo/", utenti.ruolo, name="ruolo_nuovo"),
+    path("utenti/ruoli/<int:pk>/", utenti.ruolo, name="ruolo"),
+    path("utenti/ruoli/<int:pk>/elimina/", utenti.ruolo_elimina, name="ruolo_elimina"),
+    path("utenti/<int:pk>/", utenti.scheda, name="utente"),
+    path("utenti/<int:pk>/invito/", utenti.invito, name="utente_invito"),
+    path("utenti/<int:pk>/due-fattori/", utenti.due_fattori_azzera, name="utente_due_fattori"),
+    path("utenti/<int:pk>/livello/", utenti.livello, name="utente_livello"),
     path("moduli/", views.moduli, name="moduli"),
     path("moduli/azione/", views.moduli_azione, name="moduli_azione"),
     path("moduli/attivazione/", views.moduli_attivazione, name="moduli_attivazione"),

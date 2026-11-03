@@ -1,0 +1,16 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Utenti e ruoli · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Utenti e ruoli</h1><div class="sub">Chi entra, con quale ruolo e in quali aziende</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="{% url 'core:matrice' %}">Matrice degli accessi</a>{% if puo_ruoli %}<a class="ui-btn ui-btn-secondary" href="{% url 'core:ruoli' %}">Ruoli</a>{% endif %}<a class="ui-btn ui-btn-primary" href="{% url 'core:utente_nuovo' %}"><svg><use href="#icon-plus"/></svg> Nuovo utente</a></div></div>
+<div class="ut-filtri"><a class="ui-btn ui-btn-ghost ui-btn-sm{% if not tutti %} is-active{% endif %}" href="?">Attivi</a><a class="ui-btn ui-btn-ghost ui-btn-sm{% if tutti %} is-active{% endif %}" href="?stato=tutti">Tutti</a></div>
+<section class="ui-card is-revealed"><div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Utente</th><th>Email</th><th>Ruolo</th><th>Aziende</th><th>Ultimo accesso</th><th>Stato</th></tr></thead><tbody>
+  {% for r in righe %}<tr{% if not r.u.is_active %} class="is-spento"{% endif %}>
+    <td><a class="ui-link" href="{% url 'core:utente' r.u.pk %}"><strong>{% firstof r.u.get_full_name r.u.username %}</strong></a><div class="sub">{{ r.u.username }}{% if r.u.is_superuser %} · superutente{% endif %}{% if r.profilo.esterno %} · esterno (portale){% endif %}</div></td>
+    <td>{{ r.u.email|default:"—" }}</td>
+    <td>{% if r.u.is_superuser %}<span class="ui-pill ui-pill-neutral">Tutto</span>{% elif r.profilo.ruolo %}{{ r.profilo.ruolo }}{% if r.profilo.eccezioni %} <span class="ui-pill ui-pill-neutral" title="Con eccezioni per modulo">+{{ r.profilo.eccezioni|length }}</span>{% endif %}{% else %}<span class="ui-pill ui-pill-warn" title="I suoi gruppi si gestiscono a mano">Nessun ruolo</span>{% endif %}</td>
+    <td>{% for a in r.profilo.aziende.all %}{{ a }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td>
+    <td>{{ r.u.last_login|date:"d/m/Y H:i"|default:"mai" }}</td>
+    <td>{% if r.u.is_active %}<span class="ui-pill ui-pill-ok">Attivo</span>{% else %}<span class="ui-pill ui-pill-neutral">Disattivato</span>{% endif %}{% if r.due_fattori %} <span class="ui-pill ui-pill-neutral" title="Verifica in due passaggi attiva">2FA</span>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="6"><div class="ui-empty"><p>Nessun utente.</p></div></td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

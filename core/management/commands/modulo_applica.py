@@ -16,6 +16,7 @@ from core.lavori import sincronizza_pianificazioni
 from core import sequenze
 from core.models import Modulo, Sequenza
 from core.registry import manifest as mf
+from core import ruoli
 from core.registry.groups import crea_gruppi
 
 
@@ -81,7 +82,7 @@ class Command(BaseCommand):
         self._migra(slug)
         with transaction.atomic():
             carica_fixture(m, demo)
-            gruppi = crea_gruppi(m)
+            gruppi = crea_gruppi(m) + ruoli.gruppi_del_kernel(m)
             sincronizza_pianificazioni(slug, m.cron)
             sequenze.crea(m.sequences)
             riga = aggiorna_riga(m)
@@ -90,6 +91,7 @@ class Command(BaseCommand):
                 esegui_hook(m, "demo", riga)               # dati dimostrativi creati in Python (spec fase 5)
             aggiorna_riga(m, stato=Modulo.INSTALLATO, versione_installata=m.version,
                           installato_il=timezone.now(), gruppi_creati=gruppi)
+            ruoli.applica_a_tutti()                      # i gruppi nuovi a chi ha un ruolo
 
     def _aggiorna(self, slug, **_):
         m = _manifest(slug)
@@ -98,13 +100,14 @@ class Command(BaseCommand):
         self._migra(slug)
         with transaction.atomic():
             carica_fixture(m)
-            gruppi = crea_gruppi(m)
+            gruppi = crea_gruppi(m) + ruoli.gruppi_del_kernel(m)
             sincronizza_pianificazioni(slug, m.cron)
             sequenze.crea(m.sequences)
             riga = aggiorna_riga(m)
             esegui_hook(m, "post_upgrade", riga, da)
             aggiorna_riga(m, stato=Modulo.INSTALLATO, versione_installata=m.version,
                           aggiornato_il=timezone.now(), gruppi_creati=gruppi)
+            ruoli.applica_a_tutti()
 
     def _disinstalla(self, slug, elimina_dati, **_):
         try:

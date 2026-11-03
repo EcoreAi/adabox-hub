@@ -1,0 +1,10 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Ruoli · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Ruoli</h1><div class="sub">Un livello di partenza per tutti i moduli, e le differenze modulo per modulo</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'core:utenti' %}"><svg><use href="#icon-arrow-left"/></svg> Utenti</a><a class="ui-btn ui-btn-primary" href="{% url 'core:ruolo_nuovo' %}"><svg><use href="#icon-plus"/></svg> Nuovo ruolo</a></div></div>
+<section class="ui-card is-revealed"><div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Ruolo</th><th>In tutti i moduli</th><th>Differenze</th><th>Amministra</th><th class="num">Utenti</th></tr></thead><tbody>
+  {% for r in righe %}<tr><td><a class="ui-link" href="{% url 'core:ruolo' r.r.pk %}"><strong>{{ r.r }}</strong></a>{% if r.r.predefinito %} <span class="ui-pill ui-pill-ok">Ai nuovi utenti</span>{% endif %}<div class="sub">{{ r.r.descrizione }}</div></td>
+    <td>{{ r.base }}</td><td class="sub">{{ r.diversi|default:"—" }}</td><td>{% if r.r.amministra %}Sì{% else %}—{% endif %}</td><td class="num">{{ r.utenti }}</td></tr>{% endfor %}</tbody></table></div></section>
+<p class="sub" style="margin-top:12px">Livelli: <strong>Nessun accesso</strong> non vede il modulo · <strong>Sola lettura</strong> vede e basta · <strong>Lavoro</strong> i gruppi di base del modulo (Utente, Operatore, Venditore…) · <strong>Responsabile</strong> tutti i gruppi del modulo.</p>
+{% endblock %}

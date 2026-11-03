@@ -32,6 +32,9 @@ def voci_kernel(user):
     if attivita_servizio.mie(user).exists():
         voci.append({"label": "Le mie attività", "url": reverse("core:attivita"), "icon": "check",
                      "sub": f"Da fare oggi o scadute: {attivita_servizio.da_fare_oggi(user)}"})
+    if user.has_perm("auth.change_user"):
+        voci.append({"label": "Utenti e ruoli", "url": reverse("core:utenti"), "icon": "users",
+                     "sub": "Chi entra, con quale ruolo e che cosa può fare in ogni modulo"})
     if user.has_perm("core.view_azienda"):
         voci.append({"label": "Aziende", "url": reverse("core:aziende_lista"), "icon": "tool",
                      "sub": "Anagrafica delle aziende dell'istanza"})

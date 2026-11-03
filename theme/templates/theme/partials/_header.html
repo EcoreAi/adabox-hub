@@ -41,9 +41,11 @@
           <hr>
           {% for voce in voci_profilo %}<a href="{{ voce.url }}"><svg><use href="#icon-{{ voce.icon }}"/></svg> {{ voce.label }}</a>{% endfor %}
           {% endif %}
-          {% if user.is_staff %}
+          {% url 'core:utenti' as url_utenti %}
+          {% if perms.auth.change_user and url_utenti or user.is_staff %}
           <hr>
-          <a href="{% url 'admin:index' %}"><svg><use href="#icon-tool"/></svg> Amministrazione</a>
+          {% if perms.auth.change_user and url_utenti %}<a href="{{ url_utenti }}"><svg><use href="#icon-users"/></svg> Utenti e ruoli</a>{% endif %}
+          {% if user.is_staff %}<a href="{% url 'admin:index' %}"><svg><use href="#icon-tool"/></svg> Amministrazione</a>{% endif %}
           {% endif %}
           <hr>
           <form method="post" action="{% url 'logout' %}" class="ui-logout-form">

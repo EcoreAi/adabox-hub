@@ -35,8 +35,33 @@ class Azienda(ProprietaMixin):
         return self.nome
 
 
+class Ruolo(models.Model):
+    """Che cosa può fare una persona in ogni modulo: un livello di partenza e, dove serve, un livello diverso per modulo.
+    I livelli diventano i gruppi Django dei moduli (vedi core.ruoli)."""
+    LIVELLI = [("nessuno", "Nessun accesso"), ("lettura", "Sola lettura"), ("lavoro", "Lavoro"), ("responsabile", "Responsabile")]
+    nome = models.CharField("nome", max_length=60, unique=True)
+    descrizione = models.CharField("descrizione", max_length=200, blank=True)
+    livello_base = models.CharField("livello in tutti i moduli", max_length=12, choices=LIVELLI, default="lavoro")
+    livelli = models.JSONField("livelli per modulo", default=dict, blank=True, help_text="{slug del modulo: livello}, dove il ruolo si discosta dal livello base")
+    amministra = models.BooleanField("amministra la piattaforma", default=False,
+                                     help_text="utenti, ruoli, impostazioni, moduli e admin di Django")
+    predefinito = models.BooleanField("ai nuovi utenti", default=False, help_text="il ruolo di chi viene creato senza sceglierne uno")
+    ordine = models.PositiveSmallIntegerField("ordine", default=10)
+
+    class Meta:
+        verbose_name = "ruolo"
+        verbose_name_plural = "ruoli"
+        ordering = ["ordine", "nome"]
+
+    def __str__(self):
+        return self.nome
+
+
 class ProfiloUtente(models.Model):
     utente = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profilo")
+    ruolo = models.ForeignKey(Ruolo, on_delete=models.SET_NULL, null=True, blank=True, related_name="profili", verbose_name="ruolo",
+                              help_text="vuoto: i gruppi si gestiscono a mano, come prima dei ruoli")
+    eccezioni = models.JSONField("eccezioni per modulo", default=dict, blank=True, help_text="{slug del modulo: livello} che vince sul ruolo")
     aziende = models.ManyToManyField(Azienda, verbose_name="aziende consentite", blank=True)
     azienda_predefinita = models.ForeignKey(Azienda, on_delete=models.SET_NULL, null=True, blank=True,
                                             related_name="+", verbose_name="azienda predefinita")
