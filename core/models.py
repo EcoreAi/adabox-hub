@@ -44,7 +44,9 @@ class Ruolo(models.Model):
     livello_base = models.CharField("livello in tutti i moduli", max_length=12, choices=LIVELLI, default="lavoro")
     livelli = models.JSONField("livelli per modulo", default=dict, blank=True, help_text="{slug del modulo: livello}, dove il ruolo si discosta dal livello base")
     amministra = models.BooleanField("amministra la piattaforma", default=False,
-                                     help_text="utenti, ruoli, impostazioni, moduli e admin di Django")
+                                     help_text="utenti, ruoli, impostazioni e admin di Django")
+    tecnico = models.BooleanField("accesso tecnico completo", default=False,
+                                  help_text="superutente: anche moduli, lavori e tutto l'admin di Django; per chi gestisce la piattaforma")
     predefinito = models.BooleanField("ai nuovi utenti", default=False, help_text="il ruolo di chi viene creato senza sceglierne uno")
     ordine = models.PositiveSmallIntegerField("ordine", default=10)
 

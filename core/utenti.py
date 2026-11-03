@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.tokens import default_token_generator
+from django.core.exceptions import PermissionDenied
 from django.core.mail import EmailMessage
 from django.db import transaction
 from django.http import HttpResponseBadRequest
@@ -50,8 +51,10 @@ class UtenteForm(forms.ModelForm):
         fields = ["first_name", "last_name", "email", "username", "is_active"]
         labels = {"first_name": "Nome", "last_name": "Cognome", "email": "Email", "username": "Nome utente", "is_active": "Attivo"}
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, tecnico_ammesso=False, **kwargs):
         super().__init__(*args, **kwargs)
+        if not tecnico_ammesso:                      # il ruolo che rende superutente lo dà solo un superutente
+            self.fields["ruolo"].queryset = Ruolo.objects.filter(tecnico=False)
         self.fields["email"].required = True
         self.fields["username"].required = False
         self.fields["username"].help_text = "Vuoto: la parte dell'email prima della chiocciola"
@@ -77,10 +80,12 @@ class UtenteForm(forms.ModelForm):
 class RuoloForm(forms.ModelForm):
     class Meta:
         model = Ruolo
-        fields = ["nome", "descrizione", "livello_base", "amministra", "predefinito", "ordine"]
+        fields = ["nome", "descrizione", "livello_base", "amministra", "tecnico", "predefinito", "ordine"]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, tecnico_ammesso=False, **kwargs):
         super().__init__(*args, **kwargs)
+        if not tecnico_ammesso:
+            del self.fields["tecnico"]
         _classi(self)
 
 
@@ -131,7 +136,7 @@ def scheda(request, pk=None):
     profilo = crea_profilo(utente) if utente else None
     se_stesso = utente is not None and utente == request.user
     if request.method == "POST":
-        form = UtenteForm(request.POST, instance=utente)
+        form = UtenteForm(request.POST, instance=utente, tecnico_ammesso=request.user.is_superuser)
         if form.is_valid():
             with transaction.atomic():
                 nuovo = utente is None
@@ -162,7 +167,7 @@ def scheda(request, pk=None):
     else:
         iniziali = {"ruolo": profilo.ruolo_id if profilo else (ruoli.predefinito() or Ruolo.objects.filter(nome="Collaboratore").first()),
                     "aziende": list(profilo.aziende.all()) if profilo else list(Azienda.objects.filter(attiva=True))}
-        form = UtenteForm(instance=utente, initial=iniziali)
+        form = UtenteForm(instance=utente, initial=iniziali, tecnico_ammesso=request.user.is_superuser)
     ruolo_scelto = profilo.ruolo if profilo else form.initial.get("ruolo")
     if isinstance(ruolo_scelto, int):
         ruolo_scelto = Ruolo.objects.filter(pk=ruolo_scelto).first()
@@ -245,8 +250,9 @@ def matrice(request):
 @login_required
 @permission_required(GESTIONE_RUOLI, raise_exception=True)
 def ruoli_lista(request):
+    nomi = {slug: m.name for slug, m in ruoli.moduli_gestibili()}
     righe = [{"r": r, "utenti": r.profili.count(), "base": ruoli.ETICHETTE[r.livello_base],
-              "diversi": ", ".join(f"{dict(ruoli.moduli_gestibili()).get(s).name if dict(ruoli.moduli_gestibili()).get(s) else s}: {ruoli.ETICHETTE.get(l, l)}" for s, l in r.livelli.items())}
+              "diversi": ", ".join(f"{nomi.get(s, s)}: {ruoli.ETICHETTE.get(l, l)}" for s, l in r.livelli.items())}
              for r in Ruolo.objects.all()]
     return render(request, "core/utenti/ruoli.html", {"righe": righe})
 
@@ -255,8 +261,10 @@ def ruoli_lista(request):
 @permission_required(GESTIONE_RUOLI, raise_exception=True)
 def ruolo(request, pk=None):
     istanza = get_object_or_404(Ruolo, pk=pk) if pk else None
+    if istanza is not None and istanza.tecnico and not request.user.is_superuser:
+        raise PermissionDenied                       # un ruolo che rende superutente lo tocca solo un superutente
     if request.method == "POST":
-        form = RuoloForm(request.POST, instance=istanza)
+        form = RuoloForm(request.POST, instance=istanza, tecnico_ammesso=request.user.is_superuser)
         if form.is_valid():
             with transaction.atomic():
                 r = form.save(commit=False)
@@ -267,7 +275,7 @@ def ruolo(request, pk=None):
             messages.success(request, f"Ruolo «{r}» salvato: vale già per chi lo ha.")
             return redirect("core:ruolo", pk=r.pk)
     else:
-        form = RuoloForm(instance=istanza)
+        form = RuoloForm(instance=istanza, tecnico_ammesso=request.user.is_superuser)
     righe = [{"slug": slug, "nome": m.name, "livello": (istanza.livelli.get(slug, "") if istanza else "")} for slug, m in ruoli.moduli_gestibili()]
     return render(request, "core/utenti/ruolo.html", {"form": form, "ruolo": istanza, "moduli": righe, "livelli": ruoli.LIVELLI,
                                                        "utenti": istanza.profili.count() if istanza else 0})

@@ -3,7 +3,8 @@
 {% block app_content %}
 <div class="ui-pagehead"><div><h1>{% if utente %}{% firstof utente.get_full_name utente.username %}{% else %}Nuovo utente{% endif %}</h1><div class="sub">{% if utente %}{{ utente.username }} · ultimo accesso {{ utente.last_login|date:"d/m/Y H:i"|default:"mai" }}{% else %}Riceverà un'email per scegliere la password{% endif %}</div></div>
   <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'core:utenti' %}"><svg><use href="#icon-arrow-left"/></svg> Utenti</a></div></div>
-{% if se_stesso %}<div class="ui-alert ui-alert-info">Stai modificando te stesso: ruolo e stato attivo non si cambiano da qui, così non ti chiudi fuori.</div>{% endif %}
+{% if se_stesso %}<div class="ui-alert ui-alert-info">Stai modificando te stesso: ruolo e stato attivo non si cambiano da qui, così non ti chiudi fuori.</div>
+{% elif utente.is_superuser %}<div class="ui-alert ui-alert-warning">È un superutente. Con un ruolo diverso da Global Admin smette di esserlo.</div>{% endif %}
 <form method="post" class="ut-form">{% csrf_token %}
   {% if form.non_field_errors %}<div class="ui-alert ui-alert-danger">{{ form.non_field_errors }}</div>{% endif %}
   <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Persona</div></div>

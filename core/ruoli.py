@@ -1,7 +1,8 @@
 """Ruoli: che cosa può fare una persona in ogni modulo, tradotto nei gruppi Django dei moduli.
 
 Un ruolo ha un livello di partenza (nessuno, lettura, lavoro, responsabile) e può cambiarlo modulo per modulo; una
-persona ha un ruolo e, se serve, le sue eccezioni. Da questi si ricavano i gruppi: «lavoro» sono i gruppi di base del
+persona ha un ruolo e, se serve, le sue eccezioni. Un ruolo «tecnico» rende superutente (Global Admin), uno che
+«amministra» dà utenti, ruoli e impostazioni (Admin). Da questi si ricavano i gruppi: «lavoro» sono i gruppi di base del
 modulo (Utente, Operatore, Venditore…), «responsabile» tutti i suoi gruppi, «lettura» un gruppo con i soli permessi di
 vista che il kernel crea per lui. Chi non ha un ruolo resta com'era: i suoi gruppi non si toccano."""
 from django.contrib.auth import get_user_model
@@ -109,7 +110,8 @@ def applica(utente):
             continue                                 # senza ruolo si toccano solo i moduli con un'eccezione
         gestiti |= set(m.groups) | {nome_lettura(m)}
         voluti |= gruppi_per_livello(m, livello)
-    amministra = bool(profilo.ruolo_id and profilo.ruolo.amministra)
+    tecnico = bool(profilo.ruolo_id and profilo.ruolo.tecnico)
+    amministra = tecnico or bool(profilo.ruolo_id and profilo.ruolo.amministra)
     if profilo.ruolo_id:
         gestiti.add(PIATTAFORMA)
     if amministra:
@@ -120,10 +122,15 @@ def applica(utente):
     cambiato = nuovi != attuali
     if cambiato:
         utente.groups.set(Group.objects.filter(name__in=nuovi))
-    if profilo.ruolo_id and not utente.is_superuser and utente.is_staff != amministra:
-        utente.is_staff = amministra
-        utente.save(update_fields=["is_staff"])
-        cambiato = True
+    if profilo.ruolo_id:                                 # con un ruolo, superutente e staff li decide il ruolo
+        campi = []
+        if utente.is_superuser != tecnico:
+            utente.is_superuser, campi = tecnico, [*campi, "is_superuser"]
+        if utente.is_staff != amministra:
+            utente.is_staff, campi = amministra, [*campi, "is_staff"]
+        if campi:
+            utente.save(update_fields=campi)
+            cambiato = True
     return cambiato
 
 

@@ -49,7 +49,7 @@ def test_i_livelli_diventano_gruppi(gruppi):
     anna.profilo.ruolo = gruppi["Manager"]
     anna.profilo.save()
     assert {"Vendite / Venditore", "Vendite / Responsabile"} <= _nomi(anna)
-    anna.profilo.ruolo = gruppi["Sola lettura"]
+    anna.profilo.ruolo = gruppi["Lettore"]
     anna.profilo.save()
     anna = User.objects.get(pk=anna.pk)
     assert "Vendite / Lettura" in _nomi(anna) and "Vendite / Venditore" not in _nomi(anna) and "Fiscale / Lettura" in _nomi(anna)
@@ -80,7 +80,7 @@ def test_senza_ruolo_non_si_tocca_niente(gruppi):
 
 
 def test_amministra_la_piattaforma(gruppi):
-    capo = _utente("capo", gruppi["Amministratore"])
+    capo = _utente("capo", gruppi["Admin"])
     assert capo.is_staff and ruoli.PIATTAFORMA in _nomi(capo)
     assert capo.has_perm("auth.change_user") and capo.has_perm("core.change_parametro") and capo.has_perm("core.change_ruolo")
     capo.profilo.ruolo = gruppi["Collaboratore"]
@@ -121,7 +121,7 @@ def test_livello_dedotto_dai_gruppi(gruppi):
 
 @pytest.fixture
 def capo(gruppi, client):
-    u = _utente("capo", gruppi["Amministratore"])
+    u = _utente("capo", gruppi["Admin"])
     client.force_login(User.objects.get(pk=u.pk))
     return u
 
@@ -164,7 +164,7 @@ def test_pagine_invito_matrice(gruppi, capo, client, settings):
 def test_protezioni(gruppi, capo, client):
     client.post(f"/utenti/{capo.pk}/", {"first_name": "Capo", "email": "capo@example.com", "username": "capo", "ruolo": gruppi["Collaboratore"].pk})
     dopo = User.objects.get(pk=capo.pk)
-    assert dopo.is_active and dopo.profilo.ruolo.nome == "Amministratore"          # non ci si chiude fuori da soli
+    assert dopo.is_active and dopo.profilo.ruolo.nome == "Admin"          # non ci si chiude fuori da soli
     anna = _utente("anna", gruppi["Collaboratore"])
     client.force_login(User.objects.get(pk=anna.pk))
     for url in ("/utenti/", "/utenti/nuovo/", "/utenti/matrice/", "/utenti/ruoli/", f"/utenti/{capo.pk}/"):
@@ -190,3 +190,25 @@ def test_pagine_dei_ruoli(gruppi, capo, client):
     gina.profilo.save()
     client.post(f"/utenti/ruoli/{contabile.pk}/elimina/")
     assert not Ruolo.objects.filter(pk=contabile.pk).exists()
+
+
+def test_global_admin_e_tecnico_e_la_scala(gruppi):
+    assert [r.nome for r in Ruolo.objects.all()] == ["Global Admin", "Admin", "Manager", "Supervisore", "Collaboratore", "Lettore"]
+    g = _utente("g", gruppi["Global Admin"])
+    assert g.is_superuser and g.is_staff
+    g.profilo.ruolo = gruppi["Admin"]
+    g.profilo.save()
+    g = User.objects.get(pk=g.pk)
+    assert not g.is_superuser and g.is_staff and ruoli.PIATTAFORMA in _nomi(g)
+    s = _utente("s", gruppi["Supervisore"])
+    assert "Vendite / Venditore" in _nomi(s) and "Vendite / Responsabile" not in _nomi(s) and gruppi["Supervisore"].livelli["spese"] == "responsabile"
+
+
+def test_global_admin_lo_assegna_solo_un_superutente(gruppi, capo, client):
+    assert "Global Admin" not in client.get("/utenti/nuovo/").content.decode()
+    r = client.post("/utenti/nuovo/", {"first_name": "X", "email": "x@example.com", "is_active": "on", "ruolo": gruppi["Global Admin"].pk})
+    assert r.status_code == 200 and not User.objects.filter(email="x@example.com").exists()
+    assert client.get(f"/utenti/ruoli/{gruppi['Global Admin'].pk}/").status_code == 403
+    assert 'name="tecnico"' not in client.get("/utenti/ruoli/nuovo/").content.decode()
+    client.force_login(User.objects.create_superuser("root", "r@example.com", "x"))
+    assert "Global Admin" in client.get("/utenti/nuovo/").content.decode() and 'name="tecnico"' in client.get("/utenti/ruoli/nuovo/").content.decode()
