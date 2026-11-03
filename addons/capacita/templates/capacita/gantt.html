@@ -1,0 +1,14 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Gantt · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Gantt</h1><div class="sub">Le prossime 16 settimane secondo il piano: per cambiare una data cambia stime, priorità, assegnatari o dipendenze del compito</div></div></div>
+{% if gruppi %}<section class="ui-card is-revealed"><div class="cp-gantt" style="--cp-sett:{{ larghezza_settimana }}%">
+  <div class="cp-riga cp-scala"><div class="cp-nome"></div><div class="cp-pista">{% for s in settimane %}<span style="left:{{ s.sinistra|stringformat:'.4f' }}%">{{ s.lunedi|date:"d/m" }}</span>{% endfor %}</div></div>
+  {% for g in gruppi %}<div class="cp-gruppo"><a class="ui-link" href="{% url 'progetti:progetti_dettaglio' g.progetto.pk %}">{{ g.progetto }}</a></div>
+    {% for r in g.righe %}<div class="cp-riga"><div class="cp-nome"><a class="ui-link" href="{% url 'progetti:compiti_dettaglio' r.voce.pk %}">{{ r.voce.titolo }}</a><small>{{ r.persone }}</small></div>
+      <div class="cp-pista"><i class="cp-oggi" style="left:{{ oggi_sinistra|stringformat:'.4f' }}%"></i><span class="cp-barra{% if r.voce.in_ritardo %} is-tardi{% endif %}{% if r.oltre %} is-oltre{% endif %}" style="left:{{ r.sinistra|stringformat:'.4f' }}%;width:{{ r.larghezza|stringformat:'.4f' }}%" title="{{ r.voce.titolo }}: {{ r.voce.inizio|date:'d/m/Y' }} – {{ r.voce.fine|date:'d/m/Y' }}{% if r.voce.scadenza %}, scadenza {{ r.voce.scadenza|date:'d/m/Y' }}{% endif %}{% if r.voce.in_ritardo %} (+{{ r.voce.giorni_ritardo }} giorni){% endif %}">{% if r.voce.in_ritardo %}⚠{% endif %}</span></div></div>{% endfor %}
+  {% endfor %}
+</div></section>
+<p class="cp-legenda"><span class="cp-campione"></span> In tempo <span class="cp-campione is-tardi"></span> ⚠ Oltre la scadenza <span class="cp-campione is-oggi"></span> Oggi</p>
+{% else %}<section class="ui-card is-revealed"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun compito con stima e assegnatario nei prossimi mesi.</p></div></section>{% endif %}
+{% endblock %}
