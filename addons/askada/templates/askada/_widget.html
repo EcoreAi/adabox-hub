@@ -1,0 +1,4 @@
+{% load tema %}{% if perms.ai.add_conversazione and app_corrente.slug != "ai" %}<link rel="stylesheet" href="{% statico 'ai/chat.css' %}">
+<button type="button" class="ak-etichetta" id="ak-etichetta" data-apri="{% url 'askada:apri' %}" title="Fai una domanda su questa pagina"><svg><use href="#icon-zap"/></svg> Chiedi ad Ada</button>
+<div id="ak-modale"></div>
+<script src="{% statico 'askada/askada.js' %}" defer></script>{% endif %}

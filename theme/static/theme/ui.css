@@ -1534,3 +1534,18 @@ tr.is-spento td { color: var(--ui-text-3); }
 @media (max-width: 1100px) { .wd-griglia { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wd-widget { grid-column: span min(var(--w, 1), 2); } }
 @media (max-width: 700px) { .wd-griglia { grid-template-columns: minmax(0, 1fr); } .wd-widget { grid-column: span 1; } .wd-cassetto { left: 16px; width: auto; } }
 @media (prefers-reduced-motion: reduce) { .wd-widget, .wd-cassetto { animation: none; } }
+
+/* ---------- chiedi ad Ada */
+.ak-etichetta { position: fixed; right: 20px; bottom: 20px; z-index: 140; display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border: 0; border-radius: 999px; background: linear-gradient(135deg, var(--ui-primary), #7c3aed); color: #fff; font: inherit; font-weight: 600; cursor: pointer; box-shadow: 0 10px 30px rgba(30, 58, 138, .35); transition: transform .15s, box-shadow .15s; }
+.ak-etichetta svg { width: 16px; height: 16px; fill: none; stroke: currentColor; } .ak-etichetta:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(30, 58, 138, .4); }
+.ak-modale { align-items: flex-start; padding-top: 40px; overflow-y: auto; }
+.ak-box { max-width: 720px; padding: 0; overflow: hidden; animation: df-entra .3s cubic-bezier(.2, .8, .2, 1) both; }
+.ak-testa { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 18px 22px 12px; border-bottom: 1px solid var(--ui-border); }
+.ak-testa h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 18px; } .ak-scintilla { width: 20px; height: 20px; color: #7c3aed; } .ak-testa p { margin: 4px 0 0; font-size: 13px; color: var(--ui-text-2); }
+.ak-thread { padding: 14px 22px; max-height: 52vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.ak-recenti { margin: 0; font-size: 12px; color: var(--ui-text-2); }
+.ak-suggerimenti { display: flex; flex-wrap: wrap; gap: 6px; } .ak-chip { padding: 6px 12px; border: 1px solid var(--ui-border); border-radius: 999px; background: var(--ui-surface-2); font: inherit; font-size: 13px; cursor: pointer; } .ak-chip:hover { border-color: var(--ui-primary); color: var(--ui-primary); }
+.ak-form { display: flex; gap: 8px; align-items: flex-end; padding: 12px 22px; border-top: 1px solid var(--ui-border); } .ak-form textarea { flex: 1; resize: vertical; min-height: 44px; }
+.ak-piede { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 8px 22px 14px; font-size: 12px; color: var(--ui-text-3); }
+@media (max-width: 600px) { .ak-etichetta { right: 12px; bottom: 12px; padding: 10px 12px; } .ak-modale { padding-top: 12px; } }
+@media (prefers-reduced-motion: reduce) { .ak-box { animation: none; } .ak-etichetta { transition: none; } }
