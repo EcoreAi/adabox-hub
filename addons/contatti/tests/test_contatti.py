@@ -156,3 +156,35 @@ def test_bottone_vies(client, superuser, monkeypatch):
     assert "non risponde" in client.post(f"/contatti/contatti/{c.pk}/bottone/verifica_vies/", follow=True).content.decode()
     c.refresh_from_db()
     assert c.vies_valido is True
+
+
+def test_kanban_ricco_ruoli_categorie_e_riepilogo(client, utente_contatti):
+    from contatti.models import Categoria
+    azienda = Azienda.objects.get(pk=1)
+    verde = Categoria.objects.create(nome="VIP", colore="#16a34a")
+    strano = Categoria.objects.create(nome="Strano", colore='red;"><b>x')
+    c = Contatto.objects.create(azienda=azienda, nome="Cliente Srl", cliente=True, citta="Milano", email="c@example.com")
+    c.categorie.add(verde, strano)
+    Contatto.objects.create(azienda=azienda, nome="Fornitore Srl", fornitore=True)
+    Contatto.objects.create(azienda=azienda, nome="Entrambi Srl", cliente=True, fornitore=True)
+    Contatto.objects.create(azienda=azienda, nome="Spento Srl", cliente=True, attivo=False)
+    Contatto.objects.create(azienda=azienda, nome="Mario Neri", tipo=Contatto.PERSONA)
+    html = client.get("/contatti/contatti/kanban/").content.decode()
+    for testo in ("is-accento-verde", "is-accento-azzurro", "is-accento-viola", "is-accento-grigio", "Cliente e fornitore", "Non attivo",
+                  "Nessun ruolo", "ui-tinta-azzurro", "ui-tinta-viola", "3 clienti · 2 fornitori", "0 clienti · 0 fornitori", "c@example.com"):
+        assert testo in html
+    assert 'style="--ui-tinta:#16a34a"' in html
+    assert "<b>x" not in html and 'ui-tinta-grigio">Strano' in html       # il colore non valido non arriva allo stile
+
+
+def test_kanban_ricco_non_fa_una_query_per_scheda(client, utente_contatti, django_assert_max_num_queries):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    azienda = Azienda.objects.get(pk=1)
+    Contatto.objects.create(azienda=azienda, nome="Uno", responsabile=utente_contatti)
+    with CaptureQueriesContext(connection) as una:
+        client.get("/contatti/contatti/kanban/")
+    for i in range(6):
+        Contatto.objects.create(azienda=azienda, nome=f"Altro {i}", responsabile=utente_contatti)
+    with django_assert_max_num_queries(len(una)):
+        client.get("/contatti/contatti/kanban/")
