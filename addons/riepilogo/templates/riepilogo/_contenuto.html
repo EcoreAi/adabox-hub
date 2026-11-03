@@ -2,6 +2,7 @@
 <section class="rp-sezione"><h3>{{ s.titolo }}</h3><p class="rp-sotto">{{ s.sottotitolo }}</p>
   <ul class="rp-voci">{% for v in s.voci %}
     <li class="rp-voce{% if v.urgente %} is-urgente{% endif %}">
+      <form class="rp-muta-form" method="post" action="{% url 'riepilogo:silenzia' %}"{% if in_pannello %} hx-post="{% url 'riepilogo:silenzia' %}" hx-target="#rp-pannello" hx-swap="innerHTML"{% endif %}>{% csrf_token %}<input type="hidden" name="chiave" value="{{ v.chiave }}"><input type="hidden" name="ritorno" value="{{ request.get_full_path }}"><button class="rp-muta" type="submit" title="Non mostrare più «{{ v.nome }}» (si riattiva da «Cosa mostrare»)" aria-label="Silenzia {{ v.nome }}">×</button></form>
       <a class="rp-voce-testo" href="{{ v.url|default:'#' }}">{% if v.conteggio %}<b>{{ v.numero }}</b> {{ v.etichetta }}{% else %}{{ v.testo }}{% endif %}</a>
       {% if v.nota %}<div class="rp-nota">{{ v.nota }}</div>{% endif %}
       {% if v.dettagli %}<ul class="rp-dettagli">{% for testo, url in v.dettagli %}<li>{% if url %}<a href="{{ url }}">{{ testo }}</a>{% else %}{{ testo }}{% endif %}</li>{% endfor %}

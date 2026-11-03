@@ -1503,3 +1503,10 @@ tr.is-spento td { color: var(--ui-text-3); }
 .ut-select { width: 100%; min-width: 120px; padding: 4px 6px; border: 1px solid transparent; border-radius: 8px; background: transparent; font: inherit; font-size: 12px; color: var(--ui-text); } .ut-select:hover { border-color: var(--ui-border); background: var(--ui-surface); }
 .ut-legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; } .ut-campione { display: inline-block; width: 14px; height: 14px; margin-left: 10px; border-radius: 4px; }
 .ut-campione.is-nessuno { background: var(--ui-surface-2); border: 1px solid var(--ui-border); } .ut-campione.is-lettura { background: color-mix(in srgb, #0369a1 25%, var(--ui-surface)); } .ut-campione.is-lavoro { background: color-mix(in srgb, #15803d 28%, var(--ui-surface)); } .ut-campione.is-responsabile { background: color-mix(in srgb, #7c3aed 28%, var(--ui-surface)); }
+
+.rp-voce { position: relative; } .rp-muta-form { position: absolute; top: 4px; right: 6px; margin: 0; }
+.rp-muta { width: 22px; height: 22px; border: 0; border-radius: 6px; background: transparent; color: var(--ui-text-3); font-size: 16px; line-height: 1; cursor: pointer; opacity: 0; transition: opacity .15s; }
+.rp-voce:hover .rp-muta, .rp-muta:focus-visible { opacity: 1; } .rp-muta:hover { background: var(--ui-surface); color: var(--ui-text); }
+.rp-link { font-size: 13px; }
+.rp-imp-azioni { display: flex; gap: 4px; } .rp-imp-voci { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 6px 16px; }
+.rp-imp-voce { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; } .rp-imp-voce.is-silenziata span { color: var(--ui-text-2); } .rp-imp-adesso { color: var(--ui-text-3); font-size: 12px; } .rp-imp-salva { margin: 4px 0 18px; display: flex; align-items: center; gap: 12px; }

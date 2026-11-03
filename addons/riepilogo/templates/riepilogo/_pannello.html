@@ -11,7 +11,7 @@
     <div class="rp-corpo">{% include "riepilogo/_contenuto.html" %}</div>
     <footer class="rp-piede">
       <form hx-post="{% url 'riepilogo:preferenza' %}" hx-trigger="change" hx-swap="none">{% csrf_token %}<label class="rp-toggle"><input type="checkbox" name="mostra" value="1"{% if preferenza.mostra_al_login %} checked{% endif %}> Apri da solo quando accedo</label></form>
-      <a class="ui-link" href="{% url 'riepilogo:pagina' %}">Apri come pagina</a>
+      <span class="rp-link"><a class="ui-link" href="{% url 'riepilogo:impostazioni' %}">Cosa mostrare{% if silenziate %} ({{ silenziate }} silenziat{{ silenziate|pluralize:"a,e" }}){% endif %}</a> · <a class="ui-link" href="{% url 'riepilogo:pagina' %}">Apri come pagina</a></span>
     </footer>
   </div>
 </div>

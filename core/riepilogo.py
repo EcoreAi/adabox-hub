@@ -13,16 +13,17 @@ SEZIONI = [(NOVITA, "Dall'ultimo accesso", "Che cosa è successo mentre non c'er
 MAX_DETTAGLI = 5
 
 
-def voce(sezione, numero, singolare, plurale="", url="", urgente=False, dettagli=None, nota="", testo=""):
-    """None quando il numero è zero, così una funzione restituisce [v for v in (...) if v].
-    `dettagli`: [(testo, url)] delle prime righe, oppure un queryset da cui ricavarle. `testo` al posto del conteggio."""
-    if not numero:
-        return None
-    if dettagli is not None and not isinstance(dettagli, list):
+def voce(sezione, numero, singolare, plurale="", url="", urgente=False, dettagli=None, nota="", testo="", nome=""):
+    """Anche con numero zero: il motore la toglie dalla scheda, ma la tiene nel catalogo di ciò che si può silenziare.
+    `dettagli`: [(testo, url)] delle prime righe, oppure un queryset da cui ricavarle (letto solo se c'è qualcosa).
+    `testo` al posto del conteggio; `nome` è come la voce si chiama nelle impostazioni (di solito basta il plurale)."""
+    numero = numero or 0
+    if numero and dettagli is not None and not isinstance(dettagli, list):
         dettagli = dettagli_di(dettagli)
     etichetta = singolare if numero == 1 else (plurale or singolare)
-    return {"sezione": sezione, "numero": numero, "etichetta": etichetta, "testo": testo or f"{numero} {etichetta}",
-            "conteggio": not testo, "url": url or "", "urgente": bool(urgente), "dettagli": dettagli or [], "nota": nota}
+    return {"sezione": sezione, "numero": numero, "etichetta": etichetta, "nome": nome or plurale or singolare or testo,
+            "testo": testo or f"{numero} {etichetta}", "conteggio": not testo, "url": url or "", "urgente": bool(urgente),
+            "dettagli": (dettagli or []) if numero else [], "nota": nota if numero else ""}
 
 
 def dettagli_di(qs, testo=str, n=MAX_DETTAGLI):

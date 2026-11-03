@@ -17,6 +17,6 @@ def voci(request, dal, oggi):
     while ieri.weekday() >= 5:
         ieri -= datetime.timedelta(days=1)
     abituale = mie.filter(data__gte=oggi - datetime.timedelta(days=30), data__lt=ieri).exists()
-    if not abituale or mie.filter(data=ieri).exists():
-        return []
-    return [voce(ATTENZIONE, 1, "", url=reverse("timesheet:settimana"), testo=f"{date_format(ieri, 'l j F').capitalize()}: non hai registrato ore")]
+    manca = abituale and not mie.filter(data=ieri).exists()
+    return [voce(ATTENZIONE, int(manca), "", url=reverse("timesheet:settimana"), nome="giorno lavorativo senza ore registrate",
+                 testo=f"{date_format(ieri, 'l j F').capitalize()}: non hai registrato ore")]

@@ -5,6 +5,7 @@ import logging
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.formats import date_format
+from django.utils.text import slugify
 
 from core import attivita, parametri
 from core import riepilogo as contratto
@@ -57,25 +58,40 @@ def _kernel(request, dal, oggi):
     ]
 
 
-def calcola(request, dal, oggi=None, rigoroso=False):
-    """{sezioni: [{codice, titolo, sottotitolo, voci}], totale, urgenti}. Un modulo con un errore non ferma gli altri (salvo `rigoroso`, nei test)."""
+def chiave(slug, v):
+    """Stabile finché il modulo non cambia nome alla voce: è quella che l'utente silenzia."""
+    return f"{slug}:{v['sezione']}:{slugify(v['nome'])[:60]}"
+
+
+def calcola(request, dal, oggi=None, rigoroso=False, silenziate=(), tutte=False):
+    """{sezioni: [{codice, titolo, sottotitolo, voci}], totale, urgenti, voci}. Un modulo con un errore non ferma gli altri
+    (salvo `rigoroso`, nei test). `silenziate`: le chiavi che l'utente non vuole vedere. Con `tutte` restano anche le voci a
+    zero e quelle silenziate, segnate con `vuota` e `silenziata`: è il catalogo delle impostazioni."""
     oggi = oggi or timezone.localdate()
-    voci = _kernel(request, dal, oggi)
+    raccolte = [("core", "Attività pianificate", v) for v in _kernel(request, dal, oggi)]
     spenti = modules.disattivati()
     visibili = {a["slug"] for a in modules.app_visibili(request.user)}
     for slug, m in modules.manifests_attivi().items():
         if not m.riepilogo or slug in spenti or (m.application and slug not in visibili):
             continue
         try:
-            voci += list(risolvi(m.riepilogo)(request, dal, oggi) or [])
+            nuove = list(risolvi(m.riepilogo)(request, dal, oggi) or [])
         except Exception:
             if rigoroso:
                 raise
             log.exception("riepilogo di %s non disponibile", slug)
-    voci = [v for v in voci if v]
+            continue
+        raccolte += [(slug, m.name, v) for v in nuove if v]
+    silenziate, voci = set(silenziate), []
+    for slug, modulo, v in raccolte:
+        v["chiave"], v["modulo"] = chiave(slug, v), modulo
+        v["silenziata"], v["vuota"] = v["chiave"] in silenziate, not v["numero"]
+        if tutte or (v["numero"] and not v["silenziata"]):
+            voci.append(v)
+    mostrate = [v for v in voci if v["numero"] and not v["silenziata"]]
     sezioni = []
     for codice, titolo, sottotitolo in contratto.SEZIONI:
-        mie = sorted((v for v in voci if v["sezione"] == codice), key=lambda v: (not v["urgente"], -v["numero"]))
+        mie = sorted((v for v in mostrate if v["sezione"] == codice), key=lambda v: (not v["urgente"], -v["numero"]))
         if mie:
             sezioni.append({"codice": codice, "titolo": titolo, "sottotitolo": sottotitolo, "voci": mie})
-    return {"sezioni": sezioni, "totale": len(voci), "urgenti": sum(1 for v in voci if v["urgente"])}
+    return {"sezioni": sezioni, "totale": len(mostrate), "urgenti": sum(1 for v in mostrate if v["urgente"]), "voci": voci}

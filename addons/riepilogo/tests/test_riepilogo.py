@@ -1,5 +1,6 @@
 """Riepilogo giornaliero: si apre da solo all'accesso, dice solo ciò che l'utente vede, e un modulo rotto non lo ferma."""
 import datetime
+import re
 from decimal import Decimal as D
 from pathlib import Path
 
@@ -151,3 +152,29 @@ def test_senza_niente_e_saluto(scena, client):
     assert motore.saluto(scena["root"], giorno) == "Buongiorno, Anna"
     assert motore.saluto(scena["root"], giorno.replace(hour=14)).startswith("Buon pomeriggio")
     assert motore.saluto(scena["root"], giorno.replace(hour=19)).startswith("Buonasera")
+
+
+def test_silenziare_le_voci(scena, client):
+    _dati(scena, scena["root"])
+    client.force_login(scena["root"])
+    html = client.get("/riepilogo/impostazioni/").content.decode()
+    for testo in ("Ordini confermati", "Pagamenti scaduti da incassare", "Ticket con SLA scaduto", "Appuntamenti oggi", "Preventivi scaduti senza risposta",
+                  "Giorno lavorativo senza ore registrate", "Attività pianificate"):
+        assert testo in html, testo                          # anche le voci a zero, per poterle spegnere prima
+    chiavi = re.findall(r'name="mostra" value="([^"]+)"', html)
+    vendite = [c for c in chiavi if c.startswith("vendite:")]
+    assert vendite and len(chiavi) == len(set(chiavi))
+    r = client.post("/riepilogo/impostazioni/", {"mostra": [c for c in chiavi if c not in vendite], "mostra_al_login": "1"})
+    assert r.status_code == 302
+    p = Preferenza.objects.get(utente=scena["root"])
+    assert set(p.silenziate) == set(vendite) and p.mostra_al_login
+    html = client.get("/riepilogo/").content.decode()
+    assert "ordine confermato" not in html and "ticket con SLA scaduto" in html and "silenziat" in html
+    chiave = "helpdesk:attenzione:ticket-con-sla-scaduto"
+    r = client.post("/riepilogo/silenzia/", {"chiave": chiave}, HTTP_HX_REQUEST="true")
+    assert r.status_code == 200 and "SLA scaduto" not in r.content.decode() and "rp-modal" in r.content.decode()
+    p.refresh_from_db()
+    assert chiave in p.silenziate
+    assert client.post("/riepilogo/silenzia/", {"chiave": chiave}).status_code == 302        # di nuovo: la riaccende
+    p.refresh_from_db()
+    assert chiave not in p.silenziate and client.post("/riepilogo/silenzia/", {}).status_code == 400

@@ -1,7 +1,7 @@
 {
     "name": "Riepilogo giornaliero",
     "summary": "All'accesso, che cosa è successo mentre non c'eri e che cosa aspetta te oggi: vendite, messaggi, appuntamenti, scadenze, approvazioni",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -11,6 +11,7 @@
     "icon": "riepilogo/icon.svg",
     "menu": [
         {"label": "Il mio riepilogo", "url_name": "riepilogo:pagina", "permission": "riepilogo.view_preferenza"},
+        {"label": "Cosa mostrare", "url_name": "riepilogo:impostazioni", "permission": "riepilogo.view_preferenza"},
     ],
     "groups": {
         "Riepilogo / Utente": ["riepilogo.view_preferenza"],

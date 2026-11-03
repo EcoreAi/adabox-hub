@@ -9,6 +9,7 @@ class Preferenza(models.Model):
     accesso_precedente = models.DateTimeField("accesso precedente", null=True, blank=True, editable=False)
     ultimo_accesso = models.DateTimeField("ultimo accesso", null=True, blank=True, editable=False)
     aperto_il = models.DateTimeField("riepilogo aperto il", null=True, blank=True, editable=False)
+    silenziate = models.JSONField("voci silenziate", default=list, blank=True, help_text="le chiavi delle voci che l'utente non vuole vedere")
 
     class Meta:
         verbose_name = "preferenza del riepilogo"
