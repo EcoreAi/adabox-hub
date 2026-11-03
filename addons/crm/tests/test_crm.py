@@ -117,3 +117,59 @@ def test_contatti_di_altre_aziende_non_selezionabili(client, commerciale):
 def test_demo_coerente():
     demo = json.loads((CARTELLA / "data" / "demo.json").read_text())
     assert len(demo) == 6 and all(r["fields"]["contatto"] is None for r in demo)
+
+
+def _opportunita_kanban(commerciale, **extra):
+    from core.models import Azienda
+    return Opportunita.objects.create(azienda=Azienda.objects.get(pk=1), titolo=extra.pop("titolo", "Sito nuovo"), commerciale=commerciale,
+                                      valore_atteso=1000, probabilita=50, **extra)
+
+
+def test_kanban_ricco_mostra_urgenza_etichette_e_totali(client, commerciale):
+    import datetime
+
+    from django.utils import timezone
+
+    from crm.models import EtichettaCrm
+    oggi = timezone.localdate()
+    scaduta = _opportunita_kanban(commerciale, titolo="Scaduta", chiusura_prevista=oggi - datetime.timedelta(days=1), priorita=2)
+    scaduta.etichette.add(EtichettaCrm.objects.update_or_create(nome="Rinnovo", defaults={"colore": "viola"})[0])
+    _opportunita_kanban(commerciale, titolo="Vicina", chiusura_prevista=oggi + datetime.timedelta(days=3))
+    _opportunita_kanban(commerciale, titolo="Lontana", chiusura_prevista=oggi + datetime.timedelta(days=30))
+    _opportunita_kanban(commerciale, titolo="Senza")
+    _opportunita_kanban(commerciale, titolo="Persa", stato=Opportunita.PERSA)
+    client.force_login(commerciale)
+    html = client.get("/crm/opportunita/kanban/").content.decode()
+    for classe in ("is-accento-rosso", "is-accento-arancio", "is-accento-verde", "is-accento-grigio", "ui-tinta-viola"):
+        assert classe in html
+    assert "Scaduta il " in html and "Senza data di chiusura" in html and "Persa" in html and "Priorità: Alta" in html
+    assert "4.000 € · ponderato 2.000 €" in html      # quella persa non conta
+
+
+def test_kanban_ricco_non_fa_una_query_per_scheda(client, commerciale, django_assert_max_num_queries):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    client.force_login(commerciale)
+    _opportunita_kanban(commerciale)
+    with CaptureQueriesContext(connection) as una:
+        client.get("/crm/opportunita/kanban/")
+    for i in range(6):
+        _opportunita_kanban(commerciale, titolo=f"Altra {i}")
+    with django_assert_max_num_queries(len(una)):
+        client.get("/crm/opportunita/kanban/")
+
+
+def test_colori_iniziali_delle_fasi(dati):
+    from crm.models import FaseCrm
+    assert FaseCrm.objects.get(vinta=True).colore == "verde"
+    colori = list(FaseCrm.objects.filter(vinta=False).values_list("colore", flat=True))
+    assert len(set(colori)) == len(colori)
+
+
+def test_aggiornare_il_modulo_non_cancella_i_colori_scelti(dati):
+    from crm.models import EtichettaCrm
+    FaseCrm.objects.filter(vinta=True).update(colore="rosa")
+    EtichettaCrm.objects.filter(nome="Rinnovo").update(colore="indaco")
+    call_command("loaddata", str(CARTELLA / "data" / "iniziali.json"), verbosity=0)
+    assert FaseCrm.objects.get(vinta=True).colore == "rosa"
+    assert EtichettaCrm.objects.get(nome="Rinnovo").colore == "indaco"

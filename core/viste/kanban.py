@@ -44,10 +44,12 @@ class KanbanView(VistaBase):
         for valore, etichetta in valori:
             col_qs = qs.filter(**_filtro(vista, valore))
             totale = col_qs.count()
-            card = [{"obj": obj, "campi": [(vista.etichetta(c), vista.col_valore(request, obj, c)) for c in vista.kanban_fields]}
-                    for obj in col_qs[:vista.kanban_limite]]
+            righe = vista.kanban_queryset(col_qs) if vista.kanban_ricco else col_qs
+            card = [{"obj": obj, "scheda": vista.kanban_scheda(request, obj) if vista.kanban_ricco else None,
+                     "campi": [] if vista.kanban_ricco else [(vista.etichetta(c), vista.col_valore(request, obj, c)) for c in vista.kanban_fields]}
+                    for obj in righe[:vista.kanban_limite]]
             cols.append({"valore": valore, "etichetta": etichetta, "totale": totale, "card": card,
-                         "altri": totale - len(card)})
+                         "altri": totale - len(card), "extra": vista.kanban_colonna(request, valore, col_qs) if vista.kanban_ricco else {}})
         testata = contesto_testata(request, vista, "kanban")
         return render(request, vista.template_kanban, {
             "vista": vista, "urls": urls_di(vista), "colonne": cols, "tutte": valori,

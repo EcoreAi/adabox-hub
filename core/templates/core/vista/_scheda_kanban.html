@@ -1,0 +1,9 @@
+{% if s.sottotitolo %}<div class="ui-kanban-sotto">{{ s.sottotitolo }}</div>{% endif %}
+{% for riga in s.righe %}<div class="ui-kanban-sotto">{{ riga }}</div>{% endfor %}
+{% if s.etichette %}<div class="ui-kanban-etichette">{% for nome, colore in s.etichette %}<span class="ui-kanban-etichetta{% if colore|slice:":1" == "#" %}" style="--ui-tinta:{{ colore }}{% else %} ui-tinta-{{ colore }}{% endif %}">{{ nome }}</span>{% endfor %}</div>{% endif %}
+{% if s.valore %}<div class="ui-kanban-valore">{{ s.valore }}</div>{% endif %}
+{% if s.barra %}<div class="ui-kanban-barra" role="img" aria-label="{{ s.barra.1 }}" title="{{ s.barra.1 }}"><span style="width:{{ s.barra.0 }}%"></span></div>{% endif %}
+<div class="ui-kanban-piede">
+  {% if s.scadenza %}<span class="ui-kanban-scadenza"><svg width="14" height="14" aria-hidden="true"><use href="#{{ s.scadenza.icona }}"/></svg>{{ s.scadenza.testo }}</span>{% endif %}
+  {% if s.persona %}<span class="ui-kanban-persona ui-tinta-{{ s.persona.tinta }}" title="{{ s.persona.nome }}" aria-label="{{ s.persona.nome }}">{{ s.persona.iniziali }}</span>{% endif %}
+</div>

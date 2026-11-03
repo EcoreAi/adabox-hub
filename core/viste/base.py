@@ -55,6 +55,7 @@ class ModelView:
     kanban_group = None           # vista kanban: campo con scelte o FK
     kanban_fields = ()            # campi mostrati nella card (oltre al titolo)
     kanban_limite = 50            # card per colonna
+    kanban_ricco = False          # le card e le colonne vengono da kanban_scheda e kanban_colonna
     calendar_date = None          # vista calendario: campo data
     calendar_color = None         # campo con scelte che colora gli eventi
     graph = None                  # vista grafico: {"tipi": [...], "misure": [...], "per": [...]}
@@ -209,6 +210,19 @@ class ModelView:
     def get_actions(self, request):
         """[(nome, etichetta)] delle azioni di massa che l'utente può usare."""
         return [(n, self.etichetta_metodo(n)) for n in self.actions if self.permesso_metodo(request, getattr(self, n))]
+
+    def kanban_queryset(self, qs):
+        """Le relazioni che servono a kanban_scheda, per non fare una query a card."""
+        return qs
+
+    def kanban_scheda(self, request, obj):
+        """Con kanban_ricco: {accento, scadenza: {icona, testo}, sottotitolo, righe: [testo], valore, etichette: [(nome, colore o #rrggbb già controllato)], stelle: (piene, vuote, testo),
+        barra: (percentuale, testo), persona: {iniziali, nome, tinta}}. Tutto facoltativo; i colori da core.colori."""
+        return {}
+
+    def kanban_colonna(self, request, valore, qs):
+        """Con kanban_ricco: {colore, riepilogo} della colonna; `qs` sono i suoi record filtrati, tutti e non solo quelli mostrati."""
+        return {}
 
     def kanban_vietato(self, request, obj):
         """Motivo per cui lo spostamento nel kanban (già applicato a obj, non salvato) non è ammesso, o None."""
