@@ -1,7 +1,7 @@
 from django.apps import apps
 from django.core.exceptions import ValidationError
 
-from core.viste import Inline, ModelView, register
+from core.viste import Inline, ModelView, register, schede
 
 from . import operazioni
 from .models import Consegna, Magazzino, Movimento, Ricevimento, RigaConsegna, RigaRicevimento
@@ -63,12 +63,22 @@ class ConsegnaView(ModelView):
     inlines = [Inline(RigaConsegna, "consegna", ["prodotto", "descrizione", "quantita"], titolo="Merce")]
     kanban_group = "stato"
     kanban_fields = ["cliente", "data", "riferimento"]
+    kanban_ricco = True
+    kanban_colori = {"bozza": "azzurro", "fatto": "verde", "annullato": "grigio"}
     chatter = True
     tracked_fields = ["stato"]
     buttons = ["spedisci", "annulla"]
     actions = ["fattura_differita"]
     reports = [{"nome": "DDT", "template": "magazzino/report/ddt.html"}]
     api = True
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("cliente")
+
+    def kanban_scheda(self, request, obj):
+        esito = {"fatto": (*schede.FATTO, "Spedita"), "annullato": (*schede.FERMO, "Annullato")}.get(obj.stato) or ("azzurro", "icon-calendar", "Da spedire")
+        return schede.scheda(esito, sottotitolo=obj.cliente.nome, righe=[r for r in (f"Del {obj.data:%d/%m/%Y}", obj.riferimento) if r])
 
     def col_documento(self, obj):
         return str(obj)
@@ -125,10 +135,20 @@ class RicevimentoView(ModelView):
     inlines = [Inline(RigaRicevimento, "ricevimento", ["prodotto", "quantita"], titolo="Merce")]
     kanban_group = "stato"
     kanban_fields = ["fornitore", "data"]
+    kanban_ricco = True
+    kanban_colori = {"bozza": "azzurro", "fatto": "verde", "annullato": "grigio"}
     chatter = True
     tracked_fields = ["stato"]
     buttons = ["ricevi"]
     api = True
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("fornitore")
+
+    def kanban_scheda(self, request, obj):
+        esito = {"fatto": (*schede.FATTO, "Ricevuto"), "annullato": (*schede.FERMO, "Annullato")}.get(obj.stato) or ("azzurro", "icon-calendar", "Da ricevere")
+        return schede.scheda(esito, sottotitolo=obj.fornitore.nome, righe=[r for r in (f"Del {obj.data:%d/%m/%Y}", obj.riferimento) if r])
 
     def has_change_permission(self, request, obj=None):
         return super().has_change_permission(request, obj) and (obj is None or obj.stato == Ricevimento.BOZZA)

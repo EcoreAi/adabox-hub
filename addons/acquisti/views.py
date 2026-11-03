@@ -1,9 +1,10 @@
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
 
 from core import chatter, lavori
-from core.viste import Inline, ModelView, register
+from core.viste import Inline, ModelView, register, schede
 
 from .models import OrdineAcquisto, RigaAcquisto
 from .segnali import ordine_acquisto_annullato, ordine_acquisto_confermato
@@ -33,12 +34,26 @@ class OrdineAcquistoView(ModelView):
     list_sum = ["totale"]
     kanban_group = "stato"
     kanban_fields = ["fornitore", "totale", "consegna_prevista"]
+    kanban_ricco = True
+    kanban_colori = {"bozza": "grigio", "inviato": "azzurro", "confermato": "verde", "annullato": "grigio"}
     graph = {"tipi": ["barre", "torta"], "misure": ["sum:totale", "count"], "per": ["data:mese", "fornitore", "stato"]}
     chatter = True
     tracked_fields = ["stato", "fornitore", "totale", "consegna_prevista"]
     buttons = ["invia", "conferma", "annulla"]
     reports = [{"nome": "Stampa", "template": "acquisti/report/ordine.html"}]
     api = True
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("fornitore", "buyer")
+
+    def kanban_scheda(self, request, obj):
+        esito = (*schede.FERMO, "Annullato") if obj.stato == OrdineAcquisto.ANNULLATO else schede.entro(
+            obj.consegna_prevista, "Consegna il", "Consegna attesa dal", "Senza data di consegna")
+        return schede.scheda(esito, sottotitolo=obj.fornitore.nome, valore=schede.euro(obj.totale), persona=schede.persona(obj.buyer))
+
+    def kanban_colonna(self, request, valore, qs):
+        return {"riepilogo": schede.euro_tondi(qs.aggregate(t=Sum("totale"))["t"])}
 
     def col_documento(self, obj):
         return str(obj)

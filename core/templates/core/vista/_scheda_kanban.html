@@ -6,4 +6,5 @@
 <div class="ui-kanban-piede">
   {% if s.scadenza %}<span class="ui-kanban-scadenza"><svg width="14" height="14" aria-hidden="true"><use href="#{{ s.scadenza.icona }}"/></svg>{{ s.scadenza.testo }}</span>{% endif %}
   {% if s.persona %}<span class="ui-kanban-persona ui-tinta-{{ s.persona.tinta }}" title="{{ s.persona.nome }}" aria-label="{{ s.persona.nome }}">{{ s.persona.iniziali }}</span>{% endif %}
+  {% if s.persone %}<span class="ui-kanban-persone">{% for p in s.persone %}<span class="ui-kanban-persona ui-tinta-{{ p.tinta }}" title="{{ p.nome }}" aria-label="{{ p.nome }}">{{ p.iniziali }}</span>{% endfor %}</span>{% endif %}
 </div>

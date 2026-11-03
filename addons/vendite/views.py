@@ -1,8 +1,9 @@
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Sum
 
 from core import chatter, lavori
-from core.viste import Inline, ModelView, register
+from core.viste import Inline, ModelView, register, schede
 
 from .models import OrdineVendita, RigaVendita
 from . import operazioni
@@ -35,6 +36,8 @@ class OrdineView(ModelView):
     list_sum = ["totale"]
     kanban_group = "stato"
     kanban_fields = ["cliente", "totale", "data"]
+    kanban_ricco = True
+    kanban_colori = {"bozza": "grigio", "inviato": "azzurro", "confermato": "verde", "annullato": "grigio"}
     graph = {"tipi": ["barre", "linee", "torta"], "misure": ["sum:totale", "count"],
              "per": ["data:mese", "commerciale", "cliente", "stato"]}
     chatter = True
@@ -42,6 +45,19 @@ class OrdineView(ModelView):
     buttons = ["invia", "conferma", "annulla", "riporta_in_bozza"]
     reports = [{"nome": "Stampa", "template": "vendite/report/ordine.html"}]
     api = True
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("cliente", "commerciale")
+
+    def kanban_scheda(self, request, obj):
+        esito = {OrdineVendita.CONFERMATO: (*schede.FATTO, f"Confermato il {obj.confermato_il:%d/%m/%Y}" if obj.confermato_il else "Confermato"),
+                 OrdineVendita.ANNULLATO: (*schede.FERMO, "Annullato")}.get(obj.stato) or schede.entro(obj.validita, "Valido fino al", "Scaduto il", "Senza scadenza")
+        etichette = {OrdineVendita.ACCETTATO: [("Accettato online", "verde")], OrdineVendita.RIFIUTATO: [("Rifiutato online", "rosa")]}.get(obj.risposta)
+        return schede.scheda(esito, sottotitolo=obj.cliente.nome, valore=schede.euro(obj.totale), etichette=etichette, persona=schede.persona(obj.commerciale))
+
+    def kanban_colonna(self, request, valore, qs):
+        return {"riepilogo": schede.euro_tondi(qs.aggregate(t=Sum("totale"))["t"])}
 
     def col_documento(self, obj):
         return str(obj)

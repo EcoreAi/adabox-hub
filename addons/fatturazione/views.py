@@ -1,10 +1,11 @@
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import redirect
 
 from core import chatter, lavori
-from core.viste import Inline, ModelView, register
+from core.viste import Inline, ModelView, register, schede
 
 from . import fatturapa, operazioni
 from .models import CassaPrevidenziale, DatiFiscali, Fattura, Incasso, RigaFattura, RiferimentoDDT, Ritenuta, Scadenza
@@ -41,6 +42,8 @@ class FatturaView(ModelView):
     list_sum = ["totale"]
     kanban_group = "stato"
     kanban_fields = ["cliente", "totale", "data"]
+    kanban_ricco = True
+    kanban_colori = {"bozza": "grigio", "emessa": "azzurro", "annullata": "grigio"}
     graph = {"tipi": ["barre", "linee", "torta"], "misure": ["sum:imponibile", "sum:totale", "count"],
              "per": ["data:mese", "cliente", "tipo", "stato"]}
     chatter = True
@@ -48,6 +51,30 @@ class FatturaView(ModelView):
     buttons = ["emetti", "xml", "invia", "nota_di_credito", "annulla"]
     reports = [{"nome": "Stampa", "template": "fatturazione/report/fattura.html"}]
     api = True
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("cliente").prefetch_related("scadenze")
+
+    def _esito_kanban(self, obj):
+        if obj.stato == Fattura.BOZZA:
+            return "grigio", "icon-edit", "Da emettere"
+        if obj.stato == Fattura.ANNULLATA:
+            return (*schede.FERMO, "Annullata")
+        if not obj.incassabile:
+            return (*schede.FATTO, "Emessa")
+        aperte = [s.data for s in obj.scadenze.all() if not s.pagata]
+        return schede.entro(min(aperte), "Scade il", "Scaduta il") if aperte else (*schede.FATTO, "Incassata")
+
+    def kanban_scheda(self, request, obj):
+        return schede.scheda(self._esito_kanban(obj), sottotitolo=obj.cliente.nome, valore=schede.euro(obj.totale),
+                             righe=[f"Del {obj.data:%d/%m/%Y}"], etichette=[(obj.get_tipo_display().split(":")[0], "viola")] if obj.tipo != Fattura.FATTURA else None)
+
+    def kanban_colonna(self, request, valore, qs):
+        """Le note di credito tolgono, non aggiungono."""
+        fatture = qs.exclude(tipo=Fattura.NOTA_CREDITO).aggregate(t=Sum("totale"))["t"] or 0
+        note = qs.filter(tipo=Fattura.NOTA_CREDITO).aggregate(t=Sum("totale"))["t"] or 0
+        return {"riepilogo": schede.euro_tondi(fatture - note)}
 
     def col_documento(self, obj):
         return str(obj)

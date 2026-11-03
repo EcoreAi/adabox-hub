@@ -2,7 +2,8 @@ from django.db.models import Q
 from django.utils.html import format_html
 
 from core import chatter
-from core.viste import ModelView, register
+from core.colori import sicuro
+from core.viste import ModelView, register, schede
 
 from .models import Attivita, Tag
 
@@ -30,6 +31,8 @@ class AttivitaView(ModelView):
     list_group_by = ["stato", "assegnatario", "scadenza:mese"]
     kanban_group = "stato"
     kanban_fields = ["numero", "scadenza", "assegnatario"]
+    kanban_ricco = True
+    kanban_colori = {"aperta": "indaco", "in_corso": "azzurro", "fatta": "verde", "annullata": "grigio"}
     calendar_date = "scadenza"
     calendar_color = "stato"
     graph = {"tipi": ["barre", "torta", "linee"], "misure": ["count"], "per": ["stato", "assegnatario", "scadenza:mese"]}
@@ -38,6 +41,14 @@ class AttivitaView(ModelView):
     actions = ["archivia"]
     buttons = ["segna_fatta"]
     api = True
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("assegnatario").prefetch_related("tag")
+
+    def kanban_scheda(self, request, obj):
+        esito = {Attivita.FATTA: (*schede.FATTO, "Fatta"), Attivita.ANNULLATA: (*schede.FERMO, "Annullata")}.get(obj.stato) or schede.entro(obj.scadenza)
+        return schede.scheda(esito, sottotitolo=obj.numero, etichette=[(t.nome, sicuro(t.colore)) for t in obj.tag.all()], persona=schede.persona(obj.assegnatario))
 
     def get_queryset(self, request):
         """Si vedono le attività proprie (assegnate o create) e quelle senza titolare; tutte con vedi_tutte_attivita."""

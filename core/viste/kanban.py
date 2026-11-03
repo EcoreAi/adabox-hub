@@ -5,6 +5,7 @@ from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import redirect, render
 
 from core import chatter
+from core.colori import COLORI_COLONNE
 
 from . import filtri
 from .lista import VistaBase, contesto_testata, urls_di
@@ -41,20 +42,23 @@ class KanbanView(VistaBase):
         qs = filtri.applica(vista, request, vista.get_queryset(request))
         cols = []
         valori = colonne(vista, request)
-        for valore, etichetta in valori:
+        for posizione, (valore, etichetta) in enumerate(valori):
             col_qs = qs.filter(**_filtro(vista, valore))
             totale = col_qs.count()
             righe = vista.kanban_queryset(col_qs) if vista.kanban_ricco else col_qs
             card = [{"obj": obj, "scheda": vista.kanban_scheda(request, obj) if vista.kanban_ricco else None,
                      "campi": [] if vista.kanban_ricco else [(vista.etichetta(c), vista.col_valore(request, obj, c)) for c in vista.kanban_fields]}
                     for obj in righe[:vista.kanban_limite]]
+            extra = dict(vista.kanban_colonna(request, valore, col_qs)) if vista.kanban_ricco else {}
+            if vista.kanban_ricco and "colore" not in extra:
+                extra["colore"] = vista.kanban_colori.get(valore) or ("grigio" if valore == "" else COLORI_COLONNE[posizione % len(COLORI_COLONNE)])
             cols.append({"valore": valore, "etichetta": etichetta, "totale": totale, "card": card,
-                         "altri": totale - len(card), "extra": vista.kanban_colonna(request, valore, col_qs) if vista.kanban_ricco else {}})
+                         "altri": totale - len(card), "extra": extra})
         testata = contesto_testata(request, vista, "kanban")
         return render(request, vista.template_kanban, {
             "vista": vista, "urls": urls_di(vista), "colonne": cols, "tutte": valori,
             "filtri": filtri.specifiche(vista, request), "puo_aggiungere": vista.has_add_permission(request),
-            "puo_spostare": vista.has_change_permission(request), "campo": vista.kanban_group, "extra_get": [],
+            "puo_spostare": vista.has_change_permission(request) and vista.kanban_spostabile(), "campo": vista.kanban_group, "extra_get": [],
             **testata})
 
 
@@ -65,7 +69,7 @@ class SpostaView(VistaBase):
     def post(self, request, pk):
         vista = self.vista
         obj = vista.get_object(request, pk)
-        if not vista.has_change_permission(request, obj):
+        if not vista.has_change_permission(request, obj) or not vista.kanban_spostabile():
             raise PermissionDenied
         valore = request.POST.get("valore", "")
         if valore not in dict(colonne(vista, request)):

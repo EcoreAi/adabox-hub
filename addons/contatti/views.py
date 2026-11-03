@@ -1,9 +1,7 @@
-import re
-
 from django.utils import timezone
 
 from core import chatter
-from core.colori import iniziali, tinta_persona
+from core.colori import iniziali, sicuro, tinta_persona
 from core.viste import ModelView, register
 
 from . import validatori, vies
@@ -11,7 +9,6 @@ from . import validatori, vies
 from .models import Categoria, Contatto
 
 COLORI_TIPO = {Contatto.AZIENDA: "azzurro", Contatto.PERSONA: "viola"}
-COLORE_LIBERO = re.compile(r"#[0-9a-fA-F]{6}")        # il colore di una categoria è testo libero e finisce in uno stile
 
 
 def _ruolo(c):
@@ -92,7 +89,7 @@ class ContattoView(ModelView):
         scheda = {"accento": accento, "scadenza": {"icona": icona, "testo": testo},
                   "sottotitolo": " · ".join(p for p in (obj.ruolo, obj.citta) if p),
                   "righe": [p for p in (obj.email, obj.telefono or obj.cellulare) if p],
-                  "etichette": [(c.nome, c.colore if COLORE_LIBERO.fullmatch(c.colore) else "grigio") for c in obj.categorie.all()]}
+                  "etichette": [(c.nome, sicuro(c.colore)) for c in obj.categorie.all()]}
         if obj.responsabile_id:
             persona = obj.responsabile
             scheda["persona"] = {"iniziali": iniziali(persona), "nome": persona.get_full_name() or persona.get_username(),

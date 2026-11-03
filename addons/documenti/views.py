@@ -7,7 +7,7 @@ from django.template.defaultfilters import filesizeformat
 from django.urls import reverse
 from django.utils import timezone
 
-from core.viste import Inline, ModelView, register
+from core.viste import Inline, ModelView, register, schede
 
 from . import accesso, quote, richieste, servizi
 from .models import Cartella, Condivisione, Documento, MembroSpazio, QuotaUtente, Richiesta, Spazio, Tag
@@ -188,9 +188,19 @@ class RichiestaView(ModelView):
     list_group_by = ["stato", "destinatario"]
     kanban_group = "stato"
     kanban_fields = ["destinatario", "scadenza"]
+    kanban_ricco = True
+    kanban_colori = {"aperta": "azzurro", "completata": "verde", "annullata": "grigio"}
     chatter = True
     tracked_fields = ["stato", "destinatario", "scadenza"]
     buttons = ["annulla"]
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("destinatario", "cartella")
+
+    def kanban_scheda(self, request, obj):
+        esito = {Richiesta.COMPLETATA: (*schede.FATTO, "Completata"), Richiesta.ANNULLATA: (*schede.FERMO, "Annullata")}.get(obj.stato) or schede.entro(obj.scadenza, "Entro il", "Scaduta il")
+        return schede.scheda(esito, sottotitolo=str(obj.cartella), persona=schede.persona(obj.destinatario))
 
     def get_form_class(self, request=None):
         base = super().get_form_class(request)

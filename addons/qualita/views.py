@@ -1,5 +1,5 @@
 from core import chatter
-from core.viste import register
+from core.viste import register, schede
 from progetti.views import DelProgettoVisibile
 
 from .models import Ambiente, CasoTest, Collaudo
@@ -43,9 +43,19 @@ class CollaudoView(DelProgettoVisibile):
     company_field = "azienda"
     kanban_group = "stato"
     kanban_fields = ["progetto", "rilascio", "responsabile"]
+    kanban_ricco = True
+    kanban_colori = {"aperto": "azzurro", "concluso": "verde"}
     chatter = True
     tracked_fields = ["stato"]
     buttons = ["aggiungi", "concludi"]
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("progetto", "rilascio", "responsabile")
+
+    def kanban_scheda(self, request, obj):
+        esito = (*schede.FATTO, "Concluso") if obj.stato == Collaudo.CONCLUSO else ("azzurro", "icon-info", "In corso")
+        return schede.scheda(esito, sottotitolo=obj.progetto.nome, righe=[f"Rilascio {obj.rilascio}"] if obj.rilascio_id else None, persona=schede.persona(obj.responsabile))
 
     def save_model(self, request, obj, form, change):
         if not change and obj.responsabile_id is None:

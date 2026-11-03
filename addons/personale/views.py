@@ -3,7 +3,8 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
 from django.shortcuts import redirect
 
-from core.viste import ModelView, register
+from core.colori import sicuro
+from core.viste import ModelView, register, schede
 
 from . import flusso
 from .models import Assenza, Dipendente, Reparto, TipoAssenza
@@ -44,9 +45,19 @@ class DipendenteView(ModelView):
     list_group_by = ["reparto", "tipo_contratto", "responsabile"]
     kanban_group = "reparto"
     kanban_fields = ["ruolo", "responsabile"]
+    kanban_ricco = True
     chatter = True
     tracked_fields = ["reparto", "ruolo", "responsabile", "tipo_contratto", "data_cessazione"]
     api = True
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("utente", "reparto")
+
+    def kanban_scheda(self, request, obj):
+        esito = (*schede.FATTO, "Attivo") if obj.attivo else (*schede.FERMO, "Non attivo")
+        return schede.scheda(esito, sottotitolo=obj.ruolo, righe=[obj.email] if obj.email else None,
+                             etichette=[(obj.get_tipo_contratto_display(), "indaco")], persona=schede.persona(obj.utente))
 
     def col___str__(self, obj):
         return str(obj)
@@ -68,10 +79,22 @@ class AssenzaView(ModelView):
     calendar_color = "stato"
     kanban_group = "stato"
     kanban_fields = ["tipo", "dal", "al"]
+    kanban_ricco = True
+    kanban_colori = {"richiesta": "azzurro", "approvata": "verde", "rifiutata": "grigio", "annullata": "grigio"}
     chatter = True
     tracked_fields = ["stato", "dal", "al", "tipo"]
     buttons = ["approva", "rifiuta", "annulla"]
     actions = ["approva_selezionate"]
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("dipendente", "tipo")
+
+    def kanban_scheda(self, request, obj):
+        esito = {Assenza.RICHIESTA: ("arancio", "icon-info", "Da approvare"), Assenza.APPROVATA: (*schede.FATTO, "Approvata"),
+                 Assenza.RIFIUTATA: (*schede.FERMO, "Rifiutata"), Assenza.ANNULLATA: (*schede.FERMO, "Annullata")}[obj.stato]
+        periodo = f"Dal {obj.dal:%d/%m/%Y} al {obj.al:%d/%m/%Y}" if obj.dal != obj.al else f"Il {obj.dal:%d/%m/%Y}"
+        return schede.scheda(esito, sottotitolo=str(obj.dipendente), righe=[periodo], etichette=[(obj.tipo.nome, sicuro(obj.tipo.colore))])
 
     def col_durata(self, obj):
         q = obj.quantita

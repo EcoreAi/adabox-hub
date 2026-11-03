@@ -3,7 +3,7 @@ from django.utils import timezone
 from django.utils.html import format_html
 
 from core import chatter
-from core.viste import ModelView, register
+from core.viste import ModelView, register, schede
 
 from .email import segui_team
 from .models import Articolo, CategoriaArticolo, FaseTicket, Team, Ticket, Valutazione
@@ -25,6 +25,7 @@ class TicketView(ModelView):
     list_group_by = ["fase", "priorita", "team", "assegnatario", "creato:mese"]
     kanban_group = "fase"
     kanban_fields = ["numero", "priorita", "assegnatario", "sla"]
+    kanban_ricco = True
     graph = {"tipi": ["barre", "torta", "linee"], "misure": ["count"],
              "per": ["fase", "priorita", "team", "assegnatario", "creato:mese"]}
     chatter = True
@@ -32,6 +33,29 @@ class TicketView(ModelView):
     actions = ["assegna_a_me"]
     buttons = ["prendi_in_carico", "risolvi"]
     api = True
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("contatto", "assegnatario", "fase")
+
+    def _esito_sla(self, obj):
+        if obj.fase.chiusa:
+            return (*schede.FATTO, "Chiuso")
+        if obj.scadenza_sla is None:
+            return "grigio", "icon-calendar", "Senza SLA"
+        ora = timezone.localtime(obj.scadenza_sla)
+        resto = (obj.scadenza_sla - timezone.now()).total_seconds()
+        if resto <= 0:
+            return "rosso", "icon-alert-triangle", f"SLA scaduto il {ora:%d/%m %H:%M}"
+        return ("arancio", "icon-alert-triangle", f"SLA entro le {ora:%H:%M}") if resto < 7200 else ("verde", "icon-calendar", f"SLA entro il {ora:%d/%m %H:%M}")
+
+    def kanban_scheda(self, request, obj):
+        return schede.scheda(self._esito_sla(obj), sottotitolo=" · ".join(str(p) for p in (obj.numero, self.col_cliente(obj)) if p and p != "—"),
+                             stelle=schede.stelle({Ticket.MEDIA: 1, Ticket.ALTA: 2, Ticket.URGENTE: 3}.get(obj.priorita, 0), obj.get_priorita_display()),
+                             persona=schede.persona(obj.assegnatario))
+
+    def kanban_colonna(self, request, valore, qs):
+        return {"colore": "verde"} if FaseTicket.objects.filter(pk=valore, chiusa=True).exists() else {}
 
     def destinatari_esterni(self, obj):
         return [obj.email_cliente] if obj.email_cliente else []
