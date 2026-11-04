@@ -17,7 +17,7 @@ class ConnessioneForm(forms.ModelForm):
 
     class Meta:
         model = Connessione
-        fields = ["nome", "tipo", "sportello", "sandbox", "attiva", "id_numero"]
+        fields = ["nome", "tipo", "sportello", "sandbox", "attiva", "id_numero", "id_account"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

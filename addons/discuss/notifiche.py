@@ -17,7 +17,7 @@ from core.models import Messaggio as MessaggioChatter
 from core.registry import modules
 
 from . import eventi, testo
-from .models import Iscrizione, Notifica
+from .models import ConversazioneEsterna, Iscrizione, Notifica
 
 MINUTI_PRIMA_DELLA_EMAIL = 15
 
@@ -39,6 +39,10 @@ def da_messaggio(messaggio):
     nuove = []
     iscrizioni = {i.utente_id: i for i in Iscrizione.objects.filter(canale=canale).select_related("utente")}
     destinatari = {pk: i.utente for pk, i in iscrizioni.items()}
+    if canale.livechat:                            # una chat assegnata disturba solo chi la segue
+        assegnata = ConversazioneEsterna.objects.filter(canale=canale).values_list("assegnata_a_id", flat=True).first()
+        if assegnata:
+            destinatari = {pk: u for pk, u in destinatari.items() if pk == assegnata}
     destinatari.update({pk: u for pk, u in menzionati.items() if servizi.puo_vedere(u, canale)})
     for pk, utente in destinatari.items():
         if autore is not None and pk == autore.pk:

@@ -341,3 +341,14 @@ def test_comando_demo_crea_le_sandbox(db, monkeypatch):
     assert set(Connessione.objects.values_list("tipo", "sandbox")) == {("whatsapp", True), ("telegram", True)}
     call_command("livechat_demo", "azzera")
     assert not Connessione.objects.exists()
+
+
+def test_i_lavori_che_fanno_rete_non_tengono_fermo_il_database():
+    """Il lavoratore mette ogni lavoro in una transazione: su SQLite, una chiamata in rete lì dentro blocca tutti gli utenti."""
+    from ai import conoscenza
+
+    from discuss import anteprime, assistente_sito, ia, livechat, modelli_wa, posta_canali  # noqa: F401
+    for funzione in (conoscenza.indicizza_cron, conoscenza.indicizza_documento, anteprime.calcola, posta_canali.invia_lista, livechat.avvisa_visitatore,
+                     connettori.consegna, connettori.manda_avviso, connettori.scarica_media, assistente_sito.rispondi, assistente_sito.indicizza,
+                     ia.riassumi, ia.trascrivi_messaggio, ia.lavora_registrazione):
+        assert getattr(funzione, "senza_transazione", False), funzione.__name__

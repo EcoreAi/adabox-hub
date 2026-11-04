@@ -1,7 +1,7 @@
 from core.viste import ModelView, register
 
 from .forms import ConnessioneForm
-from .models import Canale, Connessione, Sportello, VoceConoscenza
+from .models import Canale, Connessione, ModelloWhatsApp, Sportello, VoceConoscenza
 
 
 @register
@@ -27,7 +27,7 @@ class SportelloView(ModelView):
     list_display = ["nome", "attivo", "creato"]
     list_filter = ["attivo"]
     search_fields = ["nome"]
-    form_layout = [("Sportello", ["nome", "benvenuto", "assenza", "operatori", "domini", "privacy_url", "attivo"]),
+    form_layout = [("Sportello", ["nome", "benvenuto", "assenza", "operatori", "distribuzione", "domini", "privacy_url", "attivo"]),
                    ("Risposte con l'AI", ["modalita", "nome_ai", "istruzioni", ("risposte_per_chat", "risposte_al_giorno"), "azienda"])]
     readonly_fields = ["creato"]
 
@@ -53,5 +53,16 @@ class ConnessioneView(ModelView):
     search_fields = ["nome"]
     form_class = ConnessioneForm
     form_layout = [("Connessione", [("nome", "tipo"), "sportello", ("sandbox", "attiva")]),
-                   ("Credenziali, solo per una connessione vera", ["id_numero", "nuovo_token", "nuovo_segreto"])]
+                   ("Credenziali, solo per una connessione vera", [("id_numero", "id_account"), "nuovo_token", "nuovo_segreto"])]
     readonly_fields = ["ultimo_evento"]
+
+
+@register
+class ModelloWhatsAppView(ModelView):
+    """I testi approvati da Meta per ricontattare un cliente dopo le 24 ore."""
+    model = ModelloWhatsApp
+    slug = "modelliwa"
+    list_display = ["nome", "lingua", "categoria", "stato", "connessione", "aggiornato"]
+    list_filter = ["stato", "categoria", "connessione"]
+    search_fields = ["nome", "corpo"]
+    form_layout = [("Modello", ["connessione", ("nome", "lingua"), "categoria", "corpo"])]

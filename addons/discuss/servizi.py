@@ -189,6 +189,8 @@ def invia(canale, autore, corpo, file=(), risposta_a=None, record=(), host=None,
         from .models import ConversazioneEsterna
         # un collega che scrive subentra all'AI
         ConversazioneEsterna.objects.filter(canale=canale, gestita_da=ConversazioneEsterna.AI).update(gestita_da=ConversazioneEsterna.PERSONA)
+        from . import assegnazioni
+        assegnazioni.chi_scrive_la_prende(canale, autore)
         if ConversazioneEsterna.objects.filter(canale=canale, connessione__isnull=False).exists():
             from . import connettori
             connettori.accoda(messaggio)
@@ -260,7 +262,7 @@ def iscrizioni_di(utente):
                  .exclude(autore=utente).order_by().values("canale").annotate(n=Count("pk")).values("n"))
     recente = Messaggio.objects.filter(canale=OuterRef("canale"), eliminato=False, tipo=Messaggio.NORMALE).order_by("-pk")
     return (Iscrizione.objects.filter(utente=utente, canale__archiviato=False)
-            .select_related("canale").prefetch_related("canale__membri")
+            .select_related("canale", "canale__esterna", "canale__esterna__assegnata_a").prefetch_related("canale__membri")
             .annotate(non_letti=Subquery(non_letti), ultimo=Subquery(recente.values("pk")[:1]),
                       ultimo_testo=Subquery(recente.values("corpo")[:1]))
             .order_by(F("ultimo").desc(nulls_last=True), "canale__nome"))

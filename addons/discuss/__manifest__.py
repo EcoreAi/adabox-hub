@@ -1,7 +1,7 @@
 {
     "name": "Discuss",
     "summary": "Chat di lavoro in tempo reale: canali, gruppi, reazioni, risposte, presenza, ricerca e posta unica",
-    "version": "1.8.0",
+    "version": "1.9.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -16,6 +16,7 @@
         {"label": "Canali", "url_name": "discuss:canali_lista", "permission": "discuss.change_canale"},
         {"label": "Livechat", "url_name": "discuss:sportelli_lista", "permission": "discuss.change_sportello"},
         {"label": "WhatsApp e Telegram", "url_name": "discuss:connessioni_lista", "permission": "discuss.change_connessione"},
+        {"label": "Modelli WhatsApp", "url_name": "discuss:modelliwa_lista", "permission": "discuss.change_modellowhatsapp"},
         {"label": "Conoscenza del sito", "url_name": "discuss:conoscenza_lista", "permission": "discuss.change_voceconoscenza"},
     ],
     "groups": {
@@ -43,5 +44,6 @@
     "cron": [{"nome": "Email dei messaggi non letti", "funzione": "discuss.notifiche.invia_email", "ogni": "10m"},
              {"nome": "Pulizia degli eventi in tempo reale", "funzione": "discuss.eventi.pulisci", "ogni": "6h"},
              {"nome": "Chiusura delle chiamate abbandonate", "funzione": "discuss.chiamate.pulisci", "ogni": "15m"},
-             {"nome": "Pulizia dei messaggi già visti da WhatsApp e Telegram", "funzione": "discuss.connettori.pulisci", "ogni": "1d"}],
+             {"nome": "Pulizia dei messaggi già visti da WhatsApp e Telegram", "funzione": "discuss.connettori.pulisci", "ogni": "1d"},
+             {"nome": "Stato dei modelli WhatsApp presso Meta", "funzione": "discuss.modelli_wa.sincronizza_tutti", "ogni": "1h"}],
 }

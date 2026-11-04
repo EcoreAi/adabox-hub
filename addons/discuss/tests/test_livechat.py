@@ -68,7 +68,7 @@ def test_il_visitatore_scrive_e_l_operatore_risponde(client, sportello):
     # l'operatore la vede tra i «Clienti», col contesto e un avviso
     client.force_login(op)
     html = client.get(f"/discuss/c/{c.canale.pk}/").content.decode()
-    assert '<div class="ds-gruppo-testa">Clienti</div>' in html and "mario@esempio.it" in html and "il visitatore legge" in html and "Mario Rossi" in html
+    assert '<div class="ds-gruppo-testa">Clienti</div>' in html and "Da prendere" in html and "mario@esempio.it" in html and "il visitatore legge" in html and "Mario Rossi" in html
     assert "Chiamata audio" not in html
     risposta = servizi.invia(c.canale, op, "Ciao Mario, dimmi pure")
     servizi.avviso(c.canale, op, "nota interna di sistema")

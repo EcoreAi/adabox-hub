@@ -4,6 +4,6 @@
   {% elif i.canale.vocale %}<span class="ds-cancelletto" aria-hidden="true">🔊</span>
   {% else %}<span class="ds-cancelletto" aria-hidden="true">{% if i.canale.tipo == "privato" %}<svg class="ds-icona"><use href="#icon-lock"/></svg>{% else %}#{% endif %}</span>{% endif %}
   <span class="ds-voce-testo"><span class="ds-voce-nome">{% if i.canale.diretto %}{{ i.titolo }}{% else %}{{ i.canale.nome }}{% endif %}</span>
-    {% if i.canale.diretto and i.ultimo_testo %}<span class="ds-voce-ultimo">{{ i.ultimo_testo|testo_piano|truncatechars:42 }}</span>{% endif %}</span>
+    {% if i.incaricato %}<span class="ds-voce-ultimo">di {{ i.incaricato }}</span>{% elif i.canale.diretto and i.ultimo_testo %}<span class="ds-voce-ultimo">{{ i.ultimo_testo|testo_piano|truncatechars:42 }}</span>{% endif %}</span>
   {% if i.non_letti %}<span class="ds-contatore">{{ i.non_letti }}</span>{% endif %}
 </a>

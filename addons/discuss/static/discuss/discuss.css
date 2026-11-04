@@ -252,8 +252,16 @@ body:has(#ds-app) .ak-etichetta svg { margin: 0; }
 .ds-consegna { margin-top: 2px; font-size: 11.5px; }
 .ds-consegna.is-errore { color: var(--ui-danger, #c4271f); font-weight: 600; }
 .ds-fascia-allarme { background: #fef2f2; color: #991b1b; }
+.ds-sottogruppo { padding: 6px 8px 2px; font-size: 11.5px; font-weight: 600; color: var(--ui-text-3); }
+.ds-sottogruppo.is-da-prendere { color: var(--ui-danger, #c4271f); }
+.ds-incarico-azioni { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.ds-fascia-incarico { background: var(--ui-surface-2); }
 .ds-form-chiama { display: contents; }
 .ds-fascia-chiamata { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .ds-fascia-chiamata form { margin: 0; }
 .ds-modulo-stretto { justify-items: start; }
 .ds-modulo-stretto .ui-label { width: 100%; }
+.ds-modello-voce { border: 1px solid var(--ui-border); border-radius: 10px; padding: 8px 10px; }
+.ds-modello-voce summary { cursor: pointer; font-weight: 600; font-size: 13.5px; }
+.ds-modello-testo { margin: 6px 0; font-size: 13px; color: var(--ui-text-2); white-space: pre-wrap; }
+.ds-fascia-allarme .ui-btn { margin-left: 8px; }

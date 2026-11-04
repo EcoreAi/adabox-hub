@@ -43,6 +43,9 @@ def invia_lista(messaggio):
     return f"email inviate: {inviate}"
 
 
+invia_lista.senza_transazione = True           # parla col server di posta
+
+
 def ricevi_risposta(pk, mittente, corpo, msg, riga):
     """Una risposta arrivata per email: entra nel canale solo se chi scrive è un iscritto che può scrivere."""
     canale = Canale.objects.filter(pk=pk).first()

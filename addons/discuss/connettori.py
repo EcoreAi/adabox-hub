@@ -175,8 +175,8 @@ def _conversazione(c, e):
             .filter(connessione=c, id_esterno=e.mittente, chiusa__isnull=True).first())
     if conv is not None:
         if conv.ultimo_in_arrivo and timezone.now() - conv.ultimo_in_arrivo > FINESTRA_WHATSAPP and assistente_sito.usa_ai(s):
-            conv.gestita_da, conv.risposte_ai = ConversazioneEsterna.AI, 0
-            conv.save(update_fields=["gestita_da", "risposte_ai"])
+            conv.gestita_da, conv.risposte_ai, conv.assegnata_a = ConversazioneEsterna.AI, 0, None
+            conv.save(update_fields=["gestita_da", "risposte_ai", "assegnata_a"])
         return conv, False
     nome = " ".join(e.nome.split())[:80] or f"Cliente {e.mittente[-4:]}"
     conv = livechat.crea_conversazione(s, nome, origine=c.tipo, connessione=c, id_esterno=e.mittente, impronta_ip=f"{c.tipo}:{c.pk}",
@@ -507,6 +507,8 @@ def consegna(messaggio):
     if conv is None or conv.connessione is None:
         return "niente"
     c = conv.connessione
+    if m.dati_modello:
+        return _consegna_modello(c, conv, m)
     if conv.fuori_finestra:
         _esito(m, Messaggio.FUORI_FINESTRA, "Sono passate più di 24 ore dall'ultimo messaggio del cliente")
         return "fuori finestra"
@@ -534,6 +536,25 @@ def consegna(messaggio):
 
 
 consegna.senza_transazione = True
+
+
+def _consegna_modello(c, conv, m):
+    """Un modello approvato: è l'unico messaggio che WhatsApp accetta fuori dalla finestra delle 24 ore."""
+    d = m.dati_modello
+    versione = parametri.leggi("discuss.versione_graph") or "v24.0"
+    richiesta = {"messaging_product": "whatsapp", "recipient_type": "individual", "to": conv.id_esterno, "type": "template", "template": {
+        "name": d["nome"], "language": {"code": d["lingua"]},
+        "components": [{"type": "body", "parameters": [{"type": "text", "text": v} for v in d["valori"]]}] if d["valori"] else []}}
+    try:
+        identificativo = WhatsApp.risposta(*_manda(c, f"https://graph.facebook.com/{versione}/{c.id_numero}/messages", {"Authorization": f"Bearer {c.token()}"}, richiesta))
+    except ErroreConsegna as e:
+        _esito(m, Messaggio.NON_RIUSCITO, str(e))
+        if e.temporaneo:
+            raise
+        return "non riuscita"
+    Messaggio.objects.filter(pk=m.pk).update(consegna=Messaggio.INVIATO, consegna_errore="", id_uscita=identificativo[:128])
+    eventi.emetti("agg", m.canale, m=m.pk)
+    return "inviato"
 
 
 def saluto_di_chiusura(conv):

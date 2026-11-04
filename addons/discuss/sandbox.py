@@ -21,7 +21,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from . import connettori
-from .models import Connessione, ConversazioneEsterna, Messaggio, SandboxEvento, SandboxMedia
+from .models import Connessione, ConversazioneEsterna, Messaggio, ModelloWhatsApp, SandboxEvento, SandboxMedia
 
 GUASTI = {"": (0, {}), "token": (401, "Token non valido"), "limite": (429, "Troppe richieste"), "giu": (503, "Servizio non disponibile"),
           "bloccato": (403, "Il cliente ha bloccato il bot")}
@@ -79,9 +79,31 @@ def _errore(c, codice, testo):
     return codice, {"ok": False, "error_code": codice, "description": testo}
 
 
+def _api_modello(c, dati):
+    """Come Meta: solo modelli approvati, con il numero giusto di parti variabili."""
+    t = dati.get("template") or {}
+    destinatario = dati.get("to", "")
+    valori = [p.get("text", "") for comp in t.get("components") or [] for p in comp.get("parameters") or []]
+    modello = ModelloWhatsApp.objects.filter(connessione=c, nome=t.get("name"), lingua=(t.get("language") or {}).get("code"), stato=ModelloWhatsApp.APPROVATO).first()
+    codice, descrizione = GUASTI.get(c.sandbox_guasto, GUASTI[""])
+    if codice:
+        risposta = _errore(c, codice, descrizione)
+    elif modello is None:
+        risposta = _errore(c, 404, "Il modello non esiste o non è approvato")
+    elif len(valori) != modello.n_variabili:
+        risposta = _errore(c, 400, "Il numero di parti variabili non corrisponde")
+    else:
+        risposta = 200, {"messaging_product": "whatsapp", "messages": [{"id": f"wamid.{secrets.token_hex(12)}", "message_status": "accepted"}]}
+    testo = f"[modello {t.get('name')}] " + (modello.componi(valori) if modello else "")
+    SandboxEvento.objects.create(connessione=c, contatto=destinatario, verso=SandboxEvento.USCITA, testo=testo, richiesta=dati, risposta=risposta[1], codice=risposta[0])
+    return risposta
+
+
 def api(c, dati):
     """Risponde come l'API vera, nel suo formato, e registra ciò che è stato chiesto."""
     media = None
+    if c.tipo == Connessione.WHATSAPP and dati.get("type") == "template":
+        return _api_modello(c, dati)
     if c.tipo == Connessione.WHATSAPP and dati.get("type") in connettori.TIPI_MEDIA:
         destinatario = dati.get("to", "")
         media = SandboxMedia.objects.filter(connessione=c, id_media=(dati.get(dati["type"]) or {}).get("id", "")).first()
@@ -180,7 +202,7 @@ def _contatto(request, c):
 @login_required
 def pagina(request, pk):
     c = _prova(request, pk)
-    return render(request, "discuss/sandbox.html", {"c": c, "contatto": _contatto(request, c), "url_webhook": connettori.url_webhook(c, f"{request.scheme}://{request.get_host()}"),
+    return render(request, "discuss/sandbox.html", {"c": c, "contatto": _contatto(request, c), "modelli": c.modelli.all(), "url_webhook": connettori.url_webhook(c, f"{request.scheme}://{request.get_host()}"),
                                                     "guasti": [("", "Nessuno"), ("token", "Token non valido"), ("limite", "Troppe richieste"), ("giu", "Servizio giù"), ("bloccato", "Cliente che blocca")]})
 
 
@@ -243,6 +265,11 @@ def azione(request, pk):
     elif fa == "tempo":
         ConversazioneEsterna.objects.filter(connessione=c, id_esterno=contatto, chiusa__isnull=True).update(ultimo_in_arrivo=timezone.now() - connettori.FINESTRA_WHATSAPP * 1.05)
         SandboxEvento.objects.create(connessione=c, contatto=contatto, verso=SandboxEvento.ENTRATA, testo="[sono passate 25 ore]", richiesta={}, risposta={"prova": "tempo"}, codice=200)
+    elif fa == "meta" and request.POST.get("modello", "").isdigit():
+        # le veci di Meta: approva o rifiuta un modello in attesa
+        approva = request.POST.get("esito") == "approva"
+        ModelloWhatsApp.objects.filter(pk=request.POST["modello"], connessione=c).update(
+            stato=ModelloWhatsApp.APPROVATO if approva else ModelloWhatsApp.RIFIUTATO, motivo="" if approva else "Rifiutato nella sandbox")
     elif fa == "guasto":
         valore = request.POST.get("guasto", "")
         Connessione.objects.filter(pk=c.pk).update(sandbox_guasto=valore if valore in GUASTI else "")

@@ -203,9 +203,11 @@ def test_comando_demo_crea_e_toglie(db, monkeypatch):
     from django.core.management import call_command
     monkeypatch.setattr("ai.conoscenza.embedding", lambda testi, tipo="document": None)
     User.objects.create_superuser("capo", "c@e.it", "x")
+    User.objects.create_superuser("collega", "d@e.it", "x")
     call_command("livechat_demo", "genera")
     x = Sportello.objects.get(nome__contains="prova")
     assert x.conoscenza.filter(tipo="faq").count() == 15 and x.conoscenza.filter(tipo="documento").count() == 7
+    assert x.operatori.count() == 1
     assert x.modalita == "ai" and FrammentoPubblico.objects.filter(voce__sportello=x).exists()
     call_command("livechat_demo", "azzera")
     assert not Sportello.objects.filter(nome__contains="prova").exists()

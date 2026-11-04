@@ -60,6 +60,8 @@
   r.addEventListener('click', (ev) => {
     const s = ev.target.closest('[data-scrivi]');
     if (s) { fa({ fa: 'scrivi', testo: s.dataset.scrivi }); return; }
+    const meta = ev.target.closest('[data-meta]');
+    if (meta) { fa({ fa: 'meta', esito: meta.dataset.meta, modello: meta.dataset.modello }).then(() => location.reload()); return; }
     const b = ev.target.closest('[data-fa]');
     if (!b) return;
     if (b.dataset.fa === 'azzera') { fa({ fa: 'azzera' }).then(() => { $('sb-chat').textContent = ''; $('sb-registro').textContent = ''; dopo = 0; }); return; }

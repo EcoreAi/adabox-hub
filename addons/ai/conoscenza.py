@@ -337,7 +337,13 @@ def indicizza_cron():
     return json.dumps(indicizza(), ensure_ascii=False)
 
 
+# chiedono gli embedding in rete: dentro una transazione terrebbero fermo il database per tutti, per tutto il tempo
+indicizza_cron.senza_transazione = True
+indicizza_documento.senza_transazione = True
+
+
 # ---------- ricerca ----------
+
 
 def parole(testo):
     return {p for p in (w.lower() for w in PAROLA.findall(testo or "")) if p not in PAROLE_VUOTE}

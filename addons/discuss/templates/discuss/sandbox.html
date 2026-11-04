@@ -29,6 +29,8 @@
       </div>
       <label class="ui-label">Guasto delle API<select class="ui-input" id="sb-guasto">{% for v, e in guasti %}<option value="{{ v }}"{% if v == c.sandbox_guasto %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
       <p class="sb-stato-conv ui-help" id="sb-conv"></p>
+      {% if c.tipo == "whatsapp" %}<h3 class="ds-h3">Modelli: qui fai la parte di Meta</h3>
+      <div class="sb-modelli">{% for m in modelli %}<div class="sb-modello"><span><strong>{{ m.nome }}</strong> <small class="ui-help">{{ m.get_stato_display }}</small><br><small>{{ m.corpo|truncatechars:90 }}</small></span>{% if m.stato != "approvato" %}<button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-meta="approva" data-modello="{{ m.pk }}">Approva</button>{% endif %}{% if m.stato != "rifiutato" %}<button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-meta="rifiuta" data-modello="{{ m.pk }}">Rifiuta</button>{% endif %}</div>{% empty %}<p class="ui-help">Nessun modello: creane uno in «Modelli WhatsApp».</p>{% endfor %}</div>{% endif %}
       <button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-fa="azzera">Azzera le prove</button>
       <h3 class="ds-h3">Registro tecnico</h3>
       <div class="sb-registro" id="sb-registro" tabindex="0"><p class="ui-help">Qui compare ogni richiesta, esattamente come passa.</p></div>

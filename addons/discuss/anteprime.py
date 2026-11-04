@@ -127,3 +127,6 @@ def calcola(messaggio, http_client=None):
         Messaggio.objects.filter(pk=m.pk).update(anteprime=trovate)
         eventi.emetti("agg", m.canale, m=m.pk)
     return f"anteprime: {len(trovate)}"
+
+
+calcola.senza_transazione = True               # scarica pagine da internet: fuori da una transazione non blocca nessuno

@@ -6,7 +6,12 @@
   {% if da_scoprire %}<details class="ds-scopri"><summary>Altri canali pubblici ({{ da_scoprire|length }})</summary>
     {% for c in da_scoprire %}<a class="ds-voce" href="{% url 'discuss:canale' c.pk %}"><span class="ds-cancelletto">#</span><span class="ds-voce-testo"><span class="ds-voce-nome">{{ c.nome }}</span></span></a>{% endfor %}</details>{% endif %}
 </div>
-{% if dal_sito %}<div class="ds-gruppo"><div class="ds-gruppo-testa">Clienti</div>{% for i in dal_sito %}{% include "discuss/_voce.html" %}{% endfor %}</div>{% endif %}
+{% if ha_clienti %}<div class="ds-gruppo"><div class="ds-gruppo-testa">Clienti</div>
+  {% if clienti_liberi %}<div class="ds-sottogruppo is-da-prendere">Da prendere ({{ clienti_liberi|length }})</div>{% for i in clienti_liberi %}{% include "discuss/_voce.html" %}{% endfor %}{% endif %}
+  {% if clienti_miei %}<div class="ds-sottogruppo">Le mie</div>{% for i in clienti_miei %}{% include "discuss/_voce.html" %}{% endfor %}{% endif %}
+  {% if clienti_ai %}<div class="ds-sottogruppo">Con l'AI</div>{% for i in clienti_ai %}{% include "discuss/_voce.html" %}{% endfor %}{% endif %}
+  {% if clienti_altri %}<details class="ds-scopri"><summary>Dei colleghi ({{ clienti_altri|length }})</summary>{% for i in clienti_altri %}{% include "discuss/_voce.html" %}{% endfor %}</details>{% endif %}
+</div>{% endif %}
 {% if vocali %}<div class="ds-gruppo"><div class="ds-gruppo-testa">Canali vocali</div>{% for i in vocali %}{% include "discuss/_voce.html" %}{% endfor %}</div>{% endif %}
 <div class="ds-gruppo">
   <div class="ds-gruppo-testa">Messaggi diretti<button type="button" class="ds-piu" data-apri="ds-dialogo-diretto" aria-label="Nuovo messaggio diretto" title="Nuovo messaggio diretto">+</button></div>

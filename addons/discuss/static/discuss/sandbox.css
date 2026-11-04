@@ -33,3 +33,6 @@
 .sb-codice.is-errore { background: #fee2e2; color: #991b1b; }
 .sb-immagine { display: block; max-width: 100%; border-radius: 8px; margin-bottom: 4px; }
 .sb-audio { display: block; width: 230px; height: 36px; margin-bottom: 4px; }
+.sb-modelli { display: grid; gap: 6px; }
+.sb-modello { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.sb-modello > span { flex: 1; min-width: 0; }

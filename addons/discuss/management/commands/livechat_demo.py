@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
 from discuss import assistente_sito
-from discuss.models import Canale, Connessione, ConversazioneEsterna, Notifica, Sportello, VoceConoscenza
+from discuss.models import Canale, Connessione, ConversazioneEsterna, ModelloWhatsApp, Notifica, Sportello, VoceConoscenza
 
 NOME = "Acme Gestionali (prova)"
 CARTELLA = Path(__file__).resolve().parents[2] / "demo_sito"
@@ -34,7 +34,8 @@ class Command(BaseCommand):
         s = Sportello.objects.create(nome=NOME, modalita=Sportello.AI, nome_ai="Ada del sito",
                                      benvenuto="Ciao! Sono l'assistente virtuale di Acme Gestionali. Chiedimi di prezzi, tempi di avvio, assistenza o sviluppo su misura.",
                                      istruzioni="Acme Gestionali sviluppa un gestionale per PMI. Tono cordiale e professionale, dando del tu.")
-        s.operatori.set(get_user_model().objects.filter(is_superuser=True, is_active=True))
+        # un solo operatore: le prove non devono finire nella posta, e poi nelle email, dei colleghi
+        s.operatori.set(get_user_model().objects.filter(is_superuser=True, is_active=True).order_by("pk")[:1])
         voci = []
         for blocco in re.split(r"^## ", (CARTELLA / "faq.md").read_text(encoding="utf-8"), flags=re.M)[1:]:
             domanda, _, risposta = blocco.partition("\n")
@@ -49,5 +50,8 @@ class Command(BaseCommand):
             assistente_sito.indicizza(v.pk)
         wa = Connessione.objects.create(tipo=Connessione.WHATSAPP, nome="WhatsApp di prova", sportello=s, sandbox=True, id_numero="100000000000000")
         tg = Connessione.objects.create(tipo=Connessione.TELEGRAM, nome="Telegram di prova", sportello=s, sandbox=True)
+        ModelloWhatsApp.objects.create(connessione=wa, nome="ripresa_contatto", corpo="Ciao {{1}}, ti scriviamo da Acme Gestionali per la tua richiesta: rispondi a questo messaggio quando vuoi.", stato=ModelloWhatsApp.APPROVATO)
+        ModelloWhatsApp.objects.create(connessione=wa, nome="promemoria_demo", corpo="Ciao {{1}}, ti ricordiamo la demo di Acme ERP del {{2}}. Rispondi a questo messaggio per spostarla.", stato=ModelloWhatsApp.APPROVATO)
+        ModelloWhatsApp.objects.create(connessione=wa, nome="offerta_autunno", categoria=ModelloWhatsApp.MARKETING, corpo="Ciao {{1}}, abbiamo una proposta per te sul piano Crescita.")
         self.stdout.write(f"Sportello pronto: {s.pk} · {len(voci)} voci · /discuss/lc/{s.chiave}/")
         self.stdout.write(f"Sandbox: /discuss/sandbox/{wa.pk}/ · /discuss/sandbox/{tg.pk}/")

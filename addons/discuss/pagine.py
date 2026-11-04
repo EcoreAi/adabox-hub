@@ -18,8 +18,8 @@ from core.generici import ct_di, vista_e_oggetto
 from core.models import Allegato, TipoAttivita
 from core.models import Messaggio as MessaggioChatter
 
-from . import chiamate, eventi, ia, notifiche, presenza as presenze, schede, servizi, testo
-from .models import Canale, Iscrizione, Messaggio, Notifica, Presenza
+from . import assegnazioni, chiamate, eventi, ia, notifiche, presenza as presenze, schede, servizi, testo
+from .models import Canale, ConversazioneEsterna, Iscrizione, Messaggio, Notifica, Presenza
 
 PERMESSO = "discuss.view_canale"
 EMOJI_MASSIMA = 16
@@ -57,6 +57,26 @@ def _diritti(request, canale):
             "puo_trascrivere": ia.trascrizione_attiva()}
 
 
+def _clienti(request, iscrizioni):
+    """Le chat con i clienti di chi guarda: le sue, quelle da prendere e, a parte, quelle dei colleghi."""
+    gruppi = {"clienti_miei": [], "clienti_liberi": [], "clienti_ai": [], "clienti_altri": []}
+    for i in iscrizioni:
+        if not i.canale.livechat or i.fissata:
+            continue
+        e = getattr(i.canale, "esterna", None)
+        if e is not None and e.assegnata_a_id == request.user.pk:
+            gruppi["clienti_miei"].append(i)
+        elif e is not None and e.assegnata_a_id:
+            i.incaricato = servizi.nome_di(e.assegnata_a)
+            gruppi["clienti_altri"].append(i)
+        elif e is not None and e.gestita_da == ConversazioneEsterna.AI:
+            gruppi["clienti_ai"].append(i)
+        else:
+            gruppi["clienti_liberi"].append(i)
+    gruppi["ha_clienti"] = any(gruppi.values())
+    return gruppi
+
+
 def _barra(request, corrente=None):
     """Elenco delle conversazioni: preferiti, canali e messaggi diretti, con presenza e non letti."""
     iscrizioni = list(servizi.iscrizioni_di(request.user))
@@ -70,7 +90,7 @@ def _barra(request, corrente=None):
             i.presenza = presenze.scheda(stati.get(altri[0].pk)) if len(altri) == 1 else None
     return {"preferiti": [i for i in iscrizioni if i.fissata],
             "canali": [i for i in iscrizioni if not i.canale.diretto and not i.fissata and not i.canale.vocale and not i.canale.livechat],
-            "dal_sito": [i for i in iscrizioni if i.canale.livechat and not i.fissata],
+            **_clienti(request, iscrizioni),
             "vocali": [i for i in iscrizioni if i.canale.vocale and not i.fissata],
             "diretti": [i for i in iscrizioni if i.canale.diretto and not i.fissata],
             "corrente": corrente, "corrente_pk": corrente.pk if corrente else None,
@@ -118,6 +138,7 @@ def _dati_canale(request, canale):
             "n_fissati": canale.messaggi.filter(fissato_il__isnull=False, eliminato=False).count(),
             "puo_gestire": servizi.puo_gestire(request.user, canale), "chiamata_attiva": chiamate.attiva_del(canale),
             "ia_attiva": ia.disponibile(request.user), "esterna": getattr(canale, "esterna", None) if canale.livechat else None,
+            "operatori_chat": assegnazioni.operatori_di(canale),
             **_diritti(request, canale)}
     if canale.diretto and len(altri) == 1:
         dati["altra"] = altri[0]

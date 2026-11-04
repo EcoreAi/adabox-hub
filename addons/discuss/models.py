@@ -1,7 +1,10 @@
 import datetime
+import re
 import secrets
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
 
@@ -104,6 +107,7 @@ class Messaggio(models.Model):
     consegna = models.CharField("consegna al cliente", max_length=10, blank=True)
     consegna_errore = models.CharField("motivo", max_length=200, blank=True)
     id_uscita = models.CharField("id sulla piattaforma", max_length=128, blank=True, db_index=True)
+    dati_modello = models.JSONField("modello WhatsApp usato", default=dict, blank=True)
     parti_inviate = models.JSONField("parti già consegnate", default=list, blank=True, help_text="Per non rimandare nulla quando un invio si ritenta.")
     trascrizione = models.TextField("trascrizione del vocale", blank=True)
     trascrizione_stato = models.CharField("stato della trascrizione", max_length=10, blank=True)
@@ -312,6 +316,9 @@ class Sportello(models.Model):
                                        help_text="Chi riceve le chat: ognuno vede tutte quelle di questo sportello.")
     domini = models.TextField("siti ammessi", blank=True, help_text="Un dominio per riga, es. www.azienda.it. Vuoto: la chat non si può incorporare in nessun sito.")
     privacy_url = models.URLField("informativa privacy", blank=True, help_text="Il link che il visitatore vede prima di scrivere.")
+    TUTTI, A_TURNO = "tutti", "turno"
+    distribuzione = models.CharField("come si distribuiscono le chat", max_length=10, default=TUTTI, choices=[
+        (TUTTI, "Le vedono tutti gli operatori: le prende chi è libero"), (A_TURNO, "Vanno da sole all'operatore collegato con meno chat aperte")])
     PERSONE, AI, SOLO_AI = "persone", "ai", "solo_ai"
     MODALITA = [(PERSONE, "Rispondono le persone"), (AI, "Risponde l'AI, e passa a una persona quando serve"),
                 (SOLO_AI, "Risponde solo l'AI")]
@@ -346,6 +353,7 @@ class ConversazioneEsterna(models.Model):
     gestita_da = models.CharField("chi sta rispondendo", max_length=10, default=PERSONA)
     risposte_ai = models.PositiveIntegerField("risposte dell'AI", default=0)
     connessione = models.ForeignKey("Connessione", on_delete=models.CASCADE, null=True, blank=True, related_name="conversazioni")
+    assegnata_a = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="chat_assegnate", verbose_name="assegnata a")
     id_esterno = models.CharField("numero o chat", max_length=64, blank=True, db_index=True)
     ultimo_in_arrivo = models.DateTimeField("ultimo messaggio del cliente", null=True, blank=True)
     impronta_ip = models.CharField("impronta dell'indirizzo", max_length=64, db_index=True, help_text="Solo per fermare gli abusi: l'indirizzo non si conserva.")
@@ -376,6 +384,7 @@ class Connessione(models.Model):
     sandbox = models.BooleanField("connessione di prova", default=True, help_text="Non esce nulla in rete: si prova tutto dalla sandbox.")
     attiva = models.BooleanField("attiva", default=True)
     id_numero = models.CharField("ID del numero WhatsApp", max_length=64, blank=True, help_text="Il «Phone number ID» di Meta. Non serve per Telegram.")
+    id_account = models.CharField("ID dell'account WhatsApp Business", max_length=64, blank=True, help_text="Serve per i modelli di messaggio approvati da Meta.")
     token_cifrato = models.TextField(blank=True, editable=False)
     segreto_cifrato = models.TextField(blank=True, editable=False)
     verifica = models.CharField("token di verifica", max_length=64, default=_nuova_chiave, editable=False)
@@ -403,6 +412,45 @@ class Connessione(models.Model):
 
     def segreto(self):
         return cifratura.decifra(self.segreto_cifrato)
+
+
+class ModelloWhatsApp(models.Model):
+    """Un testo approvato da Meta: l'unico modo di scrivere a un cliente dopo le 24 ore dal suo ultimo messaggio."""
+    IN_ATTESA, APPROVATO, RIFIUTATO = "in_attesa", "approvato", "rifiutato"
+    STATI = [(IN_ATTESA, "In attesa di Meta"), (APPROVATO, "Approvato"), (RIFIUTATO, "Rifiutato")]
+    UTILITY, MARKETING = "UTILITY", "MARKETING"
+    connessione = models.ForeignKey(Connessione, on_delete=models.CASCADE, related_name="modelli", verbose_name="connessione", limit_choices_to={"tipo": Connessione.WHATSAPP})
+    nome = models.CharField("nome", max_length=80, validators=[RegexValidator(r"^[a-z0-9_]+$", "Solo minuscole, cifre e trattino basso: lo chiede Meta.")], help_text="Es. ripresa_contatto")
+    lingua = models.CharField("lingua", max_length=10, default="it")
+    categoria = models.CharField("categoria", max_length=12, default=UTILITY, choices=[(UTILITY, "Servizio (aggiornamenti su una richiesta)"), (MARKETING, "Marketing (serve il consenso del cliente)")])
+    corpo = models.TextField("testo", max_length=1024, help_text="Le parti variabili si scrivono {{1}}, {{2}}… Il testo non si può cambiare senza una nuova approvazione.")
+    stato = models.CharField("stato", max_length=10, choices=STATI, default=IN_ATTESA, editable=False)
+    motivo = models.CharField("motivo", max_length=300, blank=True, editable=False)
+    aggiornato = models.DateTimeField("aggiornato il", auto_now=True)
+
+    class Meta:
+        verbose_name = "modello WhatsApp"
+        verbose_name_plural = "modelli WhatsApp"
+        ordering = ["nome"]
+        constraints = [models.UniqueConstraint(fields=["connessione", "nome", "lingua"], name="discuss_modello_unico")]
+
+    def __str__(self):
+        return f"{self.nome} ({self.lingua})"
+
+    @property
+    def n_variabili(self):
+        return len(set(re.findall(r"\{\{(\d+)\}\}", self.corpo)))
+
+    def clean(self):
+        numeri = sorted(int(n) for n in set(re.findall(r"\{\{(\d+)\}\}", self.corpo or "")))
+        if numeri != list(range(1, len(numeri) + 1)):
+            raise ValidationError({"corpo": "Le parti variabili vanno numerate senza salti: {{1}}, {{2}}…"})
+
+    def componi(self, valori):
+        testo = self.corpo
+        for i, v in enumerate(valori, 1):
+            testo = testo.replace("{{%d}}" % i, v)
+        return testo
 
 
 class EventoEsterno(models.Model):

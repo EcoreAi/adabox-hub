@@ -27,7 +27,7 @@ from core.registry import modules
 
 from core import lavori
 
-from . import assistente_sito, eventi, presenza, servizi
+from . import assegnazioni, assistente_sito, eventi, presenza, servizi
 from .models import Canale, ConversazioneEsterna, DomandaSenzaRisposta, Iscrizione, Messaggio, Sportello, VoceConoscenza
 
 MASSIMO_TESTO = 2000
@@ -148,6 +148,8 @@ def crea_conversazione(s, nome, origine, usa_ai, impronta_ip="", email="", pagin
 def _dal_visitatore(c, testo):
     """Il messaggio del visitatore: va alle persone, o all'AI finché risponde lei."""
     with_ai = c.gestita_da == ConversazioneEsterna.AI
+    if not with_ai:
+        assegnazioni.a_turno(c)                    # prima del messaggio: la notifica va a chi la riceve
     m = servizi.invia(c.canale, None, testo, esterno=c.nome, silenzioso=with_ai)
     if with_ai:
         lavori.accoda("discuss.assistente_sito.rispondi", conversazione=c.pk, messaggio=m.pk, max_tentativi=1)
@@ -286,3 +288,6 @@ def avvisa_visitatore(messaggio):
     send_mail(f"Risposta da {c.sportello.nome}", f"{m.corpo}\n\n—\n{c.sportello.nome}\nÈ una risposta alla chat sul sito: non rispondere a questa email, torna sul sito per continuare.",
               None, [c.email], fail_silently=True)
     return "email inviata"
+
+
+avvisa_visitatore.senza_transazione = True     # parla col server di posta

@@ -118,8 +118,11 @@ def passa_a_persona(c, motivo, domanda=""):
                  for p in presenza.di(s.operatori.values_list("pk", flat=True)).values())
     _dall_ai(c, "Ti passo a un collega, che ti risponde qui tra poco." if online else s.assenza)
     servizi.avviso(c.canale, None, f"L'AI ha passato la chat: {motivo}")
+    from . import assegnazioni
+    incaricato = assegnazioni.a_turno(c)
+    destinatari = [incaricato] if incaricato else list(s.operatori.filter(is_active=True))
     nuove = [Notifica(utente=u, tipo=Notifica.DIRETTO, titolo=f"{c.nome} ha bisogno di una persona"[:200], testo=motivo[:200],
-                      url=f"/discuss/c/{c.canale_id}/") for u in s.operatori.filter(is_active=True)]
+                      url=f"/discuss/c/{c.canale_id}/") for u in destinatari]
     Notifica.objects.bulk_create(nuove)
     for n in nuove:
         eventi.emetti("notifica", utente=n.utente, tipo_notifica=n.tipo, titolo=n.titolo, testo=n.testo, url=n.url)
