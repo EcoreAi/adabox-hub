@@ -89,6 +89,8 @@ class CompitoView(ModelView):
     list_group_by = ["progetto", "tipo", "fase", "sprint", "milestone", "rilascio", "assegnatari", "scadenza:mese"]
     list_sum = ["ore_previste", "punti"]
     kanban_group = "fase"
+    kanban_ordini = [("scadenza", "Scadenza")]
+    kanban_ordine_chiuse = "-completato_il"
     kanban_fields = ["tipo", "progetto", "scadenza", "priorita", "punti"]
     kanban_ricco = True
     calendar_date = "scadenza"

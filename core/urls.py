@@ -3,6 +3,7 @@ from django.urls import include, path
 from . import applicazioni, due_fattori_viste, utenti, views
 from .viste import allegati as allegati_viste
 from .viste import chatter as chatter_viste
+from .viste import kanban as kanban_viste
 from .viste import registry
 
 app_name = "core"
@@ -20,6 +21,7 @@ urlpatterns = [
     path("profilo/token/<int:pk>/revoca/", views.token_revoca, name="token_revoca"),
     path("azienda/cambia/", views.cambia_azienda, name="cambia_azienda"),
     path("impostazioni/", views.impostazioni, name="impostazioni"),
+    path("kanban/nota/<int:pk>/", kanban_viste.nota, name="kanban_nota"),
     path("impostazioni/barra/", views.impostazioni_barra, name="impostazioni_barra"),
     path("profilo/le-mie-app/", views.le_mie_app, name="le_mie_app"),
     path("chatter/<int:ct>/<int:pk>/", chatter_viste.pannello, name="chatter"),

@@ -116,6 +116,26 @@ class DueFattori(models.Model):
         return f"2FA di {self.utente}"
 
 
+class SpostamentoKanban(models.Model):
+    """Una scheda spostata a mano tra le colonne di un kanban: chi, da dove a dove, quando, con una nota se c'è."""
+    content_type = models.ForeignKey("contenttypes.ContentType", on_delete=models.CASCADE, verbose_name="tipo")
+    object_id = models.PositiveBigIntegerField("record")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="spostata da")
+    da = models.CharField("da", max_length=120, blank=True)
+    a = models.CharField("a", max_length=120, blank=True)
+    nota = models.TextField("nota", blank=True)
+    quando = models.DateTimeField("quando", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "spostamento nel kanban"
+        verbose_name_plural = "spostamenti nel kanban"
+        ordering = ["-quando", "-pk"]
+        indexes = [models.Index(fields=["content_type", "object_id", "-quando"])]
+
+    def __str__(self):
+        return f"{self.da} → {self.a}"
+
+
 class LicenzaIstanza(models.Model):
     """La licenza di questa istanza e l'ultimo catalogo ricevuti dal portale (una riga sola)."""
     testo = models.TextField("file di licenza", blank=True)

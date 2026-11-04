@@ -26,6 +26,8 @@ class TicketView(ModelView):
     kanban_group = "fase"
     kanban_fields = ["numero", "priorita", "assegnatario", "sla"]
     kanban_ricco = True
+    kanban_ordini = [("scadenza_sla", "Scadenza SLA")]
+    kanban_ordine_chiuse = "-chiuso_il"
     graph = {"tipi": ["barre", "torta", "linee"], "misure": ["count"],
              "per": ["fase", "priorita", "team", "assegnatario", "creato:mese"]}
     chatter = True

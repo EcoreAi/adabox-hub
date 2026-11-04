@@ -10,31 +10,22 @@
   </div>
 </div>
 <div class="ui-card is-revealed">{% include "core/vista/_filtri_semplici.html" %}</div>
-<div class="ui-kanban{% if vista.kanban_ricco %} is-ricco{% endif %}" data-campo="{{ campo }}"{% if vista.kanban_ricco %} data-ricarica{% endif %}>
+<div class="ui-kanban-strumenti">
+  <div class="ui-search ui-kanban-trova"><svg><use href="#icon-search"/></svg><input class="ui-input" type="search" id="kb-trova" placeholder="Trova una scheda…" aria-label="Trova una scheda tra quelle caricate"></div>
+  <span class="ui-help" id="kb-trovate" aria-live="polite"></span>
+  <span class="spacer"></span>
+  <label class="ui-kanban-compatta"><input type="checkbox" class="ui-checkbox" id="kb-compatta"> Vista compatta</label>
+</div>
+<div class="ui-kanban{% if vista.kanban_ricco %} is-ricco{% endif %}" data-campo="{{ campo }}">
   {% for col in colonne %}
-  <section class="ui-kanban-col{% if col.extra.colore %} ui-tinta-{{ col.extra.colore }}{% endif %}" data-valore="{{ col.valore }}" aria-label="{{ col.etichetta }}">
-    <header><span>{{ col.etichetta }}</span><span class="ui-gruppo-n" data-conteggio>{{ col.totale }}</span></header>
-    {% if col.extra.riepilogo %}<p class="ui-kanban-riepilogo">{{ col.extra.riepilogo }}</p>{% endif %}
+  <section class="ui-kanban-col{% if col.extra.colore %} ui-tinta-{{ col.extra.colore }}{% endif %}{% if col.ripiegata %} is-ripiegata{% endif %}"{% if col.ripiegata %} data-chiusa{% endif %} data-valore="{{ col.valore }}" data-altri="{{ col.altri }}" data-caricate="{{ col.card|length }}" aria-label="{{ col.etichetta }}">
+    <header><button type="button" class="ui-kanban-ripiega" data-ripiega aria-label="Ripiega o apri {{ col.etichetta }}" title="Ripiega o apri"><svg width="12" height="12"><use href="#icon-chevron-down"/></svg></button><span class="ui-kanban-col-nome">{{ col.etichetta }}</span><span class="ui-gruppo-n" data-conteggio>{{ col.totale }}</span></header>
+    <p class="ui-kanban-riepilogo" data-riepilogo{% if not col.extra.riepilogo %} hidden{% endif %}>{{ col.extra.riepilogo }}</p>
+    <select class="ui-kanban-ordine" data-ordina aria-label="Ordina {{ col.etichetta }}">{% for v, e in ordini %}<option value="{{ v }}">{{ e }}</option>{% endfor %}</select>
     <div class="ui-kanban-card-list">
-      {% for c in col.card %}
-      <article class="ui-kanban-card{% if c.scheda.accento %} is-accento-{{ c.scheda.accento }}{% endif %}"{% if puo_spostare %} data-trascinabile{% endif %}
-               data-sposta="{% url vista.modulo|add:':'|add:vista.slug|add:'_sposta' pk=c.obj.pk %}">
-        <div class="ui-kanban-testa"><a class="ui-kanban-titolo" href="{% url vista.modulo|add:':'|add:vista.slug|add:'_dettaglio' pk=c.obj.pk %}">{{ c.obj }}</a>{% if c.scheda.stelle %}<span class="ui-kanban-stelle" title="Priorità: {{ c.scheda.stelle.2 }}" aria-label="Priorità: {{ c.scheda.stelle.2 }}">{% for _ in c.scheda.stelle.0 %}★{% endfor %}<i>{% for _ in c.scheda.stelle.1 %}★{% endfor %}</i></span>{% endif %}</div>
-        {% if c.scheda %}{% include "core/vista/_scheda_kanban.html" with s=c.scheda %}{% endif %}
-        {% for etichetta, valore in c.campi %}<div class="ui-kanban-campo"><span>{{ etichetta }}</span> {{ valore }}</div>{% endfor %}
-        {% if puo_spostare %}
-        <noscript>
-          <form method="post" action="{% url vista.modulo|add:':'|add:vista.slug|add:'_sposta' pk=c.obj.pk %}">
-            {% csrf_token %}<input type="hidden" name="ritorno" value="{{ query_filtri }}">
-            <select name="valore" class="ui-input" aria-label="Sposta in">{% for v, e in tutte %}<option value="{{ v }}"{% if v == col.valore %} selected{% endif %}>{{ e }}</option>{% endfor %}</select>
-            <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Sposta</button>
-          </form>
-        </noscript>
-        {% endif %}
-      </article>
-      {% endfor %}
+      {% include "core/vista/_carte_kanban.html" with col=col %}
     </div>
-    {% if col.altri %}<a class="ui-link ui-kanban-altri" href="{{ urls.lista }}?f_{{ campo }}={{ col.valore|urlencode }}{% if query_filtri %}&{{ query_filtri }}{% endif %}">altri {{ col.altri }}…</a>{% endif %}
+    {% if col.altri %}<a class="ui-link ui-kanban-altri" href="{{ urls.lista }}?f_{{ campo }}={{ col.valore|urlencode }}{% if query_filtri %}&{{ query_filtri }}{% endif %}">Altre {{ col.altri }}</a>{% endif %}
   </section>
   {% endfor %}
 </div>

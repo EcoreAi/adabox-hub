@@ -53,6 +53,8 @@ class OpportunitaView(ModelView):
     kanban_group = "fase"
     kanban_fields = ["valore_atteso", "contatto", "nome_contatto", "commerciale"]
     kanban_ricco = True
+    kanban_ordini = [("-valore_atteso", "Valore"), ("chiusura_prevista", "Chiusura prevista")]
+    kanban_ordine_chiuse = "-chiusa_il"
     calendar_date = "chiusura_prevista"
     calendar_color = "stato"
     graph = {"tipi": ["barre", "torta", "linee"], "misure": ["sum:valore_atteso", "count"],

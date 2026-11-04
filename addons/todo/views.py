@@ -30,6 +30,8 @@ class AttivitaView(ModelView):
     tracked_fields = ["stato", "assegnatario", "scadenza"]
     list_group_by = ["stato", "assegnatario", "scadenza:mese"]
     kanban_group = "stato"
+    kanban_ordini = [("scadenza", "Scadenza")]
+    kanban_valori_chiusi = ("fatta", "annullata")
     kanban_fields = ["numero", "scadenza", "assegnatario"]
     kanban_ricco = True
     kanban_colori = {"aperta": "indaco", "in_corso": "azzurro", "fatta": "verde", "annullata": "grigio"}

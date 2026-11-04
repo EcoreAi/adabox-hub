@@ -54,7 +54,10 @@ class ModelView:
     list_sum = ()                 # campi numerici con i totali (per gruppo e in fondo)
     kanban_group = None           # vista kanban: campo con scelte o FK
     kanban_fields = ()            # campi mostrati nella card (oltre al titolo)
-    kanban_limite = 50            # card per colonna
+    kanban_limite = 30            # card caricate alla volta per colonna, le altre scorrendo
+    kanban_ordini = ()            # ordinamenti in più nel selettore della colonna: [("-valore", "Valore"), ...]
+    kanban_valori_chiusi = ()     # colonne ripiegate di partenza, per i campi con scelte (per le FK: `chiusa` o `vinta` del record)
+    kanban_ordine_chiuse = ""     # nelle colonne chiuse, di partenza: es. "-chiusa_il", le più recenti prima
     kanban_ricco = False          # le card e le colonne vengono da kanban_scheda e kanban_colonna
     kanban_colori = {}            # {valore della colonna: colore da core.colori}; senza, per posizione
     calendar_date = None          # vista calendario: campo data
