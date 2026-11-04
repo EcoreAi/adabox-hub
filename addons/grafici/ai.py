@@ -35,7 +35,7 @@ def _trova(contesto, pagina):
 
 def analisi_pagine(contesto):
     voci = [{"id": p.pk, "titolo": p.titolo, "app": p.app, "mia": p.utente_id == contesto.utente.id,
-             "condivisa": p.condivisa, "grafici": p.grafici.count(), "url": _url(p)} for p in _mie_e_condivise(contesto)]
+             "condivisa": p.condivisa, "widget": p.n_widget, "url": _url(p)} for p in _mie_e_condivise(contesto)]
     return voci or "Nessuna pagina di Analisi: se ne può creare una con analisi_crea_pagina."
 
 
@@ -132,11 +132,13 @@ def salva_grafico(contesto, titolo="", vista="", tipo="barre", misura="count", p
             raise ErroreStrumento(f"Nessuna scheda dell'app «{testo_pagina[4:]}».")
     from django.utils import timezone
     g = Grafico.objects.create(
-        utente=contesto.utente, pagina=p, titolo=(titolo or motore.descrizione(spec, vista=vista_obj, tipo=tipo))[:200],
+        utente=contesto.utente, titolo=(titolo or motore.descrizione(spec, vista=vista_obj, tipo=tipo))[:200],
         tipo=tipo, spec=spec, dati=dati, aggiornato=timezone.now(), origine=Grafico.CHAT,
         opzioni={"obiettivo": float(obiettivo)} if obiettivo else {},
         origine_url=reverse("ai:conversazione", args=[contesto.conversazione_id]) if getattr(contesto, "conversazione_id", None)
         else (reverse("ai:conversazione", args=[contesto.conversazione.pk]) if contesto.conversazione else ""))
+    if p is not None:
+        motore.metti_in_pagina(p, g)
     url = _url(p) if p else reverse("grafici:grafico", args=[g.pk])
     return {"esito": f"Salvato «{g.titolo}»" + (f" nella pagina «{p.titolo}»." if p else " in libreria."), "url": url, "grafico": g.pk}
 
@@ -159,7 +161,7 @@ def crea_pagina(contesto, titolo, icona="bar-chart"):
 
 registra(Strumento(
     "analisi_pagine", "Le pagine di Analisi dell'utente (le schede della sua dashboard) e quelle condivise con lui, "
-                      "con quanti grafici hanno.",
+                      "con quanti widget hanno.",
     {"type": "object", "properties": {}, "required": []}, analisi_pagine, permesso="grafici.view_pagina"))
 registra(Strumento(
     "analisi_leggi_pagina", "I numeri di una pagina di Analisi adesso: KPI, grafici salvati con la loro query e i "

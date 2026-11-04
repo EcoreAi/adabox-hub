@@ -1,0 +1,8 @@
+{% load agganci %}{# La libreria: tutti i widget che si possono mettere in questa pagina. #}
+<aside class="wd-cassetto" id="wd-cassetto" hidden aria-label="Libreria dei widget">
+  <div class="wd-cassetto-testa"><strong>Aggiungi alla pagina</strong><button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-chiudi-cassetto aria-label="Chiudi">×</button></div>
+  <input class="ui-input wd-cassetto-cerca" type="search" id="wd-cassetto-cerca" placeholder="Cerca un widget…" aria-label="Cerca un widget">
+  <ul class="wd-cassetto-voci" id="wd-cassetto-voci">{% for w in nascosti %}<li><button type="button" data-aggiungi="{{ w.id }}"><strong>{{ w.titolo }}</strong><small>{% if w.app %}{{ w.app }}{% else %}{{ w.scheda.label }}{% endif %} · {% if w.tipo == "kpi" %}indicatori{% else %}grafico{% endif %}</small></button></li>{% endfor %}</ul>
+  <p class="sub wd-cassetto-vuoto"{% if nascosti %} hidden{% endif %}>Tutti i widget sono già su questa pagina.</p>
+  {% agganci "core.dashboard_cassetto" %}
+</aside>

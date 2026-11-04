@@ -4,7 +4,8 @@ from django.db import models
 
 class Pagina(models.Model):
     """Una scheda della dashboard: la griglia di widget di un utente, libera o legata a un'app (il tab del CRM, della
-    Fatturazione…). Il proprietario la dispone; condivisa, la vede tutta l'azienda ma ognuno con i propri dati."""
+    Fatturazione…). Non possiede i widget, li dispone: lo stesso widget può stare in tutte le pagine che si vuole.
+    Il proprietario la dispone; condivisa, la vede tutta l'azienda ma ognuno con i propri dati."""
     utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="pagine_analisi",
                                verbose_name="proprietario")
     titolo = models.CharField("titolo", max_length=100)
@@ -31,6 +32,15 @@ class Pagina(models.Model):
     def chiave(self):
         return f"app:{self.app}" if self.app else f"pagina:{self.pk}"
 
+    @property
+    def id_widget(self):
+        """Gli id dei widget che la pagina mostra: la pagina è una disposizione, i widget stanno nella libreria."""
+        return [v["id"] for v in (self.layout or {}).get("widget", []) if isinstance(v, dict) and v.get("id")]
+
+    @property
+    def n_widget(self):
+        return len(self.id_widget)
+
 
 class Grafico(models.Model):
     """Un grafico salvato: la specifica della query (vista, raggruppamento, misura, filtri), il tipo con cui si disegna
@@ -44,8 +54,8 @@ class Grafico(models.Model):
     ORIGINI = [(CHAT, "Chiesto ad Ada"), (VISTA, "Dalla vista Grafico"), (COSTRUTTORE, "Costruttore")]
     utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="grafici_analisi",
                                verbose_name="proprietario")
-    pagina = models.ForeignKey(Pagina, on_delete=models.SET_NULL, null=True, blank=True, related_name="grafici",
-                               verbose_name="pagina", help_text="vuota = in libreria, non ancora in una pagina")
+    condiviso_con = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="grafici_condivisi", verbose_name="condiviso con",
+                                           help_text="lo vedono nella loro libreria, con i dati che i loro permessi consentono")
     titolo = models.CharField("titolo", max_length=200)
     tipo = models.CharField("tipo", max_length=20, choices=TIPI, default=BARRE)
     spec = models.JSONField("specifica", default=dict,

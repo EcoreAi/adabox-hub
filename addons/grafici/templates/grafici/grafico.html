@@ -3,7 +3,7 @@
 {% block title %}{{ g.titolo }} · Analisi · {{ theme.brand }}{% endblock %}
 {% block app_content %}
 <div class="ui-pagehead">
-  <div><h1>{{ g.titolo }}</h1><div class="sub">{{ w.sotto }}{% if w.aggiornato %} · dati di {{ w.aggiornato|date:"d/m/Y H:i" }}{% endif %}{% if g.pagina %} · nella pagina <a href="{% if g.pagina.app %}{% url 'grafici:pagina_app' g.pagina.app %}{% else %}{% url 'grafici:pagina' g.pagina.pk %}{% endif %}">{{ g.pagina.titolo }}</a>{% endif %}</div></div>
+  <div><h1>{{ g.titolo }}</h1><div class="sub">{{ w.sotto }}{% if w.aggiornato %} · dati di {{ w.aggiornato|date:"d/m/Y H:i" }}{% endif %}{% if not mio %} · condiviso da {{ g.utente.get_full_name|default:g.utente.username }}: i dati sono quelli che i tuoi permessi consentono{% endif %}</div></div>
   <div class="ui-pagehead-actions">
     <a class="ui-btn ui-btn-secondary" href="?aggiorna=1"><svg><use href="#icon-refresh"/></svg> Aggiorna</a>
     <a class="ui-btn ui-btn-ghost" href="{% url 'grafici:grafico_csv' g.pk %}"><svg><use href="#icon-download"/></svg> CSV</a>
@@ -35,23 +35,37 @@
     </table></div>
     {% endif %}
   </section>
-  {% if mio %}
-  <aside class="ui-card is-revealed an-lato">
-    <div class="ui-card-head"><div><div class="ui-card-title">Impostazioni</div></div></div>
-    <div class="ui-card-body">
+  <aside class="an-lato">
+    <section class="ui-card is-revealed" id="dove">
+      <div class="ui-card-head"><div><div class="ui-card-title">In quali pagine</div><div class="ui-card-sub">Lo stesso grafico può stare in più pagine</div></div></div>
+      <form class="ui-card-body an-form" method="post" action="{% url 'grafici:grafico_pagine' g.pk %}">{% csrf_token %}
+        <div class="an-spunte">{% for r in scelte_pagine %}<label><input type="checkbox" class="ui-checkbox" name="pagine" value="{{ r.valore }}"{% if r.dentro %} checked{% endif %}> {{ r.titolo }}</label>{% endfor %}</div>
+        <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Salva le pagine</button>
+      </form>
+    </section>
+    {% if mio %}
+    <section class="ui-card is-revealed" id="condividi">
+      <div class="ui-card-head"><div><div class="ui-card-title">Condividi con</div><div class="ui-card-sub">Lo trovano nella loro libreria, con i dati che i loro permessi consentono. Non possono modificarlo.</div></div></div>
+      <form class="ui-card-body an-form" method="post" action="{% url 'grafici:grafico_condividi' g.pk %}">{% csrf_token %}
+        {% if persone %}<div class="an-spunte">{% for r in persone %}<label><input type="checkbox" class="ui-checkbox" name="persone" value="{{ r.pk }}"{% if r.dentro %} checked{% endif %}> {{ r.nome }}</label>{% endfor %}</div>
+        <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit"><svg><use href="#icon-share"/></svg> Salva la condivisione</button>{% else %}<p class="ui-help">Non ci sono colleghi con cui condividerlo.</p>{% endif %}
+      </form>
+    </section>
+    <section class="ui-card is-revealed">
+      <div class="ui-card-head"><div><div class="ui-card-title">Impostazioni</div></div></div>
+      <div class="ui-card-body an-colonna">
       <form method="post" action="{% url 'grafici:grafico_modifica' g.pk %}" class="an-form">{% csrf_token %}
         <label class="ui-label">Titolo<input class="ui-input" name="titolo" value="{{ g.titolo }}" maxlength="200"></label>
-        <label class="ui-label">Pagina<select class="ui-input" name="destinazione" onchange="this.form.querySelector('[name=titolo_nuova]').hidden = this.value !== 'nuova'">{% for v, e in destinazioni %}<option value="{{ v }}"{% if v == destinazione_attuale %} selected{% endif %}>{{ e }}</option>{% endfor %}<option value=""{% if not destinazione_attuale %} selected{% endif %}>Solo in libreria</option></select></label>
-        <input class="ui-input" name="titolo_nuova" placeholder="Titolo della nuova pagina" maxlength="100" hidden>
         <label class="ui-label">Ricalcolo automatico<select class="ui-input" name="aggiorna_ogni">{% for v, e in aggiornamenti %}<option value="{{ v }}"{% if v == g.aggiorna_ogni %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
         <button class="ui-btn ui-btn-primary" type="submit">Salva</button>
       </form>
       {% if g.tipo != "previsione" %}<a class="ui-btn ui-btn-secondary" href="{% url 'grafici:grafico_costruttore' g.pk %}"><svg><use href="#icon-edit"/></svg> Modifica la query</a>{% endif %}
       <dl class="an-dettagli"><dt>Query</dt><dd>{{ w.sotto }}</dd><dt>Vista</dt><dd>{{ g.vista }}</dd><dt>Tipo</dt><dd>{{ g.get_tipo_display }}</dd><dt>Origine</dt><dd>{{ g.get_origine_display }}</dd><dt>Creato</dt><dd>{{ g.creato|date:"d/m/Y H:i" }}</dd></dl>
-      <form method="post" action="{% url 'grafici:grafico_elimina' g.pk %}" onsubmit="return confirm('Eliminare il grafico?')">{% csrf_token %}<button class="ui-btn ui-btn-ghost an-pericolo" type="submit"><svg><use href="#icon-trash"/></svg> Elimina grafico</button></form>
-    </div>
+      <form method="post" action="{% url 'grafici:grafico_elimina' g.pk %}" onsubmit="return confirm('Eliminare il grafico da tutte le pagine?')">{% csrf_token %}<button class="ui-btn ui-btn-ghost an-pericolo" type="submit"><svg><use href="#icon-trash"/></svg> Elimina grafico</button></form>
+      </div>
+    </section>
+    {% endif %}
   </aside>
-  {% endif %}
 </div>
 {{ contesto_ada|json_script:"ada-contesto" }}
 {% endblock %}

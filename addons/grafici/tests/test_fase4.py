@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from core.models import Azienda
 from grafici import motore
+from grafici.tests.aiuti import in_pagina
 from grafici.models import Grafico, Pagina
 
 
@@ -31,20 +32,21 @@ def test_obiettivo_sul_grafico_e_sul_kpi_e_png(client, superuser, attivita):
     r = client.post(reverse("grafici:costruttore"), {"vista": "todo.attivita", "per": "stato", "misura": "count", "tipo": "barre",
                                                      "massimo": "30", "obiettivo": "5", "destinazione": "nuova", "titolo_nuova": "Obiettivi"})
     g = Grafico.objects.get(utente=superuser)
+    obiettivi = Pagina.objects.get(titolo="Obiettivi")
     assert r.status_code == 302 and g.opzioni == {"obiettivo": 5.0}
-    html = client.get(reverse("grafici:pagina", args=[g.pagina.pk])).content.decode()
+    html = client.get(reverse("grafici:pagina", args=[obiettivi.pk])).content.decode()
     assert _serie(html, f"wd-g-{g.pk}")["obiettivo"] == 5.0 and f'data-an-png="wd-g-{g.pk}"' in html
     # modifica: il form ripresenta l'obiettivo; svuotato, sparisce
     html = client.get(reverse("grafici:grafico_costruttore", args=[g.pk])).content.decode()
     assert 'name="obiettivo" value="5.0"' in html
     client.post(reverse("grafici:grafico_costruttore", args=[g.pk]), {"vista": "todo.attivita", "per": "stato", "misura": "count", "tipo": "barre",
-                                                                      "massimo": "30", "obiettivo": "", "destinazione": str(g.pagina.pk)})
+                                                                      "massimo": "30", "obiettivo": ""})
     g.refresh_from_db()
     assert g.opzioni == {}
     # KPI con obiettivo: barra di avanzamento e percentuale
-    k = Grafico.objects.create(utente=superuser, pagina=g.pagina, titolo="Scadenze", tipo="kpi", opzioni={"obiettivo": 4},
+    k = in_pagina(obiettivi, utente=superuser, titolo="Scadenze", tipo="kpi", opzioni={"obiettivo": 4},
                                spec={"vista": "todo.attivita", "misura": "count", "data": "scadenza", "periodo": "mese"})
-    html = client.get(reverse("grafici:pagina", args=[g.pagina.pk])).content.decode()
+    html = client.get(reverse("grafici:pagina", args=[obiettivi.pk])).content.decode()
     serie = _serie(html, f"wd-g-{k.pk}")
     assert serie["percento"] == 50 and serie["obiettivo_testo"] == "4" and "50 % dell'obiettivo 4" in html and 'aria-valuenow="50"' in html
     # anteprima del costruttore con obiettivo scritto all'italiana
@@ -64,7 +66,7 @@ def test_la_riga_delle_schede_resta_corta_e_il_resto_sta_nel_menu_per_area(clien
     assert re.search(r'class="an-scheda an-scheda-app is-attiva"[^>]*href="' + url + '"', html)
     # un'app personalizzata resta in vista, fino al limite
     p = Pagina.objects.get(utente=superuser, app="todo")
-    Grafico.objects.create(utente=superuser, pagina=p, titolo="X", spec={"vista": "todo.attivita", "per": "stato"})
+    in_pagina(p, utente=superuser, titolo="X", spec={"vista": "todo.attivita", "per": "stato"})
     html = client.get(reverse("core:dashboard")).content.decode()
     assert re.search(r'class="an-scheda an-scheda-app"[^>]*href="' + url + '"', html)
     monkeypatch.setattr(motore, "MAX_SCHEDE_APP", 0)

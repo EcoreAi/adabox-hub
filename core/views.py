@@ -83,6 +83,7 @@ def dashboard(request):
     from . import dashboard as dash
     widget, schede = dash.catalogo(request)
     visibili, nascosti = dash.disposizione(request.user, widget)
+    visibili = dash.carica(visibili)
     from .registry import hooks
     return render(request, "core/dashboard.html", {
         "widget": visibili, "nascosti": nascosti, "schede": schede, "personalizzata": bool(dash.layout_di(request.user)),

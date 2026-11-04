@@ -42,8 +42,9 @@
 
   // --- salvataggio ---
   let timer = null;
+  const aggiunti = [];
   const stato = () => ({
-    widget: [...griglia.querySelectorAll('.wd-widget')].map((w) => ({ id: w.dataset.id, w: parseInt(w.dataset.w, 10) })),
+    widget: [...[...griglia.querySelectorAll('.wd-widget')].map((w) => ({ id: w.dataset.id, w: parseInt(w.dataset.w, 10) })), ...aggiunti.map((id) => ({ id }))],
     nascosti: [...cassetto.querySelectorAll('[data-aggiungi]')].map((b) => b.dataset.aggiungi),
   });
   const salva = (poi) => {
@@ -72,14 +73,22 @@
   const aggiornaCassetto = () => {
     const n = cassetto.querySelectorAll('[data-aggiungi]').length;
     document.getElementById('wd-nascosti-n').textContent = n;
-    bottoneAggiungi.hidden = n === 0;
     cassetto.querySelector('.wd-cassetto-vuoto').hidden = n > 0;
   };
-  bottoneAggiungi.addEventListener('click', () => { cassetto.hidden = !cassetto.hidden; });
+  bottoneAggiungi.addEventListener('click', () => {
+    cassetto.hidden = !cassetto.hidden;
+    if (!cassetto.hidden) cerca.focus();
+  });
+  const cerca = document.getElementById('wd-cassetto-cerca');
+  cerca.addEventListener('input', () => {
+    const testo = cerca.value.trim().toLowerCase();
+    cassetto.querySelectorAll('#wd-cassetto-voci li').forEach((li) => { li.hidden = !li.textContent.toLowerCase().includes(testo); });
+  });
   cassetto.addEventListener('click', (e) => {
     if (e.target.closest('[data-chiudi-cassetto]')) { cassetto.hidden = true; return; }
     const b = e.target.closest('[data-aggiungi]');
     if (!b) return;
+    aggiunti.push(b.dataset.aggiungi);
     b.closest('li').remove();
     aggiornaCassetto();
     salva(() => window.location.reload());     // il widget nuovo lo disegna il server
@@ -116,7 +125,7 @@
     }
   });
 
-  // --- trascinamento dalla maniglia: una copia del widget segue il puntatore, il widget vero resta nella griglia come
+  // --- trascinamento da un punto qualsiasi del widget: una copia del widget segue il puntatore, il widget vero resta nella griglia come
   //     segnaposto e si infila al posto di quello su cui si passa (dopo se si va avanti, prima se si torna indietro).
   //     Si ascolta sul documento, come nel kanban: la presa non si perde quando il widget cambia posto nel DOM
   //     né quando il puntatore esce dalla griglia; Esc rimette tutto com'era.
@@ -172,10 +181,10 @@
   const suAnnullo = (e) => fine(e, false);
   const suTasto = (e) => { if (e.key === 'Escape') fine(e, false); };
   griglia.addEventListener('pointerdown', (e) => {
-    const maniglia = e.target.closest('.wd-maniglia');
-    if (!maniglia || !griglia.classList.contains('is-modifica') || e.button !== 0 || presa) return;
+    if (!griglia.classList.contains('is-modifica') || e.button !== 0 || presa) return;
+    const widget = e.target.closest('.wd-widget');
+    if (!widget || (!e.target.closest('.wd-maniglia') && e.target.closest('button, a, input, select, textarea, summary, .an-menu-pannello'))) return;
     e.preventDefault();
-    const widget = maniglia.closest('.wd-widget');
     presa = { widget, x: e.clientX, y: e.clientY, volante: null, ultimo: null, genitore: widget.parentElement, dopo: widget.nextElementSibling };
     document.addEventListener('pointermove', muovi);
     document.addEventListener('pointerup', suRilascio);

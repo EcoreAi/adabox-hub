@@ -24,6 +24,8 @@ urlpatterns = [
     path("grafico/<int:pk>/modifica/", pagine.grafico_modifica, name="grafico_modifica"),
     path("grafico/<int:pk>/elimina/", pagine.grafico_elimina, name="grafico_elimina"),
     path("grafico/<int:pk>/csv/", pagine.grafico_csv, name="grafico_csv"),
+    path("grafico/<int:pk>/pagine/", pagine.grafico_pagine, name="grafico_pagine"),
+    path("grafico/<int:pk>/condividi/", pagine.grafico_condividi, name="grafico_condividi"),
     path("salva/artifact/", pagine.salva_da_artifact, name="salva_da_artifact"),
     path("salva/vista/", pagine.salva_da_vista, name="salva_da_vista"),
 ]

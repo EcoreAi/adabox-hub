@@ -16,10 +16,10 @@
         <select class="ui-input" name="icona" aria-label="Icona">{% for v, e in icone %}<option value="{{ v }}">{{ e }}</option>{% endfor %}</select>
         <button class="ui-btn ui-btn-primary" type="submit"><svg><use href="#icon-plus"/></svg> Crea</button>
       </form>
-      {% if libere %}<ul class="an-elenco">{% for p in libere %}<li><a href="{% url 'grafici:pagina' p.pk %}"><svg><use href="#icon-{{ p.icona }}"/></svg><strong>{{ p.titolo }}</strong><small>{{ p.grafici.count }} grafic{{ p.grafici.count|pluralize:"o,i" }}{% if p.condivisa %} · condivisa con l'azienda{% endif %}</small></a></li>{% endfor %}</ul>
+      {% if libere %}<ul class="an-elenco">{% for p in libere %}<li><a href="{% url 'grafici:pagina' p.pk %}"><svg><use href="#icon-{{ p.icona }}"/></svg><strong>{{ p.titolo }}</strong><small>{{ p.n_widget }} widget{% if p.condivisa %} · condivisa con l'azienda{% endif %}</small></a></li>{% endfor %}</ul>
       {% else %}<p class="ui-help">Nessuna pagina libera: creane una qui o con «Nuova pagina» tra le schede.</p>{% endif %}
       {% if app_pagine %}<h3 class="an-h3">Schede delle app</h3>
-      <ul class="an-elenco">{% for p in app_pagine %}<li><a href="{% url 'grafici:pagina_app' p.app %}"><svg><use href="#icon-{{ p.icona|default:'zap' }}"/></svg><strong>{{ p.titolo }}</strong><small>{{ p.grafici.count }} grafic{{ p.grafici.count|pluralize:"o,i" }} salvat{{ p.grafici.count|pluralize:"o,i" }}{% if p.nascosta %} · scheda nascosta{% endif %}</small></a>
+      <ul class="an-elenco">{% for p in app_pagine %}<li><a href="{% url 'grafici:pagina_app' p.app %}"><svg><use href="#icon-{{ p.icona|default:'zap' }}"/></svg><strong>{{ p.titolo }}</strong><small>{{ p.n_widget }} widget{% if p.nascosta %} · scheda nascosta{% endif %}</small></a>
         {% if p.nascosta %}<form method="post" action="{% url 'grafici:nascondi_app' p.app %}">{% csrf_token %}<button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit"><svg><use href="#icon-eye"/></svg> Mostra</button></form>{% endif %}</li>{% endfor %}</ul>{% endif %}
     </div>
   </section>
@@ -28,10 +28,9 @@
     <div class="ui-card-body">{% if condivise %}<ul class="an-elenco">{% for p in condivise %}<li><a href="{% url 'grafici:pagina' p.pk %}"><svg><use href="#icon-{{ p.icona }}"/></svg><strong>{{ p.titolo }}</strong><small>di {{ p.utente.get_full_name|default:p.utente.username }}</small></a></li>{% endfor %}</ul>{% else %}<p class="ui-help">Nessuna pagina condivisa da altri.</p>{% endif %}</div>
   </section>
   <section class="ui-card is-revealed">
-    <div class="ui-card-head"><div><div class="ui-card-title">Libreria</div><div class="ui-card-sub">Grafici salvati che non sono in nessuna pagina</div></div></div>
-    <div class="ui-card-body">{% if libreria %}<ul class="an-elenco">{% for g in libreria %}<li><a href="{% url 'grafici:grafico' g.pk %}"><svg><use href="#icon-bar-chart"/></svg><strong>{{ g.titolo }}</strong><small>{{ g.get_tipo_display }} · {{ g.get_origine_display }}</small></a>
-      <form method="post" action="{% url 'grafici:grafico_modifica' g.pk %}" class="an-form-riga">{% csrf_token %}<select class="ui-input" name="destinazione" aria-label="Metti nella pagina">{% for v, e in destinazioni %}{% if v != "nuova" %}<option value="{{ v }}">{{ e }}</option>{% endif %}{% endfor %}</select><button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Metti</button></form></li>{% endfor %}</ul>
-      {% else %}<p class="ui-help">Vuota. Un grafico tolto da una pagina o salvato «solo in libreria» finisce qui.</p>{% endif %}</div>
+    <div class="ui-card-head"><div><div class="ui-card-title">Libreria</div><div class="ui-card-sub">I tuoi grafici e quelli condivisi con te: ognuno può stare in più pagine</div></div></div>
+    <div class="ui-card-body">{% if libreria %}<ul class="an-elenco">{% for g in libreria %}<li><a href="{% url 'grafici:grafico' g.pk %}"><svg><use href="#icon-bar-chart"/></svg><strong>{{ g.titolo }}</strong><small>{{ g.get_tipo_display }}{% if g.utente_id != user.id %} · condiviso da {{ g.utente.get_full_name|default:g.utente.username }}{% endif %}</small></a></li>{% endfor %}</ul>
+      {% else %}<p class="ui-help">Vuota: crea il primo con «Nuovo grafico» o chiedilo ad Ada.</p>{% endif %}</div>
   </section>
 </div>
 {% endblock %}

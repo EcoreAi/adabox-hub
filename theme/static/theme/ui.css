@@ -1547,7 +1547,7 @@ tr.is-spento td { color: var(--ui-text-3); }
 .wd-widget > .ui-dash-card, .wd-card { height: 100%; margin: 0; display: flex; flex-direction: column; }
 .wd-card .ui-card-body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .wd-canvas { position: relative; height: 260px; } .wd-canvas-pagina { height: 380px; } .wd-tabella { margin-top: 12px; }
-.wd-strumenti { display: none; position: absolute; top: 8px; right: 8px; z-index: 2; gap: 2px; padding: 2px; border-radius: 10px; background: var(--ui-surface); box-shadow: var(--shadow-card); user-select: none; }
+.wd-strumenti { display: none; position: absolute; top: -14px; right: 10px; z-index: 2; gap: 2px; padding: 2px; border-radius: 10px; background: var(--ui-surface); box-shadow: var(--shadow-card); user-select: none; }
 .wd-strumenti button { min-width: 28px; height: 28px; padding: 0 6px; border: 0; border-radius: 8px; background: transparent; color: var(--ui-text-2); font: inherit; font-size: 13px; cursor: pointer; }
 .wd-strumenti button:hover { background: var(--ui-surface-2); color: var(--ui-text); } .wd-maniglia { cursor: grab; font-size: 16px !important; touch-action: none; }
 .wd-griglia.is-modifica .wd-strumenti { display: flex; }
@@ -1654,3 +1654,10 @@ body:has(.ui-nav-altre.is-open .ui-menucol) main { filter: blur(3px); opacity: .
 .ba-occhio:hover { background: var(--ui-surface-2); color: var(--ui-text); } .ba-occhio svg { width: 16px; height: 16px; } .ba-occhio .ba-no { display: none; }
 .ba-riga.is-nascosta .ba-nome { color: var(--ui-text-3); text-decoration: line-through; }
 .ba-riga.is-nascosta .ba-occhio { color: var(--ui-text-3); } .ba-riga.is-nascosta .ba-occhio .ba-si { display: none; } .ba-riga.is-nascosta .ba-occhio .ba-no { display: inline; }
+
+/* ---------- dashboard: in «Personalizza» si afferra tutta la card */
+.wd-griglia.is-modifica .wd-widget { cursor: move; user-select: none; touch-action: none; }
+.wd-griglia.is-modifica canvas, .wd-griglia.is-modifica .an-kpi { pointer-events: none; }
+.wd-griglia.is-modifica .an-menu { display: none; }
+.wd-griglia:empty { display: none; }
+.wd-cassetto-cerca { width: 100%; margin-bottom: 8px; } .wd-cassetto-azioni { margin-top: 10px; } .wd-cassetto-azioni .ui-btn { width: 100%; justify-content: center; }

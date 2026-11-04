@@ -3,16 +3,18 @@
 import json
 
 from django.apps import apps
+from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied
+from django.core.mail import send_mail
 from django.http import Http404, HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
-from core import dashboard as dash
 from core.registry import modules
 from core.viste import interroga
 from core.viste.interroga import ErroreInterrogazione
@@ -49,11 +51,10 @@ def _torna(request, p):
 
 
 def _rendi(request, p, info=None):
-    widget, libreria = motore.catalogo(p, request)
-    visibili, nascosti = dash.disponi(p.layout, widget)
+    visibili, nascosti = motore.catalogo(p, request)
     mio = p.utente_id == request.user.id
     return render(request, "grafici/pagina.html", {
-        "pagina": p, "info_app": info, "widget": visibili, "nascosti": nascosti + libreria, "mio": mio,
+        "pagina": p, "info_app": info, "widget": visibili, "nascosti": nascosti, "mio": mio,
         "personalizzata": bool(p.layout), "icone": motore.ICONE,
         "url_layout": reverse("grafici:layout_app", args=[p.app]) if p.app else reverse("grafici:layout", args=[p.pk]),
         "contesto_ada": motore.contesto_ada(p, visibili), "scheda_attiva": p.chiave,
@@ -78,13 +79,13 @@ def pagina_app(request, app):
 @permission_required(VISTA)
 def pagine(request):
     """Gestione: le pagine dell'utente, quelle condivise con lui, le schede delle app nascoste e i grafici in libreria."""
-    mie = list(Pagina.objects.filter(utente=request.user).prefetch_related("grafici"))
+    mie = list(Pagina.objects.filter(utente=request.user))
     nascoste = {p.app for p in mie if p.app and p.nascosta}
     return render(request, "grafici/pagine.html", {
         "libere": [p for p in mie if not p.app], "app_pagine": [p for p in mie if p.app],
         "condivise": Pagina.objects.filter(condivisa=True).exclude(utente=request.user).select_related("utente"),
         "app_nascoste": [a for a in motore.app_con_indicatori(request.user) if a["slug"] in nascoste],
-        "libreria": Grafico.objects.filter(utente=request.user, pagina__isnull=True),
+        "libreria": motore.libreria_di(request.user),
         "destinazioni": motore.destinazioni(request), "icone": motore.ICONE})
 
 
@@ -141,9 +142,8 @@ def elimina(request, pk):
     p = _mia(request, pk)
     if p.app:
         raise PermissionDenied("La scheda di un'app si nasconde, non si elimina.")
-    n = p.grafici.update(pagina=None)                   # i grafici restano in libreria
     p.delete()
-    messages.success(request, f"Pagina eliminata" + (f": {n} grafic{'o' if n == 1 else 'i'} in libreria." if n else "."))
+    messages.success(request, "Pagina eliminata: i suoi grafici restano in libreria.")
     return redirect("core:dashboard")
 
 
@@ -197,7 +197,7 @@ def ripristina(request, pk):
 def aggiorna_pagina(request, pk):
     p = _visibile(request, pk)
     errori = 0
-    for g in p.grafici.filter(utente=request.user):
+    for g in Grafico.objects.filter(utente=request.user, pk__in=[int(i[2:]) for i in p.id_widget if i.startswith("g:") and i[2:].isdigit()]):
         errori += bool(motore.aggiorna(g, request, forza=True)[1])
     messages.success(request, "Grafici ricalcolati con i dati di adesso." + (f" {errori} non calcolabili." if errori else ""))
     return _torna(request, p)
@@ -219,8 +219,8 @@ def nascondi_app(request, app):
 # ---------- grafici ----------
 
 def _grafico_visibile(request, pk):
-    g = get_object_or_404(Grafico.objects.select_related("pagina"), pk=pk)
-    if g.utente_id != request.user.id and not (g.pagina and g.pagina.condivisa):
+    g = get_object_or_404(Grafico.objects.select_related("utente"), pk=pk)
+    if not motore.puo_vedere(g, request.user):
         raise Http404
     return g
 
@@ -229,18 +229,66 @@ def _mio_grafico(request, pk):
     return get_object_or_404(Grafico, pk=pk, utente=request.user)
 
 
+def _scelte_pagine(g, request):
+    """Le pagine di chi guarda, con quelle in cui il grafico sta già; le schede delle app solo se già personali."""
+    dentro = {p.pk for p in motore.pagine_con(g, request.user)}
+    righe = [{"valore": motore.PANORAMICA, "titolo": "Panoramica", "dentro": motore.in_panoramica(g, request.user)}]
+    righe += [{"valore": str(p.pk), "titolo": p.titolo, "dentro": p.pk in dentro} for p in Pagina.objects.filter(utente=request.user).order_by("app", "ordine", "pk")]
+    return righe
+
+
+def _persone(g, request):
+    """Con chi si può condividere: i colleghi attivi, non i clienti del portale."""
+    condivisi = set(g.condiviso_con.values_list("pk", flat=True))
+    utenti = get_user_model().objects.filter(is_active=True).exclude(profilo__esterno=True).exclude(pk=g.utente_id).order_by("first_name", "last_name", "username")
+    return [{"pk": u.pk, "nome": u.get_full_name() or u.get_username(), "dentro": u.pk in condivisi} for u in utenti]
+
+
+@login_required
+@permission_required("grafici.view_grafico")
+@require_POST
+def grafico_pagine(request, pk):
+    """In quali delle mie pagine sta questo grafico: anche in più d'una, anche quello ricevuto da un collega."""
+    g = _grafico_visibile(request, pk)
+    scelte = set(request.POST.getlist("pagine"))
+    for p in Pagina.objects.filter(utente=request.user):
+        if str(p.pk) in scelte:
+            motore.metti_in_pagina(p, g)
+        elif g.id_widget in p.id_widget:
+            motore.togli_da_pagina(p, g)
+    motore.imposta_panoramica(g, request.user, motore.PANORAMICA in scelte)
+    messages.success(request, "Pagine aggiornate.")
+    return redirect("grafici:grafico", pk=pk)
+
+
+@login_required
+@permission_required("grafici.change_grafico")
+@require_POST
+def grafico_condividi(request, pk):
+    """Con chi condividere un mio grafico. Chi lo riceve lo trova nella libreria e lo calcola con i propri permessi."""
+    g = _mio_grafico(request, pk)
+    ammessi = {r["pk"] for r in _persone(g, request)}
+    scelti = {int(i) for i in request.POST.getlist("persone") if i.isdigit()} & ammessi
+    nuovi = scelti - set(g.condiviso_con.values_list("pk", flat=True))
+    g.condiviso_con.set(scelti)
+    destinatari = [u.email for u in get_user_model().objects.filter(pk__in=nuovi) if u.email]
+    if destinatari:
+        link = f"{settings.SITO_URL}{reverse('grafici:grafico', args=[g.pk])}"
+        send_mail(f"{request.user.get_full_name() or request.user.get_username()} ha condiviso un grafico con te", f"«{g.titolo}»\n{link}", None, destinatari, fail_silently=True)
+    messages.success(request, f"Condiviso con {len(scelti)} person{'a' if len(scelti) == 1 else 'e'}." if scelti else "Il grafico non è più condiviso.")
+    return redirect("grafici:grafico", pk=pk)
+
+
 @login_required
 @permission_required("grafici.view_grafico")
 def grafico(request, pk):
     g = _grafico_visibile(request, pk)
     w = motore.widget_salvato(g, request, forza=bool(request.GET.get("aggiorna")))
     return render(request, "grafici/grafico.html", {
-        "g": g, "w": w, "mio": w["mio"], "tipi": motore.TIPI_SCAMBIABILI, "destinazioni": motore.destinazioni(request, g.vista),
+        "g": g, "w": w, "mio": w["mio"], "tipi": motore.TIPI_SCAMBIABILI, "scelte_pagine": _scelte_pagine(g, request), "persone": _persone(g, request),
         "contesto_ada": {"pagina": f"Grafico: {g.titolo}", "query": w["sotto"], "tipo": w["serie"]["tipo"], "dati": w["serie"]["righe"],
                          **({"previsione": w["serie"]["futuro"]} if w["serie"].get("futuro") else {})},
-        "scheda_attiva": g.pagina.chiave if g.pagina else "", "ai": motore._ai_disponibile(),
-        "destinazione_attuale": (f"app:{g.pagina.app}" if g.pagina.app else str(g.pagina.pk)) if g.pagina else "",
-        "aggiornamenti": motore.AGGIORNAMENTI})
+        "scheda_attiva": "", "ai": motore._ai_disponibile(), "aggiornamenti": motore.AGGIORNAMENTI})
 
 
 @login_required
@@ -269,10 +317,10 @@ def grafico_tipo(request, pk):
     return redirect("grafici:grafico", pk=pk)
 
 
-def _destinazione(request, valore, titolo_nuova=""):
-    """La pagina scelta in un form di salvataggio: id di una pagina propria, «app:slug», «nuova» o vuoto (libreria)."""
+def _metti(request, grafico, valore, titolo_nuova=""):
+    """(titolo, indirizzo) del posto in cui il form ha messo il grafico; (None, None) se resta solo in libreria."""
     try:
-        return motore.destinazione(request.user, valore, titolo_nuova)
+        return motore.metti_in(request.user, valore, grafico, titolo_nuova)
     except ValueError:
         raise Http404
 
@@ -285,8 +333,8 @@ def grafico_modifica(request, pk):
     titolo = request.POST.get("titolo", "").strip()[:200]
     if titolo:
         g.titolo = titolo
-    if "destinazione" in request.POST:
-        g.pagina = _destinazione(request, request.POST["destinazione"], request.POST.get("titolo_nuova"))
+    if request.POST.get("destinazione"):
+        _metti(request, g, request.POST["destinazione"], request.POST.get("titolo_nuova"))
     ogni = request.POST.get("aggiorna_ogni", "")
     if ogni.isdigit():
         g.aggiorna_ogni = min(int(ogni), 24 * 30)
@@ -300,10 +348,15 @@ def grafico_modifica(request, pk):
 @require_POST
 def grafico_elimina(request, pk):
     g = _mio_grafico(request, pk)
-    p = g.pagina
+    id_widget = g.id_widget
+    titolo = g.titolo
     g.delete()
-    messages.success(request, f"Grafico «{g.titolo}» eliminato.")
-    return _torna(request, p) if p else redirect("grafici:pagine")
+    for p in Pagina.objects.filter(utente=request.user):
+        if id_widget in p.id_widget:
+            p.layout = motore._senza(p.layout, id_widget)
+            p.save(update_fields=["layout", "aggiornata"])
+    messages.success(request, f"Grafico «{titolo}» eliminato.")
+    return redirect("grafici:pagine")
 
 
 @login_required
@@ -332,11 +385,12 @@ def salva_da_artifact(request):
     tipo = a.spec.get("grafico", Grafico.BARRE)
     spec = {k: v for k, v in a.spec.items() if k not in ("tipo", "grafico")}
     g = Grafico.objects.create(
-        utente=request.user, pagina=_destinazione(request, request.POST.get("destinazione"), request.POST.get("titolo_nuova")),
+        utente=request.user,
         titolo=a.titolo, tipo=tipo if tipo in dict(Grafico.TIPI) else Grafico.BARRE, spec=spec, dati=a.dati,
         aggiornato=a.aggiornato or a.creato, origine=Grafico.CHAT,
         origine_url=reverse("ai:conversazione", args=[a.conversazione_id]) if a.conversazione_id else "")
-    return render(request, "grafici/_salvato.html", {"g": g})
+    titolo, url = _metti(request, g, request.POST.get("destinazione"), request.POST.get("titolo_nuova"))
+    return render(request, "grafici/_salvato.html", {"titolo": titolo, "url": url})
 
 
 @login_required
@@ -362,14 +416,15 @@ def salva_da_vista(request):
         return redirect(request.META.get("HTTP_REFERER") or reverse("core:dashboard"))
     titolo = request.POST.get("titolo", "").strip()[:200] or f"{vista.verbose_name_plural}: {motore.descrizione(spec, request)}"[:200]
     g = Grafico.objects.create(
-        utente=request.user, pagina=_destinazione(request, request.POST.get("destinazione"), request.POST.get("titolo_nuova")),
+        utente=request.user,
         titolo=titolo, tipo=tipo if tipo in Grafico.INTERCAMBIABILI else Grafico.BARRE, spec=spec, dati=dati,
         origine=Grafico.VISTA, origine_url=(request.META.get("HTTP_REFERER") or "")[:300])
     from django.utils import timezone
     g.aggiornato = timezone.now()
     g.save(update_fields=["aggiornato"])
-    messages.success(request, f"Grafico «{g.titolo}» salvato" + (f" nella pagina «{g.pagina.titolo}»." if g.pagina else " in libreria."))
-    return _torna(request, g.pagina) if g.pagina else redirect("grafici:pagine")
+    dove, url = _metti(request, g, request.POST.get("destinazione"), request.POST.get("titolo_nuova"))
+    messages.success(request, f"Grafico «{g.titolo}» salvato" + (f" in «{dove}»." if dove else " in libreria."))
+    return redirect(url or "grafici:pagine")
 
 
 def modulo_attivo():

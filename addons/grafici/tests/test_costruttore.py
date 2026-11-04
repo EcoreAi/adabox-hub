@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from core.models import Azienda
 from core.viste import interroga
+from grafici.tests.aiuti import in_pagina
 from grafici.models import Grafico, Pagina
 
 
@@ -54,22 +55,23 @@ def test_costruttore_anteprima_drill_down_salvataggio_e_modifica(client, superus
                                                      "f_stato": "fatta", "massimo": "10", "ordine": "valore", "titolo": "",
                                                      "destinazione": "nuova", "titolo_nuova": "Operativo"})
     g = Grafico.objects.get(utente=superuser)
-    assert r.status_code == 302 and g.pagina.titolo == "Operativo" and g.tipo == "torta" and g.origine == "costruttore"
+    operativo = Pagina.objects.get(titolo="Operativo")
+    assert r.status_code == 302 and g.id_widget in operativo.id_widget and g.tipo == "torta" and g.origine == "costruttore"
     assert g.spec == {"vista": "todo.attivita", "misura": "count", "per": "stato", "massimo": 10, "ordine": "valore", "lista": {"f_stato": "fatta"}}
     assert "Numero per stato" in g.titolo and dict(g.dati["serie"]) == {"Fatta": 2} and g.aggiornato is not None
     # modifica: il form si ripresenta con la query del grafico, il salvataggio la cambia
     html = client.get(reverse("grafici:grafico_costruttore", args=[g.pk])).content.decode()
     assert 'value="todo.attivita" selected' in html and 'value="fatta" selected' in html and "Salva le modifiche" in html
     r = client.post(reverse("grafici:grafico_costruttore", args=[g.pk]), {"vista": "todo.attivita", "per": "assegnatario", "misura": "count",
-                                                                          "tipo": "barre", "massimo": "30", "titolo": "Per persona", "destinazione": str(g.pagina.pk)})
+                                                                          "tipo": "barre", "massimo": "30", "titolo": "Per persona"})
     g.refresh_from_db()
     assert r.status_code == 302 and g.spec == {"vista": "todo.attivita", "misura": "count", "per": "assegnatario"} and g.titolo == "Per persona"
     # vista non accessibile: niente salvato, il form torna con l'errore
     r = client.post(reverse("grafici:costruttore"), {"vista": "todo.inesistente", "per": "x", "tipo": "barre"})
     assert r.status_code == 200 and Grafico.objects.count() == 1
     # il costruttore si raggiunge dalla pagina e dalla card
-    html = client.get(reverse("grafici:pagina", args=[g.pagina.pk])).content.decode()
-    assert reverse("grafici:costruttore") + "?destinazione=" + str(g.pagina.pk) in html and reverse("grafici:grafico_costruttore", args=[g.pk]) in html
+    html = client.get(reverse("grafici:pagina", args=[operativo.pk])).content.decode()
+    assert reverse("grafici:costruttore") + "?destinazione=" + str(operativo.pk) in html and reverse("grafici:grafico_costruttore", args=[g.pk]) in html
 
 
 @pytest.mark.django_db
@@ -84,7 +86,7 @@ def test_kpi_con_delta_sparkline_e_anteprima(client, superuser, attivita):
     assert ("scadenza", "scadenza") in opzioni["date"] and opzioni["raggruppamenti"][0][0] == "stato" and opzioni["misure"][0][0] == "count"
     # il widget KPI: numero, delta, sparkline, largo una colonna
     p = Pagina.objects.create(utente=superuser, titolo="P")
-    g = Grafico.objects.create(utente=superuser, pagina=p, titolo="Scadenze del mese", tipo="kpi",
+    g = in_pagina(p, utente=superuser, titolo="Scadenze del mese", tipo="kpi",
                                spec={"vista": "todo.attivita", "misura": "count", "data": "scadenza", "periodo": "mese"})
     html = client.get(reverse("grafici:pagina", args=[p.pk])).content.decode()
     assert "an-kpi" in html and "+100 %" in html and "questo mese" in html and f'data-id="g:{g.pk}" data-w="1"' in html

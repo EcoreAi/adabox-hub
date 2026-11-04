@@ -16,7 +16,7 @@ from core.viste.interroga import ErroreInterrogazione
 
 from . import motore
 from .models import Grafico
-from .pagine import _destinazione, _torna
+from .pagine import _metti
 
 TIPI = [(Grafico.BARRE, "Barre"), (Grafico.BARRE_ORIZZONTALI, "Barre orizzontali"), (Grafico.LINEE, "Linee"),
         (Grafico.AREA, "Area"), (Grafico.TORTA, "Torta"), (Grafico.KPI, "KPI")]
@@ -55,8 +55,6 @@ def parametri_di(request, grafico=None):
              "massimo": str(spec.get("massimo") or 30), "ordine": spec.get("ordine", ""), "titolo": grafico.titolo,
              "obiettivo": str((grafico.opzioni or {}).get("obiettivo", "") or ""),
              **{k: v for k, v in (spec.get("lista") or {}).items()}}
-        if grafico.pagina_id:
-            p["destinazione"] = f"app:{grafico.pagina.app}" if grafico.pagina.app else str(grafico.pagina_id)
     p.setdefault("tipo", Grafico.BARRE)
     p.setdefault("misura", "count")
     p.setdefault("periodo", "mese")
@@ -137,7 +135,7 @@ def _contesto(request, grafico=None):
             "aggiornamenti": motore.AGGIORNAMENTI, "filtri": filtri_lista.specifiche(vista, request) if vista else [],
             "w": _anteprima(request, p, vista), "destinazioni": motore.destinazioni(request, p.get("vista", "")),
             "grafico": grafico, "ai": motore._ai_disponibile(),
-            "scheda_attiva": (grafico.pagina.chiave if grafico and grafico.pagina else "")}
+            "scheda_attiva": ""}
 
 
 def _salva(request, grafico=None):
@@ -163,9 +161,9 @@ def _salva(request, grafico=None):
         grafico.aggiorna_ogni = min(int(p["aggiorna_ogni"]), 24 * 30)
     obiettivo = obiettivo_di(p)
     grafico.opzioni = {**{k: v for k, v in (grafico.opzioni or {}).items() if k != "obiettivo"}, **({"obiettivo": obiettivo} if obiettivo else {})}
-    if "destinazione" in p:
-        grafico.pagina = _destinazione(request, p.get("destinazione"), p.get("titolo_nuova"))
+    nuovo = grafico.pk is None
     grafico.save()
+    grafico.dove, grafico.url_dove = _metti(request, grafico, p.get("destinazione"), p.get("titolo_nuova")) if nuovo else (None, None)
     return grafico
 
 
@@ -176,8 +174,8 @@ def costruttore(request, pk=None):
     if request.method == "POST":
         salvato = _salva(request, grafico)
         if salvato is not None:
-            messages.success(request, f"Grafico «{salvato.titolo}» {'aggiornato' if grafico else 'salvato'}"
-                             + (f" nella pagina «{salvato.pagina.titolo}»." if salvato.pagina else " in libreria."))
-            return _torna(request, salvato.pagina) if salvato.pagina else redirect("grafici:grafico", pk=salvato.pk)
+            messages.success(request, f"Grafico «{salvato.titolo}» aggiornato." if grafico else
+                             f"Grafico «{salvato.titolo}» salvato" + (f" in «{salvato.dove}»." if salvato.dove else " in libreria."))
+            return redirect(salvato.url_dove) if salvato.url_dove else redirect("grafici:grafico", pk=salvato.pk)
         request.GET = request.POST                       # il form si ripresenta com'era, con l'errore
     return render(request, "grafici/costruttore.html", _contesto(request, grafico))

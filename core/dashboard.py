@@ -89,7 +89,7 @@ def _serie(g):
             "righe": dati, "vuoto": not any(v for _, v in dati)}
 
 
-def catalogo(request):
+def catalogo(request, extra=True):
     """(widget, schede): tutti i widget che l'utente può mettere in dashboard, cioè la card con i KPI e i grafici di ogni app
     che vede, più «Le mie attività». Gli id restano stabili tra una visita e l'altra: «todo:kpi», «vendite:g0»."""
     schede_app = schede(request)
@@ -102,7 +102,19 @@ def catalogo(request):
         for i, g in enumerate(s["grafici"]):
             widget.append({"id": f"{s['slug']}:g{i}", "tipo": "grafico", "titolo": g["titolo"], "app": s["label"],
                            "url": g.get("url") or s["url"], "serie": _serie(g), "dom": f"wd-serie-{s['slug']}-{i}"})
+    if extra:
+        from .registry import hooks
+        for funzione in hooks.widget_extra(request):
+            try:
+                widget += risolvi(funzione)(request)
+            except Exception:                  # un modulo con un errore non deve rompere la dashboard
+                log.exception("widget di %s non disponibili", funzione)
     return widget, ([attivita_kernel] if attivita_kernel else []) + schede_app
+
+
+def carica(visibili):
+    """I widget in vista, completi: quelli dei moduli calcolano i dati solo qui, non per stare in libreria."""
+    return [{**w, **w["carica"]()} if w.get("carica") else w for w in visibili]
 
 
 def layout_di(utente):
@@ -111,7 +123,7 @@ def layout_di(utente):
 
 def disponi(layout, widget):
     """(visibili, nascosti) nell'ordine e con la larghezza di `layout` ({"widget": [{"id", "w"}], "nascosti": [id]});
-    i widget nuovi vanno in coda, quelli tolti a parte."""
+    i widget nuovi vanno in coda, quelli tolti a parte. Quelli `su_richiesta` compaiono solo se messi nel layout."""
     per_id = {w["id"]: w for w in widget}
     visibili = []
     for voce in (layout or {}).get("widget", []):
@@ -124,7 +136,7 @@ def disponi(layout, widget):
     for w in widget:
         if w["id"] in per_id:
             w["w"] = w.get("larghezza") or LARGHEZZA_PREDEFINITA.get(w["tipo"], 2)
-            (nascosti if w["id"] in da_nascondere else visibili).append(w)
+            (nascosti if w["id"] in da_nascondere or w.get("su_richiesta") else visibili).append(w)
     return visibili, nascosti
 
 
@@ -158,4 +170,5 @@ def contesto_per_ada(visibili):
     kpi = [{"app": w["titolo"], "indicatori": [{"etichetta": k["etichetta"], "valore": str(k["valore"])} for k in w["scheda"]["kpi"]]}
            for w in visibili if w["tipo"] == "kpi"]
     grafici = [{"app": w["app"], "titolo": w["titolo"], "tipo": w["serie"]["tipo"], "dati": w["serie"]["righe"]} for w in visibili if w["tipo"] == "grafico"]
+    grafici += [{"titolo": w["titolo"], "tipo": w["serie"]["tipo"], "dati": w["serie"].get("righe", [])} for w in visibili if w["tipo"] == "salvato"]
     return {"pagina": "Dashboard", "kpi": kpi, "grafici": grafici}

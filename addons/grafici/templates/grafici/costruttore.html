@@ -46,8 +46,8 @@
       {% endif %}
       <section class="an-cost-sezione"><h3>Salva</h3>
         <label class="ui-label">Titolo<input class="ui-input" name="titolo" value="{{ p.titolo|default:'' }}" placeholder="{{ w.sotto|default:'Titolo del grafico' }}" maxlength="200"></label>
-        <label class="ui-label">Pagina<select class="ui-input" name="destinazione" onchange="this.form.querySelector('[name=titolo_nuova]').hidden = this.value !== 'nuova'">{% for v, e in destinazioni %}<option value="{{ v }}"{% if v == p.destinazione %} selected{% endif %}>{{ e }}</option>{% endfor %}<option value=""{% if "destinazione" in p and not p.destinazione %} selected{% endif %}>Solo in libreria</option></select></label>
-        <input class="ui-input" name="titolo_nuova" placeholder="Titolo della nuova pagina" maxlength="100" value="{{ p.titolo_nuova|default:'' }}"{% if p.destinazione != "nuova" %} hidden{% endif %}>
+        {% if not grafico %}<label class="ui-label">Pagina<select class="ui-input" name="destinazione" onchange="this.form.querySelector('[name=titolo_nuova]').hidden = this.value !== 'nuova'">{% for v, e in destinazioni %}<option value="{{ v }}"{% if v == p.destinazione %} selected{% endif %}>{{ e }}</option>{% endfor %}<option value=""{% if "destinazione" in p and not p.destinazione %} selected{% endif %}>Solo in libreria</option></select></label>
+        <input class="ui-input" name="titolo_nuova" placeholder="Titolo della nuova pagina" maxlength="100" value="{{ p.titolo_nuova|default:'' }}"{% if p.destinazione != "nuova" %} hidden{% endif %}>{% endif %}
         <label class="ui-label">Ricalcolo automatico<select class="ui-input" name="aggiorna_ogni">{% for v, e in aggiornamenti %}<option value="{{ v }}"{% if v|stringformat:"s" == p.aggiorna_ogni %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
         <div class="an-cost-azioni"><button class="ui-btn ui-btn-primary" type="submit"{% if not w.pronto or w.errore %} disabled{% endif %}><svg><use href="#icon-save"/></svg> {% if grafico %}Salva le modifiche{% else %}Salva il grafico{% endif %}</button></div>
       </section>

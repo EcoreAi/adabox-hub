@@ -19,6 +19,8 @@
           <div class="an-menu-sep"></div>
           <button type="button" data-an-ada="Spiegami «{{ w.titolo }}»: cosa dice e cosa mi conviene guardare."><svg><use href="#icon-zap"/></svg> Chiedi ad Ada</button>
           <a href="{% url 'grafici:grafico' w.grafico.pk %}"><svg><use href="#icon-layout"/></svg> Apri in grande</a>
+          <a href="{% url 'grafici:grafico' w.grafico.pk %}#dove"><svg><use href="#icon-plus"/></svg> Aggiungi ad altre pagine</a>
+          {% if w.mio %}<a href="{% url 'grafici:grafico' w.grafico.pk %}#condividi"><svg><use href="#icon-share"/></svg> Condividi</a>{% endif %}
           <a href="{% url 'grafici:grafico_csv' w.grafico.pk %}"><svg><use href="#icon-download"/></svg> Scarica CSV</a>
           {% if not w.serie.vuoto %}<button type="button" data-an-png="{{ w.dom }}" data-nome="{{ w.titolo|slugify }}"><svg><use href="#icon-download"/></svg> Scarica PNG</button>{% endif %}
           {% if w.grafico.origine_url %}<a href="{{ w.grafico.origine_url }}">{% if w.grafico.origine == "chat" %}Vai alla chat{% else %}Vai alla vista{% endif %}</a>{% endif %}

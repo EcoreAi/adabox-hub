@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from core.models import Azienda
+from grafici.tests.aiuti import in_pagina
 from grafici.models import Grafico, Pagina
 
 
@@ -56,9 +57,10 @@ def test_previsione_dal_costruttore_solo_con_il_servizio(client, superuser, stor
                                                      "periodo": "mese", "orizzonte": "3", "titolo": "Attività previste",
                                                      "destinazione": "nuova", "titolo_nuova": "Previsioni", "aggiorna_ogni": "24"})
     g = Grafico.objects.get(utente=superuser)
+    pagina = Pagina.objects.get(titolo="Previsioni")
     assert r.status_code == 302 and g.tipo == "previsione" and g.aggiorna_ogni == 24
     assert g.spec == {"vista": "todo.attivita", "misura": "count", "data": "scadenza", "per": "mese", "orizzonte": 3}
-    html = client.get(reverse("grafici:pagina", args=[g.pagina.pk])).content.decode()
+    html = client.get(reverse("grafici:pagina", args=[pagina.pk])).content.decode()
     s = _serie(html, f"wd-g-{g.pk}")
     assert s["tipo"] == "previsione" and len(s["futuro"]) == 3 and s["modello"] == "finto-timestral" and "previsione di numero a 3 mesi" in html
     testo = client.get(reverse("grafici:grafico_csv", args=[g.pk])).content.decode("utf-8-sig")
@@ -73,7 +75,7 @@ def test_previsione_dal_costruttore_solo_con_il_servizio(client, superuser, stor
     monkeypatch.setattr(specialisti, "chiama", giu)
     assert 'value="previsione"' not in client.get(reverse("grafici:costruttore")).content.decode()
     Grafico.objects.filter(pk=g.pk).update(aggiornato=timezone.now() - datetime.timedelta(days=2))
-    html = client.get(reverse("grafici:pagina", args=[g.pagina.pk])).content.decode()
+    html = client.get(reverse("grafici:pagina", args=[pagina.pk])).content.decode()
     assert "an-errore" in html and "non è configurato" in html and len(_serie(html, f"wd-g-{g.pk}")["futuro"]) == 3
 
 
@@ -97,7 +99,7 @@ def test_gli_strumenti_di_ada_leggono_le_pagine_e_salvano_grafici_con_conferma(s
     assert a["dettagli"][2]["dopo"] == "pagina «Direzione»" and "Numero per stato" in a["dettagli"][0]["dopo"]
     r = analisi.salva_grafico(ctx, vista="todo.attivita", per="stato", tipo="torta", pagina="Direzione")
     g = Grafico.objects.get(utente=superuser)
-    assert g.pagina == p and g.tipo == "torta" and g.origine == "chat" and g.origine_url == reverse("ai:conversazione", args=[c.pk])
+    assert g.id_widget in Pagina.objects.get(pk=p.pk).id_widget and g.tipo == "torta" and g.origine == "chat" and g.origine_url == reverse("ai:conversazione", args=[c.pk])
     assert r["url"] == reverse("grafici:pagina", args=[p.pk]) and g.dati["serie"]
     # un KPI in una pagina che non c'è ancora: si crea al volo
     assert analisi.anteprima_salva(ctx, vista="todo.attivita", tipo="kpi", data="scadenza", pagina="Vendite")["dettagli"][2]["dopo"] == "pagina nuova «Vendite»"
@@ -108,7 +110,7 @@ def test_gli_strumenti_di_ada_leggono_le_pagine_e_salvano_grafici_con_conferma(s
                                   spec={"tipo": "grafico", "vista": "todo.attivita", "per": "stato", "misura": "count", "grafico": "linee"}, dati={})
     assert analisi.anteprima_salva(ctx, artifact=art.pk)["dettagli"][2]["dopo"].startswith("libreria")
     g2 = Grafico.objects.get(pk=analisi.salva_grafico(ctx, artifact=art.pk)["grafico"])
-    assert g2.pagina is None and g2.tipo == "linee" and g2.spec == {"vista": "todo.attivita", "per": "stato", "misura": "count"} and g2.titolo == "Per stato"
+    assert g2.tipo == "linee" and g2.spec == {"vista": "todo.attivita", "per": "stato", "misura": "count"} and g2.titolo == "Per stato"
     # lettura della pagina ed elenco
     letto = analisi.analisi_leggi_pagina(ctx, "Direzione")
     assert letto["pagina"] == "Analisi: Direzione" and letto["grafici"][0]["dati"] and letto["url"] == reverse("grafici:pagina", args=[p.pk])
@@ -126,11 +128,11 @@ def test_il_worker_ricalcola_solo_i_grafici_scaduti(client, superuser, storia):
     from grafici import lavori
     p = Pagina.objects.create(utente=superuser, titolo="P")
     spec = {"vista": "todo.attivita", "per": "stato"}
-    scaduto = Grafico.objects.create(utente=superuser, pagina=p, titolo="A", spec=spec, aggiorna_ogni=1,
+    scaduto = in_pagina(p, utente=superuser, titolo="A", spec=spec, aggiorna_ogni=1,
                                      aggiornato=timezone.now() - datetime.timedelta(hours=2))
-    fresco = Grafico.objects.create(utente=superuser, pagina=p, titolo="B", spec=spec, aggiorna_ogni=24, aggiornato=timezone.now())
-    manuale = Grafico.objects.create(utente=superuser, pagina=p, titolo="C", spec=spec)
-    rotto = Grafico.objects.create(utente=superuser, pagina=p, titolo="D", spec={"vista": "todo.nope", "per": "stato"}, aggiorna_ogni=1)
+    fresco = in_pagina(p, utente=superuser, titolo="B", spec=spec, aggiorna_ogni=24, aggiornato=timezone.now())
+    manuale = in_pagina(p, utente=superuser, titolo="C", spec=spec)
+    rotto = in_pagina(p, utente=superuser, titolo="D", spec={"vista": "todo.nope", "per": "stato"}, aggiorna_ogni=1)
     assert lavori.aggiorna_scaduti() == 1
     for g in (scaduto, fresco, manuale, rotto):
         g.refresh_from_db()

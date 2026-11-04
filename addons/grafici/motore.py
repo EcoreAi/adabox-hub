@@ -29,6 +29,7 @@ ICONE = [("bar-chart", "Grafico"), ("pie-chart", "Torta"), ("trending-up", "Tend
          ("zap", "Lampo"), ("shield", "Controllo")]
 TIPI_SCAMBIABILI = [(t, e) for t, e in Grafico.TIPI if t in Grafico.INTERCAMBIABILI]
 AGGIORNAMENTI = [(0, "Mai: solo a mano"), (1, "Ogni ora"), (6, "Ogni 6 ore"), (24, "Ogni giorno"), (168, "Ogni settimana")]
+PANORAMICA = "panoramica"
 MAX_SCHEDE_PAGINE = 6                                    # in vista nella riga delle schede; le altre nel menu «Altre schede»
 MAX_SCHEDE_APP = 3                                       # le app personalizzate in vista
 
@@ -215,10 +216,86 @@ def widget_salvato(grafico, request, forza=False):
             "tipi": TIPI_SCAMBIABILI if grafico.tipo in Grafico.INTERCAMBIABILI else []}
 
 
-def widget_leggero(grafico):
-    """Solo il titolo: per il cassetto «Aggiungi widget», senza calcolare niente."""
-    return {"id": grafico.id_widget, "tipo": "salvato", "titolo": grafico.titolo, "grafico": grafico, "app": "Libreria",
-            "w": 1 if grafico.tipo == Grafico.KPI else 2}
+def widget_leggero(grafico, request):
+    """Il grafico nella libreria: i dati si calcolano solo se finisce in vista (`carica`)."""
+    return {"id": grafico.id_widget, "tipo": "salvato", "titolo": grafico.titolo, "grafico": grafico, "su_richiesta": True,
+            "app": "I tuoi grafici" if grafico.utente_id == request.user.id else f"Condiviso da {_nome(grafico.utente)}",
+            "larghezza": 1 if grafico.tipo == Grafico.KPI else 2, "template": "grafici/_widget.html",
+            "carica": lambda: widget_salvato(grafico, request)}
+
+
+def libreria_di(utente):
+    """I grafici che una persona può mettere nelle sue pagine: i suoi e quelli condivisi con lei."""
+    return Grafico.objects.filter(Q(utente=utente) | Q(condiviso_con=utente)).select_related("utente").distinct().order_by("titolo", "pk")
+
+
+def widget_per_panoramica(request):
+    return [widget_leggero(g, request) for g in libreria_di(request.user)]
+
+
+def puo_vedere(grafico, utente):
+    """Il proprietario, chi lo ha ricevuto, e chi vede una pagina condivisa del proprietario che lo contiene."""
+    if grafico.utente_id == utente.id or grafico.condiviso_con.filter(pk=utente.pk).exists():
+        return True
+    return any(grafico.id_widget in p.id_widget for p in Pagina.objects.filter(utente_id=grafico.utente_id, condivisa=True))
+
+
+def pagine_con(grafico, utente):
+    return [p for p in Pagina.objects.filter(utente=utente) if grafico.id_widget in p.id_widget]
+
+
+def _aggiungi(layout, id_widget):
+    layout = dict(layout or {})
+    voci = list(layout.get("widget", []))
+    if id_widget not in [v.get("id") for v in voci if isinstance(v, dict)]:
+        voci.append({"id": id_widget})
+    layout["widget"] = voci
+    layout["nascosti"] = [i for i in layout.get("nascosti", []) if i != id_widget]
+    return layout
+
+
+def _senza(layout, id_widget):
+    layout = dict(layout or {})
+    layout["widget"] = [v for v in layout.get("widget", []) if not (isinstance(v, dict) and v.get("id") == id_widget)]
+    return layout
+
+
+def metti_in_pagina(pagina, grafico):
+    pagina.layout = _aggiungi(pagina.layout, grafico.id_widget)
+    pagina.save(update_fields=["layout", "aggiornata"])
+
+
+def togli_da_pagina(pagina, grafico):
+    pagina.layout = _senza(pagina.layout, grafico.id_widget)
+    pagina.save(update_fields=["layout", "aggiornata"])
+
+
+def in_panoramica(grafico, utente):
+    return grafico.id_widget in [v.get("id") for v in dash.layout_di(utente).get("widget", []) if isinstance(v, dict)]
+
+
+def imposta_panoramica(grafico, utente, dentro):
+    from core.models import DashboardUtente
+    layout = dash.layout_di(utente)
+    if dentro and not in_panoramica(grafico, utente):
+        layout = _aggiungi(layout, grafico.id_widget)
+    elif not dentro and in_panoramica(grafico, utente):
+        layout = _senza(layout, grafico.id_widget)
+    else:
+        return
+    DashboardUtente.objects.update_or_create(utente=utente, defaults={"layout": layout})
+
+
+def metti_in(utente, valore, grafico, titolo_nuova=""):
+    """Mette il grafico dove indica un form o Ada; (titolo, indirizzo) del posto, o (None, None) se resta solo in libreria."""
+    if (valore or "").strip() == PANORAMICA:
+        imposta_panoramica(grafico, utente, True)
+        return "Panoramica", reverse("core:dashboard")
+    p = destinazione(utente, valore, titolo_nuova)
+    if p is None:
+        return None, None
+    metti_in_pagina(p, grafico)
+    return p.titolo, reverse("grafici:pagina_app", args=[p.app]) if p.app else reverse("grafici:pagina", args=[p.pk])
 
 
 def csv_di(grafico, dati):
@@ -240,40 +317,27 @@ def csv_di(grafico, dati):
 
 # ---------- pagine e widget ----------
 
-def catalogo(pagina, request):
-    """(widget, libreria): i widget che stanno nella pagina (per la scheda di un'app anche la card dei KPI e i grafici
-    del suo manifest) e, se la pagina è di chi guarda, i suoi grafici non ancora in una pagina, da aggiungere."""
-    widget = []
-    if pagina.app:
-        tutti, _ = dash.catalogo(request)
-        widget += [w for w in tutti if w["id"].split(":", 1)[0] == pagina.app]
-    grafici = list(pagina.grafici.select_related("utente").order_by("pk")) if pagina.pk else []
-    widget += [widget_salvato(g, request) for g in grafici]
-    libreria = []
+def _voci_pagina(pagina, request):
+    """Tutti i widget che possono stare nella pagina. Quelli delle app sono di partenza solo nella scheda della loro app."""
+    voci = []
+    for w in dash.catalogo(request, extra=False)[0]:
+        voci.append({**w, "su_richiesta": w["id"].split(":", 1)[0] != pagina.app})
     if pagina.utente_id == request.user.id:
-        libreria = [widget_leggero(g) for g in Grafico.objects.filter(utente=request.user, pagina__isnull=True)]
-    return widget, libreria
+        voci += [widget_leggero(g, request) for g in libreria_di(request.user)]
+    else:                                                 # pagina condivisa: i grafici del proprietario, non quelli di chi guarda
+        voci += [widget_leggero(g, request) for g in Grafico.objects.filter(utente_id=pagina.utente_id).select_related("utente")]
+    return voci
 
 
-def ids_ammessi(pagina, request):
-    """Gli id che il layout della pagina può contenere, senza calcolare i dati."""
-    ids = set()
-    if pagina.app:
-        ids |= {w["id"] for w in dash.catalogo(request)[0] if w["id"].split(":", 1)[0] == pagina.app}
-    if pagina.pk:
-        ids |= {g.id_widget for g in pagina.grafici.all()}
-    ids |= {g.id_widget for g in Grafico.objects.filter(utente=request.user, pagina__isnull=True)}
-    return ids
+def catalogo(pagina, request):
+    """(in vista, in libreria): i widget della pagina, già con i dati, e quelli che si possono aggiungere."""
+    visibili, nascosti = dash.disponi(pagina.layout, _voci_pagina(pagina, request))
+    return dash.carica(visibili), nascosti if pagina.utente_id == request.user.id else []
 
 
 def salva_layout(pagina, dati, request):
-    """Il layout dal client, validato come quello della dashboard; i grafici della libreria che compaiono nel layout
-    entrano nella pagina."""
-    layout = dash.layout_valido(dati, [{"id": i} for i in ids_ammessi(pagina, request)])
-    citati = {v["id"] for v in layout["widget"]} | set(layout["nascosti"])
-    pk_libreria = [int(i[2:]) for i in citati if i.startswith("g:") and i[2:].isdigit()]
-    if pk_libreria:
-        Grafico.objects.filter(utente=request.user, pagina__isnull=True, pk__in=pk_libreria).update(pagina=pagina)
+    """Il layout dal client, validato come quello della dashboard: passano solo i widget che la pagina può mostrare."""
+    layout = dash.layout_valido(dati, _voci_pagina(pagina, request))
     pagina.layout = layout
     pagina.save(update_fields=["layout", "aggiornata"])
     return layout
@@ -333,7 +397,7 @@ def schede(request, attiva=""):
         app.append({"chiave": f"app:{a['slug']}", "titolo": p.titolo if p else a["nav_label"], "app": True, "categoria": a.get("category", ""),
                     "icona": "" if "/" in icona else icona, "immagine": icona if "/" in icona else "",
                     "url": reverse("grafici:pagina_app", args=[a["slug"]]), "condivisa": False, "proprietario": "",
-                    "attiva": f"app:{a['slug']}" == attiva, "personalizzata": bool(p and (p.layout or p.grafici.exists()))})
+                    "attiva": f"app:{a['slug']}" == attiva, "personalizzata": bool(p and p.layout)})
     in_vista_libere = libere[:MAX_SCHEDE_PAGINE]
     aperta_nascosta = next((v for v in libere[MAX_SCHEDE_PAGINE:] if v["attiva"]), None)
     if aperta_nascosta:                                   # la scheda aperta non finisce mai nel menu
@@ -392,6 +456,7 @@ def destinazioni(request, vista=""):
     app_vista = (vista or "").split(".", 1)[0]
     apps = app_con_indicatori(request.user)
     scelte = [(f"app:{a['slug']}", f"Scheda {a['label']}") for a in apps if a["slug"] == app_vista]
+    scelte.append((PANORAMICA, "Panoramica"))
     scelte += [(str(p.pk), p.titolo) for p in Pagina.objects.filter(utente=request.user, app="")]
     scelte += [(f"app:{a['slug']}", f"Scheda {a['label']}") for a in apps if a["slug"] != app_vista]
     scelte.append(("nuova", "Nuova pagina…"))

@@ -5,27 +5,22 @@
 <div class="ui-pagehead">
   <div><h1>Dashboard</h1><div class="sub">{% now "l j F Y" %}{% if azienda %} · {{ azienda }}{% endif %}</div></div>
   <div class="ui-pagehead-actions wd-azioni">
-    <button type="button" class="ui-btn ui-btn-secondary" id="wd-aggiungi"{% if not nascosti %} hidden{% endif %}><svg><use href="#icon-plus"/></svg> Aggiungi widget <span class="ui-gruppo-n" id="wd-nascosti-n">{{ nascosti|length }}</span></button>
+    <button type="button" class="ui-btn ui-btn-secondary" id="wd-aggiungi"><svg><use href="#icon-plus"/></svg> Aggiungi widget <span class="ui-gruppo-n" id="wd-nascosti-n">{{ nascosti|length }}</span></button>
     <button type="button" class="ui-btn ui-btn-secondary" id="wd-modifica" aria-pressed="false"><svg><use href="#icon-edit"/></svg> Personalizza</button>
     <form method="post" action="{% url 'core:dashboard_reset' %}" id="wd-ripristina"{% if not personalizzata %} hidden{% endif %}>{% csrf_token %}<button class="ui-btn ui-btn-ghost" type="submit" title="Torna all'ordine di partenza">Ripristina</button></form>
     <a class="ui-btn ui-btn-ghost" href="{% url 'core:launcher' %}">Tutte le app</a>
   </div>
 </div>
 {% for s in sezioni_dashboard %}{% include s.template with scheda_attiva="panoramica" %}{% endfor %}
-<p class="wd-aiuto" id="wd-aiuto" hidden>Trascina dalla maniglia ⠿ o usa le frecce per spostare; ⤢ cambia la larghezza; × toglie il widget (lo ritrovi in «Aggiungi widget»). Le modifiche si salvano da sole.</p>
-{% if widget %}
+<p class="wd-aiuto" id="wd-aiuto" hidden>Trascina le card dove vuoi, o usa le frecce; ⤢ cambia la larghezza; × toglie il widget (lo ritrovi in «Aggiungi widget»). Le modifiche si salvano da sole.</p>
 <div class="wd-griglia" id="wd-griglia" data-salva="{% url 'core:dashboard_layout' %}">
-  {% for w in widget %}{% include "core/_widget.html" %}{% endfor %}
+  {% for w in widget %}{% if w.template %}{% include w.template %}{% else %}{% include "core/_widget.html" %}{% endif %}{% endfor %}
 </div>
-{% else %}
+{% if not widget %}
 <div class="ui-card is-revealed"><div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg>
   <p>{% if nascosti %}Hai tolto tutti i widget: rimettine qualcuno da «Aggiungi widget».{% else %}Nessuna app con indicatori.{% if user.is_superuser %} <a class="ui-link" href="{% url 'core:moduli' %}">Installa un modulo</a>.{% endif %}{% endif %}</p></div></div></div>
 {% endif %}
-<aside class="wd-cassetto" id="wd-cassetto" hidden aria-label="Widget da aggiungere">
-  <div class="wd-cassetto-testa"><strong>Aggiungi alla dashboard</strong><button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-chiudi-cassetto aria-label="Chiudi">×</button></div>
-  <ul class="wd-cassetto-voci" id="wd-cassetto-voci">{% for w in nascosti %}<li><button type="button" data-aggiungi="{{ w.id }}"><strong>{{ w.titolo }}</strong><small>{% if w.app %}{{ w.app }}{% else %}{{ w.scheda.label }}{% endif %} · {% if w.tipo == "kpi" %}indicatori{% else %}grafico{% endif %}</small></button></li>{% endfor %}</ul>
-  <p class="sub wd-cassetto-vuoto"{% if nascosti %} hidden{% endif %}>Tutti i widget sono già sulla dashboard.</p>
-</aside>
+{% include "core/_cassetto.html" %}
 {{ contesto_ada|json_script:"ada-contesto" }}
 {% endblock %}
 {% block scripts %}

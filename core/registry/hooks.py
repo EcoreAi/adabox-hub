@@ -6,6 +6,7 @@ _sezioni = defaultdict(list)   # "app.model" -> [dict(template, order, permissio
 _testata = []                  # [dict(template, order, permission)] voci della barra in alto
 _dashboard = []                # [dict(template, order, permission)] sezioni in testa alla dashboard
 _azioni = defaultdict(list)    # "chiave" -> [dict(template, order, permission)] azioni in un punto di un template
+_widget = []                   # [dict(funzione, modulo, permission)] altri widget per la libreria della dashboard
 
 
 def _chiave(model):
@@ -67,6 +68,21 @@ def sezioni_dashboard(request):
     return _visibili(_dashboard, request)
 
 
+def widget_dashboard(funzione, modulo, permission=None):
+    """Da chiamare nel ready() dell'app: `funzione` (percorso puntato, riceve la richiesta) dà altri widget da mettere
+    in dashboard: [{id, tipo, titolo, app, su_richiesta, template, carica}]. `carica()` dà il widget completo quando serve."""
+    voce = {"funzione": funzione, "modulo": modulo, "permission": permission}
+    if voce not in _widget:
+        _widget.append(voce)
+
+
+def widget_extra(request):
+    from .modules import disattivati
+    user = request.user
+    spenti = disattivati()
+    return [v["funzione"] for v in _widget if v["modulo"] not in spenti and (v["permission"] is None or user.is_superuser or user.has_perm(v["permission"]))]
+
+
 def azione(chiave, template, order=100, permission=None):
     """Da chiamare nel ready() dell'app: dove un template altrui scrive {% agganci "chiave" %} compare `template`,
     con il contesto di quel punto (es. «Salva in Analisi» sotto un grafico dell'assistente: chiave «ai.artifact»)."""
@@ -85,3 +101,4 @@ def svuota():
     _testata.clear()
     _dashboard.clear()
     _azioni.clear()
+    _widget.clear()
