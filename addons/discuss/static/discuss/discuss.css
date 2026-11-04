@@ -245,6 +245,11 @@ body:has(#ds-app) .ak-etichetta svg { margin: 0; }
 .ds-due { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .ds-sezione-dialogo { border-top: 1px solid var(--ui-border); padding-top: 12px; }
 
+.ds-trascrizione { margin-top: 6px; padding: 6px 10px; border-left: 3px solid var(--ui-border); font-size: 13.5px; }
+.ds-trascrizione small { display: block; font-size: 11px; font-weight: 600; color: var(--ui-text-3); }
+.ds-sintesi { white-space: pre-wrap; font-size: 13.5px; line-height: 1.5; }
 .ds-form-chiama { display: contents; }
 .ds-fascia-chiamata { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .ds-fascia-chiamata form { margin: 0; }
+.ds-modulo-stretto { justify-items: start; }
+.ds-modulo-stretto .ui-label { width: 100%; }

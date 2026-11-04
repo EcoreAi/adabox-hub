@@ -83,6 +83,8 @@ class Messaggio(models.Model):
     fissato_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
                                    related_name="+", verbose_name="fissato da")
     anteprime = models.JSONField("anteprime dei link", default=list, blank=True)
+    trascrizione = models.TextField("trascrizione del vocale", blank=True)
+    trascrizione_stato = models.CharField("stato della trascrizione", max_length=10, blank=True)
 
     class Meta:
         verbose_name = "messaggio"
@@ -184,6 +186,7 @@ class Chiamata(models.Model):
     token = models.CharField("codice", max_length=64, unique=True)
     video = models.BooleanField("video", default=True)
     ospiti_ammessi = models.BooleanField("ospiti esterni", default=False)
+    registrando = models.BooleanField("registrazione in corso", default=False)
     iniziata = models.DateTimeField("iniziata il", auto_now_add=True)
     finita = models.DateTimeField("finita il", null=True, blank=True)
 
@@ -227,3 +230,38 @@ class Segnale(models.Model):
         verbose_name = "segnale"
         verbose_name_plural = "segnali"
         ordering = ["pk"]
+
+
+class Riassunto(models.Model):
+    """Il riassunto di una conversazione chiesto da una persona: lo vede solo lei."""
+    IN_CORSO, PRONTO, ERRORE = "in_corso", "pronto", "errore"
+    canale = models.ForeignKey(Canale, on_delete=models.CASCADE, related_name="riassunti")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    stato = models.CharField("stato", max_length=10, default=IN_CORSO)
+    ambito = models.CharField("periodo", max_length=10, default="oggi")
+    n_messaggi = models.PositiveIntegerField("messaggi letti", default=0)
+    testo = models.TextField("testo", blank=True)
+    errore = models.CharField("errore", max_length=300, blank=True)
+    creato = models.DateTimeField("creato il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "riassunto"
+        verbose_name_plural = "riassunti"
+        ordering = ["-pk"]
+
+
+class Registrazione(models.Model):
+    """L'audio di una riunione, la sua trascrizione e cosa ne è uscito."""
+    TRASCRIVO, PRONTA, SOLO_AUDIO, ERRORE = "trascrivo", "pronta", "solo_audio", "errore"
+    chiamata = models.ForeignKey(Chiamata, on_delete=models.CASCADE, related_name="registrazioni")
+    avviata_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    stato = models.CharField("stato", max_length=10, default=TRASCRIVO)
+    trascrizione = models.TextField("trascrizione", blank=True)
+    sintesi = models.TextField("sintesi", blank=True)
+    errore = models.CharField("errore", max_length=300, blank=True)
+    creata = models.DateTimeField("creata il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "registrazione"
+        verbose_name_plural = "registrazioni"
+        ordering = ["-pk"]

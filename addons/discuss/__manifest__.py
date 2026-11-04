@@ -1,7 +1,7 @@
 {
     "name": "Discuss",
     "summary": "Chat di lavoro in tempo reale: canali, gruppi, reazioni, risposte, presenza, ricerca e posta unica",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -21,6 +21,7 @@
         "Discuss / Responsabile": ["discuss.*"],
     },
     "hooks": "discuss.hooks",
+    "ai": "discuss.ai",
     "settings": [
         {"chiave": "stun", "label": "Server STUN per le chiamate", "tipo": "testo", "default": "stun:stun.l.google.com:19302",
          "help": "Serve ai browser per trovarsi attraverso internet: vede solo l'indirizzo IP di chi chiama. Vuoto = solo rete locale"},
@@ -30,6 +31,9 @@
          "help": "Lo static-auth-secret di coturn: da qui nascono credenziali che durano poche ore"},
         {"chiave": "max_partecipanti", "label": "Persone al massimo in una chiamata", "tipo": "intero", "default": 8,
          "help": "I media vanno da persona a persona: oltre le 8 i computer faticano"},
+        {"chiave": "url_trascrizione", "label": "Servizio di trascrizione dell'audio", "tipo": "testo", "default": "",
+         "help": "es. http://speaches:8000 (compatibile con /v1/audio/transcriptions). Vuoto = niente trascrizioni"},
+        {"chiave": "modello_trascrizione", "label": "Modello di trascrizione", "tipo": "testo", "default": "Systran/faster-whisper-small"},
     ],
     "cron": [{"nome": "Email dei messaggi non letti", "funzione": "discuss.notifiche.invia_email", "ogni": "10m"},
              {"nome": "Pulizia degli eventi in tempo reale", "funzione": "discuss.eventi.pulisci", "ogni": "6h"},

@@ -18,7 +18,7 @@ from core.generici import ct_di, vista_e_oggetto
 from core.models import Allegato, TipoAttivita
 from core.models import Messaggio as MessaggioChatter
 
-from . import chiamate, eventi, notifiche, presenza as presenze, schede, servizi, testo
+from . import chiamate, eventi, ia, notifiche, presenza as presenze, schede, servizi, testo
 from .models import Canale, Iscrizione, Messaggio, Notifica, Presenza
 
 PERMESSO = "discuss.view_canale"
@@ -53,7 +53,8 @@ def _diritti(request, canale):
     """Ciò che i template dei messaggi devono sapere su questa persona in questo canale."""
     return {"puo_moderare": servizi.puo_moderare(request.user, canale), "puo_fissare": servizi.puo_fissare(request.user, canale),
             "puo_scrivere": servizi.puo_scrivere(request.user, canale),
-            "puo_reagire": servizi.iscrizione(request.user, canale) is not None and not canale.archiviato}
+            "puo_reagire": servizi.iscrizione(request.user, canale) is not None and not canale.archiviato,
+            "puo_trascrivere": ia.trascrizione_attiva()}
 
 
 def _barra(request, corrente=None):
@@ -114,7 +115,8 @@ def _dati_canale(request, canale):
     altri = [u for u in membri if u.pk != request.user.pk]
     dati = {"canale": canale, "titolo": canale.titolo_per(request.user), "membri": membri,
             "n_fissati": canale.messaggi.filter(fissato_il__isnull=False, eliminato=False).count(),
-            "puo_gestire": servizi.puo_gestire(request.user, canale), "chiamata_attiva": chiamate.attiva_del(canale), **_diritti(request, canale)}
+            "puo_gestire": servizi.puo_gestire(request.user, canale), "chiamata_attiva": chiamate.attiva_del(canale),
+            "ia_attiva": ia.disponibile(request.user), **_diritti(request, canale)}
     if canale.diretto and len(altri) == 1:
         dati["altra"] = altri[0]
         dati["altra_presenza"] = presenze.scheda(presenze.di([altri[0].pk]).get(altri[0].pk))

@@ -65,6 +65,7 @@
       if (!risposta.ok) { errore(dati.errore || 'Non è stato possibile entrare.'); $('cm-entra').disabled = false; return; }
       io = dati.io; segreto = dati.segreto; ice = dati.ice; window.dsNome = dati.nome;
       ascolta(dati.dopo);
+      $('cm-registra-fascia').hidden = !dati.registrando;
       if (dati.ammesso) { entraInStanza(dati.altri); (dati.attesa || []).forEach((g) => bussa(g.id, g.nome)); } else { $('cm-ingresso').hidden = true; $('cm-attesa').hidden = false; }
     } catch (e) { errore('Connessione assente: riprova.'); $('cm-entra').disabled = false; }
   });
@@ -111,6 +112,7 @@
       case 'offerta': case 'risposta': suDescrizione(s); break;
       case 'candidato': suCandidato(s); break;
       case 'fine': termina('La chiamata è terminata'); break;
+      case 'registra': $('cm-registra-fascia').hidden = !s.si; break;
       default: break;
     }
   }
@@ -124,7 +126,7 @@
     const p = { id: info.id, pc, cortese: io > info.id, offrendo: false, ignora: false, risposta: false, stato: info,
                 flusso: new MediaStream(), inAttesa: [], coda: Promise.resolve(), pronto: false };
     pari.set(info.id, p);
-    pc.ontrack = (e) => { p.flusso.addTrack(e.track); if (p.video) p.video.srcObject = p.flusso; osservaVoce(p); };
+    pc.ontrack = (e) => { p.flusso.addTrack(e.track); if (p.video) p.video.srcObject = p.flusso; osservaVoce(p); if (e.track.kind === 'audio') aggiungiAlMix(p.flusso); };
     pc.onicecandidate = (e) => { if (e.candidate) segnale(p.id, 'candidato', e.candidate); };
     pc.onnegotiationneeded = () => { if (p.pronto) iniziaOfferta(p); };   // dopo il primo giro: riavvii della rete
     pc.onconnectionstatechange = () => aggiornaRiquadro(p);
@@ -286,7 +288,14 @@
   $('cm-mic-tasto').addEventListener('click', () => { audioOn = !audioOn; aggiornaTasti(); dichiara(); });
   $('cm-cam-tasto').addEventListener('click', () => { camOn = !camOn; aggiornaTasti(); dichiara(); });
   $('cm-mano-tasto').addEventListener('click', () => { mano = !mano; aggiornaTasti(); dichiara(); elencoPersone(); });
-  $('cm-esci').addEventListener('click', () => { if (segreto) manda(d.esci, {}); termina('Sei uscito dalla chiamata'); });
+  $('cm-esci').addEventListener('click', async () => {
+    if (registratore && registratore.state !== 'inactive') {       // prima si salva ciò che è stato registrato
+      const finito = new Promise((f) => { const prima = registratore.onstop; registratore.onstop = async () => { await prima(); f(); }; });
+      fermaRegistrazione(); await finito;
+    }
+    if (segreto) manda(d.esci, {});
+    termina('Sei uscito dalla chiamata');
+  });
   async function fermaSchermo() { if (!schermo) return; schermo.getTracks().forEach((t) => t.stop()); schermo = null; inviaVideo(); aggiornaTasti(); dichiara(); }
   $('cm-schermo-tasto').addEventListener('click', async () => {
     if (schermo) { fermaSchermo(); return; }
@@ -378,5 +387,54 @@
       (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(() => { $('cm-copia').textContent = 'Copiato'; }, () => { $('cm-link').select(); });
     });
   }
+  // --- registrazione: l'audio di tutti, mescolato qui. Lo sanno tutti: la fascia compare a chiunque sia in chiamata ---
+  let registratore = null, pezzi = [], byte = 0, mix = null;
+  const mischiati = new Set();
+  function aggiungiAlMix(flusso) {
+    if (!mix || mischiati.has(flusso) || !flusso.getAudioTracks().length) return;
+    mischiati.add(flusso);
+    audioCtx.createMediaStreamSource(new MediaStream(flusso.getAudioTracks())).connect(mix);
+  }
+  async function fermaRegistrazione() {
+    if (!registratore || registratore.state === 'inactive') return;
+    registratore.stop();
+  }
+  const tastoReg = $('cm-registra-tasto');
+  if (tastoReg) {
+    tastoReg.hidden = !window.MediaRecorder;
+    tastoReg.addEventListener('click', async () => {
+      if (registratore && registratore.state !== 'inactive') { fermaRegistrazione(); return; }
+      if (!window.confirm('La registrazione comprende la voce di tutti: tutti lo vedranno indicato. Iniziare?')) return;
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') await audioCtx.resume();
+      mix = audioCtx.createMediaStreamDestination(); mischiati.clear();
+      if (flussoLocale) aggiungiAlMix(flussoLocale);
+      pari.forEach((p) => aggiungiAlMix(p.flusso));
+      const tipo = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4'].find((t) => MediaRecorder.isTypeSupported(t)) || '';
+      registratore = new MediaRecorder(mix.stream, { audioBitsPerSecond: 24000, ...(tipo ? { mimeType: tipo } : {}) });
+      pezzi = []; byte = 0;
+      const massimo = Number(d.maxByte) || 0;
+      registratore.ondataavailable = (e) => {
+        if (!e.data.size) return;
+        pezzi.push(e.data); byte += e.data.size;
+        if (massimo && byte > massimo * 0.95) fermaRegistrazione();    // oltre il limite degli allegati non si salverebbe
+      };
+      registratore.onstop = async () => {
+        tastoReg.setAttribute('aria-pressed', 'false'); tastoReg.textContent = 'Salvo…'; tastoReg.disabled = true;
+        const mime = registratore.mimeType || 'audio/webm';
+        const est = mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : 'webm';
+        const dati = new FormData(); dati.append('file', new File(pezzi, `riunione-${Date.now()}.${est}`, { type: mime }));
+        try {
+          const r = await fetch(d.carica, { method: 'POST', headers: { 'X-Segreto': segreto }, body: dati });
+          tastoReg.textContent = r.ok ? 'Registrazione salvata' : 'Non salvata';
+        } catch (e) { tastoReg.textContent = 'Non salvata'; }
+        setTimeout(() => { tastoReg.textContent = 'Registra'; tastoReg.disabled = false; }, 4000);
+      };
+      registratore.start(5000);
+      tastoReg.setAttribute('aria-pressed', 'true'); tastoReg.textContent = 'Ferma la registrazione';
+      manda(d.registra, { si: true });
+    });
+  }
+
   window.dsChiamata = { pari, stato: () => ({ io, n: pari.size }) };
 })();

@@ -134,6 +134,15 @@
   document.body.addEventListener('htmx:afterSettle', leggiSquilli);
   window.dsSquillo = { squilla, togli: togliSquillo };
 
+  // l'audio registrato dal browser non dichiara la durata: la si ricava, così il cursore funziona
+  document.addEventListener('loadedmetadata', (ev) => {
+    const v = ev.target;
+    if (v.tagName !== 'AUDIO' || v.duration !== Infinity) return;
+    const fatto = () => { if (Number.isFinite(v.duration)) { v.removeEventListener('durationchange', fatto); v.currentTime = 0; } };
+    v.addEventListener('durationchange', fatto);
+    v.currentTime = 1e9;
+  }, true);
+
   window.dsPalette = { apri, chiudi };
   document.addEventListener('keydown', (ev) => {
     if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k') {

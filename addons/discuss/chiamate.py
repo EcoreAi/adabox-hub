@@ -13,6 +13,7 @@ import secrets
 import time
 
 from asgiref.sync import sync_to_async
+from django.conf import settings
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied
 from django.core.handlers.asgi import ASGIRequest
@@ -25,10 +26,10 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
-from core import parametri
+from core import allegati, lavori, parametri
 
 from . import eventi, servizi
-from .models import Canale, Chiamata, Partecipante, Segnale
+from .models import Canale, Chiamata, Partecipante, Registrazione, Segnale
 
 SCOMPARSO_SECONDI = 40                  # senza battito per tanto, si è fuori
 SQUILLO_SECONDI = 60
@@ -112,6 +113,8 @@ def ammetti(p, si):
         p.ammesso = True
         p.save(update_fields=["ammesso"])
         segnala(p.chiamata, "ammesso", a=p, altri=[descrivi(x) for x in presenti(p.chiamata).exclude(pk=p.pk)])
+        if p.chiamata.registrando:                 # lo deve sapere prima di parlare
+            segnala(p.chiamata, "registra", a=p, si=True)
         segnala(p.chiamata, "entrato", da=p, **descrivi(p))
     else:
         p.uscito = timezone.now()
@@ -233,7 +236,7 @@ def pagina(request, token):
             return redirect(f"{reverse('login')}?next={request.path}")
         raise Http404
     return render(request, "discuss/chiamata.html", {
-        "c": c, "collega": True, "titolo": c.canale.titolo_per(request.user), "nome": servizi.nome_di(request.user),
+        "c": c, "collega": True, "max_byte": settings.ALLEGATI_MAX_MB * 1024 * 1024, "titolo": c.canale.titolo_per(request.user), "nome": servizi.nome_di(request.user),
         "url_ospiti": request.build_absolute_uri(reverse("discuss:chiamata", args=[c.token]))})
 
 
@@ -260,7 +263,8 @@ def entra_vista(request, token):
     p.camera = request.POST.get("camera", "1") == "1"
     p.save(update_fields=["microfono", "camera"])
     ultimo = c.segnali.order_by("-pk").values_list("pk", flat=True).first() or 0
-    risposta = {"io": p.pk, "segreto": p.segreto, "ammesso": p.ammesso, "ice": server_ice(), "dopo": ultimo, "nome": p.nome}
+    risposta = {"io": p.pk, "segreto": p.segreto, "ammesso": p.ammesso, "ice": server_ice(), "dopo": ultimo, "nome": p.nome,
+                "registrando": c.registrando and p.ammesso}
     if p.ammesso:
         risposta["altri"] = [descrivi(x) for x in presenti(c).exclude(pk=p.pk)]
         risposta["attesa"] = [{"id": x.pk, "nome": x.nome} for x in c.partecipanti.filter(uscito__isnull=True, ammesso=False)]
@@ -314,6 +318,45 @@ def esci_vista(request, token):
     if p is not None:
         esci(p)
     return HttpResponse(status=204)
+
+
+@csrf_exempt
+@require_POST
+def registra_vista(request, token):
+    """Inizia o smette di registrare: la fascia compare a tutti i presenti. Registrano solo i colleghi."""
+    p = _partecipante(request, token)
+    if p.utente_id is None or not p.ammesso:
+        raise PermissionDenied
+    try:
+        si = bool(json.loads(request.body).get("si"))
+    except ValueError:
+        return HttpResponse(status=400)
+    Chiamata.objects.filter(pk=p.chiamata_id).update(registrando=si)
+    segnala(p.chiamata, "registra", si=si)
+    return HttpResponse(status=204)
+
+
+@csrf_exempt
+@require_POST
+def carica_registrazione(request, token):
+    """L'audio arriva dal browser che registrava. Da qui parte il lavoro di trascrizione."""
+    p = _partecipante(request, token)
+    if p.utente_id is None or not p.ammesso:
+        raise PermissionDenied
+    file = request.FILES.get("file")
+    if file is None:
+        return HttpResponse("Manca il file.", status=422)
+    try:
+        allegati.valida(file)
+    except allegati.AllegatoNonValido as e:
+        return HttpResponse(str(e), status=422)
+    with transaction.atomic():
+        r = Registrazione.objects.create(chiamata=p.chiamata, avviata_da=p.utente)
+        allegati.salva(r, file, p.utente)
+        Chiamata.objects.filter(pk=p.chiamata_id).update(registrando=False)
+        segnala(p.chiamata, "registra", si=False)
+        transaction.on_commit(lambda: lavori.accoda("discuss.ia.lavora_registrazione", registrazione=r.pk, max_tentativi=1))
+    return JsonResponse({"registrazione": r.pk})
 
 
 def _collega_presente(request, token):

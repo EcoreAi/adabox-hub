@@ -1,7 +1,7 @@
 """Pagine di Discuss."""
 from django.urls import path
 
-from . import chiamate, eventi, pagine
+from . import chiamate, eventi, ia_pagine, pagine
 
 urlpatterns = [
     path("", pagine.home, name="home"),
@@ -39,6 +39,13 @@ urlpatterns = [
     path("m/<int:pk>/risposte/", pagine.pannello_risposte, name="risposte"),
     path("allegato/<int:pk>/", pagine.allegato, name="allegato"),
     path("presenze/", pagine.presenze_di, name="presenze"),
+    path("c/<int:pk>/riassunto/", ia_pagine.riassunto, name="riassunto"),
+    path("m/<int:pk>/trascrivi/", ia_pagine.trascrivi, name="trascrivi"),
+    path("registrazione/<int:pk>/", ia_pagine.registrazione, name="registrazione"),
+    path("registrazione/<int:pk>/elimina/", ia_pagine.registrazione_elimina, name="registrazione_elimina"),
+    path("registrazione/<int:pk>/audio/", ia_pagine.registrazione_audio, name="registrazione_audio"),
+    path("chiamata/<str:token>/registra/", chiamate.registra_vista, name="chiamata_registra"),
+    path("chiamata/<str:token>/registrazione/", chiamate.carica_registrazione, name="chiamata_registrazione"),
     path("c/<int:pk>/chiama/", chiamate.avvia_vista, name="chiama"),
     path("chiamata/<str:token>/", chiamate.pagina, name="chiamata"),
     path("chiamata/<str:token>/entra/", chiamate.entra_vista, name="chiamata_entra"),

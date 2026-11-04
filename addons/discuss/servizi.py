@@ -310,6 +310,7 @@ def prepara(elenco, utente, precedente=None):
     for m in elenco:
         m.gruppi_reazioni = list(reazioni.get(m.pk, {}).values())
         m.file = file_di.get(m.pk, [])
+        m.ha_audio = any(a.tipo_file == "audio" for a in m.file)
         m.n_risposte = risposte.get(m.pk, 0)
         giorno = timezone.localtime(m.creato).date()
         nuovo_giorno = precedente is None or timezone.localtime(precedente.creato).date() != giorno

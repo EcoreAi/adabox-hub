@@ -1,0 +1,11 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Registrazione · Comunicazioni · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Registrazione della riunione</h1><div class="sub">{{ r.creata|date:"d/m/Y H:i" }} · <a class="ui-link" href="{% url 'discuss:canale' canale.pk %}">torna alla conversazione</a></div></div>
+  {% if puo_eliminare %}<div class="ui-pagehead-actions"><form method="post" action="{% url 'discuss:registrazione_elimina' r.pk %}" onsubmit="return confirm('Eliminare audio e trascrizione?')">{% csrf_token %}<button class="ui-btn ui-btn-danger" type="submit">Elimina</button></form></div>{% endif %}</div>
+{% if audio %}<section class="ui-card is-revealed ui-section"><div class="ui-card-body"><audio controls preload="metadata" src="{% url 'discuss:registrazione_audio' r.pk %}" style="width:100%"></audio></div></section>{% endif %}
+{% if r.stato == "trascrivo" %}<section class="ui-card is-revealed ui-section"><div class="ui-card-body"><p class="ui-help">Trascrizione in corso: può volerci qualche minuto. Il risultato arriva anche nella conversazione.</p></div></section>{% endif %}
+{% if r.errore %}<section class="ui-card is-revealed ui-section"><div class="ui-card-body"><p class="ui-help" role="alert">{{ r.errore }}</p></div></section>{% endif %}
+{% if r.sintesi %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div><div class="ui-card-title">Sintesi</div><div class="ui-card-sub">Scritta da Ada a partire dalla trascrizione automatica: può contenere errori</div></div></div><div class="ui-card-body" style="white-space:pre-wrap">{{ r.sintesi }}</div></section>{% endif %}
+{% if r.trascrizione %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div><div class="ui-card-title">Trascrizione</div><div class="ui-card-sub">Automatica: non distingue chi parla</div></div></div><div class="ui-card-body" style="white-space:pre-wrap">{{ r.trascrizione }}</div></section>{% endif %}
+{% endblock %}

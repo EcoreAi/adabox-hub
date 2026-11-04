@@ -4,7 +4,7 @@
 <body class="cm-body">
 <div id="cm" data-token="{{ c.token }}" data-collega="{{ collega|yesno:'1,0' }}" data-video="{{ c.video|yesno:'1,0' }}" data-csrf="{{ csrf_token }}"
      data-entra="{% url 'discuss:chiamata_entra' c.token %}" data-segnale="{% url 'discuss:chiamata_segnale' c.token %}" data-stato="{% url 'discuss:chiamata_stato' c.token %}"
-     data-esci="{% url 'discuss:chiamata_esci' c.token %}" data-ammetti="{% url 'discuss:chiamata_ammetti' c.token %}" data-ospiti="{% url 'discuss:chiamata_ospiti' c.token %}"
+     data-esci="{% url 'discuss:chiamata_esci' c.token %}" data-registra="{% url 'discuss:chiamata_registra' c.token %}" data-carica="{% url 'discuss:chiamata_registrazione' c.token %}" data-max-byte="{{ max_byte|default:0 }}" data-ammetti="{% url 'discuss:chiamata_ammetti' c.token %}" data-ospiti="{% url 'discuss:chiamata_ospiti' c.token %}"
      data-eventi="{% url 'discuss:chiamata_eventi' c.token %}" data-selfie="{% static 'discuss/vendor/selfie/' %}" data-ospiti-attivi="{{ c.ospiti_ammessi|yesno:'1,0' }}"{% if collega %} data-link="{{ url_ospiti }}"{% endif %}>
   <section class="cm-ingresso" id="cm-ingresso">
     <div class="cm-anteprima"><video id="cm-prova" autoplay muted playsinline></video><div class="cm-anteprima-vuota" id="cm-prova-vuota">Videocamera spenta</div></div>
@@ -21,6 +21,7 @@
   </section>
   <section class="cm-attesa" id="cm-attesa" hidden><h1>Un momento…</h1><p>Abbiamo avvisato chi è in riunione: ti faranno entrare.</p></section>
   <section class="cm-stanza" id="cm-stanza" hidden>
+    <div class="cm-registra-fascia" id="cm-registra-fascia" role="status" hidden><span class="cm-rec"></span> Questa riunione viene registrata</div>
     <div class="cm-griglia" id="cm-griglia" aria-label="Partecipanti"></div>
     <aside class="cm-lato" id="cm-lato" hidden>
       <header><h2>Persone</h2><button type="button" class="cm-chiudi" id="cm-lato-chiudi" aria-label="Chiudi">×</button></header>
@@ -38,6 +39,7 @@
       <button type="button" class="cm-tasto" id="cm-mano-tasto" aria-pressed="false">✋ Mano</button>
       <button type="button" class="cm-tasto" id="cm-sfoca-tasto" aria-pressed="false">Sfoca sfondo</button>
       <button type="button" class="cm-tasto" id="cm-ptt-tasto" aria-pressed="false">Premi per parlare</button>
+      {% if collega %}<button type="button" class="cm-tasto" id="cm-registra-tasto" aria-pressed="false">Registra</button>{% endif %}
       <button type="button" class="cm-tasto" id="cm-persone-tasto">Persone <span id="cm-n">1</span></button>
       <button type="button" class="cm-tasto cm-tasto-esci" id="cm-esci">Esci</button>
     </footer>
