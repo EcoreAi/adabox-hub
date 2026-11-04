@@ -1,0 +1,12 @@
+{% load analisi tema %}{% if a.tipo == "grafico" %}{% destinazioni_analisi a.spec.vista as scelte %}{# Sotto un grafico dell'assistente: salvalo in una pagina di Analisi. #}
+<link rel="stylesheet" href="{% statico 'grafici/analisi.css' %}">
+<details class="an-salva">
+  <summary class="ai-azione" data-tip="Salva in Analisi" aria-label="Salva in Analisi"><svg><use href="#icon-bar-chart"/></svg></summary>
+  <form class="an-salva-pannello" method="post" action="{% url 'grafici:salva_da_artifact' %}" hx-post="{% url 'grafici:salva_da_artifact' %}" hx-target="closest .an-salva" hx-swap="outerHTML">{% csrf_token %}
+    <input type="hidden" name="artifact" value="{{ a.pk }}">
+    <strong>Salva in Analisi</strong>
+    <label class="ui-label">Pagina<select class="ui-input" name="destinazione" onchange="this.form.querySelector('[name=titolo_nuova]').hidden = this.value !== 'nuova'">{% for v, e in scelte %}<option value="{{ v }}">{{ e }}</option>{% endfor %}<option value="">Solo in libreria</option></select></label>
+    <input class="ui-input" name="titolo_nuova" placeholder="Titolo della nuova pagina" maxlength="100" hidden>
+    <button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Salva</button>
+  </form>
+</details>{% endif %}

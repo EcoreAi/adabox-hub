@@ -1,0 +1,15 @@
+{% load analisi tema static %}{% schede_analisi scheda_attiva as schede %}{# Le schede della dashboard: Panoramica, le pagine di Analisi (proprie e condivise), le app con indicatori. #}
+<link rel="stylesheet" href="{% statico 'grafici/analisi.css' %}">
+<nav class="an-schede" aria-label="Schede della dashboard">
+  <a class="an-scheda{% if scheda_attiva == 'panoramica' %} is-attiva{% endif %}" href="{% url 'core:dashboard' %}"><svg><use href="#icon-home"/></svg><span>Panoramica</span></a>
+  {% for s in schede %}
+  <a class="an-scheda{% if s.attiva %} is-attiva{% endif %}{% if s.condivisa %} is-condivisa{% endif %}" href="{{ s.url }}"{% if s.condivisa %} title="Condivisa da {{ s.proprietario }}"{% endif %}>{% if s.immagine %}<img src="{% static s.immagine %}" alt="">{% else %}<svg><use href="#icon-{{ s.icona|default:'bar-chart' }}"/></svg>{% endif %}<span>{{ s.titolo }}</span></a>
+  {% endfor %}
+  {% if perms.grafici.add_pagina %}
+  <form class="an-nuova" method="post" action="{% url 'grafici:nuova' %}">{% csrf_token %}
+    <button type="button" class="an-scheda an-piu" data-an-nuova title="Nuova pagina" aria-expanded="false"><svg><use href="#icon-plus"/></svg><span>Nuova pagina</span></button>
+    <span class="an-nuova-campo" hidden><input class="ui-input" name="titolo" placeholder="Titolo della pagina" maxlength="100" required autocomplete="off"><button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Crea</button></span>
+  </form>
+  {% endif %}
+</nav>
+<script src="{% statico 'grafici/analisi.js' %}" defer></script>

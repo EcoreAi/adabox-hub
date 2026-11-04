@@ -1,0 +1,1 @@
+<span class="an-salvato"><svg><use href="#icon-check"/></svg> Salvato{% if g.pagina %} in <a href="{% if g.pagina.app %}{% url 'grafici:pagina_app' g.pagina.app %}{% else %}{% url 'grafici:pagina' g.pagina.pk %}{% endif %}">{{ g.pagina.titolo }}</a>{% else %} in <a href="{% url 'grafici:pagine' %}">libreria</a>{% endif %}</span>

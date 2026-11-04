@@ -1,0 +1,57 @@
+{% extends 'core/base_app.html' %}
+{% load tema %}
+{% block title %}{{ g.titolo }} · Analisi · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>{{ g.titolo }}</h1><div class="sub">{{ w.sotto }}{% if w.aggiornato %} · dati di {{ w.aggiornato|date:"d/m/Y H:i" }}{% endif %}{% if g.pagina %} · nella pagina <a href="{% if g.pagina.app %}{% url 'grafici:pagina_app' g.pagina.app %}{% else %}{% url 'grafici:pagina' g.pagina.pk %}{% endif %}">{{ g.pagina.titolo }}</a>{% endif %}</div></div>
+  <div class="ui-pagehead-actions">
+    <a class="ui-btn ui-btn-secondary" href="?aggiorna=1"><svg><use href="#icon-refresh"/></svg> Aggiorna</a>
+    <a class="ui-btn ui-btn-ghost" href="{% url 'grafici:grafico_csv' g.pk %}"><svg><use href="#icon-download"/></svg> CSV</a>
+    {% if g.origine_url %}<a class="ui-btn ui-btn-ghost" href="{{ g.origine_url }}">{% if g.origine == "chat" %}Vai alla chat{% else %}Vai alla vista{% endif %}</a>{% endif %}
+  </div>
+</div>
+{% include "grafici/_schede.html" %}
+<div class="an-grande">
+  <section class="ui-card is-revealed">
+    <div class="ui-card-body">
+      {% if w.errore %}<div class="ui-alert ui-alert-error">{{ w.errore }}</div>{% endif %}
+      {% if w.serie.vuoto %}{% if not w.errore %}<div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun dato.</p></div>{% endif %}{% else %}
+      {% if mio and w.tipi %}<div class="an-menu-tipi an-tipi-pagina" data-tipi="{{ w.dom }}" data-salva="{% url 'grafici:grafico_tipo' g.pk %}">{% for t, e in w.tipi %}<button type="button" data-tipo="{{ t }}" aria-pressed="{% if t == g.tipo %}true{% else %}false{% endif %}">{{ e }}</button>{% endfor %}</div>{% endif %}
+      <div class="wd-canvas wd-canvas-pagina"><canvas data-grafico="{{ w.dom }}" role="img" aria-label="{{ g.titolo }}"></canvas></div>
+      {{ w.serie|json_script:w.dom }}
+      {% endif %}
+    </div>
+    {% if not w.serie.vuoto %}
+    <div class="ui-table-wrap"><table class="ui-table is-revealed">
+      {% if w.serie.futuro %}<thead><tr><th scope="col">Periodo</th><th scope="col" class="ui-num">Valore</th><th scope="col" class="ui-num">Previsione 10 %</th><th scope="col" class="ui-num">Mediana</th><th scope="col" class="ui-num">90 %</th></tr></thead>
+      <tbody>{% for e, v in w.serie.storico %}<tr><td>{{ e }}</td><td class="ui-num">{{ v|floatformat:"-2" }}</td><td></td><td></td><td></td></tr>{% endfor %}
+      {% for f in w.serie.futuro %}<tr><td>{{ f.0 }}</td><td></td><td class="ui-num">{{ f.1|floatformat:"-2" }}</td><td class="ui-num"><strong>{{ f.2|floatformat:"-2" }}</strong></td><td class="ui-num">{{ f.3|floatformat:"-2" }}</td></tr>{% endfor %}</tbody>
+      {% if w.serie.totale %}<tfoot><tr class="ui-totali"><th scope="row" colspan="2">Totale sull'orizzonte</th><td class="ui-num">{{ w.serie.totale.basso_10 }}</td><td class="ui-num">{{ w.serie.totale.mediana }}</td><td class="ui-num">{{ w.serie.totale.alto_90 }}</td></tr></tfoot>{% endif %}
+      {% else %}<thead><tr><th scope="col">Categoria</th><th scope="col" class="ui-num">Valore</th></tr></thead>
+      <tbody>{% for e, v in w.serie.righe %}<tr><td>{{ e }}</td><td class="ui-num">{{ v|floatformat:"-2" }}</td></tr>{% endfor %}</tbody>
+      {% if w.serie.totale is not None %}<tfoot><tr class="ui-totali"><th scope="row">Totale</th><td class="ui-num">{{ w.serie.totale|floatformat:"-2" }}</td></tr></tfoot>{% endif %}{% endif %}
+    </table></div>
+    {% endif %}
+  </section>
+  {% if mio %}
+  <aside class="ui-card is-revealed an-lato">
+    <div class="ui-card-head"><div><div class="ui-card-title">Impostazioni</div></div></div>
+    <div class="ui-card-body">
+      <form method="post" action="{% url 'grafici:grafico_modifica' g.pk %}" class="an-form">{% csrf_token %}
+        <label class="ui-label">Titolo<input class="ui-input" name="titolo" value="{{ g.titolo }}" maxlength="200"></label>
+        <label class="ui-label">Pagina<select class="ui-input" name="destinazione" onchange="this.form.querySelector('[name=titolo_nuova]').hidden = this.value !== 'nuova'">{% for v, e in destinazioni %}<option value="{{ v }}"{% if v == destinazione_attuale %} selected{% endif %}>{{ e }}</option>{% endfor %}<option value=""{% if not destinazione_attuale %} selected{% endif %}>Solo in libreria</option></select></label>
+        <input class="ui-input" name="titolo_nuova" placeholder="Titolo della nuova pagina" maxlength="100" hidden>
+        <button class="ui-btn ui-btn-primary" type="submit">Salva</button>
+      </form>
+      <dl class="an-dettagli"><dt>Query</dt><dd>{{ w.sotto }}</dd><dt>Vista</dt><dd>{{ g.vista }}</dd><dt>Tipo</dt><dd>{{ g.get_tipo_display }}</dd><dt>Origine</dt><dd>{{ g.get_origine_display }}</dd><dt>Creato</dt><dd>{{ g.creato|date:"d/m/Y H:i" }}</dd></dl>
+      <form method="post" action="{% url 'grafici:grafico_elimina' g.pk %}" onsubmit="return confirm('Eliminare il grafico?')">{% csrf_token %}<button class="ui-btn ui-btn-ghost an-pericolo" type="submit"><svg><use href="#icon-trash"/></svg> Elimina grafico</button></form>
+    </div>
+  </aside>
+  {% endif %}
+</div>
+{{ contesto_ada|json_script:"ada-contesto" }}
+{% endblock %}
+{% block scripts %}
+<script src="{% statico 'theme/vendor/chart.umd.js' %}" defer></script>
+<script src="{% statico 'core/grafici.js' %}" defer></script>
+{% endblock %}
