@@ -474,10 +474,20 @@ def _scelte_barra(request, tutte):
     return [slug for _, _, slug in sorted(scelte)]
 
 
-def _righe_barra(tutte, fisse):
-    posizioni = {slug: i + 1 for i, slug in enumerate(fisse)}
-    return sorted([{"slug": slug, "nome": nome, "fissa": slug in posizioni, "ordine": posizioni.get(slug, "")}
-                   for slug, nome in tutte], key=lambda r: (not r["fissa"], r["ordine"] or 0, r["nome"].lower()))
+def _liste_barra(request, tutte, scelta):
+    """Le due liste come le mostra davvero l'header, nell'ordine reale: la funzione che le divide è la stessa."""
+    voci = [{"slug": slug, "nome": nome} for slug, nome in tutte]
+    barra_, altre = barra.dividi(voci, None, scelta["quante"], scelta["fisse"])
+    in_testa = _in_testa(request)
+    for i, r in enumerate(barra_, start=1):
+        r["ordine"], r["posizione"] = i, len(in_testa) + i
+    return {"barra": barra_, "altre": altre, "in_testa": in_testa}
+
+
+def _in_testa(request):
+    """Le voci che stanno sempre per prime e non si spostano: la barra le mette prima di tutte."""
+    visibili = {a["slug"]: a["nav_label"] for a in modules.app_visibili(request.user)}
+    return [visibili[s] for s in getattr(settings, "NAV_APP_IN_TESTA", []) if s in visibili] + ["Dashboard"]
 
 
 @login_required
@@ -500,7 +510,7 @@ def impostazioni_barra(request):
         return redirect("core:impostazioni_barra")
     attuale = barra.leggi()
     return render(request, "core/impostazioni_barra.html", {
-        "righe": _righe_barra(tutte, attuale["fisse"]), "quante": attuale["quante"], "massimo": barra.MASSIMO, "aziendale": True,
+        **_liste_barra(request, tutte, attuale), "quante": attuale["quante"], "massimo": barra.MASSIMO, "aziendale": True,
         "personalizzata": Parametro.objects.filter(chiave=barra.CHIAVE, azienda__isnull=True).exists()})
 
 
@@ -516,7 +526,7 @@ def le_mie_app(request):
         messages.success(request, "Il tuo menu è salvato." if profilo.barra.get("fisse") else "Il tuo menu segue di nuovo quello dell'azienda.")
         return redirect("core:le_mie_app")
     return render(request, "core/impostazioni_barra.html", {
-        "righe": _righe_barra(tutte, barra.per_utente(request.user)["fisse"]), "aziendale": False, "personalizzata": bool(profilo.barra.get("fisse"))})
+        **_liste_barra(request, tutte, barra.per_utente(request.user)), "aziendale": False, "personalizzata": bool(profilo.barra.get("fisse"))})
 
 
 @register

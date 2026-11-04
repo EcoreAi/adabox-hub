@@ -208,6 +208,14 @@ def test_ognuno_sceglie_le_sue_app_nel_menu(client, superuser):
     assert barra.per_utente(superuser)["fisse"] == ["crm", "todo"]
     nav = client.get(reverse("core:dashboard")).context["theme"]["nav_principale"]
     assert [v["slug"] for v in nav if v.get("slug") in ("crm", "todo")] == ["crm", "todo"]
+    # la pagina mostra l'ordine reale dell'header, separando la barra dal menu «Altre»
+    r = client.get(reverse("core:le_mie_app"))
+    assert [x["slug"] for x in r.context["barra"]] == ["crm", "todo"] and "helpdesk" in [x["slug"] for x in r.context["altre"]]
+    assert r.context["in_testa"][-1] == "Dashboard" and r.context["theme"]["nav_altre"] and [x["slug"] for x in r.context["altre"]] == [x["slug"] for x in r.context["theme"]["nav_altre"]]
+    html = r.content.decode()
+    html = html[html.index("Nella barra in alto"):]
+    assert html.index("CRM") < html.index("To-Do") < html.index("Nel menu «Altre»") < html.index("Helpdesk")
+    assert r.context["barra"][0]["posizione"] == len(r.context["in_testa"]) + 1
     altro = User.objects.create_user("altro")
     assert barra.per_utente(altro)["fisse"] == []                                    # non tocca gli altri
     client.post(reverse("core:le_mie_app"), {"ripristina": "1"})

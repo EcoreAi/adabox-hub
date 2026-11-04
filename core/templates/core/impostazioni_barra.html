@@ -7,40 +7,58 @@
   {% else %}<div><h1>Le mie app nel menu</h1>
     <div class="sub">Vale solo per te{% if not personalizzata %} · ora: come il resto dell'azienda{% endif %}</div></div>{% endif %}
 </div>
-<form method="post" class="ui-card is-revealed ui-section">
+<form method="post" id="ba-form">
   {% csrf_token %}
-  <div class="ui-card-body">
-    <p class="ui-help" style="margin-top:0;">Spunta le app da tenere sempre nella barra, nell'ordine indicato (1 = la prima a sinistra).
-      Le altre vanno nel menu «Altre». Ognuno vede solo le app a cui ha accesso, e l'app in cui si trova resta sempre visibile.</p>
-  </div>
-  <div class="ui-table-wrap"><table class="ui-table is-revealed">
-    <thead><tr><th class="ui-col-check">Nella barra</th><th>App</th><th style="width:190px">Ordine</th></tr></thead>
-    <tbody>{% for r in righe %}<tr>
-      <td class="ui-col-check"><input type="checkbox" class="ui-checkbox" id="fissa_{{ r.slug }}" name="fissa_{{ r.slug }}" value="1"{% if r.fissa %} checked{% endif %}></td>
-      <td><label for="fissa_{{ r.slug }}">{{ r.nome }}</label> <span class="ui-help" style="display:inline">{{ r.slug }}</span></td>
-      <td><button type="button" class="ba-sposta" data-su aria-label="Sposta su {{ r.nome }}">↑</button> <button type="button" class="ba-sposta" data-giu aria-label="Sposta giù {{ r.nome }}">↓</button> <input class="ui-input" type="number" min="1" max="99" name="ordine_{{ r.slug }}" value="{{ r.ordine }}" aria-label="Ordine di {{ r.nome }}" style="max-width:70px;display:inline-block"></td>
-    </tr>{% endfor %}</tbody>
-  </table></div>
-  <div class="ui-card-body">
-    {% if aziendale %}<label class="ui-label" for="quante">Se non spunti nessuna app: quante mostrarne (le prime in elenco)</label>
+  <section class="ui-card is-revealed ui-section">
+    <div class="ui-card-head"><div><div class="ui-card-title">Nella barra in alto</div><div class="ui-card-sub">Nell'ordine in cui le vedi, da sinistra a destra. L'app in cui ti trovi resta sempre visibile.</div></div></div>
+    <ol class="ba-lista" id="ba-barra">
+      {% for nome in in_testa %}<li class="ba-riga is-fissa"><span class="ba-pos">{{ forloop.counter }}</span><span class="ba-nome">{{ nome }}</span><span class="ba-nota">sempre per prima</span></li>{% endfor %}
+      {% for r in barra %}{% include "core/_riga_barra.html" with attiva=True %}{% endfor %}
+    </ol>
+  </section>
+  <section class="ui-card is-revealed ui-section">
+    <div class="ui-card-head"><div><div class="ui-card-title">Nel menu «Altre»</div><div class="ui-card-sub">Il menu a tendina in fondo alla barra.</div></div></div>
+    <ol class="ba-lista" id="ba-altre">{% for r in altre %}{% include "core/_riga_barra.html" with attiva=False %}{% endfor %}</ol>
+    <p class="ui-help ba-vuoto" id="ba-altre-vuoto"{% if altre %} hidden{% endif %}>Nessuna: tutte le app stanno nella barra.</p>
+  </section>
+  <div class="ui-card is-revealed ui-section"><div class="ui-card-body">
+    {% if aziendale %}<label class="ui-label" for="quante">Con la scelta automatica: quante app tenere nella barra</label>
     <input class="ui-input" type="number" id="quante" name="quante" min="1" max="{{ massimo }}" value="{{ quante }}" style="max-width:90px">{% endif %}
-    <div class="ui-form-actions" style="margin-top:16px;">
+    <div class="ui-form-actions"{% if aziendale %} style="margin-top:16px;"{% endif %}>
       <button type="submit" class="ui-btn ui-btn-primary"><svg><use href="#icon-save"/></svg> Salva</button>
       {% if personalizzata %}<button type="submit" name="ripristina" value="1" class="ui-btn ui-btn-ghost">{% if aziendale %}Torna alla scelta automatica{% else %}Torna al menu dell'azienda{% endif %}</button>{% endif %}
     </div>
-  </div>
+  </div></div>
 </form>
 <script>
-// ↑ e ↓ spostano la riga e rinumerano: l'ordine salvato è quello che si vede
-document.querySelector('form.ui-card').addEventListener('click', (e) => {
-  const su = e.target.closest('[data-su]'), giu = e.target.closest('[data-giu]');
-  if (!su && !giu) return;
-  const riga = e.target.closest('tr');
-  const altra = su ? riga.previousElementSibling : riga.nextElementSibling;
-  if (altra) { if (su) altra.before(riga); else altra.after(riga); }
-  riga.closest('tbody').querySelectorAll('tr').forEach((r, i) => { r.querySelector('input[type=number]').value = i + 1; });
-  riga.querySelector('input[type=checkbox]').checked = true;
-  e.target.focus();
-});
+// Le frecce spostano nella barra, l'altro bottone passa da una lista all'altra: si salva l'ordine che si vede.
+(function () {
+  const barra = document.getElementById('ba-barra'), altre = document.getElementById('ba-altre'), vuoto = document.getElementById('ba-altre-vuoto');
+  const riallinea = () => {
+    const fisse = barra.querySelectorAll('.is-fissa').length;
+    barra.querySelectorAll('.ba-riga:not(.is-fissa)').forEach((r, i) => {
+      r.querySelector('.ba-pos').textContent = fisse + i + 1;
+      r.querySelector('[name^=ordine_]').value = i + 1;
+    });
+    [[barra, true], [altre, false]].forEach(([lista, dentro]) => lista.querySelectorAll('.ba-riga:not(.is-fissa)').forEach((r) => {
+      r.classList.toggle('in-barra', dentro);
+      r.querySelectorAll('input').forEach((c) => { c.disabled = !dentro; });
+    }));
+    altre.querySelectorAll('.ba-pos').forEach((p) => { p.textContent = ''; });
+    vuoto.hidden = altre.children.length > 0;
+  };
+  document.getElementById('ba-form').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-ba]');
+    if (!b) return;
+    const riga = b.closest('.ba-riga');
+    if (b.dataset.ba === 'su' && riga.previousElementSibling && !riga.previousElementSibling.classList.contains('is-fissa')) riga.previousElementSibling.before(riga);
+    if (b.dataset.ba === 'giu' && riga.nextElementSibling) riga.nextElementSibling.after(riga);
+    if (b.dataset.ba === 'altre') altre.prepend(riga);
+    if (b.dataset.ba === 'barra') barra.append(riga);
+    riallinea();
+    const stesso = riga.querySelector(`[data-ba="${b.dataset.ba}"]`);
+    if (stesso && stesso.offsetParent) stesso.focus();
+  });
+})();
 </script>
 {% endblock %}

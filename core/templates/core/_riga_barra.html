@@ -1,0 +1,9 @@
+<li class="ba-riga{% if attiva %} in-barra{% endif %}">
+  <span class="ba-pos">{% if attiva %}{{ r.posizione }}{% endif %}</span><span class="ba-nome">{{ r.nome }}</span>
+  <input type="hidden" name="fissa_{{ r.slug }}" value="1"{% if not attiva %} disabled{% endif %}><input type="hidden" name="ordine_{{ r.slug }}" value="{{ r.ordine|default:0 }}"{% if not attiva %} disabled{% endif %}>
+  <span class="ba-azioni">
+    <button type="button" class="ba-sposta" data-ba="su" aria-label="Sposta a sinistra {{ r.nome }}">↑</button><button type="button" class="ba-sposta" data-ba="giu" aria-label="Sposta a destra {{ r.nome }}">↓</button>
+    <button type="button" class="ui-btn ui-btn-ghost ui-btn-sm ba-in-altre" data-ba="altre">Metti in «Altre»</button>
+    <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm ba-in-barra" data-ba="barra">Porta nella barra</button>
+  </span>
+</li>
