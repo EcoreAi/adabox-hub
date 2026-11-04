@@ -474,64 +474,67 @@ def _scelte_barra(request, tutte):
     return [slug for _, _, slug in sorted(scelte)]
 
 
-def _liste_barra(request, tutte, scelta):
-    """Le due liste come le mostra davvero l'header, nell'ordine reale: la funzione che le divide è la stessa."""
-    voci = [{"slug": slug, "nome": nome} for slug, nome in tutte]
+def _liste_barra(tutte, scelta):
+    """Le due liste come le mostra davvero l'header (la funzione è la stessa), con anche le voci nascoste, segnate."""
     manifest = modules.manifests_attivi()
-    for v in voci:
-        v["categoria"] = manifest[v["slug"]].category if v["slug"] in manifest else ""
-    barra_, altre = barra.dividi(voci, None, scelta["quante"], scelta["fisse"])
+    voci = [{"slug": slug, "nome": nome, "categoria": manifest[slug].category if slug in manifest else ""}
+            for slug, nome in tutte if slug != barra.DASHBOARD]
+    dashboard = {"slug": barra.DASHBOARD, "nome": "Dashboard", "categoria": "Direzione"}
+    nascoste = set(scelta["nascoste"])
+    barra_, altre = barra.componi(voci, dashboard, {**scelta, "nascoste": []})
     altre = [{**v, "colonna": g["titolo"]} for g in barra.gruppi(altre, "nome") for v in g["voci"]]      # come nel menu
-    in_testa = _in_testa(request)
+    posizione = 0
     for i, r in enumerate(barra_, start=1):
-        r["ordine"], r["posizione"] = i, len(in_testa) + i
-    return {"barra": barra_, "altre": altre, "in_testa": in_testa}
+        r["ordine"] = i
+        if r["slug"] not in nascoste:
+            posizione += 1
+            r["posizione"] = posizione
+    for r in [*barra_, *altre]:
+        r["nascosta"] = r["slug"] in nascoste
+    return {"barra": barra_, "altre": altre}
 
 
-def _in_testa(request):
-    """Le voci che stanno sempre per prime e non si spostano: la barra le mette prima di tutte."""
-    visibili = {a["slug"]: a["nav_label"] for a in modules.app_visibili(request.user)}
-    return [visibili[s] for s in getattr(settings, "NAV_APP_IN_TESTA", []) if s in visibili] + ["Dashboard"]
+def _nascoste_barra(request, tutte):
+    return [slug for slug, _ in tutte if request.POST.get(f"nascosta_{slug}")]
 
 
 @login_required
 def impostazioni_barra(request):
-    """Quali app restano nella barra in alto e in che ordine, per tutti; le altre vanno nel menu "Altre"."""
+    """Quali voci stanno nella barra in alto, in che ordine e quali sono nascoste, per tutti; le altre vanno in "Altre"."""
     if not request.user.has_perm("core.change_parametro"):
         raise PermissionDenied
     manifest = modules.manifests_attivi()
-    in_testa = set(getattr(settings, "NAV_APP_IN_TESTA", []))          # sempre per prime: non si scelgono
     spenti = modules.disattivati()
     nomi = modules.etichette()
-    tutte = [(slug, nomi.get(slug) or m.nav_label or m.name) for slug, m in manifest.items() if m.application and slug not in in_testa and slug not in spenti]
+    tutte = [(barra.DASHBOARD, "Dashboard"), *((slug, nomi.get(slug) or m.nav_label or m.name) for slug, m in manifest.items() if m.application and slug not in spenti)]
     if request.method == "POST":
         if request.POST.get("ripristina"):
             Parametro.objects.filter(chiave=barra.CHIAVE, azienda__isnull=True).delete()
             messages.success(request, "Barra in alto riportata alla scelta automatica.")
             return redirect("core:impostazioni_barra")
         quante = request.POST.get("quante", "")
-        barra.scrivi(_scelte_barra(request, tutte), int(quante) if quante.isdigit() else barra.leggi()["quante"])
+        barra.scrivi(_scelte_barra(request, tutte), int(quante) if quante.isdigit() else barra.leggi()["quante"], _nascoste_barra(request, tutte))
         messages.success(request, "Barra in alto salvata.")
         return redirect("core:impostazioni_barra")
     attuale = barra.leggi()
     return render(request, "core/impostazioni_barra.html", {
-        **_liste_barra(request, tutte, attuale), "quante": attuale["quante"], "massimo": barra.MASSIMO, "aziendale": True,
+        **_liste_barra(tutte, attuale), "quante": attuale["quante"], "massimo": barra.MASSIMO, "aziendale": True,
         "personalizzata": Parametro.objects.filter(chiave=barra.CHIAVE, azienda__isnull=True).exists()})
 
 
 @login_required
 def le_mie_app(request):
-    """Ognuno decide per sé: quali delle sue app stanno nella barra e in che ordine. Le altre restano in «Altre»."""
-    in_testa = set(getattr(settings, "NAV_APP_IN_TESTA", []))
-    tutte = [(a["slug"], a["nav_label"]) for a in modules.app_visibili(request.user) if a["slug"] not in in_testa]
+    """Ognuno decide per sé: che cosa sta nella barra, in che ordine, che cosa nascondere. Le altre restano in «Altre»."""
+    tutte = [(barra.DASHBOARD, "Dashboard"), *((a["slug"], a["nav_label"]) for a in modules.app_visibili(request.user))]
     profilo = crea_profilo(request.user)
     if request.method == "POST":
-        profilo.barra = {} if request.POST.get("ripristina") else {"fisse": _scelte_barra(request, tutte)}
+        ripristina = bool(request.POST.get("ripristina"))
+        profilo.barra = {} if ripristina else {"fisse": _scelte_barra(request, tutte), "nascoste": _nascoste_barra(request, tutte), "completa": True}
         profilo.save(update_fields=["barra"])
-        messages.success(request, "Il tuo menu è salvato." if profilo.barra.get("fisse") else "Il tuo menu segue di nuovo quello dell'azienda.")
+        messages.success(request, "Il tuo menu segue di nuovo quello dell'azienda." if ripristina else "Il tuo menu è salvato.")
         return redirect("core:le_mie_app")
     return render(request, "core/impostazioni_barra.html", {
-        **_liste_barra(request, tutte, barra.per_utente(request.user)), "aziendale": False, "personalizzata": bool(profilo.barra.get("fisse"))})
+        **_liste_barra(tutte, barra.per_utente(request.user)), "aziendale": False, "personalizzata": bool(profilo.barra)})
 
 
 @register

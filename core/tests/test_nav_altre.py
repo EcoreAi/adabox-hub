@@ -44,9 +44,9 @@ def test_app_fisse_nell_ordine_scelto():
 
 def test_leggi_default_e_valori_non_validi(db, settings):
     settings.NAV_APP_VISIBILI = 3
-    assert barra.leggi() == {"fisse": [], "quante": 3}
+    assert barra.leggi() == {"fisse": [], "quante": 3, "nascoste": [], "completa": False}
     Parametro.objects.create(chiave=barra.CHIAVE, valore={"fisse": ["crm", 7], "quante": 99})
-    assert barra.leggi() == {"fisse": ["crm"], "quante": 3}
+    assert barra.leggi() == {"fisse": ["crm"], "quante": 3, "nascoste": [], "completa": False}
 
 
 def test_pagina_impostazioni(client, superuser, settings):
@@ -56,9 +56,9 @@ def test_pagina_impostazioni(client, superuser, settings):
     assert 'name="fissa_todo"' in html and "scelta automatica" in html
     r = client.post("/impostazioni/barra/", {"fissa_todo": "1", "ordine_todo": "2", "fissa_crm": "1",
                                              "ordine_crm": "1", "fissa_ai": "", "quante": "3"})
-    assert r.status_code == 302 and barra.leggi() == {"fisse": ["crm", "todo"], "quante": 3}
+    assert r.status_code == 302 and barra.leggi() == {"fisse": ["crm", "todo"], "quante": 3, "nascoste": [], "completa": True}
     tema = client.get("/dashboard/").context["theme"]
-    assert [v["label"] for v in tema["nav_principale"][1:3]] == ["CRM", "To-Do"]
+    assert [v["label"] for v in tema["nav_principale"][:2]] == ["CRM", "To-Do"]      # la scelta è completa: qui Dashboard non c'è
     assert all(v["slug"] not in ("crm", "todo") for v in tema["nav_altre"])
     client.post("/impostazioni/barra/", {"ripristina": "1"})
     assert not Parametro.objects.filter(chiave=barra.CHIAVE).exists()
@@ -91,7 +91,7 @@ def test_app_in_testa_sempre_per_prime(client, superuser, settings):
     Parametro.objects.create(chiave=barra.CHIAVE, valore={"fisse": ["todo"], "quante": 1})
     tema = client.get("/dashboard/").context["theme"]
     assert [v["label"] for v in tema["nav_principale"][:3]] == ["CRM", "Dashboard", "To-Do"]
-    assert 'name="fissa_crm"' not in client.get("/impostazioni/barra/").content.decode()   # non si sceglie
+    assert 'name="fissa_crm"' in client.get("/impostazioni/barra/").content.decode()       # ora si sposta anche lei
     settings.NAV_APP_IN_TESTA = ["inesistente"]                                            # non installata: niente
     assert client.get("/dashboard/").context["theme"]["nav_principale"][0]["label"] == "Dashboard"
 

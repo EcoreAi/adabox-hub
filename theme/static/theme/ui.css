@@ -1621,3 +1621,7 @@ body.is-trascinando, body.is-trascinando .wd-maniglia { cursor: grabbing; user-s
 .ui-nav-altre .ui-menucol a.is-active { color: var(--ui-primary); }
 body:has(.ui-nav-altre.is-open .ui-menucol) main { filter: blur(3px); opacity: .55; transition: filter 180ms var(--ease-out), opacity 180ms var(--ease-out); }
 @media (prefers-reduced-motion: reduce) { .ui-nav-altre .ui-menucol { transition: none; transform: none; } body:has(.ui-nav-altre.is-open .ui-menucol) main { filter: none; } }
+.ba-occhio { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 26px; margin-right: 4px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--ui-text-2); cursor: pointer; }
+.ba-occhio:hover { background: var(--ui-surface-2); color: var(--ui-text); } .ba-occhio svg { width: 16px; height: 16px; } .ba-occhio .ba-no { display: none; }
+.ba-riga.is-nascosta .ba-nome { color: var(--ui-text-3); text-decoration: line-through; }
+.ba-riga.is-nascosta .ba-occhio { color: var(--ui-text-3); } .ba-riga.is-nascosta .ba-occhio .ba-si { display: none; } .ba-riga.is-nascosta .ba-occhio .ba-no { display: inline; }

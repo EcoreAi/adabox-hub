@@ -208,14 +208,15 @@ def test_ognuno_sceglie_le_sue_app_nel_menu(client, superuser):
     assert barra.per_utente(superuser)["fisse"] == ["crm", "todo"]
     nav = client.get(reverse("core:dashboard")).context["theme"]["nav_principale"]
     assert [v["slug"] for v in nav if v.get("slug") in ("crm", "todo")] == ["crm", "todo"]
+    assert [v["slug"] for v in nav][:2] == ["crm", "todo"]                           # Chat e Dashboard non sono più in testa d'ufficio
     # la pagina mostra l'ordine reale dell'header, separando la barra dal menu «Altre»
     r = client.get(reverse("core:le_mie_app"))
     assert [x["slug"] for x in r.context["barra"]] == ["crm", "todo"] and "helpdesk" in [x["slug"] for x in r.context["altre"]]
-    assert r.context["in_testa"][-1] == "Dashboard" and r.context["theme"]["nav_altre"] and {x["slug"] for x in r.context["altre"]} == {x["slug"] for x in r.context["theme"]["nav_altre"]}
+    assert r.context["theme"]["nav_altre"] and {x["slug"] for x in r.context["altre"]} == {x["slug"] for x in r.context["theme"]["nav_altre"]}
     html = r.content.decode()
     html = html[html.index("Nella barra in alto"):]
     assert html.index("CRM") < html.index("To-Do") < html.index("Nel menu «Altre»") < html.index("Helpdesk")
-    assert r.context["barra"][0]["posizione"] == len(r.context["in_testa"]) + 1
+    assert [x["posizione"] for x in r.context["barra"]] == [1, 2]
     altro = User.objects.create_user("altro")
     assert barra.per_utente(altro)["fisse"] == []                                    # non tocca gli altri
     client.post(reverse("core:le_mie_app"), {"ripristina": "1"})
@@ -338,4 +339,25 @@ def test_l_admin_rinomina_un_app_e_il_nome_compare_ovunque(client, superuser):
     assert Modulo.objects.get(slug="discuss").etichetta == ""
     client.force_login(User.objects.create_user("semplice"))
     assert client.post(url, {"etichetta": "X"}).status_code == 403
+
+
+@pytest.mark.django_db
+def test_chat_e_dashboard_si_spostano_e_ogni_voce_si_nasconde(client, superuser):
+    client.post(reverse("core:le_mie_app"), {"fissa_todo": "1", "ordine_todo": "1", "fissa_dashboard": "1", "ordine_dashboard": "2", "fissa_ai": "1", "ordine_ai": "3",
+                                             "fissa_crm": "1", "ordine_crm": "4", "nascosta_crm": "1", "nascosta_helpdesk": "1"})
+    tema = client.get(reverse("core:launcher")).context["theme"]
+    assert [v["slug"] for v in tema["nav_principale"] if v.get("slug")][:3] == ["todo", "dashboard", "ai"]
+    assert "crm" not in [v.get("slug") for v in tema["nav_principale"]] and "helpdesk" not in [v["slug"] for v in tema["nav_altre"]]
+    r = client.get(reverse("core:le_mie_app"))
+    righe = {x["slug"]: x for x in [*r.context["barra"], *r.context["altre"]]}
+    assert righe["crm"]["nascosta"] and righe["helpdesk"]["nascosta"] and "posizione" not in righe["crm"] and righe["ai"]["posizione"] == 3 and 'name="fissa_dashboard"' in r.content.decode()
+    # nascosta non vuol dire bloccata: si apre, e mentre ci sei la voce c'è
+    r = client.get(reverse("crm:opportunita_lista"))
+    assert r.status_code == 200 and "crm" in [v.get("slug") for v in r.context["theme"]["nav_principale"]]
+    # Dashboard in «Altre»: finisce nella sua colonna
+    client.post(reverse("core:le_mie_app"), {"fissa_todo": "1", "ordine_todo": "1"})
+    gruppi = client.get(reverse("core:launcher")).context["theme"]["nav_altre_gruppi"]
+    assert "dashboard" in [v["slug"] for g in gruppi if g["titolo"] == "Direzione e strumenti" for v in g["voci"]]
+    client.post(reverse("core:le_mie_app"), {"ripristina": "1"})
+    assert [v.get("slug") for v in client.get(reverse("core:launcher")).context["theme"]["nav_principale"]][:2] == ["ai", "dashboard"]
 
