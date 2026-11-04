@@ -1,0 +1,5 @@
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div><div class="ui-card-title">Sul tuo sito</div><div class="ui-card-sub">Incolla questo codice prima di &lt;/body&gt;: compare il pulsante della chat</div></div></div>
+  <div class="ui-card-body"><input class="ui-input" readonly aria-label="Codice da incollare" onclick="this.select()" value='&lt;script src="{{ request.scheme }}://{{ request.get_host }}{% url 'discuss:lc_widget' obj.chiave %}" async&gt;&lt;/script&gt;'>
+    {% if not obj.domini.strip %}<p class="ui-help" role="alert">Non hai indicato nessun sito ammesso: la finestra non si aprirà su nessun sito finché non ne aggiungi uno.</p>{% endif %}
+    {% if not request.is_secure %}<p class="ui-help">Questo indirizzo non è in HTTPS: un sito in HTTPS non caricherà la chat finché anche il gestionale non lo è.</p>{% endif %}
+  </div></section>

@@ -1,6 +1,6 @@
 from core.viste import ModelView, register
 
-from .models import Canale
+from .models import Canale, Sportello
 
 
 @register
@@ -16,3 +16,15 @@ class CanaleView(ModelView):
 
     def get_queryset(self, request):
         return super().get_queryset(request).exclude(tipo=Canale.DIRETTO)    # i messaggi diretti restano privati
+
+
+@register
+class SportelloView(ModelView):
+    """Le chat del sito: chi risponde, i testi e i domini ammessi. Il codice da incollare è nel dettaglio."""
+    model = Sportello
+    slug = "sportelli"
+    list_display = ["nome", "attivo", "creato"]
+    list_filter = ["attivo"]
+    search_fields = ["nome"]
+    form_layout = [("Sportello", ["nome", "benvenuto", "assenza", "operatori", "domini", "privacy_url", "attivo"])]
+    readonly_fields = ["creato"]

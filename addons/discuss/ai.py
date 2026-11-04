@@ -14,7 +14,7 @@ MASSIMO_DA_LEGGERE = 100
 
 
 def _voce(m):
-    return {"quando": timezone.localtime(m.creato).strftime("%d/%m/%Y %H:%M"), "autore": servizi.nome_di(m.autore),
+    return {"quando": timezone.localtime(m.creato).strftime("%d/%m/%Y %H:%M"), "autore": m.nome_mittente,
             "testo": m.corpo or m.trascrizione or "(un allegato)", "url": reverse("discuss:canale", args=[m.canale_id]) + f"?a={m.pk}"}
 
 

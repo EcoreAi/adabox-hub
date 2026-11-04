@@ -69,7 +69,8 @@ def _barra(request, corrente=None):
             i.altri = altri
             i.presenza = presenze.scheda(stati.get(altri[0].pk)) if len(altri) == 1 else None
     return {"preferiti": [i for i in iscrizioni if i.fissata],
-            "canali": [i for i in iscrizioni if not i.canale.diretto and not i.fissata and not i.canale.vocale],
+            "canali": [i for i in iscrizioni if not i.canale.diretto and not i.fissata and not i.canale.vocale and not i.canale.livechat],
+            "dal_sito": [i for i in iscrizioni if i.canale.livechat and not i.fissata],
             "vocali": [i for i in iscrizioni if i.canale.vocale and not i.fissata],
             "diretti": [i for i in iscrizioni if i.canale.diretto and not i.fissata],
             "corrente": corrente, "corrente_pk": corrente.pk if corrente else None,
@@ -116,7 +117,8 @@ def _dati_canale(request, canale):
     dati = {"canale": canale, "titolo": canale.titolo_per(request.user), "membri": membri,
             "n_fissati": canale.messaggi.filter(fissato_il__isnull=False, eliminato=False).count(),
             "puo_gestire": servizi.puo_gestire(request.user, canale), "chiamata_attiva": chiamate.attiva_del(canale),
-            "ia_attiva": ia.disponibile(request.user), **_diritti(request, canale)}
+            "ia_attiva": ia.disponibile(request.user), "esterna": getattr(canale, "esterna", None) if canale.livechat else None,
+            **_diritti(request, canale)}
     if canale.diretto and len(altri) == 1:
         dati["altra"] = altri[0]
         dati["altra_presenza"] = presenze.scheda(presenze.di([altri[0].pk]).get(altri[0].pk))

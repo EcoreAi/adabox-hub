@@ -101,7 +101,7 @@ def messaggi_del_periodo(canale, ambito):
 
 def _riga(m):
     testo = m.corpo or m.trascrizione or "(un allegato)"
-    return f"[{timezone.localtime(m.creato):%d/%m %H:%M}] {servizi.nome_di(m.autore)}: {testo}"
+    return f"[{timezone.localtime(m.creato):%d/%m %H:%M}] {m.nome_mittente}: {testo}"
 
 
 def riassumi(riassunto):

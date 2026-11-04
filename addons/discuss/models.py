@@ -1,3 +1,5 @@
+import secrets
+
 from django.conf import settings
 from django.db import models
 
@@ -19,6 +21,7 @@ class Canale(models.Model):
                                   help_text="Scrivono solo amministratori, moderatori e contributori; gli altri leggono.")
     lista_email = models.BooleanField("lista email", default=False,
                                       help_text="I messaggi arrivano per email agli iscritti, che rispondono dalla propria casella.")
+    livechat = models.BooleanField("chat dal sito", default=False, editable=False)
     vocale = models.BooleanField("canale vocale", default=False, help_text="Una stanza sempre aperta: si entra e si parla, senza squilli.")
     record_ct = models.ForeignKey("contenttypes.ContentType", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
                                   verbose_name="tipo del record", help_text="Se il canale è la conversazione su un record.")
@@ -38,6 +41,8 @@ class Canale(models.Model):
 
     def titolo_per(self, utente):
         """Il nome mostrato: per i messaggi diretti, gli altri partecipanti (o il nome del gruppo, se ne ha uno)."""
+        if self.livechat:
+            return self.nome
         if not self.diretto:
             return f"# {self.nome}"
         if self.nome:
@@ -83,6 +88,7 @@ class Messaggio(models.Model):
     fissato_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
                                    related_name="+", verbose_name="fissato da")
     anteprime = models.JSONField("anteprime dei link", default=list, blank=True)
+    autore_esterno = models.CharField("scritto da (visitatore del sito)", max_length=80, blank=True)
     trascrizione = models.TextField("trascrizione del vocale", blank=True)
     trascrizione_stato = models.CharField("stato della trascrizione", max_length=10, blank=True)
 
@@ -94,6 +100,12 @@ class Messaggio(models.Model):
 
     def __str__(self):
         return f"{self.autore}: {self.corpo[:40]}"
+
+    @property
+    def nome_mittente(self):
+        if self.autore_esterno:
+            return self.autore_esterno
+        return (self.autore.get_full_name() or self.autore.username) if self.autore else "Utente rimosso"
 
 
 class Notifica(models.Model):
@@ -264,4 +276,49 @@ class Registrazione(models.Model):
     class Meta:
         verbose_name = "registrazione"
         verbose_name_plural = "registrazioni"
+        ordering = ["-pk"]
+
+
+def _nuova_chiave():
+    return secrets.token_urlsafe(16)
+
+
+class Sportello(models.Model):
+    """La chat di un sito: chi risponde, cosa dice e quali siti possono ospitarla."""
+    nome = models.CharField("nome", max_length=80, help_text="Compare in testa alla chat, es. «Assistenza clienti».")
+    benvenuto = models.CharField("messaggio di benvenuto", max_length=300, default="Ciao! Come possiamo aiutarti?")
+    assenza = models.CharField("se non c'è nessuno online", max_length=300, default="Ora non c'è nessuno online: lasciaci un messaggio e la tua email, ti rispondiamo appena possibile.")
+    operatori = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="sportelli_discuss", verbose_name="operatori",
+                                       help_text="Chi riceve le chat: ognuno vede tutte quelle di questo sportello.")
+    domini = models.TextField("siti ammessi", blank=True, help_text="Un dominio per riga, es. www.azienda.it. Vuoto: la chat non si può incorporare in nessun sito.")
+    privacy_url = models.URLField("informativa privacy", blank=True, help_text="Il link che il visitatore vede prima di scrivere.")
+    chiave = models.CharField("chiave", max_length=40, unique=True, default=_nuova_chiave, editable=False)
+    attivo = models.BooleanField("attivo", default=True)
+    creato = models.DateTimeField("creato il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "sportello livechat"
+        verbose_name_plural = "sportelli livechat"
+        ordering = ["nome"]
+
+    def __str__(self):
+        return self.nome
+
+
+class ConversazioneEsterna(models.Model):
+    """Un visitatore del sito: si riconosce dal suo token, l'unica cosa che gli dà accesso alla sua conversazione."""
+    sportello = models.ForeignKey(Sportello, on_delete=models.CASCADE, related_name="conversazioni")
+    canale = models.OneToOneField(Canale, on_delete=models.CASCADE, related_name="esterna")
+    token = models.CharField("token", max_length=64, unique=True)
+    nome = models.CharField("nome", max_length=80)
+    email = models.EmailField("email", blank=True)
+    pagina = models.CharField("pagina di provenienza", max_length=300, blank=True)
+    impronta_ip = models.CharField("impronta dell'indirizzo", max_length=64, db_index=True, help_text="Solo per fermare gli abusi: l'indirizzo non si conserva.")
+    ultimo_visto = models.DateTimeField("ultima visita", auto_now_add=True)
+    creata = models.DateTimeField("creata il", auto_now_add=True, db_index=True)
+    chiusa = models.DateTimeField("chiusa il", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "conversazione dal sito"
+        verbose_name_plural = "conversazioni dal sito"
         ordering = ["-pk"]

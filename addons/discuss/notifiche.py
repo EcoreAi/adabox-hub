@@ -31,8 +31,10 @@ def da_messaggio(messaggio):
     """Una notifica per ogni iscritto interessato (menzionato, conversazione diretta, o canale seguito "tutto")."""
     from . import servizi
     canale, autore = messaggio.canale, messaggio.autore
+    esterno = bool(messaggio.autore_esterno)
     risposta_a = messaggio.risposta_a.autore_id if messaggio.risposta_a_id else None
-    menzionati = {u.pk: u for u in testo.menzionati(messaggio.corpo)}
+    # un visitatore del sito non può far suonare chi vuole scrivendo @nome
+    menzionati = {} if esterno else {u.pk: u for u in testo.menzionati(messaggio.corpo)}
     url = f"{reverse('discuss:canale', args=[canale.pk])}#m{messaggio.pk}"
     nuove = []
     iscrizioni = {i.utente_id: i for i in Iscrizione.objects.filter(canale=canale).select_related("utente")}
@@ -48,13 +50,13 @@ def da_messaggio(messaggio):
             tipo = Notifica.MENZIONE
         elif pk == risposta_a:
             tipo = Notifica.RISPOSTA
-        elif canale.diretto:
+        elif canale.diretto or canale.livechat:
             tipo = Notifica.DIRETTO
         elif preferenza == Iscrizione.TUTTO:
             tipo = Notifica.CANALE
         else:
             continue
-        nome_autore = autore.get_full_name() or autore.username if autore else "Qualcuno"
+        nome_autore = messaggio.nome_mittente if esterno or autore else "Qualcuno"
         titolo = {Notifica.MENZIONE: f"{nome_autore} ti ha menzionato in {canale.titolo_per(utente)}",
                   Notifica.RISPOSTA: f"{nome_autore} ha risposto a un tuo messaggio in {canale.titolo_per(utente)}",
                   Notifica.DIRETTO: f"{nome_autore} ti ha scritto",

@@ -1,7 +1,7 @@
 """Pagine di Discuss."""
 from django.urls import path
 
-from . import chiamate, eventi, ia_pagine, pagine
+from . import chiamate, eventi, ia_pagine, livechat, pagine
 
 urlpatterns = [
     path("", pagine.home, name="home"),
@@ -39,6 +39,12 @@ urlpatterns = [
     path("m/<int:pk>/risposte/", pagine.pannello_risposte, name="risposte"),
     path("allegato/<int:pk>/", pagine.allegato, name="allegato"),
     path("presenze/", pagine.presenze_di, name="presenze"),
+    path("lc/<str:chiave>/widget.js", livechat.widget, name="lc_widget"),
+    path("lc/<str:chiave>/", livechat.finestra, name="lc_finestra"),
+    path("lc/<str:chiave>/avvia/", livechat.avvia, name="lc_avvia"),
+    path("lc/<str:chiave>/messaggi/", livechat.messaggi, name="lc_messaggi"),
+    path("lc/<str:chiave>/scrivi/", livechat.scrivi, name="lc_scrivi"),
+    path("c/<int:pk>/chiudi-chat/", livechat.chiudi, name="lc_chiudi"),
     path("c/<int:pk>/riassunto/", ia_pagine.riassunto, name="riassunto"),
     path("m/<int:pk>/trascrivi/", ia_pagine.trascrivi, name="trascrivi"),
     path("registrazione/<int:pk>/", ia_pagine.registrazione, name="registrazione"),

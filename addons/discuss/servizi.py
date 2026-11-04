@@ -162,25 +162,30 @@ def gruppo_da(canale, autore, nuovi, nome=""):
 # --- messaggi ---
 
 @transaction.atomic
-def invia(canale, autore, corpo, file=(), risposta_a=None, record=(), host=None):
-    """`record`: i record da mostrare come scheda, oltre a quelli citati con un link nel testo."""
+def invia(canale, autore, corpo, file=(), risposta_a=None, record=(), host=None, esterno=""):
+    """`record`: i record da mostrare come scheda, oltre a quelli citati con un link nel testo.
+    `esterno`: il nome di un visitatore del sito. Il suo testo non è fidato: niente menzioni, schede né anteprime."""
     corpo = (corpo or "").strip()[:10000]
     if not corpo and not file and not record:
         raise ValueError("Il messaggio è vuoto.")
     if risposta_a is not None and (risposta_a.canale_id != canale.pk or risposta_a.eliminato):
         risposta_a = None
-    messaggio = Messaggio.objects.create(canale=canale, autore=autore, corpo=corpo, risposta_a=risposta_a)
+    messaggio = Messaggio.objects.create(canale=canale, autore=autore, corpo=corpo, risposta_a=risposta_a, autore_esterno=esterno[:80])
     for f in file:
         allegati.salva(messaggio, f, autore)
     Iscrizione.objects.filter(canale=canale, utente=autore).update(ultimo_letto=messaggio.pk)
     from . import notifiche
     notifiche.da_messaggio(messaggio)
     eventi.emetti("nuovo", canale, m=messaggio.pk, autore=autore.pk if autore else None,
-                  menzionati=[u.pk for u in testo.menzionati(corpo)])
+                  menzionati=[] if esterno else [u.pk for u in testo.menzionati(corpo)])
     if risposta_a is not None:
         eventi.emetti("agg", canale, m=risposta_a.pk)
+    if esterno:
+        return messaggio
     from . import schede
     schede.collega(messaggio, [*record, *schede.riconosci(corpo, host)])
+    if canale.livechat:
+        transaction.on_commit(lambda: lavori.accoda("discuss.livechat.avvisa_visitatore", messaggio=messaggio.pk, ritardo=120))
     if testo.link_di(corpo):
         transaction.on_commit(lambda: lavori.accoda("discuss.anteprime.calcola", messaggio=messaggio.pk))
     if canale.lista_email:
