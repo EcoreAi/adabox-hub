@@ -63,10 +63,30 @@ window.adaboxGrafici = (function () {
   const asseCategorie = { grid: { display: false }, border: { color: bordo }, ticks: { color: testo2, maxRotation: 0, autoSkip: true, font: { size: 11 } } };
   const asseValori = { beginAtZero: true, grid: { color: bordo }, border: { display: false }, ticks: { color: testo2, font: { size: 11 }, callback: (v) => fmt(v) } };
 
+  // drill-down: se la serie porta un link per punto, il clic apre la lista filtrata su quella categoria
+  const linkDi = (serie, el) => (el && el.length && serie.link ? serie.link[el[0].index] : null);
+  const apri = (serie) => (e, el) => { const url = linkDi(serie, el); if (url) window.location.href = url; };
+  const mano = (serie) => (e, el) => { const t = e.native && e.native.target; if (t) t.style.cursor = linkDi(serie, el) ? 'pointer' : ''; };
+
+  // KPI: una linea nuda degli ultimi periodi, senza assi
+  function sparkline(canvas, serie, comune) {
+    if (!serie.valori || !serie.valori.length) return null;
+    return new Chart(canvas, {
+      type: 'line',
+      data: { labels: serie.etichette, datasets: [{ data: serie.valori, borderColor: tinta, backgroundColor: sfumatura(canvas, TINTA, 0.3), borderWidth: 2,
+        tension: 0.4, fill: true, pointRadius: 0, pointHoverRadius: 4, pointBackgroundColor: '#fff', pointBorderWidth: 2 }] },
+      options: { ...comune, layout: { padding: 2 }, interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { display: false }, tooltip: { displayColors: false, callbacks: { label: (c) => ` ${fmt(c.parsed.y)}` } } },
+        scales: { x: { display: false }, y: { display: false, beginAtZero: true } } },
+    });
+  }
+
   function disegna(canvas, serie) {
     if (!window.Chart) return null;
-    const comune = { responsive: true, maintainAspectRatio: false, animation: ridotto ? false : { duration: 700, easing: 'easeOutQuart' } };
+    const comune = { responsive: true, maintainAspectRatio: false, animation: ridotto ? false : { duration: 700, easing: 'easeOutQuart' },
+      onClick: apri(serie), onHover: mano(serie) };
     if (serie.tipo === 'previsione') return previsione(canvas, serie, comune);
+    if (serie.tipo === 'kpi') return sparkline(canvas, serie, comune);
     if (serie.tipo === 'torta') {
       const coppie = fette(serie.etichette, serie.valori);
       const totale = coppie.reduce((s, [, v]) => s + v, 0);
@@ -142,6 +162,6 @@ window.adaboxGrafici = (function () {
     });
   }
   document.addEventListener('DOMContentLoaded', () => tutti());
-  document.addEventListener('htmx:afterSettle', (e) => tutti(e.target));     // le card ricaricate si ridisegnano
+  document.addEventListener('htmx:afterSettle', () => tutti());     // le card ricaricate si ridisegnano
   return { disegna, ridisegna, tutti, TIPI };
 })();

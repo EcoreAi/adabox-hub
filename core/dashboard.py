@@ -117,13 +117,13 @@ def disponi(layout, widget):
     for voce in (layout or {}).get("widget", []):
         w = per_id.pop(voce.get("id"), None) if isinstance(voce, dict) else None
         if w:
-            w["w"] = voce.get("w") if voce.get("w") in LARGHEZZE else LARGHEZZA_PREDEFINITA.get(w["tipo"], 2)
+            w["w"] = voce.get("w") if voce.get("w") in LARGHEZZE else w.get("larghezza") or LARGHEZZA_PREDEFINITA.get(w["tipo"], 2)
             visibili.append(w)
     da_nascondere = set((layout or {}).get("nascosti", []))
     nascosti = []
     for w in widget:
         if w["id"] in per_id:
-            w["w"] = LARGHEZZA_PREDEFINITA.get(w["tipo"], 2)
+            w["w"] = w.get("larghezza") or LARGHEZZA_PREDEFINITA.get(w["tipo"], 2)
             (nascosti if w["id"] in da_nascondere else visibili).append(w)
     return visibili, nascosti
 

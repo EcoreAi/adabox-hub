@@ -6,6 +6,7 @@
   <div><h1>{{ pagina.titolo }}</h1>
     <div class="sub">{% if pagina.app %}Scheda dell'app {{ info_app.label }} · {% endif %}{% if mio %}{{ widget|length }} widget{% if pagina.condivisa %} · condivisa con l'azienda{% endif %}{% else %}condivisa da {{ pagina.utente.get_full_name|default:pagina.utente.username }} · vedi i dati che i tuoi permessi ti consentono{% endif %}</div></div>
   <div class="ui-pagehead-actions wd-azioni">
+    {% if mio and perms.grafici.add_grafico %}<a class="ui-btn ui-btn-primary" href="{% url 'grafici:costruttore' %}?destinazione={% if pagina.app %}app:{{ pagina.app }}{% else %}{{ pagina.pk }}{% endif %}"><svg><use href="#icon-plus"/></svg> Nuovo grafico</a>{% endif %}
     {% if mio %}
     <button type="button" class="ui-btn ui-btn-secondary" id="wd-aggiungi"{% if not nascosti %} hidden{% endif %}><svg><use href="#icon-plus"/></svg> Aggiungi widget <span class="ui-gruppo-n" id="wd-nascosti-n">{{ nascosti|length }}</span></button>
     <button type="button" class="ui-btn ui-btn-secondary" id="wd-modifica" aria-pressed="false"><svg><use href="#icon-edit"/></svg> Personalizza</button>
@@ -43,13 +44,13 @@
 </div>
 {% else %}
 <div class="ui-card is-revealed"><div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-bar-chart"/></svg>
-  <p>{% if nascosti %}Non c'è nessun widget in vista: rimettine uno da «Aggiungi widget».{% elif mio %}Pagina vuota. Chiedi un grafico ad Ada e salvalo qui, oppure apri la vista <strong>Grafico</strong> di un modulo e premi «Salva in Analisi».{% else %}Questa pagina non ha ancora grafici.{% endif %}</p></div></div></div>
+  <p>{% if nascosti %}Non c'è nessun widget in vista: rimettine uno da «Aggiungi widget».{% elif mio %}Pagina vuota. Premi <strong>Nuovo grafico</strong>, chiedi un grafico ad Ada e salvalo qui, oppure apri la vista <strong>Grafico</strong> di un modulo e premi «Salva in Analisi».{% else %}Questa pagina non ha ancora grafici.{% endif %}</p></div></div></div>
 {% endif %}
 {% if mio %}
 <aside class="wd-cassetto" id="wd-cassetto" hidden aria-label="Widget da aggiungere">
   <div class="wd-cassetto-testa"><strong>Aggiungi alla pagina</strong><button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-chiudi-cassetto aria-label="Chiudi">×</button></div>
   <ul class="wd-cassetto-voci" id="wd-cassetto-voci">{% for w in nascosti %}<li><button type="button" data-aggiungi="{{ w.id }}"><strong>{{ w.titolo }}</strong><small>{% if w.app %}{{ w.app }}{% else %}{{ w.scheda.label }}{% endif %} · {% if w.tipo == "kpi" %}indicatori{% else %}grafico{% endif %}</small></button></li>{% endfor %}</ul>
-  <p class="sub wd-cassetto-vuoto"{% if nascosti %} hidden{% endif %}>Niente da aggiungere: i grafici nuovi arrivano da Ada o dalle viste Grafico dei moduli.</p>
+  <p class="sub wd-cassetto-vuoto"{% if nascosti %} hidden{% endif %}>Niente da aggiungere: crea un grafico con «Nuovo grafico», chiedilo ad Ada o salvalo dalla vista Grafico di un modulo.</p>
 </aside>
 {% endif %}
 {{ contesto_ada|json_script:"ada-contesto" }}

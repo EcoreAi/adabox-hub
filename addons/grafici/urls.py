@@ -1,10 +1,12 @@
 from django.urls import path
 
-from . import pagine
+from . import costruttore, pagine
 
 urlpatterns = [
     path("", pagine.pagine, name="pagine"),
     path("nuova/", pagine.nuova, name="nuova"),
+    path("costruttore/", costruttore.costruttore, name="costruttore"),
+    path("grafico/<int:pk>/costruttore/", costruttore.costruttore, name="grafico_costruttore"),
     path("pagina/<int:pk>/", pagine.pagina, name="pagina"),
     path("pagina/<int:pk>/layout/", pagine.layout, name="layout"),
     path("pagina/<int:pk>/modifica/", pagine.modifica, name="modifica"),

@@ -7,6 +7,7 @@ non scrive niente."""
 import csv
 import datetime
 import io
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.db.models import Q
@@ -17,6 +18,7 @@ from core import dashboard as dash
 from core import parametri
 from core.registry import modules
 from core.viste import interroga
+from core.viste.gruppi import numero
 from core.viste.interroga import ErroreInterrogazione
 
 from .models import Grafico, Pagina
@@ -49,10 +51,12 @@ def _previsione(spec, request):
 
 
 def dati_di(tipo, spec, request):
-    """I dati di una specifica per l'utente della richiesta: {"serie", "totale"} oppure, per le previsioni,
-    {"storico", "futuro", "totale", "modello"}."""
+    """I dati di una specifica per l'utente della richiesta: {"serie", "chiavi", "totale"}, per i KPI {"valore",
+    "precedente", "delta", "storico"}, per le previsioni {"storico", "futuro", "totale", "modello"}."""
     if tipo == Grafico.PREVISIONE:
         return _previsione(spec, request)
+    if tipo == Grafico.KPI:
+        return interroga.kpi(spec, request)
     return interroga.calcola(spec, request)
 
 
@@ -74,46 +78,107 @@ def aggiorna(grafico, request, forza=False):
     return dati, ""
 
 
-def serie_di(grafico, dati):
-    """La serie come la disegna core/grafici.js, più le righe per la tabella."""
+def vista_di(spec, request):
+    """La ModelView della specifica, se chi guarda può vederla; altrimenti None."""
+    try:
+        return interroga.vista_per_nome(spec.get("vista", ""), request)
+    except ErroreInterrogazione:
+        return None
+
+
+def link_lista(vista, spec, chiave):
+    """L'indirizzo della lista filtrata sul gruppo con quella chiave (drill-down), o None se il campo del
+    raggruppamento non è tra i filtri della lista: un link che non filtra sarebbe una bugia."""
+    per = spec.get("per", "") or ""
+    nome, _, parte = per.partition(":")
+    if vista is None or chiave is None or nome not in vista.list_filter:
+        return None
+    parametri_lista = dict(spec.get("lista") or {})
+    for k, v in (spec.get("filtri") or {}).items():          # i filtri semplici dell'assistente su campi della lista
+        if "__" not in k and k in vista.list_filter and not isinstance(v, (list, dict)):
+            parametri_lista[f"f_{k}"] = v
+    if parte:
+        try:
+            inizio = datetime.date.fromisoformat(str(chiave))
+        except ValueError:
+            return None
+        fine = interroga.avanti_periodo(inizio, parte) - datetime.timedelta(days=1)
+        parametri_lista[f"f_{nome}_da"], parametri_lista[f"f_{nome}_a"] = inizio.isoformat(), fine.isoformat()
+    else:
+        parametri_lista[f"f_{nome}"] = "1" if chiave is True else "0" if chiave is False else str(chiave)
+    try:
+        return vista.url("lista") + "?" + urlencode(parametri_lista)
+    except Exception:
+        return None
+
+
+def testo_valore(valore, unita=""):
+    """«12.500,00 €», «7»: il numero come lo legge un italiano."""
+    if valore is None:
+        return "—"
+    if isinstance(valore, float) and valore.is_integer() and not unita:
+        valore = int(valore)
+    return numero(valore) + (f" {unita}" if unita else "")
+
+
+def serie_di(grafico, dati, vista=None):
+    """La serie come la disegna core/grafici.js, più le righe per la tabella e i link del drill-down."""
     if grafico.tipo == Grafico.PREVISIONE:
         storico, futuro = dati.get("storico", []), dati.get("futuro", [])
         return {"tipo": "previsione", "titolo": grafico.titolo, "storico": storico, "futuro": futuro,
                 "righe": [(e, v) for e, v in storico], "vuoto": not storico, "totale": dati.get("totale"),
                 "modello": dati.get("modello", "")}
+    if grafico.tipo == Grafico.KPI:
+        storico = [tuple(c) for c in dati.get("storico", [])]
+        delta = dati.get("delta")
+        nomi = interroga.NOMI_PERIODO.get(dati.get("periodo", ""), ("", ""))
+        return {"tipo": "kpi", "titolo": grafico.titolo, "valore": dati.get("valore"), "unita": dati.get("unita", ""),
+                "valore_testo": testo_valore(dati.get("valore"), dati.get("unita", "")), "delta": delta,
+                "delta_testo": (f"{'+' if delta > 0 else ''}{testo_valore(delta)} %" if delta is not None else ""),
+                "precedente_testo": testo_valore(dati.get("precedente"), dati.get("unita", "")) if dati.get("precedente") is not None else "",
+                "periodo_testo": f"{nomi[0]} · {nomi[1]}: {testo_valore(dati.get('precedente'), dati.get('unita', ''))}" if dati.get("periodo") else "in tutto",
+                "etichette": [e for e, _ in storico], "valori": [float(v) for _, v in storico], "righe": storico,
+                "vuoto": dati.get("valore") is None}
     coppie = [tuple(c) for c in dati.get("serie", [])]
+    chiavi = dati.get("chiavi") or [None] * len(coppie)
+    link = [link_lista(vista, grafico.spec, k) for k in chiavi] if vista is not None else []
     return {"tipo": grafico.tipo if grafico.tipo in Grafico.INTERCAMBIABILI else Grafico.BARRE, "titolo": grafico.titolo,
             "etichette": [e for e, _ in coppie], "valori": [float(v) for _, v in coppie], "righe": coppie,
-            "vuoto": not any(v for _, v in coppie), "totale": dati.get("totale")}
+            "vuoto": not any(v for _, v in coppie), "totale": dati.get("totale"),
+            "link": link if any(link) else []}
 
 
-def descrizione(spec, request=None):
+def descrizione(spec, request=None, vista=None, tipo=""):
     """«Somma di totale per mese · Ordini di vendita · 2 filtri»: che cosa calcola la specifica, a parole."""
-    vista = None
-    if request is not None:
-        try:
-            vista = interroga.vista_per_nome(spec.get("vista", ""), request)
-        except ErroreInterrogazione:
-            vista = None
+    if vista is None and request is not None:
+        vista = vista_di(spec, request)
     misura = spec.get("misura", "count") or "count"
-    pezzi = []
-    if "data" in spec and "orizzonte" in spec:                      # previsione
-        pezzi.append(f"previsione a {spec['orizzonte']} {spec.get('per', 'mese')}" + ("i" if spec["orizzonte"] != 1 else ""))
     testo_misura = interroga.etichetta_misura(vista, misura) if vista else misura
-    per = spec.get("per", "")
-    if per and "orizzonte" not in spec:
-        nome, _, parte = per.partition(":")
-        etichetta = nome
+
+    def nome_campo(nome):
         if vista:
             try:
-                etichetta = str(interroga._percorso(vista, nome, con_operatore=False)[1].verbose_name)
+                return str(interroga._percorso(vista, nome, con_operatore=False)[1].verbose_name)
             except ErroreInterrogazione:
                 pass
-        pezzi.append(f"{testo_misura} per {etichetta.lower()}" + (f" ({parte})" if parte else ""))
+        return nome
+    pezzi = []
+    if tipo == Grafico.KPI or ("data" in spec and "per" not in spec and "orizzonte" not in spec):
+        if spec.get("data"):
+            nomi = interroga.NOMI_PERIODO.get(spec.get("periodo", "mese"), ("nel periodo", "prima"))
+            pezzi.append(f"{testo_misura} {nomi[0]} (per {nome_campo(spec['data']).lower()}) rispetto a {nomi[1]}")
+        else:
+            pezzi.append(f"{testo_misura} in tutto")
     elif "orizzonte" in spec:
-        pezzi.append(testo_misura.lower())
+        n = spec["orizzonte"]
+        pezzi.append(f"previsione di {testo_misura.lower()} a {n} {spec.get('per', 'mese')}{'i' if n != 1 and spec.get('per', 'mese') != 'settimana' else ''}")
+    else:
+        per = spec.get("per", "") or ""
+        nome, _, parte = per.partition(":")
+        if per:
+            pezzi.append(f"{testo_misura} per {nome_campo(nome).lower()}" + (f" ({parte})" if parte else ""))
     pezzi.append(str(vista.verbose_name_plural) if vista else spec.get("vista", ""))
-    filtri = len(spec.get("filtri") or {}) + len([k for k in (spec.get("lista") or {}) if k == "q" or k.startswith("f_")])
+    filtri = len(spec.get("filtri") or {}) + len([k for k, v in (spec.get("lista") or {}).items() if (k == "q" or k.startswith("f_")) and v != ""])
     if filtri:
         pezzi.append(f"{filtri} filtr{'o' if filtri == 1 else 'i'}")
     return " · ".join(p for p in pezzi if p)
@@ -122,17 +187,20 @@ def descrizione(spec, request=None):
 def widget_salvato(grafico, request, forza=False):
     """Il dizionario che la griglia disegna per un grafico salvato."""
     mio = grafico.utente_id == request.user.id
+    vista = vista_di(grafico.spec, request)
     dati, errore = aggiorna(grafico, request, forza)
     return {"id": grafico.id_widget, "tipo": "salvato", "titolo": grafico.titolo, "grafico": grafico,
-            "serie": serie_di(grafico, dati), "errore": errore, "dom": f"wd-g-{grafico.pk}", "mio": mio,
-            "sotto": descrizione(grafico.spec, request), "aggiornato": grafico.aggiornato if mio else timezone.now(),
+            "serie": serie_di(grafico, dati, vista), "errore": errore, "dom": f"wd-g-{grafico.pk}", "mio": mio,
+            "sotto": descrizione(grafico.spec, vista=vista, tipo=grafico.tipo),
+            "aggiornato": grafico.aggiornato if mio else timezone.now(),
+            "larghezza": 1 if grafico.tipo == Grafico.KPI else 2,
             "tipi": TIPI_SCAMBIABILI if grafico.tipo in Grafico.INTERCAMBIABILI else []}
 
 
 def widget_leggero(grafico):
     """Solo il titolo: per il cassetto «Aggiungi widget», senza calcolare niente."""
     return {"id": grafico.id_widget, "tipo": "salvato", "titolo": grafico.titolo, "grafico": grafico, "app": "Libreria",
-            "w": 2}
+            "w": 1 if grafico.tipo == Grafico.KPI else 2}
 
 
 def csv_di(grafico, dati):
@@ -142,6 +210,10 @@ def csv_di(grafico, dati):
         scrittore.writerow(["Periodo", "Valore", "Previsione 10 %", "Previsione mediana", "Previsione 90 %"])
         scrittore.writerows([[e, v, "", "", ""] for e, v in dati.get("storico", [])])
         scrittore.writerows([[e, "", b, m, a] for e, b, m, a in dati.get("futuro", [])])
+    elif grafico.tipo == Grafico.KPI:
+        scrittore.writerow(["Periodo", "Valore"])
+        scrittore.writerows(dati.get("storico", []))
+        scrittore.writerow(["Attuale", dati.get("valore", "")])
     else:
         scrittore.writerow(["Categoria", "Valore"])
         scrittore.writerows(dati.get("serie", []))
@@ -197,6 +269,11 @@ def contesto_ada(pagina, visibili):
     for w in visibili:
         if w["tipo"] == "grafico":
             grafici.append({"app": w["app"], "titolo": w["titolo"], "tipo": w["serie"]["tipo"], "dati": w["serie"]["righe"]})
+        elif w["tipo"] == "salvato" and w["serie"]["tipo"] == "kpi":
+            kpi.append({"app": w["titolo"], "query": w["sotto"], "indicatori": [
+                {"etichetta": "valore", "valore": w["serie"]["valore_testo"]},
+                *([{"etichetta": "variazione", "valore": w["serie"]["delta_testo"]}] if w["serie"]["delta_testo"] else [])],
+                "storico": w["serie"]["righe"]})
         elif w["tipo"] == "salvato":
             voce = {"titolo": w["titolo"], "tipo": w["serie"]["tipo"], "query": w["sotto"], "dati": w["serie"]["righe"]}
             if w["serie"].get("futuro"):

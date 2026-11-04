@@ -4,7 +4,7 @@
 {% block app_content %}
 <div class="ui-pagehead">
   <div><h1>Analisi</h1><div class="sub">Le tue pagine di grafici e KPI: ognuna è una scheda della dashboard</div></div>
-  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'core:dashboard' %}">Dashboard</a><a class="ui-btn ui-btn-secondary" href="{% url 'grafici:salvati_lista' %}">Grafici salvati</a></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'core:dashboard' %}">Dashboard</a><a class="ui-btn ui-btn-secondary" href="{% url 'grafici:salvati_lista' %}">Grafici salvati</a>{% if perms.grafici.add_grafico %}<a class="ui-btn ui-btn-primary" href="{% url 'grafici:costruttore' %}"><svg><use href="#icon-plus"/></svg> Nuovo grafico</a>{% endif %}</div>
 </div>
 {% include "grafici/_schede.html" with scheda_attiva="" %}
 <div class="an-gestione">

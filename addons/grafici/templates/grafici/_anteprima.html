@@ -1,0 +1,15 @@
+{# L'anteprima del costruttore: il grafico (o il KPI) calcolato con i dati di adesso. #}
+{% if w.errore %}<div class="ui-alert ui-alert-error">{{ w.errore }}</div>{% endif %}
+{% if not w.pronto %}
+<div class="ui-empty"><svg><use href="#icon-bar-chart"/></svg><p>Scegli una vista{% if p.tipo != "kpi" %} e un raggruppamento{% endif %}: l'anteprima si disegna da sola a ogni scelta.</p></div>
+{% elif w.serie.tipo == "kpi" %}
+<div class="an-anteprima-kpi">{% include "grafici/_kpi.html" %}</div>
+{% elif w.serie.vuoto %}{% if not w.errore %}<div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun dato con queste scelte.</p></div>{% endif %}
+{% else %}
+<div class="wd-canvas wd-canvas-pagina"><canvas data-grafico="{{ w.dom }}" role="img" aria-label="Anteprima del grafico"></canvas></div>
+{{ w.serie|json_script:w.dom }}
+<div class="ui-table-wrap an-anteprima-tabella"><table class="ui-table is-revealed"><thead><tr><th scope="col">Categoria</th><th scope="col" class="ui-num">Valore</th></tr></thead>
+  <tbody>{% for e, v in w.serie.righe %}<tr><td>{{ e }}</td><td class="ui-num">{{ v|floatformat:"-2" }}</td></tr>{% endfor %}</tbody>
+  {% if w.serie.totale is not None %}<tfoot><tr class="ui-totali"><th scope="row">Totale</th><td class="ui-num">{{ w.serie.totale|floatformat:"-2" }}</td></tr></tfoot>{% endif %}</table></div>
+{% if w.serie.link %}<p class="ui-help">Clic su una categoria: si apre la lista filtrata su quei record.</p>{% endif %}
+{% endif %}

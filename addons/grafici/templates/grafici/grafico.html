@@ -16,9 +16,10 @@
     <div class="ui-card-body">
       {% if w.errore %}<div class="ui-alert ui-alert-error">{{ w.errore }}</div>{% endif %}
       {% if w.serie.vuoto %}{% if not w.errore %}<div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun dato.</p></div>{% endif %}{% else %}
+      {% if w.serie.tipo == "kpi" %}<div class="an-anteprima-kpi">{% include "grafici/_kpi.html" %}</div>{% else %}
       {% if mio and w.tipi %}<div class="an-menu-tipi an-tipi-pagina" data-tipi="{{ w.dom }}" data-salva="{% url 'grafici:grafico_tipo' g.pk %}">{% for t, e in w.tipi %}<button type="button" data-tipo="{{ t }}" aria-pressed="{% if t == g.tipo %}true{% else %}false{% endif %}">{{ e }}</button>{% endfor %}</div>{% endif %}
       <div class="wd-canvas wd-canvas-pagina"><canvas data-grafico="{{ w.dom }}" role="img" aria-label="{{ g.titolo }}"></canvas></div>
-      {{ w.serie|json_script:w.dom }}
+      {{ w.serie|json_script:w.dom }}{% endif %}
       {% endif %}
     </div>
     {% if not w.serie.vuoto %}
@@ -27,9 +28,9 @@
       <tbody>{% for e, v in w.serie.storico %}<tr><td>{{ e }}</td><td class="ui-num">{{ v|floatformat:"-2" }}</td><td></td><td></td><td></td></tr>{% endfor %}
       {% for f in w.serie.futuro %}<tr><td>{{ f.0 }}</td><td></td><td class="ui-num">{{ f.1|floatformat:"-2" }}</td><td class="ui-num"><strong>{{ f.2|floatformat:"-2" }}</strong></td><td class="ui-num">{{ f.3|floatformat:"-2" }}</td></tr>{% endfor %}</tbody>
       {% if w.serie.totale %}<tfoot><tr class="ui-totali"><th scope="row" colspan="2">Totale sull'orizzonte</th><td class="ui-num">{{ w.serie.totale.basso_10 }}</td><td class="ui-num">{{ w.serie.totale.mediana }}</td><td class="ui-num">{{ w.serie.totale.alto_90 }}</td></tr></tfoot>{% endif %}
-      {% else %}<thead><tr><th scope="col">Categoria</th><th scope="col" class="ui-num">Valore</th></tr></thead>
+      {% else %}<thead><tr><th scope="col">{% if w.serie.tipo == "kpi" %}Periodo{% else %}Categoria{% endif %}</th><th scope="col" class="ui-num">Valore</th></tr></thead>
       <tbody>{% for e, v in w.serie.righe %}<tr><td>{{ e }}</td><td class="ui-num">{{ v|floatformat:"-2" }}</td></tr>{% endfor %}</tbody>
-      {% if w.serie.totale is not None %}<tfoot><tr class="ui-totali"><th scope="row">Totale</th><td class="ui-num">{{ w.serie.totale|floatformat:"-2" }}</td></tr></tfoot>{% endif %}{% endif %}
+      {% if w.serie.totale is not None and w.serie.tipo != "kpi" %}<tfoot><tr class="ui-totali"><th scope="row">Totale</th><td class="ui-num">{{ w.serie.totale|floatformat:"-2" }}</td></tr></tfoot>{% endif %}{% endif %}
     </table></div>
     {% endif %}
   </section>
@@ -43,6 +44,7 @@
         <input class="ui-input" name="titolo_nuova" placeholder="Titolo della nuova pagina" maxlength="100" hidden>
         <button class="ui-btn ui-btn-primary" type="submit">Salva</button>
       </form>
+      {% if g.tipo != "previsione" %}<a class="ui-btn ui-btn-secondary" href="{% url 'grafici:grafico_costruttore' g.pk %}"><svg><use href="#icon-edit"/></svg> Modifica la query</a>{% endif %}
       <dl class="an-dettagli"><dt>Query</dt><dd>{{ w.sotto }}</dd><dt>Vista</dt><dd>{{ g.vista }}</dd><dt>Tipo</dt><dd>{{ g.get_tipo_display }}</dd><dt>Origine</dt><dd>{{ g.get_origine_display }}</dd><dt>Creato</dt><dd>{{ g.creato|date:"d/m/Y H:i" }}</dd></dl>
       <form method="post" action="{% url 'grafici:grafico_elimina' g.pk %}" onsubmit="return confirm('Eliminare il grafico?')">{% csrf_token %}<button class="ui-btn ui-btn-ghost an-pericolo" type="submit"><svg><use href="#icon-trash"/></svg> Elimina grafico</button></form>
     </div>

@@ -1,0 +1,59 @@
+{% extends 'core/base_app.html' %}
+{% load tema %}
+{% block title %}{% if grafico %}Modifica la query{% else %}Nuovo grafico{% endif %} · Analisi · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>{% if grafico %}Modifica la query{% else %}Nuovo grafico{% endif %}</h1>
+    <div class="sub">{% if grafico %}{{ grafico.titolo }}{% else %}Scegli i dati, guarda l'anteprima, salva in una pagina: nessuna query da scrivere.{% endif %}</div></div>
+  <div class="ui-pagehead-actions">{% if grafico %}<a class="ui-btn ui-btn-ghost" href="{% url 'grafici:grafico' grafico.pk %}">Torna al grafico</a>{% else %}<a class="ui-btn ui-btn-ghost" href="{% url 'grafici:pagine' %}">Annulla</a>{% endif %}</div>
+</div>
+{% include "grafici/_schede.html" %}
+{% url 'grafici:costruttore' as url_nuovo %}
+<div id="an-costruttore" class="an-costruttore">
+  <form class="ui-card is-revealed an-cost-form" method="post" action="{% if grafico %}{% url 'grafici:grafico_costruttore' grafico.pk %}{% else %}{{ url_nuovo }}{% endif %}"
+        hx-get="{% if grafico %}{% url 'grafici:grafico_costruttore' grafico.pk %}{% else %}{{ url_nuovo }}{% endif %}" hx-trigger="change" hx-target="#an-costruttore" hx-select="#an-costruttore" hx-swap="outerHTML" hx-push-url="false" hx-params="not csrfmiddlewaretoken">
+    {% csrf_token %}
+    <div class="ui-card-body an-cost-corpo">
+      <section class="an-cost-sezione"><h3>Dati</h3>
+        <label class="ui-label">Vista<select class="ui-input" name="vista" required><option value="">Scegli una vista…</option>{% for app, voci in viste %}<optgroup label="{{ app }}">{% for nome, etichetta in voci %}<option value="{{ nome }}"{% if nome == p.vista %} selected{% endif %}>{{ etichetta }}</option>{% endfor %}</optgroup>{% endfor %}</select></label>
+        <label class="ui-label">Misura<select class="ui-input" name="misura"{% if not vista %} disabled{% endif %}>{% for v, e in opzioni.misure %}<option value="{{ v }}"{% if v == p.misura %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
+      </section>
+      <section class="an-cost-sezione"><h3>Forma</h3>
+        <div class="an-tipi-scelta" role="radiogroup" aria-label="Tipo di grafico">{% for v, e in tipi %}<label class="an-tipo"><input type="radio" name="tipo" value="{{ v }}"{% if v == p.tipo %} checked{% endif %}><span>{{ e }}</span></label>{% endfor %}</div>
+        {% if p.tipo == "kpi" %}
+        <label class="ui-label">Campo data del periodo<select class="ui-input" name="data"{% if not vista %} disabled{% endif %}><option value="">Nessuno: solo il totale</option>{% for v, e in opzioni.date %}<option value="{{ v }}"{% if v == p.data %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
+        <label class="ui-label">Periodo<select class="ui-input" name="periodo">{% for v, e in periodi %}<option value="{{ v }}"{% if v == p.periodo %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
+        {% else %}
+        <label class="ui-label">Raggruppa per<select class="ui-input" name="per"{% if not vista %} disabled{% endif %}>{% for v, e in opzioni.raggruppamenti %}<option value="{{ v }}"{% if v == p.per %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
+        <div class="an-cost-riga"><label class="ui-label">Categorie<select class="ui-input" name="massimo">{% for v, e in massimi %}<option value="{{ v }}"{% if v == p.massimo %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
+          <label class="an-cost-check"><input type="checkbox" name="ordine" value="valore"{% if p.ordine == "valore" %} checked{% endif %}> Ordina per valore</label></div>
+        {% endif %}
+      </section>
+      {% if vista %}
+      <section class="an-cost-sezione"><h3>Filtri</h3>
+        {% if vista.search_fields %}<label class="ui-label">Cerca<input class="ui-input" type="search" name="q" value="{{ p.q|default:'' }}" placeholder="Testo libero"></label>{% endif %}
+        {% for f in filtri %}{% if f.tipo == "data" %}
+        <div class="an-cost-riga"><label class="ui-label">{{ f.label }} dal<input class="ui-input" type="date" name="f_{{ f.campo }}_da" value="{{ f.da }}"></label><label class="ui-label">al<input class="ui-input" type="date" name="f_{{ f.campo }}_a" value="{{ f.a }}"></label></div>
+        {% else %}<label class="ui-label">{{ f.label }}<select class="ui-input" name="f_{{ f.campo }}"><option value="">Tutti</option>{% for valore, etichetta in f.opzioni %}<option value="{{ valore }}"{% if valore == f.valore %} selected{% endif %}>{{ etichetta }}</option>{% endfor %}</select></label>{% endif %}{% endfor %}
+        {% if not filtri and not vista.search_fields %}<p class="ui-help">Questa vista non ha filtri.</p>{% endif %}
+      </section>
+      {% endif %}
+      <section class="an-cost-sezione"><h3>Salva</h3>
+        <label class="ui-label">Titolo<input class="ui-input" name="titolo" value="{{ p.titolo|default:'' }}" placeholder="{{ w.sotto|default:'Titolo del grafico' }}" maxlength="200"></label>
+        <label class="ui-label">Pagina<select class="ui-input" name="destinazione" onchange="this.form.querySelector('[name=titolo_nuova]').hidden = this.value !== 'nuova'">{% for v, e in destinazioni %}<option value="{{ v }}"{% if v == p.destinazione %} selected{% endif %}>{{ e }}</option>{% endfor %}<option value=""{% if "destinazione" in p and not p.destinazione %} selected{% endif %}>Solo in libreria</option></select></label>
+        <input class="ui-input" name="titolo_nuova" placeholder="Titolo della nuova pagina" maxlength="100" value="{{ p.titolo_nuova|default:'' }}"{% if p.destinazione != "nuova" %} hidden{% endif %}>
+        <div class="an-cost-azioni"><button class="ui-btn ui-btn-primary" type="submit"{% if not w.pronto or w.errore %} disabled{% endif %}><svg><use href="#icon-save"/></svg> {% if grafico %}Salva le modifiche{% else %}Salva il grafico{% endif %}</button></div>
+      </section>
+    </div>
+  </form>
+  <section class="ui-card is-revealed an-cost-anteprima">
+    <div class="ui-card-head"><div><div class="ui-card-title">Anteprima</div><div class="ui-card-sub">{{ w.sotto|default:"Scegli una vista per cominciare" }}</div></div></div>
+    <div class="ui-card-body">{% include "grafici/_anteprima.html" %}</div>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% statico 'theme/vendor/chart.umd.js' %}" defer></script>
+<script src="{% statico 'core/grafici.js' %}" defer></script>
+<script src="{% statico 'core/dashboard.js' %}" defer></script>
+{% endblock %}
