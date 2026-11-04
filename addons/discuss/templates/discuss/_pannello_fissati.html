@@ -1,0 +1,3 @@
+{% load discuss %}{% include "discuss/_testa_pannello.html" with titolo_pannello="Messaggi fissati" %}
+<div class="ds-pannello-corpo">{% for m in voci %}<a class="ds-risultato" href="{% url 'discuss:canale' canale.pk %}?a={{ m.pk }}" data-vai="{{ m.pk }}"><strong>{{ m.autore.get_full_name|default:m.autore.username }}</strong> <small class="ui-help">{{ m.creato|date:"d/m H:i" }}</small><span>{{ m.corpo|testo_piano|truncatechars:180|default:"File allegato" }}</span><small class="ui-help">Fissato da {{ m.fissato_da.get_full_name|default:m.fissato_da.username }}</small></a>
+{% empty %}<div class="ui-empty"><p>Nessun messaggio fissato. Passa su un messaggio e usa la puntina: resterà sempre a portata di mano.</p></div>{% endfor %}</div>

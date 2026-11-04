@@ -1,7 +1,7 @@
 {
     "name": "Discuss",
-    "summary": "Messaggi tra colleghi: canali, messaggi diretti, menzioni e posta in arrivo",
-    "version": "1.0.1",
+    "summary": "Chat di lavoro in tempo reale: canali, gruppi, reazioni, risposte, presenza, ricerca e posta unica",
+    "version": "1.1.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -21,5 +21,6 @@
         "Discuss / Responsabile": ["discuss.*"],
     },
     "hooks": "discuss.hooks",
-    "cron": [{"nome": "Email dei messaggi non letti", "funzione": "discuss.notifiche.invia_email", "ogni": "10m"}],
+    "cron": [{"nome": "Email dei messaggi non letti", "funzione": "discuss.notifiche.invia_email", "ogni": "10m"},
+             {"nome": "Pulizia degli eventi in tempo reale", "funzione": "discuss.eventi.pulisci", "ogni": "6h"}],
 }

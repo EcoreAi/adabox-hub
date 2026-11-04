@@ -1,0 +1,13 @@
+/* Ctrl+K: da qualsiasi pagina si raggiungono persone, canali e messaggi. */
+.dsp-sfondo { position: fixed; inset: 0; z-index: 9000; background: rgba(15, 23, 42, .35); backdrop-filter: blur(6px); display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; }
+.dsp-sfondo[hidden] { display: none; }
+.dsp-finestra { width: min(620px, calc(100vw - 32px)); background: var(--ui-surface); color: var(--ui-text); border: 1px solid var(--ui-border); border-radius: 16px; box-shadow: 0 24px 70px rgba(15, 23, 42, .28); overflow: hidden; }
+.dsp-input { width: 100%; border: 0; outline: 0; background: transparent; color: inherit; padding: 16px 18px; font-size: 16px; border-bottom: 1px solid var(--ui-border); }
+.dsp-elenco { max-height: 46vh; overflow-y: auto; padding: 6px; }
+.dsp-voce { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; color: inherit; text-decoration: none; font-size: 14px; }
+.dsp-voce.is-scelta { background: var(--ui-primary-tint); color: var(--ui-primary); }
+.dsp-voce small { margin-left: auto; color: var(--ui-text-3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50%; }
+.dsp-segno { width: 22px; text-align: center; flex: none; color: var(--ui-text-3); font-weight: 700; }
+.dsp-vuoto { padding: 18px; text-align: center; color: var(--ui-text-3); font-size: 14px; }
+.dsp-piede { display: flex; gap: 14px; padding: 8px 14px; border-top: 1px solid var(--ui-border); color: var(--ui-text-3); font-size: 12px; }
+.dsp-piede kbd { font: inherit; border: 1px solid var(--ui-border); border-radius: 4px; padding: 0 4px; }

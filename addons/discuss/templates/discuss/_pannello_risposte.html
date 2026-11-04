@@ -1,0 +1,2 @@
+{% include "discuss/_testa_pannello.html" with titolo_pannello="Risposte" %}
+<div class="ds-pannello-corpo ds-pannello-messaggi">{% include "discuss/_messaggio.html" with m=origine %}<div class="ds-giorno"><span>{{ voci|length }} rispost{{ voci|length|pluralize:"a,e" }}</span></div>{% for m in voci %}{% include "discuss/_messaggio.html" %}{% endfor %}</div>

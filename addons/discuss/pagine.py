@@ -1,20 +1,25 @@
-"""Discuss: elenco delle conversazioni, conversazione con aggiornamento periodico, invio, canali e messaggi diretti."""
+"""Discuss: la conversazione, i pannelli laterali, le azioni sui messaggi, canali, gruppi, presenza e ricerca."""
+import datetime
+
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied
-from django.http import Http404, HttpResponse
+from django.db.models import Q
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from core import allegati
 from core.generici import ct_di
 from core.models import Allegato
 
-from . import notifiche, servizi
-from .models import Canale, Iscrizione, Messaggio, Notifica
+from . import eventi, notifiche, presenza as presenze, servizi
+from .models import Canale, Iscrizione, Messaggio, Notifica, Presenza
 
 PERMESSO = "discuss.view_canale"
+EMOJI_MASSIMA = 16
 
 
 def _canale(request, pk):
@@ -24,22 +29,85 @@ def _canale(request, pk):
     return canale
 
 
-def _contesto(request, canale=None):
-    utenti = get_user_model().objects.filter(is_active=True).exclude(pk=request.user.pk).order_by("username")
+def _colleghi(request):
+    return get_user_model().objects.filter(is_active=True).exclude(pk=request.user.pk).order_by("first_name", "username")
+
+
+def _utenti_scelti(request, campo="utenti"):
+    scelti = [p for p in request.POST.getlist(campo) if p.isdigit()]
+    return get_user_model().objects.filter(pk__in=scelti, is_active=True)
+
+
+def _diritti(request, canale):
+    """Ciò che i template dei messaggi devono sapere su questa persona in questo canale."""
+    return {"puo_moderare": servizi.puo_moderare(request.user, canale), "puo_fissare": servizi.puo_fissare(request.user, canale),
+            "puo_scrivere": servizi.puo_scrivere(request.user, canale),
+            "puo_reagire": servizi.iscrizione(request.user, canale) is not None and not canale.archiviato}
+
+
+def _barra(request, corrente=None):
+    """Elenco delle conversazioni: preferiti, canali e messaggi diretti, con presenza e non letti."""
     iscrizioni = list(servizi.iscrizioni_di(request.user))
-    return {"iscrizioni": iscrizioni, "canali": [i for i in iscrizioni if not i.canale.diretto],
-            "diretti": [i for i in iscrizioni if i.canale.diretto], "corrente": canale,
-            "da_scoprire": servizi.pubblici_da_scoprire(request.user), "utenti": utenti,
+    persone = {u.pk for i in iscrizioni if i.canale.diretto for u in i.canale.membri.all()}
+    stati = presenze.di(persone)
+    for i in iscrizioni:
+        i.titolo = i.canale.titolo_per(request.user)
+        if i.canale.diretto:
+            altri = [u for u in i.canale.membri.all() if u.pk != request.user.pk]
+            i.altri = altri
+            i.presenza = presenze.scheda(stati.get(altri[0].pk)) if len(altri) == 1 else None
+    return {"preferiti": [i for i in iscrizioni if i.fissata],
+            "canali": [i for i in iscrizioni if not i.canale.diretto and not i.fissata],
+            "diretti": [i for i in iscrizioni if i.canale.diretto and not i.fissata],
+            "corrente": corrente, "corrente_pk": corrente.pk if corrente else None,
+            "da_scoprire": servizi.pubblici_da_scoprire(request.user),
             "posta_non_letta": notifiche.non_lette(request.user)}
+
+
+def _contesto(request, canale=None):
+    presenze.tocca(request.user)               # chi apre la pagina è collegato, senza aspettare il primo battito
+    contesto = _barra(request, canale)
+    p = presenze.mia(request.user)
+    contesto.update({"utenti": _colleghi(request), "evento": eventi.ultimo_id(), "mia_presenza": p,
+                     "mia_scheda": presenze.scheda(p), "stati": Presenza.STATI})
+    return contesto
 
 
 @login_required
 @permission_required(PERMESSO, raise_exception=True)
 def home(request):
-    iscrizioni = list(servizi.iscrizioni_di(request.user)[:1])
-    if iscrizioni:
-        return redirect("discuss:canale", pk=iscrizioni[0].canale_id)
+    iscrizioni = list(servizi.iscrizioni_di(request.user))
+    # una conversazione segnata da leggere non si apre da sola: aprirla la segnerebbe come letta
+    scelta = next((i for i in iscrizioni if not i.tieni_non_letto), None)
+    if scelta:
+        coda = f"?cerca={request.GET['cerca']}" if request.GET.get("cerca") else ""
+        return redirect(reverse("discuss:canale", args=[scelta.canale_id]) + coda)
     return render(request, "discuss/home.html", _contesto(request))
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+def barra(request):
+    corrente = request.GET.get("corrente", "")
+    canale = None
+    if corrente.isdigit():
+        canale = Canale.objects.filter(pk=corrente).first()
+        canale = canale if canale is not None and servizi.puo_vedere(request.user, canale) else None
+    return render(request, "discuss/_barra.html", _barra(request, canale))
+
+
+def _dati_canale(request, canale):
+    """Testata della conversazione: nome, presenza dell'altra persona, chi può fare cosa."""
+    membri = list(canale.membri.order_by("first_name", "username"))
+    altri = [u for u in membri if u.pk != request.user.pk]
+    dati = {"canale": canale, "titolo": canale.titolo_per(request.user), "membri": membri,
+            "n_fissati": canale.messaggi.filter(fissato_il__isnull=False, eliminato=False).count(),
+            "puo_gestire": servizi.puo_gestire(request.user, canale), **_diritti(request, canale)}
+    if canale.diretto and len(altri) == 1:
+        dati["altra"] = altri[0]
+        dati["altra_presenza"] = presenze.scheda(presenze.di([altri[0].pk]).get(altri[0].pk))
+        dati["altra_persona"] = servizi.nome_di(altri[0])
+    return dati
 
 
 @login_required
@@ -47,24 +115,39 @@ def home(request):
 def canale(request, pk):
     canale = _canale(request, pk)
     iscrizione = servizi.iscrizione(request.user, canale)
-    elenco = servizi.messaggi(canale)
-    ultimo_letto = iscrizione.ultimo_letto if iscrizione else None
-    if iscrizione and elenco:
-        servizi.segna_letto(request.user, canale, elenco[-1].pk)
-    notifiche.segna_lette_del_canale(request.user, canale)
+    bersaglio = request.GET.get("a", "")
     contesto = _contesto(request, canale)
-    primo_non_letto = next((m.pk for m in elenco if ultimo_letto is not None and m.pk > ultimo_letto
-                            and m.autore_id != request.user.pk), None)
-    contesto.update({"canale": canale, "iscrizione": iscrizione, "messaggi": elenco, "primo_non_letto": primo_non_letto,
-                     "ultimo": elenco[-1].pk if elenco else 0, "titolo": canale.titolo_per(request.user),
-                     "membri": canale.membri.order_by("username"), "altro_prima": len(elenco) == servizi.PAGINA})
+    if bersaglio.isdigit() and canale.messaggi.filter(pk=bersaglio).exists():
+        # si arriva a un messaggio preciso: si legge lo storico, senza toccare i non letti
+        elenco = servizi.attorno(canale, int(bersaglio))
+        recenti = elenco and canale.messaggi.filter(pk__gt=elenco[-1].pk).exists()
+        contesto.update({"bersaglio": int(bersaglio), "in_storico": bool(recenti)})
+        primo_non_letto = None
+    else:
+        elenco = servizi.messaggi(canale)
+        ultimo_letto = iscrizione.ultimo_letto if iscrizione else None
+        if iscrizione and iscrizione.tieni_non_letto:
+            Iscrizione.objects.filter(pk=iscrizione.pk).update(tieni_non_letto=False)
+        if iscrizione and elenco:
+            Iscrizione.objects.filter(pk=iscrizione.pk, ultimo_letto__lt=elenco[-1].pk).update(ultimo_letto=elenco[-1].pk)
+            eventi.emetti("barra", utente=request.user)
+        notifiche.segna_lette_del_canale(request.user, canale)
+        primo_non_letto = next((m.pk for m in elenco if ultimo_letto is not None and m.pk > ultimo_letto
+                                and m.autore_id != request.user.pk and m.tipo == Messaggio.NORMALE), None)
+        contesto.update(_barra(request, canale))
+    precedente = canale.messaggi.filter(pk__lt=elenco[0].pk).order_by("-pk").first() if elenco else None
+    contesto.update(_dati_canale(request, canale))
+    contesto.update({"iscrizione": iscrizione, "messaggi": servizi.prepara(elenco, request.user, precedente),
+                     "primo_non_letto": primo_non_letto, "ultimo": elenco[-1].pk if elenco else 0,
+                     "altro_prima": len(elenco) >= servizi.PAGINA // 2 and precedente is not None,
+                     "cerca_iniziale": request.GET.get("cerca", "")})
     return render(request, "discuss/home.html", contesto)
 
 
 @login_required
 @permission_required(PERMESSO, raise_exception=True)
 def nuovi(request, pk):
-    """Polling: i messaggi dopo `dopo` e un nuovo poller (sostituisce il precedente)."""
+    """I messaggi dopo `dopo` e un nuovo poller (sostituisce il precedente)."""
     canale = _canale(request, pk)
     dopo = request.GET.get("dopo", "0")
     dopo = int(dopo) if dopo.isdigit() else 0
@@ -73,7 +156,10 @@ def nuovi(request, pk):
     if elenco and servizi.iscrizione(request.user, canale):
         servizi.segna_letto(request.user, canale, ultimo)
         notifiche.segna_lette_del_canale(request.user, canale)
-    return render(request, "discuss/_nuovi.html", {"canale": canale, "messaggi": elenco, "ultimo": ultimo})
+    precedente = canale.messaggi.filter(pk__lte=dopo).order_by("-pk").first()
+    return render(request, "discuss/_nuovi.html", {"canale": canale, "ultimo": ultimo,
+                                                   "messaggi": servizi.prepara(elenco, request.user, precedente),
+                                                   **_diritti(request, canale)})
 
 
 @login_required
@@ -82,8 +168,10 @@ def precedenti(request, pk):
     canale = _canale(request, pk)
     prima = request.GET.get("prima", "")
     elenco = servizi.messaggi(canale, prima=int(prima) if prima.isdigit() else None)
-    return render(request, "discuss/_precedenti.html", {"canale": canale, "messaggi": elenco,
-                                                        "altro_prima": len(elenco) == servizi.PAGINA})
+    precedente = canale.messaggi.filter(pk__lt=elenco[0].pk).order_by("-pk").first() if elenco else None
+    return render(request, "discuss/_precedenti.html", {"canale": canale, "messaggi": servizi.prepara(elenco, request.user, precedente),
+                                                        "altro_prima": len(elenco) == servizi.PAGINA,
+                                                        **_diritti(request, canale)})
 
 
 @login_required
@@ -91,10 +179,13 @@ def precedenti(request, pk):
 @require_POST
 def invia(request, pk):
     canale = _canale(request, pk)
-    if servizi.iscrizione(request.user, canale) is None:
-        raise PermissionDenied                       # si scrive solo nei canali in cui si è entrati
+    if not servizi.puo_scrivere(request.user, canale):
+        raise PermissionDenied                       # si scrive solo nei canali in cui si è entrati, e se il ruolo lo consente
+    risposta_a = None
+    if request.POST.get("risposta_a", "").isdigit():
+        risposta_a = canale.messaggi.filter(pk=request.POST["risposta_a"]).first()
     try:
-        servizi.invia(canale, request.user, request.POST.get("corpo", ""), request.FILES.getlist("file"))
+        servizi.invia(canale, request.user, request.POST.get("corpo", ""), request.FILES.getlist("file"), risposta_a)
     except (ValueError, allegati.AllegatoNonValido) as e:
         if request.headers.get("HX-Request"):
             return HttpResponse(str(e), status=422)
@@ -106,8 +197,41 @@ def invia(request, pk):
     return redirect("discuss:canale", pk=canale.pk)
 
 
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+@require_POST
+def scrivo(request, pk):
+    """«Sta scrivendo…»: il browser lo manda al massimo ogni qualche secondo."""
+    canale = _canale(request, pk)
+    if servizi.iscrizione(request.user, canale):
+        eventi.emetti("scrive", canale, autore=request.user.pk, nome=servizi.nome_di(request.user))
+    return HttpResponse(status=204)
+
+
+def _rendi_messaggio(request, messaggio):
+    canale = messaggio.canale
+    precedente = canale.messaggi.filter(pk__lt=messaggio.pk).order_by("-pk").first()
+    servizi.prepara([messaggio], request.user, precedente)
+    # solo in un aggiornamento: il divisore del giorno è già nella pagina
+    messaggio.giorno = ""
+    return render(request, "discuss/_messaggio.html", {"m": messaggio, "canale": canale, **_diritti(request, canale)})
+
+
+def _messaggio_visibile(request, pk):
+    messaggio = servizi.uno(pk)
+    if messaggio is None or not servizi.puo_vedere(request.user, messaggio.canale):
+        raise Http404
+    return messaggio
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+def messaggio(request, pk):
+    return _rendi_messaggio(request, _messaggio_visibile(request, pk))
+
+
 def _mio_messaggio(request, pk):
-    messaggio = get_object_or_404(Messaggio.objects.select_related("canale", "autore"), pk=pk, eliminato=False)
+    messaggio = get_object_or_404(Messaggio.objects.select_related("canale", "autore", "risposta_a__autore"), pk=pk, eliminato=False)
     if messaggio.autore_id != request.user.pk or not servizi.puo_vedere(request.user, messaggio.canale):
         raise PermissionDenied
     return messaggio
@@ -121,9 +245,9 @@ def modifica(request, pk):
         corpo = request.POST.get("corpo", "").strip()
         if corpo:
             servizi.modifica(messaggio, corpo)
-        return render(request, "discuss/_messaggio.html", {"m": messaggio, "canale": messaggio.canale})
+        return _rendi_messaggio(request, messaggio)
     if request.GET.get("annulla"):
-        return render(request, "discuss/_messaggio.html", {"m": messaggio, "canale": messaggio.canale})
+        return _rendi_messaggio(request, messaggio)
     return render(request, "discuss/_modifica.html", {"m": messaggio})
 
 
@@ -131,9 +255,195 @@ def modifica(request, pk):
 @permission_required(PERMESSO, raise_exception=True)
 @require_POST
 def elimina(request, pk):
-    messaggio = _mio_messaggio(request, pk)
+    messaggio = _messaggio_visibile(request, pk)
+    if messaggio.eliminato:
+        raise Http404
+    if messaggio.autore_id != request.user.pk and not servizi.puo_moderare(request.user, messaggio.canale):
+        raise PermissionDenied
     servizi.elimina(messaggio)
-    return render(request, "discuss/_messaggio.html", {"m": messaggio, "canale": messaggio.canale})
+    return _rendi_messaggio(request, messaggio)
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+@require_POST
+def reazione(request, pk):
+    messaggio = _messaggio_visibile(request, pk)
+    emoji = request.POST.get("emoji", "").strip()
+    if messaggio.eliminato or messaggio.tipo != Messaggio.NORMALE or not emoji or len(emoji) > EMOJI_MASSIMA or emoji.isalnum():
+        return HttpResponse(status=422)
+    if servizi.iscrizione(request.user, messaggio.canale) is None:
+        raise PermissionDenied
+    servizi.reagisci(messaggio, request.user, emoji)
+    return _rendi_messaggio(request, messaggio)
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+@require_POST
+def fissa(request, pk):
+    messaggio = _messaggio_visibile(request, pk)
+    if messaggio.eliminato or not servizi.puo_fissare(request.user, messaggio.canale):
+        raise PermissionDenied
+    servizi.fissa(messaggio, request.user)
+    return _rendi_messaggio(request, messaggio)
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+@require_POST
+def da_leggere(request, pk):
+    messaggio = _messaggio_visibile(request, pk)
+    servizi.segna_da_leggere(request.user, messaggio)
+    return HttpResponse(status=204)
+
+
+def _pannello(request, template, canale, **altro):
+    return render(request, template, {"canale": canale, **altro, **_diritti(request, canale)})
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+def pannello_fissati(request, pk):
+    canale = _canale(request, pk)
+    return _pannello(request, "discuss/_pannello_fissati.html", canale, voci=servizi.fissati(canale))
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+def pannello_file(request, pk):
+    canale = _canale(request, pk)
+    voci = servizi.file_del_canale(canale)
+    for a in voci:
+        a.tipo_file = servizi._tipo_file(a)
+    return _pannello(request, "discuss/_pannello_file.html", canale, voci=voci)
+
+
+def _rendi_info(request, canale):
+    iscrizioni = list(canale.iscrizioni.select_related("utente").order_by("utente__first_name", "utente__username"))
+    stati = presenze.di(i.utente_id for i in iscrizioni)
+    for i in iscrizioni:
+        i.scheda = presenze.scheda(stati.get(i.utente_id))
+    presenti = {i.utente_id for i in iscrizioni}
+    return _pannello(request, "discuss/_pannello_info.html", canale, iscrizioni=iscrizioni, ruoli=Iscrizione.RUOLI,
+                     mia=servizi.iscrizione(request.user, canale), puo_gestire=servizi.puo_gestire(request.user, canale),
+                     da_aggiungere=_colleghi(request).exclude(pk__in=presenti), notifiche_scelte=Iscrizione.NOTIFICHE)
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+def pannello_info(request, pk):
+    return _rendi_info(request, _canale(request, pk))
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+def pannello_risposte(request, pk):
+    messaggio = _messaggio_visibile(request, pk)
+    elenco = servizi.risposte_a(messaggio)
+    return _pannello(request, "discuss/_pannello_risposte.html", messaggio.canale, origine=messaggio,
+                     voci=servizi.prepara([messaggio, *elenco], request.user)[1:])
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+def cerca(request):
+    q = request.GET.get("q", "").strip()
+    canale = None
+    if request.GET.get("canale", "").isdigit() and request.GET.get("solo"):
+        canale = _canale(request, request.GET["canale"])
+    voci = servizi.cerca(request.user, q, canale)
+    return render(request, "discuss/_pannello_cerca.html", {"q": q, "voci": voci, "canale": canale, "titolo_di": request.user,
+                                                            "corrente_pk": request.GET.get("canale", "")})
+
+
+def _voce_persona(u):
+    return {"tipo": "persona", "testo": servizi.nome_di(u), "dettaglio": f"@{u.username}", "valore": u.username,
+            "url": reverse("discuss:con", args=[u.username])}
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+def suggerisci(request):
+    """Il completamento di @persona e #canale nel campo di scrittura."""
+    q = request.GET.get("q", "").strip()
+    if request.GET.get("tipo") == "canali":
+        elenco = servizi.visibili(request.user).exclude(tipo=Canale.DIRETTO).filter(archiviato=False, nome__icontains=q)[:8]
+        return JsonResponse({"voci": [{"testo": f"#{c.nome}", "dettaglio": c.descrizione[:60], "valore": c.nome.replace(" ", "-")}
+                                      for c in elenco if c.nome]})
+    persone = get_user_model().objects.filter(is_active=True).filter(
+        Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q)).order_by("first_name", "username")[:8]
+    stati = presenze.di(u.pk for u in persone)
+    return JsonResponse({"voci": [{**_voce_persona(u), "stato": presenze.scheda(stati.get(u.pk))["stato"]} for u in persone]})
+
+
+@login_required
+def palette(request):
+    """Ctrl+K da qualsiasi pagina: persone, canali e voci fisse."""
+    if not request.user.has_perm(PERMESSO):
+        return JsonResponse({"voci": []})
+    q = request.GET.get("q", "").strip()
+    voci = []
+    if q:
+        canali = servizi.visibili(request.user).exclude(tipo=Canale.DIRETTO).filter(archiviato=False, nome__icontains=q)[:6]
+        voci += [{"tipo": "canale", "testo": c.nome, "dettaglio": c.descrizione[:70],
+                  "url": reverse("discuss:canale", args=[c.pk])} for c in canali]
+        persone = _colleghi(request).filter(Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q))[:6]
+        stati = presenze.di(u.pk for u in persone)
+        voci += [{**_voce_persona(u), "stato": presenze.scheda(stati.get(u.pk))["stato"]} for u in persone]
+        voci.append({"tipo": "cerca", "testo": f"Cerca «{q}» nei messaggi", "dettaglio": "",
+                     "url": reverse("discuss:home") + "?" + _coda({"cerca": q})})
+    else:
+        recenti = list(servizi.iscrizioni_di(request.user)[:6])
+        voci += [{"tipo": "persona" if i.canale.diretto else "canale", "testo": i.canale.titolo_per(request.user).removeprefix("# "),
+                  "dettaglio": f"{i.non_letti} non letti" if i.non_letti else "",
+                  "url": reverse("discuss:canale", args=[i.canale_id])} for i in recenti]
+        voci.append({"tipo": "posta", "testo": "Posta in arrivo", "dettaglio": "", "url": reverse("discuss:posta")})
+    return JsonResponse({"voci": voci})
+
+
+def _coda(valori):
+    from urllib.parse import urlencode
+    return urlencode(valori)
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+def con(request, username):
+    """Clic su una @menzione o su una persona: apre il messaggio diretto."""
+    altro = get_user_model().objects.filter(username__iexact=username, is_active=True).first()
+    if altro is None:
+        messages.error(request, f"Nessun collega si chiama «{username}».")
+        return redirect("discuss:home")
+    return redirect("discuss:canale", pk=servizi.diretto([request.user, altro]).pk)
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+def vai(request, nome):
+    """Clic su un #canale."""
+    for c in servizi.visibili(request.user).exclude(tipo=Canale.DIRETTO).filter(archiviato=False):
+        if c.nome.lower().replace(" ", "-") == nome.lower():
+            return redirect("discuss:canale", pk=c.pk)
+    messages.error(request, f"Il canale «{nome}» non c'è o non puoi vederlo.")
+    return redirect("discuss:home")
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+@require_POST
+def presenza(request):
+    """Lo stato scelto da una persona: non disturbare, assente, fuori ufficio con data e messaggio."""
+    p = presenze.mia(request.user)
+    stato = request.POST.get("stato", Presenza.AUTO)
+    p.stato = stato if stato in dict(Presenza.STATI) else Presenza.AUTO
+    p.messaggio = request.POST.get("messaggio", "").strip()[:140]
+    try:
+        p.fuori_fino = datetime.date.fromisoformat(request.POST.get("fuori_fino", ""))
+    except ValueError:
+        p.fuori_fino = None
+    p.save(update_fields=["stato", "messaggio", "fuori_fino"])
+    return redirect(request.POST.get("torna") if str(request.POST.get("torna", "")).startswith("/discuss/") else "discuss:home")
 
 
 @login_required
@@ -155,9 +465,8 @@ def nuovo_canale(request):
         messages.error(request, "Il canale ha bisogno di un nome.")
         return redirect("discuss:home")
     tipo = Canale.PRIVATO if request.POST.get("tipo") == Canale.PRIVATO else Canale.PUBBLICO
-    membri = get_user_model().objects.filter(pk__in=[p for p in request.POST.getlist("membri") if p.isdigit()],
-                                             is_active=True)
-    canale = servizi.crea_canale(nome, tipo, request.user, membri, request.POST.get("descrizione", ""))
+    canale = servizi.crea_canale(nome, tipo, request.user, _utenti_scelti(request, "membri"),
+                                 request.POST.get("descrizione", ""), gestito=bool(request.POST.get("gestito")))
     return redirect("discuss:canale", pk=canale.pk)
 
 
@@ -165,20 +474,33 @@ def nuovo_canale(request):
 @permission_required(PERMESSO, raise_exception=True)
 @require_POST
 def diretto(request):
-    altri = list(get_user_model().objects.filter(
-        pk__in=[p for p in request.POST.getlist("utenti") if p.isdigit()], is_active=True).exclude(pk=request.user.pk))
+    altri = list(_utenti_scelti(request).exclude(pk=request.user.pk))
     if not altri:
         messages.error(request, "Scegli almeno una persona.")
         return redirect("discuss:home")
-    return redirect("discuss:canale", pk=servizi.diretto([request.user, *altri]).pk)
+    return redirect("discuss:canale", pk=servizi.diretto([request.user, *altri], request.POST.get("nome", "").strip()).pk)
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+@require_POST
+def gruppo(request, pk):
+    """Dal messaggio diretto a un gruppo con altre persone."""
+    canale = _canale(request, pk)
+    if not canale.diretto:
+        raise PermissionDenied
+    nuovi = list(_utenti_scelti(request))
+    if not nuovi:
+        messages.error(request, "Scegli almeno una persona.")
+        return redirect("discuss:canale", pk=pk)
+    return redirect("discuss:canale", pk=servizi.gruppo_da(canale, request.user, nuovi, request.POST.get("nome", "").strip()).pk)
 
 
 @login_required
 @permission_required(PERMESSO, raise_exception=True)
 @require_POST
 def entra(request, pk):
-    canale = _canale(request, pk)
-    servizi.iscrivi(canale, request.user)
+    servizi.entra(_canale(request, pk), request.user)
     return redirect("discuss:canale", pk=pk)
 
 
@@ -201,9 +523,8 @@ def invita(request, pk):
     canale = _canale(request, pk)
     if canale.diretto or servizi.iscrizione(request.user, canale) is None:
         raise PermissionDenied
-    for u in get_user_model().objects.filter(pk__in=[p for p in request.POST.getlist("utenti") if p.isdigit()],
-                                             is_active=True):
-        servizi.iscrivi(canale, u)
+    for u in _utenti_scelti(request):
+        servizi.entra(canale, u, da=request.user)
     return redirect("discuss:canale", pk=pk)
 
 
@@ -216,6 +537,62 @@ def preferenze(request, pk):
     if valore in dict(Iscrizione.NOTIFICHE):
         Iscrizione.objects.filter(canale=canale, utente=request.user).update(notifiche=valore)
     return redirect("discuss:canale", pk=pk)
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+@require_POST
+def preferito(request, pk):
+    canale = _canale(request, pk)
+    i = servizi.iscrizione(request.user, canale)
+    if i is None:
+        raise PermissionDenied
+    Iscrizione.objects.filter(pk=i.pk).update(fissata=not i.fissata)
+    return redirect("discuss:canale", pk=pk)
+
+
+def _da_gestore(request, pk):
+    canale = _canale(request, pk)
+    if not servizi.puo_gestire(request.user, canale):
+        raise PermissionDenied
+    return canale
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+@require_POST
+def impostazioni(request, pk):
+    canale = _da_gestore(request, pk)
+    nome = request.POST.get("nome", "").strip()[:80]
+    if nome:
+        canale.nome = nome
+    canale.descrizione = request.POST.get("descrizione", "").strip()[:250]
+    canale.tipo = Canale.PRIVATO if request.POST.get("tipo") == Canale.PRIVATO else Canale.PUBBLICO
+    canale.gestito = bool(request.POST.get("gestito"))
+    canale.archiviato = bool(request.POST.get("archiviato"))
+    canale.save(update_fields=["nome", "descrizione", "tipo", "gestito", "archiviato"])
+    return redirect("discuss:canale", pk=pk) if not canale.archiviato else redirect("discuss:home")
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+@require_POST
+def ruolo(request, pk):
+    canale = _da_gestore(request, pk)
+    valore = request.POST.get("ruolo", "")
+    if valore in dict(Iscrizione.RUOLI) and request.POST.get("utente", "").isdigit():
+        servizi.cambia_ruolo(canale, get_object_or_404(get_user_model(), pk=request.POST["utente"]), valore)
+    return _rendi_info(request, canale)
+
+
+@login_required
+@permission_required(PERMESSO, raise_exception=True)
+@require_POST
+def togli(request, pk):
+    canale = _da_gestore(request, pk)
+    if request.POST.get("utente", "").isdigit():
+        servizi.esci(canale, get_object_or_404(get_user_model(), pk=request.POST["utente"]), da=request.user)
+    return _rendi_info(request, canale)
 
 
 @login_required
@@ -249,7 +626,8 @@ def tutte_lette(request):
 
 @login_required
 def contatore(request):
-    """La campanella in testata (aggiornata ogni 30 secondi)."""
+    """La campanella in testata: ogni 30 secondi, e tiene aggiornata la presenza su qualsiasi pagina."""
     if not request.user.has_perm(PERMESSO):
         return HttpResponse("")
-    return render(request, "discuss/_campanella.html")
+    presenze.tocca(request.user, attivo=request.GET.get("attivo", "1") == "1")
+    return render(request, "discuss/_campanella_voce.html")

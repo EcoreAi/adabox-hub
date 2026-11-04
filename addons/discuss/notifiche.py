@@ -13,8 +13,9 @@ from django.utils import timezone
 from core import chatter
 from core.generici import url_record
 from core.models import Messaggio as MessaggioChatter
+from core.registry import modules
 
-from . import testo
+from . import eventi, testo
 from .models import Iscrizione, Notifica
 
 MINUTI_PRIMA_DELLA_EMAIL = 15
@@ -29,6 +30,7 @@ def da_messaggio(messaggio):
     """Una notifica per ogni iscritto interessato (menzionato, conversazione diretta, o canale seguito "tutto")."""
     from . import servizi
     canale, autore = messaggio.canale, messaggio.autore
+    risposta_a = messaggio.risposta_a.autore_id if messaggio.risposta_a_id else None
     menzionati = {u.pk: u for u in testo.menzionati(messaggio.corpo)}
     url = f"{reverse('discuss:canale', args=[canale.pk])}#m{messaggio.pk}"
     nuove = []
@@ -43,6 +45,8 @@ def da_messaggio(messaggio):
             continue
         if pk in menzionati:
             tipo = Notifica.MENZIONE
+        elif pk == risposta_a:
+            tipo = Notifica.RISPOSTA
         elif canale.diretto:
             tipo = Notifica.DIRETTO
         elif preferenza == Iscrizione.TUTTO:
@@ -51,11 +55,14 @@ def da_messaggio(messaggio):
             continue
         nome_autore = autore.get_full_name() or autore.username if autore else "Qualcuno"
         titolo = {Notifica.MENZIONE: f"{nome_autore} ti ha menzionato in {canale.titolo_per(utente)}",
+                  Notifica.RISPOSTA: f"{nome_autore} ha risposto a un tuo messaggio in {canale.titolo_per(utente)}",
                   Notifica.DIRETTO: f"{nome_autore} ti ha scritto",
                   Notifica.CANALE: f"{nome_autore} in {canale.titolo_per(utente)}"}[tipo]
         nuove.append(Notifica(utente=utente, tipo=tipo, autore=autore, messaggio=messaggio, titolo=titolo[:200],
                               testo=_anteprima(messaggio.corpo), url=url))
     Notifica.objects.bulk_create(nuove)
+    for n in nuove:
+        eventi.emetti("notifica", utente=n.utente, tipo_notifica=n.tipo, titolo=n.titolo, testo=n.testo, url=n.url)
 
 
 def _puo_vedere_record(utente, record):
@@ -67,6 +74,8 @@ def _puo_vedere_record(utente, record):
 def da_chatter(sender, instance, created, raw=False, **kwargs):
     """Menzioni (in messaggi e note) e messaggi ai follower nel chatter di un record."""
     if not created or raw or instance.tipo not in (MessaggioChatter.MESSAGGIO, MessaggioChatter.NOTA):
+        return
+    if "discuss" in modules.disattivati():         # modulo spento: niente si accumula in una posta che nessuno vede
         return
     record = instance.record
     if record is None:

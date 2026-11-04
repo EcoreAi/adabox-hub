@@ -12,6 +12,16 @@ def messaggio_html(corpo):
 
 
 @register.filter
+def testo_piano(corpo):
+    return testo.piano(corpo)
+
+
+@register.filter
+def evidenzia(corpo, q):
+    return testo.evidenzia(corpo, q)
+
+
+@register.filter
 def allegati_messaggio(messaggio):
     return allegati.di(messaggio)
 

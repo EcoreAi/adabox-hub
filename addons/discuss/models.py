@@ -15,6 +15,8 @@ class Canale(models.Model):
                                   related_name="+", verbose_name="creato da", editable=False)
     creato = models.DateTimeField("creato il", auto_now_add=True)
     archiviato = models.BooleanField("archiviato", default=False)
+    gestito = models.BooleanField("canale gestito", default=False,
+                                  help_text="Scrivono solo amministratori, moderatori e contributori; gli altri leggono.")
 
     class Meta:
         verbose_name = "canale"
@@ -29,9 +31,11 @@ class Canale(models.Model):
         return self.tipo == self.DIRETTO
 
     def titolo_per(self, utente):
-        """Il nome mostrato: per i messaggi diretti, gli altri partecipanti."""
+        """Il nome mostrato: per i messaggi diretti, gli altri partecipanti (o il nome del gruppo, se ne ha uno)."""
         if not self.diretto:
             return f"# {self.nome}"
+        if self.nome:
+            return self.nome
         altri = [u.get_full_name() or u.username for u in self.membri.all() if u.pk != utente.pk]
         return ", ".join(altri) or "Solo tu"
 
@@ -44,6 +48,12 @@ class Iscrizione(models.Model):
     ultimo_letto = models.PositiveBigIntegerField("ultimo messaggio letto", default=0)
     notifiche = models.CharField("notifiche", max_length=10, choices=NOTIFICHE, default=MENZIONI)
     entrato = models.DateTimeField(auto_now_add=True)
+    AMMINISTRATORE, MODERATORE, CONTRIBUTORE, MEMBRO = "amministratore", "moderatore", "contributore", "membro"
+    RUOLI = [(AMMINISTRATORE, "Amministratore"), (MODERATORE, "Moderatore"), (CONTRIBUTORE, "Contributore"),
+             (MEMBRO, "Membro")]
+    ruolo = models.CharField("ruolo", max_length=15, choices=RUOLI, default=MEMBRO)
+    fissata = models.BooleanField("tra i preferiti", default=False)
+    tieni_non_letto = models.BooleanField("segnata da leggere", default=False)
 
     class Meta:
         verbose_name = "iscrizione"
@@ -59,6 +69,14 @@ class Messaggio(models.Model):
     creato = models.DateTimeField("inviato il", auto_now_add=True)
     modificato_il = models.DateTimeField("modificato il", null=True, blank=True)
     eliminato = models.BooleanField("eliminato", default=False)
+    NORMALE, SISTEMA = "normale", "sistema"
+    tipo = models.CharField("tipo", max_length=10, choices=[(NORMALE, "Messaggio"), (SISTEMA, "Avviso")], default=NORMALE)
+    risposta_a = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="risposte",
+                                   verbose_name="risponde a")
+    fissato_il = models.DateTimeField("fissato il", null=True, blank=True)
+    fissato_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name="+", verbose_name="fissato da")
+    anteprime = models.JSONField("anteprime dei link", default=list, blank=True)
 
     class Meta:
         verbose_name = "messaggio"
@@ -72,9 +90,9 @@ class Messaggio(models.Model):
 
 class Notifica(models.Model):
     """Voce della posta in arrivo: una menzione, un messaggio diretto, un messaggio su un record seguito."""
-    MENZIONE, DIRETTO, CANALE, RECORD = "menzione", "diretto", "canale", "record"
+    MENZIONE, DIRETTO, CANALE, RECORD, RISPOSTA = "menzione", "diretto", "canale", "record", "risposta"
     TIPI = [(MENZIONE, "Menzione"), (DIRETTO, "Messaggio diretto"), (CANALE, "Messaggio nel canale"),
-            (RECORD, "Messaggio su un record seguito")]
+            (RECORD, "Messaggio su un record seguito"), (RISPOSTA, "Risposta a un tuo messaggio")]
     utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifiche_discuss")
     tipo = models.CharField("tipo", max_length=10, choices=TIPI)
     autore = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
@@ -94,3 +112,46 @@ class Notifica(models.Model):
         verbose_name_plural = "notifiche"
         ordering = ["-creata", "-pk"]
         indexes = [models.Index(fields=["utente", "letta"])]
+
+
+class Reazione(models.Model):
+    messaggio = models.ForeignKey(Messaggio, on_delete=models.CASCADE, related_name="reazioni")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    emoji = models.CharField("emoji", max_length=16)
+
+    class Meta:
+        verbose_name = "reazione"
+        verbose_name_plural = "reazioni"
+        ordering = ["pk"]
+        constraints = [models.UniqueConstraint(fields=["messaggio", "utente", "emoji"], name="discuss_reazione_unica")]
+
+
+class Presenza(models.Model):
+    """Se una persona è collegata e se ha scelto uno stato: online e assente si calcolano da questi due istanti."""
+    AUTO, OCCUPATO, ASSENTE = "auto", "occupato", "assente"
+    STATI = [(AUTO, "Automatico"), (OCCUPATO, "Non disturbare"), (ASSENTE, "Assente")]
+    utente = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="presenza_discuss")
+    ultimo_visto = models.DateTimeField("ultimo collegamento", null=True, blank=True)
+    ultima_attivita = models.DateTimeField("ultima attività", null=True, blank=True)
+    stato = models.CharField("stato", max_length=10, choices=STATI, default=AUTO)
+    fuori_fino = models.DateField("fuori ufficio fino al", null=True, blank=True)
+    messaggio = models.CharField("messaggio di stato", max_length=140, blank=True)
+
+    class Meta:
+        verbose_name = "presenza"
+        verbose_name_plural = "presenze"
+
+
+class Evento(models.Model):
+    """Ciò che arriva in tempo reale ai browser: si legge in ordine di id, e dopo un giorno si butta."""
+    canale = models.ForeignKey(Canale, on_delete=models.CASCADE, null=True, blank=True, related_name="+")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name="+",
+                               help_text="Se indicato, l'evento è solo per questa persona.")
+    tipo = models.CharField("tipo", max_length=20)
+    dati = models.JSONField("dati", default=dict, blank=True)
+    creato = models.DateTimeField("creato il", auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "evento"
+        verbose_name_plural = "eventi"
+        ordering = ["pk"]

@@ -1,20 +1,42 @@
 """Pagine di Discuss."""
 from django.urls import path
 
-from . import pagine
+from . import eventi, pagine
 
 urlpatterns = [
     path("", pagine.home, name="home"),
+    path("eventi/", eventi.flusso, name="eventi"),
+    path("barra/", pagine.barra, name="barra"),
+    path("cerca/", pagine.cerca, name="cerca"),
+    path("suggerisci/", pagine.suggerisci, name="suggerisci"),
+    path("palette/", pagine.palette, name="palette"),
+    path("presenza/", pagine.presenza, name="presenza"),
+    path("con/<str:username>/", pagine.con, name="con"),
+    path("vai/<str:nome>/", pagine.vai, name="vai"),
     path("c/<int:pk>/", pagine.canale, name="canale"),
     path("c/<int:pk>/nuovi/", pagine.nuovi, name="nuovi"),
     path("c/<int:pk>/precedenti/", pagine.precedenti, name="precedenti"),
     path("c/<int:pk>/invia/", pagine.invia, name="invia"),
+    path("c/<int:pk>/scrivo/", pagine.scrivo, name="scrivo"),
     path("c/<int:pk>/entra/", pagine.entra, name="entra"),
     path("c/<int:pk>/esci/", pagine.esci, name="esci"),
     path("c/<int:pk>/invita/", pagine.invita, name="invita"),
+    path("c/<int:pk>/gruppo/", pagine.gruppo, name="gruppo"),
     path("c/<int:pk>/preferenze/", pagine.preferenze, name="preferenze"),
+    path("c/<int:pk>/preferito/", pagine.preferito, name="preferito"),
+    path("c/<int:pk>/impostazioni/", pagine.impostazioni, name="impostazioni"),
+    path("c/<int:pk>/ruolo/", pagine.ruolo, name="ruolo"),
+    path("c/<int:pk>/togli/", pagine.togli, name="togli"),
+    path("c/<int:pk>/fissati/", pagine.pannello_fissati, name="fissati"),
+    path("c/<int:pk>/file/", pagine.pannello_file, name="file"),
+    path("c/<int:pk>/info/", pagine.pannello_info, name="info"),
+    path("m/<int:pk>/", pagine.messaggio, name="messaggio"),
     path("m/<int:pk>/modifica/", pagine.modifica, name="modifica"),
     path("m/<int:pk>/elimina/", pagine.elimina, name="elimina"),
+    path("m/<int:pk>/reazione/", pagine.reazione, name="reazione"),
+    path("m/<int:pk>/fissa/", pagine.fissa, name="fissa"),
+    path("m/<int:pk>/da-leggere/", pagine.da_leggere, name="da_leggere"),
+    path("m/<int:pk>/risposte/", pagine.pannello_risposte, name="risposte"),
     path("allegato/<int:pk>/", pagine.allegato, name="allegato"),
     path("canale/nuovo/", pagine.nuovo_canale, name="nuovo_canale"),
     path("diretto/", pagine.diretto, name="diretto"),

@@ -1,0 +1,29 @@
+{% load discuss %}{% include "discuss/_testa_pannello.html" with titolo_pannello="Informazioni" %}
+<div class="ds-pannello-corpo" id="ds-info">
+  {% if mia %}<form method="post" action="{% url 'discuss:preferenze' canale.pk %}" class="ds-campo">{% csrf_token %}<label class="ui-label">Le tue notifiche<select class="ui-input" name="notifiche" onchange="this.form.submit()">{% for v, e in notifiche_scelte %}<option value="{{ v }}"{% if v == mia.notifiche %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label></form>
+  <form method="post" action="{% url 'discuss:preferito' canale.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit">{% if mia.fissata %}Togli dai preferiti{% else %}Metti tra i preferiti{% endif %}</button></form>{% endif %}
+  {% if puo_gestire %}<details class="ds-sezione"><summary>Impostazioni del canale</summary>
+    <form method="post" action="{% url 'discuss:impostazioni' canale.pk %}" class="ds-modulo">{% csrf_token %}
+      <label class="ui-label">Nome<input class="ui-input" name="nome" value="{{ canale.nome }}" maxlength="80" required></label>
+      <label class="ui-label">Descrizione<input class="ui-input" name="descrizione" value="{{ canale.descrizione }}" maxlength="250"></label>
+      <label class="ds-spunta"><input type="radio" name="tipo" value="pubblico"{% if canale.tipo == "pubblico" %} checked{% endif %}> Pubblico: chiunque può entrare</label>
+      <label class="ds-spunta"><input type="radio" name="tipo" value="privato"{% if canale.tipo == "privato" %} checked{% endif %}> Privato: solo su invito</label>
+      <label class="ds-spunta"><input type="checkbox" name="gestito"{% if canale.gestito %} checked{% endif %}> Canale gestito: scrivono solo amministratori, moderatori e contributori</label>
+      <label class="ds-spunta"><input type="checkbox" name="archiviato"{% if canale.archiviato %} checked{% endif %}> Archiviato: esce dagli elenchi e non si scrive più</label>
+      <button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Salva</button>
+    </form></details>{% endif %}
+  <h3 class="ds-h3">{{ iscrizioni|length }} membr{{ iscrizioni|length|pluralize:"o,i" }}</h3>
+  <ul class="ds-membri">{% for i in iscrizioni %}<li>
+    <span class="ds-avatar-mini ui-avatar" aria-hidden="true">{{ i.utente|iniziale }}<span class="ds-punto is-{{ i.scheda.stato }}" title="{{ i.scheda.etichetta }}"></span></span>
+    <span class="ds-membro-nome"><a href="{% url 'discuss:con' i.utente.username %}">{{ i.utente.get_full_name|default:i.utente.username }}</a><small class="ui-help">{{ i.scheda.etichetta }}{% if i.scheda.messaggio %} · {{ i.scheda.messaggio }}{% endif %}</small></span>
+    {% if puo_gestire %}<select class="ui-input ds-ruolo" name="ruolo" aria-label="Ruolo di {{ i.utente.username }}" hx-post="{% url 'discuss:ruolo' canale.pk %}" hx-vals='{"utente": "{{ i.utente_id }}"}' hx-target="#ds-pannello" hx-trigger="change">{% for v, e in ruoli %}<option value="{{ v }}"{% if v == i.ruolo %} selected{% endif %}>{{ e }}</option>{% endfor %}</select>
+      <button type="button" class="ds-chiudi" aria-label="Togli {{ i.utente.username }} dal canale" title="Togli dal canale" hx-post="{% url 'discuss:togli' canale.pk %}" hx-vals='{"utente": "{{ i.utente_id }}"}' hx-target="#ds-pannello" hx-confirm="Togliere dal canale?">×</button>
+    {% elif not canale.diretto and i.ruolo != "membro" %}<small class="ds-ruolo-etichetta">{{ i.get_ruolo_display }}</small>{% endif %}
+  </li>{% endfor %}</ul>
+  {% if mia and da_aggiungere %}<details class="ds-sezione"{% if canale.diretto %} open{% endif %}><summary>{% if canale.diretto %}Crea un gruppo con altre persone{% else %}Aggiungi persone{% endif %}</summary>
+    <form method="post" action="{% if canale.diretto %}{% url 'discuss:gruppo' canale.pk %}{% else %}{% url 'discuss:invita' canale.pk %}{% endif %}" class="ds-modulo">{% csrf_token %}
+      {% if canale.diretto %}<input class="ui-input" name="nome" maxlength="80" placeholder="Nome del gruppo (facoltativo)" aria-label="Nome del gruppo"><p class="ui-help">Si apre una conversazione nuova: questa resta privata.</p>{% endif %}
+      {% include "discuss/_scelta_persone.html" with persone=da_aggiungere campo="utenti" %}
+      <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">{% if canale.diretto %}Crea il gruppo{% else %}Aggiungi{% endif %}</button></form></details>{% endif %}
+  {% if mia and not canale.diretto %}<form method="post" action="{% url 'discuss:esci' canale.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit">Esci dal canale</button></form>{% endif %}
+</div>

@@ -1,0 +1,4 @@
+{% load discuss %}<div class="ds-scelta" data-scelta>
+  <input class="ui-input" type="search" placeholder="Cerca una persona…" aria-label="Cerca una persona" data-scelta-filtro>
+  <div class="ds-scelta-elenco">{% for u in persone %}<label class="ds-scelta-voce" data-nome="{{ u.get_full_name|lower }} {{ u.username|lower }}"><input type="checkbox" name="{{ campo }}" value="{{ u.pk }}"><span class="ui-avatar ds-avatar-mini" aria-hidden="true">{{ u|iniziale }}</span><span>{{ u.get_full_name|default:u.username }} <small class="ui-help">@{{ u.username }}</small></span></label>{% empty %}<p class="ui-help">Non c'è nessun altro da aggiungere.</p>{% endfor %}</div>
+</div>

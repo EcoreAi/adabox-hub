@@ -197,9 +197,15 @@ def _testo_semplice(testo):
     return re.sub(r"^#{1,6}\s+", "", testo, flags=re.M).strip()
 
 
+def discuss_attivo():
+    """Installato e non spento: in un modulo disattivato il messaggio non lo leggerebbe nessuno."""
+    from core.registry.modules import disattivati
+    return "discuss" in settings.ADDONS_ATTIVI and "discuss" not in disattivati()
+
+
 def consegna(p, turno):
     testo = _testo_semplice(turno.testo)
-    if p.in_discuss and "discuss" in settings.ADDONS_ATTIVI:
+    if p.in_discuss and discuss_attivo():
         try:
             _in_discuss(p, testo)
         except Exception:                            # la consegna in più non deve far fallire l'esecuzione

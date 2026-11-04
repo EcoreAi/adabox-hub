@@ -1,1 +1,1 @@
-<button type="button" class="ui-btn ui-btn-ghost ui-btn-sm ds-prima" hx-get="{% url 'discuss:precedenti' canale.pk %}?prima={{ primo }}" hx-swap="outerHTML">Messaggi precedenti</button>
+<div class="ds-prima" id="ds-prima"><button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" hx-get="{% url 'discuss:precedenti' canale.pk %}?prima={{ primo }}" hx-target="#ds-prima" hx-swap="outerHTML">Messaggi precedenti</button></div>
