@@ -1,13 +1,14 @@
 /* Analisi: schede della dashboard, menu delle card, salvataggio da chat e viste, pagine di gestione. */
-.an-schede { display: flex; gap: 4px; align-items: center; margin: -6px 0 18px; padding: 4px; overflow-x: auto; scrollbar-width: thin; border-radius: 14px; background: var(--ui-surface-2); }
+.an-schede { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: -6px 0 18px; padding: 4px; border-radius: 14px; background: var(--ui-surface-2); }
+.an-spazio { flex: 1; }
 .an-scheda { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 10px; border: 0; background: transparent; color: var(--ui-text-2); font: inherit; font-size: 13.5px; font-weight: 500; text-decoration: none; white-space: nowrap; cursor: pointer; transition: background .15s, color .15s, box-shadow .15s; }
 .an-scheda svg { width: 16px; height: 16px; flex: none; } .an-scheda img { width: 16px; height: 16px; border-radius: 4px; flex: none; }
 .an-scheda:hover { background: var(--ui-surface); color: var(--ui-text); }
 .an-scheda.is-attiva { background: var(--ui-surface); color: var(--ui-primary); box-shadow: var(--shadow-card); }
 .an-scheda.is-condivisa::after { content: "condivisa"; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; padding: 1px 6px; border-radius: 999px; background: color-mix(in srgb, var(--ui-primary) 12%, transparent); color: var(--ui-primary); }
-.an-nuova { display: flex; align-items: center; gap: 6px; margin: 0 0 0 auto; padding-left: 8px; }
+.an-nuova-pannello { flex-direction: row; align-items: center; gap: 6px; min-width: 300px; } .an-nuova-pannello .ui-input { flex: 1; height: 32px; min-width: 0; }
+.an-menu-pannello.an-nuova-pannello button { width: auto; flex: none; justify-content: center; color: #fff; }
 .an-piu { color: var(--ui-text-3); } .an-piu:hover { color: var(--ui-primary); }
-.an-nuova-campo { display: inline-flex; gap: 6px; align-items: center; } .an-nuova-campo .ui-input { height: 32px; width: 220px; }
 
 /* menu ⋯ (card e pagina) */
 .an-menu { position: relative; } .an-menu > summary { list-style: none; cursor: pointer; } .an-menu > summary::-webkit-details-marker { display: none; }
@@ -89,10 +90,11 @@
 @media (max-width: 1000px) { .an-costruttore { grid-template-columns: 1fr; } .an-cost-anteprima { position: static; } }
 
 /* altre app e obiettivo */
-.an-altre > summary { gap: 6px; } .an-altre .an-freccia { width: 12px; height: 12px; opacity: .7; }
-.an-altre[open] > summary { background: var(--ui-surface); color: var(--ui-text); }
-.an-altre .an-menu-pannello { left: 0; right: auto; max-height: 60vh; overflow-y: auto; }
-.an-altre .an-menu-pannello img { width: 16px; height: 16px; border-radius: 4px; }
+.an-altre > summary, .an-nuova > summary { gap: 6px; } .an-altre .an-freccia { width: 12px; height: 12px; opacity: .7; }
+.an-menu[open] > summary.an-scheda { background: var(--ui-surface); color: var(--ui-text); }
+.an-altre .an-altre-pannello { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 18px 22px; width: min(820px, calc(100vw - 48px)); max-height: 70vh; overflow-y: auto; padding: 16px 18px; }
+.an-altre-titolo { margin: 0 0 6px; font-size: 11.5px; font-weight: 600; color: var(--ui-text-3); }
+.an-altre-pannello a { padding: 6px 8px; margin-left: -8px; font-weight: 500; } .an-altre-pannello img { width: 16px; height: 16px; border-radius: 4px; flex: none; }
 .an-kpi-obiettivo { margin-top: 10px; } .an-kpi-obiettivo small { display: block; margin-top: 4px; font-size: 11.5px; color: var(--ui-text-3); }
 .an-kpi-barra { height: 6px; border-radius: 999px; background: var(--ui-surface-2); overflow: hidden; }
 .an-kpi-barra span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--ui-primary), #d97706); transition: width .6s cubic-bezier(.2, .8, .2, 1); }

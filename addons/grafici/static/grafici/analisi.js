@@ -1,17 +1,9 @@
-// Analisi: «Nuova pagina» tra le schede, cambio di tipo dal menu della card (ridisegna subito e salva), «Chiedi ad
+// Analisi: menu delle schede, cambio di tipo dal menu della card (ridisegna subito e salva), «Chiedi ad
 // Ada» con la domanda già scritta, menu che si chiudono cliccando fuori.
 (function () {
   const csrf = () => (document.querySelector('input[name=csrfmiddlewaretoken]') || {}).value;
 
   document.addEventListener('click', (e) => {
-    const nuova = e.target.closest('[data-an-nuova]');
-    if (nuova) {
-      const campo = nuova.parentElement.querySelector('.an-nuova-campo');
-      campo.hidden = !campo.hidden;
-      nuova.setAttribute('aria-expanded', String(!campo.hidden));
-      if (!campo.hidden) campo.querySelector('input').focus();
-      return;
-    }
     const tipo = e.target.closest('.an-menu-tipi [data-tipo]');
     if (tipo) { cambiaTipo(tipo); return; }
     const ada = e.target.closest('[data-an-ada]');
@@ -20,6 +12,15 @@
     if (png) { scaricaPng(png); return; }
     document.querySelectorAll('details.an-menu[open], details.an-salva[open]').forEach((d) => { if (!d.contains(e.target)) d.removeAttribute('open'); });
   });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') document.querySelectorAll('details.an-menu[open], details.an-salva[open]').forEach((d) => d.removeAttribute('open'));
+  });
+  document.addEventListener('toggle', (e) => {          // aperta «Nuova pagina», il cursore è già nel campo; un menu aperto chiude l'altro
+    if (!e.target.matches || !e.target.matches('details.an-menu') || !e.target.open) return;
+    document.querySelectorAll('details.an-menu[open]').forEach((d) => { if (d !== e.target) d.removeAttribute('open'); });
+    const campo = e.target.querySelector('.an-nuova-pannello input[name=titolo]');
+    if (campo) campo.focus();
+  }, true);
 
   async function cambiaTipo(bottone) {
     const box = bottone.closest('.an-menu-tipi');

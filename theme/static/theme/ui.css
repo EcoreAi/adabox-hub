@@ -41,6 +41,9 @@ h1, h2, h3, h4, h5, h6 { font-weight: 600; letter-spacing: -0.02em; color: var(-
 /* ============================================================
    Header
    ============================================================ */
+/* nascosto vuol dire nascosto: nessuna classe con il suo display può far riapparire un elemento con [hidden] */
+[hidden] { display: none !important; }
+
 .ui-header {
   position: sticky;
   top: 0;
@@ -1439,7 +1442,7 @@ body.is-trascinando, body.is-trascinando * { cursor: move !important; user-selec
 .ui-kanban-col > header { gap: 6px; margin-bottom: 4px; } .ui-kanban-col-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ui-kanban-ripiega { display: inline-flex; width: 20px; height: 20px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--ui-text-3); cursor: pointer; flex: none; }
 .ui-kanban-ripiega:hover { background: rgba(0, 0, 0, .06); color: var(--ui-text); }
-.ui-kanban-riepilogo { flex: none; } .ui-kanban-altri { flex: none; text-align: center; padding-top: 8px; margin-top: 0; } .ui-kanban-altri[hidden] { display: none; }
+.ui-kanban-riepilogo { flex: none; } .ui-kanban-altri { flex: none; text-align: center; padding-top: 8px; margin-top: 0; }
 .ui-kanban-ordine { flex: none; align-self: flex-start; max-width: 100%; margin: 0 0 8px; padding: 1px 2px; border: 0; background: transparent; color: var(--ui-text-3); font: inherit; font-size: 11.5px; cursor: pointer; }
 .ui-kanban-ordine:hover { color: var(--ui-text); }
 .ui-kanban-col.is-ripiegata { flex: 0 0 48px; min-width: 48px; padding: 10px 4px; cursor: pointer; }

@@ -53,25 +53,25 @@ def test_obiettivo_sul_grafico_e_sul_kpi_e_png(client, superuser, attivita):
 
 
 @pytest.mark.django_db
-def test_le_schede_delle_app_oltre_le_prime_vanno_nel_menu_altre_app(client, superuser, attivita, monkeypatch):
+def test_la_riga_delle_schede_resta_corta_e_il_resto_sta_nel_menu_per_area(client, superuser, attivita, monkeypatch):
     html = client.get(reverse("core:dashboard")).content.decode()
-    visibili = len(re.findall(r'class="an-scheda an-scheda-app', html))
-    assert visibili == motore.MAX_SCHEDE_APP and "Altre app" in html
-    # tutte le app restano raggiungibili, nel menu
-    assert reverse("grafici:pagina_app", args=["todo"]) in html
-    # la scheda aperta resta in vista anche se sarebbe nel menu: scelgo un'app del menu
-    r = client.get(reverse("core:dashboard"))
-    from grafici.motore import schede
-    altre = schede(r.wsgi_request)["altre"]
-    assert altre, "servono più app di MAX_SCHEDE_APP nel test"
-    slug = altre[0]["chiave"].split(":", 1)[1]
-    html = client.get(reverse("grafici:pagina_app", args=[slug])).content.decode()
-    assert re.search(r'class="an-scheda an-scheda-app is-attiva"[^>]*href="' + reverse("grafici:pagina_app", args=[slug]) + '"', html)
-    # un'app personalizzata (con un grafico salvato) passa tra le prime
-    p = Pagina.objects.get(utente=superuser, app=slug)
+    assert not re.search(r'class="an-scheda an-scheda-app', html) and "Altre schede" in html and "an-altre-titolo" in html
+    assert reverse("grafici:pagina_app", args=["todo"]) in html and "Vendite e clienti" in html
+    assert '<details class="an-menu an-nuova">' in html and "an-nuova-campo" not in html
+    # la scheda aperta è in vista, anche se di norma sta nel menu
+    url = reverse("grafici:pagina_app", args=["todo"])
+    html = client.get(url).content.decode()
+    assert re.search(r'class="an-scheda an-scheda-app is-attiva"[^>]*href="' + url + '"', html)
+    # un'app personalizzata resta in vista, fino al limite
+    p = Pagina.objects.get(utente=superuser, app="todo")
     Grafico.objects.create(utente=superuser, pagina=p, titolo="X", spec={"vista": "todo.attivita", "per": "stato"})
     html = client.get(reverse("core:dashboard")).content.decode()
-    assert re.search(r'class="an-scheda an-scheda-app"[^>]*href="' + reverse("grafici:pagina_app", args=[slug]) + '"', html)
-    # con poche app, niente menu
-    monkeypatch.setattr(motore, "MAX_SCHEDE_APP", 100)
-    assert "Altre app" not in client.get(reverse("core:dashboard")).content.decode()
+    assert re.search(r'class="an-scheda an-scheda-app"[^>]*href="' + url + '"', html)
+    monkeypatch.setattr(motore, "MAX_SCHEDE_APP", 0)
+    assert not re.search(r'class="an-scheda an-scheda-app"', client.get(reverse("core:dashboard")).content.decode())
+    # le pagine oltre il limite vanno nel menu, e quella aperta resta in vista
+    monkeypatch.setattr(motore, "MAX_SCHEDE_PAGINE", 2)
+    pagine = [Pagina.objects.create(utente=superuser, titolo=f"Pagina {i}", ordine=i) for i in range(4)]
+    r = client.get(reverse("grafici:pagina", args=[pagine[3].pk]))
+    html = r.content.decode()
+    assert "Le tue pagine" in html and re.search(r'class="an-scheda is-attiva"[^>]*href="' + reverse("grafici:pagina", args=[pagine[3].pk]) + '"', html)
