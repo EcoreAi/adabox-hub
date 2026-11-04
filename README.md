@@ -462,6 +462,40 @@ Un modulo si consegna come pacchetto zip firmato da ICHNOBYTE; ogni istanza acce
    con il backup automatico. Una versione minore di quella presente è rifiutata; la cartella precedente resta in
    `backup/moduli/`.
 
+## Vendere i moduli ai clienti
+
+Ogni cliente ha solo ciò che ha comprato: sul suo server non arriva il codice degli altri moduli. La protezione vera è
+questa, o l'ospitare l'istanza senza dare accesso al server. Licenza e firme sono un deterrente: chi ha root può toglierle.
+
+**Dalla nostra parte**, il modulo **Rivendita** su un'istanza di ICHNOBYTE è il portale, che non si consegna ai clienti:
+
+1. `MODULI_CHIAVE_PRIVATA=/percorso/chiave.pem` nel suo `.env` (firma licenze e cataloghi; da `modulo chiavi`).
+2. `manage.py rivendita_pubblica --tutti`, o «Carica un pacchetto», mette in vendita i moduli (zip firmati, nell'archivio privato).
+3. **Piani** con le loro app e il prezzo, poi un'**Istanza** per ogni cliente: piano, moduli in più, utenti, scadenza. «Genera il token» lo mostra una volta sola.
+4. Le **Richieste** dei clienti si approvano con un bottone: il modulo passa nella licenza dell'istanza.
+
+**Dalla parte del cliente**, l'immagine contiene kernel e tema, nessun modulo: `docker build -f deploy/Dockerfile.cliente -t adabox_hub_cliente:<versione> .`,
+`deploy/compose.cliente.yml` per l'avvio, e nel `.env`:
+
+```
+LICENZA_OBBLIGATORIA=True
+LICENZA_PORTALE_URL=https://portale.ichnobyte.it/rivendita/api
+LICENZA_TOKEN=<il token dell'istanza>
+MODULI_CHIAVI_FIDATE=<chiave pubblica>
+```
+
+Ogni ora il worker chiede al portale licenza e catalogo firmati per quell'istanza («Sincronizza ora» in `/moduli/`, o
+`manage.py licenza sincronizza`) e si allinea: scarica e installa i moduli coperti, aggiorna quelli nuovi, disinstalla i
+revocati **lasciando i dati** e toglie dal disco il codice non coperto. Web e streaming si ricaricano da soli
+(`deploy/osserva_moduli.sh`). Un modulo fuori licenza è spento e non si installa; alla scadenza valgono i giorni di grazia,
+poi l'istanza è in **sola lettura**; il tetto di utenti vale su quelli attivi. Se il portale non risponde resta tutto com'è.
+Se la licenza comprende `ai`, non serve quella separata dell'assistente.
+
+L'Admin del cliente vede in **`/applicazioni/`** le sue app e il catalogo delle altre, di cui ha solo la descrizione, con
+«Richiedi». Il Global Admin ha `/moduli/` (licenza, caricamento, installazione). Senza portale:
+`manage.py licenza firma --firma chiave.pem --cliente … --moduli crm,contatti --scadenza AAAA-MM-GG` crea il file da
+caricare in `/moduli/` o con `manage.py licenza carica`; i pacchetti si caricano a mano.
+
 ## Comandi `modulo`
 
 | Comando | Effetto |

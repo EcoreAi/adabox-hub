@@ -1,0 +1,54 @@
+# Un'istanza di un cliente: immagine senza moduli, che arrivano dal portale nel volume addons (vedi README).
+# docker compose -f deploy/compose.cliente.yml --env-file .env up -d
+x-app: &app
+  image: adabox_hub_cliente:${VERSIONE:-latest}
+  restart: unless-stopped
+  env_file: ../.env
+  volumes:
+    - addons:/app/addons
+    - backup:/app/backup
+    - media:/app/media
+    - private:/app/private
+    - staticfiles:/app/staticfiles
+
+services:
+  web:
+    <<: *app
+    environment:
+      RELOAD_STRATEGY: gunicorn
+      GUNICORN_PIDFILE: /tmp/gunicorn.pid
+      LAVORI_SINCRONI: "False"
+      ALLEGATI_X_ACCEL: "True"
+    expose:
+      - "8000"
+  worker:
+    <<: *app
+    depends_on: [web]
+    environment:
+      RELOAD_STRATEGY: none
+      LAVORI_SINCRONI: "False"
+    command: ["python", "manage.py", "worker"]
+  stream:
+    <<: *app
+    depends_on: [web]
+    command: ["sh", "-c", "sh deploy/osserva_moduli.sh esci & exec uvicorn config.asgi:application --host 0.0.0.0 --port 8001 --workers 2 --proxy-headers --forwarded-allow-ips '*' --timeout-graceful-shutdown 10"]
+    expose:
+      - "8001"
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on: [web]
+    ports:
+      - "${PORTA:-80}:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - staticfiles:/app/staticfiles:ro
+      - media:/app/media:ro
+      - private:/app/private:ro
+
+volumes:
+  addons:
+  backup:
+  media:
+  private:
+  staticfiles:
