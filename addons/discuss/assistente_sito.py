@@ -125,6 +125,11 @@ def passa_a_persona(c, motivo, domanda=""):
         eventi.emetti("notifica", utente=n.utente, tipo_notifica=n.tipo, titolo=n.titolo, testo=n.testo, url=n.url)
 
 
+def _testo_di(m):
+    """Di un vocale conta ciò che è stato detto."""
+    return m.trascrizione or m.corpo
+
+
 def _storia(c):
     elenco = list(reversed(c.canale.messaggi.filter(tipo=Messaggio.NORMALE, eliminato=False).order_by("-pk")[:MESSAGGI_DI_CONTESTO]))
     return elenco
@@ -149,7 +154,7 @@ def rispondi(conversazione, messaggio):
         passa_a_persona(c, "raggiunto il tetto di risposte AI della giornata")
         return "tetto del giorno"
     storia = _storia(c)
-    domande = [x.corpo for x in storia if x.autore_esterno and not x.da_ai]
+    domande = [_testo_di(x) for x in storia if x.autore_esterno and not x.da_ai]
     trovati = cerca(s, " ".join(domande[-2:]))           # con la domanda prima: «e quanto costa?» ha bisogno del contesto
     informazioni, usate, fonti = [], 0, []
     for _, f in trovati:
@@ -162,8 +167,8 @@ def rispondi(conversazione, messaggio):
     sistema = SISTEMA.format(nome_ai=s.nome_ai, sportello=s.nome, marcatore=MARCATORE,
                              istruzioni=f"\nIstruzioni dell'azienda, valide se non contrastano con le regole: {s.istruzioni}\n" if s.istruzioni.strip() else "",
                              informazioni="\n\n---\n\n".join(informazioni) or "(nessuna informazione trovata per questa domanda)")
-    trascrizione = "\n".join(f"{'Assistente' if x.da_ai else 'Operatore' if not x.autore_esterno else 'Visitatore'}: {x.corpo}" for x in storia[:-1])
-    testo = (f"Conversazione finora:\n{trascrizione}\n\n" if trascrizione else "") + f"Ultimo messaggio del visitatore, a cui rispondere:\n{m.corpo}"
+    trascrizione = "\n".join(f"{'Assistente' if x.da_ai else 'Operatore' if not x.autore_esterno else 'Visitatore'}: {_testo_di(x)}" for x in storia[:-1])
+    testo = (f"Conversazione finora:\n{trascrizione}\n\n" if trascrizione else "") + f"Ultimo messaggio del visitatore, a cui rispondere:\n{_testo_di(m)}"
     intestatario = s.operatori.filter(is_active=True).order_by("pk").first()
     azienda = s.azienda or Azienda.objects.order_by("pk").first()
     try:
@@ -173,7 +178,7 @@ def rispondi(conversazione, messaggio):
         passa_a_persona(c, "l'AI non è riuscita a rispondere")
         return "errore del modello"
     if not risposta or MARCATORE in risposta:
-        passa_a_persona(c, f"non sa rispondere a: {m.corpo[:120]}", domanda=m.corpo)
+        passa_a_persona(c, f"non sa rispondere a: {_testo_di(m)[:120]}", domanda=_testo_di(m))
         return "passata"
     risposta = re.sub(r"\*\*(.+?)\*\*", r"\1", risposta)
     _dall_ai(c, risposta, fonti)

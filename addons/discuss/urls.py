@@ -45,6 +45,7 @@ urlpatterns = [
     path("sandbox/<int:pk>/", sandbox.pagina, name="sandbox"),
     path("sandbox/<int:pk>/eventi/", sandbox.eventi_vista, name="sandbox_eventi"),
     path("sandbox/<int:pk>/azione/", sandbox.azione, name="sandbox_azione"),
+    path("sandbox/media/<str:id_media>/", sandbox.media_vista, name="sandbox_media"),
     path("lc/<str:chiave>/widget.js", livechat.widget, name="lc_widget"),
     path("lc/<str:chiave>/", livechat.finestra, name="lc_finestra"),
     path("lc/<str:chiave>/avvia/", livechat.avvia, name="lc_avvia"),

@@ -217,9 +217,6 @@ def test_errori_della_piattaforma(wa, op):
         connettori.consegna(m2.pk)
     Connessione.objects.filter(pk=wa.pk).update(sandbox_guasto="")
     assert connettori.consegna(m2.pk) == "inviato"
-    # un allegato non parte e lo si dice
-    vuoto = Messaggio.objects.create(canale=c.canale, autore=op, corpo="")
-    assert connettori.consegna(vuoto.pk) == "allegato"
 
 
 def test_con_l_ai_risponde_lei_si_dichiara_e_passa_a_una_persona(s, wa, modello, op, consegna_subito):
@@ -264,10 +261,10 @@ def test_contenuti_non_testuali_e_start(s, tg, wa, modello, consegna_subito):
     assert c.risposte_ai == 0 and "intelligenza artificiale" in SandboxEvento.objects.get(connessione=tg, verso="uscita").testo
     assert not c.canale.messaggi.filter(corpo="/start").exists()
     wa = Connessione.objects.get(pk=wa.pk)          # lo sportello è appena cambiato
-    corpo, intest = sandbox.messaggio_cliente(wa, "393331112222", "Mario", tipo="image")
+    corpo, intest = sandbox.messaggio_cliente(wa, "393331112222", "Mario", tipo="location")
     assert connettori.ricevi(wa, corpo, intest)[0] == 200
     cw = ConversazioneEsterna.objects.get(connessione=wa)
-    assert cw.canale.messaggi.filter(corpo__contains="«image»").exists()
+    assert cw.canale.messaggi.filter(corpo__contains="«location»").exists()
     assert any("solo i messaggi di testo" in t for t in SandboxEvento.objects.filter(connessione=wa, verso="uscita").values_list("testo", flat=True))
 
 

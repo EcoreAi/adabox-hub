@@ -18,6 +18,9 @@
       <div class="sb-bottoni">
         {% if c.tipo == "telegram" %}<button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-scrivi="/start">Apre il bot (/start)</button>{% endif %}
         <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-fa="foto">Manda una foto</button>
+        <label class="ui-btn ui-btn-secondary ui-btn-sm">Manda un file<input type="file" id="sb-file" hidden></label>
+        <label class="ui-btn ui-btn-secondary ui-btn-sm">Manda un vocale<input type="file" id="sb-vocale" accept="audio/*" hidden></label>
+        <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-fa="posizione">Manda la posizione</button>
         <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-scrivi="persona">Chiede una persona</button>
         <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-fa="ripeti">Messaggio ripetuto</button>
         <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-fa="firma">Firma falsa</button>

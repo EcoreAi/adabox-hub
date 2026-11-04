@@ -12,10 +12,13 @@ import hashlib
 import hmac
 import json
 import logging
+import mimetypes
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 import httpx2 as httpx
 from django.conf import settings
+from django.core.files.base import ContentFile
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
@@ -27,9 +30,9 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from core import lavori, parametri
+from core import allegati, lavori, parametri
 
-from . import assistente_sito, eventi, livechat
+from . import assistente_sito, eventi, ia, livechat
 from .models import Connessione, ConversazioneEsterna, EventoEsterno, Messaggio, Sportello
 
 log = logging.getLogger("discuss.connettori")
@@ -37,6 +40,12 @@ FINESTRA_WHATSAPP = datetime.timedelta(hours=24)
 MASSIMO_CORPO = 512_000
 MASSIMO_TESTO = 4096                    # lo stesso limite per entrambe le piattaforme
 CHIEDE_PERSONA = {"/persona", "/operatore", "persona", "operatore"}
+TIPI_MEDIA = {"image", "document", "audio", "video"}
+ETICHETTE_MEDIA = {"image": "Foto", "document": "Documento", "audio": "Audio", "voice": "Messaggio vocale", "video": "Video"}
+# il nome del file lo decide il mime dichiarato, non chi lo manda: un'immagine resta un'immagine
+ESTENSIONI = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif", "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a",
+              "audio/aac": "aac", "audio/amr": "amr", "audio/wav": "wav", "audio/x-wav": "wav", "audio/wave": "wav", "audio/webm": "webm", "audio/opus": "ogg", "video/mp4": "mp4", "application/pdf": "pdf"}
+HOST_MEDIA_META = ("fbsbx.com", "facebook.com", "whatsapp.net", "fbcdn.net")
 GIORNI_EVENTI = 7
 
 
@@ -53,8 +62,11 @@ class Entrata:
     id: str
     mittente: str
     nome: str
-    testo: str = ""
+    testo: str = ""                     # con un file, la didascalia
     tipo: str = "text"
+    media_id: str = ""
+    mime: str = ""
+    nome_file: str = ""
 
 
 @dataclass
@@ -86,8 +98,12 @@ class WhatsApp:
                     continue                       # un altro numero dello stesso account
                 nomi = {x.get("wa_id"): (x.get("profile") or {}).get("name", "") for x in valore.get("contacts") or []}
                 for m in valore.get("messages") or []:
-                    entrate.append(Entrata(id=str(m.get("id")), mittente=str(m.get("from")), nome=nomi.get(m.get("from"), ""),
-                                           tipo=m.get("type", ""), testo=(m.get("text") or {}).get("body", "") if m.get("type") == "text" else ""))
+                    tipo, media = m.get("type", ""), {}
+                    if tipo in TIPI_MEDIA and isinstance(m.get(tipo), dict):
+                        media = m[tipo]
+                    entrate.append(Entrata(id=str(m.get("id")), mittente=str(m.get("from")), nome=nomi.get(m.get("from"), ""), tipo=tipo,
+                                           testo=(m.get("text") or {}).get("body", "") if tipo == "text" else media.get("caption", ""),
+                                           media_id=str(media.get("id", "")), mime=media.get("mime_type", ""), nome_file=media.get("filename", "")))
                 for s in valore.get("statuses") or []:
                     errori = s.get("errors") or []
                     stati.append(Stato(id=str(s.get("id")), stato=s.get("status", ""),
@@ -125,8 +141,16 @@ class Telegram:
         if autore.get("is_bot"):
             return [], []
         nome = " ".join(x for x in (autore.get("first_name"), autore.get("last_name")) if x) or autore.get("username", "")
+        comune = {"id": str(dati.get("update_id")), "mittente": str(m["chat"]["id"]), "nome": nome}
+        if m.get("photo"):                         # più misure della stessa foto: l'ultima è la più grande
+            return [Entrata(**comune, testo=m.get("caption", ""), tipo="image", media_id=m["photo"][-1].get("file_id", ""), mime="image/jpeg")], []
+        for chiave, tipo in (("document", "document"), ("voice", "voice"), ("audio", "audio"), ("video", "video")):
+            f = m.get(chiave)
+            if isinstance(f, dict):
+                return [Entrata(**comune, testo=m.get("caption", ""), tipo=tipo, media_id=f.get("file_id", ""), mime=f.get("mime_type", ""),
+                                nome_file=f.get("file_name", ""))], []
         testo = m.get("text", "")
-        return [Entrata(id=str(dati.get("update_id")), mittente=str(m["chat"]["id"]), nome=nome, testo=testo, tipo="text" if testo else "altro")], []
+        return [Entrata(**comune, testo=testo, tipo="text" if testo else "altro")], []
 
     @staticmethod
     def richiesta(c, destinatario, testo):
@@ -186,8 +210,10 @@ def _ricevi_messaggio(c, e):
         livechat.servizi.invia(conv.canale, None, testo, esterno=conv.nome, silenzioso=True)
         assistente_sito.passa_a_persona(conv, "Il cliente ha chiesto di parlare con una persona")
         return True
+    if e.media_id:
+        return _ricevi_file(conv, e, testo)
     if not testo:
-        # niente file per ora: chi scrive deve saperlo, e chi risponde vede che è arrivato qualcosa
+        # posizioni, contatti, adesivi: chi scrive deve saperlo, e chi risponde vede che è arrivato qualcosa
         livechat.servizi.invia(conv.canale, None, f"(ha inviato un contenuto di tipo «{e.tipo}», che per ora non si può leggere)",
                                esterno=conv.nome, silenzioso=conv.gestita_da == ConversazioneEsterna.AI)
         if conv.gestita_da == ConversazioneEsterna.AI:
@@ -195,6 +221,117 @@ def _ricevi_messaggio(c, e):
         return True
     livechat._dal_visitatore(conv, testo[:livechat.MASSIMO_TESTO])
     return True
+
+
+def _ricevi_file(conv, e, didascalia):
+    """Il messaggio compare subito; il file si scarica in background, come chiedono le piattaforme (rispondere in fretta)."""
+    silenzioso = conv.gestita_da == ConversazioneEsterna.AI
+    m = livechat.servizi.invia(conv.canale, None, didascalia[:livechat.MASSIMO_TESTO] or f"📎 {ETICHETTE_MEDIA.get(e.tipo, 'File')}", esterno=conv.nome, silenzioso=silenzioso)
+    pk = m.pk
+    argomenti = {"messaggio": pk, "media_id": e.media_id, "mime": e.mime, "nome_file": e.nome_file, "tipo": e.tipo, "didascalia": bool(didascalia)}
+    transaction.on_commit(lambda: lavori.accoda("discuss.connettori.scarica_media", **argomenti))
+    return True
+
+
+def _nome_file(nome_file, mime, tipo, media_id):
+    mime = (mime or "").split(";")[0].strip().lower()
+    radice = (nome_file.rsplit(".", 1)[0] if nome_file else "")[:80] or ("messaggio-vocale" if tipo == "voice" else "file") + f"-{media_id[:10]}"
+    # audio, video e immagini: l'estensione la dice il tipo, anche per i formati fuori dall'elenco
+    conosciuta = (mimetypes.guess_extension(mime) or "").lstrip(".") if mime.startswith(("audio/", "video/", "image/")) else ""
+    estensione = ESTENSIONI.get(mime) or conosciuta or (nome_file.rsplit(".", 1)[-1] if "." in nome_file else "bin")
+    return f"{radice}.{estensione}"
+
+
+def _scarica_url(url, intestazioni):
+    """I byte del file, entro il limite degli allegati. Niente reindirizzamenti: il token non deve andare altrove."""
+    massimo = settings.ALLEGATI_MAX_MB * 1024 * 1024
+    with httpx.stream("GET", url, headers=intestazioni, timeout=60, trust_env=False, follow_redirects=False) as r:
+        if r.status_code != 200:
+            raise ErroreConsegna(f"Download non riuscito ({r.status_code})", temporaneo=r.status_code == 429 or r.status_code >= 500)
+        dati = bytearray()
+        for pezzo in r.iter_bytes():
+            dati += pezzo
+            if len(dati) > massimo:
+                raise ErroreConsegna(f"Il file supera {settings.ALLEGATI_MAX_MB} MB")
+    return bytes(dati)
+
+
+def _host_meta(url):
+    parti = urlsplit(url)
+    host = (parti.hostname or "").lower()
+    return parti.scheme == "https" and any(host == h or host.endswith("." + h) for h in HOST_MEDIA_META)
+
+
+def scarica(c, media_id):
+    """(byte, mime) di un file sulla piattaforma. Il token si manda solo agli host della piattaforma."""
+    if c.sandbox:
+        from . import sandbox
+        return sandbox.scarica(c, media_id)
+    try:
+        if c.tipo == Connessione.WHATSAPP:
+            versione = parametri.leggi("discuss.versione_graph") or "v24.0"
+            intestazioni = {"Authorization": f"Bearer {c.token()}"}
+            r = httpx.get(f"https://graph.facebook.com/{versione}/{media_id}", headers=intestazioni, timeout=15, trust_env=False)
+            info = r.json()
+            WhatsApp.risposta(r.status_code, {**info, "messages": [{}]})
+            if not _host_meta(info.get("url", "")):
+                raise ErroreConsegna("Indirizzo del file non riconosciuto")
+            return _scarica_url(info["url"], intestazioni), info.get("mime_type", "")
+        base = f"https://api.telegram.org/bot{c.token()}"
+        r = httpx.get(f"{base}/getFile", params={"file_id": media_id}, timeout=15, trust_env=False)
+        info = r.json()
+        Telegram.risposta(r.status_code, info)
+        percorso = (info.get("result") or {}).get("file_path", "")
+        if not percorso or ".." in percorso:
+            raise ErroreConsegna("Percorso del file non valido")
+        return _scarica_url(f"https://api.telegram.org/file/bot{c.token()}/{percorso}", {}), ""
+    except httpx.HTTPError as e:
+        raise ErroreConsegna(f"{TRADUTTORI[c.tipo].NOME} non raggiungibile", temporaneo=True) from e
+
+
+def scarica_media(messaggio, media_id, mime, nome_file, tipo, didascalia=False):
+    """Lavoro in background: salva il file e decide il seguito. L'AI non vede i file: legge la didascalia o il vocale
+    trascritto; altrimenti il file ha bisogno di una persona."""
+    m = Messaggio.objects.select_related("canale").filter(pk=messaggio).first()
+    conv = ConversazioneEsterna.objects.select_related("connessione", "sportello", "canale").filter(canale_id=m.canale_id).first() if m else None
+    if conv is None or conv.connessione is None:
+        return "niente"
+    try:
+        dati, mime_vero = scarica(conv.connessione, media_id)
+        file = ContentFile(dati, name=_nome_file(nome_file, mime or mime_vero, tipo, media_id))
+        allegati.salva(m, file, None)
+    except allegati.AllegatoNonValido as e:
+        return _file_rifiutato(conv, m, str(e))
+    except ErroreConsegna as e:
+        if e.temporaneo:
+            raise                                  # il lavoro riprova più tardi
+        return _file_rifiutato(conv, m, str(e))
+    eventi.emetti("agg", m.canale, m=m.pk)
+    if conv.gestita_da != ConversazioneEsterna.AI:
+        return "salvato"
+    if didascalia:
+        return assistente_sito.rispondi(conv.pk, m.pk)
+    if tipo in ("voice", "audio") and ia.trascrizione_attiva():
+        ia.trascrivi_messaggio(m.pk)
+        m.refresh_from_db()
+        if m.trascrizione_stato == "pronta" and m.trascrizione != ia.NESSUNA_PAROLA:
+            return assistente_sito.rispondi(conv.pk, m.pk)
+    assistente_sito.passa_a_persona(conv, f"ha inviato un file che l'AI non sa leggere ({ETICHETTE_MEDIA.get(tipo, 'file').lower()})")
+    return "passata"
+
+
+scarica_media.senza_transazione = True
+
+
+def _file_rifiutato(conv, m, motivo):
+    """Il cliente lo deve sapere, altrimenti crede che il file sia arrivato; l'operatore vede il motivo."""
+    livechat.servizi.avviso(conv.canale, None, f"Il file del cliente non è stato salvato: {motivo}")
+    testo = "Non sono riuscito a ricevere il tuo file: prova con un formato diverso o più leggero, oppure scrivici il contenuto."
+    if conv.gestita_da == ConversazioneEsterna.AI:
+        assistente_sito._dall_ai(conv, testo)
+    else:
+        lavori.accoda("discuss.connettori.manda_avviso", conversazione=conv.pk, testo=testo)
+    return "rifiutato"
 
 
 def _aggiorna_stato(c, s):
@@ -275,6 +412,69 @@ def _manda(c, url, intestazioni, dati):
         return r.status_code, {}
 
 
+def _manda_file_http(c, url, intestazioni, dati, file):
+    """`file`: (campo, nome, byte, mime). Anche qui, una connessione di prova non esce in rete."""
+    if c.sandbox:
+        from . import sandbox
+        return sandbox.api_file(c, url, dati, file)
+    campo, nome, contenuto, mime = file
+    try:
+        r = httpx.post(url, headers=intestazioni, data=dati, files={campo: (nome, contenuto, mime)}, timeout=120, trust_env=False)
+    except httpx.HTTPError as e:
+        raise ErroreConsegna(f"{TRADUTTORI[c.tipo].NOME} non raggiungibile", temporaneo=True) from e
+    try:
+        return r.status_code, r.json()
+    except ValueError:
+        return r.status_code, {}
+
+
+def _tipo_uscita_whatsapp(a):
+    if a.mime in ("image/jpeg", "image/png") and a.dimensione <= 5 * 1024 * 1024:
+        return "image"
+    if a.mime in ("audio/aac", "audio/mp4", "audio/mpeg", "audio/amr", "audio/ogg") and a.dimensione <= 16 * 1024 * 1024:
+        return "audio"
+    if a.mime == "video/mp4" and a.dimensione <= 16 * 1024 * 1024:
+        return "video"
+    return "document"                              # il resto, e ciò che supera i limiti di quei tipi, parte come documento
+
+
+def _invia_file_whatsapp(c, destinatario, a):
+    versione = parametri.leggi("discuss.versione_graph") or "v24.0"
+    intestazioni = {"Authorization": f"Bearer {c.token()}"}
+    with a.file.open("rb") as f:
+        contenuto = f.read()
+    stato, dati = _manda_file_http(c, f"https://graph.facebook.com/{versione}/{c.id_numero}/media", intestazioni,
+                                   {"messaging_product": "whatsapp", "type": a.mime}, ("file", a.nome, contenuto, a.mime))
+    WhatsApp.risposta(stato, {**dati, "messages": [{}]})
+    tipo = _tipo_uscita_whatsapp(a)
+    corpo = {"id": dati.get("id")}
+    if tipo == "document":
+        corpo["filename"] = a.nome
+    richiesta = {"messaging_product": "whatsapp", "recipient_type": "individual", "to": destinatario, "type": tipo, tipo: corpo}
+    url = f"https://graph.facebook.com/{versione}/{c.id_numero}/messages"
+    return WhatsApp.risposta(*_manda(c, url, intestazioni, richiesta))
+
+
+def _invia_file_telegram(c, destinatario, a):
+    if a.mime in ("image/jpeg", "image/png", "image/webp") and a.dimensione <= 10 * 1024 * 1024:
+        metodo, campo = "sendPhoto", "photo"
+    elif a.mime == "audio/ogg":
+        metodo, campo = "sendVoice", "voice"
+    elif a.mime in ("audio/mpeg", "audio/mp4"):
+        metodo, campo = "sendAudio", "audio"
+    elif a.mime == "video/mp4":
+        metodo, campo = "sendVideo", "video"
+    else:
+        metodo, campo = "sendDocument", "document"
+    with a.file.open("rb") as f:
+        contenuto = f.read()
+    return Telegram.risposta(*_manda_file_http(c, f"https://api.telegram.org/bot{c.token()}/{metodo}", {}, {"chat_id": destinatario}, (campo, a.nome, contenuto, a.mime)))
+
+
+def _invia_file(c, destinatario, a):
+    return (_invia_file_whatsapp if c.tipo == Connessione.WHATSAPP else _invia_file_telegram)(c, destinatario, a)
+
+
 def _pezzi(testo):
     return [testo[i:i + MASSIMO_TESTO] for i in range(0, len(testo), MASSIMO_TESTO)] or [""]
 
@@ -307,21 +507,28 @@ def consegna(messaggio):
     if conv is None or conv.connessione is None:
         return "niente"
     c = conv.connessione
-    if not m.corpo:
-        _esito(m, Messaggio.NON_RIUSCITO, "Gli allegati non si possono ancora inviare")
-        return "allegato"
     if conv.fuori_finestra:
         _esito(m, Messaggio.FUORI_FINESTRA, "Sono passate più di 24 ore dall'ultimo messaggio del cliente")
         return "fuori finestra"
+    # le parti già arrivate si segnano una per una: ritentando dopo un errore, il cliente non le riceve due volte
+    fatte, identificativo = list(m.parti_inviate), m.id_uscita
     try:
-        identificativo = _invia_testo(c, conv.id_esterno, m.corpo)
+        if m.corpo and "testo" not in fatte:
+            identificativo = _invia_testo(c, conv.id_esterno, m.corpo)
+            fatte.append("testo")
+            Messaggio.objects.filter(pk=m.pk).update(parti_inviate=fatte, id_uscita=identificativo[:128])
+        for a in allegati.di(m):
+            if f"a{a.pk}" not in fatte:
+                identificativo = _invia_file(c, conv.id_esterno, a)
+                fatte.append(f"a{a.pk}")
+                Messaggio.objects.filter(pk=m.pk).update(parti_inviate=fatte, id_uscita=identificativo[:128])
     except ErroreConsegna as e:
         _esito(m, Messaggio.NON_RIUSCITO, str(e))
         Connessione.objects.filter(pk=c.pk).update(ultimo_errore=str(e)[:300])
         if e.temporaneo:
             raise                                  # il lavoro riprova più tardi
         return "non riuscita"
-    Messaggio.objects.filter(pk=m.pk).update(consegna=Messaggio.INVIATO, consegna_errore="", id_uscita=identificativo[:128])
+    Messaggio.objects.filter(pk=m.pk).update(consegna=Messaggio.INVIATO, consegna_errore="")
     eventi.emetti("agg", m.canale, m=m.pk)
     return "inviato"
 

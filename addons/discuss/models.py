@@ -104,6 +104,7 @@ class Messaggio(models.Model):
     consegna = models.CharField("consegna al cliente", max_length=10, blank=True)
     consegna_errore = models.CharField("motivo", max_length=200, blank=True)
     id_uscita = models.CharField("id sulla piattaforma", max_length=128, blank=True, db_index=True)
+    parti_inviate = models.JSONField("parti già consegnate", default=list, blank=True, help_text="Per non rimandare nulla quando un invio si ritenta.")
     trascrizione = models.TextField("trascrizione del vocale", blank=True)
     trascrizione_stato = models.CharField("stato della trascrizione", max_length=10, blank=True)
 
@@ -416,6 +417,20 @@ class EventoEsterno(models.Model):
         constraints = [models.UniqueConstraint(fields=["connessione", "id_esterno"], name="discuss_evento_esterno_unico")]
 
 
+class SandboxMedia(models.Model):
+    """Un file passato dalla sandbox: fa le veci dei server di Meta e Telegram."""
+    connessione = models.ForeignKey(Connessione, on_delete=models.CASCADE, related_name="+")
+    id_media = models.CharField(max_length=64, unique=True)
+    nome = models.CharField(max_length=160)
+    mime = models.CharField(max_length=100)
+    dati = models.BinaryField()
+    creato = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "file della sandbox"
+        verbose_name_plural = "file della sandbox"
+
+
 class SandboxEvento(models.Model):
     """Ciò che è passato nella sandbox, così com'è passato."""
     ENTRATA, USCITA = "entrata", "uscita"
@@ -426,6 +441,7 @@ class SandboxEvento(models.Model):
     richiesta = models.JSONField(default=dict)
     risposta = models.JSONField(default=dict)
     codice = models.PositiveSmallIntegerField(default=200)
+    media = models.ForeignKey(SandboxMedia, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     creato = models.DateTimeField(auto_now_add=True)
 
     class Meta:

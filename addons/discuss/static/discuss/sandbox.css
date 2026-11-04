@@ -31,3 +31,5 @@
 .sb-voce pre { margin: 0; padding: 8px 10px; max-height: 240px; overflow: auto; font-size: 11.5px; border-top: 1px solid var(--ui-border); background: var(--ui-surface-2); }
 .sb-codice { flex: none; padding: 0 6px; border-radius: 6px; font-weight: 700; background: #dcfce7; color: #166534; }
 .sb-codice.is-errore { background: #fee2e2; color: #991b1b; }
+.sb-immagine { display: block; max-width: 100%; border-radius: 8px; margin-bottom: 4px; }
+.sb-audio { display: block; width: 230px; height: 36px; margin-bottom: 4px; }

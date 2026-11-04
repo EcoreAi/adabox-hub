@@ -7,24 +7,71 @@ import hashlib
 import hmac
 import json
 import secrets
+import struct
 import time
+import zlib
 
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.http import Http404, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from . import connettori
-from .models import Connessione, ConversazioneEsterna, Messaggio, SandboxEvento
+from .models import Connessione, ConversazioneEsterna, Messaggio, SandboxEvento, SandboxMedia
 
 GUASTI = {"": (0, {}), "token": (401, "Token non valido"), "limite": (429, "Troppe richieste"), "giu": (503, "Servizio non disponibile"),
           "bloccato": (403, "Il cliente ha bloccato il bot")}
 
 
 # --- ciò che fa la piattaforma quando le si manda un messaggio ---
+
+def _png_prova():
+    """Una vera immagine PNG, piccola, generata qui: niente file di esempio da distribuire."""
+    lato = 96
+    righe = b"".join(b"\x00" + b"".join(bytes((20 + x * 2, 110 + y, 220 - x)) for x in range(lato)) for y in range(lato))
+
+    def pezzo(tipo, dati):
+        return struct.pack(">I", len(dati)) + tipo + dati + struct.pack(">I", zlib.crc32(tipo + dati))
+    return b"\x89PNG\r\n\x1a\n" + pezzo(b"IHDR", struct.pack(">IIBBBBB", lato, lato, 8, 2, 0, 0, 0)) + pezzo(b"IDAT", zlib.compress(righe)) + pezzo(b"IEND", b"")
+
+
+def conserva(c, nome, mime, dati):
+    return SandboxMedia.objects.create(connessione=c, id_media=secrets.token_urlsafe(16), nome=nome[:160], mime=mime[:100], dati=dati)
+
+
+def scarica(c, media_id):
+    """Come i server della piattaforma: il file c'è, o l'errore che darebbero loro."""
+    codice, descrizione = GUASTI.get(c.sandbox_guasto, GUASTI[""])
+    if codice:
+        raise connettori.ErroreConsegna(descrizione, temporaneo=codice == 429 or codice >= 500)
+    f = SandboxMedia.objects.filter(connessione=c, id_media=media_id).first()
+    if f is None:
+        raise connettori.ErroreConsegna("File inesistente")
+    return bytes(f.dati), f.mime
+
+
+def api_file(c, url, dati, file):
+    """Il caricamento di un file: su WhatsApp dà un id, su Telegram è già l'invio."""
+    _, nome, contenuto, mime = file
+    codice, descrizione = GUASTI.get(c.sandbox_guasto, GUASTI[""])
+    if url.endswith("/media"):                     # WhatsApp: prima si carica, poi si manda il messaggio con l'id
+        if codice:
+            return _errore(c, codice, descrizione)
+        return 200, {"id": conserva(c, nome, mime, contenuto).id_media}
+    destinatario = str(dati.get("chat_id", ""))
+    media = None
+    if codice:
+        risposta = _errore(c, codice, descrizione)
+    else:
+        media = conserva(c, nome, mime, contenuto)
+        risposta = 200, {"ok": True, "result": {"message_id": secrets.randbelow(10**9), "chat": {"id": destinatario, "type": "private"}}}
+    SandboxEvento.objects.create(connessione=c, contatto=destinatario, verso=SandboxEvento.USCITA, testo=f"[{url.rsplit('/', 1)[-1]}] {nome}", richiesta={**dati, "file": nome, "mime": mime}, risposta=risposta[1], codice=risposta[0], media=media)
+    return risposta
+
 
 def _errore(c, codice, testo):
     if c.tipo == Connessione.WHATSAPP:
@@ -34,7 +81,12 @@ def _errore(c, codice, testo):
 
 def api(c, dati):
     """Risponde come l'API vera, nel suo formato, e registra ciò che è stato chiesto."""
-    if c.tipo == Connessione.WHATSAPP:
+    media = None
+    if c.tipo == Connessione.WHATSAPP and dati.get("type") in connettori.TIPI_MEDIA:
+        destinatario = dati.get("to", "")
+        media = SandboxMedia.objects.filter(connessione=c, id_media=(dati.get(dati["type"]) or {}).get("id", "")).first()
+        testo = f"[{dati['type']}] {media.nome}" if media else ""
+    elif c.tipo == Connessione.WHATSAPP:
         destinatario, testo = dati.get("to", ""), (dati.get("text") or {}).get("body", "")
     else:
         destinatario, testo = str(dati.get("chat_id", "")), dati.get("text", "")
@@ -49,7 +101,7 @@ def api(c, dati):
         risposta = 200, {"messaging_product": "whatsapp", "contacts": [{"input": destinatario, "wa_id": destinatario}], "messages": [{"id": f"wamid.{secrets.token_hex(12)}"}]}
     else:
         risposta = 200, {"ok": True, "result": {"message_id": secrets.randbelow(10**9), "chat": {"id": destinatario, "type": "private"}, "text": testo}}
-    SandboxEvento.objects.create(connessione=c, contatto=destinatario, verso=SandboxEvento.USCITA, testo=testo, richiesta=dati, risposta=risposta[1], codice=risposta[0])
+    SandboxEvento.objects.create(connessione=c, contatto=destinatario, verso=SandboxEvento.USCITA, testo=testo, richiesta=dati, risposta=risposta[1], codice=risposta[0], media=media)
     return risposta
 
 
@@ -64,23 +116,35 @@ def _corpo_whatsapp(c, valore):
         "messaging_product": "whatsapp", "metadata": {"display_phone_number": "390000000000", "phone_number_id": c.id_numero}, **valore}}]}]}).encode()
 
 
-def messaggio_cliente(c, contatto, nome, testo="", tipo="text"):
-    """(corpo, intestazioni): il messaggio come lo manderebbe la piattaforma."""
+def messaggio_cliente(c, contatto, nome, testo="", tipo="text", media=None):
+    """(corpo, intestazioni): il messaggio come lo manderebbe la piattaforma. `media`: un SandboxMedia già caricato."""
     ora = int(time.time())
     if c.tipo == Connessione.WHATSAPP:
         messaggio = {"from": contatto, "id": f"wamid.{secrets.token_hex(12)}", "timestamp": str(ora), "type": tipo}
         if tipo == "text":
             messaggio["text"] = {"body": testo}
-        else:
-            messaggio[tipo] = {"id": secrets.token_hex(8), "mime_type": "image/jpeg"}
+        elif media is not None:
+            voce = tipo == "voice"
+            messaggio["type"] = "audio" if voce else tipo
+            messaggio[messaggio["type"]] = {"id": media.id_media, "mime_type": media.mime, **({"voice": True} if voce else {}),
+                                            **({"caption": testo} if testo else {}), **({"filename": media.nome} if tipo == "document" else {})}
+        else:                                      # posizione, contatto: ciò che non è un file
+            messaggio[tipo] = {"latitude": 44.6, "longitude": 10.9}
         corpo = _corpo_whatsapp(c, {"contacts": [{"profile": {"name": nome}, "wa_id": contatto}], "messages": [messaggio]})
         return corpo, _firma_whatsapp(c, corpo)
     chat = int(contatto) if contatto.lstrip("-").isdigit() else contatto
     messaggio = {"message_id": secrets.randbelow(10**9), "from": {"id": chat, "is_bot": False, "first_name": nome}, "chat": {"id": chat, "type": "private", "first_name": nome}, "date": ora}
     if tipo == "text":
         messaggio["text"] = testo
+    elif media is None:
+        messaggio[tipo] = {"latitude": 44.6, "longitude": 10.9}
     else:
-        messaggio["photo"] = [{"file_id": secrets.token_hex(8), "width": 90, "height": 90}]
+        if testo:
+            messaggio["caption"] = testo
+        if tipo == "image":
+            messaggio["photo"] = [{"file_id": "piccola", "width": 90, "height": 90}, {"file_id": media.id_media, "width": 96, "height": 96}]
+        else:
+            messaggio[tipo] = {"file_id": media.id_media, "mime_type": media.mime, **({"file_name": media.nome} if tipo == "document" else {})}
     corpo = json.dumps({"update_id": secrets.randbelow(10**9), "message": messaggio}).encode()
     return corpo, {"X-Telegram-Bot-Api-Secret-Token": c.segreto()}
 
@@ -90,10 +154,10 @@ def stato_whatsapp(c, id_messaggio, stato, contatto):
     return corpo, _firma_whatsapp(c, corpo)
 
 
-def _arriva(c, contatto, corpo, intestazioni, testo, descrizione=""):
+def _arriva(c, contatto, corpo, intestazioni, testo, descrizione="", media=None):
     codice, esito = connettori.ricevi(c, corpo, intestazioni)
     return SandboxEvento.objects.create(connessione=c, contatto=contatto, verso=SandboxEvento.ENTRATA, testo=testo, richiesta=json.loads(corpo),
-                                        risposta={"esito": esito, "prova": descrizione}, codice=codice)
+                                        risposta={"esito": esito, "prova": descrizione}, codice=codice, media=media)
 
 
 # --- pagina ---
@@ -121,9 +185,10 @@ def pagina(request, pk):
 
 
 def _dati(c, contatto, dopo):
-    eventi_nuovi = list(SandboxEvento.objects.filter(connessione=c, pk__gt=dopo).order_by("pk")[:100])
+    eventi_nuovi = list(SandboxEvento.objects.filter(connessione=c, pk__gt=dopo).select_related("media").order_by("pk")[:100])
     conv = ConversazioneEsterna.objects.select_related("canale").filter(connessione=c, id_esterno=contatto, chiusa__isnull=True).first()
     return {"eventi": [{"id": e.pk, "verso": e.verso, "contatto": e.contatto, "testo": e.testo, "codice": e.codice, "richiesta": e.richiesta, "risposta": e.risposta,
+                        "media": {"url": reverse("discuss:sandbox_media", args=[e.media.id_media]), "nome": e.media.nome, "immagine": e.media.mime.startswith("image/"), "audio": e.media.mime.startswith("audio/")} if e.media else None,
                         "ora": timezone.localtime(e.creato).strftime("%H:%M:%S")} for e in eventi_nuovi],
             "conversazione": {"url": reverse("discuss:canale", args=[conv.canale_id]), "gestita_da": conv.gestita_da, "fuori_finestra": conv.fuori_finestra} if conv else None}
 
@@ -147,7 +212,19 @@ def azione(request, pk):
         if testo:
             _arriva(c, contatto, *messaggio_cliente(c, contatto, nome, testo), testo)
     elif fa == "foto":
-        _arriva(c, contatto, *messaggio_cliente(c, contatto, nome, tipo="image"), "[foto]")
+        media = conserva(c, "foto-di-prova.png", "image/png", _png_prova())
+        didascalia = request.POST.get("testo", "").strip()[:1000]
+        _arriva(c, contatto, *messaggio_cliente(c, contatto, nome, didascalia, "image", media), didascalia or "[foto]", media=media)
+    elif fa == "file":
+        f = request.FILES.get("file")
+        if f is not None and f.size <= settings.ALLEGATI_MAX_MB * 1024 * 1024:
+            mime = f.content_type or "application/octet-stream"
+            tipo = "voice" if request.POST.get("vocale") else "image" if mime in ("image/jpeg", "image/png", "image/webp") else "audio" if mime.startswith("audio/") else "video" if mime == "video/mp4" else "document"
+            media = conserva(c, f.name, mime, f.read())
+            didascalia = request.POST.get("testo", "").strip()[:1000]
+            _arriva(c, contatto, *messaggio_cliente(c, contatto, nome, didascalia, tipo, media), didascalia or f"[{tipo}] {f.name}", media=media)
+    elif fa == "posizione":
+        _arriva(c, contatto, *messaggio_cliente(c, contatto, nome, tipo="location"), "[posizione]")
     elif fa == "ripeti":
         # la piattaforma ripete un messaggio già consegnato: non deve contare due volte
         corpo, intestazioni = messaggio_cliente(c, contatto, nome, "Messaggio ripetuto dalla piattaforma")
@@ -175,3 +252,14 @@ def azione(request, pk):
         SandboxEvento.objects.filter(connessione=c).delete()
     dopo = request.POST.get("dopo", "0")
     return JsonResponse(_dati(c, contatto, int(dopo) if dopo.isdigit() else 0))
+
+
+@login_required
+def media_vista(request, id_media):
+    f = get_object_or_404(SandboxMedia, id_media=id_media)
+    _prova(request, f.connessione_id)
+    risposta = HttpResponse(bytes(f.dati), content_type=f.mime if f.mime.startswith(("image/png", "image/jpeg", "audio/")) else "application/octet-stream")
+    if not f.mime.startswith(("image/png", "image/jpeg", "audio/")):
+        risposta["Content-Disposition"] = "attachment"
+    risposta["X-Content-Type-Options"] = "nosniff"
+    return risposta

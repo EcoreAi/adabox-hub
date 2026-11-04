@@ -7,7 +7,7 @@
   function fumetto(e) {
     const f = document.createElement('div');
     const dalCliente = e.verso === 'entrata';
-    const nota = !e.testo || e.testo.startsWith('[');
+    const nota = (!e.testo || e.testo.startsWith('[')) && !e.media;
     let classe = dalCliente ? 'is-cliente' : '';
     if (e.codice >= 400) classe = 'is-rifiuto';
     else if (dalCliente && nota) classe = 'is-nota';
@@ -16,6 +16,9 @@
     if (e.codice >= 400) testo = dalCliente ? `Rifiutato (${e.codice}): ${e.risposta.esito}` : `Non consegnato (${e.codice}): ${testo.slice(0, 80)}`;
     f.textContent = testo;
     if (e.risposta && e.risposta.prova === 'ripetizione') f.textContent = `Ripetizione ignorata: ${e.risposta.esito}`;
+    if (e.media && e.codice < 400) {
+      if (e.media.immagine) { const i = document.createElement('img'); i.src = e.media.url; i.alt = e.media.nome; i.className = 'sb-immagine'; f.prepend(i); if (testo.startsWith('[')) f.childNodes[1].remove(); } else if (e.media.audio) { const a = document.createElement('audio'); a.controls = true; a.src = e.media.url; a.className = 'sb-audio'; f.prepend(a); if (testo.startsWith('[')) f.childNodes[1].remove(); } else { f.textContent = `📎 ${e.media.nome}`; }
+    }
     const ora = document.createElement('small'); ora.textContent = e.ora; f.appendChild(ora);
     $('sb-chat').appendChild(f); $('sb-chat').scrollTop = $('sb-chat').scrollHeight;
   }
@@ -62,6 +65,21 @@
     if (b.dataset.fa === 'azzera') { fa({ fa: 'azzera' }).then(() => { $('sb-chat').textContent = ''; $('sb-registro').textContent = ''; dopo = 0; }); return; }
     fa({ fa: b.dataset.fa, stato: b.dataset.stato || '' });
   });
+  async function mandaFile(input, vocale) {
+    const f = input.files[0];
+    if (!f) return;
+    const dati = new FormData();
+    dati.append('fa', 'file'); dati.append('file', f); dati.append('contatto', contatto()); dati.append('nome', $('sb-nome').value); dati.append('dopo', dopo);
+    if (vocale) dati.append('vocale', '1');
+    if ($('sb-testo').value.trim()) { dati.append('testo', $('sb-testo').value.trim()); $('sb-testo').value = ''; }
+    clearTimeout(timer);
+    const x = await fetch(r.dataset.azione, { method: 'POST', headers: { 'X-CSRFToken': csrf }, body: dati }).catch(() => null);
+    if (x && x.ok) applica(await x.json());
+    input.value = '';
+    timer = setTimeout(leggi, 800);
+  }
+  $('sb-file').addEventListener('change', (ev) => mandaFile(ev.target, false));
+  $('sb-vocale').addEventListener('change', (ev) => mandaFile(ev.target, true));
   $('sb-guasto').addEventListener('change', (ev) => fa({ fa: 'guasto', guasto: ev.target.value }));
   $('sb-contatto').addEventListener('change', () => { $('sb-chat').textContent = ''; dopo = 0; $('sb-registro').textContent = ''; leggi(); });
   leggi();
