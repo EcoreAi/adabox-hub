@@ -1,7 +1,7 @@
 {
     "name": "Discuss",
     "summary": "Chat di lavoro in tempo reale: canali, gruppi, reazioni, risposte, presenza, ricerca e posta unica",
-    "version": "1.5.0",
+    "version": "1.6.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -15,6 +15,7 @@
         {"label": "Posta in arrivo", "url_name": "discuss:posta", "permission": "discuss.view_canale"},
         {"label": "Canali", "url_name": "discuss:canali_lista", "permission": "discuss.change_canale"},
         {"label": "Livechat", "url_name": "discuss:sportelli_lista", "permission": "discuss.change_sportello"},
+        {"label": "Conoscenza del sito", "url_name": "discuss:conoscenza_lista", "permission": "discuss.change_voceconoscenza"},
     ],
     "groups": {
         "Discuss / Utente": ["discuss.view_canale", "discuss.add_canale", "discuss.view_messaggio",

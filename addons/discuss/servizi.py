@@ -162,7 +162,7 @@ def gruppo_da(canale, autore, nuovi, nome=""):
 # --- messaggi ---
 
 @transaction.atomic
-def invia(canale, autore, corpo, file=(), risposta_a=None, record=(), host=None, esterno=""):
+def invia(canale, autore, corpo, file=(), risposta_a=None, record=(), host=None, esterno="", silenzioso=False):
     """`record`: i record da mostrare come scheda, oltre a quelli citati con un link nel testo.
     `esterno`: il nome di un visitatore del sito. Il suo testo non è fidato: niente menzioni, schede né anteprime."""
     corpo = (corpo or "").strip()[:10000]
@@ -175,7 +175,8 @@ def invia(canale, autore, corpo, file=(), risposta_a=None, record=(), host=None,
         allegati.salva(messaggio, f, autore)
     Iscrizione.objects.filter(canale=canale, utente=autore).update(ultimo_letto=messaggio.pk)
     from . import notifiche
-    notifiche.da_messaggio(messaggio)
+    if not silenzioso:                             # mentre risponde l'AI gli operatori non vanno disturbati
+        notifiche.da_messaggio(messaggio)
     eventi.emetti("nuovo", canale, m=messaggio.pk, autore=autore.pk if autore else None,
                   menzionati=[] if esterno else [u.pk for u in testo.menzionati(corpo)])
     if risposta_a is not None:
@@ -185,6 +186,9 @@ def invia(canale, autore, corpo, file=(), risposta_a=None, record=(), host=None,
     from . import schede
     schede.collega(messaggio, [*record, *schede.riconosci(corpo, host)])
     if canale.livechat:
+        from .models import ConversazioneEsterna
+        # un collega che scrive subentra all'AI
+        ConversazioneEsterna.objects.filter(canale=canale, gestita_da=ConversazioneEsterna.AI).update(gestita_da=ConversazioneEsterna.PERSONA)
         transaction.on_commit(lambda: lavori.accoda("discuss.livechat.avvisa_visitatore", messaggio=messaggio.pk, ritardo=120))
     if testo.link_di(corpo):
         transaction.on_commit(lambda: lavori.accoda("discuss.anteprime.calcola", messaggio=messaggio.pk))
@@ -321,6 +325,7 @@ def prepara(elenco, utente, precedente=None):
         nuovo_giorno = precedente is None or timezone.localtime(precedente.creato).date() != giorno
         m.giorno = _etichetta_giorno(giorno) if nuovo_giorno else ""
         m.continua = (precedente is not None and not nuovo_giorno and precedente.autore_id == m.autore_id
+                      and precedente.autore_esterno == m.autore_esterno      # visitatore e AI non hanno un utente: sono due persone
                       and precedente.tipo == Messaggio.NORMALE and m.tipo == Messaggio.NORMALE and not m.risposta_a_id
                       and not precedente.eliminato
                       and m.creato - precedente.creato < datetime.timedelta(minutes=STESSO_GRUPPO_MINUTI))

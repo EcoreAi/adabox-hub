@@ -18,3 +18,4 @@ class DiscussConfig(AppConfig):
         from . import posta_canali
         from .models import Canale
         entrata.registra_destinatario(Canale, posta_canali.ricevi_risposta)
+        from . import assistente_sito  # noqa: F401  (indice della conoscenza del sito)

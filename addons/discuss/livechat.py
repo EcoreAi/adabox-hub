@@ -9,6 +9,7 @@ import json
 import secrets
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.mail import send_mail
@@ -24,8 +25,10 @@ from django.views.decorators.http import require_GET, require_POST
 
 from core.registry import modules
 
-from . import eventi, presenza, servizi
-from .models import Canale, ConversazioneEsterna, Iscrizione, Messaggio, Sportello
+from core import lavori
+
+from . import assistente_sito, eventi, presenza, servizi
+from .models import Canale, ConversazioneEsterna, DomandaSenzaRisposta, Iscrizione, Messaggio, Sportello, VoceConoscenza
 
 MASSIMO_TESTO = 2000
 CHAT_PER_ORA = 5                        # nuove conversazioni da uno stesso indirizzo
@@ -93,7 +96,8 @@ def widget(request, chiave):
 @xframe_options_exempt
 def finestra(request, chiave):
     s = _sportello(chiave)
-    risposta = render(request, "discuss/livechat.html", {"s": s, "online": _qualcuno_online(s), "pagina": request.GET.get("pagina", "")[:280]})
+    risposta = render(request, "discuss/livechat.html", {"s": s, "online": _qualcuno_online(s), "pagina": request.GET.get("pagina", "")[:280],
+                                                         "usa_ai": assistente_sito.usa_ai(s)})
     risposta["Content-Security-Policy"] = f"frame-ancestors {_antenati(s)}"
     return risposta
 
@@ -104,7 +108,8 @@ def avvia(request, chiave):
     s = _sportello(chiave)
     if request.POST.get("sito_web"):               # campo nascosto: lo compilano solo i programmi
         return JsonResponse({"errore": "Non è stato possibile inviare il messaggio."}, status=400)
-    nome = " ".join(request.POST.get("nome", "").split())[:80]
+    usa_ai = assistente_sito.usa_ai(s)
+    nome = " ".join(request.POST.get("nome", "").split())[:80] or ("Visitatore" if usa_ai else "")
     testo = request.POST.get("testo", "").strip()[:MASSIMO_TESTO]
     email = request.POST.get("email", "").strip()[:254]
     if not nome or not testo:
@@ -125,9 +130,19 @@ def avvia(request, chiave):
         Iscrizione.objects.filter(canale=canale, utente=u).update(notifiche=Iscrizione.TUTTO)
         eventi.emetti("barra", utente=u)
     c = ConversazioneEsterna.objects.create(sportello=s, canale=canale, token=secrets.token_urlsafe(32), nome=nome, email=email,
-                                            pagina=request.POST.get("pagina", "")[:300], impronta_ip=impronta)
-    servizi.invia(canale, None, testo, esterno=nome)
+                                            pagina=request.POST.get("pagina", "")[:300], impronta_ip=impronta,
+                                            gestita_da=ConversazioneEsterna.AI if usa_ai else ConversazioneEsterna.PERSONA)
+    _dal_visitatore(c, testo)
     return JsonResponse({"token": c.token})
+
+
+def _dal_visitatore(c, testo):
+    """Il messaggio del visitatore: va alle persone, o all'AI finché risponde lei."""
+    with_ai = c.gestita_da == ConversazioneEsterna.AI
+    m = servizi.invia(c.canale, None, testo, esterno=c.nome, silenzioso=with_ai)
+    if with_ai:
+        lavori.accoda("discuss.assistente_sito.rispondi", conversazione=c.pk, messaggio=m.pk, max_tentativi=1)
+    return m
 
 
 def _visitatore(request, chiave):
@@ -140,6 +155,8 @@ def _visitatore(request, chiave):
 
 def _per_visitatore(m):
     """Solo ciò che il visitatore deve vedere: niente avvisi interni, messaggi tolti o nomi utente."""
+    if m.da_ai:
+        return {"id": m.pk, "mio": False, "nome": m.autore_esterno, "testo": m.corpo, "ai": True}
     if m.autore_esterno:
         return {"id": m.pk, "mio": True, "nome": m.autore_esterno, "testo": m.corpo}
     nome = (m.autore.first_name or m.autore.username) if m.autore else "Operatore"
@@ -154,7 +171,11 @@ def messaggi(request, chiave):
     elenco = (c.canale.messaggi.filter(pk__gt=int(dopo) if dopo.isdigit() else 0, tipo=Messaggio.NORMALE, eliminato=False)
               .select_related("autore").order_by("pk")[:MESSAGGI_RESTITUITI])
     ConversazioneEsterna.objects.filter(pk=c.pk).update(ultimo_visto=timezone.now())
-    return JsonResponse({"messaggi": [_per_visitatore(m) for m in elenco], "chiusa": bool(c.chiusa), "online": _qualcuno_online(c.sportello)})
+    ultimo = c.canale.messaggi.filter(tipo=Messaggio.NORMALE, eliminato=False).order_by("-pk").first()
+    con_ai = c.gestita_da == ConversazioneEsterna.AI
+    return JsonResponse({"messaggi": [_per_visitatore(m) for m in elenco], "chiusa": bool(c.chiusa), "online": _qualcuno_online(c.sportello),
+                         "con_ai": con_ai, "ai_scrive": con_ai and ultimo is not None and bool(ultimo.autore_esterno) and not ultimo.da_ai,
+                         "chiedi_persona": con_ai and c.sportello.modalita == Sportello.AI})
 
 
 @csrf_exempt
@@ -169,8 +190,54 @@ def scrivi(request, chiave):
     limite = timezone.now() - datetime.timedelta(minutes=1)
     if c.canale.messaggi.filter(autore__isnull=True, autore_esterno__gt="", creato__gte=limite).count() >= MESSAGGI_AL_MINUTO:
         return JsonResponse({"errore": "Stai scrivendo troppo in fretta: aspetta un momento."}, status=429)
-    m = servizi.invia(c.canale, None, testo, esterno=c.nome)
+    m = _dal_visitatore(c, testo)
     return JsonResponse({"id": m.pk})
+
+
+@csrf_exempt
+@require_POST
+def persona(request, chiave):
+    """Il visitatore chiede una persona: l'AI si fa da parte."""
+    c = _visitatore(request, chiave)
+    if c.sportello.modalita == Sportello.AI and c.gestita_da == ConversazioneEsterna.AI and not c.chiusa:
+        assistente_sito.passa_a_persona(c, "Il visitatore ha chiesto di parlare con una persona")
+    return HttpResponse(status=204)
+
+
+def _gestore_sportello(request, pk):
+    if not request.user.has_perm("discuss.change_sportello"):
+        raise PermissionDenied
+    return get_object_or_404(Sportello, pk=pk)
+
+
+@login_required
+@require_POST
+def carica_conoscenza(request, pk):
+    """Documenti per l'AI del sito: se ne tiene il testo, che si può rileggere e correggere."""
+    s = _gestore_sportello(request, pk)
+    caricati, scartati = 0, []
+    for f in request.FILES.getlist("file"):
+        testo = assistente_sito.testo_del_file(f.name, f.read()).strip()
+        if not testo:
+            scartati.append(f.name)
+            continue
+        VoceConoscenza.objects.create(sportello=s, tipo=VoceConoscenza.DOCUMENTO, titolo=f.name[:200], testo=testo)
+        caricati += 1
+    if caricati:
+        messages.success(request, f"Documenti aggiunti alla conoscenza: {caricati}. Controlla il testo: l'AI può riferire tutto ai visitatori.")
+    if scartati:
+        messages.error(request, "Non sono riuscito a leggere: " + ", ".join(scartati))
+    return redirect("discuss:sportelli_dettaglio", pk=s.pk)
+
+
+@login_required
+@require_POST
+def domanda_risolta(request, pk):
+    d = get_object_or_404(DomandaSenzaRisposta, pk=pk)
+    _gestore_sportello(request, d.sportello_id)
+    d.risolta = True
+    d.save(update_fields=["risolta"])
+    return redirect("discuss:sportelli_dettaglio", pk=d.sportello_id)
 
 
 @login_required

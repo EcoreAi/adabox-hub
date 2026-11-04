@@ -52,9 +52,10 @@ def trascrizione_attiva():
         return False
 
 
-def genera(sistema, testo, utente, azienda=None):
-    """Un testo dal modello, conteggiato come ogni altro lavoro dell'assistente e soggetto al tetto di spesa."""
-    if not disponibile(utente):
+def genera(sistema, testo, utente, azienda=None, titolo="Comunicazioni", di_servizio=False):
+    """Un testo dal modello, conteggiato come ogni altro lavoro dell'assistente e soggetto al tetto di spesa.
+    `di_servizio`: lo chiede il sistema e non la persona (la chat sul sito), che fa solo da intestataria dei costi."""
+    if not disponibile(None if di_servizio else utente):
         raise NonDisponibile("L'assistente non è attivo.")
     from ai import catalogo, limiti
     from ai.gateway import ErroreModello, Inizio, Testo, Uso
@@ -63,8 +64,8 @@ def genera(sistema, testo, utente, azienda=None):
     from ai.protezione import Protezione
     try:
         limiti.verifica(azienda, utente)
-        conversazione = Conversazione.objects.filter(utente=utente, nascosta=True, titolo="Comunicazioni").first() or \
-            Conversazione.objects.create(utente=utente, nascosta=True, titolo="Comunicazioni")
+        conversazione = Conversazione.objects.filter(utente=utente, nascosta=True, titolo=titolo).first() or \
+            Conversazione.objects.create(utente=utente, nascosta=True, titolo=titolo)
         lavoro = Turno.objects.create(conversazione=conversazione, utente=utente, azienda=azienda, compito="riassunti")
         profilo = catalogo.profilo_per("riassunti", azienda)
         pezzi, modello = [], None

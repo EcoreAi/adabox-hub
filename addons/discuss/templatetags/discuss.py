@@ -52,6 +52,13 @@ def lega_record_creato(context):
     return ""
 
 
+@register.simple_tag
+def conoscenza_sportello(sportello):
+    from discuss import ia
+    return {"n_voci": sportello.conoscenza.filter(attiva=True).count(), "ai_attiva": ia.disponibile(),
+            "senza_risposta": list(sportello.senza_risposta.filter(risolta=False)[:30])}
+
+
 @register.filter
 def ct_id(obj):
     from core.generici import ct_di

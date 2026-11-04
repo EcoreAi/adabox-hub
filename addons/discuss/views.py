@@ -1,6 +1,6 @@
 from core.viste import ModelView, register
 
-from .models import Canale, Sportello
+from .models import Canale, Sportello, VoceConoscenza
 
 
 @register
@@ -26,5 +26,17 @@ class SportelloView(ModelView):
     list_display = ["nome", "attivo", "creato"]
     list_filter = ["attivo"]
     search_fields = ["nome"]
-    form_layout = [("Sportello", ["nome", "benvenuto", "assenza", "operatori", "domini", "privacy_url", "attivo"])]
+    form_layout = [("Sportello", ["nome", "benvenuto", "assenza", "operatori", "domini", "privacy_url", "attivo"]),
+                   ("Risposte con l'AI", ["modalita", "nome_ai", "istruzioni", ("risposte_per_chat", "risposte_al_giorno"), "azienda"])]
     readonly_fields = ["creato"]
+
+
+@register
+class VoceConoscenzaView(ModelView):
+    """Ciò che l'AI del sito può dire ai visitatori: domande frequenti e documenti approvati."""
+    model = VoceConoscenza
+    slug = "conoscenza"
+    list_display = ["titolo", "tipo", "sportello", "attiva", "n_frammenti", "aggiornata"]
+    list_filter = ["sportello", "tipo", "attiva"]
+    search_fields = ["titolo", "testo"]
+    form_layout = [("Voce", ["sportello", "tipo", "titolo", "testo", "attiva"])]

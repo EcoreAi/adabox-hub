@@ -3,14 +3,14 @@
   const r = document.getElementById('lc'), d = r.dataset;
   const $ = (id) => document.getElementById(id);
   const chiave = `ds-lc-${d.chiave}`;
-  let token = null, ultimo = 0, timer = null;
+  let token = null, ultimo = 0, timer = null, attesaBreve = false;
   try { token = localStorage.getItem(chiave); } catch (e) { /* senza memoria: vale per questa visita */ }
   const errore = (t) => { $('lc-errore').textContent = t || ''; $('lc-errore').hidden = !t; };
   function aggiungi(m) {
     const el = document.createElement('div'); el.className = 'lc-msg' + (m.mio ? ' is-mio' : '');
     if (!m.mio) { const n = document.createElement('small'); n.textContent = m.nome; el.appendChild(n); }
     const t = document.createElement('span'); t.textContent = m.testo; el.appendChild(t);
-    const elenco = $('lc-elenco'); elenco.appendChild(el); elenco.scrollTop = elenco.scrollHeight;
+    const elenco = $('lc-elenco'); elenco.insertBefore(el, $('lc-digita')); elenco.scrollTop = elenco.scrollHeight;
   }
   function chiusa() {
     if ($('lc-scrivi').hidden && !token) return;
@@ -30,11 +30,16 @@
       if (x.ok) {
         const dati = await x.json();
         dati.messaggi.forEach((m) => { aggiungi(m); ultimo = Math.max(ultimo, m.id); });
-        $('lc-stato').textContent = dati.online ? 'Online' : "Ora non c'è nessuno online: ti rispondiamo appena possibile";
+        $('lc-stato').textContent = dati.con_ai ? d.nomeAi : dati.online ? 'Online' : "Ora non c'è nessuno online: ti rispondiamo appena possibile";
+        $('lc-digita').hidden = !dati.ai_scrive;
+        $('lc-persona').hidden = !dati.chiedi_persona;
+        if ($('lc-trasparenza') && !dati.con_ai) $('lc-trasparenza').hidden = true;
+        if (dati.ai_scrive) { const e = $('lc-elenco'); e.scrollTop = e.scrollHeight; }
+        attesaBreve = dati.ai_scrive;
         if (dati.chiusa) { chiusa(); return; }
       }
     } catch (e) { /* senza rete si riprova */ }
-    timer = setTimeout(leggi, document.hidden ? 15000 : 3000);
+    timer = setTimeout(leggi, attesaBreve ? 1200 : document.hidden ? 15000 : 3000);
   }
   function inConversazione() { $('lc-inizio').hidden = true; $('lc-scrivi').hidden = false; leggi(); }
   $('lc-inizio').addEventListener('submit', async (ev) => {
@@ -49,6 +54,11 @@
       try { localStorage.setItem(chiave, token); } catch (e) { /* vale per questa visita */ }
       inConversazione();
     } catch (e) { errore('Connessione assente: riprova.'); b.disabled = false; }
+  });
+  $('lc-persona').addEventListener('click', async () => {
+    $('lc-persona').hidden = true;
+    await fetch(d.persona, { method: 'POST', headers: { 'X-Token': token } }).catch(() => {});
+    clearTimeout(timer); leggi();
   });
   const scrivi = $('lc-scrivi'), area = scrivi.querySelector('textarea');
   async function manda() {

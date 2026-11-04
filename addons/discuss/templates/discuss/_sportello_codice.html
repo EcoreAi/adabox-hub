@@ -2,4 +2,13 @@
   <div class="ui-card-body"><input class="ui-input" readonly aria-label="Codice da incollare" onclick="this.select()" value='&lt;script src="{{ request.scheme }}://{{ request.get_host }}{% url 'discuss:lc_widget' obj.chiave %}" async&gt;&lt;/script&gt;'>
     {% if not obj.domini.strip %}<p class="ui-help" role="alert">Non hai indicato nessun sito ammesso: la finestra non si aprirà su nessun sito finché non ne aggiungi uno.</p>{% endif %}
     {% if not request.is_secure %}<p class="ui-help">Questo indirizzo non è in HTTPS: un sito in HTTPS non caricherà la chat finché anche il gestionale non lo è.</p>{% endif %}
+    <p><a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'discuss:lc_finestra' obj.chiave %}" target="_blank" rel="noopener">Prova la chat</a></p>
   </div></section>
+{% load discuss %}{% conoscenza_sportello obj as cs %}{% if obj.modalita != "persone" %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div><div class="ui-card-title">Conoscenza dell'AI</div><div class="ui-card-sub">{{ cs.n_voci }} voci attive: l'AI risponde solo da qui, non vede i dati interni del gestionale. Tutto ciò che c'è scritto può finire in una risposta.</div></div></div>
+  <div class="ui-card-body">
+    <form method="post" enctype="multipart/form-data" action="{% url 'discuss:lc_carica' obj.pk %}">{% csrf_token %}<input type="file" name="file" multiple accept=".pdf,.docx,.txt,.md" aria-label="Documenti da aggiungere" required> <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Aggiungi documenti</button> <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'discuss:conoscenza_lista' %}?f_sportello={{ obj.pk }}">Vedi e correggi le voci</a></form>
+    {% if not cs.ai_attiva %}<p class="ui-help" role="alert">L'assistente non è attivo: finché non lo è, rispondono gli operatori.</p>{% endif %}
+    <h3 class="ds-h3" style="margin-top:16px">Domande senza risposta ({{ cs.senza_risposta|length }})</h3>
+    {% for q in cs.senza_risposta %}<div style="display:flex;gap:8px;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px solid var(--ui-border)"><span>{{ q.testo|truncatechars:160 }} <small class="ui-help">{{ q.creata|date:"d/m H:i" }}</small></span><span style="display:flex;gap:4px;flex:none"><a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'discuss:conoscenza_nuovo' %}?sportello={{ obj.pk }}&titolo={{ q.testo|truncatechars:190|urlencode }}">Aggiungi la risposta</a><form method="post" action="{% url 'discuss:lc_domanda_risolta' q.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit">Fatto</button></form></span></div>
+    {% empty %}<p class="ui-help">Nessuna: l'AI finora ha trovato tutto.</p>{% endfor %}
+  </div></section>{% endif %}
