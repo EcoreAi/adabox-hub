@@ -189,7 +189,11 @@ def invia(canale, autore, corpo, file=(), risposta_a=None, record=(), host=None,
         from .models import ConversazioneEsterna
         # un collega che scrive subentra all'AI
         ConversazioneEsterna.objects.filter(canale=canale, gestita_da=ConversazioneEsterna.AI).update(gestita_da=ConversazioneEsterna.PERSONA)
-        transaction.on_commit(lambda: lavori.accoda("discuss.livechat.avvisa_visitatore", messaggio=messaggio.pk, ritardo=120))
+        if ConversazioneEsterna.objects.filter(canale=canale, connessione__isnull=False).exists():
+            from . import connettori
+            connettori.accoda(messaggio)
+        else:
+            transaction.on_commit(lambda: lavori.accoda("discuss.livechat.avvisa_visitatore", messaggio=messaggio.pk, ritardo=120))
     if testo.link_di(corpo):
         transaction.on_commit(lambda: lavori.accoda("discuss.anteprime.calcola", messaggio=messaggio.pk))
     if canale.lista_email:

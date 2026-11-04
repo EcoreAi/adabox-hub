@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
 from discuss import assistente_sito
-from discuss.models import Canale, ConversazioneEsterna, Notifica, Sportello, VoceConoscenza
+from discuss.models import Canale, Connessione, ConversazioneEsterna, Notifica, Sportello, VoceConoscenza
 
 NOME = "Acme Gestionali (prova)"
 CARTELLA = Path(__file__).resolve().parents[2] / "demo_sito"
@@ -47,4 +47,7 @@ class Command(BaseCommand):
             voci.append(VoceConoscenza.objects.create(sportello=s, tipo=VoceConoscenza.DOCUMENTO, titolo=titolo, testo=testo))
         for v in voci:                             # subito, senza aspettare il lavoratore
             assistente_sito.indicizza(v.pk)
+        wa = Connessione.objects.create(tipo=Connessione.WHATSAPP, nome="WhatsApp di prova", sportello=s, sandbox=True, id_numero="100000000000000")
+        tg = Connessione.objects.create(tipo=Connessione.TELEGRAM, nome="Telegram di prova", sportello=s, sandbox=True)
         self.stdout.write(f"Sportello pronto: {s.pk} · {len(voci)} voci · /discuss/lc/{s.chiave}/")
+        self.stdout.write(f"Sandbox: /discuss/sandbox/{wa.pk}/ · /discuss/sandbox/{tg.pk}/")

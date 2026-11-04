@@ -1,7 +1,7 @@
 {
     "name": "Discuss",
     "summary": "Chat di lavoro in tempo reale: canali, gruppi, reazioni, risposte, presenza, ricerca e posta unica",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -15,6 +15,7 @@
         {"label": "Posta in arrivo", "url_name": "discuss:posta", "permission": "discuss.view_canale"},
         {"label": "Canali", "url_name": "discuss:canali_lista", "permission": "discuss.change_canale"},
         {"label": "Livechat", "url_name": "discuss:sportelli_lista", "permission": "discuss.change_sportello"},
+        {"label": "WhatsApp e Telegram", "url_name": "discuss:connessioni_lista", "permission": "discuss.change_connessione"},
         {"label": "Conoscenza del sito", "url_name": "discuss:conoscenza_lista", "permission": "discuss.change_voceconoscenza"},
     ],
     "groups": {
@@ -33,11 +34,14 @@
          "help": "Lo static-auth-secret di coturn: da qui nascono credenziali che durano poche ore"},
         {"chiave": "max_partecipanti", "label": "Persone al massimo in una chiamata", "tipo": "intero", "default": 8,
          "help": "I media vanno da persona a persona: oltre le 8 i computer faticano"},
+        {"chiave": "versione_graph", "label": "Versione delle API di WhatsApp", "tipo": "testo", "default": "v24.0",
+         "help": "La versione di graph.facebook.com: Meta le ritira periodicamente, controlla quella in corso prima di collegare un numero vero"},
         {"chiave": "url_trascrizione", "label": "Servizio di trascrizione dell'audio", "tipo": "testo", "default": "",
          "help": "es. http://speaches:8000 (compatibile con /v1/audio/transcriptions). Vuoto = niente trascrizioni"},
         {"chiave": "modello_trascrizione", "label": "Modello di trascrizione", "tipo": "testo", "default": "Systran/faster-whisper-small"},
     ],
     "cron": [{"nome": "Email dei messaggi non letti", "funzione": "discuss.notifiche.invia_email", "ogni": "10m"},
              {"nome": "Pulizia degli eventi in tempo reale", "funzione": "discuss.eventi.pulisci", "ogni": "6h"},
-             {"nome": "Chiusura delle chiamate abbandonate", "funzione": "discuss.chiamate.pulisci", "ogni": "15m"}],
+             {"nome": "Chiusura delle chiamate abbandonate", "funzione": "discuss.chiamate.pulisci", "ogni": "15m"},
+             {"nome": "Pulizia dei messaggi già visti da WhatsApp e Telegram", "funzione": "discuss.connettori.pulisci", "ogni": "1d"}],
 }

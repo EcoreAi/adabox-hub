@@ -123,17 +123,26 @@ def avvia(request, chiave):
     limite = timezone.now() - datetime.timedelta(hours=1)
     if ConversazioneEsterna.objects.filter(impronta_ip=impronta, creata__gte=limite).count() >= CHAT_PER_ORA:
         return JsonResponse({"errore": "Troppe conversazioni aperte: riprova più tardi."}, status=429)
-    canale = Canale.objects.create(nome=f"{nome} · {s.nome}"[:80], tipo=Canale.PRIVATO, livechat=True, descrizione=f"Chat dal sito: {s.nome}"[:250])
-    for u in s.operatori.filter(is_active=True):
-        servizi.iscrivi(canale, u, 0, ruolo=Iscrizione.MODERATORE)
-        # chi segue una chat dal sito vuole sapere di ogni messaggio
-        Iscrizione.objects.filter(canale=canale, utente=u).update(notifiche=Iscrizione.TUTTO)
-        eventi.emetti("barra", utente=u)
-    c = ConversazioneEsterna.objects.create(sportello=s, canale=canale, token=secrets.token_urlsafe(32), nome=nome, email=email,
-                                            pagina=request.POST.get("pagina", "")[:300], impronta_ip=impronta,
-                                            gestita_da=ConversazioneEsterna.AI if usa_ai else ConversazioneEsterna.PERSONA)
+    c = crea_conversazione(s, nome, origine="sito", email=email, pagina=request.POST.get("pagina", "")[:300], impronta_ip=impronta, usa_ai=usa_ai)
     _dal_visitatore(c, testo)
     return JsonResponse({"token": c.token})
+
+
+ETICHETTE_ORIGINE = {"sito": "dal sito", "whatsapp": "WhatsApp", "telegram": "Telegram"}
+
+
+def crea_conversazione(s, nome, origine, usa_ai, impronta_ip="", email="", pagina="", connessione=None, id_esterno=""):
+    """Un cliente nuovo, da qualsiasi parte arrivi: un canale privato con gli operatori dello sportello."""
+    canale = Canale.objects.create(nome=f"{nome} · {s.nome}"[:80], tipo=Canale.PRIVATO, livechat=True, origine=origine,
+                                   descrizione=f"Chat {ETICHETTE_ORIGINE.get(origine, origine)}: {s.nome}"[:250])
+    for u in s.operatori.filter(is_active=True):
+        servizi.iscrivi(canale, u, 0, ruolo=Iscrizione.MODERATORE)
+        # chi segue una chat con un cliente vuole sapere di ogni messaggio
+        Iscrizione.objects.filter(canale=canale, utente=u).update(notifiche=Iscrizione.TUTTO)
+        eventi.emetti("barra", utente=u)
+    return ConversazioneEsterna.objects.create(sportello=s, canale=canale, token=secrets.token_urlsafe(32), nome=nome, email=email, pagina=pagina,
+                                               impronta_ip=impronta_ip, connessione=connessione, id_esterno=id_esterno,
+                                               gestita_da=ConversazioneEsterna.AI if usa_ai else ConversazioneEsterna.PERSONA)
 
 
 def _dal_visitatore(c, testo):
@@ -248,6 +257,10 @@ def chiudi(request, pk):
     canale = get_object_or_404(Canale, pk=pk, livechat=True)
     if servizi.iscrizione(request.user, canale) is None:
         raise Http404
+    aperta = ConversazioneEsterna.objects.select_related("connessione").filter(canale=canale, chiusa__isnull=True).first()
+    if aperta is not None:
+        from . import connettori
+        connettori.saluto_di_chiusura(aperta)
     ConversazioneEsterna.objects.filter(canale=canale, chiusa__isnull=True).update(chiusa=timezone.now())
     canale.archiviato = True
     canale.save(update_fields=["archiviato"])

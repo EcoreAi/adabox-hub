@@ -1,0 +1,36 @@
+{% extends 'core/base_app.html' %}
+{% load tema %}
+{% block title %}Sandbox {{ c.get_tipo_display }} · Comunicazioni · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<link rel="stylesheet" href="{% statico 'discuss/discuss.css' %}"><link rel="stylesheet" href="{% statico 'discuss/sandbox.css' %}">
+<div class="ui-pagehead"><div><h1>Sandbox {{ c.get_tipo_display }}</h1><div class="sub">{{ c.nome }} · sportello «{{ c.sportello.nome }}» · niente esce in rete: sono simulati il cliente e le API, il resto è il codice vero</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'discuss:connessioni_dettaglio' c.pk %}">Torna alla connessione</a><a class="ui-btn ui-btn-secondary" id="sb-apri" href="{% url 'discuss:home' %}" target="_blank" rel="noopener">Apri lato operatore</a></div></div>
+<div class="sb" id="sb" data-tipo="{{ c.tipo }}" data-azione="{% url 'discuss:sandbox_azione' c.pk %}" data-eventi="{% url 'discuss:sandbox_eventi' c.pk %}">{% csrf_token %}
+  <section class="sb-telefono sb-{{ c.tipo }}" aria-label="Telefono del cliente">
+    <header class="sb-testa"><strong>{{ c.sportello.nome }}</strong><small id="sb-stato">{{ c.get_tipo_display }}</small></header>
+    <div class="sb-chat" id="sb-chat" aria-live="polite"></div>
+    <form class="sb-scrivi" id="sb-scrivi"><input id="sb-testo" placeholder="Scrivi come il cliente…" aria-label="Messaggio del cliente" autocomplete="off"><button type="submit" aria-label="Invia">➤</button></form>
+  </section>
+  <section class="ui-card is-revealed sb-comandi">
+    <div class="ui-card-body">
+      <div class="sb-riga"><label class="ui-label">Cliente<input class="ui-input" id="sb-nome" value="Mario Rossi"></label><label class="ui-label">{% if c.tipo == "whatsapp" %}Numero{% else %}Chat id{% endif %}<input class="ui-input" id="sb-contatto" value="{{ contatto }}" inputmode="numeric"></label></div>
+      <h3 class="ds-h3">Cosa può succedere</h3>
+      <div class="sb-bottoni">
+        {% if c.tipo == "telegram" %}<button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-scrivi="/start">Apre il bot (/start)</button>{% endif %}
+        <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-fa="foto">Manda una foto</button>
+        <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-scrivi="persona">Chiede una persona</button>
+        <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-fa="ripeti">Messaggio ripetuto</button>
+        <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-fa="firma">Firma falsa</button>
+        {% if c.tipo == "whatsapp" %}<button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-fa="stato" data-stato="delivered">Consegnato</button><button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-fa="stato" data-stato="read">Letto</button>
+        <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-fa="tempo">Passano 25 ore</button>{% endif %}
+      </div>
+      <label class="ui-label">Guasto delle API<select class="ui-input" id="sb-guasto">{% for v, e in guasti %}<option value="{{ v }}"{% if v == c.sandbox_guasto %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
+      <p class="sb-stato-conv ui-help" id="sb-conv"></p>
+      <button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-fa="azzera">Azzera le prove</button>
+      <h3 class="ds-h3">Registro tecnico</h3>
+      <div class="sb-registro" id="sb-registro" tabindex="0"><p class="ui-help">Qui compare ogni richiesta, esattamente come passa.</p></div>
+    </div>
+  </section>
+</div>
+<script src="{% statico 'discuss/sandbox.js' %}" defer></script>
+{% endblock %}

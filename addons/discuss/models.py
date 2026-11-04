@@ -1,7 +1,11 @@
+import datetime
 import secrets
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
+
+from core import cifratura
 
 
 class Canale(models.Model):
@@ -21,7 +25,8 @@ class Canale(models.Model):
                                   help_text="Scrivono solo amministratori, moderatori e contributori; gli altri leggono.")
     lista_email = models.BooleanField("lista email", default=False,
                                       help_text="I messaggi arrivano per email agli iscritti, che rispondono dalla propria casella.")
-    livechat = models.BooleanField("chat dal sito", default=False, editable=False)
+    livechat = models.BooleanField("chat con un cliente esterno", default=False, editable=False)
+    origine = models.CharField("da dove arriva", max_length=10, blank=True, editable=False, help_text="sito, whatsapp o telegram")
     vocale = models.BooleanField("canale vocale", default=False, help_text="Una stanza sempre aperta: si entra e si parla, senza squilli.")
     record_ct = models.ForeignKey("contenttypes.ContentType", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
                                   verbose_name="tipo del record", help_text="Se il canale è la conversazione su un record.")
@@ -38,6 +43,9 @@ class Canale(models.Model):
     @property
     def diretto(self):
         return self.tipo == self.DIRETTO
+
+    def get_origine_display_breve(self):
+        return {"whatsapp": "WhatsApp", "telegram": "Telegram"}.get(self.origine, "")
 
     def titolo_per(self, utente):
         """Il nome mostrato: per i messaggi diretti, gli altri partecipanti (o il nome del gruppo, se ne ha uno)."""
@@ -91,6 +99,11 @@ class Messaggio(models.Model):
     autore_esterno = models.CharField("scritto da (visitatore del sito)", max_length=80, blank=True)
     da_ai = models.BooleanField("scritto dall'assistente del sito", default=False)
     fonti = models.JSONField("fonti usate dall'assistente", default=list, blank=True)
+    IN_CODA, INVIATO, CONSEGNATO, LETTO, NON_RIUSCITO, FUORI_FINESTRA = "in_coda", "inviato", "consegnato", "letto", "errore", "finestra"
+    STATI_CONSEGNA = {IN_CODA: "Invio in corso", INVIATO: "Inviato", CONSEGNATO: "Consegnato", LETTO: "Letto", NON_RIUSCITO: "Non consegnato", FUORI_FINESTRA: "Non inviato"}
+    consegna = models.CharField("consegna al cliente", max_length=10, blank=True)
+    consegna_errore = models.CharField("motivo", max_length=200, blank=True)
+    id_uscita = models.CharField("id sulla piattaforma", max_length=128, blank=True, db_index=True)
     trascrizione = models.TextField("trascrizione del vocale", blank=True)
     trascrizione_stato = models.CharField("stato della trascrizione", max_length=10, blank=True)
 
@@ -102,6 +115,10 @@ class Messaggio(models.Model):
 
     def __str__(self):
         return f"{self.autore}: {self.corpo[:40]}"
+
+    @property
+    def consegna_testo(self):
+        return self.STATI_CONSEGNA.get(self.consegna, "")
 
     @property
     def nome_mittente(self):
@@ -327,15 +344,94 @@ class ConversazioneEsterna(models.Model):
     PERSONA, AI = "persona", "ai"
     gestita_da = models.CharField("chi sta rispondendo", max_length=10, default=PERSONA)
     risposte_ai = models.PositiveIntegerField("risposte dell'AI", default=0)
+    connessione = models.ForeignKey("Connessione", on_delete=models.CASCADE, null=True, blank=True, related_name="conversazioni")
+    id_esterno = models.CharField("numero o chat", max_length=64, blank=True, db_index=True)
+    ultimo_in_arrivo = models.DateTimeField("ultimo messaggio del cliente", null=True, blank=True)
     impronta_ip = models.CharField("impronta dell'indirizzo", max_length=64, db_index=True, help_text="Solo per fermare gli abusi: l'indirizzo non si conserva.")
     ultimo_visto = models.DateTimeField("ultima visita", auto_now_add=True)
     creata = models.DateTimeField("creata il", auto_now_add=True, db_index=True)
     chiusa = models.DateTimeField("chiusa il", null=True, blank=True)
 
+    @property
+    def fuori_finestra(self):
+        """WhatsApp: oltre le 24 ore dall'ultimo messaggio del cliente si possono mandare solo modelli approvati."""
+        if self.connessione is None or self.connessione.tipo != Connessione.WHATSAPP or self.ultimo_in_arrivo is None:
+            return False
+        return timezone.now() - self.ultimo_in_arrivo > datetime.timedelta(hours=24)
+
     class Meta:
         verbose_name = "conversazione dal sito"
         verbose_name_plural = "conversazioni dal sito"
         ordering = ["-pk"]
+
+
+class Connessione(models.Model):
+    """Un numero WhatsApp o un bot Telegram che porta i clienti in uno sportello."""
+    WHATSAPP, TELEGRAM = "whatsapp", "telegram"
+    tipo = models.CharField("tipo", max_length=10, choices=[(WHATSAPP, "WhatsApp"), (TELEGRAM, "Telegram")])
+    nome = models.CharField("nome", max_length=80, help_text="Per riconoscerla, es. «Numero assistenza».")
+    sportello = models.ForeignKey(Sportello, on_delete=models.CASCADE, related_name="connessioni", verbose_name="sportello",
+                                  help_text="Decide chi risponde: operatori, AI e conoscenza.")
+    sandbox = models.BooleanField("connessione di prova", default=True, help_text="Non esce nulla in rete: si prova tutto dalla sandbox.")
+    attiva = models.BooleanField("attiva", default=True)
+    id_numero = models.CharField("ID del numero WhatsApp", max_length=64, blank=True, help_text="Il «Phone number ID» di Meta. Non serve per Telegram.")
+    token_cifrato = models.TextField(blank=True, editable=False)
+    segreto_cifrato = models.TextField(blank=True, editable=False)
+    verifica = models.CharField("token di verifica", max_length=64, default=_nuova_chiave, editable=False)
+    chiave = models.CharField("chiave dell'indirizzo", max_length=40, unique=True, default=_nuova_chiave, editable=False)
+    sandbox_guasto = models.CharField(max_length=10, blank=True, editable=False)
+    ultimo_evento = models.DateTimeField("ultimo messaggio ricevuto", null=True, blank=True, editable=False)
+    ultimo_errore = models.CharField("ultimo errore", max_length=300, blank=True, editable=False)
+    creata = models.DateTimeField("creata il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "connessione"
+        verbose_name_plural = "connessioni"
+        ordering = ["nome"]
+
+    def __str__(self):
+        return f"{self.nome} ({self.get_tipo_display()})"
+
+    def save(self, *args, **kwargs):
+        if not self.segreto_cifrato:               # senza un segreto nessun messaggio supererebbe il controllo
+            self.segreto_cifrato = cifratura.cifra(secrets.token_urlsafe(32))
+        super().save(*args, **kwargs)
+
+    def token(self):
+        return cifratura.decifra(self.token_cifrato)
+
+    def segreto(self):
+        return cifratura.decifra(self.segreto_cifrato)
+
+
+class EventoEsterno(models.Model):
+    """I messaggi già visti: le piattaforme ne ripetono alcuni e un cliente non deve risultare scritto due volte."""
+    connessione = models.ForeignKey(Connessione, on_delete=models.CASCADE, related_name="+")
+    id_esterno = models.CharField(max_length=128)
+    creato = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "evento esterno"
+        verbose_name_plural = "eventi esterni"
+        constraints = [models.UniqueConstraint(fields=["connessione", "id_esterno"], name="discuss_evento_esterno_unico")]
+
+
+class SandboxEvento(models.Model):
+    """Ciò che è passato nella sandbox, così com'è passato."""
+    ENTRATA, USCITA = "entrata", "uscita"
+    connessione = models.ForeignKey(Connessione, on_delete=models.CASCADE, related_name="+")
+    contatto = models.CharField(max_length=64)
+    verso = models.CharField(max_length=10)
+    testo = models.TextField(blank=True)
+    richiesta = models.JSONField(default=dict)
+    risposta = models.JSONField(default=dict)
+    codice = models.PositiveSmallIntegerField(default=200)
+    creato = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "evento della sandbox"
+        verbose_name_plural = "eventi della sandbox"
+        ordering = ["pk"]
 
 
 class VoceConoscenza(models.Model):

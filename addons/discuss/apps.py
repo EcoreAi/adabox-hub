@@ -11,6 +11,7 @@ class DiscussConfig(AppConfig):
 
         from . import notifiche  # noqa: F401  (segnale sul chatter)
         hooks.voce_testata("discuss/_campanella.html", order=10, permission="discuss.view_canale")
+        hooks.sezione_dettaglio("discuss.Connessione", "discuss/_connessione_guida.html", order=5)
         hooks.sezione_dettaglio("discuss.Sportello", "discuss/_sportello_codice.html", order=5)
         hooks.azione("core.vista_dettaglio", "discuss/_azioni_record.html", order=20, permission="discuss.add_messaggio")
         from core.chatter import entrata

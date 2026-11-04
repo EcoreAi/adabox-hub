@@ -65,10 +65,10 @@ def test_il_visitatore_scrive_e_l_operatore_risponde(client, sportello):
     assert c.canale.livechat and c.canale.tipo == Canale.PRIVATO and list(c.canale.membri.all()) == [op] and c.pagina.endswith("/prezzi")
     n = Notifica.objects.get(utente=op)
     assert n.tipo == "diretto" and "Mario Rossi" in n.titolo and "Ho un problema" in n.testo
-    # l'operatore la vede in «Dal sito», col contesto e un avviso
+    # l'operatore la vede tra i «Clienti», col contesto e un avviso
     client.force_login(op)
     html = client.get(f"/discuss/c/{c.canale.pk}/").content.decode()
-    assert "Dal sito" in html and "mario@esempio.it" in html and "il visitatore legge" in html and "Mario Rossi" in html
+    assert '<div class="ds-gruppo-testa">Clienti</div>' in html and "mario@esempio.it" in html and "il visitatore legge" in html and "Mario Rossi" in html
     assert "Chiamata audio" not in html
     risposta = servizi.invia(c.canale, op, "Ciao Mario, dimmi pure")
     servizi.avviso(c.canale, op, "nota interna di sistema")

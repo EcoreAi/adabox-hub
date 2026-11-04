@@ -53,6 +53,13 @@ def lega_record_creato(context):
 
 
 @register.simple_tag
+def guida_connessione(connessione, request):
+    from discuss import connettori
+    url = connettori.url_webhook(connessione)
+    return {"webhook": url, "https": url.startswith("https://")}
+
+
+@register.simple_tag
 def conoscenza_sportello(sportello):
     from discuss import ia
     return {"n_voci": sportello.conoscenza.filter(attiva=True).count(), "ai_attiva": ia.disponibile(),
