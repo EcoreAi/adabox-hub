@@ -98,4 +98,4 @@ def test_app_in_testa_sempre_per_prime(client, superuser, settings):
 
 def test_etichetta_della_barra_dal_manifest(client, superuser):
     tema = client.get("/dashboard/").context["theme"]
-    assert tema["nav_principale"][0] == {"label": "Chat", "url_name": "ai:chat", "slug": "ai"}
+    assert tema["nav_principale"][0] == {"label": "Chat", "url_name": "ai:chat", "slug": "ai", "categoria": "Produttività"}

@@ -32,6 +32,25 @@ def scrivi(fisse, quante):
         "valore": {"fisse": list(fisse), "quante": max(1, min(MASSIMO, int(quante)))}})
 
 
+# Le colonne del menu «Altre»: raggruppano le categorie dei manifest, in quest'ordine. Dentro, ordine alfabetico.
+COLONNE = [("Vendite e clienti", {"Vendite", "Anagrafiche"}), ("Acquisti e magazzino", {"Acquisti", "Magazzino"}),
+           ("Amministrazione", {"Contabilità"}), ("Progetti e assistenza", {"Servizi"}), ("Persone", {"Risorse umane"}),
+           ("Collaborazione", {"Produttività", "Assistente"}), ("Direzione e strumenti", {"Direzione", "Strumenti"})]
+ALTRE_APP = "Altre app"
+
+
+def colonna_di(categoria):
+    return next((nome for nome, categorie in COLONNE if categoria in categorie), ALTRE_APP)
+
+
+def gruppi(voci, etichetta="label"):
+    """[{"titolo", "voci"}] per colonna, senza quelle vuote: le app di una categoria nuova vanno in «Altre app»."""
+    risultato = {nome: [] for nome, _ in COLONNE} | {ALTRE_APP: []}
+    for v in voci:
+        risultato[colonna_di(v.get("categoria", ""))].append(v)
+    return [{"titolo": t, "voci": sorted(vs, key=lambda v: str(v[etichetta]).lower())} for t, vs in risultato.items() if vs]
+
+
 def in_testa(voci_app):
     """(app sempre per prime, nell'ordine di NAV_APP_IN_TESTA; tutte le altre)."""
     ordine = list(getattr(settings, "NAV_APP_IN_TESTA", []))

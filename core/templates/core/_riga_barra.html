@@ -1,5 +1,5 @@
 <li class="ba-riga{% if attiva %} in-barra{% endif %}">
-  <span class="ba-pos">{% if attiva %}{{ r.posizione }}{% endif %}</span><span class="ba-nome">{{ r.nome }}</span>
+  <span class="ba-pos">{% if attiva %}{{ r.posizione }}{% endif %}</span><span class="ba-nome">{{ r.nome }}</span>{% if r.colonna %}<span class="ba-nota">{{ r.colonna }}</span>{% endif %}
   <input type="hidden" name="fissa_{{ r.slug }}" value="1"{% if not attiva %} disabled{% endif %}><input type="hidden" name="ordine_{{ r.slug }}" value="{{ r.ordine|default:0 }}"{% if not attiva %} disabled{% endif %}>
   <span class="ba-azioni">
     <button type="button" class="ba-sposta" data-ba="su" aria-label="Sposta a sinistra {{ r.nome }}">↑</button><button type="button" class="ba-sposta" data-ba="giu" aria-label="Sposta a destra {{ r.nome }}">↓</button>

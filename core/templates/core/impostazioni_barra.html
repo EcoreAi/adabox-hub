@@ -17,7 +17,7 @@
     </ol>
   </section>
   <section class="ui-card is-revealed ui-section">
-    <div class="ui-card-head"><div><div class="ui-card-title">Nel menu «Altre»</div><div class="ui-card-sub">Il menu a tendina in fondo alla barra.</div></div></div>
+    <div class="ui-card-head"><div><div class="ui-card-title">Nel menu «Altre»</div><div class="ui-card-sub">Il menu a tendina in fondo alla barra: le app vanno da sole nella colonna della loro area, in ordine alfabetico.</div></div></div>
     <ol class="ba-lista" id="ba-altre">{% for r in altre %}{% include "core/_riga_barra.html" with attiva=False %}{% endfor %}</ol>
     <p class="ui-help ba-vuoto" id="ba-altre-vuoto"{% if altre %} hidden{% endif %}>Nessuna: tutte le app stanno nella barra.</p>
   </section>

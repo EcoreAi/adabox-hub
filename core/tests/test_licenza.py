@@ -211,7 +211,7 @@ def test_ognuno_sceglie_le_sue_app_nel_menu(client, superuser):
     # la pagina mostra l'ordine reale dell'header, separando la barra dal menu «Altre»
     r = client.get(reverse("core:le_mie_app"))
     assert [x["slug"] for x in r.context["barra"]] == ["crm", "todo"] and "helpdesk" in [x["slug"] for x in r.context["altre"]]
-    assert r.context["in_testa"][-1] == "Dashboard" and r.context["theme"]["nav_altre"] and [x["slug"] for x in r.context["altre"]] == [x["slug"] for x in r.context["theme"]["nav_altre"]]
+    assert r.context["in_testa"][-1] == "Dashboard" and r.context["theme"]["nav_altre"] and {x["slug"] for x in r.context["altre"]} == {x["slug"] for x in r.context["theme"]["nav_altre"]}
     html = r.content.decode()
     html = html[html.index("Nella barra in alto"):]
     assert html.index("CRM") < html.index("To-Do") < html.index("Nel menu «Altre»") < html.index("Helpdesk")
@@ -297,3 +297,23 @@ def test_l_intervallo_di_sincronizzazione_si_imposta_e_resiste_alle_installazion
     settings.LICENZA_SINCRONIA_OGNI = "2m"
     cron.sincronizza()
     assert Pianificazione.objects.get(funzione="core.registry.sincronia.esegui").ogni == "2m"
+
+
+def test_le_colonne_del_menu_altre_raggruppano_per_area_in_ordine_alfabetico():
+    from core import barra
+    voci = [{"label": "Vendite", "categoria": "Vendite"}, {"label": "Contatti", "categoria": "Anagrafiche"}, {"label": "Note spese", "categoria": "Risorse umane"},
+            {"label": "Strana", "categoria": "Inventata"}]
+    assert [(g["titolo"], [v["label"] for v in g["voci"]]) for g in barra.gruppi(voci)] == [
+        ("Vendite e clienti", ["Contatti", "Vendite"]), ("Persone", ["Note spese"]), ("Altre app", ["Strana"])]
+
+
+@pytest.mark.django_db
+def test_il_menu_altre_e_a_colonne_e_le_mie_app_lo_rispecchia(client, superuser):
+    r = client.get(reverse("core:le_mie_app"))
+    html = r.content.decode()
+    assert 'class="ui-dropdown-menu ui-menucol"' in html and "Vendite e clienti" in html and "ui-menucol-titolo" in html
+    gruppi = r.context["theme"]["nav_altre_gruppi"]
+    menu = [v["slug"] for g in gruppi for v in g["voci"]]
+    assert menu == [v["slug"] for v in r.context["altre"]] and r.context["altre"][0]["colonna"] == gruppi[0]["titolo"]
+    assert set(menu) == {v["slug"] for v in r.context["theme"]["nav_altre"]}
+

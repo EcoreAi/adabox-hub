@@ -13,9 +13,19 @@
       {% if theme.nav_altre %}
       <div class="ui-dropdown ui-nav-altre">
         <button type="button" class="ui-nav-voce{% for item in theme.nav_altre %}{% if current == item.url_name %} is-active{% endif %}{% endfor %}" aria-haspopup="true" aria-expanded="false" aria-controls="nav-altre">Altre <svg class="chev"><use href="#icon-chevron-down"/></svg></button>
+        {% if theme.nav_altre_gruppi %}
+        <div id="nav-altre" class="ui-dropdown-menu ui-menucol">
+          <div class="ui-container ui-menucol-colonne">
+            {% for gruppo in theme.nav_altre_gruppi %}<div class="ui-menucol-colonna"><div class="ui-menucol-titolo">{{ gruppo.titolo }}</div>
+              {% for item in gruppo.voci %}<a href="{% url item.url_name %}"{% if current == item.url_name %} class="is-active"{% endif %}>{{ item.label }}</a>{% endfor %}</div>
+            {% endfor %}
+          </div>
+        </div>
+        {% else %}
         <div id="nav-altre" class="ui-dropdown-menu is-right" role="menu">
           {% for item in theme.nav_altre %}<a href="{% url item.url_name %}" role="menuitem">{{ item.label }}</a>{% endfor %}
         </div>
+        {% endif %}
       </div>
       {% endif %}
     </nav>

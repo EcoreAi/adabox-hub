@@ -477,7 +477,11 @@ def _scelte_barra(request, tutte):
 def _liste_barra(request, tutte, scelta):
     """Le due liste come le mostra davvero l'header, nell'ordine reale: la funzione che le divide è la stessa."""
     voci = [{"slug": slug, "nome": nome} for slug, nome in tutte]
+    manifest = modules.manifests_attivi()
+    for v in voci:
+        v["categoria"] = manifest[v["slug"]].category if v["slug"] in manifest else ""
     barra_, altre = barra.dividi(voci, None, scelta["quante"], scelta["fisse"])
+    altre = [{**v, "colonna": g["titolo"]} for g in barra.gruppi(altre, "nome") for v in g["voci"]]      # come nel menu
     in_testa = _in_testa(request)
     for i, r in enumerate(barra_, start=1):
         r["ordine"], r["posizione"] = i, len(in_testa) + i

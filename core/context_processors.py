@@ -11,7 +11,7 @@ def piattaforma(request):
         return {"theme": base}
     apps = modules.app_visibili(request.user)
     corrente = modules.app_corrente(request, apps)
-    voci_app = [{"label": a["nav_label"], "url_name": a["url_name"], "slug": a["slug"]} for a in apps]
+    voci_app = [{"label": a["nav_label"], "url_name": a["url_name"], "slug": a["slug"], "categoria": a["category"]} for a in apps]
     in_testa, voci_app = barra.in_testa(voci_app)          # es. l'assistente AI: sempre per primo
     dashboard = {"label": "Dashboard", "url_name": "core:dashboard"}
     nav = [*in_testa, dashboard, *voci_app]
@@ -22,7 +22,7 @@ def piattaforma(request):
     principali, altre = barra.dividi(voci_app, corrente, scelta["quante"], scelta["fisse"])
     principali = [*in_testa, dashboard, *principali, *coda]              # in testa, Dashboard, app, Attività
     return {
-        "theme": {**base, "nav": nav, "nav_principale": principali, "nav_altre": altre},
+        "theme": {**base, "nav": nav, "nav_principale": principali, "nav_altre": altre, "nav_altre_gruppi": barra.gruppi(altre)},
         "apps": apps, "app_corrente": corrente, "menu_app": corrente["menu"] if corrente else [],
         "aziende": azienda.consentite(request.user), "azienda": getattr(request, "azienda", None),
         "voci_testata": hooks.voci_testata(request), "voci_profilo": modules.voci_profilo(request.user),

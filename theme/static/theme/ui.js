@@ -34,6 +34,21 @@
   document.addEventListener('click', closeAllDropdowns);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAllDropdowns(); });
 
+  // --- Il menu «Altre» a colonne si apre anche passandoci sopra, dove c'è un mouse. Il clic subito dopo non lo richiude.
+  const mega = document.querySelector('.ui-nav-altre:has(.ui-menucol)');
+  if (mega && matchMedia('(hover: hover) and (min-width: 901px)').matches) {
+    const voce = mega.querySelector('.ui-nav-voce');
+    let timer = null;
+    const dopo = (fn, ms) => { clearTimeout(timer); timer = setTimeout(fn, ms); };
+    const imposta = (aperto) => { mega.classList.toggle('is-open', aperto); voce.setAttribute('aria-expanded', String(aperto)); };
+    voce.addEventListener('pointerenter', () => dopo(() => { imposta(true); mega.dataset.daPassaggio = '1'; }, 120));
+    mega.addEventListener('pointerenter', (e) => { if (e.target !== voce && mega.classList.contains('is-open')) clearTimeout(timer); });
+    mega.addEventListener('pointerleave', () => dopo(() => imposta(false), 220));
+    voce.addEventListener('click', (e) => {
+      if (mega.dataset.daPassaggio) { delete mega.dataset.daPassaggio; e.stopImmediatePropagation(); e.stopPropagation(); }
+    }, true);
+  }
+
   // --- Menu mobile: il bottone .ui-nav-toggle apre/chiude .ui-nav
   const toggle = document.querySelector('.ui-nav-toggle');
   const nav = document.querySelector('.ui-nav');
