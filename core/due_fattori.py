@@ -39,7 +39,7 @@ def scrivi_obbligo(valore):
 
 def obbligatoria_per(utente):
     obbligo = leggi_obbligo()
-    return obbligo == TUTTI or (obbligo == AMMINISTRATORI and (utente.is_superuser or utente.is_staff))
+    return obbligo == TUTTI or (obbligo == AMMINISTRATORI and (utente.is_superuser or utente.is_staff or utente.has_perm("auth.change_user")))
 
 
 def di(utente):

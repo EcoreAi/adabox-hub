@@ -18,6 +18,15 @@ def leggi():
     return {"fisse": fisse, "quante": quante}
 
 
+def per_utente(utente):
+    """La scelta della persona, se ne ha fatta una; altrimenti quella dell'azienda."""
+    from .models import ProfiloUtente
+    aziendale = leggi()
+    propria = ProfiloUtente.objects.filter(utente=utente).values_list("barra", flat=True).first() or {}
+    fisse = [s for s in propria.get("fisse", []) if isinstance(s, str)]
+    return {"fisse": fisse, "quante": aziendale["quante"]} if fisse else aziendale
+
+
 def scrivi(fisse, quante):
     Parametro.objects.update_or_create(chiave=CHIAVE, azienda=None, defaults={
         "valore": {"fisse": list(fisse), "quante": max(1, min(MASSIMO, int(quante)))}})

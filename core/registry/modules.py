@@ -143,7 +143,44 @@ def imposta_attivo(slug, attivo):
         return False
     if not Modulo.objects.filter(slug=slug).exists():
         sincronizza()                                  # la riga nasce dalla sincronizzazione con il disco
-    return bool(Modulo.objects.filter(slug=slug).update(disattivato=not attivo))
+    fatto = bool(Modulo.objects.filter(slug=slug).update(disattivato=not attivo))
+    _a_cascata(slug, attivo)
+    return fatto
+
+
+def _a_cascata(slug, attivo):
+    """Accendere un modulo accende ciò da cui dipende; i moduli di servizio che dipendono da lui (senza un'app propria,
+    es. i controlli dell'assistente) lo seguono, così le loro voci di menu non restano appese."""
+    info = scopri()
+    presenti = [s for s in installati() if s in info and info[s].manifest]
+    if attivo:
+        da_vedere, accesi = dipendenze(slug, info) if slug in info and info[slug].manifest else [], set()
+        da_vedere = list(da_vedere)
+        while da_vedere:
+            s = da_vedere.pop()
+            if s not in accesi and s in presenti:
+                accesi.add(s)
+                da_vedere.extend(dipendenze(s, info))
+        Modulo.objects.filter(slug__in=accesi).update(disattivato=False)
+    servizio = [s for s in presenti if not info[s].manifest.application]
+    if attivo:
+        spenti = set(Modulo.objects.filter(disattivato=True).values_list("slug", flat=True))
+        Modulo.objects.filter(slug__in=[s for s in servizio if slug in dipendenze(s, info) and not set(dipendenze(s, info)) & spenti]).update(disattivato=False)
+        return
+    spenti, cambiato = {slug}, True
+    while cambiato:
+        nuovi = {s for s in servizio if s not in spenti and set(dipendenze(s, info)) & spenti}
+        spenti |= nuovi
+        cambiato = bool(nuovi)
+    Modulo.objects.filter(slug__in=spenti).update(disattivato=True)
+
+
+def dipendenti_attivi(slug):
+    """I nomi delle app accese che hanno bisogno di `slug`: finché ci sono non si spegne."""
+    info = scopri()
+    spenti = disattivati()
+    return [info[s].manifest.nav_label or info[s].manifest.name for s in installati()
+            if s != slug and s not in spenti and s in info and info[s].manifest and info[s].manifest.application and slug in dipendenze(s, info)]
 
 
 def manifests_attivi() -> dict[str, Manifest]:

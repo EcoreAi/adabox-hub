@@ -491,10 +491,14 @@ revocati **lasciando i dati** e toglie dal disco il codice non coperto. Web e st
 poi l'istanza è in **sola lettura**; il tetto di utenti vale su quelli attivi. Se il portale non risponde resta tutto com'è.
 Se la licenza comprende `ai`, non serve quella separata dell'assistente.
 
-L'Admin del cliente vede in **`/applicazioni/`** le sue app e il catalogo delle altre, di cui ha solo la descrizione, con
-«Richiedi». Il Global Admin ha `/moduli/` (licenza, caricamento, installazione). Senza portale:
-`manage.py licenza firma --firma chiave.pem --cliente … --moduli crm,contatti --scadenza AAAA-MM-GG` crea il file da
-caricare in `/moduli/` o con `manage.py licenza carica`; i pacchetti si caricano a mano.
+L'Admin del cliente lavora dal front, senza admin di Django (riservato al Global Admin), con le voci nel menu utente.
+In **`/applicazioni/`** vede tre sezioni: le app attive; quelle **installate ma non attive**, dove finisce ogni modulo
+nuovo in arrivo dal portale (al primo avvio il piano è già acceso); quelle **da acquistare**, in grigio, di cui ha solo la
+descrizione, con «Informazioni», «Guarda la demo» (`url_demo` del modulo o `RIVENDITA_URL_DEMO`), «Richiedi una demo» e
+«Richiedi l'installazione». Attivando un'app decide chi la usa: livello per ruolo ed eccezioni per persona. «Ordine nel
+menu» vale per tutti; ognuno può scegliere il suo da «Le mie app nel menu». Il Global Admin ha `/moduli/` (licenza,
+caricamento, installazione). Senza portale: `manage.py licenza firma --firma chiave.pem --cliente … --moduli crm,contatti
+--scadenza AAAA-MM-GG` crea il file da caricare in `/moduli/` o con `manage.py licenza carica`; i pacchetti si caricano a mano.
 
 ## Comandi `modulo`
 

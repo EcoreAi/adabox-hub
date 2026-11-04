@@ -37,14 +37,20 @@
           {% url 'core:profilo' as url_profilo %}
           {% if url_profilo %}<a href="{{ url_profilo }}"><svg><use href="#icon-user"/></svg> Profilo</a>{% endif %}
           <a href="{% url 'password_change' %}"><svg><use href="#icon-lock"/></svg> Cambia password</a>
-          {% if voci_profilo %}
+          {% url 'core:le_mie_app' as url_mie_app %}
+          {% if url_mie_app %}<a href="{{ url_mie_app }}"><svg><use href="#icon-layout"/></svg> Le mie app nel menu</a>{% endif %}
+          {% url 'core:applicazioni' as url_applicazioni %}
+          {% if perms.core.view_modulo and url_applicazioni or voci_profilo %}
           <hr>
+          {% if perms.core.view_modulo and url_applicazioni %}<a href="{{ url_applicazioni }}"><svg><use href="#icon-layout"/></svg> Applicazioni</a>{% endif %}
           {% for voce in voci_profilo %}<a href="{{ voce.url }}"><svg><use href="#icon-{{ voce.icon }}"/></svg> {{ voce.label }}</a>{% endfor %}
           {% endif %}
           {% url 'core:utenti' as url_utenti %}
-          {% if perms.auth.change_user and url_utenti or user.is_staff %}
+          {% url 'core:impostazioni' as url_impostazioni %}
+          {% if perms.auth.change_user and url_utenti or perms.core.change_parametro and url_impostazioni or user.is_staff %}
           <hr>
           {% if perms.auth.change_user and url_utenti %}<a href="{{ url_utenti }}"><svg><use href="#icon-users"/></svg> Utenti e ruoli</a>{% endif %}
+          {% if perms.core.change_parametro and url_impostazioni %}<a href="{{ url_impostazioni }}"><svg><use href="#icon-tool"/></svg> Impostazioni</a>{% endif %}
           {% if user.is_staff %}<a href="{% url 'admin:index' %}"><svg><use href="#icon-tool"/></svg> Amministrazione</a>{% endif %}
           {% endif %}
           <hr>

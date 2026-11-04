@@ -1,31 +1,47 @@
-"""Il catalogo delle applicazioni per l'amministratore del cliente: quelle attive e quelle che si possono aggiungere.
-Delle app non comprate arriva dal portale solo la descrizione, mai il codice; «Richiedi» avvisa ICHNOBYTE, che le
-abilita sul portale, e al giro successivo l'istanza le scarica e le installa."""
+"""Le applicazioni viste dall'amministratore del cliente, senza passare dall'admin di Django.
+
+Tre sezioni: quelle attive; quelle installate ma spente, che arrivano così dal portale e che accende lui, decidendo chi le
+usa; quelle acquistabili, in grigio, con «Guarda la demo», «Richiedi una demo» e «Richiedi l'installazione». Di queste
+ultime arriva dal portale solo la descrizione, mai il codice."""
 import logging
 
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, permission_required
+from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
-from django.http import Http404
+from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from . import lavori, licenza
-from .models import LicenzaIstanza, RichiestaModulo
+from . import lavori, licenza, ruoli
+from .models import LicenzaIstanza, Modulo, RichiestaModulo, Ruolo
 from .registry import modules, sincronia
+from .signals import crea_profilo
 
 log = logging.getLogger("core.moduli")
 PERMESSO = "core.view_modulo"
+PERMESSO_ATTIVAZIONE = "core.change_modulo"
 ICONA_AMMESSA = "data:image/svg+xml;base64,"
-ATTIVA, SOSPESA, IN_ARRIVO, RICHIESTA, DISPONIBILE = "attiva", "sospesa", "in_arrivo", "richiesta", "disponibile"
-ETICHETTE = {ATTIVA: "Attiva", SOSPESA: "Sospesa", IN_ARRIVO: "In arrivo", RICHIESTA: "Richiesta inviata", DISPONIBILE: "Disponibile"}
+ATTIVA, NON_ATTIVA, IN_ARRIVO, RICHIESTA, DISPONIBILE = "attiva", "non_attiva", "in_arrivo", "richiesta", "disponibile"
+ETICHETTE = {ATTIVA: "Attiva", NON_ATTIVA: "Non attiva", IN_ARRIVO: "In arrivo", RICHIESTA: "Installazione richiesta", DISPONIBILE: "Disponibile"}
 ALTRE = "Altre"
+SPIEGAZIONI = [("Nessuno", "Non vede l'app."), ("Lettura", "Consulta i dati, senza modificarli."),
+               ("Lavoro", "Lavora nell'app: crea e modifica."), ("Responsabile", "Tutto, comprese approvazioni e configurazione dell'app.")]
 
 
 def _voce(slug, nome, riassunto, categoria, icona="", statica=""):
-    return {"slug": slug, "nome": nome, "riassunto": riassunto, "categoria": categoria or ALTRE,
-            "icona": icona if icona.startswith(ICONA_AMMESSA) else "", "statica": statica, "iniziale": (nome or slug)[:1].upper()}
+    return {"slug": slug, "nome": nome, "riassunto": riassunto, "categoria": categoria or ALTRE, "descrizione": "", "funzioni": [], "url_demo": "",
+            "demo_chiesta": False, "icona": icona if icona.startswith(ICONA_AMMESSA) else "", "statica": statica, "iniziale": (nome or slug)[:1].upper()}
+
+
+def _scheda(voce, dal_catalogo):
+    """La parte commerciale del catalogo: che cosa fa, che cosa offre, dove si vede la demo."""
+    demo = str(dal_catalogo.get("url_demo") or "")
+    voce.update(descrizione=str(dal_catalogo.get("descrizione") or ""), funzioni=list(dal_catalogo.get("funzioni") or []),
+                url_demo=demo if demo.startswith(("https://", "http://")) else "")
 
 
 def voci():
@@ -37,23 +53,31 @@ def voci():
     for v in [*catalogo.get("moduli", []), *catalogo.get("disponibili", [])]:
         if v.get("application", True):
             trovate[v["slug"]] = _voce(v["slug"], v.get("nome", v["slug"]), v.get("riassunto", ""), v.get("categoria", ""), v.get("icona", ""))
+            _scheda(trovate[v["slug"]], v)
     installati = set(modules.installati())
     for slug, info in modules.scopri().items():
         m = info.manifest
         if m is None or not m.application or (obbligatoria and slug not in stato.moduli):
             continue
         statica = (m.icon or "") if slug in installati and "/" in (m.icon or "") else ""
-        icona = trovate.get(slug, {}).get("icona", "")
-        trovate[slug] = _voce(slug, m.nav_label or m.name, m.summary, m.category, icona, statica)
-    spenti, chieste = modules.disattivati(), set(RichiestaModulo.objects.filter(stato=RichiestaModulo.INVIATA).values_list("slug", flat=True))
+        dal_catalogo = trovate.get(slug, {})
+        trovate[slug] = _voce(slug, m.nav_label or m.name, m.summary, m.category, dal_catalogo.get("icona", ""), statica)
+        _scheda(trovate[slug], dal_catalogo)
+        trovate[slug]["funzioni"] = trovate[slug]["funzioni"] or [v["label"] for v in m.menu]    # senza scheda, le sue pagine
+    spente = set(Modulo.objects.filter(disattivato=True).values_list("slug", flat=True))
+    fuori = licenza.fuori_licenza()
+    aperte = RichiestaModulo.objects.filter(stato=RichiestaModulo.INVIATA)
+    chieste = set(aperte.filter(tipo=RichiestaModulo.INSTALLAZIONE).values_list("slug", flat=True))
+    demo = set(RichiestaModulo.objects.filter(tipo=RichiestaModulo.DEMO).values_list("slug", flat=True))
     for slug, v in trovate.items():
-        if slug in installati:
-            v["stato"] = SOSPESA if slug in spenti else ATTIVA
+        if slug in installati and slug not in fuori:
+            v["stato"] = NON_ATTIVA if slug in spente else ATTIVA
         elif slug in stato.moduli:
             v["stato"] = IN_ARRIVO
         else:
             v["stato"] = RICHIESTA if slug in chieste else DISPONIBILE
         v["etichetta"] = ETICHETTE[v["stato"]]
+        v["demo_chiesta"] = slug in demo
     return sorted(trovate.values(), key=lambda v: (v["categoria"] == ALTRE, v["categoria"].lower(), v["nome"].lower()))
 
 
@@ -61,26 +85,94 @@ def voci():
 @permission_required(PERMESSO, raise_exception=True)
 def pagina(request):
     tutte = voci()
+    altre = [v for v in tutte if v["stato"] in (DISPONIBILE, RICHIESTA)]
     return render(request, "core/applicazioni.html", {
-        "attive": [v for v in tutte if v["stato"] in (ATTIVA, SOSPESA, IN_ARRIVO)],
-        "altre": [v for v in tutte if v["stato"] in (DISPONIBILE, RICHIESTA)],
-        "categorie": sorted({v["categoria"] for v in tutte if v["stato"] in (DISPONIBILE, RICHIESTA)}),
-        "licenza": licenza.attuale(), "obbligatoria": licenza.obbligatoria(), "utenti_attivi": licenza.utenti_attivi(),
-        "portale": sincronia.configurata()})
+        "attive": [v for v in tutte if v["stato"] == ATTIVA], "ferme": [v for v in tutte if v["stato"] in (NON_ATTIVA, IN_ARRIVO)], "altre": altre,
+        "categorie": sorted({v["categoria"] for v in altre}), "licenza": licenza.attuale(), "obbligatoria": licenza.obbligatoria(),
+        "utenti_attivi": licenza.utenti_attivi(), "portale": sincronia.configurata()})
 
 
 @login_required
 @permission_required(PERMESSO, raise_exception=True)
 @require_POST
 def richiedi(request):
+    """Installazione o demo: la richiesta va al portale e, se impostata, per email a chi vende."""
     slug = request.POST.get("slug", "")
-    voce = next((v for v in voci() if v["slug"] == slug and v["stato"] == DISPONIBILE), None)
+    tipo = RichiestaModulo.DEMO if request.POST.get("tipo") == RichiestaModulo.DEMO else RichiestaModulo.INSTALLAZIONE
+    voce = next((v for v in voci() if v["slug"] == slug and v["stato"] in (DISPONIBILE, RICHIESTA)), None)
+    if voce is None or RichiestaModulo.objects.filter(slug=slug, tipo=tipo, stato=RichiestaModulo.INVIATA).exists():
+        raise Http404
+    nota = request.POST.get("nota", "").strip()[:2000]
+    RichiestaModulo.objects.create(slug=slug, nome=voce["nome"], nota=nota, tipo=tipo, utente=request.user)
+    lavori.accoda("core.registry.sincronia.invia_richieste")
+    cosa = "una demo" if tipo == RichiestaModulo.DEMO else "l'installazione"
+    if settings.LICENZA_EMAIL_RICHIESTE:
+        send_mail(f"Richiesta di {cosa}: {voce['nome']}", f"{request.user} ha chiesto {cosa} di «{voce['nome']}» ({slug}) su {request.get_host()}.\n\n{nota}",
+                  None, [settings.LICENZA_EMAIL_RICHIESTE], fail_silently=True)
+    messages.success(request, f"Richiesta inviata: ti ricontatteremo per {cosa} di «{voce['nome']}».")
+    return redirect("core:applicazioni")
+
+
+@login_required
+@permission_required(PERMESSO_ATTIVAZIONE, raise_exception=True)
+@require_POST
+def attivazione(request):
+    """Accende o spegne un'app installata e coperta dalla licenza. Accesa, si passa a decidere chi la usa."""
+    slug, attivo = request.POST.get("slug", ""), request.POST.get("attivo") == "1"
+    voce = next((v for v in voci() if v["slug"] == slug and v["stato"] in (ATTIVA, NON_ATTIVA)), None)
     if voce is None:
         raise Http404
-    RichiestaModulo.objects.create(slug=slug, nome=voce["nome"], nota=request.POST.get("nota", "").strip()[:2000], utente=request.user)
-    lavori.accoda("core.registry.sincronia.invia_richieste")
-    if settings.LICENZA_EMAIL_RICHIESTE:
-        send_mail(f"Richiesta del modulo {voce['nome']}", f"{request.user} ha chiesto «{voce['nome']}» ({slug}) su {request.get_host()}.\n\n{request.POST.get('nota', '')}",
-                  None, [settings.LICENZA_EMAIL_RICHIESTE], fail_silently=True)
-    messages.success(request, f"Richiesta di «{voce['nome']}» inviata: ti ricontatteremo per attivarla.")
+    if not attivo and (servono := modules.dipendenti_attivi(slug)):
+        messages.error(request, f"«{voce['nome']}» serve a {', '.join(servono)}: disattiva prima quelle.")
+        return redirect("core:applicazioni")
+    modules.imposta_attivo(slug, attivo)
+    if attivo:
+        messages.success(request, f"«{voce['nome']}» è attiva: decidi chi può usarla.")
+        return redirect("core:applicazione", slug=slug)
+    messages.success(request, f"«{voce['nome']}» disattivata: nascosta a tutti, i dati restano.")
     return redirect("core:applicazioni")
+
+
+def _gestibile(slug):
+    """(voce, manifest) di un'app installata e coperta dalla licenza."""
+    voce = next((v for v in voci() if v["slug"] == slug and v["stato"] in (ATTIVA, NON_ATTIVA)), None)
+    info = modules.scopri().get(slug)
+    if voce is None or info is None or info.manifest is None:
+        raise Http404
+    return voce, info.manifest
+
+
+@login_required
+@permission_required(PERMESSO_ATTIVAZIONE, raise_exception=True)
+def scheda(request, slug):
+    """Chi può usare l'app e che cosa può farci: il livello di ogni ruolo e le eccezioni delle singole persone."""
+    from .utenti import _cella
+    voce, manifest = _gestibile(slug)
+    righe_ruoli = [{"r": r, "scelto": r.livelli.get(slug, ""), "base": ruoli.ETICHETTE[r.livello_base], "tecnico": r.tecnico}
+                   for r in Ruolo.objects.all()]
+    persone = []
+    for u in get_user_model().objects.filter(is_active=True).exclude(profilo__esterno=True).select_related("profilo", "profilo__ruolo").prefetch_related("groups"):
+        persone.append({"u": u, "ruolo": getattr(crea_profilo(u).ruolo, "nome", ""), "cella": _cella(u, crea_profilo(u), slug, manifest)})
+    return render(request, "core/applicazione.html", {
+        "v": voce, "con_permessi": bool(manifest.groups), "righe_ruoli": righe_ruoli, "persone": persone, "livelli": ruoli.LIVELLI, "spiegazioni": SPIEGAZIONI})
+
+
+@login_required
+@permission_required("core.change_ruolo", raise_exception=True)
+@require_POST
+def ruolo(request, slug):
+    """Il livello di un ruolo in quest'app: il segnale del ruolo lo applica subito a chi lo ha."""
+    voce, _ = _gestibile(slug)
+    valore = request.POST.get("livello", "")
+    r = Ruolo.objects.filter(pk=request.POST.get("ruolo") if str(request.POST.get("ruolo", "")).isdigit() else None).first()
+    if r is None or (valore and valore not in ruoli.ETICHETTE):
+        return HttpResponseBadRequest("ruolo o livello non valido")
+    if r.tecnico and not request.user.is_superuser:
+        raise PermissionDenied
+    if valore:
+        r.livelli[slug] = valore
+    else:
+        r.livelli.pop(slug, None)
+    r.save()
+    messages.success(request, f"{r}: {ruoli.ETICHETTE.get(valore, 'come tutte le app')} in «{voce['nome']}».")
+    return redirect(reverse("core:applicazione", args=[slug]))

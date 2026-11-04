@@ -464,36 +464,59 @@ def impostazioni(request):
                                                       "obbligo": due_fattori.leggi_obbligo()})
 
 
+def _scelte_barra(request, tutte):
+    """Gli slug spuntati nel form della barra, nell'ordine indicato."""
+    scelte = []
+    for indice, (slug, _) in enumerate(tutte):
+        if request.POST.get(f"fissa_{slug}"):
+            ordine = request.POST.get(f"ordine_{slug}", "")
+            scelte.append((int(ordine) if ordine.lstrip("-").isdigit() else 999, indice, slug))
+    return [slug for _, _, slug in sorted(scelte)]
+
+
+def _righe_barra(tutte, fisse):
+    posizioni = {slug: i + 1 for i, slug in enumerate(fisse)}
+    return sorted([{"slug": slug, "nome": nome, "fissa": slug in posizioni, "ordine": posizioni.get(slug, "")}
+                   for slug, nome in tutte], key=lambda r: (not r["fissa"], r["ordine"] or 0, r["nome"].lower()))
+
+
 @login_required
 def impostazioni_barra(request):
-    """Quali app restano nella barra in alto e in che ordine; le altre vanno nel menu "Altre"."""
+    """Quali app restano nella barra in alto e in che ordine, per tutti; le altre vanno nel menu "Altre"."""
     if not request.user.has_perm("core.change_parametro"):
         raise PermissionDenied
     manifest = modules.manifests_attivi()
     in_testa = set(getattr(settings, "NAV_APP_IN_TESTA", []))          # sempre per prime: non si scelgono
-    tutte = [(slug, m.name) for slug, m in manifest.items() if m.application and slug not in in_testa]
+    spenti = modules.disattivati()
+    tutte = [(slug, m.nav_label or m.name) for slug, m in manifest.items() if m.application and slug not in in_testa and slug not in spenti]
     if request.method == "POST":
         if request.POST.get("ripristina"):
             Parametro.objects.filter(chiave=barra.CHIAVE, azienda__isnull=True).delete()
             messages.success(request, "Barra in alto riportata alla scelta automatica.")
             return redirect("core:impostazioni_barra")
-        scelte = []
-        for indice, (slug, _) in enumerate(tutte):
-            if request.POST.get(f"fissa_{slug}"):
-                ordine = request.POST.get(f"ordine_{slug}", "")
-                scelte.append((int(ordine) if ordine.lstrip("-").isdigit() else 999, indice, slug))
         quante = request.POST.get("quante", "")
-        barra.scrivi([slug for _, _, slug in sorted(scelte)],
-                     int(quante) if quante.isdigit() else barra.leggi()["quante"])
+        barra.scrivi(_scelte_barra(request, tutte), int(quante) if quante.isdigit() else barra.leggi()["quante"])
         messages.success(request, "Barra in alto salvata.")
         return redirect("core:impostazioni_barra")
     attuale = barra.leggi()
-    posizioni = {slug: i + 1 for i, slug in enumerate(attuale["fisse"])}
-    righe = sorted([{"slug": slug, "nome": nome, "fissa": slug in posizioni, "ordine": posizioni.get(slug, "")}
-                    for slug, nome in tutte], key=lambda r: (not r["fissa"], r["ordine"] or 0, r["nome"].lower()))
     return render(request, "core/impostazioni_barra.html", {
-        "righe": righe, "quante": attuale["quante"], "massimo": barra.MASSIMO,
+        "righe": _righe_barra(tutte, attuale["fisse"]), "quante": attuale["quante"], "massimo": barra.MASSIMO, "aziendale": True,
         "personalizzata": Parametro.objects.filter(chiave=barra.CHIAVE, azienda__isnull=True).exists()})
+
+
+@login_required
+def le_mie_app(request):
+    """Ognuno decide per sé: quali delle sue app stanno nella barra e in che ordine. Le altre restano in «Altre»."""
+    in_testa = set(getattr(settings, "NAV_APP_IN_TESTA", []))
+    tutte = [(a["slug"], a["nav_label"]) for a in modules.app_visibili(request.user) if a["slug"] not in in_testa]
+    profilo = crea_profilo(request.user)
+    if request.method == "POST":
+        profilo.barra = {} if request.POST.get("ripristina") else {"fisse": _scelte_barra(request, tutte)}
+        profilo.save(update_fields=["barra"])
+        messages.success(request, "Il tuo menu è salvato." if profilo.barra.get("fisse") else "Il tuo menu segue di nuovo quello dell'azienda.")
+        return redirect("core:le_mie_app")
+    return render(request, "core/impostazioni_barra.html", {
+        "righe": _righe_barra(tutte, barra.per_utente(request.user)["fisse"]), "aziendale": False, "personalizzata": bool(profilo.barra.get("fisse"))})
 
 
 @register

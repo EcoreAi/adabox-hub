@@ -59,7 +59,7 @@ def _rapporto():
     versioni = {r["slug"]: r["versione_installata"] for r in
                 modules.Modulo.objects.filter(slug__in=modules.installati()).values("slug", "versione_installata")}
     return {"moduli": versioni, "utenti_attivi": licenza.utenti_attivi(),
-            "richieste": [{"id": r.pk, "slug": r.slug, "nome": r.nome, "nota": r.nota, "utente": str(r.utente or "")}
+            "richieste": [{"id": r.pk, "slug": r.slug, "tipo": r.tipo, "nome": r.nome, "nota": r.nota, "utente": str(r.utente or "")}
                           for r in RichiestaModulo.objects.filter(stato=RichiestaModulo.INVIATA, consegnata=False)]}
 
 
@@ -185,6 +185,9 @@ def esegui():
     if esito["fatti"] or esito["errori"]:
         log.info("sincronizzazione col portale: %s", esito)
     return esito
+
+
+esegui.senza_transazione = True      # backup e installazioni girano in altri processi: non devono attendere questo
 
 
 def invia_richieste():

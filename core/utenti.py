@@ -220,7 +220,7 @@ def livello(request, pk):
     """Una cella della matrice: l'eccezione di un utente in un modulo («ruolo» la toglie)."""
     utente = _utente(request, pk)
     slug, valore = request.POST.get("modulo", ""), request.POST.get("livello", "")
-    moduli = dict(ruoli.moduli_gestibili())
+    moduli = dict(ruoli.moduli_gestibili(anche_spenti=True))
     if slug not in moduli or (valore != "ruolo" and valore not in ruoli.ETICHETTE):
         return HttpResponseBadRequest("modulo o livello non valido")
     profilo = crea_profilo(utente)

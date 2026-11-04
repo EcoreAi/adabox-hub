@@ -41,8 +41,12 @@ def _prendi(lavoro):
 
 def _esegui(lavoro, sincrono=False):
     try:
-        with transaction.atomic():
-            risultato = risolvi(lavoro.funzione)(**lavoro.argomenti)
+        funzione = risolvi(lavoro.funzione)
+        if getattr(funzione, "senza_transazione", False):    # lancia altri processi sullo stesso database: si bloccherebbero
+            risultato = funzione(**lavoro.argomenti)
+        else:
+            with transaction.atomic():
+                risultato = funzione(**lavoro.argomenti)
     except Exception:
         lavoro.errore = traceback.format_exc()[-8000:]
         log.exception("lavoro %s fallito (tentativo %s)", lavoro, lavoro.tentativi)

@@ -178,6 +178,8 @@ MODULI_ZIP_MAX_MB = env.int("MODULI_ZIP_MAX_MB", default=20)
 MODULI_CATALOGO_URL = env("MODULI_CATALOGO_URL", default="")
 # Solo sul portale di chi vende: la chiave privata che firma licenze e cataloghi delle istanze
 MODULI_CHIAVE_PRIVATA = env("MODULI_CHIAVE_PRIVATA", default="")
+# Il sito demo esterno per i moduli che non hanno un loro link
+RIVENDITA_URL_DEMO = env("RIVENDITA_URL_DEMO", default="")
 
 # --- Licenza dell'istanza ---------------------------------------------------
 # Con True i moduli fuori licenza sono spenti e a licenza scaduta (finita la grazia) l'istanza è in sola lettura
@@ -185,6 +187,8 @@ LICENZA_OBBLIGATORIA = env.bool("LICENZA_OBBLIGATORIA", default=False)
 # Il portale da cui l'istanza riceve licenza e moduli (es. https://portale.ichnobyte.it/rivendita/api) e il suo token
 LICENZA_PORTALE_URL = env("LICENZA_PORTALE_URL", default="")
 LICENZA_TOKEN = env("LICENZA_TOKEN", default="")
+# Ogni quanto l'istanza si sincronizza col portale: «15m», «1h», «1d»
+LICENZA_SINCRONIA_OGNI = env("LICENZA_SINCRONIA_OGNI", default="1h")
 # Con False la sincronizzazione aggiorna licenza e catalogo ma moduli si installano a mano da /moduli/
 LICENZA_APPLICA_AUTOMATICA = env.bool("LICENZA_APPLICA_AUTOMATICA", default=True)
 # Dove arriva un'email a ogni richiesta di modulo dal catalogo delle applicazioni (facoltativo)
@@ -192,6 +196,9 @@ LICENZA_EMAIL_RICHIESTE = env("LICENZA_EMAIL_RICHIESTE", default="")
 
 # --- Sicurezza sempre attiva -------------------------------------------
 SESSION_COOKIE_AGE = 60 * 30
+# Nomi diversi per due istanze sullo stesso indirizzo: i browser non separano i cookie per porta
+SESSION_COOKIE_NAME = env("SESSION_COOKIE_NAME", default="sessionid")
+CSRF_COOKIE_NAME = env("CSRF_COOKIE_NAME", default="csrftoken")
 SESSION_SAVE_EVERY_REQUEST = True
 SESSION_COOKIE_HTTPONLY = True
 X_FRAME_OPTIONS = "DENY"

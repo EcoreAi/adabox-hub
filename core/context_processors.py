@@ -18,7 +18,7 @@ def piattaforma(request):
     da_fare = attivita.da_fare_oggi(request.user)
     coda = [{"label": f"Attività · {da_fare}", "url_name": "core:attivita"}] if da_fare else []
     nav += coda
-    scelta = barra.leggi()
+    scelta = barra.per_utente(request.user)
     principali, altre = barra.dividi(voci_app, corrente, scelta["quante"], scelta["fisse"])
     principali = [*in_testa, dashboard, *principali, *coda]              # in testa, Dashboard, app, Attività
     return {

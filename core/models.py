@@ -84,6 +84,7 @@ class ProfiloUtente(models.Model):
                                             related_name="+", verbose_name="azienda predefinita")
     esterno = models.BooleanField("utente esterno", default=False,
                                   help_text="un cliente: vede solo il portale, mai le pagine interne")
+    barra = models.JSONField("app nella barra", default=dict, blank=True, help_text='{"fisse": [slug, ...]}: l\'ordine scelto da questa persona; vuoto = quello dell\'azienda')
 
     class Meta:
         verbose_name = "profilo utente"
@@ -132,6 +133,9 @@ class LicenzaIstanza(models.Model):
 class RichiestaModulo(models.Model):
     """Un'app del catalogo chiesta dall'amministratore del cliente: la decide ICHNOBYTE sul portale."""
     INVIATA, EVASA, RIFIUTATA = "inviata", "evasa", "rifiutata"
+    INSTALLAZIONE, DEMO = "installazione", "demo"
+    TIPI = [(INSTALLAZIONE, "Installazione"), (DEMO, "Demo")]
+    tipo = models.CharField("tipo", max_length=15, choices=TIPI, default=INSTALLAZIONE)
     STATI = [(INVIATA, "Inviata"), (EVASA, "Attivata"), (RIFIUTATA, "Non accolta")]
     slug = models.SlugField("modulo", max_length=31)
     nome = models.CharField("nome", max_length=120)

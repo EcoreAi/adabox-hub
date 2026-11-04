@@ -1576,3 +1576,28 @@ body.is-trascinando, body.is-trascinando .wd-maniglia { cursor: grabbing; user-s
 .mk-filtri { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 14px; } .mk-cerca { width: 240px; margin-right: 6px; }
 .mk-chip { padding: 6px 12px; border: 1px solid var(--ui-border); border-radius: 999px; background: var(--ui-surface); color: var(--ui-text-2); font: inherit; font-size: 12.5px; cursor: pointer; }
 .mk-chip.is-attiva { border-color: var(--ui-primary); color: var(--ui-primary); background: var(--ui-primary-tint); }
+.mk-piede { flex-wrap: wrap; gap: 6px; } .mk-piede form { margin: 0; }
+/* le app non installate sono spente finché non ci passi sopra */
+.mk-app.is-disponibile, .mk-app.is-richiesta { background: var(--ui-surface-2); }
+.mk-app.is-disponibile .mk-icona, .mk-app.is-richiesta .mk-icona { filter: grayscale(1); opacity: .55; transition: filter 180ms var(--ease-out), opacity 180ms var(--ease-out); }
+.mk-app.is-disponibile .mk-nome, .mk-app.is-richiesta .mk-nome, .mk-app.is-disponibile .mk-riassunto, .mk-app.is-richiesta .mk-riassunto { color: var(--ui-text-3); transition: color 180ms var(--ease-out); }
+.mk-app.is-disponibile:hover .mk-icona { filter: none; opacity: 1; }
+.mk-app.is-disponibile:hover .mk-nome { color: var(--ui-text); } .mk-app.is-disponibile:hover .mk-riassunto { color: var(--ui-text-2); }
+.mk-richiedi { width: auto; } .mk-richiedi[open] { width: 100%; }
+.mk-info { width: min(520px, calc(100vw - 32px)); padding: 22px; border: 0; border-radius: 16px; background: var(--ui-surface); color: var(--ui-text); box-shadow: 0 24px 60px rgba(15, 23, 42, .25); }
+.mk-info::backdrop { background: rgba(15, 23, 42, .45); }
+.mk-info .mk-nome { margin: 0; font-size: 17px; }
+.mk-info-testa { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.mk-info-testo { margin: 14px 0; font-size: 14px; line-height: 1.55; color: var(--ui-text-2); }
+.mk-info-h3 { margin: 0 0 8px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--ui-text-3); }
+.mk-info-funzioni { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.mk-info-funzioni li { display: flex; align-items: center; gap: 8px; } .mk-info-funzioni svg { width: 15px; height: 15px; color: #1f7a3a; flex: none; }
+.mk-info-azioni { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; } .mk-info-azioni form { margin: 0; }
+.mk-azioni-pagina { display: flex; flex-wrap: wrap; gap: 8px; }
+.mk-app.is-non_attiva, .mk-app.is-in_arrivo { border-style: dashed; }
+.mk-app.is-non_attiva .mk-stato { background: var(--ui-warning-tint); color: #b46300; }
+.mk-sezione-sub { margin: -6px 0 12px; font-size: 13px; color: var(--ui-text-2); }
+.mk-legenda { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 0 0 16px; }
+.mk-legenda div { padding: 10px 12px; border-radius: 10px; background: var(--ui-surface-2); font-size: 12.5px; color: var(--ui-text-2); } .mk-legenda strong { display: block; color: var(--ui-text); }
+.ba-sposta { width: 26px; height: 26px; padding: 0; border: 1px solid var(--ui-border); border-radius: 6px; background: var(--ui-surface); color: var(--ui-text-2); cursor: pointer; }
+.ba-sposta:hover { border-color: var(--ui-primary); color: var(--ui-primary); }

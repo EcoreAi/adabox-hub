@@ -21,6 +21,7 @@ urlpatterns = [
     path("azienda/cambia/", views.cambia_azienda, name="cambia_azienda"),
     path("impostazioni/", views.impostazioni, name="impostazioni"),
     path("impostazioni/barra/", views.impostazioni_barra, name="impostazioni_barra"),
+    path("profilo/le-mie-app/", views.le_mie_app, name="le_mie_app"),
     path("chatter/<int:ct>/<int:pk>/", chatter_viste.pannello, name="chatter"),
     path("chatter/<int:ct>/<int:pk>/messaggi/", chatter_viste.altri_messaggi, name="chatter_messaggi"),
     path("chatter/<int:ct>/<int:pk>/scrivi/", chatter_viste.scrivi, name="chatter_scrivi"),
@@ -54,6 +55,9 @@ urlpatterns = [
     path("moduli/sincronizza/", views.moduli_sincronizza, name="moduli_sincronizza"),
     path("applicazioni/", applicazioni.pagina, name="applicazioni"),
     path("applicazioni/richiedi/", applicazioni.richiedi, name="applicazioni_richiedi"),
+    path("applicazioni/attivazione/", applicazioni.attivazione, name="applicazioni_attivazione"),
+    path("applicazioni/<slug:slug>/", applicazioni.scheda, name="applicazione"),
+    path("applicazioni/<slug:slug>/ruolo/", applicazioni.ruolo, name="applicazione_ruolo"),
 ]
 # viste generate dalle ModelView del kernel, sotto /core/ come i moduli sotto /<slug>/
 urlpatterns += [path("core/", include(registry.urlpatterns("core")))]

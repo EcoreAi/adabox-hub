@@ -1,9 +1,11 @@
 {% extends 'core/base_app.html' %}
-{% block title %}Barra in alto · Impostazioni · {{ theme.brand }}{% endblock %}
+{% block title %}{% if aziendale %}Barra in alto · Impostazioni{% else %}Le mie app nel menu{% endif %} · {{ theme.brand }}{% endblock %}
 {% block app_content %}
 <div class="ui-pagehead">
-  <div><h1>Barra in alto</h1>
-    <div class="sub"><a class="ui-link" href="{% url 'core:impostazioni' %}">Impostazioni</a> · vale per tutti gli utenti{% if not personalizzata %} · ora: scelta automatica{% endif %}</div></div>
+  {% if aziendale %}<div><h1>Ordine nel menu</h1>
+    <div class="sub"><a class="ui-link" href="{% url 'core:applicazioni' %}">Applicazioni</a> · vale per tutti, tranne chi ha scelto il suo{% if not personalizzata %} · ora: scelta automatica{% endif %}</div></div>
+  {% else %}<div><h1>Le mie app nel menu</h1>
+    <div class="sub">Vale solo per te{% if not personalizzata %} · ora: come il resto dell'azienda{% endif %}</div></div>{% endif %}
 </div>
 <form method="post" class="ui-card is-revealed ui-section">
   {% csrf_token %}
@@ -12,20 +14,33 @@
       Le altre vanno nel menu «Altre». Ognuno vede solo le app a cui ha accesso, e l'app in cui si trova resta sempre visibile.</p>
   </div>
   <div class="ui-table-wrap"><table class="ui-table is-revealed">
-    <thead><tr><th class="ui-col-check">Nella barra</th><th>App</th><th style="width:120px">Ordine</th></tr></thead>
+    <thead><tr><th class="ui-col-check">Nella barra</th><th>App</th><th style="width:190px">Ordine</th></tr></thead>
     <tbody>{% for r in righe %}<tr>
       <td class="ui-col-check"><input type="checkbox" class="ui-checkbox" id="fissa_{{ r.slug }}" name="fissa_{{ r.slug }}" value="1"{% if r.fissa %} checked{% endif %}></td>
       <td><label for="fissa_{{ r.slug }}">{{ r.nome }}</label> <span class="ui-help" style="display:inline">{{ r.slug }}</span></td>
-      <td><input class="ui-input" type="number" min="1" max="99" name="ordine_{{ r.slug }}" value="{{ r.ordine }}" aria-label="Ordine di {{ r.nome }}" style="max-width:90px"></td>
+      <td><button type="button" class="ba-sposta" data-su aria-label="Sposta su {{ r.nome }}">↑</button> <button type="button" class="ba-sposta" data-giu aria-label="Sposta giù {{ r.nome }}">↓</button> <input class="ui-input" type="number" min="1" max="99" name="ordine_{{ r.slug }}" value="{{ r.ordine }}" aria-label="Ordine di {{ r.nome }}" style="max-width:70px;display:inline-block"></td>
     </tr>{% endfor %}</tbody>
   </table></div>
   <div class="ui-card-body">
-    <label class="ui-label" for="quante">Se non spunti nessuna app: quante mostrarne (le prime in elenco)</label>
-    <input class="ui-input" type="number" id="quante" name="quante" min="1" max="{{ massimo }}" value="{{ quante }}" style="max-width:90px">
+    {% if aziendale %}<label class="ui-label" for="quante">Se non spunti nessuna app: quante mostrarne (le prime in elenco)</label>
+    <input class="ui-input" type="number" id="quante" name="quante" min="1" max="{{ massimo }}" value="{{ quante }}" style="max-width:90px">{% endif %}
     <div class="ui-form-actions" style="margin-top:16px;">
       <button type="submit" class="ui-btn ui-btn-primary"><svg><use href="#icon-save"/></svg> Salva</button>
-      {% if personalizzata %}<button type="submit" name="ripristina" value="1" class="ui-btn ui-btn-ghost">Torna alla scelta automatica</button>{% endif %}
+      {% if personalizzata %}<button type="submit" name="ripristina" value="1" class="ui-btn ui-btn-ghost">{% if aziendale %}Torna alla scelta automatica{% else %}Torna al menu dell'azienda{% endif %}</button>{% endif %}
     </div>
   </div>
 </form>
+<script>
+// ↑ e ↓ spostano la riga e rinumerano: l'ordine salvato è quello che si vede
+document.querySelector('form.ui-card').addEventListener('click', (e) => {
+  const su = e.target.closest('[data-su]'), giu = e.target.closest('[data-giu]');
+  if (!su && !giu) return;
+  const riga = e.target.closest('tr');
+  const altra = su ? riga.previousElementSibling : riga.nextElementSibling;
+  if (altra) { if (su) altra.before(riga); else altra.after(riga); }
+  riga.closest('tbody').querySelectorAll('tr').forEach((r, i) => { r.querySelector('input[type=number]').value = i + 1; });
+  riga.querySelector('input[type=checkbox]').checked = true;
+  e.target.focus();
+});
+</script>
 {% endblock %}

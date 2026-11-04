@@ -2,7 +2,7 @@
 
 Un ruolo ha un livello di partenza (nessuno, lettura, lavoro, responsabile) e può cambiarlo modulo per modulo; una
 persona ha un ruolo e, se serve, le sue eccezioni. Un ruolo «tecnico» rende superutente (Global Admin), uno che
-«amministra» dà utenti, ruoli e impostazioni (Admin). Da questi si ricavano i gruppi: «lavoro» sono i gruppi di base del
+«amministra» dà dal front utenti, ruoli, applicazioni e impostazioni (Admin). Da questi si ricavano i gruppi: «lavoro» sono i gruppi di base del
 modulo (Utente, Operatore, Venditore…), «responsabile» tutti i suoi gruppi, «lettura» un gruppo con i soli permessi di
 vista che il kernel crea per lui. Chi non ha un ruolo resta com'era: i suoi gruppi non si toccano."""
 from django.contrib.auth import get_user_model
@@ -126,8 +126,8 @@ def applica(utente):
         campi = []
         if utente.is_superuser != tecnico:
             utente.is_superuser, campi = tecnico, [*campi, "is_superuser"]
-        if utente.is_staff != amministra:
-            utente.is_staff, campi = amministra, [*campi, "is_staff"]
+        if utente.is_staff != tecnico:                   # l'admin di Django è solo del ruolo tecnico: Admin lavora dal front
+            utente.is_staff, campi = tecnico, [*campi, "is_staff"]
         if campi:
             utente.save(update_fields=campi)
             cambiato = True

@@ -81,7 +81,7 @@ def test_senza_ruolo_non_si_tocca_niente(gruppi):
 
 def test_amministra_la_piattaforma(gruppi):
     capo = _utente("capo", gruppi["Admin"])
-    assert capo.is_staff and ruoli.PIATTAFORMA in _nomi(capo)
+    assert not capo.is_staff and ruoli.PIATTAFORMA in _nomi(capo)
     assert capo.has_perm("auth.change_user") and capo.has_perm("core.change_parametro") and capo.has_perm("core.change_ruolo")
     capo.profilo.ruolo = gruppi["Collaboratore"]
     capo.profilo.save()
@@ -199,7 +199,7 @@ def test_global_admin_e_tecnico_e_la_scala(gruppi):
     g.profilo.ruolo = gruppi["Admin"]
     g.profilo.save()
     g = User.objects.get(pk=g.pk)
-    assert not g.is_superuser and g.is_staff and ruoli.PIATTAFORMA in _nomi(g)
+    assert not g.is_superuser and not g.is_staff and ruoli.PIATTAFORMA in _nomi(g)
     s = _utente("s", gruppi["Supervisore"])
     assert "Vendite / Venditore" in _nomi(s) and "Vendite / Responsabile" not in _nomi(s) and gruppi["Supervisore"].livelli["spese"] == "responsabile"
 

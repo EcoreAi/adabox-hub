@@ -7,8 +7,9 @@ from django.contrib.auth.models import User
 from django.urls import reverse
 from django.utils import timezone
 
-from core import applicazioni, licenza
-from core.models import LicenzaIstanza, RichiestaModulo
+from core import applicazioni, due_fattori, licenza
+from core.models import LicenzaIstanza, Modulo, RichiestaModulo, Ruolo
+from core.signals import crea_profilo
 from core.registry import install, modules, pacchetti, sincronia
 from core.tests.conftest_aiuti import crea_modulo
 from core.utenti import UtenteForm
@@ -96,22 +97,121 @@ def test_tetto_degli_utenti(chiave, settings):
 
 
 @pytest.mark.django_db
-def test_catalogo_delle_applicazioni_e_richiesta(client, superuser, chiave, settings, mailoutbox):
+def test_catalogo_a_tre_sezioni_demo_e_installazione(client, superuser, chiave, settings, mailoutbox):
     settings.LICENZA_OBBLIGATORIA = True
     settings.LICENZA_EMAIL_RICHIESTE = "vendite@example.com"
-    licenza.salva(_file(chiave, moduli=["todo"]), catalogo={"istanza": "abc", "moduli": [], "disponibili": [
-        {"slug": "magia", "nome": "Magia", "riassunto": "Fa magie", "categoria": "Vendite", "icona": "data:image/svg+xml;base64,AAA"},
-        {"slug": "cattiva", "nome": "Cattiva", "icona": "javascript:alert(1)"}]})
-    html = client.get(reverse("core:applicazioni")).content.decode()
-    assert "Magia" in html and "Fa magie" in html and "Richiedi" in html and "To-Do" in html and "javascript:" not in html
-    assert "crm" not in [v["slug"] for v in applicazioni.voci()]           # su disco ma non in licenza né a catalogo
+    licenza.salva(_file(chiave, moduli=["todo", "crm", "contatti"]), catalogo={"istanza": "abc", "moduli": [], "disponibili": [
+        {"slug": "magia", "nome": "Magia", "riassunto": "Fa magie", "categoria": "Vendite", "icona": "data:image/svg+xml;base64,AAA", "descrizione": "Fa magie vere",
+         "funzioni": ["Conigli"], "url_demo": "https://demo.example/magia"},
+        {"slug": "cattiva", "nome": "Cattiva", "icona": "javascript:alert(1)", "url_demo": "javascript:alert(1)"}]})
+    modules.sincronizza()
+    Modulo.objects.filter(slug="crm").update(disattivato=True)
+    r = client.get(reverse("core:applicazioni"))
+    html = r.content.decode()
+    assert [v["slug"] for v in r.context["ferme"]] == ["crm"] and "todo" in [v["slug"] for v in r.context["attive"]]
+    assert {v["slug"] for v in r.context["altre"]} == {"magia", "cattiva"}           # helpdesk: su disco ma non in licenza né a catalogo
+    assert "Installate ma non attive" in html and "Da acquistare" in html and "Fa magie vere" in html and "Conigli" in html
+    assert "Guarda la demo" in html and "https://demo.example/magia" in html and "Richiedi una demo" in html and "Richiedi l&#x27;installazione" in html or "Richiedi l'installazione" in html
+    assert "javascript:" not in html.replace("javascript:alert", "") and "alert(1)" not in html
+    assert client.post(reverse("core:applicazioni_richiedi"), {"slug": "magia", "tipo": "demo"}).status_code == 302
+    assert RichiestaModulo.objects.get().tipo == "demo" and "demo" in mailoutbox[0].subject
+    assert client.post(reverse("core:applicazioni_richiedi"), {"slug": "magia", "tipo": "demo"}).status_code == 404    # una volta sola
     r = client.post(reverse("core:applicazioni_richiedi"), {"slug": "magia", "nota": "ci serve"})
-    assert r.status_code == 302 and RichiestaModulo.objects.get().nota == "ci serve" and mailoutbox[0].to == ["vendite@example.com"]
-    assert next(v for v in applicazioni.voci() if v["slug"] == "magia")["stato"] == "richiesta"
-    assert client.post(reverse("core:applicazioni_richiedi"), {"slug": "magia"}).status_code == 404    # una volta sola
-    assert client.post(reverse("core:applicazioni_richiedi"), {"slug": "crm"}).status_code == 404      # non a catalogo
+    assert r.status_code == 302 and RichiestaModulo.objects.get(tipo="installazione").nota == "ci serve"
+    voce = next(v for v in applicazioni.voci() if v["slug"] == "magia")
+    assert voce["stato"] == "richiesta" and voce["demo_chiesta"]
+    assert client.post(reverse("core:applicazioni_richiedi"), {"slug": "helpdesk"}).status_code == 404
     client.force_login(User.objects.create_user("semplice"))
     assert client.get(reverse("core:applicazioni")).status_code == 403
+
+
+@pytest.mark.django_db
+def test_admin_dal_front_attiva_decide_chi_e_niente_admin_di_django(client, db, chiave, settings):
+    settings.LICENZA_OBBLIGATORIA = True
+    licenza.salva(_file(chiave, moduli=["todo", "crm", "contatti"]))
+    modules.sincronizza()
+    Modulo.objects.filter(slug__in=["crm", "contatti"]).update(disattivato=True)
+    capo = User.objects.create_user("capo", password="x")
+    profilo = crea_profilo(capo)
+    profilo.ruolo = Ruolo.objects.get(nome="Admin")
+    profilo.save()
+    capo = User.objects.get(pk=capo.pk)
+    assert not capo.is_staff and not capo.is_superuser and capo.has_perm("core.change_modulo") and capo.has_perm("auth.change_user")
+    assert due_fattori.obbligatoria_per(capo) is (due_fattori.leggi_obbligo() in (due_fattori.TUTTI, due_fattori.AMMINISTRATORI))
+    client.force_login(capo)
+    assert client.get("/admin/").status_code == 302 and client.get(reverse("core:moduli")).status_code == 403
+    html = client.get(reverse("core:dashboard")).content.decode()
+    assert reverse("core:applicazioni") in html and reverse("admin:index") not in html and "Amministrazione" not in html and reverse("core:le_mie_app") in html
+    assert html.index(reverse("core:applicazioni")) < html.index(reverse("core:utenti"))
+    # attivare crm accende anche la sua dipendenza e porta alla scelta di chi lo usa
+    r = client.post(reverse("core:applicazioni_attivazione"), {"slug": "crm", "attivo": "1"})
+    assert r.url == reverse("core:applicazione", args=["crm"]) and not modules.Modulo.objects.get(slug="contatti").disattivato
+    # contatti serve a crm: non si spegne finché crm è acceso
+    assert client.post(reverse("core:applicazioni_attivazione"), {"slug": "contatti", "attivo": "0"}).status_code == 302
+    assert not Modulo.objects.get(slug="contatti").disattivato
+    # chi può usarla: per ruolo e per persona
+    lettore = User.objects.create_user("lettore", password="x")
+    p = crea_profilo(lettore)
+    p.ruolo = Ruolo.objects.get(nome="Lettore")
+    p.save()
+    html = client.get(reverse("core:applicazione", args=["crm"])).content.decode()
+    assert "Per ruolo" in html and "Per persona" in html and "Global Admin" in html and "lettore" in html
+    r = Ruolo.objects.get(nome="Lettore")
+    client.post(reverse("core:applicazione_ruolo", args=["crm"]), {"ruolo": r.pk, "livello": "nessuno"})
+    assert Ruolo.objects.get(pk=r.pk).livelli["crm"] == "nessuno" and not User.objects.get(pk=lettore.pk).has_perm("crm.view_opportunita")
+    client.post(reverse("core:applicazione_ruolo", args=["crm"]), {"ruolo": r.pk, "livello": "lettura"})
+    assert User.objects.get(pk=lettore.pk).has_perm("crm.view_opportunita")
+    tecnico = Ruolo.objects.get(tecnico=True)
+    assert client.post(reverse("core:applicazione_ruolo", args=["crm"]), {"ruolo": tecnico.pk, "livello": "nessuno"}).status_code == 403
+    assert client.get(reverse("core:applicazione", args=["helpdesk"])).status_code == 404       # non in licenza
+    # disattiva: sparisce per tutti, i dati restano
+    client.post(reverse("core:applicazioni_attivazione"), {"slug": "crm", "attivo": "0"})
+    assert Modulo.objects.get(slug="crm").disattivato and client.get(reverse("crm:opportunita_lista")).status_code == 404
+    client.force_login(User.objects.get(pk=lettore.pk))
+    assert client.post(reverse("core:applicazioni_attivazione"), {"slug": "crm", "attivo": "1"}).status_code == 403
+
+
+@pytest.mark.django_db
+def test_le_voci_di_servizio_seguono_l_app_da_cui_dipendono(superuser, client):
+    """Controllo AI e Da approvare (Agate) non restano nel menu se l'assistente è spento."""
+    modules.sincronizza()
+    assert "Controllo AI" in client.get(reverse("core:dashboard")).content.decode()
+    modules.imposta_attivo("ai", False)
+    assert Modulo.objects.get(slug="agate").disattivato and Modulo.objects.get(slug="awf").disattivato
+    html = client.get(reverse("core:dashboard")).content.decode()
+    assert "Controllo AI" not in html and "Da approvare" not in html and "Agenti AI" not in html
+    modules.imposta_attivo("ai", True)
+    assert not Modulo.objects.get(slug="agate").disattivato
+
+
+@pytest.mark.django_db
+def test_con_la_licenza_i_moduli_nuovi_arrivano_spenti_tranne_al_primo_avvio(chiave, settings, addons_tmp, tmp_path, monkeypatch):
+    settings.LICENZA_OBBLIGATORIA, settings.BACKUP_DIR = True, tmp_path / "backup"
+    licenza.salva(_file(chiave, moduli=["alfa", "beta", "gamma"]))
+    crea_modulo(addons_tmp.dir, "alfa", application=True)
+    crea_modulo(addons_tmp.dir, "beta", application=True)
+    crea_modulo(addons_tmp.dir, "gamma")
+    monkeypatch.setattr(install, "_applica", lambda *a, **k: modules.sincronizza())
+    monkeypatch.setattr(install.backup, "esegui", lambda motivo: None)        # dentro la transazione del test si bloccherebbe
+    install.installa(["alfa"])
+    assert not Modulo.objects.get(slug="alfa").disattivato                           # primo avvio: il piano è già pronto
+    install.installa(["beta", "gamma"])
+    assert Modulo.objects.get(slug="beta").disattivato and not Modulo.objects.get(slug="gamma").disattivato     # senza app propria resta acceso
+
+
+@pytest.mark.django_db
+def test_ognuno_sceglie_le_sue_app_nel_menu(client, superuser):
+    from core import barra
+    r = client.get(reverse("core:le_mie_app"))
+    assert r.status_code == 200 and "Vale solo per te" in r.content.decode()
+    client.post(reverse("core:le_mie_app"), {"fissa_todo": "1", "ordine_todo": "2", "fissa_crm": "1", "ordine_crm": "1"})
+    assert barra.per_utente(superuser)["fisse"] == ["crm", "todo"]
+    nav = client.get(reverse("core:dashboard")).context["theme"]["nav_principale"]
+    assert [v["slug"] for v in nav if v.get("slug") in ("crm", "todo")] == ["crm", "todo"]
+    altro = User.objects.create_user("altro")
+    assert barra.per_utente(altro)["fisse"] == []                                    # non tocca gli altri
+    client.post(reverse("core:le_mie_app"), {"ripristina": "1"})
+    assert barra.per_utente(superuser)["fisse"] == []
 
 
 @pytest.mark.django_db
@@ -167,3 +267,25 @@ def test_sincronia_scarica_installa_revoca_e_toglie_il_codice(chiave, settings, 
     monkeypatch.setattr(sincronia, "_chiama", lambda *a, **k: json.dumps({**json.loads(_file(chiave, moduli=[], giorni=-1, emessa="2026-12-02T00:00:00")), "catalogo": catalogo,
                                                                            "firma_catalogo": pacchetti.firma(pacchetti.serializza(catalogo), chiave).decode()}).encode())
     assert sincronia.esegui() == {"fatti": [], "errori": []} and fatti == []
+
+
+@pytest.mark.django_db
+def test_il_lavoro_di_sincronizzazione_non_gira_in_una_transazione(monkeypatch):
+    """Dentro una transazione il backup e l'installazione, in altri processi, resterebbero bloccati in attesa."""
+    from types import SimpleNamespace
+
+    from core import lavori
+    from core.models import Lavoro
+    assert sincronia.esegui.senza_transazione is True
+    monkeypatch.setattr(lavori, "transaction", SimpleNamespace(atomic=lambda: pytest.fail("non doveva aprire una transazione")))
+    lavoro = Lavoro.objects.create(funzione="core.registry.sincronia.esegui", argomenti={})
+    assert lavori._esegui(lavoro).stato == Lavoro.FATTO
+
+
+@pytest.mark.django_db
+def test_l_intervallo_di_sincronizzazione_si_imposta_e_resiste_alle_installazioni(settings):
+    from core import cron
+    from core.models import Pianificazione
+    settings.LICENZA_SINCRONIA_OGNI = "2m"
+    cron.sincronizza()
+    assert Pianificazione.objects.get(funzione="core.registry.sincronia.esegui").ogni == "2m"

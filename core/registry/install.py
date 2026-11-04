@@ -109,6 +109,8 @@ def installa(slugs, demo=False, riavvia=False, conferma=None):
         scrivi_stato(attuali)
         _segna_errore(piano, info, str(e))
         raise
+    if licenza.obbligatoria() and attuali:               # non al primo avvio: li accende l'Admin, decidendo chi li usa
+        Modulo.objects.filter(slug__in=[s for s in piano if info[s].manifest.application]).update(disattivato=True)
     log.info("installati: %s", ", ".join(piano))
     _ricarica(riavvia)
     return piano
