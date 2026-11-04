@@ -1,0 +1,13 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Carica un pacchetto · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Carica un pacchetto</h1><div class="sub">Lo zip firmato di un modulo: le istanze che lo hanno in licenza lo ricevono alla prossima sincronizzazione</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'rivendita:pacchetti_lista' %}">Pacchetti</a></div></div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <form method="post" enctype="multipart/form-data" class="ui-modulo-ops">{% csrf_token %}
+    <input type="file" name="pacchetto" accept=".zip" class="ui-file" required aria-label="Pacchetto del modulo">
+    <button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">Pubblica</button>
+    <span class="ui-help">Si crea con <code class="ui-code">manage.py modulo impacchetta &lt;slug&gt; --firma chiave.pem</code>; i moduli di questo server si pubblicano con <code class="ui-code">manage.py rivendita_pubblica --tutti</code>.</span>
+  </form>
+</div></section>
+{% endblock %}

@@ -1,0 +1,146 @@
+import hashlib
+import secrets
+import uuid
+
+from django.conf import settings
+from django.db import models
+from django.utils import timezone
+
+from core.storage import StoragePrivato
+
+
+class ModuloVendibile(models.Model):
+    """Un modulo del catalogo commerciale: nasce pubblicando il suo primo pacchetto."""
+    slug = models.SlugField("slug", max_length=31, unique=True)
+    nome = models.CharField("nome", max_length=120)
+    riassunto = models.CharField("riassunto", max_length=300, blank=True)
+    categoria = models.CharField("categoria", max_length=60, blank=True)
+    application = models.BooleanField("è un'app", default=True, help_text="i moduli di servizio (es. dati fiscali) non compaiono nel catalogo del cliente")
+    icona = models.TextField("icona", blank=True, editable=False)
+    prezzo_mese = models.DecimalField("prezzo al mese (€)", max_digits=9, decimal_places=2, default=0)
+    in_catalogo = models.BooleanField("visibile nel catalogo dei clienti", default=True)
+
+    class Meta:
+        verbose_name = "modulo in vendita"
+        verbose_name_plural = "moduli in vendita"
+        ordering = ["nome"]
+
+    def __str__(self):
+        return self.nome
+
+    def ultimo(self):
+        """Il pacchetto pubblicato più recente."""
+        from core.registry.manifest import versione_tupla
+        pacchetti = list(self.pacchetti.filter(pubblicato=True))
+        return max(pacchetti, key=lambda p: versione_tupla(p.versione), default=None)
+
+
+class Pacchetto(models.Model):
+    """Una versione di un modulo: lo zip firmato che le istanze licenziate scaricano."""
+    modulo = models.ForeignKey(ModuloVendibile, on_delete=models.CASCADE, related_name="pacchetti", verbose_name="modulo")
+    versione = models.CharField("versione", max_length=20)
+    min_core = models.CharField("kernel minimo", max_length=20, blank=True)
+    dipendenze = models.JSONField("dipendenze", default=list, blank=True)
+    file = models.FileField("file", upload_to="rivendita/pacchetti/", storage=StoragePrivato(), max_length=300)
+    nome_file = models.CharField("nome del file", max_length=120)
+    sha256 = models.CharField("SHA-256", max_length=64)
+    dimensione = models.PositiveIntegerField("dimensione (byte)", default=0)
+    pubblicato = models.BooleanField("pubblicato", default=True, help_text="spento, le istanze non lo ricevono più")
+    creato = models.DateTimeField("caricato il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "pacchetto"
+        verbose_name_plural = "pacchetti"
+        ordering = ["-creato"]
+        constraints = [models.UniqueConstraint(fields=["modulo", "versione"], name="rivendita_pacchetto_unico")]
+
+    def __str__(self):
+        return self.nome_file
+
+
+class Piano(models.Model):
+    """Il prezzo base con le sue app."""
+    nome = models.CharField("nome", max_length=80, unique=True)
+    descrizione = models.TextField("descrizione", blank=True)
+    moduli = models.ManyToManyField(ModuloVendibile, blank=True, related_name="piani", verbose_name="moduli inclusi")
+    utenti = models.PositiveIntegerField("utenti inclusi", default=0, help_text="0 = senza tetto")
+    prezzo_mese = models.DecimalField("prezzo al mese (€)", max_digits=9, decimal_places=2, default=0)
+    attivo = models.BooleanField("attivo", default=True)
+
+    class Meta:
+        verbose_name = "piano"
+        verbose_name_plural = "piani"
+        ordering = ["prezzo_mese", "nome"]
+
+    def __str__(self):
+        return self.nome
+
+
+def _impronta(token):
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+class Istanza(models.Model):
+    """L'installazione di un cliente. Il token si vede una volta sola: qui resta solo la sua impronta."""
+    cliente = models.CharField("cliente", max_length=200)
+    email = models.EmailField("email di riferimento", blank=True)
+    codice = models.UUIDField("codice", default=uuid.uuid4, unique=True, editable=False)
+    token_hash = models.CharField("impronta del token", max_length=64, blank=True, editable=False, db_index=True)
+    piano = models.ForeignKey(Piano, on_delete=models.PROTECT, related_name="istanze", verbose_name="piano")
+    moduli_extra = models.ManyToManyField(ModuloVendibile, blank=True, related_name="istanze_extra", verbose_name="moduli in più")
+    utenti = models.PositiveIntegerField("utenti", null=True, blank=True, help_text="vuoto = quelli del piano; 0 = senza tetto")
+    scadenza = models.DateField("scadenza della licenza")
+    grazia_giorni = models.PositiveSmallIntegerField("giorni di grazia", default=30, help_text="dopo la scadenza, prima della sola lettura")
+    ospitata = models.BooleanField("ospitata da noi", default=True, help_text="senza accesso del cliente al server")
+    attiva = models.BooleanField("attiva", default=True, help_text="spenta, il portale non le risponde più")
+    url = models.URLField("indirizzo dell'istanza", blank=True)
+    note = models.TextField("note", blank=True)
+    ultimo_contatto = models.DateTimeField("ultimo contatto", null=True, blank=True, editable=False)
+    moduli_presenti = models.JSONField("moduli presenti", default=dict, blank=True, editable=False)
+    utenti_attivi = models.PositiveIntegerField("utenti attivi", null=True, blank=True, editable=False)
+
+    class Meta:
+        verbose_name = "istanza"
+        verbose_name_plural = "istanze"
+        ordering = ["cliente"]
+
+    def __str__(self):
+        return self.cliente
+
+    def nuovo_token(self):
+        token = secrets.token_urlsafe(32)
+        self.token_hash = _impronta(token)
+        self.save(update_fields=["token_hash"])
+        return token
+
+    @classmethod
+    def per_token(cls, token):
+        return cls.objects.select_related("piano").filter(token_hash=_impronta(token), attiva=True).first() if token else None
+
+    def registra_contatto(self, moduli, utenti_attivi):
+        self.ultimo_contatto, self.moduli_presenti, self.utenti_attivi = timezone.now(), moduli, utenti_attivi
+        self.save(update_fields=["ultimo_contatto", "moduli_presenti", "utenti_attivi"])
+
+
+class Richiesta(models.Model):
+    """Un'app chiesta dall'amministratore di un cliente dal suo catalogo."""
+    NUOVA, APPROVATA, RIFIUTATA = "nuova", "approvata", "rifiutata"
+    STATI = [(NUOVA, "Nuova"), (APPROVATA, "Approvata"), (RIFIUTATA, "Rifiutata")]
+    istanza = models.ForeignKey(Istanza, on_delete=models.CASCADE, related_name="richieste", verbose_name="istanza")
+    slug = models.SlugField("modulo", max_length=31)
+    nome = models.CharField("nome", max_length=120)
+    nota = models.TextField("nota", blank=True)
+    utente = models.CharField("chiesta da", max_length=150, blank=True)
+    id_remoto = models.PositiveBigIntegerField("id sull'istanza", null=True, blank=True, editable=False)
+    stato = models.CharField("stato", max_length=10, choices=STATI, default=NUOVA, editable=False)
+    creata = models.DateTimeField("chiesta il", auto_now_add=True)
+    decisa_il = models.DateTimeField("decisa il", null=True, blank=True, editable=False)
+    decisa_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False, verbose_name="decisa da")
+
+    class Meta:
+        verbose_name = "richiesta"
+        verbose_name_plural = "richieste"
+        ordering = ["-creata"]
+
+    def __str__(self):
+        return f"{self.nome} per {self.istanza}"
