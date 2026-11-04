@@ -11,43 +11,11 @@
     <a class="ui-btn ui-btn-ghost" href="{% url 'core:launcher' %}">Tutte le app</a>
   </div>
 </div>
+{% for s in sezioni_dashboard %}{% include s.template with scheda_attiva="panoramica" %}{% endfor %}
 <p class="wd-aiuto" id="wd-aiuto" hidden>Trascina dalla maniglia ⠿ o usa le frecce per spostare; ⤢ cambia la larghezza; × toglie il widget (lo ritrovi in «Aggiungi widget»). Le modifiche si salvano da sole.</p>
 {% if widget %}
 <div class="wd-griglia" id="wd-griglia" data-salva="{% url 'core:dashboard_layout' %}">
-  {% for w in widget %}
-  <section class="wd-widget wd-{{ w.tipo }}" data-id="{{ w.id }}" data-w="{{ w.w }}" style="--w:{{ w.w }}" aria-label="{{ w.titolo }}">
-    <div class="wd-strumenti">
-      <button type="button" class="wd-maniglia" title="Trascina per spostare" aria-label="Sposta {{ w.titolo }}">⠿</button>
-      <button type="button" data-sposta="-1" title="Sposta prima" aria-label="Sposta prima {{ w.titolo }}">←</button>
-      <button type="button" data-sposta="1" title="Sposta dopo" aria-label="Sposta dopo {{ w.titolo }}">→</button>
-      <button type="button" data-larghezza title="Cambia larghezza" aria-label="Cambia larghezza di {{ w.titolo }}">⤢ <span>{{ w.w }}</span>/4</button>
-      <button type="button" data-nascondi title="Togli dalla dashboard" aria-label="Togli {{ w.titolo }}">×</button>
-    </div>
-    {% if w.tipo == "kpi" %}{% with s=w.scheda %}
-    <a class="ui-dash-card" href="{{ s.url }}" aria-label="{{ s.label }}: apri l'app">
-      <div class="ui-dash-testa">
-        <span class="ui-app-icona ui-dash-icona">{% if "/" in s.icon %}<img src="{% static s.icon %}" alt="">{% else %}<svg><use href="#icon-{{ s.icon|default:'zap' }}"/></svg>{% endif %}</span>
-        <span class="ui-dash-nome">{{ s.label }}</span>
-      </div>
-      {% with principale=s.kpi.0 %}{% if principale %}<div class="ui-dash-valore" data-contatore>{{ principale.valore }}</div><div class="ui-dash-etichetta">{{ principale.etichetta }}</div>{% endif %}{% endwith %}
-      {% if s.kpi|length > 1 %}<ul class="ui-dash-altri">{% for k in s.kpi|slice:"1:" %}<li><strong>{{ k.valore }}</strong> {{ k.etichetta }}</li>{% endfor %}</ul>{% endif %}
-    </a>
-    {% endwith %}{% else %}
-    <div class="ui-card wd-card">
-      <div class="ui-card-head"><div><div class="ui-card-title">{{ w.titolo }}</div><div class="ui-card-sub">{{ w.app }}</div></div><div class="spacer"></div>
-        {% if not w.serie.vuoto %}<button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-tabella aria-pressed="false" aria-controls="{{ w.dom }}-tab">Tabella</button>{% endif %}<a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ w.url }}">Apri</a></div>
-      <div class="ui-card-body">
-        {% if w.serie.vuoto %}<p class="ui-help">Ancora nessun dato.</p>{% else %}
-        <div class="wd-canvas"><canvas data-grafico="{{ w.dom }}" role="img" aria-label="{{ w.titolo }}"></canvas></div>
-        {{ w.serie|json_script:w.dom }}
-        <div class="ui-table-wrap wd-tabella" id="{{ w.dom }}-tab" hidden><table class="ui-table"><thead><tr><th>Categoria</th><th class="num">Valore</th></tr></thead>
-          <tbody>{% for e, v in w.serie.righe %}<tr><td>{{ e }}</td><td class="num">{{ v|floatformat:"-2" }}</td></tr>{% endfor %}</tbody></table></div>
-        {% endif %}
-      </div>
-    </div>
-    {% endif %}
-  </section>
-  {% endfor %}
+  {% for w in widget %}{% include "core/_widget.html" %}{% endfor %}
 </div>
 {% else %}
 <div class="ui-card is-revealed"><div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg>
@@ -55,7 +23,7 @@
 {% endif %}
 <aside class="wd-cassetto" id="wd-cassetto" hidden aria-label="Widget da aggiungere">
   <div class="wd-cassetto-testa"><strong>Aggiungi alla dashboard</strong><button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-chiudi-cassetto aria-label="Chiudi">×</button></div>
-  <ul class="wd-cassetto-voci" id="wd-cassetto-voci">{% for w in nascosti %}<li><button type="button" data-aggiungi="{{ w.id }}"><strong>{{ w.titolo }}</strong><small>{{ w.app|default:w.scheda.label }} · {% if w.tipo == "kpi" %}indicatori{% else %}grafico{% endif %}</small></button></li>{% endfor %}</ul>
+  <ul class="wd-cassetto-voci" id="wd-cassetto-voci">{% for w in nascosti %}<li><button type="button" data-aggiungi="{{ w.id }}"><strong>{{ w.titolo }}</strong><small>{% if w.app %}{{ w.app }}{% else %}{{ w.scheda.label }}{% endif %} · {% if w.tipo == "kpi" %}indicatori{% else %}grafico{% endif %}</small></button></li>{% endfor %}</ul>
   <p class="sub wd-cassetto-vuoto"{% if nascosti %} hidden{% endif %}>Tutti i widget sono già sulla dashboard.</p>
 </aside>
 {{ contesto_ada|json_script:"ada-contesto" }}

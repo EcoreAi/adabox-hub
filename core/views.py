@@ -79,9 +79,10 @@ def dashboard(request):
     from . import dashboard as dash
     widget, schede = dash.catalogo(request)
     visibili, nascosti = dash.disposizione(request.user, widget)
+    from .registry import hooks
     return render(request, "core/dashboard.html", {
         "widget": visibili, "nascosti": nascosti, "schede": schede, "personalizzata": bool(dash.layout_di(request.user)),
-        "contesto_ada": dash.contesto_per_ada(visibili)})
+        "contesto_ada": dash.contesto_per_ada(visibili), "sezioni_dashboard": hooks.sezioni_dashboard(request)})
 
 
 @login_required

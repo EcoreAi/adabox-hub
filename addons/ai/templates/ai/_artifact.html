@@ -1,4 +1,4 @@
-{% load ai %}{# Grafico o tabella sotto una risposta: istantanea del momento, con salva, apri e CSV. #}
+{% load ai agganci %}{# Grafico o tabella sotto una risposta: istantanea del momento, con salva, apri e CSV. #}
 <figure class="ai-artifact" id="ai-artifact-{{ a.pk }}">
   <figcaption class="ai-artifact-testa">
     <span class="ai-artifact-titolo">{{ a.titolo }}</span>
@@ -10,6 +10,7 @@
     </form>
     <a class="ai-azione" href="{% url 'ai:artifact' a.pk %}" target="_blank" rel="noopener" data-tip="Apri con i dati di oggi" aria-label="Apri con i dati di oggi"><svg><use href="#ai-artifact"/></svg></a>
     <a class="ai-azione" href="{% url 'ai:artifact_csv' a.pk %}" data-tip="Scarica CSV" aria-label="Scarica CSV"><svg><use href="#icon-download"/></svg></a>
+    {% agganci "ai.artifact" %}
   </figcaption>
   {% if a.tipo == "grafico" %}
     {% with disegno=a|svg_artifact %}{% if disegno %}<div class="ai-artifact-grafico">{{ disegno }}</div>{% else %}<p class="ai-artifact-vuoto">Nessun dato per questo grafico.</p>{% endif %}{% endwith %}

@@ -8,6 +8,7 @@ import io
 from django.utils import timezone
 
 from core import svg
+from core.viste.interroga import serie
 
 from .models import Artifact
 from .strumenti import Contesto, ErroreStrumento, Strumento, registra, richiesta
@@ -20,13 +21,7 @@ MAX_RIGHE_TABELLA = 200
 
 def _serie(gruppi, per):
     """[(etichetta, valore)]: oltre MAX_CATEGORIE le prime per valore più «Altro» (per le date: le ultime)."""
-    coppie = [(g["gruppo"], g["valore"]) for g in gruppi]
-    if len(coppie) <= MAX_CATEGORIE:
-        return coppie
-    if ":" in per:
-        return coppie[-MAX_CATEGORIE:]
-    ordinate = sorted(coppie, key=lambda c: c[1], reverse=True)
-    return ordinate[:MAX_CATEGORIE - 1] + [("Altro", round(sum(v for _, v in ordinate[MAX_CATEGORIE - 1:]), 2))]
+    return serie(gruppi, per, MAX_CATEGORIE)
 
 
 def _cella(v):

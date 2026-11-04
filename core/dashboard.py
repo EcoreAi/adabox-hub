@@ -109,26 +109,31 @@ def layout_di(utente):
     return DashboardUtente.objects.filter(utente=utente).values_list("layout", flat=True).first() or {}
 
 
-def disposizione(utente, widget):
-    """(visibili, nascosti) nell'ordine e con la larghezza scelti dall'utente; i widget nuovi vanno in coda, quelli tolti a parte."""
-    layout = layout_di(utente)
+def disponi(layout, widget):
+    """(visibili, nascosti) nell'ordine e con la larghezza di `layout` ({"widget": [{"id", "w"}], "nascosti": [id]});
+    i widget nuovi vanno in coda, quelli tolti a parte."""
     per_id = {w["id"]: w for w in widget}
     visibili = []
-    for voce in layout.get("widget", []):
+    for voce in (layout or {}).get("widget", []):
         w = per_id.pop(voce.get("id"), None) if isinstance(voce, dict) else None
         if w:
-            w["w"] = voce.get("w") if voce.get("w") in LARGHEZZE else LARGHEZZA_PREDEFINITA[w["tipo"]]
+            w["w"] = voce.get("w") if voce.get("w") in LARGHEZZE else LARGHEZZA_PREDEFINITA.get(w["tipo"], 2)
             visibili.append(w)
-    da_nascondere = set(layout.get("nascosti", []))
+    da_nascondere = set((layout or {}).get("nascosti", []))
     nascosti = []
     for w in widget:
         if w["id"] in per_id:
-            w["w"] = LARGHEZZA_PREDEFINITA[w["tipo"]]
+            w["w"] = LARGHEZZA_PREDEFINITA.get(w["tipo"], 2)
             (nascosti if w["id"] in da_nascondere else visibili).append(w)
     return visibili, nascosti
 
 
-def salva_layout(utente, dati, widget):
+def disposizione(utente, widget):
+    """La dashboard dell'utente: disponi() con il layout che ha salvato."""
+    return disponi(layout_di(utente), widget)
+
+
+def layout_valido(dati, widget):
     """Dal client: {"widget": [{"id", "w"}], "nascosti": [id]}. Passano solo gli id del catalogo e le larghezze ammesse."""
     if not isinstance(dati, dict):
         raise ValueError("formato non valido")
@@ -139,8 +144,13 @@ def salva_layout(utente, dati, widget):
             visti.add(v["id"])
             voci.append({"id": v["id"], "w": v["w"]} if v.get("w") in LARGHEZZE else {"id": v["id"]})
     nascosti = [i for i in list(dati.get("nascosti") or [])[:MAX_WIDGET] if isinstance(i, str) and i in ammessi and i not in visti]
-    DashboardUtente.objects.update_or_create(utente=utente, defaults={"layout": {"widget": voci, "nascosti": sorted(set(nascosti))}})
     return {"widget": voci, "nascosti": sorted(set(nascosti))}
+
+
+def salva_layout(utente, dati, widget):
+    layout = layout_valido(dati, widget)
+    DashboardUtente.objects.update_or_create(utente=utente, defaults={"layout": layout})
+    return layout
 
 
 def contesto_per_ada(visibili):

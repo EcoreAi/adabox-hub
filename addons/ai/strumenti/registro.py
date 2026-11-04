@@ -8,12 +8,15 @@ from dataclasses import dataclass, field
 
 from django.core.exceptions import PermissionDenied
 
+from core.viste.interroga import ErroreInterrogazione
+
 log = logging.getLogger("ai.strumenti")
 LIMITE_RISULTATO = 20000                                # caratteri: oltre si tronca con un avviso
 
 
-class ErroreStrumento(Exception):
-    """Errore previsto (argomenti sbagliati, record inesistente...): il messaggio va al modello, senza traceback."""
+# Errore previsto (argomenti sbagliati, record inesistente...): il messaggio va al modello, senza traceback. È lo
+# stesso errore delle interrogazioni del kernel, così quello che il motore solleva arriva al modello senza travasi.
+ErroreStrumento = ErroreInterrogazione
 
 
 @dataclass

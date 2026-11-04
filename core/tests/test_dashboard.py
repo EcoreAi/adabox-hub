@@ -91,6 +91,8 @@ def test_widget_si_ordinano_allargano_tolgono_e_rimettono(client, superuser):
     assert {i for i, _ in visibili} >= {"contatti:kpi", "helpdesk:kpi"}                 # i widget nuovi restano in coda
     assert client.post(reverse("core:dashboard_layout"), "[1, 2]", content_type="application/json").status_code == 400
     assert client.post(reverse("core:dashboard_layout"), "{non json", content_type="application/json").status_code == 400
+    client.post(reverse("core:dashboard_layout"), json.dumps({"widget": [], "nascosti": ["todo:g0"]}), content_type="application/json")
+    assert client.get(reverse("core:dashboard")).status_code == 200         # un grafico nel cassetto non rompe la pagina
     assert client.post(reverse("core:dashboard_reset")).status_code == 302 and not DashboardUtente.objects.filter(utente=superuser).exists()
     assert client.get(reverse("core:dashboard")).context["nascosti"] == []
 
