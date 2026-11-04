@@ -17,6 +17,11 @@ class Canale(models.Model):
     archiviato = models.BooleanField("archiviato", default=False)
     gestito = models.BooleanField("canale gestito", default=False,
                                   help_text="Scrivono solo amministratori, moderatori e contributori; gli altri leggono.")
+    lista_email = models.BooleanField("lista email", default=False,
+                                      help_text="I messaggi arrivano per email agli iscritti, che rispondono dalla propria casella.")
+    record_ct = models.ForeignKey("contenttypes.ContentType", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                                  verbose_name="tipo del record", help_text="Se il canale è la conversazione su un record.")
+    record_id = models.PositiveBigIntegerField("record", null=True, blank=True)
 
     class Meta:
         verbose_name = "canale"
@@ -90,9 +95,9 @@ class Messaggio(models.Model):
 
 class Notifica(models.Model):
     """Voce della posta in arrivo: una menzione, un messaggio diretto, un messaggio su un record seguito."""
-    MENZIONE, DIRETTO, CANALE, RECORD, RISPOSTA = "menzione", "diretto", "canale", "record", "risposta"
+    MENZIONE, DIRETTO, CANALE, RECORD, RISPOSTA, ATTIVITA = "menzione", "diretto", "canale", "record", "risposta", "attivita"
     TIPI = [(MENZIONE, "Menzione"), (DIRETTO, "Messaggio diretto"), (CANALE, "Messaggio nel canale"),
-            (RECORD, "Messaggio su un record seguito"), (RISPOSTA, "Risposta a un tuo messaggio")]
+            (RECORD, "Messaggio su un record seguito"), (RISPOSTA, "Risposta a un tuo messaggio"), (ATTIVITA, "Attività assegnata")]
     utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifiche_discuss")
     tipo = models.CharField("tipo", max_length=10, choices=TIPI)
     autore = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
@@ -112,6 +117,20 @@ class Notifica(models.Model):
         verbose_name_plural = "notifiche"
         ordering = ["-creata", "-pk"]
         indexes = [models.Index(fields=["utente", "letta"])]
+
+
+class Collegamento(models.Model):
+    """Un record citato da un messaggio: nella conversazione diventa una scheda, sul record una voce della cronologia."""
+    messaggio = models.ForeignKey(Messaggio, on_delete=models.CASCADE, related_name="collegamenti")
+    content_type = models.ForeignKey("contenttypes.ContentType", on_delete=models.CASCADE, related_name="+")
+    object_id = models.PositiveBigIntegerField()
+
+    class Meta:
+        verbose_name = "record collegato"
+        verbose_name_plural = "record collegati"
+        ordering = ["pk"]
+        indexes = [models.Index(fields=["content_type", "object_id"])]
+        constraints = [models.UniqueConstraint(fields=["messaggio", "content_type", "object_id"], name="discuss_collegamento_unico")]
 
 
 class Reazione(models.Model):

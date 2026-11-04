@@ -1,0 +1,8 @@
+<form method="post" action="{% url 'discuss:condividi' ct obj.pk %}" class="ds-modulo">{% csrf_token %}
+  <h2>Condividi «{{ obj }}»</h2>
+  <p class="ui-help">Chi riceve vede una scheda aggiornata, con i dati che i suoi permessi gli consentono.</p>
+  <label class="ui-label">Messaggio<textarea class="ui-input" name="messaggio" rows="2" placeholder="Facoltativo"></textarea></label>
+  <div class="ui-label">Persone</div>{% include "discuss/_scelta_persone.html" with campo="persone" %}
+  {% if canali %}<div class="ui-label">Canali</div><div class="ds-scelta-elenco">{% for c in canali %}<label class="ds-scelta-voce"><input type="checkbox" name="canali" value="{{ c.pk }}"><span># {{ c.nome }}</span></label>{% endfor %}</div>{% endif %}
+  <div class="ds-dialogo-azioni"><button type="button" class="ui-btn ui-btn-ghost" data-chiudi>Annulla</button><button class="ui-btn ui-btn-primary" type="submit">Condividi</button></div>
+</form>

@@ -9,6 +9,7 @@
       <label class="ds-spunta"><input type="radio" name="tipo" value="pubblico"{% if canale.tipo == "pubblico" %} checked{% endif %}> Pubblico: chiunque può entrare</label>
       <label class="ds-spunta"><input type="radio" name="tipo" value="privato"{% if canale.tipo == "privato" %} checked{% endif %}> Privato: solo su invito</label>
       <label class="ds-spunta"><input type="checkbox" name="gestito"{% if canale.gestito %} checked{% endif %}> Canale gestito: scrivono solo amministratori, moderatori e contributori</label>
+      <label class="ds-spunta"><input type="checkbox" name="lista_email"{% if canale.lista_email %} checked{% endif %}> Lista email: i messaggi arrivano per email agli iscritti, che possono rispondere dalla propria casella</label>
       <label class="ds-spunta"><input type="checkbox" name="archiviato"{% if canale.archiviato %} checked{% endif %}> Archiviato: esce dagli elenchi e non si scrive più</label>
       <button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Salva</button>
     </form></details>{% endif %}

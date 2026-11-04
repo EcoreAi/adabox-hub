@@ -1,4 +1,5 @@
 {% extends 'core/base_app.html' %}
+{% load agganci %}
 {% block title %}{{ obj }} · {{ vista.verbose_name_plural|capfirst }} · {{ theme.brand }}{% endblock %}
 {% block app_content %}
 <div class="ui-pagehead">
@@ -7,6 +8,7 @@
     <div class="sub"><a class="ui-link" href="{{ urls.lista }}">{{ vista.verbose_name_plural|capfirst }}</a></div>
   </div>
   <div class="ui-pagehead-actions">
+    {% agganci "core.vista_dettaglio" %}
     {% for nome, etichetta, url in bottoni %}
     <form method="post" action="{{ url }}">{% csrf_token %}<button type="submit" class="ui-btn ui-btn-secondary">{{ etichetta }}</button></form>
     {% endfor %}

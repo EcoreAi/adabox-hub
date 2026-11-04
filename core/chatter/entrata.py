@@ -27,6 +27,7 @@ from . import scrivi
 
 log = logging.getLogger("core.chatter")
 _GESTORI = []          # funzioni (msg, mittente) -> record o None, per le email non abbinate
+_DESTINATARI = {}      # modello -> funzione che riceve le risposte su quel modello
 
 
 def registra_gestore(funzione):
@@ -34,6 +35,13 @@ def registra_gestore(funzione):
     La funzione riceve il messaggio email e il mittente e restituisce il record creato, o None."""
     if funzione not in _GESTORI:
         _GESTORI.append(funzione)
+    return funzione
+
+
+def registra_destinatario(modello, funzione):
+    """Un'app tiene per sé le risposte su un suo modello (es. i canali di Discuss), invece del chatter.
+    La funzione riceve (pk, mittente, testo senza citazione, msg, riga) e imposta stato e motivo della riga."""
+    _DESTINATARI[modello] = funzione
     return funzione
 
 
@@ -140,6 +148,9 @@ def _elabora(msg, riga):
     ct_id, pk = abbinamento
     modello = ContentType.objects.get_for_id(ct_id).model_class()
     riga.content_type_id, riga.object_id = ct_id, pk
+    if modello in _DESTINATARI:
+        _DESTINATARI[modello](pk, riga.mittente, togli_citazione(_testo(msg)), msg, riga)
+        return
     utente, obj = _autore(riga.mittente, modello, pk) if modello else (None, None)
     if obj is None:
         riga.stato, riga.motivo = EmailRicevuta.RIFIUTATA, "il record non esiste più"

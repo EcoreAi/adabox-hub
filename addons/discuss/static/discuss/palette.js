@@ -59,6 +59,58 @@
   }
   function apri() { if (!sfondo) costruisci(); sfondo.hidden = false; input.value = ''; input.focus(); carica(); }
   function chiudi() { if (sfondo) sfondo.hidden = true; }
+  // presenza accanto alle persone del chatter dei record
+  const urlPresenze = script && script.dataset.presenze;
+  async function presenze() {
+    const avatar = [...document.querySelectorAll('[data-presenza-utente]')];
+    const id = [...new Set(avatar.map((a) => a.dataset.presenzaUtente))];
+    if (!id.length || !urlPresenze) return;
+    try {
+      const r = await fetch(`${urlPresenze}?id=${id.join(',')}`);
+      if (!r.ok) return;
+      const { stati } = await r.json();
+      avatar.forEach((a) => {
+        const s = stati[a.dataset.presenzaUtente];
+        if (!s) return;
+        let punto = a.querySelector('.dsp-presenza');
+        if (!punto) { punto = document.createElement('span'); a.appendChild(punto); }
+        punto.className = `dsp-presenza is-${s.stato}`;
+        punto.title = s.etichetta;
+      });
+    } catch (e) { /* senza rete nessun pallino */ }
+  }
+  presenze();
+  document.body.addEventListener('htmx:afterSettle', () => { clearTimeout(presenze.t); presenze.t = setTimeout(presenze, 200); });
+
+  // finestre caricate dal server («Condividi» sui record, «Crea attività» sui messaggi)
+  async function apriFinestra(url) {
+    const r = await fetch(url, { headers: { 'HX-Request': 'true' } });
+    if (!r.ok) return;
+    document.getElementById('ds-finestra')?.remove();
+    const d = document.createElement('dialog');
+    d.className = 'ds-dialogo'; d.id = 'ds-finestra';
+    d.innerHTML = await r.text();
+    document.body.appendChild(d);
+    if (window.htmx) htmx.process(d);
+    d.showModal();
+    d.addEventListener('close', () => d.remove());
+  }
+  document.addEventListener('click', (ev) => {
+    const apre = ev.target.closest('[data-finestra], [data-lavoro]');
+    if (apre) { ev.preventDefault(); apriFinestra(apre.dataset.finestra || apre.dataset.lavoro); return; }
+    if (ev.target.closest('#ds-finestra [data-chiudi]')) ev.target.closest('dialog').close();
+  });
+  document.addEventListener('input', (ev) => {
+    const filtro = ev.target.closest('#ds-finestra [data-scelta-filtro]');
+    if (!filtro) return;
+    const q = filtro.value.trim().toLowerCase();
+    filtro.closest('[data-scelta]').querySelectorAll('.ds-scelta-voce').forEach((v) => { v.hidden = q && !v.dataset.nome.includes(q); });
+  });
+  document.body.addEventListener('htmx:afterRequest', (ev) => {
+    const form = ev.detail.elt;
+    if (form && form.closest && form.closest('#ds-finestra') && form.matches('[data-chiudi-dopo]') && ev.detail.successful) form.closest('dialog').close();
+  });
+
   window.dsPalette = { apri, chiudi };
   document.addEventListener('keydown', (ev) => {
     if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k') {

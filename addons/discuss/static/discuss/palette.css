@@ -11,3 +11,10 @@
 .dsp-vuoto { padding: 18px; text-align: center; color: var(--ui-text-3); font-size: 14px; }
 .dsp-piede { display: flex; gap: 14px; padding: 8px 14px; border-top: 1px solid var(--ui-border); color: var(--ui-text-3); font-size: 12px; }
 .dsp-piede kbd { font: inherit; border: 1px solid var(--ui-border); border-radius: 4px; padding: 0 4px; }
+/* presenza sulle persone del chatter, in ogni pagina */
+[data-presenza-utente] { position: relative; }
+.dsp-presenza { position: absolute; right: -2px; bottom: -2px; width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--ui-surface); background: #94a3b8; }
+.dsp-presenza.is-online { background: #16a34a; }
+.dsp-presenza.is-assente { background: #f59e0b; }
+.dsp-presenza.is-occupato { background: #dc2626; }
+.dsp-presenza.is-fuori { background: #7c3aed; }

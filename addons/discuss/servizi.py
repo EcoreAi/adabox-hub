@@ -162,9 +162,10 @@ def gruppo_da(canale, autore, nuovi, nome=""):
 # --- messaggi ---
 
 @transaction.atomic
-def invia(canale, autore, corpo, file=(), risposta_a=None):
+def invia(canale, autore, corpo, file=(), risposta_a=None, record=(), host=None):
+    """`record`: i record da mostrare come scheda, oltre a quelli citati con un link nel testo."""
     corpo = (corpo or "").strip()[:10000]
-    if not corpo and not file:
+    if not corpo and not file and not record:
         raise ValueError("Il messaggio è vuoto.")
     if risposta_a is not None and (risposta_a.canale_id != canale.pk or risposta_a.eliminato):
         risposta_a = None
@@ -178,8 +179,12 @@ def invia(canale, autore, corpo, file=(), risposta_a=None):
                   menzionati=[u.pk for u in testo.menzionati(corpo)])
     if risposta_a is not None:
         eventi.emetti("agg", canale, m=risposta_a.pk)
+    from . import schede
+    schede.collega(messaggio, [*record, *schede.riconosci(corpo, host)])
     if testo.link_di(corpo):
         transaction.on_commit(lambda: lavori.accoda("discuss.anteprime.calcola", messaggio=messaggio.pk))
+    if canale.lista_email:
+        transaction.on_commit(lambda: lavori.accoda("discuss.posta_canali.invia_lista", messaggio=messaggio.pk))
     return messaggio
 
 

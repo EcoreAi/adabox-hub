@@ -7,6 +7,7 @@
     {% if m.eliminato %}<div class="ui-help"><em>Messaggio eliminato.</em></div>
     {% else %}{% if m.corpo %}<div class="ds-testo">{{ m.corpo|messaggio_html }}</div>{% endif %}
     {% if m.file %}<div class="ds-file">{% for a in m.file %}{% if a.tipo_file == "immagine" %}<a class="ds-immagine" href="{% url 'discuss:allegato' a.pk %}" target="_blank" rel="noopener"><img src="{% url 'discuss:allegato' a.pk %}" alt="{{ a.nome }}" loading="lazy"></a>{% elif a.tipo_file == "audio" %}<audio class="ds-audio" controls preload="metadata" src="{% url 'discuss:allegato' a.pk %}"></audio>{% else %}<a class="ds-allegato" href="{% url 'discuss:allegato' a.pk %}"><svg class="ds-icona"><use href="#icon-paperclip"/></svg> {{ a.nome }} <span class="ui-help">{{ a.dimensione|filesizeformat }}</span></a>{% endif %}{% endfor %}</div>{% endif %}
+    {% for s in m.schede %}{% include "discuss/_scheda.html" %}{% endfor %}
     {% for a in m.anteprime %}<a class="ds-anteprima" href="{{ a.url }}" target="_blank" rel="noopener noreferrer"><small>{{ a.sito }}</small><strong>{{ a.titolo }}</strong>{% if a.descrizione %}<span>{{ a.descrizione }}</span>{% endif %}</a>{% endfor %}
     {% if m.gruppi_reazioni %}<div class="ds-reazioni">{% for r in m.gruppi_reazioni %}<button type="button" class="ds-reazione{% if r.mia %} is-mia{% endif %}" title="{{ r.nomi|join:', ' }}" hx-post="{% url 'discuss:reazione' m.pk %}" hx-vals='{"emoji": "{{ r.emoji }}"}' hx-target="closest .ds-messaggio" hx-swap="outerHTML">{{ r.emoji }} <span>{{ r.n }}</span></button>{% endfor %}</div>{% endif %}
     {% if m.n_risposte %}<button type="button" class="ds-n-risposte" data-pannello="{% url 'discuss:risposte' m.pk %}">{{ m.n_risposte }} rispost{{ m.n_risposte|pluralize:"a,e" }}</button>{% endif %}{% endif %}
@@ -16,6 +17,7 @@
     {% if puo_scrivere %}<button type="button" data-rispondi title="Rispondi" aria-label="Rispondi"><svg class="ds-icona"><use href="#icon-corner-up-left"/></svg></button>{% endif %}
     {% if puo_fissare %}<button type="button" hx-post="{% url 'discuss:fissa' m.pk %}" hx-target="closest .ds-messaggio" hx-swap="outerHTML" title="{% if m.fissato_il %}Togli dai fissati{% else %}Fissa nel canale{% endif %}" aria-label="{% if m.fissato_il %}Togli dai fissati{% else %}Fissa nel canale{% endif %}"><svg class="ds-icona"><use href="#icon-pin"/></svg></button>{% endif %}
     <details class="ds-altro"><summary title="Altro" aria-label="Altro">⋯</summary><div class="ds-altro-menu">
+      <button type="button" data-lavoro="{% url 'discuss:da_messaggio' m.pk %}">Crea attività o record…</button>
       <button type="button" data-da-leggere="{% url 'discuss:da_leggere' m.pk %}">Segna da leggere</button>
       <button type="button" data-copia-link="{% url 'discuss:canale' m.canale_id %}?a={{ m.pk }}">Copia il link</button>
       {% if m.autore_id == request.user.pk %}<button type="button" hx-get="{% url 'discuss:modifica' m.pk %}" hx-target="closest .ds-messaggio" hx-swap="outerHTML">Modifica</button>{% endif %}

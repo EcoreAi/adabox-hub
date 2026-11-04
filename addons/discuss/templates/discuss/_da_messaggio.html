@@ -1,0 +1,18 @@
+<div class="ds-modulo">
+  <h2>Dal messaggio al lavoro</h2>
+  {% if record %}<form hx-post="{% url 'discuss:attivita_da' m.pk %}" hx-swap="none" data-chiudi-dopo class="ds-modulo">{% csrf_token %}
+    <div class="ui-label">Attività su un record</div>
+    <label class="ui-label">Record<select class="ui-input" name="record">{% for s in record %}<option value="{{ s.ct }}:{{ s.pk }}">{{ s.titolo }}</option>{% endfor %}</select></label>
+    <div class="ds-due"><label class="ui-label">Tipo<select class="ui-input" name="tipo" required>{% for t in tipi %}<option value="{{ t.pk }}">{{ t.nome }}</option>{% endfor %}</select></label>
+      <label class="ui-label">Scadenza<input class="ui-input" type="date" name="scadenza" value="{{ oggi|date:'Y-m-d' }}"></label></div>
+    <label class="ui-label">Per chi<select class="ui-input" name="assegnatario" required>{% for u in persone %}<option value="{{ u.pk }}"{% if u.pk == request.user.pk %} selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>{% endfor %}</select></label>
+    <label class="ui-label">Riepilogo<input class="ui-input" name="riepilogo" maxlength="200" value="{{ riepilogo }}"></label>
+    <div class="ds-dialogo-azioni"><button class="ui-btn ui-btn-primary" type="submit">Crea l'attività</button></div>
+  </form>{% else %}<p class="ui-help">Questo messaggio non cita un record: per un'attività su un record, incolla qui il suo link o usa «Condividi» dalla sua pagina.</p>{% endif %}
+  {% if creabili %}<form method="get" action="{% url 'discuss:crea_da' m.pk %}" class="ds-modulo ds-sezione-dialogo">
+    <label class="ui-label">Crea un record nuovo<select class="ui-input" name="vista" required><option value="">Scegli cosa creare…</option>{% for modulo, voci in creabili %}<optgroup label="{{ modulo }}">{% for v, e in voci %}<option value="{{ v }}">{{ e }}</option>{% endfor %}</optgroup>{% endfor %}</select></label>
+    <p class="ui-help">Si apre il modulo già compilato col testo del messaggio; una volta salvato, il record compare qui come scheda.</p>
+    <div class="ds-dialogo-azioni"><button class="ui-btn ui-btn-secondary" type="submit">Continua</button></div>
+  </form>{% endif %}
+  <div class="ds-dialogo-azioni"><button type="button" class="ui-btn ui-btn-ghost" data-chiudi>Chiudi</button></div>
+</div>

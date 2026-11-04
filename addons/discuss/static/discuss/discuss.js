@@ -117,6 +117,14 @@
     htmx.ajax('GET', url, { target: '#ds-pannello', swap: 'innerHTML' });
   }
 
+  // azioni di una scheda: il bottone del record gira nel suo modulo, poi la scheda si ridisegna
+  document.body.addEventListener('htmx:afterRequest', (ev) => {
+    const btn = ev.detail.elt;
+    if (!btn || !btn.matches || !btn.matches('[data-scheda-azione]') || !ev.detail.successful) return;
+    const scheda = btn.closest('.ds-scheda');
+    if (scheda) htmx.ajax('GET', scheda.dataset.url, { target: scheda, swap: 'outerHTML' });
+  });
+
   // --- dialoghi e scelta delle persone ---
   document.addEventListener('input', (ev) => {
     const filtro = ev.target.closest('[data-scelta-filtro]');
