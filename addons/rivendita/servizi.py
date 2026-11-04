@@ -18,6 +18,7 @@ from core import licenza
 from core.registry import pacchetti
 
 from .models import Istanza, ModuloVendibile, Pacchetto, Richiesta
+from .schede import SCHEDE
 
 
 class ChiaveMancante(Exception):
@@ -55,6 +56,7 @@ def pubblica(percorso_zip, nome_file=""):
     modulo, _ = ModuloVendibile.objects.update_or_create(slug=esito.slug, defaults={
         "nome": m.get("nav_label") or m.get("name", esito.slug), "riassunto": (m.get("summary") or "")[:300], "categoria": m.get("category", ""),
         "application": bool(m.get("application")), "icona": _icona(percorso_zip, esito.slug, m)})
+    applica_scheda(modulo)
     nome = nome_file or percorso_zip.name
     p = Pacchetto.objects.filter(modulo=modulo, versione=esito.versione).first() or Pacchetto(modulo=modulo, versione=esito.versione)
     if p.pk and p.file:
@@ -66,6 +68,14 @@ def pubblica(percorso_zip, nome_file=""):
         p.file.save(nome, File(f), save=False)
     p.save()
     return p
+
+
+def applica_scheda(modulo):
+    """La scheda di partenza, solo se sul portale non ne è stata scritta una."""
+    descrizione, funzioni = SCHEDE.get(modulo.slug, ("", []))
+    if descrizione and not modulo.descrizione:
+        modulo.descrizione, modulo.funzioni = descrizione, "\n".join(funzioni)
+        modulo.save(update_fields=["descrizione", "funzioni"])
 
 
 def moduli_di(istanza):
@@ -94,7 +104,9 @@ def catalogo_di(istanza, base_url):
     spettanti = moduli_di(istanza)
     voci, disponibili = [], []
     for m in ModuloVendibile.objects.all():
-        descrizione = {"slug": m.slug, "nome": m.nome, "riassunto": m.riassunto, "categoria": m.categoria, "application": m.application, "icona": m.icona}
+        descrizione = {"slug": m.slug, "nome": m.nome, "riassunto": m.riassunto, "categoria": m.categoria, "application": m.application, "icona": m.icona,
+                       "descrizione": m.descrizione, "funzioni": [r.strip() for r in m.funzioni.splitlines() if r.strip()],
+                       "url_demo": m.url_demo or settings.RIVENDITA_URL_DEMO}
         ultimo = m.ultimo()
         if m.slug in spettanti and ultimo:
             voci.append({**descrizione, "versione": ultimo.versione, "min_core": ultimo.min_core, "dipendenze": ultimo.dipendenze, "file": ultimo.nome_file,
@@ -112,9 +124,10 @@ def ricevi_richieste(istanza, voci):
         slug = str(v.get("slug", ""))[:31]
         if not slug:
             continue
-        if not Richiesta.objects.filter(istanza=istanza, slug=slug, stato=Richiesta.NUOVA).exists():
+        tipo = Richiesta.DEMO if v.get("tipo") == Richiesta.DEMO else Richiesta.INSTALLAZIONE
+        if not Richiesta.objects.filter(istanza=istanza, slug=slug, tipo=tipo, stato=Richiesta.NUOVA).exists():
             Richiesta.objects.create(istanza=istanza, slug=slug, nome=str(v.get("nome") or slug)[:120], nota=str(v.get("nota") or "")[:2000],
-                                     utente=str(v.get("utente") or "")[:150], id_remoto=v.get("id") if isinstance(v.get("id"), int) else None)
+                                                 utente=str(v.get("utente") or "")[:150], id_remoto=v.get("id") if isinstance(v.get("id"), int) else None, tipo=tipo)
         if isinstance(v.get("id"), int):
             ricevute.append(v["id"])
     return ricevute
@@ -122,8 +135,9 @@ def ricevi_richieste(istanza, voci):
 
 def rifiutate(istanza):
     """I moduli la cui ultima richiesta è stata rifiutata: l'istanza lo mostra all'amministratore."""
-    aperte = set(Richiesta.objects.filter(istanza=istanza, stato=Richiesta.NUOVA).values_list("slug", flat=True))
-    return sorted(set(Richiesta.objects.filter(istanza=istanza, stato=Richiesta.RIFIUTATA).values_list("slug", flat=True)) - aperte)
+    installazioni = Richiesta.objects.filter(istanza=istanza, tipo=Richiesta.INSTALLAZIONE)
+    aperte = set(installazioni.filter(stato=Richiesta.NUOVA).values_list("slug", flat=True))
+    return sorted(set(installazioni.filter(stato=Richiesta.RIFIUTATA).values_list("slug", flat=True)) - aperte)
 
 
 def istanze_attive():

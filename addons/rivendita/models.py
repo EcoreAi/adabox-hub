@@ -19,6 +19,9 @@ class ModuloVendibile(models.Model):
     icona = models.TextField("icona", blank=True, editable=False)
     prezzo_mese = models.DecimalField("prezzo al mese (€)", max_digits=9, decimal_places=2, default=0)
     in_catalogo = models.BooleanField("visibile nel catalogo dei clienti", default=True)
+    descrizione = models.TextField("che cosa fa", blank=True, help_text="il testo della finestra «Informazioni» nel catalogo del cliente")
+    funzioni = models.TextField("funzioni", blank=True, help_text="una per riga")
+    url_demo = models.URLField("link alla demo", blank=True, help_text="vuoto = quello generale, RIVENDITA_URL_DEMO")
 
     class Meta:
         verbose_name = "modulo in vendita"
@@ -125,6 +128,8 @@ class Istanza(models.Model):
 class Richiesta(models.Model):
     """Un'app chiesta dall'amministratore di un cliente dal suo catalogo."""
     NUOVA, APPROVATA, RIFIUTATA = "nuova", "approvata", "rifiutata"
+    INSTALLAZIONE, DEMO = "installazione", "demo"
+    tipo = models.CharField("tipo", max_length=15, choices=[(INSTALLAZIONE, "Installazione"), (DEMO, "Demo")], default=INSTALLAZIONE)
     STATI = [(NUOVA, "Nuova"), (APPROVATA, "Approvata"), (RIFIUTATA, "Rifiutata")]
     istanza = models.ForeignKey(Istanza, on_delete=models.CASCADE, related_name="richieste", verbose_name="istanza")
     slug = models.SlugField("modulo", max_length=31)

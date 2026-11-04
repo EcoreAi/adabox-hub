@@ -128,3 +128,20 @@ def test_comando_pubblica(portale, addons_tmp):
     crea_modulo(addons_tmp.dir, "rivendita")
     call_command("rivendita_pubblica", "--tutti")
     assert list(ModuloVendibile.objects.values_list("slug", flat=True)) == ["gamma"]
+
+
+@pytest.mark.django_db
+def test_richiesta_di_demo_non_entra_in_licenza_e_il_link_generale(client, superuser, scena, settings):
+    istanza, token = scena
+    settings.RIVENDITA_URL_DEMO = "https://demo.example/"
+    dati = _post(client, token, {"richieste": [{"id": 1, "slug": "premium", "nome": "Premium", "tipo": "demo"}]}).json()
+    testo, catalogo = sincronia._verifica(dati)
+    assert "premium" not in licenza.leggi(testo).moduli and catalogo["disponibili"][0]["url_demo"] == "https://demo.example/"
+    ModuloVendibile.objects.filter(slug="premium").update(url_demo="https://demo.example/premium")
+    assert sincronia._verifica(_post(client, token).json())[1]["disponibili"][0]["url_demo"] == "https://demo.example/premium"
+    richiesta = Richiesta.objects.get()
+    assert richiesta.tipo == "demo"
+    assert b"Approva" not in client.get(reverse("rivendita:richieste_dettaglio", args=[richiesta.pk])).content
+    client.post(reverse("rivendita:richieste_bottone", args=[richiesta.pk, "gestita"]))
+    richiesta.refresh_from_db()
+    assert richiesta.stato == "approvata" and not istanza.moduli_extra.exists()
