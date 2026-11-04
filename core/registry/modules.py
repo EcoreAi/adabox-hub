@@ -125,13 +125,16 @@ def _manifests(addons_dir, slugs):
 
 
 def disattivati() -> frozenset:
-    """Gli slug dei moduli installati ma disattivati (una query su una tabella di poche righe; vuoto se la tabella
-    non è ancora pronta, es. durante migrate)."""
+    """Gli slug dei moduli installati ma spenti: disattivati a mano o fuori licenza (una query su una tabella di poche
+    righe; vuoto se la tabella non è ancora pronta, es. durante migrate)."""
     from django.db import DatabaseError
+
+    from core import licenza
     try:
-        return frozenset(Modulo.objects.filter(disattivato=True).values_list("slug", flat=True))
+        spenti = frozenset(Modulo.objects.filter(disattivato=True).values_list("slug", flat=True))
     except DatabaseError:
-        return frozenset()
+        spenti = frozenset()
+    return spenti | licenza.fuori_licenza()
 
 
 def imposta_attivo(slug, attivo):

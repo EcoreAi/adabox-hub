@@ -1,6 +1,6 @@
 from theme.context_processors import theme as _theme   # core importa theme, mai il contrario
 
-from . import attivita, azienda, barra
+from . import attivita, azienda, barra, licenza
 from .registry import hooks, modules
 
 
@@ -26,4 +26,5 @@ def piattaforma(request):
         "apps": apps, "app_corrente": corrente, "menu_app": corrente["menu"] if corrente else [],
         "aziende": azienda.consentite(request.user), "azienda": getattr(request, "azienda", None),
         "voci_testata": hooks.voci_testata(request), "voci_profilo": modules.voci_profilo(request.user),
+        "avviso_licenza": licenza.avviso() if request.user.has_perm("core.view_modulo") else "",
     }

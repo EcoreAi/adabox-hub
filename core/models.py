@@ -115,6 +115,41 @@ class DueFattori(models.Model):
         return f"2FA di {self.utente}"
 
 
+class LicenzaIstanza(models.Model):
+    """La licenza di questa istanza e l'ultimo catalogo ricevuti dal portale (una riga sola)."""
+    testo = models.TextField("file di licenza", blank=True)
+    catalogo = models.JSONField("catalogo", default=dict, blank=True)
+    ultima_sincronia = models.DateTimeField("ultima sincronizzazione", null=True, blank=True)
+    ultimo_errore = models.TextField("ultimo errore", blank=True)
+    ultimo_esito = models.JSONField("ultime operazioni", default=list, blank=True)
+    aggiornata = models.DateTimeField("aggiornata il", auto_now=True)
+
+    class Meta:
+        verbose_name = "licenza dell'istanza"
+        verbose_name_plural = "licenza dell'istanza"
+
+
+class RichiestaModulo(models.Model):
+    """Un'app del catalogo chiesta dall'amministratore del cliente: la decide ICHNOBYTE sul portale."""
+    INVIATA, EVASA, RIFIUTATA = "inviata", "evasa", "rifiutata"
+    STATI = [(INVIATA, "Inviata"), (EVASA, "Attivata"), (RIFIUTATA, "Non accolta")]
+    slug = models.SlugField("modulo", max_length=31)
+    nome = models.CharField("nome", max_length=120)
+    nota = models.TextField("nota", blank=True)
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="chiesta da")
+    stato = models.CharField("stato", max_length=10, choices=STATI, default=INVIATA)
+    consegnata = models.BooleanField("arrivata al portale", default=False)
+    creata = models.DateTimeField("chiesta il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "richiesta di modulo"
+        verbose_name_plural = "richieste di moduli"
+        ordering = ["-creata"]
+
+    def __str__(self):
+        return self.nome
+
+
 class Modulo(models.Model):
     DISPONIBILE, INSTALLATO, DA_AGGIORNARE, MANCANTE, ERRORE = (
         "disponibile", "installato", "da_aggiornare", "mancante", "errore")

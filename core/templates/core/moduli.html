@@ -6,6 +6,23 @@
 </div>
 {% if log %}{% include "core/partials/_moduli_stato.html" %}{% else %}<div id="stato"></div>{% endif %}
 <section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Licenza</div>
+    <div class="ui-card-sub">{% if licenza_obbligatoria %}Obbligatoria: i moduli fuori licenza sono spenti e non si installano.{% else %}Non obbligatoria su questa istanza: tutti i moduli si possono installare.{% endif %}</div></div></div>
+  <div class="ui-card-body">
+    {% if licenza.valida %}<p><strong>{{ licenza.cliente }}</strong>{% if licenza.piano %} · piano {{ licenza.piano }}{% endif %} · {{ licenza.moduli|length }} moduli · fino al {{ licenza.scadenza|date:"d/m/Y" }}{% if licenza.scaduta %} <span class="ui-pill ui-pill-warn">scaduta</span>{% endif %} · utenti {{ utenti_attivi }}{% if licenza.utenti %} su {{ licenza.utenti }}{% endif %}</p>
+    {% else %}<p class="ui-help">{{ licenza.motivo }}</p>{% endif %}
+    {% if portale %}<p class="ui-help">Portale: {% if riga_licenza.ultima_sincronia %}ultimo contatto {{ riga_licenza.ultima_sincronia|date:"d/m/Y H:i" }}{% else %}mai contattato{% endif %}{% if riga_licenza.ultimo_esito %} · {{ riga_licenza.ultimo_esito|join:", " }}{% endif %}</p>
+    {% if riga_licenza.ultimo_errore %}<div class="ui-alert ui-alert-error">{{ riga_licenza.ultimo_errore }}</div>{% endif %}{% endif %}
+    {% if richieste %}<p class="ui-help">Richieste in attesa: {% for r in richieste %}{{ r.nome }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+    <div class="ui-modulo-ops">
+      {% if portale %}<form method="post" action="{% url 'core:moduli_sincronizza' %}">{% csrf_token %}<button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Sincronizza ora</button></form>{% endif %}
+      <form method="post" action="{% url 'core:moduli_licenza' %}" enctype="multipart/form-data" class="ui-modulo-ops">{% csrf_token %}
+        <input type="file" name="licenza" accept=".json" class="ui-file" required aria-label="File di licenza">
+        <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Carica licenza</button></form>
+    </div>
+  </div>
+</section>
+<section class="ui-card is-revealed ui-section">
   <div class="ui-card-head"><div><div class="ui-card-title">Carica un modulo</div>
     <div class="ui-card-sub">Pacchetto .zip creato con <code class="ui-code">manage.py modulo impacchetta</code>.
       {% if firma_obbligatoria %}Su questa istanza si accettano solo pacchetti firmati da una chiave fidata.{% else %}Firma non obbligatoria su questa istanza (sviluppo).{% endif %}</div></div></div>

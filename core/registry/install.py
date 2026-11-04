@@ -8,7 +8,7 @@ from pathlib import Path
 
 from django.conf import settings
 
-from core import backup
+from core import backup, licenza
 from core.models import Modulo
 
 from . import bootstrap, modules, reload
@@ -23,6 +23,7 @@ class NonInstallato(ErroreInstallazione): ...
 class NienteDaAggiornare(ErroreInstallazione): ...
 class DipendentiInstallati(ErroreInstallazione): ...
 class ApplicaFallita(ErroreInstallazione): ...
+class NonLicenziato(ErroreInstallazione): ...
 
 
 def scrivi_stato(slugs):
@@ -81,6 +82,11 @@ def _ricarica(riavvia):
         return False
 
 
+def ricarica():
+    """Fa ricaricare il server dopo un giro di sincronizzazione."""
+    return _ricarica(True)
+
+
 def installa(slugs, demo=False, riavvia=False, conferma=None):
     """Installa gli slug e le dipendenze mancanti. `conferma(extra)` decide se installare anche
     le dipendenze non richieste. Restituisce gli slug installati ([] se non confermato)."""
@@ -90,6 +96,8 @@ def installa(slugs, demo=False, riavvia=False, conferma=None):
     if not richiesti:
         raise GiaInstallato(f"già installati: {', '.join(slugs)}")
     piano = [s for s in modules.ordina(_chiusura(richiesti, info), info) if s not in attuali]
+    if fuori := [s for s in piano if not licenza.ammesso(s)]:
+        raise NonLicenziato(f"non coperti dalla licenza: {', '.join(fuori)}")
     extra = [s for s in piano if s not in richiesti]
     if extra and conferma and not conferma(extra):
         return []

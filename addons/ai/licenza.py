@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from django.conf import settings
 from django.utils import timezone
 
+from core import licenza as licenza_istanza
 from core.registry import pacchetti
 
 from .models import Licenza
@@ -61,5 +62,14 @@ def attuale():
         return Stato(True, cliente="Sviluppo", utenti=0, funzioni=FUNZIONI, sviluppo=True)
     ultima = Licenza.objects.first()
     if ultima is None:
-        return Stato(False, "Nessuna licenza caricata.")
+        return _da_istanza() or Stato(False, "Nessuna licenza caricata.")
     return leggi(ultima.testo)
+
+
+def _da_istanza():
+    """Senza una licenza propria dell'assistente vale quella dell'istanza, se comprende il modulo."""
+    istanza = licenza_istanza.attuale()
+    if not istanza.valida or "ai" not in istanza.moduli:
+        return None
+    return Stato(not istanza.scaduta, f"La licenza è scaduta il {istanza.scadenza:%d/%m/%Y}." if istanza.scaduta else "",
+                 cliente=istanza.cliente, scadenza=istanza.scadenza, utenti=istanza.utenti, funzioni=FUNZIONI)

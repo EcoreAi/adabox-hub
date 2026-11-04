@@ -67,6 +67,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "core.middleware.AziendaCorrenteMiddleware",
     "core.middleware.ModuloDisattivatoMiddleware",
+    "core.middleware.LicenzaScadutaMiddleware",
     "core.middleware.UtenteEsternoMiddleware",
     "core.middleware.DueFattoriObbligoMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -175,6 +176,19 @@ MODULI_FIRMA_OBBLIGATORIA = env.bool("MODULI_FIRMA_OBBLIGATORIA", default=not DE
 MODULI_ZIP_MAX_MB = env.int("MODULI_ZIP_MAX_MB", default=20)
 # Catalogo dei moduli approvati: URL (https://… o file://…) di indice.json, con indice.sig accanto
 MODULI_CATALOGO_URL = env("MODULI_CATALOGO_URL", default="")
+# Solo sul portale di chi vende: la chiave privata che firma licenze e cataloghi delle istanze
+MODULI_CHIAVE_PRIVATA = env("MODULI_CHIAVE_PRIVATA", default="")
+
+# --- Licenza dell'istanza ---------------------------------------------------
+# Con True i moduli fuori licenza sono spenti e a licenza scaduta (finita la grazia) l'istanza è in sola lettura
+LICENZA_OBBLIGATORIA = env.bool("LICENZA_OBBLIGATORIA", default=False)
+# Il portale da cui l'istanza riceve licenza e moduli (es. https://portale.ichnobyte.it/rivendita/api) e il suo token
+LICENZA_PORTALE_URL = env("LICENZA_PORTALE_URL", default="")
+LICENZA_TOKEN = env("LICENZA_TOKEN", default="")
+# Con False la sincronizzazione aggiorna licenza e catalogo ma moduli si installano a mano da /moduli/
+LICENZA_APPLICA_AUTOMATICA = env.bool("LICENZA_APPLICA_AUTOMATICA", default=True)
+# Dove arriva un'email a ogni richiesta di modulo dal catalogo delle applicazioni (facoltativo)
+LICENZA_EMAIL_RICHIESTE = env("LICENZA_EMAIL_RICHIESTE", default="")
 
 # --- Sicurezza sempre attiva -------------------------------------------
 SESSION_COOKIE_AGE = 60 * 30

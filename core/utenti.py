@@ -15,7 +15,7 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from django.views.decorators.http import require_POST
 
-from . import ruoli
+from . import licenza, ruoli
 from .models import Azienda, DueFattori, Ruolo
 from .signals import crea_profilo
 
@@ -59,6 +59,13 @@ class UtenteForm(forms.ModelForm):
         self.fields["username"].required = False
         self.fields["username"].help_text = "Vuoto: la parte dell'email prima della chiocciola"
         _classi(self)
+
+    def clean_is_active(self):
+        attivo = self.cleaned_data.get("is_active")
+        nuovo_attivo = attivo and not (self.instance.pk and User.objects.filter(pk=self.instance.pk, is_active=True).exists())
+        if nuovo_attivo and licenza.posti_finiti():
+            raise forms.ValidationError(f"La licenza copre {licenza.attuale().utenti} utenti attivi e sono già tutti occupati.")
+        return attivo
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()

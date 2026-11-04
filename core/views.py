@@ -15,12 +15,13 @@ from django.views.decorators.http import require_GET, require_POST
 from . import azienda as az
 from . import moduli as mod
 from . import attivita as attivita_servizio
-from . import barra, due_fattori, parametri
+from . import barra, due_fattori, lavori, licenza, parametri
 
 from .forms import AziendaPredefinitaForm, CampoPersonalizzatoForm, ProfiloForm, TokenApiForm
+from .models import LicenzaIstanza, RichiestaModulo
 from .models import (Azienda, CampoPersonalizzato, EmailRicevuta, Lavoro, Modulo, Parametro, ProfiloUtente,
                      TokenApi)
-from .registry import modules, pacchetti
+from .registry import modules, pacchetti, sincronia
 from .signals import crea_profilo
 from .viste import ModelView, register
 
@@ -35,6 +36,9 @@ def voci_kernel(user):
     if user.has_perm("auth.change_user"):
         voci.append({"label": "Utenti e ruoli", "url": reverse("core:utenti"), "icon": "users",
                      "sub": "Chi entra, con quale ruolo e che cosa può fare in ogni modulo"})
+    if user.has_perm("core.view_modulo"):
+        voci.append({"label": "Applicazioni", "url": reverse("core:applicazioni"), "icon": "layout",
+                     "sub": "Le app attive e quelle che si possono aggiungere"})
     if user.has_perm("core.view_azienda"):
         voci.append({"label": "Aziende", "url": reverse("core:aziende_lista"), "icon": "tool",
                      "sub": "Anagrafica delle aziende dell'istanza"})
@@ -249,6 +253,7 @@ def _schede_moduli():
     # migrazioni ancora registrate = tabelle rimaste (disinstallato senza --elimina-dati)
     con_dati = set(MigrationRecorder.Migration.objects.values_list("app", flat=True).distinct())
     schede = []
+    fuori = licenza.fuori_licenza()
     for r in righe:
         m = info[r.slug].manifest if r.slug in info else None
         installato = r.slug in installati
@@ -260,7 +265,7 @@ def _schede_moduli():
             Modulo.ERRORE: ["aggiorna", "disinstalla"] if installato else (["installa"] if m else []),
         }[r.stato]
         schede.append({"riga": r, "manifest": m, "ops": ops, "installato": installato,
-                       "dati_presenti": not installato and r.slug in con_dati,
+                       "dati_presenti": not installato and r.slug in con_dati, "fuori_licenza": r.slug in fuori or not licenza.ammesso(r.slug),
                        "origine": pacchetti.origine(info[r.slug].cartella) if r.slug in info else None})
     return schede
 
@@ -268,7 +273,10 @@ def _schede_moduli():
 def _pagina_moduli(request, log=None):
     from django.conf import settings
     ctx = {"schede": _schede_moduli(), "firma_obbligatoria": settings.MODULI_FIRMA_OBBLIGATORIA,
-           "catalogo_configurato": bool(settings.MODULI_CATALOGO_URL)}
+           "catalogo_configurato": bool(settings.MODULI_CATALOGO_URL), "licenza": licenza.attuale(),
+           "licenza_obbligatoria": licenza.obbligatoria(), "riga_licenza": LicenzaIstanza.objects.first(),
+           "portale": sincronia.configurata(), "richieste": RichiestaModulo.objects.filter(stato=RichiestaModulo.INVIATA)[:20],
+           "utenti_attivi": licenza.utenti_attivi()}
     if settings.MODULI_CATALOGO_URL:
         try:
             ctx["catalogo"] = [v for v in pacchetti.leggi_catalogo() if v["stato"] != "presente"]
@@ -349,6 +357,32 @@ def moduli_scarica(request):
         return redirect("core:moduli")
     messages.success(request, f"{esito.nome} {esito.versione} scaricato dal catalogo: ora puoi installarlo o aggiornarlo.")
     return redirect(f"{reverse('core:moduli')}#modulo-{esito.slug}")
+
+
+@require_POST
+@solo_superuser
+def moduli_licenza(request):
+    """Carica un file di licenza (per le istanze senza portale)."""
+    file = request.FILES.get("licenza")
+    if file is None:
+        messages.error(request, "Scegli un file di licenza.")
+        return redirect("core:moduli")
+    try:
+        stato = licenza.salva(file.read().decode("utf-8", errors="replace"))
+    except ValueError as e:
+        messages.error(request, f"Licenza rifiutata: {e}")
+        return redirect("core:moduli")
+    messages.success(request, f"Licenza di {stato.cliente} caricata, valida fino al {stato.scadenza:%d/%m/%Y}.")
+    return redirect("core:moduli")
+
+
+@require_POST
+@solo_superuser
+def moduli_sincronizza(request):
+    """Il giro col portale parte nel worker: installare moduli non è cosa da una richiesta web."""
+    lavori.accoda("core.registry.sincronia.esegui")
+    messages.success(request, "Sincronizzazione col portale avviata: l'esito compare qui tra poco.")
+    return redirect("core:moduli")
 
 
 @require_GET

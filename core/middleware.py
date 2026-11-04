@@ -73,6 +73,25 @@ class ModuloDisattivatoMiddleware:
         return self.get_response(request)
 
 
+class LicenzaScadutaMiddleware:
+    """Licenza assente, non valida o scaduta oltre la grazia: i dati si leggono ma non si scrivono. Restano aperti
+    l'accesso e le pagine da cui si rimette a posto la licenza."""
+    SEMPRE = ("/accounts/", "/static/", "/favicon.", "/moduli/", "/applicazioni/")
+    LETTURA = ("GET", "HEAD", "OPTIONS")
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.method not in self.LETTURA and not request.path_info.startswith(self.SEMPRE):
+            from django.shortcuts import render
+
+            from . import licenza
+            if licenza.bloccata():
+                return render(request, "core/licenza_scaduta.html", status=403)
+        return self.get_response(request)
+
+
 def modulo_di(percorso):
     """Il modulo di un indirizzo: il namespace delle sue pagine, o /api/v1/<modulo>/ per le API."""
     from django.urls import Resolver404, resolve

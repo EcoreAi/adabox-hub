@@ -1,0 +1,7 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Sola lettura · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-card is-revealed"><div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-lock"/></svg>
+  <p><strong>L'istanza è in sola lettura.</strong> La licenza manca o è scaduta: i dati si consultano e si esportano, ma non si modificano. Contatta ICHNOBYTE per rinnovarla.</p>
+</div></div></div>
+{% endblock %}

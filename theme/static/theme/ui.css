@@ -1555,3 +1555,24 @@ body.is-trascinando, body.is-trascinando .wd-maniglia { cursor: grabbing; user-s
 .ak-piede { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 8px 22px 14px; font-size: 12px; color: var(--ui-text-3); }
 @media (max-width: 600px) { .ak-etichetta { right: 12px; bottom: 12px; padding: 10px 12px; } .ak-modale { padding-top: 12px; } }
 @media (prefers-reduced-motion: reduce) { .ak-box { animation: none; } .ak-etichetta { transition: none; } }
+
+/* ---------- catalogo delle applicazioni */
+.mk-avviso { margin-bottom: 16px; }
+.mk-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.mk-app { display: flex; flex-direction: column; gap: 10px; padding: 18px; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--radius-card); transition: box-shadow 180ms var(--ease-out), transform 180ms var(--ease-out); }
+.mk-app[hidden] { display: none; }
+.mk-app:hover { box-shadow: var(--shadow-card); transform: translateY(-2px); }
+.mk-testa { display: flex; align-items: center; gap: 12px; }
+.mk-icona { width: 40px; height: 40px; margin: 0; border-radius: 11px; flex: none; } .mk-icona img { width: 24px; height: 24px; }
+.mk-iniziale { font-weight: 700; font-size: 17px; color: var(--ui-primary); }
+.mk-nome { font-weight: 600; font-size: 15px; } .mk-categoria { font-size: 12px; color: var(--ui-text-3); }
+.mk-riassunto { margin: 0; flex: 1; font-size: 13px; line-height: 1.45; color: var(--ui-text-2); }
+.mk-piede { display: flex; align-items: center; min-height: 32px; }
+.mk-stato { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--ui-surface-2); color: var(--ui-text-2); }
+.mk-app.is-attiva .mk-stato { background: var(--ui-success-tint); color: #1f7a3a; }
+.mk-app.is-sospesa .mk-stato, .mk-app.is-richiesta .mk-stato { background: var(--ui-warning-tint); color: #b46300; }
+.mk-richiedi { width: 100%; } .mk-richiedi > summary { list-style: none; display: inline-flex; cursor: pointer; } .mk-richiedi > summary::-webkit-details-marker { display: none; }
+.mk-richiedi-form { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 8px; } .mk-richiedi-form .ui-input { width: 100%; }
+.mk-filtri { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 14px; } .mk-cerca { width: 240px; margin-right: 6px; }
+.mk-chip { padding: 6px 12px; border: 1px solid var(--ui-border); border-radius: 999px; background: var(--ui-surface); color: var(--ui-text-2); font: inherit; font-size: 12.5px; cursor: pointer; }
+.mk-chip.is-attiva { border-color: var(--ui-primary); color: var(--ui-primary); background: var(--ui-primary-tint); }

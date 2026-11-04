@@ -1,6 +1,6 @@
 from django.urls import include, path
 
-from . import due_fattori_viste, utenti, views
+from . import applicazioni, due_fattori_viste, utenti, views
 from .viste import allegati as allegati_viste
 from .viste import chatter as chatter_viste
 from .viste import registry
@@ -50,6 +50,10 @@ urlpatterns = [
     path("moduli/carica/", views.moduli_carica, name="moduli_carica"),
     path("moduli/scarica/", views.moduli_scarica, name="moduli_scarica"),
     path("moduli/stato/", views.moduli_stato, name="moduli_stato"),
+    path("moduli/licenza/", views.moduli_licenza, name="moduli_licenza"),
+    path("moduli/sincronizza/", views.moduli_sincronizza, name="moduli_sincronizza"),
+    path("applicazioni/", applicazioni.pagina, name="applicazioni"),
+    path("applicazioni/richiedi/", applicazioni.richiedi, name="applicazioni_richiedi"),
 ]
 # viste generate dalle ModelView del kernel, sotto /core/ come i moduli sotto /<slug>/
 urlpatterns += [path("core/", include(registry.urlpatterns("core")))]

@@ -1,0 +1,45 @@
+{% extends 'core/base_app.html' %}
+{% load static %}
+{% block title %}Applicazioni · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Applicazioni</h1><div class="sub">{% if licenza.valida %}{{ licenza.cliente }}{% if licenza.piano %} · piano {{ licenza.piano }}{% endif %} · fino al {{ licenza.scadenza|date:"d/m/Y" }} · utenti {{ utenti_attivi }}{% if licenza.utenti %} su {{ licenza.utenti }}{% endif %}{% else %}Le app attive e quelle che si possono aggiungere{% endif %}</div></div>
+  {% if user.is_superuser %}<div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'core:moduli' %}">Gestione moduli</a></div>{% endif %}
+</div>
+<h2 class="ui-apps-titolo">Le tue app</h2>
+{% if attive %}<div class="mk-griglia">{% for v in attive %}{% include "core/_app_catalogo.html" %}{% endfor %}</div>
+{% else %}<div class="ui-card is-revealed"><div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessuna app attiva.</p></div></div></div>{% endif %}
+<h2 class="ui-apps-titolo">Da aggiungere</h2>
+{% if altre %}
+<div class="mk-filtri" id="mk-filtri">
+  <input class="ui-input mk-cerca" type="search" id="mk-cerca" placeholder="Cerca un'app…" aria-label="Cerca un'app">
+  <button type="button" class="mk-chip is-attiva" data-categoria="">Tutte</button>
+  {% for c in categorie %}<button type="button" class="mk-chip" data-categoria="{{ c }}">{{ c }}</button>{% endfor %}
+</div>
+<div class="mk-griglia" id="mk-altre">{% for v in altre %}{% include "core/_app_catalogo.html" %}{% endfor %}</div>
+<p class="ui-help" id="mk-vuoto" hidden>Nessuna app con questi criteri.</p>
+<script>
+(function () {
+  const griglia = document.getElementById('mk-altre'), cerca = document.getElementById('mk-cerca'), vuoto = document.getElementById('mk-vuoto');
+  let categoria = '';
+  const filtra = () => {
+    const testo = cerca.value.trim().toLowerCase();
+    let viste = 0;
+    griglia.querySelectorAll('.mk-app').forEach((a) => {
+      const si = (!categoria || a.dataset.categoria === categoria) && a.textContent.toLowerCase().includes(testo);
+      a.hidden = !si; viste += si;
+    });
+    vuoto.hidden = viste > 0;
+  };
+  cerca.addEventListener('input', filtra);
+  document.getElementById('mk-filtri').addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-categoria]');
+    if (!chip) return;
+    categoria = chip.dataset.categoria;
+    document.querySelectorAll('.mk-chip').forEach((c) => c.classList.toggle('is-attiva', c === chip));
+    filtra();
+  });
+})();
+</script>
+{% else %}<p class="ui-help">Hai già tutte le app del catalogo.</p>{% endif %}
+{% endblock %}

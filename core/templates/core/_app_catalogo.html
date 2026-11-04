@@ -1,0 +1,17 @@
+{% load static %}<article class="mk-app is-{{ v.stato }}" data-categoria="{{ v.categoria }}">
+  <div class="mk-testa">
+    <span class="ui-app-icona mk-icona">{% if v.statica %}<img src="{% static v.statica %}" alt="">{% elif v.icona %}<img src="{{ v.icona }}" alt="">{% else %}<span class="mk-iniziale">{{ v.iniziale }}</span>{% endif %}</span>
+    <div><div class="mk-nome">{{ v.nome }}</div><div class="mk-categoria">{{ v.categoria }}</div></div>
+  </div>
+  <p class="mk-riassunto">{{ v.riassunto }}</p>
+  <div class="mk-piede">
+    {% if v.stato == "disponibile" %}
+    <details class="mk-richiedi"><summary class="ui-btn ui-btn-primary ui-btn-sm">Richiedi</summary>
+      <form method="post" action="{% url 'core:applicazioni_richiedi' %}" class="mk-richiedi-form">{% csrf_token %}
+        <input type="hidden" name="slug" value="{{ v.slug }}">
+        <textarea class="ui-input" name="nota" rows="2" maxlength="2000" placeholder="Una nota per noi (facoltativa)" aria-label="Nota per la richiesta di {{ v.nome }}"></textarea>
+        <button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">Invia la richiesta</button>
+      </form></details>
+    {% else %}<span class="mk-stato">{{ v.etichetta }}</span>{% endif %}
+  </div>
+</article>
