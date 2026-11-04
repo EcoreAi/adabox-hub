@@ -53,6 +53,7 @@ def parametri_di(request, grafico=None):
              "data": spec.get("data", ""), "periodo": spec.get("per", "mese") if previsione else spec.get("periodo", "mese"),
              "orizzonte": str(spec.get("orizzonte") or 3), "tipo": grafico.tipo, "aggiorna_ogni": str(grafico.aggiorna_ogni),
              "massimo": str(spec.get("massimo") or 30), "ordine": spec.get("ordine", ""), "titolo": grafico.titolo,
+             "obiettivo": str((grafico.opzioni or {}).get("obiettivo", "") or ""),
              **{k: v for k, v in (spec.get("lista") or {}).items()}}
         if grafico.pagina_id:
             p["destinazione"] = f"app:{grafico.pagina.app}" if grafico.pagina.app else str(grafico.pagina_id)
@@ -63,6 +64,16 @@ def parametri_di(request, grafico=None):
     p.setdefault("orizzonte", "3")
     p.setdefault("aggiorna_ogni", "0")
     return p
+
+
+def obiettivo_di(p):
+    """L'obiettivo (una linea sul grafico, una barra sul KPI) come numero, o None."""
+    testo = str(p.get("obiettivo", "") or "").strip().replace(".", "").replace(",", ".") if "," in str(p.get("obiettivo", "")) else str(p.get("obiettivo", "") or "").strip()
+    try:
+        valore = float(testo)
+    except ValueError:
+        return None
+    return valore if valore > 0 else None
 
 
 def spec_di(p):
@@ -94,7 +105,8 @@ def _anteprima(request, p, vista):
     spec = spec_di(p)
     tipo = p.get("tipo", Grafico.BARRE)
     pronto = bool(spec) and (tipo == Grafico.KPI or (spec.get("data") if tipo == Grafico.PREVISIONE else spec.get("per")))
-    finto = Grafico(utente=request.user, titolo=p.get("titolo") or motore.descrizione(spec, vista=vista, tipo=tipo), tipo=tipo, spec=spec)
+    finto = Grafico(utente=request.user, titolo=p.get("titolo") or motore.descrizione(spec, vista=vista, tipo=tipo), tipo=tipo, spec=spec,
+                    opzioni={"obiettivo": obiettivo_di(p)} if obiettivo_di(p) else {})
     w = {"id": "anteprima", "tipo": "salvato", "titolo": finto.titolo, "grafico": finto, "dom": "wd-anteprima", "mio": True,
          "sotto": motore.descrizione(spec, vista=vista, tipo=tipo) if spec else "", "tipi": [], "errore": "",
          "serie": {"tipo": tipo, "vuoto": True, "righe": [], "etichette": [], "valori": []}, "pronto": pronto}
@@ -149,6 +161,8 @@ def _salva(request, grafico=None):
     grafico.titolo, grafico.tipo, grafico.spec, grafico.dati, grafico.aggiornato = titolo, tipo, spec, dati, timezone.now()
     if str(p.get("aggiorna_ogni", "")).isdigit():
         grafico.aggiorna_ogni = min(int(p["aggiorna_ogni"]), 24 * 30)
+    obiettivo = obiettivo_di(p)
+    grafico.opzioni = {**{k: v for k, v in (grafico.opzioni or {}).items() if k != "obiettivo"}, **({"obiettivo": obiettivo} if obiettivo else {})}
     if "destinazione" in p:
         grafico.pagina = _destinazione(request, p.get("destinazione"), p.get("titolo_nuova"))
     grafico.save()

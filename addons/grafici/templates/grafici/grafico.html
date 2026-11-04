@@ -7,6 +7,7 @@
   <div class="ui-pagehead-actions">
     <a class="ui-btn ui-btn-secondary" href="?aggiorna=1"><svg><use href="#icon-refresh"/></svg> Aggiorna</a>
     <a class="ui-btn ui-btn-ghost" href="{% url 'grafici:grafico_csv' g.pk %}"><svg><use href="#icon-download"/></svg> CSV</a>
+    {% if not w.serie.vuoto %}<button type="button" class="ui-btn ui-btn-ghost" data-an-png="{{ w.dom }}" data-nome="{{ g.titolo|slugify }}"><svg><use href="#icon-download"/></svg> PNG</button>{% endif %}
     {% if g.origine_url %}<a class="ui-btn ui-btn-ghost" href="{{ g.origine_url }}">{% if g.origine == "chat" %}Vai alla chat{% else %}Vai alla vista{% endif %}</a>{% endif %}
   </div>
 </div>

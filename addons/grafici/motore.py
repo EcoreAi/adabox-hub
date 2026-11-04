@@ -28,6 +28,7 @@ ICONE = [("bar-chart", "Grafico"), ("pie-chart", "Torta"), ("trending-up", "Tend
          ("zap", "Lampo"), ("shield", "Controllo")]
 TIPI_SCAMBIABILI = [(t, e) for t, e in Grafico.TIPI if t in Grafico.INTERCAMBIABILI]
 AGGIORNAMENTI = [(0, "Mai: solo a mano"), (1, "Ogni ora"), (6, "Ogni 6 ore"), (24, "Ogni giorno"), (168, "Ogni settimana")]
+MAX_SCHEDE_APP = 6                                       # oltre, le schede delle app vanno nel menu «Altre app»
 
 
 def minuti_cache():
@@ -141,7 +142,12 @@ def serie_di(grafico, dati, vista=None):
         storico = [tuple(c) for c in dati.get("storico", [])]
         delta = dati.get("delta")
         nomi = interroga.NOMI_PERIODO.get(dati.get("periodo", ""), ("", ""))
-        return {"tipo": "kpi", "titolo": grafico.titolo, "valore": dati.get("valore"), "unita": dati.get("unita", ""),
+        obiettivo = (grafico.opzioni or {}).get("obiettivo")
+        valore = dati.get("valore")
+        percento = round(float(valore) * 100 / float(obiettivo)) if obiettivo and valore is not None else None
+        return {"tipo": "kpi", "titolo": grafico.titolo, "valore": valore, "unita": dati.get("unita", ""),
+                "obiettivo": obiettivo, "obiettivo_testo": testo_valore(obiettivo, dati.get("unita", "")) if obiettivo else "",
+                "percento": min(percento, 100) if percento is not None else None, "percento_testo": f"{percento} %" if percento is not None else "",
                 "valore_testo": testo_valore(dati.get("valore"), dati.get("unita", "")), "delta": delta,
                 "delta_testo": (f"{'+' if delta > 0 else ''}{testo_valore(delta)} %" if delta is not None else ""),
                 "precedente_testo": testo_valore(dati.get("precedente"), dati.get("unita", "")) if dati.get("precedente") is not None else "",
@@ -154,7 +160,7 @@ def serie_di(grafico, dati, vista=None):
     return {"tipo": grafico.tipo if grafico.tipo in Grafico.INTERCAMBIABILI else Grafico.BARRE, "titolo": grafico.titolo,
             "etichette": [e for e, _ in coppie], "valori": [float(v) for _, v in coppie], "righe": coppie,
             "vuoto": not any(v for _, v in coppie), "totale": dati.get("totale"),
-            "link": link if any(link) else []}
+            "link": link if any(link) else [], "obiettivo": (grafico.opzioni or {}).get("obiettivo")}
 
 
 def descrizione(spec, request=None, vista=None, tipo=""):
@@ -305,27 +311,36 @@ def app_con_indicatori(user):
 
 
 def schede(request, attiva=""):
-    """Le schede della dashboard per chi guarda: le sue pagine libere e quelle condivise con lui, poi una scheda per
-    ogni app con indicatori (meno quelle che ha nascosto)."""
+    """Le schede della dashboard per chi guarda: {"visibili": [...], "altre": [...]}. Visibili: le sue pagine libere e
+    quelle condivise con lui, poi le schede delle app con indicatori (prima quelle che ha personalizzato), al massimo
+    MAX_SCHEDE_APP; le altre app vanno nel menu «Altre app», tranne quella aperta, che resta in vista."""
     utente = request.user
     pagine = list(Pagina.objects.filter(Q(utente=utente) | Q(condivisa=True)).select_related("utente"))
     voci = []
     libere = sorted([p for p in pagine if not p.app], key=lambda p: (p.utente_id != utente.id, p.ordine, p.pk))
     for p in libere:
-        voci.append({"chiave": p.chiave, "titolo": p.titolo, "icona": p.icona, "immagine": "",
+        voci.append({"chiave": p.chiave, "titolo": p.titolo, "icona": p.icona, "immagine": "", "app": False,
                      "url": reverse("grafici:pagina", args=[p.pk]), "condivisa": p.utente_id != utente.id,
                      "proprietario": _nome(p.utente), "attiva": p.chiave == attiva})
     proprie_app = {p.app: p for p in pagine if p.app and p.utente_id == utente.id}
-    for app in app_con_indicatori(utente):
-        p = proprie_app.get(app["slug"])
+    app = []
+    for a in app_con_indicatori(utente):
+        p = proprie_app.get(a["slug"])
         if p and p.nascosta:
             continue
-        icona = app.get("icon") or "zap"
-        voci.append({"chiave": f"app:{app['slug']}", "titolo": p.titolo if p else app["label"],
-                     "icona": "" if "/" in icona else icona, "immagine": icona if "/" in icona else "",
-                     "url": reverse("grafici:pagina_app", args=[app["slug"]]), "condivisa": False, "proprietario": "",
-                     "attiva": f"app:{app['slug']}" == attiva})
-    return voci
+        icona = a.get("icon") or "zap"
+        app.append({"chiave": f"app:{a['slug']}", "titolo": p.titolo if p else a["label"], "app": True,
+                    "icona": "" if "/" in icona else icona, "immagine": icona if "/" in icona else "",
+                    "url": reverse("grafici:pagina_app", args=[a["slug"]]), "condivisa": False, "proprietario": "",
+                    "attiva": f"app:{a['slug']}" == attiva, "personalizzata": bool(p and (p.layout or p.grafici.exists()))})
+    app.sort(key=lambda v: not v["personalizzata"])        # stabile: tra pari resta l'ordine delle app
+    visibili, altre = app[:MAX_SCHEDE_APP], app[MAX_SCHEDE_APP:]
+    aperta = next((v for v in altre if v["attiva"]), None)
+    if aperta:                                            # la scheda aperta non finisce mai nel menu
+        altre.remove(aperta)
+        altre.insert(0, visibili.pop())
+        visibili.append(aperta)
+    return {"visibili": voci + visibili, "altre": altre}
 
 
 def pagina_app(utente, app):

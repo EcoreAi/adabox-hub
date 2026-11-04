@@ -2,5 +2,6 @@
 <div class="an-kpi">
   <div class="an-kpi-valore" data-contatore>{{ w.serie.valore_testo }}</div>
   <div class="an-kpi-riga">{% if w.serie.delta is not None %}<span class="an-kpi-delta {% if w.serie.delta >= 0 %}is-su{% else %}is-giu{% endif %}">{% if w.serie.delta >= 0 %}▲{% else %}▼{% endif %} {{ w.serie.delta_testo }}</span>{% endif %}<span class="an-kpi-periodo">{{ w.serie.periodo_testo }}</span></div>
+  {% if w.serie.obiettivo %}<div class="an-kpi-obiettivo"><div class="an-kpi-barra" role="progressbar" aria-valuenow="{{ w.serie.percento }}" aria-valuemin="0" aria-valuemax="100"><span style="width:{{ w.serie.percento }}%"></span></div><small>{{ w.serie.percento_testo }} dell'obiettivo {{ w.serie.obiettivo_testo }}</small></div>{% endif %}
   {% if w.serie.valori %}<div class="an-kpi-spark"><canvas data-grafico="{{ w.dom }}" aria-label="Andamento degli ultimi periodi"></canvas></div>{{ w.serie|json_script:w.dom }}{% endif %}
 </div>

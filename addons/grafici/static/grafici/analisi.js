@@ -16,6 +16,8 @@
     if (tipo) { cambiaTipo(tipo); return; }
     const ada = e.target.closest('[data-an-ada]');
     if (ada) { chiediAdAda(ada); return; }
+    const png = e.target.closest('[data-an-png]');
+    if (png) { scaricaPng(png); return; }
     document.querySelectorAll('details.an-menu[open], details.an-salva[open]').forEach((d) => { if (!d.contains(e.target)) d.removeAttribute('open'); });
   });
 
@@ -36,6 +38,19 @@
         headers: { 'X-CSRFToken': csrf(), 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' } });
       if (!r.ok) throw new Error();
     } catch (err) { if (window.uiToast) window.uiToast('Il tipo non è stato salvato', 'warn'); }
+  }
+
+  // il grafico com'è disegnato, in PNG (sfondo pieno: lo mette il plugin del tema)
+  function scaricaPng(bottone) {
+    const canvas = document.querySelector(`canvas[data-grafico="${bottone.dataset.anPng}"]`);
+    const grafico = canvas && window.Chart && Chart.getChart(canvas);
+    const menu = bottone.closest('details');
+    if (menu) menu.removeAttribute('open');
+    if (!grafico) { if (window.uiToast) window.uiToast('Il grafico non è ancora disegnato'); return; }
+    const a = document.createElement('a');
+    a.href = grafico.toBase64Image('image/png', 1);
+    a.download = (bottone.dataset.nome || 'grafico') + '.png';
+    document.body.append(a); a.click(); a.remove();
   }
 
   // askAda, se c'è, apre la sua finestra: la domanda viene scritta appena il modulo è caricato

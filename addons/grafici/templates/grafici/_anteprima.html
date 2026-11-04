@@ -8,8 +8,12 @@
 {% else %}
 <div class="wd-canvas wd-canvas-pagina"><canvas data-grafico="{{ w.dom }}" role="img" aria-label="Anteprima del grafico"></canvas></div>
 {{ w.serie|json_script:w.dom }}
-<div class="ui-table-wrap an-anteprima-tabella"><table class="ui-table is-revealed"><thead><tr><th scope="col">Categoria</th><th scope="col" class="ui-num">Valore</th></tr></thead>
+<div class="ui-table-wrap an-anteprima-tabella"><table class="ui-table is-revealed">
+  {% if w.serie.futuro %}<thead><tr><th scope="col">Periodo</th><th scope="col" class="ui-num">Valore</th><th scope="col" class="ui-num">Previsione (10–90 %)</th></tr></thead>
+  <tbody>{% for e, v in w.serie.storico %}<tr><td>{{ e }}</td><td class="ui-num">{{ v|floatformat:"-2" }}</td><td></td></tr>{% endfor %}
+  {% for f in w.serie.futuro %}<tr><td>{{ f.0 }}</td><td></td><td class="ui-num"><strong>{{ f.2|floatformat:"-2" }}</strong> <small>({{ f.1|floatformat:"-2" }} – {{ f.3|floatformat:"-2" }})</small></td></tr>{% endfor %}</tbody>
+  {% else %}<thead><tr><th scope="col">Categoria</th><th scope="col" class="ui-num">Valore</th></tr></thead>
   <tbody>{% for e, v in w.serie.righe %}<tr><td>{{ e }}</td><td class="ui-num">{{ v|floatformat:"-2" }}</td></tr>{% endfor %}</tbody>
-  {% if w.serie.totale is not None %}<tfoot><tr class="ui-totali"><th scope="row">Totale</th><td class="ui-num">{{ w.serie.totale|floatformat:"-2" }}</td></tr></tfoot>{% endif %}</table></div>
+  {% if w.serie.totale is not None %}<tfoot><tr class="ui-totali"><th scope="row">Totale</th><td class="ui-num">{{ w.serie.totale|floatformat:"-2" }}</td></tr></tfoot>{% endif %}{% endif %}</table></div>
 {% if w.serie.link %}<p class="ui-help">Clic su una categoria: si apre la lista filtrata su quei record.</p>{% endif %}
 {% endif %}

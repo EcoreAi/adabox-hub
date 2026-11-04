@@ -87,3 +87,12 @@
 .an-cost-azioni { display: flex; justify-content: flex-end; padding-top: 4px; }
 .an-cost-anteprima { position: sticky; top: 76px; } .an-anteprima-tabella { margin-top: 14px; max-height: 320px; overflow: auto; }
 @media (max-width: 1000px) { .an-costruttore { grid-template-columns: 1fr; } .an-cost-anteprima { position: static; } }
+
+/* altre app e obiettivo */
+.an-altre > summary { gap: 6px; } .an-altre .an-freccia { width: 12px; height: 12px; opacity: .7; }
+.an-altre[open] > summary { background: var(--ui-surface); color: var(--ui-text); }
+.an-altre .an-menu-pannello { left: 0; right: auto; max-height: 60vh; overflow-y: auto; }
+.an-altre .an-menu-pannello img { width: 16px; height: 16px; border-radius: 4px; }
+.an-kpi-obiettivo { margin-top: 10px; } .an-kpi-obiettivo small { display: block; margin-top: 4px; font-size: 11.5px; color: var(--ui-text-3); }
+.an-kpi-barra { height: 6px; border-radius: 999px; background: var(--ui-surface-2); overflow: hidden; }
+.an-kpi-barra span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--ui-primary), #d97706); transition: width .6s cubic-bezier(.2, .8, .2, 1); }

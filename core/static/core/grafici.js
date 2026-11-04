@@ -46,6 +46,32 @@ window.adaboxGrafici = (function () {
     ctx.font = `500 11px ${carattere}`; ctx.fillStyle = testo2; ctx.fillText(t.etichetta, x, y + 12);
     ctx.restore();
   } };
+  // sfondo pieno: nel PNG esportato il grafico non resta trasparente
+  const sfondo = { id: 'adaboxSfondo', beforeDraw(chart) {
+    const ctx = chart.ctx;
+    ctx.save(); ctx.globalCompositeOperation = 'destination-over';
+    ctx.fillStyle = stile.getPropertyValue('--ui-surface').trim() || '#ffffff';
+    ctx.fillRect(0, 0, chart.width, chart.height); ctx.restore();
+  } };
+  // la linea dell'obiettivo (orizzontale, o verticale per le barre orizzontali) con l'etichetta
+  const OBIETTIVO = '#d97706';
+  const obiettivo = { id: 'adaboxObiettivo', afterDatasetsDraw(chart) {
+    const o = chart.options.obiettivo;
+    if (o == null || !chart.scales.y) return;
+    const orizzontale = chart.options.indexAxis === 'y';
+    const scala = orizzontale ? chart.scales.x : chart.scales.y;
+    const pos = scala.getPixelForValue(o);
+    const { left, right, top, bottom } = chart.chartArea;
+    const ctx = chart.ctx;
+    ctx.save(); ctx.setLineDash([6, 4]); ctx.strokeStyle = OBIETTIVO; ctx.lineWidth = 1.5; ctx.beginPath();
+    if (orizzontale) { ctx.moveTo(pos, top); ctx.lineTo(pos, bottom); } else { ctx.moveTo(left, pos); ctx.lineTo(right, pos); }
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.font = `600 11px ${carattere}`; ctx.fillStyle = OBIETTIVO;
+    if (orizzontale) { ctx.textAlign = 'center'; ctx.fillText(`obiettivo ${fmt(o)}`, pos, top + 10); }
+    else { ctx.textAlign = 'right'; ctx.fillText(`obiettivo ${fmt(o)}`, right - 4, pos - 5); }
+    ctx.restore();
+  } };
+
   // il confine tra storia e previsione
   const oggi = { id: 'adaboxOggi', afterDatasetsDraw(chart) {
     const n = chart.options.oggi;
@@ -78,6 +104,7 @@ window.adaboxGrafici = (function () {
       options: { ...comune, layout: { padding: 2 }, interaction: { mode: 'index', intersect: false },
         plugins: { legend: { display: false }, tooltip: { displayColors: false, callbacks: { label: (c) => ` ${fmt(c.parsed.y)}` } } },
         scales: { x: { display: false }, y: { display: false, beginAtZero: true } } },
+      plugins: [sfondo],
     });
   }
 
@@ -97,7 +124,7 @@ window.adaboxGrafici = (function () {
         options: { ...comune, cutout: '62%', centro: { valore: fmt(totale), etichetta: 'totale' }, plugins: {
           legend: { display: true, position: 'right', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, color: testo2, font: { size: 12 } } },
           tooltip: { callbacks: { label: (c) => ` ${fmt(c.parsed)} (${totale ? Math.round(c.parsed * 100 / totale) : 0}%)` } } } },
-        plugins: [centro],
+        plugins: [sfondo, centro],
       });
     }
     const linee = serie.tipo === 'linee' || serie.tipo === 'area';
@@ -108,11 +135,14 @@ window.adaboxGrafici = (function () {
       data: { labels: serie.etichette, datasets: [{ data: serie.valori, borderColor: tinta, backgroundColor: linee ? sfumatura(canvas, TINTA, area ? 0.4 : 0.22) : tinta,
         borderWidth: linee ? 2 : 0, borderRadius: 4, borderSkipped: 'start', maxBarThickness: 28, tension: area ? 0.4 : 0.3, fill: linee,
         pointRadius: area ? 0 : 3, pointHoverRadius: 6, pointBackgroundColor: '#fff', pointBorderWidth: 2 }] },
-      options: { ...comune, indexAxis: orizzontale ? 'y' : 'x', interaction: { mode: 'index', intersect: false },
+      options: { ...comune, indexAxis: orizzontale ? 'y' : 'x', interaction: { mode: 'index', intersect: false }, obiettivo: serie.obiettivo ?? null,
         plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` ${fmt(orizzontale ? c.parsed.x : c.parsed.y)}` } } },
-        scales: orizzontale ? { x: asseValori, y: asseCategorie } : { x: asseCategorie, y: asseValori } },
+        scales: orizzontale ? { x: conObiettivo(asseValori, serie.obiettivo), y: asseCategorie } : { x: asseCategorie, y: conObiettivo(asseValori, serie.obiettivo) } },
+      plugins: [sfondo, obiettivo],
     });
   }
+  // l'asse dei valori arriva almeno all'obiettivo, così la linea si vede anche sopra il massimo
+  const conObiettivo = (asse, o) => (o == null ? asse : { ...asse, suggestedMax: o * 1.08 });
 
   function previsione(canvas, serie, comune) {
     const storico = serie.storico || [], futuro = serie.futuro || [];
@@ -141,7 +171,7 @@ window.adaboxGrafici = (function () {
             return f ? ` previsione ${fmt(f[2])} (10–90 %: ${fmt(f[1])} – ${fmt(f[3])})` : ` ${fmt(c.parsed.y)}`;
           } } } },
         scales: { x: asseCategorie, y: asseValori } },
-      plugins: [oggi],
+      plugins: [sfondo, oggi],
     });
   }
 

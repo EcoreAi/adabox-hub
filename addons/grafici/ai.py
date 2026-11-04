@@ -108,18 +108,19 @@ def _dove(contesto, pagina):
 
 
 def anteprima_salva(contesto, titolo="", vista="", tipo="barre", misura="count", per="", data="", periodo="mese",
-                    orizzonte=3, filtri=None, testo="", pagina="", artifact=None):
+                    orizzonte=3, filtri=None, testo="", pagina="", artifact=None, obiettivo=None):
     tipo, spec, titolo = _specifica(contesto, titolo, vista, tipo, misura, per, data, periodo, orizzonte, filtri, testo, artifact)
     vista_obj, _ = _controlla(contesto, tipo, spec)
     descrizione = motore.descrizione(spec, vista=vista_obj, tipo=tipo)
     titolo = (titolo or descrizione)[:200]
     return {"titolo": f"Salva {'il KPI' if tipo == Grafico.KPI else 'il grafico'} «{titolo}» in Analisi",
             "dettagli": [{"campo": "Query", "dopo": descrizione}, {"campo": "Tipo", "dopo": dict(Grafico.TIPI)[tipo]},
+                         *([{"campo": "Obiettivo", "dopo": str(obiettivo)}] if obiettivo else []),
                          {"campo": "Dove", "dopo": _dove(contesto, pagina)}]}
 
 
 def salva_grafico(contesto, titolo="", vista="", tipo="barre", misura="count", per="", data="", periodo="mese",
-                  orizzonte=3, filtri=None, testo="", pagina="", artifact=None):
+                  orizzonte=3, filtri=None, testo="", pagina="", artifact=None, obiettivo=None):
     tipo, spec, titolo = _specifica(contesto, titolo, vista, tipo, misura, per, data, periodo, orizzonte, filtri, testo, artifact)
     vista_obj, dati = _controlla(contesto, tipo, spec)
     testo_pagina = str(pagina or "").strip()
@@ -133,6 +134,7 @@ def salva_grafico(contesto, titolo="", vista="", tipo="barre", misura="count", p
     g = Grafico.objects.create(
         utente=contesto.utente, pagina=p, titolo=(titolo or motore.descrizione(spec, vista=vista_obj, tipo=tipo))[:200],
         tipo=tipo, spec=spec, dati=dati, aggiornato=timezone.now(), origine=Grafico.CHAT,
+        opzioni={"obiettivo": float(obiettivo)} if obiettivo else {},
         origine_url=reverse("ai:conversazione", args=[contesto.conversazione_id]) if getattr(contesto, "conversazione_id", None)
         else (reverse("ai:conversazione", args=[contesto.conversazione.pk]) if contesto.conversazione else ""))
     url = _url(p) if p else reverse("grafici:grafico", args=[g.pk])
@@ -180,7 +182,8 @@ registra(Strumento(
         "filtri": FILTRI, "testo": TESTO,
         "pagina": {"type": "string", "description": "titolo di una pagina dell'utente (se non esiste viene creata), oppure "
                                                     "app:slug per la scheda di un'app; vuoto = libreria"},
-        "artifact": {"type": "integer", "description": "id del grafico già disegnato in chat: ne copia la query"}},
+        "artifact": {"type": "integer", "description": "id del grafico già disegnato in chat: ne copia la query"},
+        "obiettivo": {"type": "number", "description": "valore obiettivo: una linea sul grafico, la barra di avanzamento sul KPI"}},
      "required": []}, salva_grafico, rischio="scrittura", concorrente=False, anteprima=anteprima_salva,
     permesso="grafici.add_grafico"))
 registra(Strumento(
