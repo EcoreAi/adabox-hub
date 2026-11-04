@@ -502,7 +502,8 @@ def impostazioni_barra(request):
     manifest = modules.manifests_attivi()
     in_testa = set(getattr(settings, "NAV_APP_IN_TESTA", []))          # sempre per prime: non si scelgono
     spenti = modules.disattivati()
-    tutte = [(slug, m.nav_label or m.name) for slug, m in manifest.items() if m.application and slug not in in_testa and slug not in spenti]
+    nomi = modules.etichette()
+    tutte = [(slug, nomi.get(slug) or m.nav_label or m.name) for slug, m in manifest.items() if m.application and slug not in in_testa and slug not in spenti]
     if request.method == "POST":
         if request.POST.get("ripristina"):
             Parametro.objects.filter(chiave=barra.CHIAVE, azienda__isnull=True).delete()

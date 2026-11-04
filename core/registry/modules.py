@@ -137,6 +137,15 @@ def disattivati() -> frozenset:
     return spenti | licenza.fuori_licenza()
 
 
+def etichette() -> dict:
+    """{slug: nome} scelti dall'Admin per il menu: stanno nel database, così gli aggiornamenti dei moduli non li toccano."""
+    from django.db import DatabaseError
+    try:
+        return dict(Modulo.objects.exclude(etichetta="").values_list("slug", "etichetta"))
+    except DatabaseError:
+        return {}
+
+
 def imposta_attivo(slug, attivo):
     """Accende o spegne un modulo installato. False se non è installato."""
     if slug not in installati():
@@ -200,6 +209,7 @@ def app_visibili(user):
         return []
     apps = []
     spenti = disattivati()
+    nomi = etichette()
     for slug, m in manifests_attivi().items():
         if not m.application or slug in spenti:
             continue
@@ -221,7 +231,7 @@ def app_visibili(user):
                 pass
         elif m.settings and user.has_perm("core.change_parametro"):
             impostazioni = f"{reverse('core:impostazioni')}#{slug}"     # pagina generata dal manifest
-        apps.append({"slug": slug, "label": m.name, "nav_label": m.nav_label or m.name, "summary": m.summary,
+        apps.append({"slug": slug, "label": nomi.get(slug) or m.name, "nav_label": nomi.get(slug) or m.nav_label or m.name, "summary": m.summary,
                      "icon": m.icon, "category": m.category,
                      "url_name": menu[0]["url_name"], "url": menu[0]["url"], "menu": menu,
                      "settings_url": impostazioni})

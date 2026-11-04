@@ -58,6 +58,7 @@ urlpatterns = [
     path("applicazioni/attivazione/", applicazioni.attivazione, name="applicazioni_attivazione"),
     path("applicazioni/<slug:slug>/", applicazioni.scheda, name="applicazione"),
     path("applicazioni/<slug:slug>/ruolo/", applicazioni.ruolo, name="applicazione_ruolo"),
+    path("applicazioni/<slug:slug>/nome/", applicazioni.nome, name="applicazione_nome"),
 ]
 # viste generate dalle ModelView del kernel, sotto /core/ come i moduli sotto /<slug>/
 urlpatterns += [path("core/", include(registry.urlpatterns("core")))]

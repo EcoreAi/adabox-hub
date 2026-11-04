@@ -55,14 +55,16 @@ def voci():
             trovate[v["slug"]] = _voce(v["slug"], v.get("nome", v["slug"]), v.get("riassunto", ""), v.get("categoria", ""), v.get("icona", ""))
             _scheda(trovate[v["slug"]], v)
     installati = set(modules.installati())
+    nomi = modules.etichette()
     for slug, info in modules.scopri().items():
         m = info.manifest
         if m is None or not m.application or (obbligatoria and slug not in stato.moduli):
             continue
         statica = (m.icon or "") if slug in installati and "/" in (m.icon or "") else ""
         dal_catalogo = trovate.get(slug, {})
-        trovate[slug] = _voce(slug, m.nav_label or m.name, m.summary, m.category, dal_catalogo.get("icona", ""), statica)
+        trovate[slug] = _voce(slug, nomi.get(slug) or m.nav_label or m.name, m.summary, m.category, dal_catalogo.get("icona", ""), statica)
         _scheda(trovate[slug], dal_catalogo)
+        trovate[slug]["nome_originale"] = m.nav_label or m.name
         trovate[slug]["funzioni"] = trovate[slug]["funzioni"] or [v["label"] for v in m.menu]    # senza scheda, le sue pagine
     spente = set(Modulo.objects.filter(disattivato=True).values_list("slug", flat=True))
     fuori = licenza.fuori_licenza()
@@ -176,3 +178,16 @@ def ruolo(request, slug):
     r.save()
     messages.success(request, f"{r}: {ruoli.ETICHETTE.get(valore, 'come tutte le app')} in «{voce['nome']}».")
     return redirect(reverse("core:applicazione", args=[slug]))
+
+
+@login_required
+@permission_required(PERMESSO_ATTIVAZIONE, raise_exception=True)
+@require_POST
+def nome(request, slug):
+    """Il nome dell'app nel menu, per tutta l'istanza. Vuoto, torna quello del modulo."""
+    voce, _ = _gestibile(slug)
+    nuovo = " ".join(request.POST.get("etichetta", "").split())[:40]
+    Modulo.objects.filter(slug=slug).update(etichetta="" if nuovo == voce["nome_originale"] else nuovo)
+    messages.success(request, f"Nel menu ora si chiama «{nuovo}»." if nuovo else f"Nel menu torna a chiamarsi «{voce['nome_originale']}».")
+    return redirect("core:applicazione", slug=slug)
+

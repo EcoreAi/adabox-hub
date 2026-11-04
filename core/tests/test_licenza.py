@@ -317,3 +317,25 @@ def test_il_menu_altre_e_a_colonne_e_le_mie_app_lo_rispecchia(client, superuser)
     assert menu == [v["slug"] for v in r.context["altre"]] and r.context["altre"][0]["colonna"] == gruppi[0]["titolo"]
     assert set(menu) == {v["slug"] for v in r.context["theme"]["nav_altre"]}
 
+
+@pytest.mark.django_db
+def test_l_admin_rinomina_un_app_e_il_nome_compare_ovunque(client, superuser):
+    modules.sincronizza()
+    url = reverse("core:applicazione_nome", args=["discuss"])
+    r = client.post(url, {"etichetta": "  Comunicazioni   interne "}, follow=True)
+    assert Modulo.objects.get(slug="discuss").etichetta == "Comunicazioni interne" and "Comunicazioni interne" in r.content.decode()
+    r = client.get(reverse("core:le_mie_app"))
+    voci = [v["label"] for g in r.context["theme"]["nav_altre_gruppi"] for v in g["voci"]] + [v["label"] for v in r.context["theme"]["nav_principale"]]
+    assert "Comunicazioni interne" in voci and "Discuss" not in voci
+    assert "Comunicazioni interne" in [x["nome"] for x in [*r.context["barra"], *r.context["altre"]]]
+    assert next(v for v in applicazioni.voci() if v["slug"] == "discuss")["nome"] == "Comunicazioni interne"
+    assert "Comunicazioni interne" in client.get(reverse("core:launcher")).content.decode()
+    modules.sincronizza()                                                            # il riallineamento col disco non lo tocca
+    assert Modulo.objects.get(slug="discuss").etichetta == "Comunicazioni interne"
+    client.post(url, {"etichetta": ""})
+    assert Modulo.objects.get(slug="discuss").etichetta == "" and next(v for v in applicazioni.voci() if v["slug"] == "discuss")["nome"] == "Discuss"
+    client.post(url, {"etichetta": "Discuss"})                                       # il nome originale non è una personalizzazione
+    assert Modulo.objects.get(slug="discuss").etichetta == ""
+    client.force_login(User.objects.create_user("semplice"))
+    assert client.post(url, {"etichetta": "X"}).status_code == 403
+

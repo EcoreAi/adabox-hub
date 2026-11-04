@@ -169,6 +169,7 @@ class Modulo(models.Model):
     aggiornato_il = models.DateTimeField("aggiornato il", null=True, blank=True)
     gruppi_creati = models.JSONField("gruppi creati", default=list, blank=True)
     ultimo_errore = models.TextField("ultimo errore", blank=True)
+    etichetta = models.CharField("nome nel menu", max_length=40, blank=True, help_text="scelto dall'Admin; vuoto = quello del modulo")
     disattivato = models.BooleanField("disattivato", default=False,
                                       help_text="installato ma spento per tutti: menu, pagine, API e pianificazioni")
 
