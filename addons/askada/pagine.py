@@ -32,6 +32,8 @@ def suggerimenti(request):
         voci.append("Spiegami i KPI")
     if request.GET.get("grafico"):
         voci.append("Spiegami questo grafico")
+    if request.GET.get("analisi"):
+        voci += ["Cosa è cambiato rispetto al periodo prima?", "Quale grafico merita attenzione?"]
     voci.append("Che cosa dovrei fare qui?")
     return voci
 

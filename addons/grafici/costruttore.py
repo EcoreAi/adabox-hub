@@ -21,7 +21,14 @@ from .pagine import _destinazione, _torna
 TIPI = [(Grafico.BARRE, "Barre"), (Grafico.BARRE_ORIZZONTALI, "Barre orizzontali"), (Grafico.LINEE, "Linee"),
         (Grafico.AREA, "Area"), (Grafico.TORTA, "Torta"), (Grafico.KPI, "KPI")]
 PERIODI = [("giorno", "Giorno"), ("settimana", "Settimana"), ("mese", "Mese"), ("anno", "Anno")]
+PERIODI_PREVISIONE = [("mese", "Mese"), ("settimana", "Settimana"), ("giorno", "Giorno")]
+ORIZZONTI = [("3", "3 periodi"), ("6", "6 periodi"), ("12", "12 periodi"), ("24", "24 periodi")]
 MASSIMI = [("10", "Prime 10"), ("20", "Prime 20"), ("30", "Prime 30"), ("100", "Tutte (fino a 100)")]
+
+
+def tipi_disponibili():
+    """I tipi del costruttore: la previsione solo se il servizio c'è."""
+    return TIPI + ([(Grafico.PREVISIONE, "Previsione")] if motore.previsioni_disponibili() else [])
 
 
 def _viste_per_app(request):
@@ -41,8 +48,10 @@ def parametri_di(request, grafico=None):
     p = {k: v for k, v in request.GET.items()}
     if not p and grafico is not None:
         spec = grafico.spec
-        p = {"vista": spec.get("vista", ""), "misura": spec.get("misura", "count"), "per": spec.get("per", ""),
-             "data": spec.get("data", ""), "periodo": spec.get("periodo", "mese"), "tipo": grafico.tipo,
+        previsione = grafico.tipo == Grafico.PREVISIONE
+        p = {"vista": spec.get("vista", ""), "misura": spec.get("misura", "count"), "per": "" if previsione else spec.get("per", ""),
+             "data": spec.get("data", ""), "periodo": spec.get("per", "mese") if previsione else spec.get("periodo", "mese"),
+             "orizzonte": str(spec.get("orizzonte") or 3), "tipo": grafico.tipo, "aggiorna_ogni": str(grafico.aggiorna_ogni),
              "massimo": str(spec.get("massimo") or 30), "ordine": spec.get("ordine", ""), "titolo": grafico.titolo,
              **{k: v for k, v in (spec.get("lista") or {}).items()}}
         if grafico.pagina_id:
@@ -51,6 +60,8 @@ def parametri_di(request, grafico=None):
     p.setdefault("misura", "count")
     p.setdefault("periodo", "mese")
     p.setdefault("massimo", "30")
+    p.setdefault("orizzonte", "3")
+    p.setdefault("aggiorna_ogni", "0")
     return p
 
 
@@ -62,6 +73,10 @@ def spec_di(p):
     if p.get("tipo") == Grafico.KPI:
         if p.get("data"):
             spec["data"], spec["periodo"] = p["data"], p.get("periodo") or "mese"
+    elif p.get("tipo") == Grafico.PREVISIONE:
+        periodo = p.get("periodo") if p.get("periodo") in dict(PERIODI_PREVISIONE) else "mese"
+        orizzonte = int(p["orizzonte"]) if str(p.get("orizzonte", "")).isdigit() else 3
+        spec.update(data=p.get("data", ""), per=periodo, orizzonte=max(1, min(orizzonte, 24)))
     else:
         spec["per"] = p.get("per", "")
         if p.get("massimo", "30") != "30" and p.get("massimo", "").isdigit():
@@ -78,7 +93,7 @@ def _anteprima(request, p, vista):
     """Il widget dell'anteprima: un grafico finto, non salvato, calcolato con i dati di adesso."""
     spec = spec_di(p)
     tipo = p.get("tipo", Grafico.BARRE)
-    pronto = bool(spec) and (tipo == Grafico.KPI or spec.get("per"))
+    pronto = bool(spec) and (tipo == Grafico.KPI or (spec.get("data") if tipo == Grafico.PREVISIONE else spec.get("per")))
     finto = Grafico(utente=request.user, titolo=p.get("titolo") or motore.descrizione(spec, vista=vista, tipo=tipo), tipo=tipo, spec=spec)
     w = {"id": "anteprima", "tipo": "salvato", "titolo": finto.titolo, "grafico": finto, "dom": "wd-anteprima", "mio": True,
          "sotto": motore.descrizione(spec, vista=vista, tipo=tipo) if spec else "", "tipi": [], "errore": "",
@@ -97,14 +112,17 @@ def _contesto(request, grafico=None):
     opzioni = interroga.opzioni_vista(vista) if vista else {"misure": [("count", "Numero di record")], "raggruppamenti": [], "date": []}
     if vista and p.get("tipo") != Grafico.KPI and not p.get("per") and opzioni["raggruppamenti"]:
         p["per"] = opzioni["raggruppamenti"][0][0]
-    if vista and p.get("tipo") == Grafico.KPI and not p.get("data") and opzioni["date"]:
+    if vista and p.get("tipo") in (Grafico.KPI, Grafico.PREVISIONE) and not p.get("data") and opzioni["date"]:
         p["data"] = opzioni["date"][0][0]
+    if p.get("tipo") == Grafico.PREVISIONE and p.get("periodo") not in dict(PERIODI_PREVISIONE):
+        p["periodo"] = "mese"
     if p.get("misura") not in dict(opzioni["misure"]):
         p["misura"] = "count"
     if not request.GET:                                      # modifica di un grafico: i filtri della lista leggono f_* da GET
         request.GET = QueryDict(urlencode({k: v for k, v in p.items() if k == "q" or k.startswith("f_")}))
-    return {"p": p, "vista": vista, "viste": _viste_per_app(request), "opzioni": opzioni, "tipi": TIPI, "periodi": PERIODI,
-            "massimi": MASSIMI, "filtri": filtri_lista.specifiche(vista, request) if vista else [],
+    return {"p": p, "vista": vista, "viste": _viste_per_app(request), "opzioni": opzioni, "tipi": tipi_disponibili(),
+            "periodi": PERIODI, "periodi_previsione": PERIODI_PREVISIONE, "orizzonti": ORIZZONTI, "massimi": MASSIMI,
+            "aggiornamenti": motore.AGGIORNAMENTI, "filtri": filtri_lista.specifiche(vista, request) if vista else [],
             "w": _anteprima(request, p, vista), "destinazioni": motore.destinazioni(request, p.get("vista", "")),
             "grafico": grafico, "ai": motore._ai_disponibile(),
             "scheda_attiva": (grafico.pagina.chiave if grafico and grafico.pagina else "")}
@@ -114,7 +132,7 @@ def _salva(request, grafico=None):
     p = {k: v for k, v in request.POST.items() if k != "csrfmiddlewaretoken"}
     spec = spec_di(p)
     tipo = p.get("tipo", Grafico.BARRE)
-    if tipo not in dict(TIPI):
+    if tipo not in dict(tipi_disponibili()):
         tipo = Grafico.BARRE
     vista = motore.vista_di(spec, request) if spec else None
     if vista is None:
@@ -129,6 +147,8 @@ def _salva(request, grafico=None):
     if grafico is None:
         grafico = Grafico(utente=request.user, origine=Grafico.COSTRUTTORE)
     grafico.titolo, grafico.tipo, grafico.spec, grafico.dati, grafico.aggiornato = titolo, tipo, spec, dati, timezone.now()
+    if str(p.get("aggiorna_ogni", "")).isdigit():
+        grafico.aggiorna_ogni = min(int(p["aggiorna_ogni"]), 24 * 30)
     if "destinazione" in p:
         grafico.pagina = _destinazione(request, p.get("destinazione"), p.get("titolo_nuova"))
     grafico.save()

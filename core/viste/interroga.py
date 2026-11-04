@@ -81,6 +81,9 @@ def richiesta_di(utente, azienda=None):
     request.user, request.azienda = utente, azienda
     request.META.update({"HTTP_HOST": host, "SERVER_NAME": host, "SERVER_PORT": "80"})
     request.session = {}
+    if azienda is None and getattr(utente, "is_authenticated", False):
+        from core.azienda import corrente
+        request.azienda = corrente(request)
     return request
 
 

@@ -27,6 +27,7 @@ ICONE = [("bar-chart", "Grafico"), ("pie-chart", "Torta"), ("trending-up", "Tend
          ("briefcase", "Lavoro"), ("users", "Persone"), ("calendar", "Calendario"), ("clipboard", "Elenco"),
          ("zap", "Lampo"), ("shield", "Controllo")]
 TIPI_SCAMBIABILI = [(t, e) for t, e in Grafico.TIPI if t in Grafico.INTERCAMBIABILI]
+AGGIORNAMENTI = [(0, "Mai: solo a mano"), (1, "Ogni ora"), (6, "Ogni 6 ore"), (24, "Ogni giorno"), (168, "Ogni settimana")]
 
 
 def minuti_cache():
@@ -40,6 +41,14 @@ def minuti_cache():
 
 def _ai_disponibile():
     return "ai" in settings.ADDONS_ATTIVI and "ai" not in modules.disattivati()
+
+
+def previsioni_disponibili():
+    """Il servizio di previsione c'è: modulo AI attivo e indirizzo configurato."""
+    if not _ai_disponibile():
+        return False
+    from ai import specialisti
+    return bool(specialisti.url("url_forecast"))
 
 
 def _previsione(spec, request):
@@ -170,8 +179,9 @@ def descrizione(spec, request=None, vista=None, tipo=""):
         else:
             pezzi.append(f"{testo_misura} in tutto")
     elif "orizzonte" in spec:
-        n = spec["orizzonte"]
-        pezzi.append(f"previsione di {testo_misura.lower()} a {n} {spec.get('per', 'mese')}{'i' if n != 1 and spec.get('per', 'mese') != 'settimana' else ''}")
+        n, unita = spec["orizzonte"], spec.get("per", "mese")
+        plurali = {"mese": "mesi", "settimana": "settimane", "giorno": "giorni"}
+        pezzi.append(f"previsione di {testo_misura.lower()} a {n} {plurali.get(unita, unita) if n != 1 else unita}")
     else:
         per = spec.get("per", "") or ""
         nome, _, parte = per.partition(":")
@@ -316,6 +326,47 @@ def schede(request, attiva=""):
                      "url": reverse("grafici:pagina_app", args=[app["slug"]]), "condivisa": False, "proprietario": "",
                      "attiva": f"app:{app['slug']}" == attiva})
     return voci
+
+
+def pagina_app(utente, app):
+    """(Pagina, info) della scheda dell'app per l'utente, creata al primo accesso così ha titolo e layout suoi;
+    (None, None) se l'app non ha indicatori o l'utente non la vede."""
+    info = next((a for a in app_con_indicatori(utente) if a["slug"] == app), None)
+    if info is None:
+        return None, None
+    icona = info.get("icon") or "zap"
+    p, _ = Pagina.objects.get_or_create(utente=utente, app=app, defaults={
+        "titolo": info["label"], "icona": "bar-chart" if "/" in icona else icona})
+    return p, info
+
+
+def nuova_pagina(utente, titolo, icona="bar-chart"):
+    from django.db.models import Max
+    ordine = (Pagina.objects.filter(utente=utente, app="").aggregate(m=Max("ordine"))["m"] or 0) + 1
+    return Pagina.objects.create(utente=utente, titolo=(titolo or "").strip()[:100] or "Nuova pagina", ordine=ordine,
+                                 icona=icona if icona in dict(ICONE) else "bar-chart")
+
+
+def destinazione(utente, valore, titolo_nuova=""):
+    """La pagina scelta in un form o da Ada: l'id di una pagina propria, «app:slug», «nuova», il titolo di una pagina
+    propria, oppure vuoto (libreria). ValueError se non c'è."""
+    valore = (valore or "").strip()
+    if not valore:
+        return None
+    if valore == "nuova":
+        return nuova_pagina(utente, titolo_nuova)
+    if valore.startswith("app:"):
+        p, _ = pagina_app(utente, valore[4:])
+        if p is None:
+            raise ValueError(f"Nessuna scheda dell'app «{valore[4:]}».")
+        return p
+    if valore.isdigit():
+        p = Pagina.objects.filter(pk=int(valore), utente=utente).first()
+    else:
+        p = Pagina.objects.filter(utente=utente, titolo__iexact=valore).first()
+    if p is None:
+        raise ValueError(f"Nessuna pagina «{valore}».")
+    return p
 
 
 def destinazioni(request, vista=""):

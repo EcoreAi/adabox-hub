@@ -23,6 +23,11 @@
         {% if p.tipo == "kpi" %}
         <label class="ui-label">Campo data del periodo<select class="ui-input" name="data"{% if not vista %} disabled{% endif %}><option value="">Nessuno: solo il totale</option>{% for v, e in opzioni.date %}<option value="{{ v }}"{% if v == p.data %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
         <label class="ui-label">Periodo<select class="ui-input" name="periodo">{% for v, e in periodi %}<option value="{{ v }}"{% if v == p.periodo %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
+        {% elif p.tipo == "previsione" %}
+        <label class="ui-label">Campo data della serie<select class="ui-input" name="data"{% if not vista %} disabled{% endif %}>{% for v, e in opzioni.date %}<option value="{{ v }}"{% if v == p.data %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
+        <div class="an-cost-riga"><label class="ui-label">Periodo<select class="ui-input" name="periodo">{% for v, e in periodi_previsione %}<option value="{{ v }}"{% if v == p.periodo %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
+          <label class="ui-label">Orizzonte<select class="ui-input" name="orizzonte">{% for v, e in orizzonti %}<option value="{{ v }}"{% if v == p.orizzonte %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label></div>
+        <p class="ui-help">Storia dai dati reali (almeno 6 periodi, quello in corso escluso), previsione del servizio locale con mediana e fascia 10–90 %.</p>
         {% else %}
         <label class="ui-label">Raggruppa per<select class="ui-input" name="per"{% if not vista %} disabled{% endif %}>{% for v, e in opzioni.raggruppamenti %}<option value="{{ v }}"{% if v == p.per %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
         <div class="an-cost-riga"><label class="ui-label">Categorie<select class="ui-input" name="massimo">{% for v, e in massimi %}<option value="{{ v }}"{% if v == p.massimo %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
@@ -42,6 +47,7 @@
         <label class="ui-label">Titolo<input class="ui-input" name="titolo" value="{{ p.titolo|default:'' }}" placeholder="{{ w.sotto|default:'Titolo del grafico' }}" maxlength="200"></label>
         <label class="ui-label">Pagina<select class="ui-input" name="destinazione" onchange="this.form.querySelector('[name=titolo_nuova]').hidden = this.value !== 'nuova'">{% for v, e in destinazioni %}<option value="{{ v }}"{% if v == p.destinazione %} selected{% endif %}>{{ e }}</option>{% endfor %}<option value=""{% if "destinazione" in p and not p.destinazione %} selected{% endif %}>Solo in libreria</option></select></label>
         <input class="ui-input" name="titolo_nuova" placeholder="Titolo della nuova pagina" maxlength="100" value="{{ p.titolo_nuova|default:'' }}"{% if p.destinazione != "nuova" %} hidden{% endif %}>
+        <label class="ui-label">Ricalcolo automatico<select class="ui-input" name="aggiorna_ogni">{% for v, e in aggiornamenti %}<option value="{{ v }}"{% if v|stringformat:"s" == p.aggiorna_ogni %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
         <div class="an-cost-azioni"><button class="ui-btn ui-btn-primary" type="submit"{% if not w.pronto or w.errore %} disabled{% endif %}><svg><use href="#icon-save"/></svg> {% if grafico %}Salva le modifiche{% else %}Salva il grafico{% endif %}</button></div>
       </section>
     </div>

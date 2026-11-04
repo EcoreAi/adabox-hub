@@ -17,7 +17,7 @@
     return { url: location.pathname + location.search, titolo: document.title.replace(/\s·\s.*$/, '').trim(), contesto,
       pagina: (main.innerText || main.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 12000),
       grafici: Array.isArray(dati.grafici) && dati.grafici.length ? '1' : '', kpi: Array.isArray(dati.kpi) && dati.kpi.length ? '1' : '',
-      grafico: Array.isArray(dati.dati) ? '1' : '' };
+      grafico: Array.isArray(dati.dati) ? '1' : '', analisi: typeof dati.pagina === 'string' && dati.pagina.startsWith('Analisi') ? '1' : '' };
   };
   const chiudi = () => { modale.replaceChildren(); };
   const scorri = () => { const t = modale.querySelector('#ak-thread'); if (t) t.scrollTop = t.scrollHeight; };
@@ -51,7 +51,7 @@
 
   const apri = async () => {
     const p = pagina();
-    const q = new URLSearchParams({ url: p.url, titolo: p.titolo, grafici: p.grafici, kpi: p.kpi, grafico: p.grafico });
+    const q = new URLSearchParams({ url: p.url, titolo: p.titolo, grafici: p.grafici, kpi: p.kpi, grafico: p.grafico, analisi: p.analisi || '' });
     let r;
     try { r = await fetch(`${etichetta.dataset.apri}?${q}`, { credentials: 'same-origin' }); } catch (e) { return; }
     if (!r.ok) return;

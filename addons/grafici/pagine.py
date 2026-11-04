@@ -6,7 +6,6 @@ from django.apps import apps
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied
-from django.db.models import Max
 from django.http import Http404, HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -39,12 +38,9 @@ def _visibile(request, pk):
 
 def _app(request, app):
     """La scheda dell'app per chi guarda: creata al primo accesso, così ha un layout e un titolo suoi."""
-    info = next((a for a in motore.app_con_indicatori(request.user) if a["slug"] == app), None)
-    if info is None:
+    p, info = motore.pagina_app(request.user, app)
+    if p is None:
         raise Http404
-    icona = info.get("icon") or "zap"
-    p, _ = Pagina.objects.get_or_create(utente=request.user, app=app, defaults={
-        "titolo": info["label"], "icona": "bar-chart" if "/" in icona else icona})
     return p, info
 
 
@@ -118,11 +114,7 @@ def layout_app(request, app):
 @permission_required("grafici.add_pagina")
 @require_POST
 def nuova(request):
-    titolo = request.POST.get("titolo", "").strip()[:100] or "Nuova pagina"
-    icona = request.POST.get("icona", "bar-chart")
-    ordine = (Pagina.objects.filter(utente=request.user, app="").aggregate(m=Max("ordine"))["m"] or 0) + 1
-    p = Pagina.objects.create(utente=request.user, titolo=titolo, ordine=ordine,
-                              icona=icona if icona in dict(motore.ICONE) else "bar-chart")
+    p = motore.nuova_pagina(request.user, request.POST.get("titolo", ""), request.POST.get("icona", "bar-chart"))
     messages.success(request, f"Pagina «{p.titolo}» creata: aggiungi i grafici da Ada, dalle viste Grafico o dalla libreria.")
     return redirect("grafici:pagina", pk=p.pk)
 
@@ -247,7 +239,8 @@ def grafico(request, pk):
         "contesto_ada": {"pagina": f"Grafico: {g.titolo}", "query": w["sotto"], "tipo": w["serie"]["tipo"], "dati": w["serie"]["righe"],
                          **({"previsione": w["serie"]["futuro"]} if w["serie"].get("futuro") else {})},
         "scheda_attiva": g.pagina.chiave if g.pagina else "", "ai": motore._ai_disponibile(),
-        "destinazione_attuale": (f"app:{g.pagina.app}" if g.pagina.app else str(g.pagina.pk)) if g.pagina else ""})
+        "destinazione_attuale": (f"app:{g.pagina.app}" if g.pagina.app else str(g.pagina.pk)) if g.pagina else "",
+        "aggiornamenti": motore.AGGIORNAMENTI})
 
 
 @login_required
@@ -278,17 +271,10 @@ def grafico_tipo(request, pk):
 
 def _destinazione(request, valore, titolo_nuova=""):
     """La pagina scelta in un form di salvataggio: id di una pagina propria, «app:slug», «nuova» o vuoto (libreria)."""
-    valore = (valore or "").strip()
-    if not valore:
-        return None
-    if valore == "nuova":
-        ordine = (Pagina.objects.filter(utente=request.user, app="").aggregate(m=Max("ordine"))["m"] or 0) + 1
-        return Pagina.objects.create(utente=request.user, titolo=(titolo_nuova or "").strip()[:100] or "Nuova pagina", ordine=ordine)
-    if valore.startswith("app:"):
-        return _app(request, valore[4:])[0]
-    if valore.isdigit():
-        return _mia(request, int(valore))
-    raise Http404
+    try:
+        return motore.destinazione(request.user, valore, titolo_nuova)
+    except ValueError:
+        raise Http404
 
 
 @login_required
