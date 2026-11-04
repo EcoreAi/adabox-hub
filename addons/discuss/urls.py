@@ -1,7 +1,7 @@
 """Pagine di Discuss."""
 from django.urls import path
 
-from . import eventi, pagine
+from . import chiamate, eventi, pagine
 
 urlpatterns = [
     path("", pagine.home, name="home"),
@@ -39,6 +39,15 @@ urlpatterns = [
     path("m/<int:pk>/risposte/", pagine.pannello_risposte, name="risposte"),
     path("allegato/<int:pk>/", pagine.allegato, name="allegato"),
     path("presenze/", pagine.presenze_di, name="presenze"),
+    path("c/<int:pk>/chiama/", chiamate.avvia_vista, name="chiama"),
+    path("chiamata/<str:token>/", chiamate.pagina, name="chiamata"),
+    path("chiamata/<str:token>/entra/", chiamate.entra_vista, name="chiamata_entra"),
+    path("chiamata/<str:token>/segnale/", chiamate.segnale_vista, name="chiamata_segnale"),
+    path("chiamata/<str:token>/stato/", chiamate.stato_vista, name="chiamata_stato"),
+    path("chiamata/<str:token>/esci/", chiamate.esci_vista, name="chiamata_esci"),
+    path("chiamata/<str:token>/ammetti/", chiamate.ammetti_vista, name="chiamata_ammetti"),
+    path("chiamata/<str:token>/ospiti/", chiamate.ospiti_vista, name="chiamata_ospiti"),
+    path("eventi/chiamata/<str:token>/", chiamate.flusso, name="chiamata_eventi"),
     path("scheda/<int:ct>/<int:pk>/", pagine.scheda, name="scheda"),
     path("scheda/<int:ct>/<int:pk>/nota/", pagine.scheda_nota, name="scheda_nota"),
     path("scheda/<int:ct>/<int:pk>/segui/", pagine.scheda_segui, name="scheda_segui"),

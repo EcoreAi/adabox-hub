@@ -244,3 +244,7 @@ body:has(#ds-app) .ak-etichetta svg { margin: 0; }
 .ds-dialogo .ui-input { width: 100%; box-sizing: border-box; }
 .ds-due { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .ds-sezione-dialogo { border-top: 1px solid var(--ui-border); padding-top: 12px; }
+
+.ds-form-chiama { display: contents; }
+.ds-fascia-chiamata { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ds-fascia-chiamata form { margin: 0; }

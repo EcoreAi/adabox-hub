@@ -111,6 +111,29 @@
     if (form && form.closest && form.closest('#ds-finestra') && form.matches('[data-chiudi-dopo]') && ev.detail.successful) form.closest('dialog').close();
   });
 
+  // squillo: arriva in tempo reale in Comunicazioni, con il battito della testata altrove
+  const rifiutati = () => { try { return JSON.parse(sessionStorage.getItem('ds-rifiutati') || '[]'); } catch (e) { return []; } };
+  const aperti = new Map();
+  function togliSquillo(token) { const el = aperti.get(token); if (el) { el.remove(); aperti.delete(token); } }
+  function squilla(token, nome, url, video) {
+    if (aperti.has(token) || rifiutati().includes(token)) return;
+    const el = document.createElement('div');
+    el.className = 'dsp-squillo'; el.setAttribute('role', 'alertdialog');
+    const t = document.createElement('strong'); t.textContent = nome;
+    const s = document.createElement('span'); s.textContent = video ? 'ti sta videochiamando' : 'ti sta chiamando';
+    const azioni = document.createElement('div'); azioni.className = 'dsp-squillo-azioni';
+    const si = document.createElement('a'); si.href = url; si.target = '_blank'; si.rel = 'noopener'; si.textContent = 'Rispondi';
+    const no = document.createElement('button'); no.type = 'button'; no.textContent = 'Rifiuta';
+    const chiudi2 = () => { try { sessionStorage.setItem('ds-rifiutati', JSON.stringify([...rifiutati(), token])); } catch (e) { /* resterà */ } togliSquillo(token); };
+    si.addEventListener('click', chiudi2); no.addEventListener('click', chiudi2);
+    azioni.append(si, no); el.append(t, s, azioni); document.body.appendChild(el); aperti.set(token, el);
+    setTimeout(() => togliSquillo(token), 60000);
+  }
+  function leggiSquilli() { document.querySelectorAll('[data-ds-squillo]').forEach((e) => squilla(e.dataset.dsSquillo, e.dataset.nome, e.dataset.url, e.dataset.video === '1')); }
+  leggiSquilli();
+  document.body.addEventListener('htmx:afterSettle', leggiSquilli);
+  window.dsSquillo = { squilla, togli: togliSquillo };
+
   window.dsPalette = { apri, chiudi };
   document.addEventListener('keydown', (ev) => {
     if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k') {

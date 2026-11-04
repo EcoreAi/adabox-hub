@@ -124,9 +124,9 @@ def cambia_ruolo(canale, utente, ruolo):
 
 
 @transaction.atomic
-def crea_canale(nome, tipo, creato_da, membri=(), descrizione="", gestito=False):
+def crea_canale(nome, tipo, creato_da, membri=(), descrizione="", gestito=False, vocale=False):
     canale = Canale.objects.create(nome=nome.strip()[:80], tipo=tipo, creato_da=creato_da, descrizione=descrizione[:250],
-                                   gestito=gestito)
+                                   gestito=gestito, vocale=vocale)
     for u in {creato_da, *membri}:
         iscrivi(canale, u, 0, ruolo=Iscrizione.AMMINISTRATORE if u == creato_da else Iscrizione.MEMBRO)
         eventi.emetti("barra", utente=u)

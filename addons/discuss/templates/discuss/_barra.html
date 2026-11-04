@@ -6,6 +6,7 @@
   {% if da_scoprire %}<details class="ds-scopri"><summary>Altri canali pubblici ({{ da_scoprire|length }})</summary>
     {% for c in da_scoprire %}<a class="ds-voce" href="{% url 'discuss:canale' c.pk %}"><span class="ds-cancelletto">#</span><span class="ds-voce-testo"><span class="ds-voce-nome">{{ c.nome }}</span></span></a>{% endfor %}</details>{% endif %}
 </div>
+{% if vocali %}<div class="ds-gruppo"><div class="ds-gruppo-testa">Canali vocali</div>{% for i in vocali %}{% include "discuss/_voce.html" %}{% endfor %}</div>{% endif %}
 <div class="ds-gruppo">
   <div class="ds-gruppo-testa">Messaggi diretti<button type="button" class="ds-piu" data-apri="ds-dialogo-diretto" aria-label="Nuovo messaggio diretto" title="Nuovo messaggio diretto">+</button></div>
   {% for i in diretti %}{% include "discuss/_voce.html" %}{% empty %}<p class="ui-help ds-vuoto">Nessun messaggio diretto.</p>{% endfor %}

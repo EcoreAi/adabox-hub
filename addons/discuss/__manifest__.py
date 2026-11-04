@@ -1,7 +1,7 @@
 {
     "name": "Discuss",
     "summary": "Chat di lavoro in tempo reale: canali, gruppi, reazioni, risposte, presenza, ricerca e posta unica",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -21,6 +21,17 @@
         "Discuss / Responsabile": ["discuss.*"],
     },
     "hooks": "discuss.hooks",
+    "settings": [
+        {"chiave": "stun", "label": "Server STUN per le chiamate", "tipo": "testo", "default": "stun:stun.l.google.com:19302",
+         "help": "Serve ai browser per trovarsi attraverso internet: vede solo l'indirizzo IP di chi chiama. Vuoto = solo rete locale"},
+        {"chiave": "turn_url", "label": "Server TURN per le chiamate", "tipo": "testo", "default": "",
+         "help": "es. turn:turn.azienda.it:3478. Senza, chi è dietro una rete aziendale molto chiusa può non collegarsi"},
+        {"chiave": "turn_segreto", "label": "Segreto del server TURN", "tipo": "testo", "default": "",
+         "help": "Lo static-auth-secret di coturn: da qui nascono credenziali che durano poche ore"},
+        {"chiave": "max_partecipanti", "label": "Persone al massimo in una chiamata", "tipo": "intero", "default": 8,
+         "help": "I media vanno da persona a persona: oltre le 8 i computer faticano"},
+    ],
     "cron": [{"nome": "Email dei messaggi non letti", "funzione": "discuss.notifiche.invia_email", "ogni": "10m"},
-             {"nome": "Pulizia degli eventi in tempo reale", "funzione": "discuss.eventi.pulisci", "ogni": "6h"}],
+             {"nome": "Pulizia degli eventi in tempo reale", "funzione": "discuss.eventi.pulisci", "ogni": "6h"},
+             {"nome": "Chiusura delle chiamate abbandonate", "funzione": "discuss.chiamate.pulisci", "ogni": "15m"}],
 }

@@ -19,6 +19,7 @@ class Canale(models.Model):
                                   help_text="Scrivono solo amministratori, moderatori e contributori; gli altri leggono.")
     lista_email = models.BooleanField("lista email", default=False,
                                       help_text="I messaggi arrivano per email agli iscritti, che rispondono dalla propria casella.")
+    vocale = models.BooleanField("canale vocale", default=False, help_text="Una stanza sempre aperta: si entra e si parla, senza squilli.")
     record_ct = models.ForeignKey("contenttypes.ContentType", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
                                   verbose_name="tipo del record", help_text="Se il canale è la conversazione su un record.")
     record_id = models.PositiveBigIntegerField("record", null=True, blank=True)
@@ -173,4 +174,56 @@ class Evento(models.Model):
     class Meta:
         verbose_name = "evento"
         verbose_name_plural = "eventi"
+        ordering = ["pk"]
+
+
+class Chiamata(models.Model):
+    """Audio e video tra browser: il server fa solo da centralino, i media vanno da persona a persona."""
+    canale = models.ForeignKey(Canale, on_delete=models.CASCADE, related_name="chiamate")
+    avviata_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    token = models.CharField("codice", max_length=64, unique=True)
+    video = models.BooleanField("video", default=True)
+    ospiti_ammessi = models.BooleanField("ospiti esterni", default=False)
+    iniziata = models.DateTimeField("iniziata il", auto_now_add=True)
+    finita = models.DateTimeField("finita il", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "chiamata"
+        verbose_name_plural = "chiamate"
+        ordering = ["-pk"]
+
+
+class Partecipante(models.Model):
+    chiamata = models.ForeignKey(Chiamata, on_delete=models.CASCADE, related_name="partecipanti")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                               help_text="Vuoto per un ospite esterno.")
+    nome = models.CharField("nome", max_length=80)
+    segreto = models.CharField("segreto", max_length=64, unique=True)
+    ammesso = models.BooleanField("ammesso", default=False)
+    microfono = models.BooleanField(default=True)
+    camera = models.BooleanField(default=True)
+    schermo = models.BooleanField(default=False)
+    mano = models.BooleanField(default=False)
+    entrato = models.DateTimeField(auto_now_add=True)
+    ultimo_visto = models.DateTimeField(auto_now_add=True)
+    uscito = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "partecipante"
+        verbose_name_plural = "partecipanti"
+        ordering = ["pk"]
+
+
+class Segnale(models.Model):
+    """Ciò che i browser si dicono per collegarsi e cosa cambia in chiamata. `a` vuoto: per tutti i presenti."""
+    chiamata = models.ForeignKey(Chiamata, on_delete=models.CASCADE, related_name="segnali")
+    da = models.ForeignKey(Partecipante, on_delete=models.CASCADE, null=True, blank=True, related_name="+")
+    a = models.ForeignKey(Partecipante, on_delete=models.CASCADE, null=True, blank=True, related_name="+")
+    tipo = models.CharField(max_length=20)
+    dati = models.JSONField(default=dict, blank=True)
+    creato = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "segnale"
+        verbose_name_plural = "segnali"
         ordering = ["pk"]

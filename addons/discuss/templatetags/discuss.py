@@ -56,3 +56,10 @@ def lega_record_creato(context):
 def ct_id(obj):
     from core.generici import ct_di
     return ct_di(obj).pk
+
+
+@register.simple_tag
+def squilli_per(utente):
+    """Le chiamate che stanno squillando per questa persona, su qualsiasi pagina."""
+    from discuss import chiamate
+    return chiamate.squilli_per(utente) if utente.is_authenticated else []

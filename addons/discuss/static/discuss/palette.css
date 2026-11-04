@@ -18,3 +18,11 @@
 .dsp-presenza.is-assente { background: #f59e0b; }
 .dsp-presenza.is-occupato { background: #dc2626; }
 .dsp-presenza.is-fuori { background: #7c3aed; }
+/* squillo in arrivo, in ogni pagina */
+.dsp-squillo { position: fixed; right: 20px; top: 76px; z-index: 8900; width: min(320px, calc(100vw - 32px)); padding: 14px 16px; border: 1px solid var(--ui-border); border-radius: 14px; background: var(--ui-surface); color: var(--ui-text); box-shadow: 0 18px 50px rgba(15, 23, 42, .28); }
+.dsp-squillo strong { display: block; font-size: 14px; }
+.dsp-squillo span { font-size: 13px; color: var(--ui-text-3); }
+.dsp-squillo-azioni { display: flex; gap: 8px; margin-top: 10px; }
+.dsp-squillo-azioni a, .dsp-squillo-azioni button { flex: 1; text-align: center; padding: 7px 10px; border-radius: 9px; border: 0; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; }
+.dsp-squillo-azioni a { background: #16a34a; color: #fff; }
+.dsp-squillo-azioni button { background: var(--ui-surface-2); color: var(--ui-text); }

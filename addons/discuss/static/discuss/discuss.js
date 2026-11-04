@@ -91,6 +91,10 @@
       if (dati.n_fissati !== undefined) { const n = document.getElementById('ds-n-fissati'); if (n) n.textContent = dati.n_fissati || ''; }
     } else if (dati.tipo === 'scrive' && qui && String(dati.autore) !== io) {
       scrivono.set(String(dati.autore), { nome: dati.nome, fino: Date.now() + 5000 }); disegnaScrivono();
+    } else if (dati.tipo === 'chiamata') {
+      if (dati.squilla && String(dati.autore) !== io && window.dsSquillo) window.dsSquillo.squilla(dati.token, dati.nome, dati.url, dati.video);
+    } else if (dati.tipo === 'chiamata_fine') {
+      if (window.dsSquillo) window.dsSquillo.togli(dati.token);
     } else if (dati.tipo === 'barra') {
       aggiornaBarra();
     } else if (dati.tipo === 'notifica') {

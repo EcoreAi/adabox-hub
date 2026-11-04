@@ -25,12 +25,16 @@
         <div class="ui-help">{% if altra_presenza %}<span class="ds-punto-testo is-{{ altra_presenza.stato }}"></span> {{ altra_presenza.etichetta }}{% if altra_presenza.messaggio %} · {{ altra_presenza.messaggio }}{% endif %}{% elif canale.descrizione %}{{ canale.descrizione }}{% else %}{{ membri|length }} membr{{ membri|length|pluralize:"o,i" }}{% endif %}</div></div>
       <div class="ds-testa-azioni">
         <form class="ds-cerca" role="search" data-cerca-form><input class="ui-input" type="search" name="q" placeholder="Cerca qui…" aria-label="Cerca in questa conversazione"></form>
+        {% if iscrizione and not canale.archiviato %}<form method="post" action="{% url 'discuss:chiama' canale.pk %}" target="_blank" class="ds-form-chiama">{% csrf_token %}<input type="hidden" name="video" value="0"><button type="submit" class="ds-testa-btn" title="Chiamata audio" aria-label="Chiamata audio"><svg class="ds-icona"><use href="#icon-phone"/></svg></button></form>
+        <form method="post" action="{% url 'discuss:chiama' canale.pk %}" target="_blank" class="ds-form-chiama">{% csrf_token %}<input type="hidden" name="video" value="1"><button type="submit" class="ds-testa-btn" title="Videochiamata" aria-label="Videochiamata"><svg class="ds-icona"><use href="#icon-video"/></svg></button></form>{% endif %}
         <button type="button" class="ds-testa-btn" data-pannello="{% url 'discuss:fissati' canale.pk %}" title="Messaggi fissati" aria-label="Messaggi fissati"><svg class="ds-icona"><use href="#icon-pin"/></svg><span id="ds-n-fissati">{% if n_fissati %}{{ n_fissati }}{% endif %}</span></button>
         <button type="button" class="ds-testa-btn" data-pannello="{% url 'discuss:file' canale.pk %}" title="File" aria-label="File"><svg class="ds-icona"><use href="#icon-paperclip"/></svg></button>
         <button type="button" class="ds-testa-btn" data-pannello="{% url 'discuss:info' canale.pk %}" title="Membri e impostazioni" aria-label="Membri e impostazioni"><svg class="ds-icona"><use href="#icon-users"/></svg><span>{{ membri|length }}</span></button>
       </div>
     </header>
     {% if altra_presenza.fuori_fino %}<div class="ds-fascia"><strong>{{ altra.get_full_name|default:altra.username }}</strong>: {{ altra_presenza.etichetta|lower }}{% if altra_presenza.messaggio %}: «{{ altra_presenza.messaggio }}»{% endif %}</div>{% endif %}
+    {% if chiamata_attiva %}<div class="ds-fascia ds-fascia-chiamata"><span>Chiamata in corso{% if chiamata_attiva.n_presenti %} · {{ chiamata_attiva.n_presenti }} present{{ chiamata_attiva.n_presenti|pluralize:"e,i" }}{% endif %}</span> <a class="ui-btn ui-btn-primary ui-btn-sm" href="{% url 'discuss:chiamata' chiamata_attiva.token %}" target="_blank" rel="noopener">Entra</a></div>
+    {% elif canale.vocale and iscrizione %}<div class="ds-fascia ds-fascia-chiamata"><span>Canale vocale: entra e parla, chi c'è ti sente subito.</span> <form method="post" action="{% url 'discuss:chiama' canale.pk %}" target="_blank">{% csrf_token %}<input type="hidden" name="video" value="0"><button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Entra nella stanza</button></form></div>{% endif %}
     {% if in_storico %}<div class="ds-fascia"><span>Stai leggendo messaggi meno recenti.</span> <a class="ui-link" href="{% url 'discuss:canale' canale.pk %}">Torna agli ultimi</a></div>{% endif %}
     <div class="ds-messaggi" id="ds-messaggi" tabindex="0" aria-live="polite">
       {% if altro_prima and messaggi %}{% include "discuss/_altro_prima.html" with primo=messaggi.0.pk %}{% endif %}
@@ -81,6 +85,7 @@
   <label class="ds-spunta"><input type="radio" name="tipo" value="pubblico" checked> Pubblico: chiunque può entrare</label>
   <label class="ds-spunta"><input type="radio" name="tipo" value="privato"> Privato: solo su invito</label>
   <label class="ds-spunta"><input type="checkbox" name="gestito"> Canale gestito: scrivono solo amministratori, moderatori e contributori</label>
+  <label class="ds-spunta"><input type="checkbox" name="vocale"> Canale vocale: una stanza sempre aperta, senza squilli</label>
   <div class="ui-label">Chi aggiungere</div>{% include "discuss/_scelta_persone.html" with persone=utenti campo="membri" %}
   <div class="ds-dialogo-azioni"><button type="button" class="ui-btn ui-btn-ghost" data-chiudi>Annulla</button><button class="ui-btn ui-btn-primary" type="submit">Crea il canale</button></div>
 </form></dialog>

@@ -18,7 +18,7 @@ from core.generici import ct_di, vista_e_oggetto
 from core.models import Allegato, TipoAttivita
 from core.models import Messaggio as MessaggioChatter
 
-from . import eventi, notifiche, presenza as presenze, schede, servizi, testo
+from . import chiamate, eventi, notifiche, presenza as presenze, schede, servizi, testo
 from .models import Canale, Iscrizione, Messaggio, Notifica, Presenza
 
 PERMESSO = "discuss.view_canale"
@@ -68,7 +68,8 @@ def _barra(request, corrente=None):
             i.altri = altri
             i.presenza = presenze.scheda(stati.get(altri[0].pk)) if len(altri) == 1 else None
     return {"preferiti": [i for i in iscrizioni if i.fissata],
-            "canali": [i for i in iscrizioni if not i.canale.diretto and not i.fissata],
+            "canali": [i for i in iscrizioni if not i.canale.diretto and not i.fissata and not i.canale.vocale],
+            "vocali": [i for i in iscrizioni if i.canale.vocale and not i.fissata],
             "diretti": [i for i in iscrizioni if i.canale.diretto and not i.fissata],
             "corrente": corrente, "corrente_pk": corrente.pk if corrente else None,
             "da_scoprire": servizi.pubblici_da_scoprire(request.user),
@@ -113,7 +114,7 @@ def _dati_canale(request, canale):
     altri = [u for u in membri if u.pk != request.user.pk]
     dati = {"canale": canale, "titolo": canale.titolo_per(request.user), "membri": membri,
             "n_fissati": canale.messaggi.filter(fissato_il__isnull=False, eliminato=False).count(),
-            "puo_gestire": servizi.puo_gestire(request.user, canale), **_diritti(request, canale)}
+            "puo_gestire": servizi.puo_gestire(request.user, canale), "chiamata_attiva": chiamate.attiva_del(canale), **_diritti(request, canale)}
     if canale.diretto and len(altri) == 1:
         dati["altra"] = altri[0]
         dati["altra_presenza"] = presenze.scheda(presenze.di([altri[0].pk]).get(altri[0].pk))
@@ -477,7 +478,8 @@ def nuovo_canale(request):
         return redirect("discuss:home")
     tipo = Canale.PRIVATO if request.POST.get("tipo") == Canale.PRIVATO else Canale.PUBBLICO
     canale = servizi.crea_canale(nome, tipo, request.user, _utenti_scelti(request, "membri"),
-                                 request.POST.get("descrizione", ""), gestito=bool(request.POST.get("gestito")))
+                                 request.POST.get("descrizione", ""), gestito=bool(request.POST.get("gestito")),
+                                 vocale=bool(request.POST.get("vocale")))
     return redirect("discuss:canale", pk=canale.pk)
 
 
@@ -582,7 +584,8 @@ def impostazioni(request, pk):
     canale.gestito = bool(request.POST.get("gestito"))
     canale.archiviato = bool(request.POST.get("archiviato"))
     canale.lista_email = bool(request.POST.get("lista_email"))
-    canale.save(update_fields=["nome", "descrizione", "tipo", "gestito", "archiviato", "lista_email"])
+    canale.vocale = bool(request.POST.get("vocale"))
+    canale.save(update_fields=["nome", "descrizione", "tipo", "gestito", "archiviato", "lista_email", "vocale"])
     return redirect("discuss:canale", pk=pk) if not canale.archiviato else redirect("discuss:home")
 
 
