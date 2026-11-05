@@ -1,0 +1,18 @@
+{% load connettori %}{% dati_collegamento obj as d %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Come funziona</div>{% if obj.in_errore %}<span class="ui-pill ui-pill-warn">Da controllare</span>{% endif %}</div>
+  <div class="ui-card-body">
+    {% if obj.comanda == 'esterno' %}<p>Ogni 15 minuti si leggono i contatti cambiati su {{ obj.get_sistema_display }} e si copiano qui. Le modifiche ai campi collegati fatte in adabox non partono verso {{ obj.get_sistema_display }}.</p>
+    {% else %}<p>Ogni contatto salvato in adabox, se è una persona con un'email, viene scritto su {{ obj.get_sistema_display }}. Le modifiche fatte di là non tornano qui.</p>{% endif %}
+    <p>Non si cancella mai nulla, in nessun verso, e un campo vuoto non cancella un valore. Per ora passano solo le persone, non le aziende, né opportunità o attività.</p>
+    <p>Contatti collegati: {{ d.collegati }}.{% if obj.ultimo_esito %} Ultimo esito: {{ obj.ultimo_esito }}{% endif %}</p>
+    {% if obj.modalita == 'prova' %}<p>Sei in prova: risponde un {{ obj.get_sistema_display }} finto con lo stesso formato, e non si esce in rete.</p>{% endif %}
+  </div>
+</section>
+{% if obj.modalita == 'prova' %}<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Sul sistema finto</div></div>
+  {% if d.record %}<div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Id</th><th>Nome</th><th>Email</th><th>Telefono</th><th>Ruolo</th></tr></thead>
+    <tbody>{% for r in d.record %}<tr><td>{{ r.id_esterno }}</td><td>{{ r.proprieta.firstname }} {{ r.proprieta.lastname }}</td><td>{{ r.proprieta.email }}</td><td>{{ r.proprieta.phone }}</td><td>{{ r.proprieta.jobtitle }}</td></tr>{% endfor %}</tbody>
+  </table></div>{% else %}<div class="ui-card-body">Ancora nessun record.</div>{% endif %}
+</section>{% endif %}

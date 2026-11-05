@@ -25,6 +25,10 @@ def senza_eventi():
         _locale.muto = prima
 
 
+def muto():
+    return getattr(_locale, "muto", False)
+
+
 def nome_evento(modello, azione):
     return f"{modello._meta.label_lower}.{azione}"
 

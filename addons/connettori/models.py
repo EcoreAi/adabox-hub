@@ -122,3 +122,48 @@ class RiferimentoEsterno(AziendaMixin):
             raise ValidationError({"content_type": "Questo tipo di record non si può collegare."})
         if not modello._default_manager.filter(pk=self.object_id, azienda_id=self.azienda_id).exists():
             raise ValidationError({"object_id": "Il record non esiste in questa azienda."})
+
+
+class CollegamentoEsterno(AziendaMixin):
+    """Il legame di un'azienda con un sistema esterno: quale, con quale token e chi comanda sui contatti."""
+    HUBSPOT = "hubspot"
+    SISTEMI = [(HUBSPOT, "HubSpot")]
+    PROVA, VERA = "prova", "vera"
+    MODALITA = [(PROVA, "Prova, senza uscire in rete"), (VERA, "Vera")]
+    ESTERNO, ADABOX = "esterno", "adabox"
+    COMANDI = [(ESTERNO, "Il sistema esterno: i contatti arrivano qui"), (ADABOX, "Adabox: i contatti partono da qui")]
+    sistema = models.CharField("sistema", max_length=20, choices=SISTEMI, default=HUBSPOT)
+    modalita = models.CharField("modalità", max_length=8, choices=MODALITA, default=PROVA)
+    comanda = models.CharField("chi comanda sui contatti", max_length=8, choices=COMANDI, default=ESTERNO)
+    attivo = models.BooleanField("attivo", default=True)
+    token_cifrato = models.TextField(blank=True, editable=False)
+    cursore = models.DateTimeField("letto fino a", null=True, blank=True, editable=False)
+    ultimo_giro = models.DateTimeField("ultimo giro", null=True, blank=True, editable=False)
+    ultimo_esito = models.CharField("ultimo esito", max_length=500, blank=True, editable=False)
+    in_errore = models.BooleanField("in errore", default=False, editable=False)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "collegamento"
+        verbose_name_plural = "collegamenti"
+        ordering = ["sistema", "pk"]
+        constraints = [models.UniqueConstraint(fields=["azienda", "sistema"], name="connettori_un_collegamento_per_sistema")]
+
+    def __str__(self):
+        return f"{self.get_sistema_display()} ({self.get_modalita_display().split(',')[0].lower()})"
+
+    def token(self):
+        return cifratura.decifra(self.token_cifrato)
+
+
+class RecordProva(models.Model):
+    """Un record del sistema esterno finto: fa le veci di HubSpot quando il collegamento è in prova."""
+    collegamento = models.ForeignKey(CollegamentoEsterno, on_delete=models.CASCADE, related_name="record_prova")
+    id_esterno = models.CharField(max_length=40)
+    proprieta = models.JSONField(default=dict)
+    modificato_ms = models.BigIntegerField(default=0, db_index=True)
+
+    class Meta:
+        verbose_name = "record di prova"
+        verbose_name_plural = "record di prova"
+        ordering = ["-modificato_ms", "pk"]
+        constraints = [models.UniqueConstraint(fields=["collegamento", "id_esterno"], name="connettori_record_prova_unico")]
