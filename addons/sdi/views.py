@@ -148,7 +148,7 @@ class ScadenzaPassivaView(ModelView):
     slug = "pagamenti"
     verbose_name_plural = "scadenze da pagare"
     list_display = ["fattura", "fornitore", "data", "importo", "modalita", "pagata", "pagata_il"]
-    list_filter = ["pagata", "data"]
+    list_filter = ["pagata", "data", "fattura__fornitore"]
     search_fields = ["fattura__numero", "fattura__fornitore__nome"]
     form_layout = [("Scadenza", [("fattura", "data"), ("importo", "modalita"), "iban", ("pagata", "pagata_il")])]
     readonly_fields = ["fattura", "data", "importo", "modalita", "iban", "pagata", "pagata_il"]

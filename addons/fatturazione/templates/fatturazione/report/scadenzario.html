@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>{{ titolo }}</title>
+<style>
+  @page { size: A4 landscape; margin: 15mm; @bottom-right { content: "Pagina " counter(page) " di " counter(pages); font-family: "DejaVu Sans", sans-serif; font-size: 8pt; } }
+  body { font-family: "DejaVu Sans", sans-serif; font-size: 9pt; color: #1d1d1f; }
+  h1 { font-size: 14pt; margin: 0; } .sub { color: #6e6e73; margin: 1mm 0 5mm; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 8pt; color: #6e6e73; border-bottom: 1px solid #1d1d1f; padding: 1.5mm 1mm; }
+  td { padding: 1.5mm 1mm; border-bottom: 1px solid #f0f0f2; }
+  .num { text-align: right; white-space: nowrap; } .totale td { font-weight: bold; border-top: 1px solid #1d1d1f; }
+</style>
+</head>
+<body>
+<h1>{{ titolo }}</h1>
+<div class="sub">{{ azienda }} · al {{ oggi|date:"d/m/Y" }}</div>
+<table>
+  <thead><tr><th>{{ etichetta }}</th>{% for _, nome in fasce %}<th class="num">{{ nome }}</th>{% endfor %}<th class="num">Totale</th></tr></thead>
+  <tbody>
+    {% for r in righe %}<tr><td>{{ r.nome }}</td>{% for v in r.celle %}<td class="num">{% if v %}{{ v|floatformat:2 }}{% endif %}</td>{% endfor %}<td class="num">{{ r.totale|floatformat:2 }}</td></tr>{% endfor %}
+    <tr class="totale"><td>Totale</td>{% for v in totali.celle %}<td class="num">{{ v|floatformat:2 }}</td>{% endfor %}<td class="num">{{ totali.totale|floatformat:2 }}</td></tr>
+  </tbody>
+</table>
+</body>
+</html>

@@ -4,13 +4,15 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from core.dashboard import queryset
+from fatturazione import scadenzario as motore
 from fatturazione.models import Fattura
 
 from . import ricezione, servizi
-from .models import FatturaPassiva, Trasmissione
+from .models import FatturaPassiva, ScadenzaPassiva, Trasmissione
 
 
 def _alla_fattura(fattura):
@@ -135,3 +137,18 @@ def registro_acquisti(request):
         "mesi": list(enumerate(MESI, start=1)), "titolo_periodo": f"{MESI[mese - 1]} {anno}" if mese else str(anno),
         "totale": {"imponibile": sum((v["imponibile"] for v in voci), Decimal(0)),
                    "imposta": sum((v["imposta"] for v in voci), Decimal(0))}})
+
+
+def voci_fornitori(request):
+    """Le note di credito non sono debiti da pagare, anche se dal file arrivano con una scadenza."""
+    scadenze = (queryset(request, ScadenzaPassiva).filter(pagata=False).exclude(fattura__tipo_documento="TD04")
+                .select_related("fattura__fornitore"))
+    return [(s.fattura.fornitore_id, s.fattura.fornitore.nome, s.data, s.importo) for s in scadenze]
+
+
+@login_required
+@permission_required("sdi.view_scadenzapassiva", raise_exception=True)
+def scadenzario_fornitori(request):
+    elenco = reverse("sdi:pagamenti_lista")
+    return motore.risposta(request, voci_fornitori(request), "Scadenziario fornitori", "Fornitore", "scadenziario-fornitori",
+                           lambda pk: f"{elenco}?f_pagata=0&f_fattura__fornitore={pk}")

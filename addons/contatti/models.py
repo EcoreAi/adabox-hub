@@ -53,6 +53,10 @@ class Contatto(AziendaMixin, ProprietaMixin):
     categorie = models.ManyToManyField(Categoria, blank=True, verbose_name="categorie")
     responsabile = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
                                      related_name="+", verbose_name="responsabile")
+    fido = models.DecimalField("fido", max_digits=14, decimal_places=2, null=True, blank=True,
+                               help_text="quanto può avere aperto questo cliente, IVA compresa; vuoto = nessun controllo")
+    fido_blocca = models.BooleanField("blocca oltre il fido", default=False,
+                                      help_text="oltre il fido l'ordine non si conferma; altrimenti si avvisa soltanto")
     note = models.TextField("note", blank=True)
     attivo = models.BooleanField("attivo", default=True)
 

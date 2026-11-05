@@ -11,7 +11,10 @@ class BancaConfig(AppConfig):
 
         from core.registry import hooks
 
-        from . import abbina
+        from fatturazione import commercialista
+
+        from . import abbina, per_commercialista
         from .models import Abbinamento
+        commercialista.aggiungi(per_commercialista.movimenti)
         hooks.sezione_dettaglio("banca.MovimentoBanca", "banca/_movimento.html", order=2)
         post_delete.connect(abbina.abbinamento_tolto, sender=Abbinamento, dispatch_uid="banca.abbinamento_tolto")

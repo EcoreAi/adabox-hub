@@ -1,7 +1,7 @@
 {
     "name": "SDI",
     "summary": "Fatture elettroniche allo SDI e dai fornitori: validazione, invio, notifiche, fatture passive",
-    "version": "1.0.2",
+    "version": "1.1.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Contabilità",
     "depends": ["fatturazione"],
@@ -13,6 +13,7 @@
     "menu": [
         {"label": "Fatture ricevute", "url_name": "sdi:passive_lista", "permission": "sdi.view_fatturapassiva"},
         {"label": "Da pagare", "url_name": "sdi:pagamenti_lista", "permission": "sdi.view_scadenzapassiva"},
+        {"label": "Scadenziario fornitori", "url_name": "sdi:scadenzario", "permission": "sdi.view_scadenzapassiva"},
         {"label": "Registro acquisti", "url_name": "sdi:registro_acquisti", "permission": "sdi.view_fatturapassiva"},
         {"label": "Trasmissioni", "url_name": "sdi:trasmissioni_lista", "permission": "sdi.view_trasmissione"},
         {"label": "Notifiche", "url_name": "sdi:notifiche_lista", "permission": "sdi.view_notificasdi"},

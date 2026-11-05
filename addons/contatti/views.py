@@ -38,6 +38,7 @@ class ContattoView(ModelView):
                       ("citta", "provincia", "nazione")]),
         ("Dati fiscali", [("partita_iva", "codice_fiscale", "codice_sdi"), "pubblica_amministrazione",
                           ("vies_valido", "vies_il")]),
+        ("Fido", [("fido", "fido_blocca")]),
         ("Altro", ["note", "attivo", "@proprieta"]),
     ]
     readonly_fields = ["codice", "vies_valido", "vies_il"]

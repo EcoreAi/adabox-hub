@@ -10,10 +10,17 @@ LIMITE_OPZIONI = 200
 
 
 def _campo(vista, nome):
-    try:
-        return vista.opts.get_field(nome)
-    except FieldDoesNotExist:
-        return None
+    """Il campo, anche attraverso le relazioni (fattura__cliente); None se il percorso non esiste."""
+    opts, campo = vista.opts, None
+    for parte in nome.split("__"):
+        if opts is None:
+            return None
+        try:
+            campo = opts.get_field(parte)
+        except FieldDoesNotExist:
+            return None
+        opts = campo.related_model._meta if campo.is_relation and campo.related_model else None
+    return campo
 
 
 def _etichetta(f):

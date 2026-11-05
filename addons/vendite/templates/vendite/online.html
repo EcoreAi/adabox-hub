@@ -12,7 +12,7 @@
   {% if stato == 'risposto' and ordine.risposta == 'accettato' %}
   <div class="vn-esito vn-ok{% if appena %} is-appena{% endif %}"><svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M15 27l8 8 15-16"/></svg>
     <h2>{% if appena %}Grazie, {{ ordine.risposta_nome }}!{% else %}Preventivo accettato{% endif %}</h2>
-    <p>Accettato il {{ ordine.risposta_il|date:"d/m/Y" }} alle {{ ordine.risposta_il|date:"H:i" }} da {{ ordine.risposta_nome }}. Ordine {{ ordine.numero_ordine }}.</p></div>
+    <p>Accettato il {{ ordine.risposta_il|date:"d/m/Y" }} alle {{ ordine.risposta_il|date:"H:i" }} da {{ ordine.risposta_nome }}.{% if ordine.numero_ordine %} Ordine {{ ordine.numero_ordine }}.{% else %} Ti contatteremo per la conferma dell'ordine.{% endif %}</p></div>
   {% elif stato == 'risposto' %}
   <div class="vn-esito"><h2>Preventivo rifiutato</h2><p>Abbiamo ricevuto la tua risposta del {{ ordine.risposta_il|date:"d/m/Y" }}. Se cambi idea, scrivici: ti manderemo un nuovo link.</p></div>
   {% elif stato == 'modificato' %}

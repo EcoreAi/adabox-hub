@@ -1,7 +1,7 @@
 {
     "name": "Banca",
     "summary": "Estratti conto importati e abbinati a fatture e fornitori: gli incassi si registrano con un clic, senza contabilità",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Contabilità",
     "depends": ["sdi"],

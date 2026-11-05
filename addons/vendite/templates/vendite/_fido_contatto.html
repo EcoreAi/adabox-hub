@@ -1,0 +1,14 @@
+{% load fido %}{% fido_del_contatto obj as f %}{% if f %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Fido</div>{% if f.superato %}<span class="ui-pill ui-pill-warn">Superato</span>{% endif %}</div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <tbody>
+      <tr><td>Fido concesso</td><td class="ui-num">{{ f.fido|floatformat:2 }}</td></tr>
+      <tr><td>Scadenze aperte</td><td class="ui-num">{{ f.scadenze|floatformat:2 }}</td></tr>
+      <tr><td>Ordini confermati da fatturare</td><td class="ui-num">{{ f.ordini|floatformat:2 }}</td></tr>
+      <tr><td><strong>Disponibile</strong></td><td class="ui-num"><strong>{{ f.disponibile|floatformat:2 }}</strong></td></tr>
+    </tbody>
+  </table></div>
+  <div class="ui-card-body">{% if f.blocca %}Oltre il fido gli ordini non si possono confermare.{% else %}Oltre il fido la conferma avvisa, ma l'ordine parte.{% endif %}</div>
+</section>
+{% endif %}

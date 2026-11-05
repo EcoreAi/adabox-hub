@@ -14,6 +14,7 @@ from core import chatter, modelli_email, sequenze
 from core.models import Messaggio
 from core.viste.gruppi import numero
 
+from . import fido
 from .models import OrdineVendita
 from .segnali import ordine_confermato
 
@@ -85,9 +86,18 @@ def accetta(ordine, nome, ip=None):
         ordine.risposta, ordine.risposta_il, ordine.risposta_ip = OrdineVendita.ACCETTATO, timezone.now(), ip
         ordine.risposta_nome, ordine.risposta_impronta = nome, impronta(ordine)
         ordine.save(update_fields=["risposta", "risposta_il", "risposta_ip", "risposta_nome", "risposta_impronta"])
-        conferma(ordine)
+        oltre_fido = fido.controllo(ordine)
+        bloccato = bool(oltre_fido and oltre_fido["blocca"])
+        if not bloccato:
+            conferma(ordine)
+        if oltre_fido:
+            chatter.scrivi(ordine, None, f"{'Da confermare a mano' if bloccato else 'Confermato oltre il fido'}. {oltre_fido['testo']}",
+                           tipo=Messaggio.NOTA)
         chatter.scrivi(ordine, None, f"Preventivo {ordine.numero} accettato online da {nome} (totale {numero(ordine.totale)} €).",
                        tipo=Messaggio.NOTA)
+    if bloccato:                                       # l'accettazione resta valida; al cliente non si parla del fido
+        _avvisa_commerciale(ordine, "accettato", f"Da {nome}. L'ordine non è confermato: {oltre_fido['testo']}")
+        return ordine
     _avvisa_commerciale(ordine, "accettato", f"Da {nome}. Ordine {ordine.numero_ordine}, totale {numero(ordine.totale)} €.")
     if ordine.cliente.email:
         modelli_email.messaggio("vendite.accettato", ordine.azienda, {

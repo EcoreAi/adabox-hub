@@ -3,10 +3,11 @@ from django.db import transaction
 from django.db.models import Sum
 
 from core import chatter, lavori
+from core.models import Messaggio
 from core.viste import Inline, ModelView, register, schede
 
 from .models import OrdineVendita, RigaVendita
-from . import operazioni
+from . import fido, operazioni
 from .segnali import ordine_annullato
 
 
@@ -122,7 +123,13 @@ class OrdineView(ModelView):
             return f"{obj} non è un preventivo da confermare."
         if not obj.righe.exists():
             return "Il documento non ha righe."
+        esito = fido.controllo(obj)
+        if esito and esito["blocca"]:
+            return f"Ordine non confermato. {esito['testo']}"
         operazioni.conferma(obj, request.user)
+        if esito:
+            chatter.scrivi(obj, request.user, f"Confermato oltre il fido. {esito['testo']}", tipo=Messaggio.NOTA)
+            return f"Ordine {obj.numero_ordine} confermato. Attenzione: {esito['testo']}"
         return f"Ordine {obj.numero_ordine} confermato."
     conferma.short_description = "Conferma l'ordine"
     conferma.rischio = "irreversibile"

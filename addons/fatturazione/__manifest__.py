@@ -1,7 +1,7 @@
 {
     "name": "Fatturazione",
     "summary": "Fatture e note di credito, scadenze e incassi, fattura elettronica XML e registro IVA",
-    "version": "1.1.2",
+    "version": "1.2.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Contabilità",
     "depends": ["vendite", "fiscale"],
@@ -13,8 +13,10 @@
     "menu": [
         {"label": "Fatture", "url_name": "fatturazione:fatture_lista", "permission": "fatturazione.view_fattura"},
         {"label": "Scadenze", "url_name": "fatturazione:scadenze_lista", "permission": "fatturazione.view_scadenza"},
+        {"label": "Scadenziario", "url_name": "fatturazione:scadenzario", "permission": "fatturazione.view_scadenza"},
         {"label": "Incassi", "url_name": "fatturazione:incassi_lista", "permission": "fatturazione.view_incasso"},
         {"label": "Registro IVA", "url_name": "fatturazione:registro_iva", "permission": "fatturazione.view_fattura"},
+        {"label": "Per il commercialista", "url_name": "fatturazione:commercialista", "permission": "fatturazione.view_fattura"},
         {"label": "Dati fiscali", "url_name": "fatturazione:dati_lista", "permission": "fatturazione.change_datifiscali"},
     ],
     "groups": {

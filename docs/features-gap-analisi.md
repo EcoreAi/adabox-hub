@@ -4,17 +4,18 @@ Confronto con la checklist di `docs/features-gap` (Odoo, ERPNext, NetSuite, Busi
 
 ## In sintesi
 
-- **Su 219 voci, 26 sono complete, 98 parziali, 59 mancanti e 36 escluse dal perimetro.** Solo il 23% delle voci Core nel perimetro è completo: adabox-hub copre molto in superficie, ma spesso senza una parte attesa dai clienti.
+- **Su 219 voci, 28 sono complete, 97 parziali, 53 mancanti e 41 escluse dal perimetro.** Solo il 26% delle voci Core nel perimetro è completo: adabox-hub copre molto in superficie, ma spesso senza una parte attesa dai clienti.
 - **Punti forti:** assistente AI, agenti e MCP, conversazioni, documenti, fatturazione elettronica, progetti, ticket, capacità.
-- **Punti deboli:** funzioni trasversali del kernel (multi-valuta, multilingua, approvazioni generiche, storico su tutti i record, filtri salvati, pivot), portale clienti e pagamenti online, magazzino avanzato (costi, lotti, ubicazioni), paghe e selezione del personale.
-- **Falla corretta:** chi non aveva aziende attive vedeva i record di tutte le aziende. Ora non vede nulla (sezione D, punto 1).
+- **Punti deboli:** funzioni trasversali del kernel (multi-valuta, multilingua, approvazioni generiche, storico su tutti i record, filtri salvati, pivot), portale clienti e pagamenti online, magazzino avanzato (costi, lotti, ubicazioni), timbratura.
+- **Falla corretta:** chi non aveva aziende attive vedeva i record di tutte le aziende, e alcune pagine aprivano record di altre aziende. Ora non più (sezione D, punto 1).
 - **Acquisti è stata l'app scelta per l'intervento:** passa da 0 a 8 voci complete su 14 (sezione E).
+- **Fatti il 2026-11-05:** scadenziario a fasce, fido dei clienti e pacchetto per il commercialista (FIN-06, FIN-07, FIN-01).
 
 ## Da dove partire
 
 | Priorità | Che cosa | Voci | Perché |
 |---|---|---|---|
-| 1 | Lacune piccole ad alto valore: scadenziario, fido, esportazione per il commercialista | FIN-06, FIN-07, FIN-01 | Effort S, ogni cliente se le aspetta |
+| 1 | Integrazione con CRM e gestionali esterni: base generica, chat collegata al cliente, poi connettori (Salesforce, HubSpot, Zoho, Zucchetti, TeamSystem) | PLT-14, INT-06, INT-08, INT-05 | Decisione del 2026-11-05: adabox deve poter entrare accanto al software che il cliente ha già |
 | 2 | Filtri salvati, ricerca globale, pivot, storico completo | RPT-03, PLT-17, RPT-02, PLT-04 | Migliorano tutte le app insieme |
 | 3 | Portale clienti e pagamenti online | COM-01, CRM-09, COM-02, FIN-25 | Le altre sezioni lo danno per scontato |
 | 4 | Banca e fisco italiani: file SEPA e RiBa, liquidazione IVA e LIPE | FIN-32, FIN-16, LOC-02 | Servono in Italia e non richiedono un mastro |
@@ -30,8 +31,10 @@ Esclusioni confermate il 2026-11-05: queste voci restano N/A e non entrano nella
 | Produzione | 16 voci MFG | Fuori dal prodotto |
 | POS, eCommerce, CMS | COM-03..06, IND-05 | Fuori dal prodotto |
 | Multilingua | PLT-15 | Il prodotto resta in italiano. È una voce Core nei concorrenti: pesa nei confronti con clienti esteri |
+| Paghe | HR-09, LOC-04 | Restano al consulente del lavoro, a cui arriva l'esportazione delle presenze (HR-03) |
+| Selezione e valutazioni | HR-06, HR-15, HR-07 | Fuori dal prodotto |
 
-Ancora da decidere: paghe, timbratura, valutazioni e selezione risultano mancanti, anche se la spec di fase 7 le mette fuori perimetro. Se restano escluse, passano a N/A e la copertura HR sale.
+La timbratura (HR-03) resta invece nel perimetro, con l'esportazione mensile per il consulente. Più avanti si può aggiungere l'importazione dei cedolini in PDF, da mostrare ai dipendenti.
 
 ## Come è stata fatta
 
@@ -44,20 +47,20 @@ Copertura Core = voci Core HAVE / voci Core non N/A. Tra parentesi la stessa quo
 | Sezione | Voci | HAVE | PARTIAL | MISSING | N/A | Copertura Core % |
 |---|---:|---:|---:|---:|---:|---:|
 | Piattaforma e architettura (PLT) | 26 | 3 | 21 | 1 | 1 | 18% (94%) |
-| Finanza e contabilità (FIN) | 38 | 3 | 14 | 9 | 12 | 18% (76%) |
+| Finanza e contabilità (FIN) | 38 | 5 | 13 | 8 | 12 | 29% (82%) |
 | Vendite, CRM e marketing (CRM) | 20 | 2 | 14 | 4 | 0 | 22% (100%) |
 | Acquisti (PUR) | 14 | 8 | 2 | 4 | 0 | 100% (100%) |
 | Magazzino (INV) | 21 | 0 | 11 | 10 | 0 | 0% (69%) |
 | Produzione (MFG) | 18 | 0 | 0 | 2 | 16 | – |
-| Persone e paghe (HR) | 16 | 2 | 4 | 10 | 0 | 25% (75%) |
+| Persone e paghe (HR) | 16 | 2 | 4 | 6 | 4 | 33% (100%) |
 | Progetti, servizio e assistenza (PRJ) | 13 | 3 | 7 | 3 | 0 | 33% (100%) |
 | Commercio e front office (COM) | 11 | 0 | 3 | 4 | 4 | 0% (50%) |
 | Report e analisi (RPT) | 11 | 2 | 5 | 3 | 1 | 20% (80%) |
 | AI e automazione (AI) | 9 | 3 | 4 | 2 | 0 | – |
 | Integrazioni ed estensibilità (INT) | 9 | 0 | 7 | 2 | 0 | 0% (100%) |
-| Localizzazione e conformità (LOC) | 8 | 0 | 5 | 2 | 1 | 0% (67%) |
+| Localizzazione e conformità (LOC) | 8 | 0 | 5 | 1 | 2 | 0% (67%) |
 | Pacchetti di settore (IND) | 5 | 0 | 1 | 3 | 1 | – |
-| **Totale** | 219 | 26 | 98 | 59 | 36 | 23% (85%) |
+| **Totale** | 219 | 28 | 97 | 53 | 41 | 26% (88%) |
 
 ## Cosa sviluppare per ogni applicazione
 
@@ -117,11 +120,10 @@ Ogni voce aperta è assegnata all'app dove andrebbe costruita. Ordine dentro ogn
 
 ### fatturazione
 
-7 voci aperte: 6 Core, 1 Adv, 0 Edge.
+6 voci aperte: 5 Core, 1 Adv, 0 Edge.
 
 | ID | Tier | Stato | Effort | Cosa costruire |
 |---|---|---|---|---|
-| FIN-06 | Core | PARTIAL | S | Pagina aging attivo e passivo a fasce, per controparte e con drill-down sulle scadenze, esportabile in CSV e PDF. |
 | COM-02 | Core | MISSING | M | Interfaccia gateway con almeno due fornitori (es. Stripe, PayPal o Nexi), link di pagamento su fatture e preventivi, webhook firmato che registra l'incasso via incassa_fattura. |
 | FIN-12 | Core | PARTIAL | M | Credito cliente non allocato e riutilizzabile sulle scadenze. Registro dei pagamenti su ScadenzaPassiva, simmetrico a Incasso, con parziali e abbuoni. |
 | FIN-16 | Core | PARTIAL | M | Pagina di liquidazione IVA mensile o trimestrale dai due registri, con credito riportato e detraibilità, ed export dati per lo studio; il file ufficiale è LOC-02. |
@@ -170,24 +172,22 @@ Ogni voce aperta è assegnata all'app dove andrebbe costruita. Ordine dentro ogn
 
 ### personale
 
-5 voci aperte: 4 Core, 1 Adv, 0 Edge.
+4 voci aperte: 4 Core, 0 Adv, 0 Edge.
 
 | ID | Tier | Stato | Effort | Cosa costruire |
 |---|---|---|---|---|
 | HR-01 | Core | PARTIAL | S | Modello Posizione collegato a Dipendente e Reparto; pagina organigramma disegnata dalla catena dei responsabili. |
 | HR-02 | Core | PARTIAL | M | Modello Contratto con validità, CCNL e livello, retribuzione e voci, storico per dipendente, avvisi di scadenza; spostare ore e ferie annue sul contratto in vigore. |
-| HR-03 | Core | PARTIAL | M | Modello Timbratura con entrata e uscita, pagina chiosco con PIN o badge, confronto con ore previste e assenze; ratei mensili e riporto del residuo tra anni. |
+| HR-03 | Core | PARTIAL | M | Modello Timbratura con entrata e uscita, pagina chiosco con PIN o badge, confronto con ore previste e assenze; esportazione mensile di presenze e assenze per il consulente del lavoro; ratei mensili e riporto del residuo tra anni. |
 | HR-08 | Core | PARTIAL | M | Pagina Il mio profilo che riunisce assenze, spese, ore, contratto, cedolini e documenti HR riservati, con richiesta di modifica dei dati anagrafici. |
-| LOC-04 | Adv | MISSING | L | Da decidere se escluderle. In alternativa minima (effort S) un'esportazione mensile di presenze e assenze per il consulente. |
 
 ### vendite
 
-4 voci aperte: 3 Core, 0 Adv, 1 Edge.
+3 voci aperte: 2 Core, 0 Adv, 1 Edge.
 
 | ID | Tier | Stato | Effort | Cosa costruire |
 |---|---|---|---|---|
 | CRM-03 | Core | PARTIAL | S | FK opzionale da OrdineVendita a Opportunita, pulsante Crea preventivo sull'opportunità, sezione documenti collegati e opportunità vinta alla conferma dell'ordine; fatturazione parziale per consegnato da valutare a parte. |
-| FIN-07 | Core | MISSING | S | Campo fido sul contatto, esposizione calcolata da scadenze aperte e ordini non fatturati, avviso o blocco alla conferma dell'ordine. |
 | CRM-04 | Core | PARTIAL | M | Modello ModelloPreventivo con righe e testi precompilati; righe marcate opzionali, escluse dal totale finché il cliente non le sceglie dalla pagina online, con impronta ricalcolata sulla scelta. |
 | CRM-20 | Edge | PARTIAL | M | Gestore delle email dedicate che classifica la richiesta, abbina mittente e prodotti, estrae le righe anche dal PDF e prepara un preventivo in bozza da approvare, con i dubbi segnalati al commerciale. |
 
@@ -217,7 +217,7 @@ Ogni voce aperta è assegnata all'app dove andrebbe costruita. Ordine dentro ogn
 
 | ID | Tier | Stato | Effort | Cosa costruire |
 |---|---|---|---|---|
-| RPT-01 | Core | PARTIAL | S | Aggiungere a Pagina la condivisione con ruoli e gruppi e un layout iniziale per ruolo impostabile dall'amministratore. Limitare le pagine condivise all'azienda corrente. |
+| RPT-01 | Core | PARTIAL | S | Aggiungere a Pagina la condivisione con ruoli e gruppi e un layout iniziale per ruolo impostabile dall'amministratore. |
 | FIN-29 | Adv | PARTIAL | L | Modulo di pianificazione con versioni di budget e forecast per dimensione, driver semplici e confronto con il consuntivo. |
 | PLT-25 | Adv | PARTIAL | L | Foglio integrato con formule che leggono da interroga.py con i permessi dell'utente, oppure connettore live per Excel come OData. |
 
@@ -367,23 +367,13 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | COM-01 | Core | PARTIAL | M | Spostare AccessoPortale e l'involucro del portale in un modulo proprio, con sezioni registrate dalle app (vendite, fatturazione, documenti, assistenza) tramite hook e filtro unico sul cliente. |
 | CRM-09 | Core | PARTIAL | M | Sezioni Preventivi, Ordini e Fatture nel portale filtrate su AccessoPortale.contatti(), con PDF scaricabili e riuso di operazioni.accetta per i preventivi aperti. |
 
-### selezione
+### obiettivi
 
-2 voci aperte: 1 Core, 1 Adv, 0 Edge.
-
-| ID | Tier | Stato | Effort | Cosa costruire |
-|---|---|---|---|---|
-| HR-06 | Core | MISSING | L | App con posizioni aperte, candidature (anche da pagina pubblica ed email), pipeline kanban e assunzione che crea il Dipendente; modelli di checklist di ingresso e uscita che generano attività. |
-| HR-15 | Adv | MISSING | S | Link di segnalazione per dipendente, tracciamento della candidatura segnalata e premio all'assunzione. |
-
-### valutazioni
-
-2 voci aperte: 1 Core, 1 Adv, 0 Edge.
+1 voci aperte: 0 Core, 1 Adv, 0 Edge.
 
 | ID | Tier | Stato | Effort | Cosa costruire |
 |---|---|---|---|---|
-| HR-07 | Core | MISSING | M | Campagne periodiche con modelli di scheda, autovalutazione e valutazione del responsabile, firma e storico sul dipendente. |
-| HR-11 | Adv | MISSING | M | Obiettivi per dipendente o reparto con misura, avanzamento e collegamento alla scheda di valutazione; riconoscimenti pubblicati in Discuss. |
+| HR-11 | Adv | MISSING | M | Obiettivi per dipendente o reparto con misura, avanzamento; riconoscimenti pubblicati in Discuss. |
 
 ### wiki
 
@@ -470,14 +460,6 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | ID | Tier | Stato | Effort | Cosa costruire |
 |---|---|---|---|---|
 | MFG-16 | Adv | MISSING | L | Agente locale che collega bilance, stampanti e sensori via API, con eventi che si traducono in operazioni di magazzino. |
-
-### paghe
-
-1 voci aperte: 0 Core, 1 Adv, 0 Edge.
-
-| ID | Tier | Stato | Effort | Cosa costruire |
-|---|---|---|---|---|
-| HR-09 | Adv | MISSING | L | Per l'Italia, conviene prima lo scambio col consulente del lavoro: esportazione di presenze e assenze e importazione dei cedolini PDF per dipendente. Il motore completo (CCNL, contributi, F24, CU, Uniemens) è molto più grande. |
 
 ### competenze
 
@@ -660,13 +642,13 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 
 | ID | Funzione | Tier | Stato | Evidenza | Note sul gap |
 |---|---|---|---|---|---|
-| FIN-01 | Contabilità generale in partita doppia e registri per tipo | Core | N/A | addons/banca/abbina.py (docstring: nessuna registrazione contabile); nessun modello di mastro in addons/ | Decisione utente 2026-11-03: la contabilità generale resta al commercialista. Serve però un'esportazione per lo studio: oggi esistono solo i CSV dei due registri IVA e l'XML scaricabile fattura per fattura, nessun pacchetto periodico |
+| FIN-01 | Contabilità generale in partita doppia e registri per tipo | Core | N/A | addons/banca/abbina.py (docstring: nessuna registrazione contabile); nessun modello di mastro in addons/ | Decisione utente 2026-11-03: la contabilità generale resta al commercialista. Fatta il 2026-11-05 l'esportazione per lo studio: addons/fatturazione/commercialista.py prepara uno ZIP del periodo con registri, XML, incassi, crediti e debiti aperti e movimenti di banca |
 | FIN-02 | Piano dei conti configurabile e centri di costo | Core | N/A | Nessun modello conto contabile; banca.Conto è solo il conto bancario (addons/banca/models.py) | Decisione utente 2026-11-03. Niente esportazione specifica oltre a quella di FIN-01; i centri di costo fuori dal mastro sono valutati in FIN-20 |
 | FIN-03 | Contabilità per competenza e per cassa | Core | N/A | Nessun mastro; regime RF17 IVA per cassa solo come codice in fatturazione.DatiFiscali.REGIMI | Decisione utente 2026-11-03. L'esportazione di FIN-01 dovrebbe riportare date di documento e di incasso, utili allo studio per entrambi i criteri |
 | FIN-04 | Fatture, note di credito, termini, rate e invio email | Core | HAVE | addons/fatturazione/operazioni.py (emetti, nota_di_credito, da_ordine, da_consegne); addons/fatturazione/lavori.py invia con PDF; addons/fiscale/calcoli.py scadenze; addons/fiscale/models.py TerminePagamento; addons/fatturazione/views.py FatturaView | Completa anche per TD differite, autofatture, bollo, CIG e CUP. Le rate si scrivono come JSON a mano nel form del termine: usabile ma scomodo |
 | FIN-05 | Fatture fornitore proposte da ordini o ricevimenti (3-way match) | Core | PARTIAL | addons/acquisti/riscontro.py fattura_ricevuta, _candidati; addons/sdi/passive.py | Migliorata in questo lavoro: la fattura SDI trova da sola l'ordine (numero, DDT, causale) e si confronta con merce e ordine. Mancano il confronto per riga e il blocco alla registrazione; le fatture passive si creano solo dall'XML. |
-| FIN-06 | Scadenziario clienti e fornitori con aging a fasce | Core | PARTIAL | addons/fatturazione/views.py ScadenzaView; addons/sdi/views.py ScadenzaPassivaView; addons/fatturazione/dashboard.py KPI da incassare e scaduto; addons/fatturazione/riepilogo.py | Ci sono liste con residui, raggruppamento per mese o cliente e totale dello scaduto. Mancano le fasce di anzianità (0-30, 31-60...), la stampa per cliente o fornitore e la vista di partitario con saldo |
-| FIN-07 | Fido clienti con avviso o blocco sugli ordini | Core | MISSING | Nessun campo in addons/contatti/models.py Contatto; ricerche su fido, affidamento, esposizione, insoluti senza risultati in vendite, contatti, fatturazione | Nulla di presente |
+| FIN-06 | Scadenziario clienti e fornitori con aging a fasce | Core | HAVE | addons/fatturazione/scadenzario.py tabella, risposta; addons/sdi/pagine.py scadenzario_fornitori; core/viste/filtri.py _campo; test_scadenzario_commercialista.py | Fatto il 2026-11-05: clienti e fornitori a fasce (a scadere, 1-30, 31-60, 61-90, oltre 90), per controparte, con link alle scadenze, CSV e PDF. Le note di credito ricevute non contano come debiti. Non c'è un partitario con saldo progressivo. |
+| FIN-07 | Fido clienti con avviso o blocco sugli ordini | Core | HAVE | addons/contatti/models.py fido, fido_blocca; addons/vendite/fido.py; addons/vendite/views.py conferma; addons/vendite/operazioni.py accetta; addons/vendite/tests/test_fido.py | Fatto il 2026-11-05: fido sul contatto, esposizione da scadenze aperte e ordini non fatturati, avviso o blocco per contatto. Il preventivo accettato online oltre un fido bloccante resta accettato e aspetta una conferma a mano. |
 | FIN-08 | Solleciti di pagamento a livelli con email | Core | HAVE | addons/automazioni/ricette.py (preavviso, sollecito, sollecito_deciso); addons/automazioni/catalogo.py evento fattura.scaduta; addons/automazioni/motore.py Esecuzione.chiave evita i doppi; addons/automazioni/tests/test_automazioni.py test_sollecito_una_volta_sola_e_mai_sulle_pagate | I livelli sono regole configurabili, create spente, con storico delle esecuzioni e attività di chiamata. Limiti minori: un'email per scadenza, nessun riepilogo per cliente, nessun interesse di mora |
 | FIN-09 | Importazione estratti conto | Core | HAVE | addons/banca/estratti.py (leggi, _camt, _mt940, _cbi, _tabella per CSV ed Excel); addons/banca/abbina.py importa; addons/banca/pagine.py importa; addons/banca/tests/test_banca.py | CAMT.053, MT940, CBI, CSV ed Excel, con deduplica e quadratura dei saldi. OFX e QIF non ci sono: scelta ragionevole per le banche italiane, da aggiungere solo se richiesti |
 | FIN-10 | Sincronizzazione bancaria automatica | Core | MISSING | Nessuna integrazione PSD2 o aggregatore in addons/banca; solo caricamento manuale del file | Nulla di presente; Importazione e impronte di deduplica sono riutilizzabili |
@@ -801,16 +783,16 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | HR-03 | Presenze (timbratura, chiosco) e assenze con maturazione e approvazione | Core | PARTIAL | addons/personale/flusso.py (richiesta_inviata, decidi, annulla), addons/personale/saldi.py (saldo), addons/personale/pagine.py (mie), addons/personale/views.py (AssenzaView con calendario e kanban) | Assenze complete con approvazione del responsabile, saldi e calendario. Presenze del tutto assenti: nessuna timbratura né chiosco (docs/superpowers/specs/2026-10-28-adabox-hub-fase7-sdi-personale-spese-design.md le esclude solo da quella fase). La maturazione è una proporzione annua sul periodo lavorato, senza ratei mensili né riporto del residuo all'anno dopo (saldo legge un solo anno). |
 | HR-04 | Timesheet su progetti e compiti | Core | HAVE | addons/timesheet/models.py (RigaOre, Cronometro), addons/timesheet/pagine.py (settimana, cronometro_avvia, cronometro_ferma), addons/timesheet/views.py (RigaOreView: approva, riapri, analisi) | Griglia settimanale, cronometro con arrotondamento, approvazione, blocco delle ore fatturate, controllo delle 24 ore. |
 | HR-05 | Note spese con approvazione e rimborso | Core | HAVE | addons/spese/models.py (NotaSpese, RigaSpesa, CategoriaSpesa), addons/spese/flusso.py (invia, decidi, rimborsa), addons/spese/views.py (NotaView, stampa), addons/spese/pagine.py (ricevuta) | Flusso bozza, inviata, approvata o rifiutata, rimborsata con limiti, ricevuta obbligatoria e rimborso km. Il rimborso è una marcatura con data: non genera un bonifico né un movimento in addons/banca. Il riaddebito al cliente è valutato in PRJ-12. |
-| HR-06 | Selezione del personale, inserimento e uscita con checklist | Core | MISSING | Nessun modello; addons/personale/models.py non ha candidati; docs/superpowers/specs/2026-10-28-adabox-hub-fase7-sdi-personale-spese-design.md (Fuori scope: recruiting) | Niente annunci, candidati, pipeline, né checklist di inserimento o uscita. Il Fuori scope di fase 7 vale per la fase, non per il prodotto: altre voci escluse da una fase (HR nella 5, Gantt e portale nella 3) sono state poi costruite. |
-| HR-07 | Valutazioni delle prestazioni | Core | MISSING | Nessun modello; fase7-sdi-personale-spese-design.md (Fuori scope: valutazioni) | Nulla: Valutazione in addons/helpdesk/models.py è il voto del cliente sul ticket, non del dipendente. |
+| HR-06 | Selezione del personale, inserimento e uscita con checklist | Core | N/A | Nessun modello; addons/personale/models.py non ha candidati; docs/superpowers/specs/2026-10-28-adabox-hub-fase7-sdi-personale-spese-design.md (Fuori scope: recruiting) | Esclusa per scelta dell'utente il 2026-11-05: la selezione del personale resta fuori dal prodotto. |
+| HR-07 | Valutazioni delle prestazioni | Core | N/A | Nessun modello; fase7-sdi-personale-spese-design.md (Fuori scope: valutazioni) | Esclusa per scelta dell'utente il 2026-11-05: le valutazioni restano fuori dal prodotto. |
 | HR-08 | Portale self-service del dipendente (cedolini, assenze, spese, documenti) | Core | PARTIAL | addons/personale/pagine.py (mie), addons/personale/templates/personale/mie.html, addons/spese/views.py (NotaView.get_queryset, _mio), addons/documenti/models.py (Spazio personale) | Il dipendente chiede ferie, vede il saldo e gestisce le sue note spese, ma da pagine separate nella UI interna. Mancano cedolini, documenti del rapporto di lavoro (Spazio personale è un'area file, non i documenti dati dall'azienda), modifica dei propri dati e una pagina unica. |
-| HR-09 | Paghe con regole nazionali, cedolini, scritture contabili | Adv | MISSING | Nessun modello; fase7-sdi-personale-spese-design.md (Fuori scope: paghe e cedolini) | Nulla. Le scritture contabili non sarebbero comunque applicabili: la contabilità generale non è nel prodotto (decisione dell'utente del 2026-11-03), e la spec esclude le paghe solo per la fase 7. Serve decidere se fare il motore o l'integrazione con il consulente del lavoro. |
+| HR-09 | Paghe con regole nazionali, cedolini, scritture contabili | Adv | N/A | Nessun modello; fase7-sdi-personale-spese-design.md (Fuori scope: paghe e cedolini) | Esclusa per scelta dell'utente il 2026-11-05: le paghe restano al consulente del lavoro. Le presenze gli arrivano con l'esportazione di HR-03. |
 | HR-10 | Competenze, formazione online, certificazioni | Adv | MISSING | Nessun modello; ricerca su competenz, skill, certificaz, e-learning senza esiti in addons/personale, addons/capacita, addons/assistenza | Nulla sulle persone. addons/capacita/piano.py e addons/assistenza/instradamento.py assegnano senza considerare le competenze. |
 | HR-11 | Obiettivi e riconoscimenti | Adv | MISSING | Nessun modello; progetti.Sprint.obiettivo è solo un testo dello sprint | Nulla per le persone: nessun obiettivo misurabile né riconoscimento. |
 | HR-12 | Parco auto (veicoli, contratti, costi) | Adv | MISSING | Nessun modello; addons/spese/models.py (CategoriaSpesa.tariffa_km) copre solo il rimborso chilometrico | Nessuna anagrafica veicoli, assegnazione, contratti, scadenze o costi. |
 | HR-13 | Pianificazione dei turni | Adv | MISSING | Nessun modello; addons/capacita/models.py (Capacita) dà solo ore al giorno e sabato o domenica lavorati | Nessun turno, modello di turno, copertura per reparto né pubblicazione. capacita calcola date dei compiti, non chi lavora quando. |
 | HR-14 | Reception e gestione visitatori | Adv | MISSING | Nessun modello; il visitatore in addons/discuss/livechat.py è chi usa la chat del sito | Nessun registro di ingressi, badge o avviso all'ospitante. |
-| HR-15 | Programmi di segnalazione candidati | Adv | MISSING | Nessun modello | Nulla, e manca la selezione su cui si appoggia. |
+| HR-15 | Programmi di segnalazione candidati | Adv | N/A | Nessun modello | Esclusa il 2026-11-05 insieme alla selezione, su cui si appoggia. |
 | HR-16 | Agente note spese (codifica automatica e controlli sulle ricevute) | Edge | MISSING | Controlli solo deterministici in addons/spese/models.py (RigaSpesa.clean) e addons/spese/flusso.py (controlla); nessun riferimento a NotaSpese o ricevute in addons/ai; il manifest di spese non ha la chiave ai (esempio in addons/calendario/ai.py) | La ricevuta non viene letta: niente estrazione di importo e data, categoria proposta, né controlli di policy sul contenuto. Il modulo addons/ai offre i mattoni (gateway, strumenti, compiti). |
 
 ### Progetti, servizio e assistenza (PRJ)
@@ -898,7 +880,7 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | LOC-01 | Pacchetti di localizzazione fiscale per paese | Core | PARTIAL | addons/fiscale/data/iniziali.json; addons/fiscale/models.py NATURE, MODALITA; addons/fatturazione/models.py TIPI, REGIMI, IMPORTO_BOLLO | Esiste solo il pacchetto Italia ed è cablato nei modelli. Nessun meccanismo per altri paesi; il piano dei conti non si applica per la decisione del 2026-11-03. Per un prodotto solo italiano non è urgente |
 | LOC-02 | Export delle dichiarazioni nel formato dell'Agenzia | Core | MISSING | Solo CSV in addons/fatturazione/registro.py e addons/sdi/pagine.py, non in formato ministeriale; nessun riscontro per LIPE, CU, F24 | Nessun file ufficiale. Dichiarazione annuale e CU restano naturalmente allo studio, salvo i dati di partenza |
 | LOC-03 | Canali nazionali di fatturazione elettronica | Adv | PARTIAL | Stessi di FIN-33: addons/sdi/canali.py, addons/sdi/pec.py, addons/fatturazione/fatturapa.py | SDI operativo, via PEC o portale. Nessun altro canale: Peppol e intermediario mancano. Stesso lavoro di FIN-33, da non contare due volte |
-| LOC-04 | Localizzazione delle paghe | Adv | MISSING | addons/personale gestisce ferie, permessi e saldi; spec fase 7 mette paghe e cedolini fuori scope per quella fase | Nessun calcolo paghe. Non marcato N/A perché manca una decisione a livello di prodotto; di solito va al consulente del lavoro |
+| LOC-04 | Localizzazione delle paghe | Adv | N/A | addons/personale gestisce ferie, permessi e saldi; spec fase 7 mette paghe e cedolini fuori scope per quella fase | Esclusa per scelta dell'utente il 2026-11-05: le paghe restano al consulente del lavoro. |
 | LOC-05 | IVA, Intrastat, elenchi UE, export di audit (SAF-T) | Adv | PARTIAL | Registri in addons/fatturazione/registro.py e addons/sdi/pagine.py; addons/contatti/vies.py controllo VIES; autofatture TD17-TD19 | Registri IVA e VIES ci sono. Mancano Intrastat (nessun codice nomenclatura né peso sui prodotti), elenchi delle operazioni UE e qualsiasi export di audit. SAF-T non è richiesto in Italia |
 | LOC-06 | Schemi di bilancio civilistici e IFRS | Adv | N/A | Nessun mastro | Dipende dal mastro, decisione utente 2026-11-03. Nessuna esportazione richiesta |
 | LOC-07 | GDPR: cancellazione, consensi, conservazione | Core | PARTIAL | addons/ai/protezione.py maschera i dati verso i modelli cloud; addons/discuss/models.py privacy_url dello sportello; discuss.livechat impronta_ip; pulizie cron in addons/discuss/__manifest__.py | Solo protezioni puntuali. Mancano cancellazione o anonimizzazione di un interessato (Contatto legato con PROTECT ai documenti), esportazione dei suoi dati, registro dei consensi e politiche di conservazione configurabili |
@@ -928,7 +910,6 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 
 | ID | Funzione | Cosa costruire | Dipende da | Effort |
 |---|---|---|---|---|
-| FIN-07 | Fido clienti con avviso o blocco sugli ordini | Campo fido sul contatto, esposizione calcolata da scadenze aperte e ordini non fatturati, avviso o blocco alla conferma dell'ordine. | FIN-06 | S |
 | FIN-10 | Sincronizzazione bancaria automatica | Connettore a un aggregatore PSD2 con consenso per conto, lettura periodica nel cron e movimenti passati dalla stessa deduplica. | FIN-09 | M |
 | FIN-13 | Casse e piccola cassa con saldo di apertura e chiusura | Conto di tipo cassa senza IBAN, movimenti manuali, apertura e chiusura con quadratura, collegamento a incassi e rimborsi in contanti. | - | M |
 | FIN-25 | Link di pagamento e pagamento online delle fatture | Pagina pubblica con token per fattura, connettore a un provider di pagamento con webhook che registra l'Incasso, link nelle email di invio e sollecito. | - | M |
@@ -946,8 +927,6 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 
 | ID | Funzione | Cosa costruire | Dipende da | Effort |
 |---|---|---|---|---|
-| HR-06 | Selezione del personale, inserimento e uscita con checklist | App con posizioni aperte, candidature (anche da pagina pubblica ed email), pipeline kanban e assunzione che crea il Dipendente; modelli di checklist di ingresso e uscita che generano attività. | HR-01, HR-02 | L |
-| HR-07 | Valutazioni delle prestazioni | Campagne periodiche con modelli di scheda, autovalutazione e valutazione del responsabile, firma e storico sul dipendente. | HR-01 | M |
 
 **Commercio e front office**
 
@@ -992,7 +971,6 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | ID | Funzione | Cosa costruire | Dipende da | Effort |
 |---|---|---|---|---|
 | FIN-05 | Fatture fornitore proposte da ordini o ricevimenti (3-way match) | Confronto per riga leggendo CodiceArticolo dall'XML e abbinandolo al codice fornitore del listino; blocco facoltativo alla registrazione oltre la tolleranza. | - | M |
-| FIN-06 | Scadenziario clienti e fornitori con aging a fasce | Pagina aging attivo e passivo a fasce, per controparte e con drill-down sulle scadenze, esportabile in CSV e PDF. | - | S |
 | FIN-11 | Riconciliazione con suggerimenti e modelli di abbinamento | Regole configurabili per causale, controparte e importo che classificano i movimenti senza fattura e li rendono esportabili allo studio. | - | M |
 | FIN-12 | Pagamenti parziali, eccedenze, abbuoni e crediti da allocare | Credito cliente non allocato e riutilizzabile sulle scadenze. Registro dei pagamenti su ScadenzaPassiva, simmetrico a Incasso, con parziali e abbuoni. | - | M |
 | FIN-14 | Stampa assegni e pagamenti a lotti | Distinta di pagamento come lotto di scadenze, con totale, stato e file bancario. Stampa assegni solo se richiesta. | FIN-32 | S |
@@ -1034,7 +1012,7 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 |---|---|---|---|---|
 | HR-01 | Anagrafica dipendenti, organigramma, reparti, posizioni | Modello Posizione collegato a Dipendente e Reparto; pagina organigramma disegnata dalla catena dei responsabili. | - | S |
 | HR-02 | Contratti con struttura retributiva e storico | Modello Contratto con validità, CCNL e livello, retribuzione e voci, storico per dipendente, avvisi di scadenza; spostare ore e ferie annue sul contratto in vigore. | HR-01 | M |
-| HR-03 | Presenze (timbratura, chiosco) e assenze con maturazione e approvazione | Modello Timbratura con entrata e uscita, pagina chiosco con PIN o badge, confronto con ore previste e assenze; ratei mensili e riporto del residuo tra anni. | HR-01, HR-02 | M |
+| HR-03 | Presenze (timbratura, chiosco) e assenze con maturazione e approvazione | Modello Timbratura con entrata e uscita, pagina chiosco con PIN o badge, confronto con ore previste e assenze; esportazione mensile di presenze e assenze per il consulente del lavoro; ratei mensili e riporto del residuo tra anni. | HR-01, HR-02 | M |
 | HR-08 | Portale self-service del dipendente (cedolini, assenze, spese, documenti) | Pagina Il mio profilo che riunisce assenze, spese, ore, contratto, cedolini e documenti HR riservati, con richiesta di modifica dei dati anagrafici. | HR-02, HR-09 | M |
 
 **Progetti, servizio e assistenza**
@@ -1056,7 +1034,7 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 
 | ID | Funzione | Cosa costruire | Dipende da | Effort |
 |---|---|---|---|---|
-| RPT-01 | Dashboard con KPI per modulo e per ruolo | Aggiungere a Pagina la condivisione con ruoli e gruppi e un layout iniziale per ruolo impostabile dall'amministratore. Limitare le pagine condivise all'azienda corrente. | - | S |
+| RPT-01 | Dashboard con KPI per modulo e per ruolo | Aggiungere a Pagina la condivisione con ruoli e gruppi e un layout iniziale per ruolo impostabile dall'amministratore. | - | S |
 | RPT-02 | Viste pivot e grafico su ogni insieme di record, con raggruppamenti e misure | Vista Pivot generica in core/viste con righe, colonne e più misure calcolate dal database con i permessi della vista, esportabile in Excel e salvabile come widget di Analisi. | - | M |
 | RPT-06 | Report pianificati e inviati per email | Pianificazione deterministica di una lista filtrata, di una stampa o di una pagina di Analisi, con allegato PDF o Excel e più destinatari, eseguita nel worker con i permessi del proprietario. | RPT-03 | M |
 
@@ -1125,13 +1103,11 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 
 | ID | Funzione | Cosa costruire | Dipende da | Effort |
 |---|---|---|---|---|
-| HR-09 | Paghe con regole nazionali, cedolini, scritture contabili | Per l'Italia, conviene prima lo scambio col consulente del lavoro: esportazione di presenze e assenze e importazione dei cedolini PDF per dipendente. Il motore completo (CCNL, contributi, F24, CU, Uniemens) è molto più grande. | HR-02, HR-03 | L |
 | HR-10 | Competenze, formazione online, certificazioni | Catalogo competenze con livelli per dipendente, certificazioni con scadenza e avviso; corsi con lezioni e quiz in un secondo passo. | HR-01 | L |
-| HR-11 | Obiettivi e riconoscimenti | Obiettivi per dipendente o reparto con misura, avanzamento e collegamento alla scheda di valutazione; riconoscimenti pubblicati in Discuss. | HR-07 | M |
+| HR-11 | Obiettivi e riconoscimenti | Obiettivi per dipendente o reparto con misura, avanzamento; riconoscimenti pubblicati in Discuss. | - | M |
 | HR-12 | Parco auto (veicoli, contratti, costi) | Veicoli assegnati ai dipendenti, contratti di leasing e assicurazione, scadenze (revisione, bollo), costi e chilometri, con avvisi. | HR-01 | M |
 | HR-13 | Pianificazione dei turni | Modelli di turno, griglia settimanale per reparto con trascinamento, controllo su assenze e sovrapposizioni, pubblicazione e scambio; le ore pianificate alimentano capacita. | HR-01, HR-03 | M |
 | HR-14 | Reception e gestione visitatori | Registro visite con pagina tablet per entrata e uscita, avviso alla persona ospitante via Discuss o email, informativa privacy. | HR-01 | S |
-| HR-15 | Programmi di segnalazione candidati | Link di segnalazione per dipendente, tracciamento della candidatura segnalata e premio all'assunzione. | HR-06 | S |
 
 **Progetti, servizio e assistenza**
 
@@ -1167,7 +1143,6 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 
 | ID | Funzione | Cosa costruire | Dipende da | Effort |
 |---|---|---|---|---|
-| LOC-04 | Localizzazione delle paghe | Da decidere se escluderle. In alternativa minima (effort S) un'esportazione mensile di presenze e assenze per il consulente. | - | L |
 
 **Pacchetti di settore**
 
@@ -1317,7 +1292,7 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 
 In ordine di gravità. Il punto 1 è risolto; gli altri bloccano o rallentano funzioni Core quando i clienti crescono.
 
-1. **Isolamento tra aziende: falla corretta il 2026-11-05.** Un utente senza aziende attive, o con la sola azienda disattivata, riceveva i record di tutte le aziende, perché `core/viste/base.py` filtrava solo se esisteva un'azienda corrente. Lo stesso accadeva nei menu dei filtri, nel kanban e nelle scelte dei form. Ora in quel caso le liste sono vuote, i dettagli danno 404, non si crea nulla, anche per il superuser e dall'API; i test sono in `core/tests/test_isolamento_aziende.py`. Resta da controllare il codice che filtra per conto suo fuori da `ModelView`.
+1. **Isolamento tra aziende: falla corretta il 2026-11-05.** Un utente senza aziende attive, o con la sola azienda disattivata, riceveva i record di tutte le aziende, perché `core/viste/base.py` filtrava solo se esisteva un'azienda corrente. Lo stesso accadeva nei menu dei filtri, nel kanban e nelle scelte dei form. Ora in quel caso le liste sono vuote, i dettagli danno 404, non si crea nulla, anche per il superuser e dall'API; i test sono in `core/tests/test_isolamento_aziende.py`. Resta da controllare il codice che filtra per conto suo fuori da `ModelView`. Un secondo controllo dello stesso giorno, sul codice e con una scansione di tutti gli URL, ha trovato altri casi, tutti corretti e coperti da test: viste su righe figlie (scadenze, incassi, valutazioni, notifiche, scadenze passive), XML delle trasmissioni, invito al portale, compito da ticket, collaudi, compiti nel form delle ore, pagine di Analisi condivise. `request.azienda` ora è None davvero, non un oggetto lazy, così i controlli scattano e le pagine non vanno in errore. La scansione ha provato gli id da 1 a 12 con POST vuote e ha saltato `awf`, `agate`, `ai` e `github`, controllati solo sul codice. Restano senza azienda canali e chat di Comunicazioni, utenti e ruoli, e la guida pubblica.
 2. **Permessi.** Le regole di riga sono scritte nel codice di ogni vista e non esistono permessi per campo (PLT-03). I nuovi utenti ricevono per default tutte le aziende attive (`core/signals.py`, `crea_profilo`).
 3. **Storico delle modifiche.** È legato a `save_model` e al chatter, non ai modelli: copre 25 viste su 87 e non vede le modifiche fatte da API, lavori e shell (PLT-04).
 4. **Valuta cablata.** Euro in `addons/fatturazione/fatturapa.py` (`Divisa`), «€» nelle etichette in oltre 200 punti, nessun campo valuta (PLT-02). Ogni modello nuovo, compresi quelli di acquisti, aggiunge debito.
