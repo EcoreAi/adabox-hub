@@ -21,6 +21,7 @@ class Command(BaseCommand):
         p.add_argument("--nome", default="", help="nome nel menu, es. «Bolle»")
         p.add_argument("--modello", default="", help="nome del primo modello, es. Bolla")
         p.add_argument("--dipende", nargs="*", default=[], help="moduli da cui dipende")
+        p.add_argument("--standard", action="store_true", help="modulo da catalogo, per tutti i clienti; senza, è su misura e gli altri non lo vedono")
         p = sub.add_parser("controlla", help="controlla le regole di un modulo leggendone il codice")
         p.add_argument("modulo", nargs="?", help="slug in addons/ o percorso della cartella")
         p.add_argument("--tutti", action="store_true", help="tutti i moduli in addons/")
@@ -126,10 +127,10 @@ class Command(BaseCommand):
             raise CommandError("manifest non valido:\n" + "\n".join(f"- {err}" for err in e.errori))
         self.stdout.write(f"OK {m.slug} {m.version}")
 
-    def _nuovo(self, slug, nome, modello, dipende, **_):
+    def _nuovo(self, slug, nome, modello, dipende, standard, **_):
         from core.registry import nuovo
         try:
-            cartella = nuovo.crea(slug, nome, modello, dipende)
+            cartella = nuovo.crea(slug, nome, modello, dipende, su_misura=not standard)
         except nuovo.NomeNonValido as e:
             raise CommandError(str(e))
         self.stdout.write(f"Creato {cartella}. Per provarlo: modulo installa {slug}. Prima di consegnarlo: modulo controlla {slug}, "

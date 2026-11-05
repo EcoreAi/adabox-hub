@@ -19,6 +19,7 @@ class ModuloVendibile(models.Model):
     icona = models.TextField("icona", blank=True, editable=False)
     prezzo_mese = models.DecimalField("prezzo al mese (€)", max_digits=9, decimal_places=2, default=0)
     in_catalogo = models.BooleanField("visibile nel catalogo dei clienti", default=True)
+    su_misura = models.BooleanField("su misura", default=False, help_text="di un cliente: mai nel catalogo degli altri né in un piano; lo ricevono solo le istanze che lo hanno tra i moduli in più")
     descrizione = models.TextField("che cosa fa", blank=True, help_text="il testo della finestra «Informazioni» nel catalogo del cliente")
     funzioni = models.TextField("funzioni", blank=True, help_text="una per riga")
     url_demo = models.URLField("link alla demo", blank=True, help_text="vuoto = quello generale, RIVENDITA_URL_DEMO")
@@ -65,7 +66,7 @@ class Piano(models.Model):
     """Il prezzo base con le sue app."""
     nome = models.CharField("nome", max_length=80, unique=True)
     descrizione = models.TextField("descrizione", blank=True)
-    moduli = models.ManyToManyField(ModuloVendibile, blank=True, related_name="piani", verbose_name="moduli inclusi")
+    moduli = models.ManyToManyField(ModuloVendibile, blank=True, limit_choices_to={"su_misura": False}, related_name="piani", verbose_name="moduli inclusi")
     utenti = models.PositiveIntegerField("utenti inclusi", default=0, help_text="0 = senza tetto")
     prezzo_mese = models.DecimalField("prezzo al mese (€)", max_digits=9, decimal_places=2, default=0)
     attivo = models.BooleanField("attivo", default=True)

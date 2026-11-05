@@ -19,6 +19,11 @@ def _scrivi(cartella, nome, testo):
     (cartella / nome).write_text(testo)
 
 
+def test_il_modulo_generato_e_su_misura_salvo_richiesta(generato, addons_tmp, db):
+    assert manifest.leggi(generato).su_misura is True
+    assert manifest.leggi(nuovo.crea("catalogo", su_misura=False)).su_misura is False
+
+
 def test_il_modulo_generato_e_valido_e_senza_rilievi(generato):
     m = manifest.leggi(generato)
     assert m.slug == "bolle" and m.menu[0]["url_name"] == "bolle:bolle_lista"
@@ -154,3 +159,9 @@ def test_il_modulo_generato_passa_collaudo_e_compatibilita(addons_tmp, db):
     assert r.ok, r.dettaglio
     assert [p for p, _ in r.passi] == ["migrate", "installa", "migrazioni", "test", "disinstalla"]
     assert collaudo.compatibilita("bolle", ["vicino"]) == [("vicino", None)]
+
+
+def test_senza_descrizione_per_ada_un_modulo_su_misura_ha_un_avviso(generato):
+    t = (generato / "views.py").read_text()
+    _scrivi(generato, "views.py", "\n".join(r for r in t.splitlines() if "ai_descrizione" not in r) + "\n")
+    assert "ada" in _regole(generato, controlli.AVVISO)

@@ -53,7 +53,12 @@ def pubblica(percorso_zip, nome_file=""):
         raise pacchetti.PacchettoNonValido("sul portale vanno solo pacchetti firmati: le istanze rifiuterebbero gli altri")
     with zipfile.ZipFile(percorso_zip) as z:
         m = ast.literal_eval(z.read(f"{esito.slug}/__manifest__.py").decode("utf-8"))
-    modulo, _ = ModuloVendibile.objects.update_or_create(slug=esito.slug, defaults={
+    su_misura = m.get("su_misura") is True
+    # un modulo su misura non compare mai agli altri, nemmeno per un attimo; poi lo decide il portale
+    modulo, _ = ModuloVendibile.objects.update_or_create(slug=esito.slug, create_defaults={
+        "su_misura": su_misura, "in_catalogo": not su_misura, "nome": m.get("nav_label") or m.get("name", esito.slug),
+        "riassunto": (m.get("summary") or "")[:300], "categoria": m.get("category", "")[:60], "application": bool(m.get("application")),
+        "icona": _icona(percorso_zip, esito.slug, m)}, defaults={
         "nome": m.get("nav_label") or m.get("name", esito.slug), "riassunto": (m.get("summary") or "")[:300], "categoria": m.get("category", ""),
         "application": bool(m.get("application")), "icona": _icona(percorso_zip, esito.slug, m)})
     applica_scheda(modulo)
@@ -80,7 +85,7 @@ def applica_scheda(modulo):
 
 def moduli_di(istanza):
     """Gli slug che spettano all'istanza: piano, moduli in più e, a cascata, le dipendenze dei loro pacchetti."""
-    da_vedere = set(istanza.piano.moduli.values_list("slug", flat=True)) | set(istanza.moduli_extra.values_list("slug", flat=True))
+    da_vedere = set(istanza.piano.moduli.filter(su_misura=False).values_list("slug", flat=True)) | set(istanza.moduli_extra.values_list("slug", flat=True))
     visti = set()
     while da_vedere:
         slug = da_vedere.pop()
@@ -111,7 +116,7 @@ def catalogo_di(istanza, base_url):
         if m.slug in spettanti and ultimo:
             voci.append({**descrizione, "versione": ultimo.versione, "min_core": ultimo.min_core, "dipendenze": ultimo.dipendenze, "file": ultimo.nome_file,
                          "url": base_url + reverse("rivendita:api_pacchetto", args=[m.slug, ultimo.versione]), "sha256": ultimo.sha256})
-        elif m.slug not in spettanti and m.in_catalogo and m.application and ultimo:
+        elif m.slug not in spettanti and m.in_catalogo and not m.su_misura and m.application and ultimo:
             disponibili.append(descrizione)
     dati = {"formato": 1, "istanza": str(istanza.codice), "creato": timezone.now().isoformat(timespec="seconds"), "moduli": voci, "disponibili": disponibili}
     return dati, pacchetti.firma(pacchetti.serializza(dati), chiave_privata()).decode()
@@ -124,6 +129,8 @@ def ricevi_richieste(istanza, voci):
         slug = str(v.get("slug", ""))[:31]
         if not slug:
             continue
+        if ModuloVendibile.objects.filter(slug=slug, su_misura=True).exists():
+            continue                                   # un modulo su misura non si chiede: non è in nessun catalogo
         tipo = Richiesta.DEMO if v.get("tipo") == Richiesta.DEMO else Richiesta.INSTALLAZIONE
         if not Richiesta.objects.filter(istanza=istanza, slug=slug, tipo=tipo, stato=Richiesta.NUOVA).exists():
             Richiesta.objects.create(istanza=istanza, slug=slug, nome=str(v.get("nome") or slug)[:120], nota=str(v.get("nota") or "")[:2000],

@@ -86,10 +86,10 @@ class PianiView(ModelView):
 class ModuliView(ModelView):
     model = ModuloVendibile
     slug = "moduli"
-    list_display = ["nome", "slug", "categoria", "prezzo_mese", "application", "in_catalogo"]
-    list_filter = ["categoria", "application", "in_catalogo"]
+    list_display = ["nome", "slug", "categoria", "prezzo_mese", "application", "in_catalogo", "su_misura"]
+    list_filter = ["categoria", "application", "in_catalogo", "su_misura"]
     search_fields = ["nome", "slug"]
-    form_layout = [("Modulo", [("nome", "slug"), ("categoria", "prezzo_mese"), "riassunto", ("application", "in_catalogo")]),
+    form_layout = [("Modulo", [("nome", "slug"), ("categoria", "prezzo_mese"), "riassunto", ("application", "in_catalogo", "su_misura")]),
                    ("Scheda nel catalogo", ["descrizione", "funzioni", "url_demo"])]
     readonly_fields = ["slug"]
 

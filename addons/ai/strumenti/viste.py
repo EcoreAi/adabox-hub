@@ -118,7 +118,8 @@ def _ordina(vista, qs, ordina):
 # ---------- strumenti ----------
 
 def elenco_viste(contesto, app=""):
-    elenco = [{"vista": id_vista(v), "nome": str(v.verbose_name_plural), "app": v.modulo} for v in viste(contesto)
+    elenco = [{"vista": id_vista(v), "nome": str(v.verbose_name_plural), "app": v.modulo,
+               **({"contiene": v.ai_descrizione} if v.ai_descrizione else {})} for v in viste(contesto)
               if not app or v.modulo == app]
     if not elenco:
         return "Nessuna vista accessibile" + (f" nell'app «{app}»." if app else ".")

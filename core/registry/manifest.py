@@ -14,7 +14,7 @@ SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
 MIN_CORE_RE = re.compile(r"^\d+\.\d+$")
 PERM_RE = re.compile(r"^[a-z][a-z0-9_]*\.([a-z_][a-z0-9_]*|\*)$")
 DOTTED_RE = re.compile(r"^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)*$")
-CHIAVI = {"name", "summary", "version", "author", "category", "depends", "min_core", "application",
+CHIAVI = {"su_misura", "name", "summary", "version", "author", "category", "depends", "min_core", "application",
           "icon", "nav_label", "menu", "groups", "data", "demo", "hooks", "ai", "settings_url", "cron", "settings", "sequences",
           "dashboard", "home", "menu_profilo", "email", "riepilogo"}
 OBBLIGATORIE = {"name", "version", "min_core"}
@@ -50,6 +50,7 @@ class Manifest:
     category: str = ""
     depends: list = field(default_factory=list)
     application: bool = False
+    su_misura: bool = False               # di un cliente: il portale non lo mostra agli altri e non va nei piani
     icon: str = ""
     nav_label: str = ""                   # etichetta nella barra in alto, se diversa dal nome (es. "Chat")
     menu: list = field(default_factory=list)
@@ -248,6 +249,8 @@ def valida(dati, slug, cartella):
             elif d == slug:
                 errori.append(f"depends: il modulo {slug!r} non può dipendere da se stesso")
 
+    if "su_misura" in dati and not isinstance(dati["su_misura"], bool):
+        errori.append(f"su_misura: atteso True o False, trovato {dati['su_misura']!r}")
     if "application" in dati and not isinstance(dati["application"], bool):
         errori.append(f"application: atteso True o False, trovato {dati['application']!r}")
 

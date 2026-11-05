@@ -33,6 +33,7 @@ Una pagina di amministrazione dell'istanza che mostra tutte le aziende di propos
 
 Con una `ModelView` non serve altro: Ada elenca, cerca, legge e aggrega i dati, e propone creazioni e modifiche che l'utente deve confermare. Vede solo ciò che l'utente vede.
 
+- **`ai_descrizione` è da scrivere davvero.** Di ogni vista Ada riceve solo il nome e questa frase, e con molti moduli installati sceglie da lì. Nella prova su un'istanza con 93 viste, «quante bolle abbiamo?» finiva sui ricevimenti di Magazzino finché la vista non ha detto di contenere le bolle. Esempio: `ai_descrizione = "Le bolle di accompagnamento lette con l'OCR: numero, fornitore, data, totale. Gli utenti dicono bolla o DDT."`
 - `list_display` e `search_fields` decidono cosa trova.
 - I bottoni sono azioni per Ada: `ai = False` li nasconde (download, stampe), `rischio = "irreversibile"` li segnala.
 
@@ -68,13 +69,23 @@ Con `api = True` sulla vista e il modulo Connettori installato, un webhook sull'
 
 ## Moduli di un solo cliente
 
+`modulo nuovo` crea moduli su misura: nel manifest c'è `"su_misura": True`. Per un modulo da catalogo, valido per tutti i clienti: `modulo nuovo crm2 --standard`.
+
 Un modulo su misura non va nel repository di adabox. Tienilo in un repository suo e collegalo per sviluppare:
 
 ```bash
 ln -s ~/progetti/cliente-x/bolle addons/bolle
 ```
 
-`addons/installed.json` non è versionato, quindi l'installazione resta locale. Si consegna con `modulo impacchetta`.
+`addons/installed.json` non è versionato, quindi l'installazione resta locale.
+
+Si consegna dal portale, che deve vedere il modulo in `addons/`:
+
+```bash
+python manage.py rivendita_pubblica bolle --per "Rossi Srl"    # oppure il codice dell'istanza, se il nome non è unico
+```
+
+Il modulo compare solo nella licenza di quell'istanza, e arriva entro un'ora o con «Sincronizza ora». Agli altri clienti non appare nel catalogo, non si può mettere in un piano e il pacchetto non si scarica. Per darlo a un secondo cliente si aggiunge ai suoi moduli in più, dalla sua istanza sul portale.
 
 ## Limiti del kit
 

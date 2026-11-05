@@ -21,7 +21,7 @@ class NomeNonValido(ValueError):
     pass
 
 
-def _file(slug, nome, modello, depends):
+def _file(slug, nome, modello, depends, su_misura=True):
     vn = nome.lower()
     return {
         "__init__.py": "",
@@ -33,7 +33,7 @@ def _file(slug, nome, modello, depends):
     "category": "Personalizzati",
     "depends": {depends!r},
     "min_core": "1.0",
-    "application": True,
+    "application": True,{chr(10) + '    "su_misura": True,' if su_misura else ''}
     "icon": "{slug}/icon.svg",
     "menu": [
         {{"label": {nome!r}, "url_name": "{slug}:{slug}_lista", "permission": "{slug}.view_{modello.lower()}"}},
@@ -87,6 +87,8 @@ class {modello}View(ModelView):
     readonly_fields = ["creato"]
     company_field = "azienda"                   # senza, i dati di un'azienda si vedrebbero dalle altre
     api = True
+    # Scrivi che cosa contiene e come la chiamano gli utenti: tra molti moduli Ada sceglie la vista da qui.
+    ai_descrizione = {nome!r}
 ''',
         "migrations/__init__.py": "",
         "tests/__init__.py": "",
@@ -141,7 +143,7 @@ def test_senza_permesso_non_si_entra(client, aziende):
     }
 
 
-def crea(slug, nome="", modello="", depends=()):
+def crea(slug, nome="", modello="", depends=(), su_misura=True):
     """Scrive il modulo in ADDONS_DIR e genera la migrazione. Non lo installa e non sovrascrive mai nulla."""
     if not SLUG_RE.match(slug) or slug in RISERVATI:
         raise NomeNonValido(f"«{slug}» non è un nome valido: minuscole, cifre e trattino basso, non una parola riservata")
@@ -152,7 +154,7 @@ def crea(slug, nome="", modello="", depends=()):
     if cartella.exists():
         raise NomeNonValido(f"{cartella} esiste già: non la sovrascrivo")
     nome = nome or slug.replace("_", " ").capitalize()
-    for relativo, contenuto in _file(slug, nome, modello, list(depends)).items():
+    for relativo, contenuto in _file(slug, nome, modello, list(depends), su_misura).items():
         destinazione = cartella / relativo
         destinazione.parent.mkdir(parents=True, exist_ok=True)
         destinazione.write_text(contenuto, encoding="utf-8")

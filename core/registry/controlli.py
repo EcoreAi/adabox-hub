@@ -122,7 +122,7 @@ def _import(alberi, slug, ammessi, altri, testi, m, rilievi):
                     rilievi.append(Rilievo(AVVISO, "dipendenze", file, n.lineno, f"importa «{x}» senza apps.is_installed: fallirebbe se non è installato"))
 
 
-def _viste(alberi, locali, rilievi):
+def _viste(alberi, locali, rilievi, su_misura=False):
     con_vista = set()
     for file, albero in alberi.items():
         for n in ast.walk(albero):
@@ -132,6 +132,8 @@ def _viste(alberi, locali, rilievi):
             modello = getattr(attr.get("model"), "id", None)
             con_vista.add(modello)
             metodi = {x.name: x for x in n.body if isinstance(x, ast.FunctionDef)}
+            if su_misura and "ai_descrizione" not in attr:
+                rilievi.append(Rilievo(AVVISO, "ada", file, n.lineno, f"{n.name}: senza ai_descrizione, tra molti moduli Ada può scegliere un'altra vista"))
             dati = locali.get(modello)
             filtra_da_sola = "get_queryset" in metodi and "azienda" in ast.unparse(metodi["get_queryset"])
             if dati and dati["azienda"] and "company_field" not in attr and "tra_aziende" not in attr and not filtra_da_sola:
@@ -235,7 +237,7 @@ def controlla(cartella):
     ammessi = _chiusura(slug, info) | set(m.depends if m else [])
     _import(alberi, slug, ammessi, set(info), testi, m, rilievi)
     locali = _modelli(alberi)
-    _viste(alberi, locali, rilievi)
+    _viste(alberi, locali, rilievi, su_misura=bool(m and m.su_misura))
     _modelli_regole(locali, cartella, rilievi)
     _richieste(alberi, _con_azienda(locali), rilievi)
     _pagine(alberi, rilievi)

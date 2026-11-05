@@ -145,3 +145,63 @@ def test_richiesta_di_demo_non_entra_in_licenza_e_il_link_generale(client, super
     client.post(reverse("rivendita:richieste_bottone", args=[richiesta.pk, "gestita"]))
     richiesta.refresh_from_db()
     assert richiesta.stato == "approvata" and not istanza.moduli_extra.exists()
+
+
+def _su_misura(tmp_path, portale, slug="bolle_rossi", **manifest):
+    return _pubblica(tmp_path, portale, slug, su_misura=True, **manifest).modulo
+
+
+@pytest.mark.django_db
+def test_modulo_su_misura_solo_per_il_suo_cliente(client, scena, portale, tmp_path):
+    rossi, token_rossi = scena
+    bianchi = Istanza.objects.create(cliente="Bianchi Srl", piano=rossi.piano, scadenza=rossi.scadenza)
+    token_bianchi = bianchi.nuovo_token()
+    modulo = _su_misura(tmp_path, portale)
+    assert modulo.su_misura and not modulo.in_catalogo
+    rossi.moduli_extra.add(modulo)
+    dati_rossi, dati_bianchi = _post(client, token_rossi).json(), _post(client, token_bianchi).json()
+    assert "bolle_rossi" in [v["slug"] for v in dati_rossi["catalogo"]["moduli"]]
+    testo = json.dumps(dati_bianchi)
+    assert "bolle_rossi" not in testo                        # né nella licenza, né nel catalogo, né descritto
+    url = reverse("rivendita:api_pacchetto", args=["bolle_rossi", "1.0.0"])
+    assert client.get(url, headers={"Authorization": f"Bearer {token_rossi}"}).status_code == 200
+    assert client.get(url, headers={"Authorization": f"Bearer {token_bianchi}"}).status_code == 403
+
+
+@pytest.mark.django_db
+def test_modulo_su_misura_non_passa_da_un_piano_o_da_una_richiesta(client, scena, portale, tmp_path):
+    rossi, token = scena
+    modulo = _su_misura(tmp_path, portale)
+    rossi.piano.moduli.add(modulo)                           # anche se finisse in un piano per errore
+    assert "bolle_rossi" not in servizi.moduli_di(rossi)
+    _post(client, token, {"richieste": [{"id": 1, "slug": "bolle_rossi", "nome": "Bolle", "tipo": "installazione"}]})
+    assert not Richiesta.objects.filter(slug="bolle_rossi").exists()
+    from django.forms import modelform_factory
+    assert modulo not in modelform_factory(Piano, fields=["moduli"])().fields["moduli"].queryset     # nel form non si sceglie
+
+
+@pytest.mark.django_db
+def test_ripubblicare_non_rende_pubblico_e_il_portale_decide(scena, portale, tmp_path):
+    modulo = _su_misura(tmp_path, portale)
+    _pubblica(tmp_path, portale, "bolle_rossi", version="1.1.0")   # anche senza la chiave nel manifest
+    modulo.refresh_from_db()
+    assert modulo.su_misura and not modulo.in_catalogo and modulo.ultimo().versione == "1.1.0"
+
+
+@pytest.mark.django_db
+def test_i_moduli_normali_restano_nel_catalogo(client, scena):
+    rossi, token = scena
+    assert "premium" in [v["slug"] for v in _post(client, token).json()["catalogo"]["disponibili"]]
+
+
+@pytest.mark.django_db
+def test_comando_pubblica_per_un_cliente(portale, addons_tmp, scena):
+    from django.core.management import CommandError, call_command
+    rossi, _ = scena
+    addons_tmp.crea("su_rossi", su_misura=True)
+    with pytest.raises(CommandError, match="0 istanze"):
+        call_command("rivendita_pubblica", "su_rossi", "--per", "Nessuno")
+    assert not ModuloVendibile.objects.filter(slug="su_rossi").exists()
+    call_command("rivendita_pubblica", "su_rossi", "--per", "Rossi Srl")
+    modulo = ModuloVendibile.objects.get(slug="su_rossi")
+    assert modulo.su_misura and modulo in rossi.moduli_extra.all() and "su_rossi" in servizi.moduli_di(rossi)
