@@ -514,3 +514,30 @@ class ProgettoChat(models.Model):
 
     def __str__(self):
         return self.nome
+
+
+class ServerMCP(models.Model):
+    """Un sistema esterno di cui Ada può usare gli strumenti (MCP). Lo collega e lo rivede un amministratore."""
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, related_name="+", verbose_name="azienda")
+    nome = models.CharField("nome", max_length=80, help_text="es. Gestionale del cliente")
+    url = models.CharField("indirizzo MCP", max_length=300, help_text="es. https://crm.esempio.it/mcp")
+    token_cifrato = models.TextField(blank=True, editable=False)
+    rete_interna = models.BooleanField("nella rete del cliente", default=False,
+                                       help_text="permette http e indirizzi privati: solo per sistemi interni di cui ti fidi")
+    attivo = models.BooleanField("attivo", default=True)
+    strumenti = models.JSONField("strumenti", default=list, blank=True, editable=False)
+    aggiornato = models.DateTimeField("strumenti letti il", null=True, blank=True, editable=False)
+    ultimo_errore = models.CharField("ultimo errore", max_length=300, blank=True, editable=False)
+
+    class Meta:
+        verbose_name = "server MCP"
+        verbose_name_plural = "server MCP"
+        ordering = ["nome", "pk"]
+        permissions = [("usa_servermcp", "Usa in chat gli strumenti dei sistemi esterni")]
+
+    def __str__(self):
+        return self.nome
+
+    def token(self):
+        from core import cifratura
+        return cifratura.decifra(self.token_cifrato)

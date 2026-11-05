@@ -56,16 +56,21 @@ def registra(strumento):
     return strumento
 
 
-def disponibili(utente, ambito=""):
-    """Gli strumenti che l'utente può usare (in ordine stabile per la cache del prefisso)."""
+def disponibili(utente, ambito="", azienda=None):
+    """Gli strumenti che l'utente può usare (in ordine stabile per la cache del prefisso). Con l'azienda anche quelli
+    dei sistemi esterni (MCP) che ha acceso, ma non nelle chat limitate a un'app."""
     from core.registry.modules import disattivati
 
     from . import app
     app.carica()
     spenti = disattivati()
-    return [s for _, s in sorted(_registro.items())
+    interni = [s for _, s in sorted(_registro.items())
             if (s.permesso is None or utente.has_perm(s.permesso)) and (not ambito or not s.app or s.app == ambito)
             and s.app not in spenti and (s.disponibile is None or s.disponibile())]
+    if ambito or azienda is None:
+        return interni
+    from .. import mcp
+    return interni + sorted(mcp.strumenti(utente, azienda), key=lambda s: s.nome)
 
 
 def _testo(valore):

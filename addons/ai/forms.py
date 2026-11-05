@@ -2,7 +2,7 @@ from django import forms
 
 from core import cifratura
 
-from .models import Assistente, ChiaveAzienda, Pianificata, Provider
+from .models import Assistente, ChiaveAzienda, Pianificata, Provider, ServerMCP
 
 
 class ProviderForm(forms.ModelForm):
@@ -150,3 +150,31 @@ class AssistenteForm(forms.ModelForm):
         if not isinstance(domande, list) or not all(isinstance(d, dict) and d.get("domanda") for d in domande):
             self.add_error("domande_oro", 'Una lista di oggetti con almeno "domanda".')
         return dati
+
+
+class ServerMCPForm(forms.ModelForm):
+    """Il token si scrive qui, si salva cifrato e non si rilegge."""
+    nuovo_token = forms.CharField(label="token", required=False, strip=True,
+                                  widget=forms.PasswordInput(render_value=False, attrs={"autocomplete": "new-password"}),
+                                  help_text="lascia vuoto per non cambiarlo")
+
+    class Meta:
+        model = ServerMCP
+        fields = ["nome", "url", "rete_interna", "attivo"]
+
+    def clean_url(self):
+        from core import rete
+        url = self.cleaned_data["url"].strip()
+        try:
+            if not self.data.get("rete_interna"):
+                rete.controlla(url, solo_https=True)
+            elif not url.startswith(("http://", "https://")):
+                raise rete.Rifiutato("serve un indirizzo http o https")
+        except rete.Rifiutato as e:
+            raise forms.ValidationError(f"Indirizzo non valido: {e}.") from e
+        return url
+
+    def save(self, commit=True):
+        if self.cleaned_data.get("nuovo_token"):
+            self.instance.token_cifrato = cifratura.cifra(self.cleaned_data["nuovo_token"])
+        return super().save(commit)

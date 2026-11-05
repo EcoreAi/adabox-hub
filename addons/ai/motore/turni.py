@@ -210,7 +210,7 @@ def esegui(turno_id):
         catena = catalogo.con_scelta(catalogo.catena(profilo, turno.azienda), conversazione.modello, turno.azienda)
         from ..strumenti import web
         ammessi = {s.nome: s for s in assistenti.filtra_strumenti(
-            web.filtra(strumenti.disponibili(utente, conversazione.ambito), turno.azienda), assistente, esperto=turno.compito == "esperto")}
+            web.filtra(strumenti.disponibili(utente, conversazione.ambito, turno.azienda), turno.azienda), assistente, esperto=turno.compito == "esperto")}
         _, con_immagine, nell_ultimo = allegati_chat.con_immagini(messaggi_del_modello(conversazione))
         senza_immagini = False
         if con_immagine:

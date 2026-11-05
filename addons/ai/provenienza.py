@@ -13,6 +13,11 @@ LINK = re.compile(r"\]\([^)]*\)|https?://\S+")
 MAX_SEGNALATI = 5
 # Da dove viene un dato letto: una pagina web o un file non sono dati del gestionale, e il badge non deve dirlo
 FUORI_DAL_GESTIONALE = {"cerca_web": "web", "leggi_pagina": "web", "leggi_allegato": "allegati"}
+ESTERNO = re.compile(r"mcp\d+_")                       # gli strumenti dei sistemi esterni (ai/mcp.py)
+
+
+def _origine(nome):
+    return "esterni" if nome and ESTERNO.match(nome) else FUORI_DAL_GESTIONALE.get(nome)
 # «13 settimane», «3 mesi», «2 ore»: parametri della domanda o del periodo, non dati da verificare
 UNITA_DI_TEMPO = re.compile(r"\s*(?:secondi|minut[oi]|or[ae]\b|giorn[oi]|settiman[ae]|mes[ei]|trimestr[ei]|"
                             r"semestr[ei]|ann[oi])", re.IGNORECASE)
@@ -63,7 +68,7 @@ def _trovato(valore, fonti):
 def calcola(turno, testo, protetti=0):
     eventi = list(Evento.objects.filter(turno=turno).order_by("pk"))
     strumenti, letture, fonti, nomi = [], 0, [], {}
-    fuori = {"web": 0, "allegati": 0}
+    fuori = {"web": 0, "allegati": 0, "esterni": 0}
     for ev in eventi:
         if ev.tipo == Evento.UTENTE:
             fonti += [v for _, v in numeri(ev.dati.get("testo", ""))]
@@ -74,7 +79,7 @@ def calcola(turno, testo, protetti=0):
         elif ev.tipo == Evento.STRUMENTO:
             for r in ev.dati.get("risultati", []):
                 if not r.get("errore"):
-                    origine = FUORI_DAL_GESTIONALE.get(nomi.get(r.get("id")))
+                    origine = _origine(nomi.get(r.get("id")))
                     if origine:
                         fuori[origine] += 1
                     else:
@@ -90,5 +95,6 @@ def calcola(turno, testo, protetti=0):
         esito = "senza fonti" if nella_risposta else "conversazione"
     else:
         esito = "parziale" if non_verificati else "verificato"
-    return {"esito": esito, "strumenti": sorted(set(strumenti)), "letture": letture, "letture_web": fuori["web"], "letture_allegati": fuori["allegati"], "pii": protetti,
+    return {"esito": esito, "strumenti": sorted(set(strumenti)), "letture": letture, "letture_web": fuori["web"], "letture_allegati": fuori["allegati"],
+            "letture_esterne": fuori["esterni"], "pii": protetti,
             "non_verificati": non_verificati[:MAX_SEGNALATI], "n_non_verificati": len(non_verificati)}

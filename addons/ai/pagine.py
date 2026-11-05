@@ -392,3 +392,20 @@ def salva_artifact(request, pk):
     if request.headers.get("HX-Request"):
         return render(request, "ai/_artifact.html", {"a": a})
     return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
+
+
+@require_POST
+@login_required
+@permission_required("ai.change_servermcp", raise_exception=True)
+def strumenti_mcp(request, pk):
+    """Quali strumenti del server sono accesi, e quali sono di sola lettura (senza conferma dell'utente)."""
+    from .models import ServerMCP
+    azienda = getattr(request, "azienda", None)
+    server = get_object_or_404(ServerMCP, pk=pk, azienda=azienda) if azienda else None
+    if server is None:
+        return redirect("ai:mcp_lista")
+    accesi, lettura = set(request.POST.getlist("acceso")), set(request.POST.getlist("lettura"))
+    server.strumenti = [{**v, "abilitato": v["nome"] in accesi, "lettura": v["nome"] in accesi and v["nome"] in lettura} for v in server.strumenti]
+    server.save(update_fields=["strumenti"])
+    messages.success(request, f"Strumenti accesi: {sum(v['abilitato'] for v in server.strumenti)}.")
+    return redirect("ai:mcp_dettaglio", pk=pk)

@@ -69,7 +69,7 @@ def conferma(proposta, utente, azienda, *, guardie=True):
         raise ErroreStrumento(f"La proposta riguarda l'azienda «{proposta.azienda}»: passa a quell'azienda per "
                               "confermarla.")
     ambito = proposta.conversazione.ambito
-    strumento = next((s for s in disponibili(utente, ambito) if s.nome == proposta.strumento), None)
+    strumento = next((s for s in disponibili(utente, ambito, azienda) if s.nome == proposta.strumento), None)
     if guardie and strumento is not None:
         for guardia in GUARDIE:
             fermata = guardia(proposta, utente, azienda)

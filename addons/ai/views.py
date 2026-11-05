@@ -1,8 +1,8 @@
 from core import cifratura
 from core.viste import Inline, ModelView, register
 
-from .forms import AssistenteForm, ChiaveAziendaForm, PianificataForm, ProviderForm
-from .models import (AnelloCatena, Assistente, ChiaveAzienda, Modello, Pianificata, Profilo, Proposta, Provider, MemoriaUtente, ProgettoChat, ValutazioneRisposta,
+from .forms import AssistenteForm, ChiaveAziendaForm, PianificataForm, ProviderForm, ServerMCPForm
+from .models import (AnelloCatena, Assistente, ChiaveAzienda, Modello, Pianificata, Profilo, Proposta, Provider, MemoriaUtente, ProgettoChat, ServerMCP, ValutazioneRisposta,
                      Turno)
 
 
@@ -271,3 +271,37 @@ class ProgettoChatView(_SoloMie):
     search_fields = ["nome", "istruzioni"]
     form_layout = [("Progetto", ["nome", "istruzioni"])]
     readonly_fields = ["creato"]
+
+
+@register
+class ServerMCPView(ModelView):
+    """I sistemi esterni di cui Ada usa gli strumenti. Gli strumenti si accendono uno per uno, dopo averli letti."""
+    model = ServerMCP
+    slug = "mcp"
+    list_display = ["nome", "url", "token", "attivo", "aggiornato", "ultimo_errore"]
+    form_class = ServerMCPForm
+    form_layout = [("Server", ["nome", "url", "rete_interna", "attivo", "nuovo_token"])]
+    company_field = "azienda"
+    storico = False
+    personale = True
+    buttons = ["leggi_strumenti"]
+
+    def layout_dettaglio(self):
+        return [(t, [[c for c in riga if c != "nuovo_token"] for riga in righe if riga != ["nuovo_token"]]) for t, righe in super().layout_dettaglio()]
+
+    def col_token(self, obj):
+        try:
+            return cifratura.mascherato(cifratura.decifra(obj.token_cifrato)) or "—"
+        except cifratura.SegretoIlleggibile:
+            return "illeggibile"
+    col_token.short_description = "Token"
+
+    def leggi_strumenti(self, request, obj):
+        from . import mcp
+        try:
+            voci = mcp.aggiorna(obj)
+        except mcp.ErroreMCP as e:
+            return f"Strumenti non letti: {e}"
+        return f"Letti {len(voci)} strumenti. Quelli nuovi sono spenti: leggili e accendi solo quelli che servono."
+    leggi_strumenti.short_description = "Leggi gli strumenti dal server"
+    leggi_strumenti.ai = False

@@ -1,0 +1,19 @@
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Strumenti del server</div></div>
+  <div class="ui-card-body">
+    <p>Le descrizioni le scrive il server e arrivano ad Ada così come sono: leggile prima di accendere uno strumento. Uno strumento acceso chiede la conferma dell'utente a ogni uso, a meno che tu non lo segni come sola lettura. Quello che il server dichiara non conta: decidi tu. Lo usano in chat le persone con il permesso «Usa in chat gli strumenti dei sistemi esterni».</p>
+    {% if obj.ultimo_errore %}<p class="ui-help">Ultimo errore: {{ obj.ultimo_errore }}</p>{% endif %}
+    {% if not obj.strumenti %}<p>Nessuno strumento letto: usa «Leggi gli strumenti dal server».</p>{% endif %}
+  </div>
+  {% if obj.strumenti %}<form method="post" action="{% url 'ai:mcp_strumenti' obj.pk %}">{% csrf_token %}
+    <div class="ui-table-wrap"><table class="ui-table is-revealed">
+      <thead><tr><th>Acceso</th><th>Sola lettura</th><th>Strumento</th><th>Descrizione del server</th></tr></thead>
+      <tbody>{% for s in obj.strumenti %}<tr>
+        <td><input type="checkbox" name="acceso" value="{{ s.nome }}"{% if s.abilitato %} checked{% endif %} aria-label="Accendi {{ s.nome }}"></td>
+        <td><input type="checkbox" name="lettura" value="{{ s.nome }}"{% if s.lettura %} checked{% endif %} aria-label="{{ s.nome }} solo in lettura"></td>
+        <td><code>{{ s.nome }}</code></td><td style="white-space: pre-wrap">{{ s.descrizione|truncatechars:600 }}</td>
+      </tr>{% endfor %}</tbody>
+    </table></div>
+    <div class="ui-card-body"><button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">Salva le scelte</button></div>
+  </form>{% endif %}
+</section>

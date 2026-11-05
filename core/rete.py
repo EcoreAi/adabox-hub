@@ -86,3 +86,52 @@ def scarica(url, tipi=("text/html", "text/plain"), massimo=2_000_000, tempo=10, 
     finally:
         if http_client is None:
             client.close()
+
+
+def _indirizzo_interno_ammesso(host, porta):
+    """Per i sistemi nella rete del cliente, scelti da un amministratore: rete privata e loopback sì; mai gli indirizzi
+    link-local (169.254.x, dove stanno i metadati dei cloud), multicast e non specificati."""
+    try:
+        risposte = socket.getaddrinfo(host, porta, type=socket.SOCK_STREAM)
+    except OSError as e:
+        raise Rifiutato(f"nome non risolto: {host}") from e
+    indirizzi = [r[4][0] for r in risposte]
+    for i in indirizzi:
+        ip = ipaddress.ip_address(i.split("%")[0])
+        if ip.is_link_local or ip.is_multicast or ip.is_unspecified or ip.is_reserved:
+            raise Rifiutato(f"indirizzo non ammesso: {host}")
+    if not indirizzi:
+        raise Rifiutato(f"nome non risolto: {host}")
+    return indirizzi[0]
+
+
+def post_con_risposta(url, corpo, intestazioni, interna=False, tempo=30, massimo=2_000_000, http_client=None):
+    """(stato, intestazioni, corpo) di un POST. Senza `interna`: solo https verso indirizzi pubblici. Con `interna`
+    (decisa da un amministratore): anche http e rete privata, mai i metadati dei cloud. Niente reindirizzamenti."""
+    if interna:
+        try:
+            parti = urlsplit(url)
+            porta = parti.port or (443 if parti.scheme == "https" else 80)
+        except ValueError as e:
+            raise Rifiutato("indirizzo non ammesso") from e
+        if parti.scheme not in ("http", "https") or not parti.hostname or parti.username or parti.password:
+            raise Rifiutato("indirizzo non ammesso")
+        ip = _indirizzo_interno_ammesso(parti.hostname, porta)
+    else:
+        parti, porta = controlla(url, solo_https=True)
+        ip = indirizzo_pubblico(parti.hostname, porta)
+    host_ip = f"[{ip}]" if ":" in ip else ip
+    percorso = (parti.path or "/") + (f"?{parti.query}" if parti.query else "")
+    client = http_client or httpx.Client(timeout=tempo, follow_redirects=False, trust_env=False)
+    try:
+        with client.stream("POST", f"{parti.scheme}://{host_ip}:{porta}{percorso}", content=corpo,
+                           headers={**intestazioni, "Host": parti.netloc}, extensions={"sni_hostname": parti.hostname}) as r:
+            dati = b""
+            for pezzo in r.iter_bytes():
+                dati += pezzo
+                if len(dati) > massimo:
+                    raise Rifiutato("risposta troppo grande")
+            return r.status_code, dict(r.headers), dati
+    finally:
+        if http_client is None:
+            client.close()

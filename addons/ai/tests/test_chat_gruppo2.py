@@ -403,7 +403,8 @@ def _badge(pv):
     return render_to_string("ai/_provenienza.html", {"pv": pv})
 
 
-@pytest.mark.parametrize("strumento,parola", [("cerca_web", "Dal web"), ("leggi_pagina", "Dal web"), ("leggi_allegato", "Dagli allegati")])
+@pytest.mark.parametrize("strumento,parola", [("cerca_web", "Dal web"), ("leggi_pagina", "Dal web"), ("leggi_allegato", "Dagli allegati"),
+                                              ("mcp3_cerca_ordine", "Da sistemi esterni")])
 def test_web_e_allegati_non_risultano_dati_del_gestionale(s, strumento, parola):
     pv = _turno_con_lettura(s, strumento)
     html = _badge(pv)

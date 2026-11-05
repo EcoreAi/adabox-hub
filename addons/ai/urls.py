@@ -19,6 +19,7 @@ urlpatterns = [
     path("messaggio/<int:pk>/modifica/", pagine.modifica_messaggio, name="modifica_messaggio"),
     path("messaggio/<int:pk>/voto/", pagine.voto, name="voto"),
     path("allegato/<int:pk>/", pagine.allegato, name="allegato"),
+    path("mcp/<int:pk>/strumenti/", pagine.strumenti_mcp, name="mcp_strumenti"),
     path("chat/<int:pk>/elimina/", pagine.elimina, name="elimina"),
     path("flusso/<int:pk>/", flusso.flusso, name="flusso"),
     path("turno/<int:pk>/stop/", pagine.stop, name="stop"),
