@@ -504,6 +504,30 @@ menu» vale per tutti; ognuno può scegliere il suo da «Le mie app nel menu». 
 caricamento, installazione). Senza portale: `manage.py licenza firma --firma chiave.pem --cliente … --moduli crm,contatti
 --scadenza AAAA-MM-GG` crea il file da caricare in `/moduli/` o con `manage.py licenza carica`; i pacchetti si caricano a mano.
 
+## Le istanze ospitate da noi
+
+Ogni cliente ha la sua istanza: container, database Postgres, segreti e backup propri. `deploy/flotta.py` le gestisce sul server, con la sola libreria standard.
+
+```bash
+export FLOTTA_RADICE=/srv/adabox-istanze                                # dove stanno segreti e backup (default ~/adabox-istanze)
+export FLOTTA_URL_PORTALE=https://portale.ichnobyte.it/rivendita/api    # come le istanze raggiungono il portale
+export FLOTTA_PORTALE=adabox_hub_web                                    # il container del portale
+
+deploy/flotta.py immagine --versione 1.4.0
+deploy/flotta.py crea rossi --cliente "Rossi Srl" --dominio hub.rossi.it --email admin@rossi.it --piano Base --versione 1.4.0
+deploy/flotta.py elenco
+deploy/flotta.py aggiorna --tutte --versione 1.5.0 --prima prova
+deploy/flotta.py backup --tutte
+deploy/flotta.py ferma rossi; deploy/flotta.py avvia rossi; deploy/flotta.py log rossi web
+deploy/flotta.py elimina rossi --conferma rossi
+```
+
+- **`crea`** registra l'istanza sul portale, genera i segreti in `<radice>/rossi/.env` (leggibile solo dal proprietario), avvia i container, scarica i moduli del piano e crea il primo admin col ruolo Admin. La password si vede solo in quel momento. Se fallisce a metà: `elimina --senza-backup` e si riparte.
+- **`aggiorna`** salva database e file, cambia versione e controlla `/salute/`. Se l'istanza non si riprende ripristina il database e la versione di prima, e **si ferma**: le istanze successive restano intatte. Con `--prima` si comincia da quella di prova. I moduli invece si aggiornano dal portale, ogni ora.
+- **`backup`** conserva gli ultimi 14 salvataggi per istanza, sullo stesso server: copiarli altrove e pianificarli con cron resta da fare.
+- **Il proxy non si tocca in automatico**: `crea` scrive `<radice>/rossi/proxy.caddy`, da includere nella configurazione di Caddy dopo aver puntato il DNS. Le istanze ascoltano solo su `127.0.0.1`.
+- **Servizi AI condivisi**: `--servizi-ai` collega l'istanza alla rete dei servizi di questo server. Vanno poi indicati in `/impostazioni/`.
+
 ## Comandi `modulo`
 
 | Comando | Effetto |

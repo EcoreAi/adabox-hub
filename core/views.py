@@ -566,3 +566,16 @@ class CampoPersonalizzatoView(ModelView):
     form_class = CampoPersonalizzatoForm
     form_layout = [("Campo", ["modello", ("label", "nome"), ("tipo", "ordine"), "scelte", "aiuto"]),
                    ("Comportamento", [("obbligatorio", "in_lista", "filtrabile"), "azienda"])]
+
+
+def salute(request):
+    """Per il controllo delle istanze: risponde se l'applicazione gira e il database c'è. Nessun dettaglio all'esterno."""
+    from django.db import DatabaseError, connection
+    from django.http import JsonResponse
+    try:
+        connection.ensure_connection()
+        with connection.cursor() as cursore:
+            cursore.execute("SELECT 1")
+    except DatabaseError:
+        return JsonResponse({"stato": "errore"}, status=503)
+    return JsonResponse({"stato": "ok"})
