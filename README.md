@@ -439,6 +439,10 @@ completate.
   `/ai/flusso/`; il resto resta su gunicorn (WSGI). Quando cambiano i moduli installati, `stream` risponde 503 e
   si riavvia da solo, come il worker.
 
+## Sviluppare un modulo
+
+La guida è in [docs/guida-moduli.md](docs/guida-moduli.md): `modulo nuovo` crea un modulo funzionante, `modulo controlla` verifica le regole sul codice, `modulo compatibilita` lo prova accanto agli altri.
+
 ## Distribuire i moduli
 
 Un modulo si consegna come pacchetto zip firmato da ICHNOBYTE; ogni istanza accetta solo le chiavi di cui si fida.
@@ -511,6 +515,7 @@ caricamento, installazione). Senza portale: `manage.py licenza firma --firma chi
 | `modulo disinstalla <slug> [--elimina-dati] [--riavvia] [--si]` | rifiuta se altri moduli ne dipendono; senza `--elimina-dati` le tabelle restano |
 | `modulo sincronizza` | allinea la tabella `Modulo` al disco |
 | `modulo chiavi` · `impacchetta` · `carica` · `indice` · `collauda` | distribuzione dei moduli (vedi sopra) |
+| `modulo nuovo` · `controlla` · `compatibilita` | sviluppo di un modulo (vedi `docs/guida-moduli.md`) |
 
 Il lavoro vero lo fa `modulo_applica` (uso interno) in un processo nuovo, che legge il file
 di stato aggiornato e quindi ha il modulo in `INSTALLED_APPS`. Se fallisce, il file di stato

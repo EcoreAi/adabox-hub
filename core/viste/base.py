@@ -64,6 +64,7 @@ class ModelView:
     form_class = None
     readonly_fields = ()
     company_field = None          # None = modello globale
+    tra_aziende = False                         # True: pagina di amministrazione dell'istanza, mostra tutte le aziende di proposito
     sequence_field = None         # ("campo", "modulo.codice"): numero assegnato alla creazione
     chatter = False               # pannello messaggi/note/allegati/attività nel dettaglio
     tracked_fields = ()           # campi le cui modifiche finiscono nel chatter

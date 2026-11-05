@@ -25,6 +25,7 @@ class ProviderView(ModelView):
 @register
 class ChiaveAziendaView(ModelView):
     model = ChiaveAzienda
+    tra_aziende = True
     slug = "chiavi"
     list_display = ["provider", "azienda", "chiave"]
     form_class = ChiaveAziendaForm
@@ -54,6 +55,7 @@ class ModelloView(ModelView):
 @register
 class ProfiloView(ModelView):
     model = Profilo
+    tra_aziende = True
     slug = "profili"
     list_display = ["nome", "compito", "app", "azienda", "effort", "catena_modelli", "attivo"]
     list_filter = ["compito", "attivo"]
@@ -69,6 +71,7 @@ class ProfiloView(ModelView):
 class ConsumiView(ModelView):
     """Ogni chiamata ai modelli (turni della chat, titoli, pianificate): token, costo, esito."""
     model = Turno
+    tra_aziende = True
     slug = "consumi"
     verbose_name_plural = "consumi"
     list_display = ["iniziato", "utente", "azienda", "compito", "modello", "passi", "costo", "protetti", "stato"]
@@ -102,6 +105,7 @@ class ConsumiView(ModelView):
 class PianificataView(ModelView):
     """Le attività che l'assistente esegue da solo: ognuno vede le proprie, gli amministratori tutte."""
     model = Pianificata
+    tra_aziende = True
     slug = "pianificate"
     list_display = ["nome", "quando", "attiva", "prossima", "esito"]
     list_filter = ["attiva", "ricorrenza"]
@@ -167,6 +171,7 @@ class PianificataView(ModelView):
 class RegistroModificheView(ModelView):
     """Registro delle modifiche proposte dall'assistente: chi, cosa, quando, esito (solo lettura)."""
     model = Proposta
+    tra_aziende = True
     slug = "registro"
     verbose_name = "modifica dell'assistente"
     verbose_name_plural = "registro delle modifiche"

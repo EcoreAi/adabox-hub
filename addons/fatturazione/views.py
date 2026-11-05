@@ -5,6 +5,7 @@ from django.http import HttpResponse
 from django.shortcuts import redirect
 
 from core import chatter, lavori
+from core import azienda as azienda_corrente
 from core.viste import Inline, ModelView, register, schede
 
 from . import fatturapa, operazioni
@@ -273,6 +274,11 @@ class IncassoView(ModelView):
 class DatiFiscaliView(ModelView):
     model = DatiFiscali
     slug = "dati"
+
+    def get_queryset(self, request):
+        """Solo le aziende in cui l'utente lavora: qui ci sono IBAN e dati fiscali. Da tutte: serve per il cambio d'azienda."""
+        return super().get_queryset(request).filter(azienda__in=azienda_corrente.consentite(request.user))
+
     list_display = ["azienda", "regime_fiscale", "iban"]
     form_layout = [("Emittente", ["azienda", "regime_fiscale", ("iban", "banca"), "bollo_al_cliente"]),
                    ("Registro delle imprese", [("rea_ufficio", "rea_numero"), ("capitale_sociale", "socio_unico")])]

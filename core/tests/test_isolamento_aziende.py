@@ -209,3 +209,15 @@ def test_pagine_condivise_solo_nell_azienda_del_proprietario(client, scena):
     assert "NOSTRA" in elenco and "ALTRUI" not in elenco
     assert client.get(f"/grafici/pagina/{nostra.pk}/").status_code == 200
     assert client.get(f"/grafici/pagina/{altrui.pk}/").status_code == 404
+
+
+def test_i_dati_fiscali_solo_delle_aziende_dell_utente(client, scena):
+    from fatturazione.models import DatiFiscali
+    u, a, b = scena
+    u.user_permissions.add(Permission.objects.get(codename="view_datifiscali"))
+    DatiFiscali.objects.create(azienda=a, iban="IT00NOSTRO")
+    altrui = DatiFiscali.objects.create(azienda=b, iban="IT00ALTRUI")
+    client.force_login(User.objects.get(pk=u.pk))
+    pagina = client.get("/fatturazione/dati/").content.decode()
+    assert "IT00NOSTRO" in pagina and "IT00ALTRUI" not in pagina
+    assert client.get(f"/fatturazione/dati/{altrui.pk}/").status_code == 404

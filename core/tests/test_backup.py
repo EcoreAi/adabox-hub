@@ -68,3 +68,10 @@ def test_engine_sconosciuto(settings, monkeypatch, cartella):
     monkeypatch.setitem(settings.DATABASES, "default", {**settings.DATABASES["default"], "ENGINE": "x.oracle"})
     with pytest.raises(backup.BackupFallito):
         backup.esegui("prova")
+
+
+@pytest.mark.django_db
+@pytest.mark.skipif("sqlite" not in __import__("django.conf").conf.settings.DATABASES["default"]["ENGINE"], reason="backup sqlite")
+def test_un_motivo_lunghissimo_non_fa_fallire_il_backup(cartella):
+    dest = backup.esegui("pre-installa-" + "-".join(["modulo"] * 100))
+    assert dest.exists() and len(dest.name) < 255

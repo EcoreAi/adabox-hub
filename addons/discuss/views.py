@@ -23,6 +23,7 @@ class CanaleView(ModelView):
 class SportelloView(ModelView):
     """Le chat del sito: chi risponde, i testi e i domini ammessi. Il codice da incollare è nel dettaglio."""
     model = Sportello
+    tra_aziende = True
     slug = "sportelli"
     list_display = ["nome", "attivo", "creato"]
     list_filter = ["attivo"]
