@@ -1,0 +1,19 @@
+{% load acquisti %}{% confronto_gara obj as c %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Confronto delle offerte</div></div>
+  {% if c.colonne %}
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Riga</th><th class="ui-num">Quantità</th>{% for col in c.colonne %}<th class="ui-num"><a class="ui-link" href="{% url 'acquisti:ordini_dettaglio' col.ordine.pk %}">{{ col.ordine.fornitore }}</a><br><span class="ui-allegato-info">{{ col.ordine.get_stato_display }}</span></th>{% endfor %}</tr></thead>
+    <tbody>{% for r in c.righe %}<tr>
+      <td>{{ r.riga.descrizione }}</td><td class="ui-num">{{ r.riga.quantita|floatformat:"-3" }}</td>
+      {% for cella in r.celle %}<td class="ui-num">{% if cella.riga %}{% if cella.migliore %}<strong>{{ cella.riga.prezzo|floatformat:2 }} €</strong>{% else %}{{ cella.riga.prezzo|floatformat:2 }} €{% endif %}{% if cella.riga.sconto %} −{{ cella.riga.sconto|floatformat:"-2" }}%{% endif %}{% else %}–{% endif %}</td>{% endfor %}
+    </tr>{% endfor %}</tbody>
+    <tfoot>
+      <tr><td colspan="2">Imponibile</td>{% for col in c.colonne %}<td class="ui-num">{% if col.migliore %}<strong>{{ col.ordine.imponibile|floatformat:2 }} €</strong> <span class="ui-pill">più bassa</span>{% else %}{{ col.ordine.imponibile|floatformat:2 }} €{% endif %}</td>{% endfor %}</tr>
+      <tr><td colspan="2">Consegna prevista</td>{% for col in c.colonne %}<td class="ui-num">{{ col.ordine.consegna_prevista|date:"d/m/Y"|default:"–" }}</td>{% endfor %}</tr>
+      {% if obj.stato == 'aperta' and perms.acquisti.change_ordineacquisto %}<tr><td colspan="2"></td>{% for col in c.colonne %}<td class="ui-num">{% if col.ordine.modificabile %}<form method="post" action="{% url 'acquisti:aggiudica' obj.pk col.ordine.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-primary ui-btn-sm">Aggiudica</button></form>{% endif %}</td>{% endfor %}</tr>{% endif %}
+    </tfoot>
+  </table></div>
+  <div class="ui-card-body"><span class="ui-allegato-info">I prezzi partono da listino o costo del prodotto: scrivi quelli offerti nelle singole richieste prima di confrontarli.</span></div>
+  {% else %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessuna richiesta: usa «Crea le richieste».</p></div></div>{% endif %}
+</section>

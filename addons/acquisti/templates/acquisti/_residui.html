@@ -1,0 +1,11 @@
+{% load acquisti %}{% residui_di obj as residui %}
+{% if residui %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Avanzamento del contratto</div></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Prodotto</th><th class="ui-num">Concordato</th><th class="ui-num">Richiamato</th><th class="ui-num">Residuo</th></tr></thead>
+    <tbody>{% for x in residui %}<tr><td>{{ x.riga.prodotto }}</td><td class="ui-num">{{ x.riga.quantita|floatformat:"-3"|default:"senza limite" }}</td><td class="ui-num">{{ x.consumato|floatformat:"-3" }}</td><td class="ui-num">{% if x.residuo is None %}–{% else %}{{ x.residuo|floatformat:"-3" }}{% endif %}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <div class="ui-card-body">{% for o in obj.ordini.all %}<div class="ui-allegato"><a class="ui-link" href="{% url 'acquisti:ordini_dettaglio' o.pk %}">{{ o }}</a> <span class="ui-allegato-info">{{ o.get_stato_display }} · {{ o.data|date:"d/m/Y" }}</span></div>{% endfor %}</div>
+</section>
+{% endif %}

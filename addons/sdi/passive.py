@@ -13,6 +13,7 @@ from contatti.models import Contatto
 from core.models import Azienda
 
 from .models import FatturaPassiva, NotificaSdi, RiepilogoPassiva, RigaPassiva, ScadenzaPassiva
+from .segnali import fattura_ricevuta
 
 
 class FatturaNonValida(ValueError):
@@ -123,8 +124,11 @@ def leggi(contenuto):
                      "modalita": _t(p, "ModalitaPagamento"), "iban": _t(p, "IBAN")}
                     for pag in _tutti(corpo, "DatiPagamento") for p in _tutti(pag, "DettaglioPagamento")]
         totale = _n(gen, "ImportoTotaleDocumento", "") if _t(gen, "ImportoTotaleDocumento") else imponibile + imposta
+        generali = _uno(corpo, "DatiGenerali")
+        riferimenti = {"ordini": [_t(o, "IdDocumento") for o in _tutti(generali, "DatiOrdineAcquisto")],
+                       "ddt": [_t(d, "NumeroDDT") for d in _tutti(generali, "DatiDDT")]}
         documenti.append({
-            "tipo": _t(gen, "TipoDocumento") or "TD01", "numero": _t(gen, "Numero"), "data": _d(_t(gen, "Data")),
+            "riferimenti": riferimenti, "tipo": _t(gen, "TipoDocumento") or "TD01", "numero": _t(gen, "Numero"), "data": _d(_t(gen, "Data")),
             "causale": "\n".join(c.text or "" for c in _tutti(gen, "Causale")),
             "imponibile": imponibile, "imposta": imposta, "totale": totale,
             "righe": righe, "riepilogo": riepilogo, "scadenze": scadenze})
@@ -188,6 +192,7 @@ def importa(nome_file, contenuto, azienda=None):
         RiepilogoPassiva.objects.bulk_create(RiepilogoPassiva(fattura=f, **r) for r in doc["riepilogo"])
         scadenze = doc["scadenze"] or [{"data": doc["data"], "importo": doc["totale"], "modalita": "", "iban": ""}]
         ScadenzaPassiva.objects.bulk_create(ScadenzaPassiva(fattura=f, **s) for s in scadenze)
+        fattura_ricevuta.send(sender=FatturaPassiva, fattura=f, riferimenti=doc["riferimenti"])
         risultati.append((f, True))
     return risultati
 

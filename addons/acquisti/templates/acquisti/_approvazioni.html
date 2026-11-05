@@ -1,0 +1,15 @@
+{% load acquisti %}{% approvazioni_di obj as approvazioni %}{% avvisi_listino obj as avvisi %}
+{% if avvisi %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Da controllare</div></div>
+  <div class="ui-card-body">{% for a in avvisi %}<div>{{ a }}</div>{% endfor %}</div></section>{% endif %}
+{% if approvazioni %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Approvazioni</div></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Regola</th><th class="ui-num">Livello</th><th class="ui-num">Imponibile</th><th>Richiesta da</th><th>Esito</th><th>Deciso da</th><th>Quando</th></tr></thead>
+    <tbody>{% for a in approvazioni %}<tr>
+      <td>{{ a.nome_regola }}</td><td class="ui-num">{{ a.livello }}</td><td class="ui-num">{{ a.imponibile|floatformat:2 }} €</td>
+      <td>{{ a.richiesta_da|default:"–" }}</td><td>{{ a.get_esito_display }}</td><td>{{ a.decisa_da|default:"–" }}</td><td>{{ a.decisa_il|date:"d/m/Y H:i"|default:"–" }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endif %}

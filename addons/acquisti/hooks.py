@@ -18,7 +18,7 @@ def demo(modulo):
     from contatti.models import Contatto
     from prodotti.models import Prodotto
 
-    from .models import OrdineAcquisto, RigaAcquisto
+    from .models import OrdineAcquisto, RigaAcquisto, VoceListino
     from .segnali import ordine_acquisto_confermato
     azienda = Azienda.objects.filter(attiva=True).order_by("pk").first()
     if OrdineAcquisto.objects.filter(azienda=azienda).exists():
@@ -29,6 +29,9 @@ def demo(modulo):
     beni = list(Prodotto.objects.filter(azienda=azienda, tipo="bene", attivo=True)[:3])
     if not beni:
         return
+    for p in beni:
+        VoceListino.objects.create(azienda=azienda, fornitore=fornitore, prodotto=p, prezzo=p.costo, giorni_consegna=7,
+                                   codice_fornitore=f"FD-{p.pk:04d}", preferito=True)
     oggi = timezone.localdate()
     for stato, giorni in [(OrdineAcquisto.BOZZA, -1), (OrdineAcquisto.CONFERMATO, -15)]:
         o = OrdineAcquisto.objects.create(azienda=azienda, fornitore=fornitore, stato=stato,

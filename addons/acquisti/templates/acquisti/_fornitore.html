@@ -1,0 +1,11 @@
+{% load acquisti %}{% if obj.fornitore %}{% scheda_fornitore obj as s %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Acquisti</div></div>
+  <div class="ui-card-body">
+    {% if s.condizioni %}<div class="ui-allegato"><a class="ui-link" href="{% url 'acquisti:condizioni_dettaglio' s.condizioni.pk %}">Condizioni del fornitore</a> <span class="ui-allegato-info">{% if s.condizioni.termine_pagamento %}{{ s.condizioni.termine_pagamento }}{% endif %}{% if s.condizioni.iban %} · {{ s.condizioni.iban }}{% endif %}</span></div>
+    {% else %}<div class="ui-allegato"><a class="ui-link" href="{% url 'acquisti:condizioni_nuovo' %}">Imposta le condizioni</a></div>{% endif %}
+    <div class="ui-allegato"><a class="ui-link" href="{% url 'acquisti:listini_lista' %}?f_fornitore={{ obj.pk }}">Voci di listino: {{ s.voci }}</a></div>
+    <div class="ui-allegato"><a class="ui-link" href="{% url 'acquisti:contratti_lista' %}?f_fornitore={{ obj.pk }}">Contratti attivi: {{ s.contratti }}</a></div>
+  </div>
+</section>
+{% endif %}

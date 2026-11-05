@@ -1,0 +1,26 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Valutazione fornitori · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Valutazione fornitori</h1><div class="sub">Dagli ordini confermati tra il {{ dal|date:"d/m/Y" }} e il {{ al|date:"d/m/Y" }}</div></div></div>
+<div class="ui-card is-revealed">
+  <form class="ui-filtri" method="get">
+    <label>Dal <input class="ui-input" type="date" name="dal" value="{{ dal|date:'Y-m-d' }}"></label>
+    <label>Al <input class="ui-input" type="date" name="al" value="{{ al|date:'Y-m-d' }}"></label>
+    <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Filtra</button>
+  </form>
+  {% if righe %}
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Fornitore</th><th class="ui-num">Ordini</th><th class="ui-num">Imponibile</th><th class="ui-num" title="Ordini arrivati completi entro la data prevista, sui consegnati o scaduti">Puntualità</th><th class="ui-num" title="Quantità arrivata al netto dei resi, sull'ordinato">Completezza</th><th class="ui-num" title="Dalla conferma all'ultimo ricevimento">Giorni medi</th><th class="ui-num" title="Quantità rese sull'arrivato">Resi</th><th class="ui-num" title="Ordini fatturati in linea con la merce, entro la tolleranza">Fatture coerenti</th></tr></thead>
+    <tbody>{% for r in righe %}<tr>
+      <td><a class="ui-link" href="{% url 'acquisti:ordini_lista' %}?f_fornitore={{ r.fornitore.pk }}">{{ r.fornitore }}</a></td>
+      <td class="ui-num">{{ r.ordini }}</td><td class="ui-num">{{ r.valore|floatformat:2 }} €</td>
+      <td class="ui-num">{% if r.puntualita is None %}–{% else %}{{ r.puntualita }}%{% endif %}</td>
+      <td class="ui-num">{% if r.completezza is None %}–{% else %}{{ r.completezza }}%{% endif %}</td>
+      <td class="ui-num">{{ r.giorni|default_if_none:"–" }}</td>
+      <td class="ui-num">{% if r.resi is None %}–{% else %}{{ r.resi }}%{% endif %}</td>
+      <td class="ui-num">{% if r.fatture is None %}–{% else %}{{ r.fatture }}%{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun ordine confermato nel periodo.</p></div></div>{% endif %}
+</div>
+{% endblock %}

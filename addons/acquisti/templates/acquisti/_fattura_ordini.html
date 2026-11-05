@@ -1,0 +1,16 @@
+{% load acquisti %}{% ordini_di_fattura obj as d %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Ordini al fornitore</div></div>
+  <div class="ui-card-body">
+    {% for c in d.collegamenti %}<div class="ui-allegato"><a class="ui-link" href="{% url 'acquisti:ordini_dettaglio' c.ordine.pk %}">{{ c.ordine }}</a> <span class="ui-allegato-info">{{ c.importo|floatformat:2 }} €{% if c.automatico %} · collegata in automatico{% endif %}</span></div>
+    {% empty %}<p class="ui-allegato-info">Nessun ordine collegato.</p>{% endfor %}
+    {% if d.da_imputare %}<p class="ui-allegato-info">Da imputare: {{ d.da_imputare|floatformat:2 }} €</p>{% endif %}
+    {% if d.aperti and perms.acquisti.change_ordineacquisto %}
+    <form method="post" action="{% url 'acquisti:collega_fattura' %}" class="ui-filtri">{% csrf_token %}
+      <input type="hidden" name="fattura" value="{{ obj.pk }}"><input type="hidden" name="ritorno" value="{{ request.path }}">
+      <select class="ui-input" name="ordine" aria-label="Ordine da collegare" required><option value="">Collega un ordine…</option>{% for o in d.aperti %}<option value="{{ o.pk }}">{{ o }} · {{ o.imponibile|floatformat:2 }} €</option>{% endfor %}</select>
+      <input class="ui-input" name="importo" inputmode="decimal" placeholder="Importo (vuoto = tutto il resto)" aria-label="Importo da imputare">
+      <button class="ui-btn ui-btn-secondary ui-btn-sm">Collega</button>
+    </form>{% endif %}
+  </div>
+</section>

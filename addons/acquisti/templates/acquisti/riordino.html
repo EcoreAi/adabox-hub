@@ -1,0 +1,28 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Da riordinare · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Da riordinare</h1><div class="sub">{{ voci|length }} prodott{{ voci|length|pluralize:"o,i" }} sotto il punto di riordino, contando ciò che è già in arrivo o impegnato</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="{% url 'acquisti:regole-riordino_lista' %}">Regole di riordino</a></div>
+</div>
+<div class="ui-card is-revealed">
+  {% if not disponibile %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Il riordino usa le giacenze: serve il modulo Magazzino.</p></div></div>
+  {% elif voci %}
+  <form method="post" action="{% url 'acquisti:riordino_crea' %}">{% csrf_token %}
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th></th><th>Prodotto</th><th class="ui-num">Giacenza</th><th class="ui-num">In arrivo</th><th class="ui-num">Impegnato</th><th class="ui-num">Previsto</th><th class="ui-num">Riordina sotto</th><th class="ui-num">Da ordinare</th><th>Fornitore</th><th class="ui-num">Prezzo</th></tr></thead>
+    <tbody>{% for v in voci %}<tr>
+      <td>{% if puo_creare and v.fornitore %}<input type="checkbox" class="ui-checkbox" name="prodotto" value="{{ v.prodotto.pk }}" checked aria-label="Riordina {{ v.prodotto }}">{% endif %}</td>
+      <td><a class="ui-link" href="{% url 'prodotti:prodotti_dettaglio' v.prodotto.pk %}">{{ v.prodotto }}</a></td>
+      <td class="ui-num">{{ v.giacenza|floatformat:"-3" }}</td><td class="ui-num">{{ v.in_arrivo|floatformat:"-3" }}</td><td class="ui-num">{{ v.impegnato|floatformat:"-3" }}</td>
+      <td class="ui-num"><strong>{{ v.previsto|floatformat:"-3" }}</strong></td><td class="ui-num">{{ v.punto|floatformat:"-3" }}</td>
+      <td class="ui-num"><strong>{{ v.quantita|floatformat:"-3" }}</strong> {{ v.prodotto.unita }}</td>
+      <td>{% if v.fornitore %}{{ v.fornitore }}{% else %}<span class="ui-pill ui-pill-danger">senza fornitore</span>{% endif %}</td>
+      <td class="ui-num">{% if v.voce %}{{ v.voce.prezzo|floatformat:2 }} €{% else %}–{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% if puo_creare %}<div class="ui-card-body"><button class="ui-btn ui-btn-primary">Crea le richieste</button> <span class="ui-allegato-info">Una richiesta in bozza per fornitore: non parte nulla finché non la invii.</span></div>{% endif %}
+  </form>
+  {% else %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nulla da riordinare.</p></div></div>{% endif %}
+</div>
+{% endblock %}
