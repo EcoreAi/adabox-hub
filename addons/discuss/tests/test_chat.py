@@ -7,6 +7,7 @@ from django.contrib.auth.models import Permission, User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 
+from core import rete
 from core.models import Messaggio as MessaggioChatter
 from discuss import anteprime, eventi, notifiche, presenza, servizi, testo
 from discuss.models import Canale, Evento, Iscrizione, Messaggio, Notifica, Presenza, Reazione
@@ -271,7 +272,7 @@ def test_anteprime_dei_link_e_protezione_della_rete_interna(persone, monkeypatch
         '<title>Vecchio</title><meta property="og:title" content="Offerta &amp; prezzi"><meta name="description" content="Tutti i dettagli">'))}
     client = _client_finto(risposte)
     # un nome pubblico: la connessione va all'indirizzo controllato, con il nome nell'intestazione
-    monkeypatch.setattr(anteprime.socket, "getaddrinfo", lambda h, p, **k: [(2, 1, 6, "", ("93.184.216.34", p))])
+    monkeypatch.setattr(rete.socket, "getaddrinfo", lambda h, p, **k: [(2, 1, 6, "", ("93.184.216.34", p))])
     m = servizi.invia(canale, anna, "guarda https://esempio.it/a?x=1")
     anteprime.calcola(m.pk, http_client=client)
     m.refresh_from_db()
@@ -281,7 +282,7 @@ def test_anteprime_dei_link_e_protezione_della_rete_interna(persone, monkeypatch
     # indirizzi interni, porte strane e credenziali: non si contatta niente
     risposte["viste"].clear()
     for indirizzo in ("127.0.0.1", "10.0.0.8", "169.254.169.254", "192.168.1.1", "::1", "fd00::1"):
-        monkeypatch.setattr(anteprime.socket, "getaddrinfo", lambda h, p, ip=indirizzo, **k: [(2, 1, 6, "", (ip, p))])
+        monkeypatch.setattr(rete.socket, "getaddrinfo", lambda h, p, ip=indirizzo, **k: [(2, 1, 6, "", (ip, p))])
         n = servizi.invia(canale, anna, "http://interno.it/admin")
         anteprime.calcola(n.pk, http_client=client)
         assert Messaggio.objects.get(pk=n.pk).anteprime == []
@@ -292,7 +293,7 @@ def test_anteprime_dei_link_e_protezione_della_rete_interna(persone, monkeypatch
     # un reindirizzamento verso la rete interna si ferma al controllo
     def indirizzo(h, p, **k):
         return [(2, 1, 6, "", ("10.0.0.8" if h == "interno.it" else "93.184.216.34", p))]
-    monkeypatch.setattr(anteprime.socket, "getaddrinfo", indirizzo)
+    monkeypatch.setattr(rete.socket, "getaddrinfo", indirizzo)
     risposte["fn"] = lambda r: httpx.Response(302, headers={"location": "http://interno.it/segreti"})
     n = servizi.invia(canale, anna, "https://esempio.it/vai")
     anteprime.calcola(n.pk, http_client=client)

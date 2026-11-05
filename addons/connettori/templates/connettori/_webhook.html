@@ -1,0 +1,16 @@
+{% load connettori %}{% dati_webhook obj as d %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Chiave e firma</div></div>
+  <div class="ui-card-body">
+    {% if obj.disattivato_il %}<p><span class="ui-pill ui-pill-warn">Spento</span> Disattivato da solo il {{ obj.disattivato_il|date:"d/m/Y H:i" }} dopo troppi fallimenti di fila.</p>{% endif %}
+    <p>Chiave: <code>{{ d.segreto }}</code></p>
+    <p>Ogni avviso porta l'intestazione <code>X-Adabox-Firma: t=&lt;secondi&gt;,v1=&lt;firma&gt;</code>. La firma è l'HMAC-SHA256, in esadecimale, di <code>&lt;secondi&gt;.&lt;corpo&gt;</code> con questa chiave. Chi riceve la ricalcola, scarta gli avvisi troppo vecchi e usa <code>X-Adabox-Consegna</code> per non contare due volte lo stesso avviso.</p>
+  </div>
+</section>
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Ultime consegne</div></div>
+  {% if d.consegne %}<div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Evento</th><th>Stato</th><th class="ui-num">Tentativi</th><th class="ui-num">Risposta</th><th>Errore</th><th>Creata</th></tr></thead>
+    <tbody>{% for c in d.consegne %}<tr><td><a class="ui-link" href="{% url 'connettori:consegne_dettaglio' c.pk %}">{{ c.evento }}</a></td><td>{{ c.get_stato_display }}</td><td class="ui-num">{{ c.tentativi }}</td><td class="ui-num">{{ c.risposta|default_if_none:"" }}</td><td>{{ c.errore }}</td><td>{{ c.creata|date:"d/m/Y H:i" }}</td></tr>{% endfor %}</tbody>
+  </table></div>{% else %}<div class="ui-card-body">Ancora nessuna consegna.</div>{% endif %}
+</section>

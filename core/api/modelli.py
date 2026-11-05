@@ -4,6 +4,7 @@ import json
 
 from django.conf import settings
 from django.forms.models import model_to_dict
+from django.http.response import HttpResponseBase
 from ninja import Router
 from ninja.errors import HttpError
 
@@ -123,6 +124,17 @@ def _router_per(vista):
         if not form.is_valid():
             return _errori(request, form)
         return salva(request, form, change=True)
+
+    @router.post("/{int:pk}/azioni/{nome}/", operation_id=f"{op}_azione", summary=f"Bottone su {vista.verbose_name}")
+    def azione(request, pk: int, nome: str):
+        """Lo stesso bottone della pagina di dettaglio, con gli stessi permessi e controlli di stato."""
+        obj = oggetto(request, pk, vista.has_view_permission)
+        if nome not in {n for n, _ in vista.get_buttons(request, obj)}:
+            raise HttpError(404, "azione non disponibile")
+        esito = getattr(vista, nome)(request, obj)
+        if isinstance(esito, HttpResponseBase):            # una stampa, un file
+            return esito
+        return {"esito": str(esito) if esito else "", "dati": serializza(vista, vista.get_object(request, pk))}
 
     @router.delete("/{int:pk}/", operation_id=f"{op}_elimina", summary=f"Elimina {vista.verbose_name}")
     def elimina(request, pk: int):

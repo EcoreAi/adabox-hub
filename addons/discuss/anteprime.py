@@ -4,14 +4,14 @@ L'URL lo sceglie chi scrive il messaggio, quindi il server non deve poter essere
 solo http e https sulle porte standard, solo indirizzi pubblici (controllati a ogni reindirizzamento e usati per la
 connessione, così un DNS che cambia risposta non serve a niente), tempi e dimensioni limitati. Le immagini delle
 pagine non si caricano: il browser di chi legge contatterebbe siti scelti da altri."""
-import ipaddress
 import re
-import socket
 from html import unescape
 from urllib.parse import urljoin, urlsplit
 
 import httpx2 as httpx
 from django.conf import settings
+
+from core import rete
 
 from . import eventi, testo
 from .models import Messaggio
@@ -25,34 +25,9 @@ ATTRIBUTO = re.compile(r"""([\w:-]+)\s*=\s*("[^"]*"|'[^']*')""")
 TITOLO = re.compile(r"<title[^>]*>(.*?)</title>", re.I | re.S)
 
 
-class Rifiutato(ValueError):
-    pass
-
-
-def _indirizzo_pubblico(host, porta):
-    """Il primo indirizzo del nome, se tutti sono pubblici."""
-    try:
-        risposte = socket.getaddrinfo(host, porta, type=socket.SOCK_STREAM)
-    except OSError as e:
-        raise Rifiutato(f"nome non risolto: {host}") from e
-    indirizzi = [r[4][0] for r in risposte]
-    for i in indirizzi:
-        ip = ipaddress.ip_address(i.split("%")[0])
-        if not ip.is_global:
-            raise Rifiutato(f"indirizzo non pubblico: {host}")
-    if not indirizzi:
-        raise Rifiutato(f"nome non risolto: {host}")
-    return indirizzi[0]
-
-
-def _controlla(url):
-    parti = urlsplit(url)
-    if parti.scheme not in ("http", "https") or not parti.hostname or parti.username or parti.password:
-        raise Rifiutato("indirizzo non ammesso")
-    porta = parti.port or (443 if parti.scheme == "https" else 80)
-    if porta not in (80, 443):
-        raise Rifiutato("porta non ammessa")
-    return parti, porta
+Rifiutato = rete.Rifiutato
+_indirizzo_pubblico = rete.indirizzo_pubblico
+_controlla = rete.controlla
 
 
 def _scarica(url, http_client=None):
