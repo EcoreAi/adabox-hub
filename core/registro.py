@@ -6,9 +6,11 @@ campi molti-a-molti. I segreti non entrano mai, e i testi lunghi si tagliano."""
 import contextvars
 import logging
 from contextlib import contextmanager
+from functools import wraps
 
 from django.contrib.contenttypes.models import ContentType
-from django.db import DatabaseError, models, transaction
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import models, transaction
 from django.db.models.signals import post_delete, post_save, pre_save
 
 from .viste import registry
@@ -82,6 +84,14 @@ def _campi(modello):
         yield f
 
 
+def _testo(obj):
+    """Il nome di un record: un __str__ che fallisce non deve far perdere il salvataggio."""
+    try:
+        return str(obj)
+    except Exception:  # noqa: BLE001 - qualunque errore in un __str__ altrui
+        return f"{type(obj).__name__} {obj.pk}"
+
+
 def _valore(v):
     if v is None or v == "":
         return ""
@@ -93,7 +103,7 @@ def _leggibile(f, v):
         return ""
     if f.is_relation:
         collegato = f.related_model._default_manager.filter(pk=v).first()
-        return _valore(collegato if collegato is not None else v)
+        return _valore(_testo(collegato) if collegato is not None else v)
     if f.choices:
         return _valore(dict(f.flatchoices).get(v, v))
     if isinstance(v, bool):
@@ -101,6 +111,19 @@ def _leggibile(f, v):
     return _valore(v)
 
 
+def _mai_bloccante(funzione):
+    """Il registro racconta i salvataggi, non li decide: un suo errore finisce nel log, mai a chi sta salvando."""
+    @wraps(funzione)
+    def involucro(sender, instance, **kwargs):
+        try:
+            with transaction.atomic():                 # un errore del database non deve rovinare la transazione di chi salva
+                return funzione(sender, instance, **kwargs)
+        except Exception:  # noqa: BLE001
+            log.exception("registro delle modifiche: %s su %s %s", funzione.__name__, sender.__name__, instance.pk)
+    return involucro
+
+
+@_mai_bloccante
 def prima(sender, instance, raw=False, **_):
     """Prima di salvare si leggono i valori di adesso: dopo non ci sarebbero più."""
     if raw or sender not in _registrati() or instance.pk is None or instance._state.adding:
@@ -125,24 +148,24 @@ def _differenze(sender, instance, update_fields):
 def _scrivi(sender, instance, azione, modifiche):
     from .models import RegistroModifica
     fk = _registrati()[sender]
-    documento = getattr(instance, fk, None) if fk else instance
+    try:
+        documento = getattr(instance, fk, None) if fk else instance
+    except ObjectDoesNotExist:                         # il documento se ne sta andando con le sue righe
+        return
     if documento is None:
         return
     utente, origine_ = _autore.get()
-    testo = str(documento)
+    testo = _testo(documento)
     if fk:
-        modifiche = [{**m, "riga": str(instance)[:80]} for m in modifiche] or [{"riga": str(instance)[:80], "campo": "", "prima": "", "dopo": ""}]
-    # un errore del registro non deve far perdere il salvataggio dell'utente
-    try:
-        with transaction.atomic():
-            RegistroModifica.objects.create(
-                azienda_id=getattr(documento, "azienda_id", None), content_type=ContentType.objects.get_for_model(type(documento)), object_id=documento.pk,
-                oggetto=testo[:200], azione=RegistroModifica.AGGIORNATO if fk else azione, utente=utente,
-                utente_nome=(utente.get_username() if utente else "")[:150], origine=origine_, modifiche=modifiche)
-    except DatabaseError:
-        log.exception("registro delle modifiche: riga non scritta per %s %s", sender.__name__, instance.pk)
+        riga = _testo(instance)[:80]
+        modifiche = [{**m, "riga": riga} for m in modifiche] or [{"riga": riga, "campo": "", "prima": "", "dopo": ""}]
+    RegistroModifica.objects.create(
+        azienda_id=getattr(documento, "azienda_id", None), content_type=ContentType.objects.get_for_model(type(documento)), object_id=documento.pk,
+        oggetto=testo[:200], azione=RegistroModifica.AGGIORNATO if fk else azione, utente=utente,
+        utente_nome=(utente.get_username() if utente else "")[:150], origine=origine_, modifiche=modifiche)
 
 
+@_mai_bloccante
 def dopo(sender, instance, created=False, raw=False, update_fields=None, **_):
     if raw or sender not in _registrati():
         return
@@ -155,6 +178,7 @@ def dopo(sender, instance, created=False, raw=False, update_fields=None, **_):
         _scrivi(sender, instance, RegistroModifica.AGGIORNATO, modifiche)
 
 
+@_mai_bloccante
 def eliminato(sender, instance, **_):
     if sender not in _registrati():
         return

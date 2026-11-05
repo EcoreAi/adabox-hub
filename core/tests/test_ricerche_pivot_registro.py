@@ -345,3 +345,26 @@ def test_storico_sul_dettaglio_solo_con_il_permesso(client, s):
     pagina = client.get(url).content.decode()
     assert "Storico delle modifiche" in pagina and "Milano" in pagina
 
+
+
+def test_un_nome_che_non_si_calcola_non_blocca_il_salvataggio(s, monkeypatch):
+    monkeypatch.setattr(Contatto, "__str__", lambda self: 1 / 0)
+    c = Contatto.objects.create(azienda=s["a"], nome="Rotto")
+    assert Contatto.objects.filter(pk=c.pk).exists() and _voci(c)[0].oggetto == f"Contatto {c.pk}"
+
+
+def test_cancellare_un_documento_con_le_righe_non_fallisce(s):
+    from acquisti.models import RigaAcquisto
+    f = Contatto.objects.create(azienda=s["a"], nome="Rossi")
+    o = OrdineAcquisto.objects.create(azienda=s["a"], fornitore=f, numero="1")
+    RigaAcquisto.objects.create(ordine=o, descrizione="Vite", quantita=1, prezzo=2)
+    pk = o.pk
+    o.delete()
+    assert not OrdineAcquisto.objects.filter(pk=pk).exists()
+    assert RegistroModifica.objects.filter(object_id=pk, azione="eliminato", content_type=ContentType.objects.get_for_model(OrdineAcquisto)).exists()
+
+
+def test_il_registro_non_entra_nella_conoscenza_di_ada(s):
+    from ai import conoscenza
+    Contatto.objects.create(azienda=s["a"], nome="Rossi")
+    assert RegistroModifica not in [v.model for v, _ in conoscenza._viste_indicizzabili()]

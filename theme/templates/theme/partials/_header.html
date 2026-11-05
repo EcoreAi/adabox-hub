@@ -34,7 +34,7 @@
       <svg><use href="#icon-menu"/></svg>
     </button>
 
-    {% if user.is_authenticated and azienda %}<form class="ui-cerca-globale" method="get" action="{% url 'core:cerca' %}" role="search"><input class="ui-input" type="search" name="q" placeholder="Cerca ovunque…" aria-label="Cerca in tutte le app" minlength="2" required></form>{% endif %}
+    {% url 'core:cerca' as url_cerca %}{% if user.is_authenticated and azienda and url_cerca %}<form class="ui-cerca-globale" method="get" action="{{ url_cerca }}" role="search"><input class="ui-input" type="search" name="q" placeholder="Cerca ovunque…" aria-label="Cerca in tutte le app" minlength="2" required></form>{% endif %}
     {% for voce in voci_testata %}{% include voce.template %}{% endfor %}
 
     <div class="ui-profile">
