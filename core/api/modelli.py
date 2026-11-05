@@ -11,7 +11,7 @@ from ninja.errors import HttpError
 from core.viste import filtri, registry
 
 from . import api
-from .auth import azienda_per
+from .auth import azienda_per, controlla_token
 
 MAX_PER_PAGE = 200
 
@@ -74,7 +74,8 @@ def _router_per(vista):
     router = Router(tags=[f"{vista.modulo}.{vista.slug}"])
     op = f"{vista.modulo}_{vista.slug}"
 
-    def oggetto(request, pk, permesso):
+    def oggetto(request, pk, permesso, scrittura=True):
+        controlla_token(request, vista.modulo, scrittura)
         azienda_per(request)
         obj = vista.get_object(request, pk)
         if not permesso(request, obj):
@@ -88,6 +89,7 @@ def _router_per(vista):
 
     @router.get("/", operation_id=f"{op}_lista", summary=f"Elenco di {vista.verbose_name_plural}")
     def lista(request, q: str = "", o: str = "", p: int = 1, per_page: int = 50):
+        controlla_token(request, vista.modulo, False)
         azienda_per(request)
         if not vista.has_view_permission(request):
             raise HttpError(403, "permesso negato")
@@ -101,6 +103,7 @@ def _router_per(vista):
 
     @router.post("/", operation_id=f"{op}_crea", summary=f"Crea {vista.verbose_name}")
     def crea(request):
+        controlla_token(request, vista.modulo, True)
         azienda_per(request)
         if not vista.has_add_permission(request):
             raise HttpError(403, "permesso negato")
@@ -111,7 +114,7 @@ def _router_per(vista):
 
     @router.get("/{int:pk}/", operation_id=f"{op}_leggi", summary=f"Un record di {vista.verbose_name_plural}")
     def leggi(request, pk: int):
-        return serializza(vista, oggetto(request, pk, vista.has_view_permission))
+        return serializza(vista, oggetto(request, pk, vista.has_view_permission, scrittura=False))
 
     @router.patch("/{int:pk}/", operation_id=f"{op}_modifica", summary=f"Modifica {vista.verbose_name}")
     def modifica(request, pk: int):

@@ -209,6 +209,9 @@ class TokenApi(models.Model):
     creato = models.DateTimeField("creato il", auto_now_add=True)
     ultimo_uso = models.DateTimeField("ultimo uso", null=True, blank=True)
     attivo = models.BooleanField("attivo", default=True)
+    scadenza = models.DateField("valido fino al", null=True, blank=True, help_text="vuoto = senza scadenza")
+    sola_lettura = models.BooleanField("sola lettura", default=False)
+    moduli = models.JSONField("solo questi moduli", default=list, blank=True, help_text="vuoto = tutti quelli che l'utente vede")
 
     class Meta:
         verbose_name = "token API"
@@ -223,14 +226,25 @@ class TokenApi(models.Model):
         return hashlib.sha256(chiaro.encode()).hexdigest()
 
     @classmethod
-    def genera(cls, utente, nome):
+    def genera(cls, utente, nome, scadenza=None, sola_lettura=False, moduli=()):
         chiaro = secrets.token_urlsafe(32)
-        return cls.objects.create(utente=utente, nome=nome, chiave=cls._hash(chiaro)), chiaro
+        return cls.objects.create(utente=utente, nome=nome, chiave=cls._hash(chiaro), scadenza=scadenza,
+                                  sola_lettura=sola_lettura, moduli=list(moduli)), chiaro
+
+    @property
+    def scaduto(self):
+        return self.scadenza is not None and self.scadenza < timezone.localdate()
+
+    def permette(self, modulo, scrittura):
+        """Il token restringe ciò che l'utente può fare, non lo allarga mai: i permessi dell'utente valgono comunque."""
+        return (not scrittura or not self.sola_lettura) and (not self.moduli or modulo in self.moduli)
 
     @classmethod
     def verifica(cls, chiaro):
         token = (cls.objects.filter(chiave=cls._hash(chiaro), attivo=True, utente__is_active=True)
                  .select_related("utente").first())
+        if token and token.scaduto:
+            return None
         if token:
             cls.objects.filter(pk=token.pk).update(ultimo_uso=timezone.now())
         return token

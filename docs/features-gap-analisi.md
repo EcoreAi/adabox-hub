@@ -4,20 +4,20 @@ Confronto con la checklist di `docs/features-gap` (Odoo, ERPNext, NetSuite, Busi
 
 ## In sintesi
 
-- **Su 219 voci, 28 sono complete, 97 parziali, 53 mancanti e 41 escluse dal perimetro.** Solo il 26% delle voci Core nel perimetro è completo: adabox-hub copre molto in superficie, ma spesso senza una parte attesa dai clienti.
+- **Su 219 voci, 31 sono complete, 95 parziali, 52 mancanti e 41 escluse dal perimetro.** Solo il 29% delle voci Core nel perimetro è completo: adabox-hub copre molto in superficie, ma spesso senza una parte attesa dai clienti.
 - **Punti forti:** assistente AI, agenti e MCP, conversazioni, documenti, fatturazione elettronica, progetti, ticket, capacità.
 - **Punti deboli:** funzioni trasversali del kernel (multi-valuta, multilingua, approvazioni generiche, storico su tutti i record, filtri salvati, pivot), portale clienti e pagamenti online, magazzino avanzato (costi, lotti, ubicazioni), timbratura.
 - **Falla corretta:** chi non aveva aziende attive vedeva i record di tutte le aziende, e alcune pagine aprivano record di altre aziende. Ora non più (sezione D, punto 1).
 - **Acquisti è stata l'app scelta per l'intervento:** passa da 0 a 8 voci complete su 14 (sezione E).
 - **Fatti il 2026-11-05:** scadenziario a fasce, fido dei clienti e pacchetto per il commercialista (FIN-06, FIN-07, FIN-01).
-- **Integrazioni, iniziate il 2026-11-05 nel modulo Connettori:** webhook firmati in uscita, identificativi esterni sui record, bottoni via API, chat collegata al contatto e primo connettore HubSpot sui contatti delle persone, provato solo contro un sistema simulato. Mancano aziende e opportunità, ambiti e scadenza dei token API, gli altri sistemi. Zucchetti e TeamSystem Enterprise/Lynfa non hanno documentazione pubblica trovata: servono partner o contatto commerciale.
+- **Fatti il 2026-11-05 anche:** ricerche salvate, ricerca in tutte le app, Pivot, registro delle modifiche, scadenza e limiti dei token API (RPT-03, RPT-02, PLT-04, parte di PLT-17 e PLT-14).
+- **Integrazioni, iniziate il 2026-11-05 nel modulo Connettori:** webhook firmati in uscita, identificativi esterni sui record, bottoni via API, chat collegata al contatto e primo connettore HubSpot sui contatti delle persone, provato solo contro un sistema simulato. Mancano aziende e opportunità e gli altri sistemi. Zucchetti e TeamSystem Enterprise/Lynfa non hanno documentazione pubblica trovata: servono partner o contatto commerciale.
 
 ## Da dove partire
 
 | Priorità | Che cosa | Voci | Perché |
 |---|---|---|---|
 | 1 | Integrazione con CRM e gestionali esterni: base generica, chat collegata al cliente, poi connettori (Salesforce, HubSpot, Zoho, Zucchetti, TeamSystem) | PLT-14, INT-06, INT-08, INT-05 | Decisione del 2026-11-05: adabox deve poter entrare accanto al software che il cliente ha già |
-| 2 | Filtri salvati, ricerca globale, pivot, storico completo | RPT-03, PLT-17, RPT-02, PLT-04 | Migliorano tutte le app insieme |
 | 3 | Portale clienti e pagamenti online | COM-01, CRM-09, COM-02, FIN-25 | Le altre sezioni lo danno per scontato |
 | 4 | Banca e fisco italiani: file SEPA e RiBa, liquidazione IVA e LIPE | FIN-32, FIN-16, LOC-02 | Servono in Italia e non richiedono un mastro |
 | 5 | Magazzino: costi, lotti e seriali, ubicazioni | INV-09, INV-03, INV-04 | Sbloccano resi, garanzie, assistenza sul campo e la valorizzazione |
@@ -47,7 +47,7 @@ Copertura Core = voci Core HAVE / voci Core non N/A. Tra parentesi la stessa quo
 
 | Sezione | Voci | HAVE | PARTIAL | MISSING | N/A | Copertura Core % |
 |---|---:|---:|---:|---:|---:|---:|
-| Piattaforma e architettura (PLT) | 26 | 3 | 21 | 1 | 1 | 18% (94%) |
+| Piattaforma e architettura (PLT) | 26 | 4 | 20 | 1 | 1 | 24% (94%) |
 | Finanza e contabilità (FIN) | 38 | 5 | 13 | 8 | 12 | 29% (82%) |
 | Vendite, CRM e marketing (CRM) | 20 | 2 | 14 | 4 | 0 | 22% (100%) |
 | Acquisti (PUR) | 14 | 8 | 2 | 4 | 0 | 100% (100%) |
@@ -56,12 +56,12 @@ Copertura Core = voci Core HAVE / voci Core non N/A. Tra parentesi la stessa quo
 | Persone e paghe (HR) | 16 | 2 | 4 | 6 | 4 | 33% (100%) |
 | Progetti, servizio e assistenza (PRJ) | 13 | 3 | 7 | 3 | 0 | 33% (100%) |
 | Commercio e front office (COM) | 11 | 0 | 3 | 4 | 4 | 0% (50%) |
-| Report e analisi (RPT) | 11 | 2 | 5 | 3 | 1 | 20% (80%) |
+| Report e analisi (RPT) | 11 | 4 | 4 | 2 | 1 | 60% (100%) |
 | AI e automazione (AI) | 9 | 3 | 4 | 2 | 0 | – |
 | Integrazioni ed estensibilità (INT) | 9 | 0 | 7 | 2 | 0 | 0% (100%) |
 | Localizzazione e conformità (LOC) | 8 | 0 | 5 | 1 | 2 | 0% (67%) |
 | Pacchetti di settore (IND) | 5 | 0 | 1 | 3 | 1 | – |
-| **Totale** | 219 | 28 | 97 | 53 | 41 | 26% (88%) |
+| **Totale** | 219 | 31 | 95 | 52 | 41 | 29% (89%) |
 
 ## Cosa sviluppare per ogni applicazione
 
@@ -69,23 +69,20 @@ Ogni voce aperta è assegnata all'app dove andrebbe costruita. Ordine dentro ogn
 
 ### core
 
-23 voci aperte: 17 Core, 6 Adv, 0 Edge.
+20 voci aperte: 14 Core, 6 Adv, 0 Edge.
 
 | ID | Tier | Stato | Effort | Cosa costruire |
 |---|---|---|---|---|
 | PLT-10 | Core | PARTIAL | S | Fissare i messaggi del chatter, attivarlo sulle viste mancanti, notifica delle menzioni nel kernel senza Discuss, invio a un indirizzo esterno scelto al momento. |
-| RPT-03 | Core | MISSING | S | Modello di ricerca salvata (vista, parametri, proprietario, condivisione con utenti e ruoli) con menu nella testata della lista e ricerca predefinita per utente. |
 | INT-08 | Core | PARTIAL | M | Schemi Ninja generati dai campi della vista, estensione dell'API a tutte le viste e ai bottoni, token con scope e scadenza, limiti, webhook in uscita, SDK Python generato, istanza sandbox con dati demo. |
 | LOC-07 | Core | PARTIAL | M | Registro dei consensi per contatto, anonimizzazione che preserva i documenti fiscali, esportazione dei dati, regole di conservazione per modello eseguite dal cron. |
 | PLT-01 | Core | PARTIAL | M | Selettore multi-azienda nelle interrogazioni e nei grafici con totali consolidati, livello filiale opzionale. |
 | PLT-03 | Core | PARTIAL | M | Regole di riga dichiarabili da UI applicate in get_queryset e nell'API, e permessi per campo (nascosto o sola lettura per gruppo) applicati a form, dettaglio, lista, export e API. |
-| PLT-04 | Core | PARTIAL | M | Registro centrale in sola aggiunta alimentato da segnali su tutti i modelli (creazione, modifica, eliminazione, righe, utente e origine UI, API, AI o worker), con pagina di ricerca e scheda per record. |
 | PLT-05 | Core | PARTIAL | M | Pagina front per le sequenze, modello Esercizio o Periodo per azienda con data di blocco controllata da un servizio del kernel in save, azioni e API di fatturazione, sdi, banca e magazzino. |
 | PLT-09 | Core | PARTIAL | M | Modello di stampa per azienda e tipo documento (intestazione, piè di pagina, testi, colonne visibili, campi con segnaposto come in core/modelli_email.py), con anteprima e ritorno all'originale. |
 | PLT-13 | Core | PARTIAL | M | Import a testata e righe sulle viste con inlines, risoluzione della variante per riga quando INV-01 esiste, import_key sulle anagrafiche principali. |
 | PLT-14 | Core | PARTIAL | M | API attiva di default con esclusioni esplicite, endpoint per azioni e bottoni, modello Webhook in uscita con firma e tentativi tramite core/lavori.py, ambiti e limiti sui token. |
-| PLT-17 | Core | PARTIAL | M | Ricerca trasversale sulle search_fields delle viste nella barra in alto, viste salvate per utente e condivise, vista pivot su interroga.py, attributo Gantt nella ModelView. |
-| RPT-02 | Core | PARTIAL | M | Vista Pivot generica in core/viste con righe, colonne e più misure calcolate dal database con i permessi della vista, esportabile in Excel e salvabile come widget di Analisi. |
+| PLT-17 | Core | PARTIAL | M | Attributo Gantt nella ModelView: ricerca trasversale, ricerche salvate e pivot fatte il 2026-11-05. |
 | RPT-06 | Core | PARTIAL | M | Pianificazione deterministica di una lista filtrata, di una stampa o di una pagina di Analisi, con allegato PDF o Excel e più destinatari, eseguita nel worker con i permessi del proprietario. |
 | CRM-08 | Core | PARTIAL | L | Caselle per utente con OAuth Gmail e Microsoft Graph oltre a IMAP, abbinamento automatico per mittente a contatto e opportunità aperta, invio al cliente dal chatter del record. |
 | PLT-02 | Core | MISSING | L | Modello Valuta e Cambio con aggiornamento da BCE, valuta e cambio su documenti, listini, scadenze e incassi, totali in valuta aziendale, Divisa in FatturaPA, report delle differenze di cambio. |
@@ -615,7 +612,7 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | PLT-01 | Multi-azienda e filiali in un solo database, con report consolidati | Core | PARTIAL | core/mixins.py AziendaMixin (47 modelli); core/azienda.py consentite, corrente; core/middleware.py AziendaCorrenteMiddleware; core/viste/base.py get_queryset, form_per_azienda; core/api/auth.py azienda_per (header X-Azienda); core/sequenze.py per azienda; README sezione Multi-azienda | Separazione per azienda completa con selettore, scelte FK filtrate, API e sequenze; senza azienda corrente non si vede più nulla (corretto il 2026-11-05). Mancano report consolidati su più aziende (core/viste/interroga.py e grafici leggono una sola azienda), filiali come livello sotto l'azienda, operazioni tra aziende. Piani dei conti separati o condivisi esclusi dalla decisione sulla contabilità al commercialista. |
 | PLT-02 | Multi-valuta: tabelle cambi, aggiornamento automatico, differenze di cambio | Core | MISSING | Nessun campo valuta o cambio nei modelli (ricerca su valuta, currency, cambio: «valuta» in addons/banca è la data valuta); addons/fatturazione/fatturapa.py _sub Divisa fissa a EUR; simbolo € in oltre 200 punti tra codice e template; addons/automazioni/catalogo.py _euro | Tutto in euro: importi senza valuta, nessuna tabella cambi. Le differenze di cambio andrebbero solo calcolate e mostrate: le scritture contabili restano al commercialista |
 | PLT-03 | Controllo accessi per ruoli: gruppi, regole sulle righe, visibilità per campo | Core | PARTIAL | core/ruoli.py applica, livello_di; core/utenti.py matrice, ruoli, eccezioni (/utenti/matrice/); core/registry/groups (gruppi dal manifest); core/viste/base.py has_*_permission, permesso_metodo; get_queryset sovrascritto in circa 20 viste (addons/progetti/views.py, addons/spese/views.py, addons/personale/views.py); addons/documenti/accesso.py | Ruoli, gruppi, livelli per modulo ed eccezioni per persona funzionano dal front. Le regole sulle righe sono codice nelle singole viste, senza motore né UI. Visibilità per campo assente: readonly_fields è uguale per tutti, le personalizzazioni Studio non distinguono i ruoli, l'API non filtra i campi (core/api/modelli.py campi_api). Solo l'AI esclude i campi sensibili (core/viste/interroga.py SENSIBILE) |
-| PLT-04 | Storico modifiche su ogni record (chi, cosa, quando, valori vecchi e nuovi) | Core | PARTIAL | core/chatter/__init__.py valori, traccia; core/viste/base.py save_model; core/models.py Messaggio.modifiche; tracked_fields in 25 viste su 87; addons/ai/views.py RegistroModificheView; addons/awf/models.py Chiamata; core/admin.py Django LogEntry solo nell'admin | Valori vecchi e nuovi solo per i campi dichiarati nelle viste con chatter. Non è a livello di modello: save() diretti, update() di massa, righe dei documenti ed eliminazioni restano fuori, salvo traccia esplicita nelle operazioni. Nessun registro centrale consultabile e nessuna garanzia di immutabilità |
+| PLT-04 | Storico modifiche su ogni record (chi, cosa, quando, valori vecchi e nuovi) | Core | HAVE | core/registro.py; core/models.py RegistroModifica; core/viste/base.py storico; core/tests/test_ricerche_pivot_registro.py | Fatto il 2026-11-05: registro di chi, cosa, quando e da dove su ogni record con una vista e sulle righe dei documenti, in sola lettura e senza segreti. Non vede QuerySet.update(), bulk_create() e i molti-a-molti; non è protetto a livello di database e non ha una pulizia automatica. |
 | PLT-05 | Numerazioni per azienda e tipo documento; esercizi, periodi, date di blocco | Core | PARTIAL | core/sequenze.py prossimo (select_for_update), core/models.py Sequenza (azienda, codice, formato, azzera); chiave manifest sequences; core/admin.py SequenzaAdmin; addons/fatturazione/operazioni.py controllo della data rispetto alle fatture emesse; addons/timesheet/models.py bloccata | Sequenze solide per azienda e tipo, con azzeramento annuale. Formato modificabile solo dall'admin Django, riservato al Global Admin. Nessun esercizio diverso dall'anno solare e nessuna data di blocco che impedisca di modificare documenti, incassi o registri IVA di periodi chiusi. Il controllo sulle fatture è solo sulla sequenza delle date. Contabilità generale esclusa, ma il blocco dei periodi IVA e documentali resta utile |
 | PLT-06 | Campi, form, liste e menu configurabili senza codice | Core | PARTIAL | core/views.py CampoPersonalizzatoView (/core/campi/); core/proprieta.py; core/mixins.py ProprietaMixin (13 modelli); addons/studio/campi.py, servizi.py (colonne, filtri, ricerca, raggruppamenti, form, etichette, storico, esporta/importa); core/viste/personalizza.py ATTRIBUTI; core/barra.py, core/applicazioni.py nome | Liste, form e etichette configurabili, con storico. Campi personalizzati solo su 13 modelli, nessuno sulle righe dei documenti; nessun tipo collegamento a un record. Menu: solo ordine, visibilità e nome delle app nella barra; le voci interne vengono dal manifest. Studio vale per tutta l'istanza, non per ruolo o azienda, e non ha campi condizionali |
 | PLT-07 | Motore di approvazioni multilivello (ordini d'acquisto, spese, ferie, sconti) | Core | PARTIAL | addons/spese/flusso.py decidi; addons/personale/flusso.py; addons/timesheet/models.py approvata, approva_ore; addons/awf/models.py Approvazione e addons/agate/decisioni.py (solo azioni dell'AI) | Approvazioni a un solo livello e scritte a mano in spese, ferie e ore. Nessun motore generico, livelli, soglie o deleghe. Ordini d'acquisto e sconti senza approvazione (nessun riferimento in addons/acquisti, addons/vendite, addons/fatturazione). Agate copre solo le azioni degli agenti AI |
@@ -835,8 +832,8 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | ID | Funzione | Tier | Stato | Evidenza | Note sul gap |
 |---|---|---|---|---|---|
 | RPT-01 | Dashboard con KPI per modulo e per ruolo | Core | PARTIAL | core/dashboard.py (schede, catalogo: KPI e grafici delle app visibili, 22 manifest con chiave dashboard); addons/grafici/models.py (Pagina, Grafico); addons/grafici/motore.py (schede, _voci_pagina); core/models.py (DashboardUtente) | Per modulo c'è, e i dati seguono i permessi di chi guarda. Manca la dashboard assegnata a un ruolo: Pagina.condivisa vale per tutti (motore.schede filtra Q(utente) o Q(condivisa=True)), non esiste condivisione con gruppi o Ruolo né layout predefinito per ruolo |
-| RPT-02 | Viste pivot e grafico su ogni insieme di record, con raggruppamenti e misure | Core | PARTIAL | core/viste/grafico.py; core/viste/gruppi.py (gruppi, totali, list_group_by); core/viste/interroga.py (aggrega, calcola, kpi); addons/grafici/costruttore.py (costruttore su tutte le viste accessibili) | Grafici con un raggruppamento e una misura (conteggio, somma) dal costruttore; vista Grafico solo sulle 16 viste che dichiarano graph. Nessuna pivot: grep di pivot senza risultati, nessuna tabella incrociata righe per colonne né raggruppamenti su più livelli |
-| RPT-03 | Ricerche e filtri salvati e condivisi tra utenti | Core | MISSING | core/viste/filtri.py e core/viste/lista.py (filtri solo nei parametri dell'URL); core/models.py (nessun modello di filtro salvato) | Nessun salvataggio di ricerche o filtri sulle liste, né personali né condivisi. Riutilizzabile: Grafico.spec conserva filtri e Grafico.condiviso_con condivide, ma per un grafico e non per una lista |
+| RPT-02 | Viste pivot e grafico su ogni insieme di record, con raggruppamenti e misure | Core | HAVE | core/viste/pivot.py; core/viste/interroga.py opzioni_vista; core/viste/grafico.py; addons/grafici/costruttore.py | Fatto il 2026-11-05: Pivot generica con righe, colonne e fino a tre misure, sui filtri della lista, esportabile in Excel. Non si salva ancora come widget di Analisi e le celle non aprono i record. |
+| RPT-03 | Ricerche e filtri salvati e condivisi tra utenti | Core | HAVE | core/viste/salvate.py; core/models.py RicercaSalvata; core/tests/test_ricerche_pivot_registro.py | Fatto il 2026-11-05: ricerche salvate per lista, personali o condivise con l'azienda, con quella che si apre da sola. La condivisione è con tutta l'azienda, non per ruolo. |
 | RPT-04 | Bilanci e prospetti finanziari con drill-down alle registrazioni | Core | N/A | Decisione dell'utente del 2026-11-03 (memoria contabilita-al-commercialista); addons/rivendita/schede.py (Banca: senza contabilità) | Fuori perimetro per decisione dell'utente: niente libro mastro in adabox-hub, la contabilità resta al commercialista. Al massimo un'esportazione per lo studio |
 | RPT-05 | Esportazione in Excel e CSV da ogni lista | Core | HAVE | core/esporta.py (csv_bytes, xlsx_bytes, in_background); core/viste/esporta.py (EsportaView: filtrate o selezionate, grandi nel worker con link per email); core/viste/base.py (rotta per ogni ModelView); core/templates/core/vista/lista.html e _tabella.html | Copre tutte le liste ModelView. Le pagine su misura (giacenze in addons/magazzino/pagine.py, riconciliazione in addons/banca/pagine.py) non hanno esportazione |
 | RPT-06 | Report pianificati e inviati per email | Core | PARTIAL | addons/ai/pianificate.py (consegna, per_email); addons/ai/models.py (Pianificata); addons/grafici/lavori.py (aggiorna_scaduti ricalcola soltanto); core/report.py (in_background: stampa su richiesta) | Esiste solo la pianificazione tramite l'assistente: richiede il modulo ai e un modello a pagamento, il testo è generato, in email è testo semplice con un link, senza PDF, Excel o grafici, e parte solo verso il proprietario. Analisi, viste e report PDF non si pianificano; il Riepilogo non va per email |
@@ -939,7 +936,6 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 
 | ID | Funzione | Cosa costruire | Dipende da | Effort |
 |---|---|---|---|---|
-| RPT-03 | Ricerche e filtri salvati e condivisi tra utenti | Modello di ricerca salvata (vista, parametri, proprietario, condivisione con utenti e ruoli) con menu nella testata della lista e ricerca predefinita per utente. | - | S |
 
 **Localizzazione e conformità**
 
@@ -955,7 +951,6 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 |---|---|---|---|---|
 | PLT-01 | Multi-azienda e filiali in un solo database, con report consolidati | Selettore multi-azienda nelle interrogazioni e nei grafici con totali consolidati, livello filiale opzionale. | FIN-30 | M |
 | PLT-03 | Controllo accessi per ruoli: gruppi, regole sulle righe, visibilità per campo | Regole di riga dichiarabili da UI applicate in get_queryset e nell'API, e permessi per campo (nascosto o sola lettura per gruppo) applicati a form, dettaglio, lista, export e API. | - | M |
-| PLT-04 | Storico modifiche su ogni record (chi, cosa, quando, valori vecchi e nuovi) | Registro centrale in sola aggiunta alimentato da segnali su tutti i modelli (creazione, modifica, eliminazione, righe, utente e origine UI, API, AI o worker), con pagina di ricerca e scheda per record. | - | M |
 | PLT-05 | Numerazioni per azienda e tipo documento; esercizi, periodi, date di blocco | Pagina front per le sequenze, modello Esercizio o Periodo per azienda con data di blocco controllata da un servizio del kernel in save, azioni e API di fatturazione, sdi, banca e magazzino. | - | M |
 | PLT-06 | Campi, form, liste e menu configurabili senza codice | ProprietaMixin esteso a righe e modelli restanti, campo collegamento a record, editor delle voci di menu interne, personalizzazioni per ruolo e azienda. | - | M |
 | PLT-07 | Motore di approvazioni multilivello (ordini d'acquisto, spese, ferie, sconti) | Servizio di approvazione nel kernel con catene configurabili per tipo di documento e soglie (importo, sconto), passi per ruolo o responsabile, deleghe, scadenze, blocco della conferma e storico, adottato da acquisti, vendite, spese e personale. | PLT-03, PLT-08 | L |
@@ -965,7 +960,7 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | PLT-13 | Import CSV e XLSX con mappatura, validazione e varianti per riga; export di massa | Import a testata e righe sulle viste con inlines, risoluzione della variante per riga quando INV-01 esiste, import_key sulle anagrafiche principali. | INV-01 | M |
 | PLT-14 | API REST o JSON-RPC su tutti i modelli, con autenticazione e webhook | API attiva di default con esclusioni esplicite, endpoint per azioni e bottoni, modello Webhook in uscita con firma e tentativi tramite core/lavori.py, ambiti e limiti sui token. | PLT-08 | M |
 | PLT-16 | Interfaccia responsive e app mobile native o PWA sui flussi principali | PWA con manifest, service worker e push, più pagine mobili per i flussi principali (attività, approvazioni, note spese, magazzino). | PLT-19 | M |
-| PLT-17 | Ricerca globale, filtri salvati e preferiti; viste kanban, lista, pivot, grafico, calendario, Gantt | Ricerca trasversale sulle search_fields delle viste nella barra in alto, viste salvate per utente e condivise, vista pivot su interroga.py, attributo Gantt nella ModelView. | - | M |
+| PLT-17 | Ricerca globale, filtri salvati e preferiti; viste kanban, lista, pivot, grafico, calendario, Gantt | Attributo Gantt nella ModelView: ricerca trasversale, ricerche salvate e pivot fatte il 2026-11-05. | - | M |
 
 **Finanza e contabilità**
 
@@ -1036,7 +1031,6 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | ID | Funzione | Cosa costruire | Dipende da | Effort |
 |---|---|---|---|---|
 | RPT-01 | Dashboard con KPI per modulo e per ruolo | Aggiungere a Pagina la condivisione con ruoli e gruppi e un layout iniziale per ruolo impostabile dall'amministratore. | - | S |
-| RPT-02 | Viste pivot e grafico su ogni insieme di record, con raggruppamenti e misure | Vista Pivot generica in core/viste con righe, colonne e più misure calcolate dal database con i permessi della vista, esportabile in Excel e salvabile come widget di Analisi. | - | M |
 | RPT-06 | Report pianificati e inviati per email | Pianificazione deterministica di una lista filtrata, di una stampa o di una pagina di Analisi, con allegato PDF o Excel e più destinatari, eseguita nel worker con i permessi del proprietario. | RPT-03 | M |
 
 **Integrazioni ed estensibilità**

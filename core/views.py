@@ -148,7 +148,7 @@ def profilo(request):
         form_azienda = AziendaPredefinitaForm(instance=crea_profilo(request.user))
     return render(request, "core/profilo.html", {
         "form": form, "form_azienda": form_azienda, "due_fattori_attiva": due_fattori.attiva(request.user),
-        "form_token": TokenApiForm(), "token": request.user.token_api.all(),
+        "form_token": TokenApiForm(utente=request.user), "token": request.user.token_api.all(),
         "token_chiaro": request.session.pop(CHIAVE_TOKEN_NUOVO, None),   # mostrato una sola volta
     })
 
@@ -168,13 +168,14 @@ def azienda_predefinita(request):
 @require_POST
 @login_required
 def token_nuovo(request):
-    form = TokenApiForm(request.POST)
+    form = TokenApiForm(request.POST, utente=request.user)
     if form.is_valid():
-        _, chiaro = TokenApi.genera(request.user, form.cleaned_data["nome"])
+        _, chiaro = TokenApi.genera(request.user, form.cleaned_data["nome"], scadenza=form.scadenza(),
+                                    sola_lettura=form.cleaned_data["sola_lettura"], moduli=form.cleaned_data["moduli"])
         request.session[CHIAVE_TOKEN_NUOVO] = chiaro
         messages.success(request, "Token creato: copialo ora, non sarà più mostrato.")
     else:
-        messages.error(request, "Indica un nome per il token.")
+        messages.error(request, "Controlla il token: serve un nome e i moduli devono essere tra quelli che vedi.")
     return redirect("core:profilo")
 
 

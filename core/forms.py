@@ -1,4 +1,7 @@
+import datetime
+
 from django import forms
+from django.utils import timezone
 from django.contrib.auth.models import User
 
 from .models import CampoPersonalizzato, ProfiloUtente, TokenApi
@@ -14,6 +17,20 @@ class ProfiloForm(forms.ModelForm):
 
 
 class TokenApiForm(forms.ModelForm):
+    DURATE = [("90", "90 giorni"), ("365", "1 anno"), ("30", "30 giorni"), ("7", "7 giorni"), ("", "Senza scadenza")]
+    durata = forms.ChoiceField(label="Durata", choices=DURATE, required=False, initial="90", widget=forms.Select(attrs={"class": "ui-input"}))
+    sola_lettura = forms.BooleanField(label="Sola lettura", required=False, initial=True)
+    moduli = forms.MultipleChoiceField(label="Solo questi moduli (nessuna scelta = tutti)", required=False, widget=forms.SelectMultiple(attrs={"class": "ui-input", "size": 4}))
+
+    def __init__(self, *args, utente=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .registry import modules
+        self.fields["moduli"].choices = [(a["slug"], a["label"]) for a in modules.app_visibili(utente)] if utente else []
+
+    def scadenza(self):
+        giorni = self.cleaned_data.get("durata")
+        return timezone.localdate() + datetime.timedelta(days=int(giorni)) if giorni else None
+
     class Meta:
         model = TokenApi
         fields = ["nome"]

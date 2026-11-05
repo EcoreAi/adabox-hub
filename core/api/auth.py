@@ -10,9 +10,17 @@ class TokenAuth(HttpBearer):
         t = TokenApi.verifica(token)
         if t:
             request.user = t.utente
+            request.token_api = t
             registro.imposta(t.utente, "api")
             return t.utente
         return None
+
+
+def controlla_token(request, modulo, scrittura):
+    """Se la chiamata arriva con un token, deve permettere questo modulo e questa operazione."""
+    token = getattr(request, "token_api", None)
+    if token is not None and not token.permette(modulo, scrittura):
+        raise HttpError(403, "questo token è in sola lettura" if scrittura and token.sola_lettura else f"questo token non vale per il modulo {modulo}")
 
 
 def azienda_per(request):
@@ -30,4 +38,4 @@ def azienda_per(request):
     return scelta
 
 
-__all__ = ["Azienda", "TokenAuth", "azienda_per"]
+__all__ = ["Azienda", "TokenAuth", "azienda_per", "controlla_token"]

@@ -51,16 +51,21 @@
     <form method="post" action="{% url 'core:token_nuovo' %}" class="ui-form-row">
       {% csrf_token %}
       <div class="ui-form-group"><label class="ui-label" for="{{ form_token.nome.id_for_label }}">{{ form_token.nome.label }}</label>{{ form_token.nome }}</div>
+      <div class="ui-form-group"><label class="ui-label" for="{{ form_token.durata.id_for_label }}">{{ form_token.durata.label }}</label>{{ form_token.durata }}</div>
+      <div class="ui-form-group"><label class="ui-label" for="{{ form_token.moduli.id_for_label }}">{{ form_token.moduli.label }}</label>{{ form_token.moduli }}</div>
+      <div class="ui-form-group" style="align-self:end;"><label>{{ form_token.sola_lettura }} {{ form_token.sola_lettura.label }}</label></div>
       <div class="ui-form-group" style="align-self:end;"><button type="submit" class="ui-btn ui-btn-primary"><svg><use href="#icon-plus"/></svg> Nuovo token</button></div>
     </form>
     {% if token %}
     <div class="ui-table-wrap"><table class="ui-table is-revealed">
-      <thead><tr><th>Nome</th><th>Creato</th><th>Ultimo uso</th><th>Stato</th><th class="actions"></th></tr></thead>
+      <thead><tr><th>Nome</th><th>Creato</th><th>Ultimo uso</th><th>Scadenza</th><th>Può</th><th>Stato</th><th class="actions"></th></tr></thead>
       <tbody>
         {% for t in token %}
         <tr>
           <td>{{ t.nome }}</td><td>{{ t.creato|date:"d/m/Y H:i" }}</td><td>{{ t.ultimo_uso|date:"d/m/Y H:i"|default:"—" }}</td>
-          <td>{% if t.attivo %}<span class="ui-pill ui-pill-ok">Attivo</span>{% else %}<span class="ui-pill ui-pill-neutral">Revocato</span>{% endif %}</td>
+          <td>{{ t.scadenza|date:"d/m/Y"|default:"Mai" }}</td>
+          <td>{% if t.sola_lettura %}Leggere{% else %}Leggere e scrivere{% endif %}{% if t.moduli %} · {{ t.moduli|join:", " }}{% else %} · tutti i moduli{% endif %}</td>
+          <td>{% if t.attivo and t.scaduto %}<span class="ui-pill ui-pill-warn">Scaduto</span>{% elif t.attivo %}<span class="ui-pill ui-pill-ok">Attivo</span>{% else %}<span class="ui-pill ui-pill-neutral">Revocato</span>{% endif %}</td>
           <td class="actions">{% if t.attivo %}<form method="post" action="{% url 'core:token_revoca' t.pk %}">{% csrf_token %}<button type="submit" class="ui-btn ui-btn-ghost ui-btn-sm">Revoca</button></form>{% endif %}</td>
         </tr>
         {% endfor %}
