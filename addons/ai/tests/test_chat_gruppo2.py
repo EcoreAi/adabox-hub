@@ -417,3 +417,19 @@ def test_i_record_restano_dati_del_gestionale(s):
 
 def test_le_risposte_di_prima_si_mostrano_ancora(s):
     assert "Dati dal gestionale (2 letture)" in _badge({"esito": "verificato", "letture": 2, "strumenti": ["cerca_record"], "pii": 0})
+
+
+def test_progetti_e_memoria_non_si_condividono_nelle_comunicazioni(client, s):
+    p = ProgettoChat.objects.create(utente=s["u"], azienda=s["az"], nome="Mio")
+    m = MemoriaUtente.objects.create(utente=s["u"], azienda=s["az"], testo="x")
+    for url in (f"/ai/progetti/{p.pk}/", f"/ai/memoria/{m.pk}/"):
+        pagina = client.get(url).content.decode()
+        assert "discuss/condividi" not in pagina and "canale_record" not in pagina.replace("_", "")
+
+
+def test_gli_altri_record_si_condividono_ancora(client, s):
+    from contatti.models import Contatto
+    s["u"].user_permissions.add(*Permission.objects.filter(codename__in=["view_contatto", "add_canale", "view_canale", "add_messaggio"]))
+    client.force_login(User.objects.get(pk=s["u"].pk))
+    c = Contatto.objects.create(azienda=s["az"], nome="X")
+    assert "/discuss/condividi/" in client.get(f"/contatti/contatti/{c.pk}/").content.decode()

@@ -1,3 +1,3 @@
 {% load discuss tema %}{% lega_record_creato %}<link rel="stylesheet" href="{% statico 'discuss/discuss.css' %}">
-{% with ct=obj|ct_id %}<button type="button" class="ui-btn ui-btn-secondary" data-finestra="{% url 'discuss:condividi' ct obj.pk %}"><svg><use href="#icon-share"/></svg> Condividi</button>
-{% if perms.discuss.add_canale %}<form method="post" action="{% url 'discuss:canale_record' ct obj.pk %}">{% csrf_token %}<button type="submit" class="ui-btn ui-btn-ghost">Conversazione</button></form>{% endif %}{% endwith %}
+{% if not vista.personale %}{% with ct=obj|ct_id %}<button type="button" class="ui-btn ui-btn-secondary" data-finestra="{% url 'discuss:condividi' ct obj.pk %}"><svg><use href="#icon-share"/></svg> Condividi</button>
+{% if perms.discuss.add_canale %}<form method="post" action="{% url 'discuss:canale_record' ct obj.pk %}">{% csrf_token %}<button type="submit" class="ui-btn ui-btn-ghost">Conversazione</button></form>{% endif %}{% endwith %}{% endif %}

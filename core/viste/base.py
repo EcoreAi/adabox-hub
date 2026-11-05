@@ -66,6 +66,7 @@ class ModelView:
     company_field = None          # None = modello globale
     ai_descrizione = ""                         # per Ada: che cosa contiene e come la chiamano gli utenti, se il nome non basta
     storico = True                              # False: record che cambiano troppo spesso per finire nel registro delle modifiche
+    personale = False                           # True: record di una sola persona, che non si condivide (memoria, progetti dell'assistente)
     tra_aziende = False                         # True: pagina di amministrazione dell'istanza, mostra tutte le aziende di proposito
     sequence_field = None         # ("campo", "modulo.codice"): numero assegnato alla creazione
     chatter = False               # pannello messaggi/note/allegati/attività nel dettaglio

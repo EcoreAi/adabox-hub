@@ -239,6 +239,7 @@ class _SoloMie(ModelView):
     """Personali: anche un amministratore vede solo le sue."""
     company_field = "azienda"
     storico = False
+    personale = True
 
     def get_queryset(self, request):
         return super().get_queryset(request).filter(utente=request.user)
