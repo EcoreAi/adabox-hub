@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from .. import catalogo
 from ..gateway import ErroreModello, Inizio, Testo, Uso, esegui as gateway
-from ..models import MessaggioChat, Turno
+from ..models import Conversazione, MessaggioChat, Turno
 from ..protezione import Protezione
 
 log = logging.getLogger("ai.motore")
@@ -43,6 +43,6 @@ def genera(conversazione, utente, azienda=None):
     turno.save()
     titolo = turno.testo.strip().strip("\"'«»“”").rstrip(".").strip()
     if turno.stato == Turno.COMPLETATO and titolo:
-        conversazione.titolo, conversazione.titolo_generato = titolo[:120], True
-        conversazione.save(update_fields=["titolo", "titolo_generato"])
+        # solo se nel frattempo nessuno l'ha rinominata: il titolo scelto da una persona vince
+        Conversazione.objects.filter(pk=conversazione.pk, titolo_generato=False).update(titolo=titolo[:120], titolo_generato=True)
     return titolo or None

@@ -9,6 +9,7 @@
   const input = form.querySelector('.ai-input');
   const invia = form.querySelector('.ai-invia');
 
+  const campoFile = form.querySelector('[data-file]');
   const inFondo = () => { scorri.scrollTop = scorri.scrollHeight; };
 
   // --- pannelli: un'icona apre il suo contenuto; di nuovo (o Esc, o la X) lo richiude. Il pannello aperto di
@@ -60,13 +61,13 @@
   const aggiorna = () => {
     input.style.height = 'auto';
     input.style.height = `${Math.min(input.scrollHeight, 260)}px`;
-    invia.disabled = !input.value.trim() || !!messaggi.querySelector('[data-flusso]');
+    invia.disabled = (!input.value.trim() && !(campoFile && campoFile.files.length)) || !!messaggi.querySelector('[data-flusso]');
   };
   input.addEventListener('input', aggiorna);
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
-      if (input.value.trim()) form.requestSubmit();
+      if (input.value.trim() || (campoFile && campoFile.files.length)) form.requestSubmit();
     }
   });
 
@@ -168,6 +169,86 @@
   }
   if (campoAmbito.value) scegli(campoAmbito.value, false);
 
+  // --- allegati: il «+» apre la scelta, i nomi restano nel campo finché non si invia ---
+  const listaFile = form.querySelector('[data-allegati]');
+  const avviso = chat.querySelector('[data-errore]');
+  const mostraErrore = (testo) => { avviso.textContent = testo; avviso.hidden = !testo; };
+  function mostraFile() {
+    listaFile.replaceChildren(...[...campoFile.files].map((f, i) => {
+      const li = document.createElement('li');
+      const chipFile = document.createElement('span');
+      chipFile.className = 'ai-chip';
+      chipFile.textContent = f.name;
+      const x = document.createElement('button');
+      x.type = 'button'; x.className = 'ai-chip-x'; x.textContent = '×'; x.setAttribute('aria-label', `Togli ${f.name}`);
+      x.addEventListener('click', () => {
+        const dt = new DataTransfer();
+        [...campoFile.files].forEach((g, j) => { if (j !== i) dt.items.add(g); });
+        campoFile.files = dt.files;
+        mostraFile();
+        aggiorna();
+      });
+      chipFile.appendChild(x);
+      li.appendChild(chipFile);
+      return li;
+    }));
+    listaFile.hidden = !campoFile.files.length;
+  }
+  form.querySelector('[data-allega]').addEventListener('click', () => campoFile.click());
+  campoFile.addEventListener('change', () => { mostraErrore(''); mostraFile(); aggiorna(); });
+  document.body.addEventListener('ai-errore', (e) => { mostraErrore(e.detail.value); aggiorna(); });
+
+  // --- azioni sui messaggi: copia (anche senza HTTPS, dove il browser non dà gli appunti), modifica, rigenera ---
+  const copia = (testo, bottone) => {
+    const originale = bottone.dataset.etichetta || bottone.textContent;
+    bottone.dataset.etichetta = originale;
+    const avvisa = (scritta) => { bottone.textContent = scritta; setTimeout(() => { bottone.textContent = originale; }, 1200); };
+    const ripiego = () => {                       // senza HTTPS, o se il browser nega gli appunti
+      const area = document.createElement('textarea');
+      area.value = testo; area.style.position = 'fixed'; area.style.opacity = '0';
+      document.body.appendChild(area); area.select();
+      let riuscito = false;
+      try { riuscito = document.execCommand('copy'); } catch (err) { /* non permesso */ }
+      area.remove();
+      avvisa(riuscito ? 'Copiato' : 'Non copiato');
+    };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(testo).then(() => avvisa('Copiato'), ripiego);
+    else ripiego();
+  };
+  function decoraCodice(radice) {
+    radice.querySelectorAll('pre').forEach((pre) => {
+      if (pre.querySelector('[data-copia-codice]')) return;
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'ai-copia-codice'; b.dataset.copiaCodice = ''; b.textContent = 'Copia';
+      b.addEventListener('click', () => copia(pre.querySelector('code').innerText, b));
+      pre.appendChild(b);
+    });
+  }
+  function decora() {
+    decoraCodice(messaggi);
+    const risposte = messaggi.querySelectorAll('.ai-msg-assistente:not(.is-in-corso)');
+    messaggi.querySelectorAll('[data-solo-ultima]').forEach((f) => { f.hidden = true; });
+    const ultima = risposte[risposte.length - 1];
+    const dopo = ultima && !messaggi.querySelector('[data-flusso]') && ultima.querySelector('[data-solo-ultima]');
+    if (dopo) dopo.hidden = false;
+  }
+  messaggi.addEventListener('click', (e) => {
+    const articolo = e.target.closest('[data-messaggio]');
+    if (!articolo) return;
+    const bottone = e.target.closest('[data-copia]');
+    if (bottone) copia(articolo.querySelector('.ai-msg-testo').innerText, bottone);
+    const moduloModifica = articolo.querySelector('[data-modifica]');
+    if (e.target.closest('[data-apri-modifica]')) { moduloModifica.hidden = false; moduloModifica.querySelector('textarea').focus(); }
+    if (e.target.closest('[data-annulla-modifica]')) moduloModifica.hidden = true;
+  });
+  const apriRinomina = chat.querySelector('[data-apri-rinomina]');
+  if (apriRinomina) apriRinomina.addEventListener('click', () => {
+    const modulo = chat.querySelector('[data-rinomina]');
+    modulo.hidden = false;
+    chat.querySelector('[data-titolo]').hidden = true;
+    modulo.querySelector('input[name="titolo"]').select();
+  });
+
   // --- risposta in diretta: la bolla "in corso" segue il turno con Server-Sent Events ---
   const csrf = form.querySelector('input[name="csrfmiddlewaretoken"]').value;
   const NOMI = {
@@ -180,14 +261,15 @@
     grafico: 'disegno il grafico', tabella: 'preparo la tabella',
     crea_pianificata: "preparo l'attività pianificata", elenco_pianificate: 'guardo le attività pianificate',
     cerca_conoscenza: 'cerco nei documenti e nelle note', leggi_documento: 'leggo il documento',
-    leggi_foglio: 'leggo il foglio', previsione: 'calcolo la previsione', classifica: 'valuto il testo',
+    leggi_foglio: 'leggo il foglio', leggi_allegato: "leggo l'allegato", previsione: 'calcolo la previsione', classifica: 'valuto il testo',
     elenco_esperti: 'guardo quali esperti ci sono', chiedi_esperto: "chiedo all'esperto", riassunto: 'riassumo la conversazione',
   };
   const segui = (bolla) => {
     if (!bolla || bolla.dataset.seguita) return;
     bolla.dataset.seguita = '1';
     invia.disabled = true;
-    const testo = bolla.querySelector('[data-testo]');
+    const coda = bolla.querySelector('[data-coda]');
+    const reso = bolla.querySelector('[data-reso]');
     const avanzamento = bolla.querySelector('[data-avanzamento]');
     const sorgente = new EventSource(bolla.dataset.flusso);
     // flusso caduto per sempre (es. 502 dal proxy): la risposta è comunque nel database, si ricarica la pagina
@@ -196,7 +278,15 @@
     });
     sorgente.addEventListener('testo', (e) => {
       const vicinoAlFondo = scorri.scrollHeight - scorri.scrollTop - scorri.clientHeight < 120;
-      testo.textContent += JSON.parse(e.data).delta;
+      coda.textContent += JSON.parse(e.data).delta;
+      if (vicinoAlFondo) inFondo();
+    });
+    // il testo formattato arriva già pronto e sicuro dal server: nel browser non si interpreta Markdown
+    sorgente.addEventListener('html', (e) => {
+      const vicinoAlFondo = scorri.scrollHeight - scorri.scrollTop - scorri.clientHeight < 120;
+      reso.innerHTML = JSON.parse(e.data).html;
+      coda.textContent = '';
+      decoraCodice(reso);
       if (vicinoAlFondo) inFondo();
     });
     sorgente.addEventListener('avanzamento', (e) => {
@@ -212,6 +302,8 @@
       sorgente.close();
       const dati = JSON.parse(e.data);
       if (dati.html) bolla.outerHTML = dati.html; else bolla.remove();
+      if (window.htmx) window.htmx.process(messaggi);
+      decora();
       aggiorna();
       inFondo();
       input.focus();
@@ -228,6 +320,8 @@
   document.body.addEventListener('htmx:afterSwap', (e) => {
     if (e.detail.target !== messaggi) return;
     input.value = '';
+    if (campoFile) { campoFile.value = ''; mostraFile(); }
+    decora();
     aggiorna();
     inFondo();
     seguiInCorso();
@@ -239,6 +333,7 @@
     if (e.detail.elt === form && !messaggi.querySelector('[data-flusso]')) { aggiorna(); input.focus(); }
   });
 
+  decora();
   aggiorna();
   inFondo();
   seguiInCorso();

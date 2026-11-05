@@ -1670,3 +1670,8 @@ body:has(.ui-nav-altre.is-open .ui-menucol) main { filter: blur(3px); opacity: .
 .ui-ricerca a { flex: 1; }
 .ui-ricerca-nuova { display: flex; flex-direction: column; gap: 6px; }
 @media (max-width: 900px) { .ui-cerca-globale { display: none; } }
+
+/* Pivot: intestazioni allineate ai numeri e filtri sulla stessa linea */
+.ui-table th.ui-num { text-align: right; }
+.ui-filtri-pivot { align-items: flex-end; }
+.ui-filtri-pivot label { display: flex; flex-direction: column; gap: 4px; }

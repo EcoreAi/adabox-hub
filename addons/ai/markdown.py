@@ -1,10 +1,13 @@
 """Markdown delle risposte in HTML sicuro: prima si fa l'escape di tutto, poi si aggiungono solo i tag ammessi
 (paragrafi, titoli, elenchi, tabelle, codice, grassetto, corsivo, link http/https e link interni /...)."""
 import re
+from html import unescape
 
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
+LINGUA = re.compile(r"[a-z0-9+#_-]{1,20}")
+CODICE_MASSIMO = 20_000
 CODICE = re.compile(r"`([^`\n]+)`")
 GRASSETTO = re.compile(r"\*\*(.+?)\*\*")
 CORSIVO = re.compile(r"(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])|(?<!\w)_(?!\s)(.+?)(?<!\s)_(?!\w)")
@@ -31,6 +34,23 @@ def _in_linea(testo):
     return re.sub(r"\x00(\d+)\x00", lambda m: segnaposti[int(m.group(1))], testo)
 
 
+def _blocco_codice(testo_con_escape, lingua):
+    """Il codice è già passato da escape; Pygments riceve il testo originale e fa da sé l'escape di tutto ciò che scrive.
+    Lingua sconosciuta, troppo codice o Pygments assente: testo semplice."""
+    lingua = lingua if LINGUA.fullmatch(lingua) else ""
+    attributo = f' data-lingua="{lingua}"' if lingua else ""
+    if lingua and len(testo_con_escape) <= CODICE_MASSIMO:
+        try:
+            from pygments import highlight
+            from pygments.formatters import HtmlFormatter
+            from pygments.lexers import get_lexer_by_name
+            colorato = highlight(unescape(testo_con_escape), get_lexer_by_name(lingua), HtmlFormatter(nowrap=True))
+            return f"<pre{attributo}><code>{colorato.rstrip()}</code></pre>"
+        except Exception:                               # ImportError, ClassNotFound: il codice si legge lo stesso
+            pass
+    return f"<pre{attributo}><code>{testo_con_escape}</code></pre>"
+
+
 def _celle(riga):
     return [c.strip() for c in riga.strip().strip("|").split("|")]
 
@@ -49,11 +69,12 @@ def rendi(testo):
         riga = righe[i]
         if riga.strip().startswith("```"):
             chiudi_paragrafo()
+            lingua = riga.strip()[3:].strip().lower()
             codice, i = [], i + 1
             while i < len(righe) and not righe[i].strip().startswith("```"):
                 codice.append(righe[i])
                 i += 1
-            html.append("<pre><code>" + "\n".join(codice) + "</code></pre>")
+            html.append(_blocco_codice("\n".join(codice), lingua))
             i += 1
             continue
         titolo = re.match(r"^(#{1,4})\s+(.*)$", riga)

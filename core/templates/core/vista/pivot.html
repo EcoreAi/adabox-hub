@@ -6,7 +6,7 @@
   <div class="ui-pagehead-actions">{% include "core/vista/_selettore.html" %}<a class="ui-btn ui-btn-secondary" href="?{{ query }}&formato=xlsx">Excel (.xlsx)</a></div>
 </div>
 <div class="ui-card is-revealed">
-  <form class="ui-filtri" method="get">
+  <form class="ui-filtri ui-filtri-pivot" method="get">
     {% for k, v in filtri_attivi %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
     <label>Righe <select class="ui-input" name="riga">{% for a, e in assi %}<option value="{{ a }}"{% if a == riga %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
     <label>Colonne <select class="ui-input" name="colonna"><option value="">Nessuna</option>{% for a, e in assi %}<option value="{{ a }}"{% if a == colonna %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>

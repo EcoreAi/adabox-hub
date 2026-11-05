@@ -1,0 +1,6 @@
+<span class="ai-voto" id="ai-voto-{{ m.pk }}">
+  <button type="button" class="ai-azione-msg{% if v.voto == 1 %} is-attivo{% endif %}" hx-post="{% url 'ai:voto' m.pk %}" hx-vals='{"voto": "1"}' hx-target="#ai-voto-{{ m.pk }}" hx-swap="outerHTML" aria-pressed="{% if v.voto == 1 %}true{% else %}false{% endif %}" data-tip="Utile: la risposta e la domanda diventano visibili agli amministratori" aria-label="Risposta utile">👍</button>
+  <button type="button" class="ai-azione-msg{% if v.voto == -1 %} is-attivo{% endif %}" hx-post="{% url 'ai:voto' m.pk %}" hx-vals='{"voto": "-1"}' hx-target="#ai-voto-{{ m.pk }}" hx-swap="outerHTML" aria-pressed="{% if v.voto == -1 %}true{% else %}false{% endif %}" data-tip="Da migliorare: la risposta e la domanda diventano visibili agli amministratori" aria-label="Risposta da migliorare">👎</button>
+  {% if v.voto == -1 and not grazie %}<form class="ai-voto-commento" hx-post="{% url 'ai:voto' m.pk %}" hx-target="#ai-voto-{{ m.pk }}" hx-swap="outerHTML"><input class="ui-input" name="commento" maxlength="500" value="{{ v.commento }}" placeholder="Che cosa non andava? (facoltativo)" aria-label="Che cosa non andava"><button type="submit" class="ui-btn ui-btn-sm ui-btn-secondary">Invia</button></form>{% endif %}
+  {% if grazie %}<small>Grazie.</small>{% endif %}
+</span>

@@ -50,3 +50,17 @@ def provenienza(messaggio):
         return {}
     turno = messaggio.turno
     return {**(turno.provenienza or {}), "modello": turno.modello, "costo": turno.costo} if turno.provenienza else {}
+
+
+@register.filter
+def allegati(messaggio):
+    """I file allegati a un messaggio dell'utente."""
+    from ai import allegati_chat
+    return allegati_chat.di(messaggio) if getattr(messaggio, "ruolo", "") == "utente" else []
+
+
+@register.filter
+def voto(messaggio):
+    """Il voto dato a una risposta dell'assistente, se c'è."""
+    from ai.models import ValutazioneRisposta
+    return ValutazioneRisposta.objects.filter(messaggio=messaggio).first()

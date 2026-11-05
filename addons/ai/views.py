@@ -2,7 +2,7 @@ from core import cifratura
 from core.viste import Inline, ModelView, register
 
 from .forms import AssistenteForm, ChiaveAziendaForm, PianificataForm, ProviderForm
-from .models import (AnelloCatena, Assistente, ChiaveAzienda, Modello, Pianificata, Profilo, Proposta, Provider,
+from .models import (AnelloCatena, Assistente, ChiaveAzienda, Modello, Pianificata, Profilo, Proposta, Provider, ValutazioneRisposta,
                      Turno)
 
 
@@ -213,3 +213,23 @@ class AssistenteView(ModelView):
     def col_n_strumenti(self, obj):
         return len(obj.strumenti) if obj.strumenti else "tutti"
     col_n_strumenti.short_description = "Strumenti"
+
+
+@register
+class ValutazioniView(ModelView):
+    """I pollici sulle risposte, con la domanda: per capire dove l'assistente sbaglia. Si leggono e basta."""
+    model = ValutazioneRisposta
+    slug = "valutazioni"
+    storico = False
+    list_display = ["creata", "voto", "commento", "utente"]
+    list_filter = ["voto", "creata"]
+    search_fields = ["commento", "messaggio__testo"]
+    form_layout = [("Valutazione", [("creata", "voto"), ("utente", "commento")])]
+    readonly_fields = ["creata", "voto", "utente", "commento"]
+    company_field = "azienda"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

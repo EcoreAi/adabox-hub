@@ -47,7 +47,7 @@ def test_istruzioni_strumenti_e_modello_dell_assistente(scena):
     with finto.con_copione([["Ok."]]) as chiamate:
         _avvia(scena, Conversazione.objects.create(utente=scena["capo"]), "Ciao")
     assert "Sei l'assistente «Contabile». Istruzioni:\nRispondi sempre in euro." in chiamate[0]["sistema"]
-    assert chiamate[0]["strumenti"] == ["aggrega_record", "data_e_ora"] and chiamate[0]["modello"] == "finto-esperto"
+    assert chiamate[0]["strumenti"] == ["aggrega_record", "data_e_ora", "leggi_allegato"] and chiamate[0]["modello"] == "finto-esperto"
 
 
 def test_esperto_in_sola_lettura_in_una_conversazione_interna(scena):

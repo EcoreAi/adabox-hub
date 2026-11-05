@@ -452,3 +452,27 @@ class Licenza(models.Model):
         verbose_name = "licenza"
         verbose_name_plural = "licenze"
         ordering = ["-pk"]
+
+
+class ValutazioneRisposta(models.Model):
+    """Il pollice su una risposta: chi lo mette sa che la risposta e la domanda diventano visibili agli amministratori."""
+    messaggio = models.OneToOneField(MessaggioChat, on_delete=models.CASCADE, related_name="valutazione", verbose_name="risposta")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="utente")
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="azienda")
+    voto = models.SmallIntegerField("voto", choices=[(1, "Utile"), (-1, "Da migliorare")])
+    commento = models.CharField("commento", max_length=500, blank=True)
+    creata = models.DateTimeField("data", auto_now=True)
+
+    class Meta:
+        verbose_name = "valutazione"
+        verbose_name_plural = "valutazioni"
+        ordering = ["-creata", "-pk"]
+
+    def __str__(self):
+        return f"{self.get_voto_display()}: {self.messaggio.testo[:40]}"
+
+    @property
+    def domanda(self):
+        """La domanda a cui rispondeva."""
+        voce = MessaggioChat.objects.filter(conversazione_id=self.messaggio.conversazione_id, ruolo=MessaggioChat.UTENTE, pk__lt=self.messaggio_id).order_by("-pk").first()
+        return voce.testo if voce else ""

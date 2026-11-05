@@ -15,10 +15,14 @@ from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_GET
 
+from .markdown import rendi
 from .models import MessaggioChat, Turno
 
 INTERVALLO = 0.15                       # secondi tra due letture del turno
 DURATA_MASSIMA = 600                    # dopo, il browser si ricollega da solo
+RESO = 0.4                              # secondi tra due invii del testo formattato
+RESO_LUNGO = 2.0                        # ... per le risposte molto lunghe, che costano di più da formattare e spedire
+TESTO_LUNGO = 20_000
 BATTITO = 15                            # commento periodico: tiene viva la connessione attraverso i proxy
 
 
@@ -30,6 +34,7 @@ def _evento(nome, dati, id_evento=None):
 class _Stato:
     def __init__(self, posizione=0):
         self.posizione, self.avanzamento = posizione, -1
+        self.reso, self.ultimo_reso = -1, 0.0
 
 
 def _passo(turno_id, stato, request=None):
@@ -44,9 +49,13 @@ def _passo(turno_id, stato, request=None):
     if not turno.concluso and len(turno.testo) > stato.posizione:
         eventi.append(_evento("testo", {"delta": turno.testo[stato.posizione:]}, len(turno.testo)))
         stato.posizione = len(turno.testo)
+    # il testo già formattato lo fa il server, con lo stesso renderer sicuro della risposta finale: niente Markdown nel browser
+    adesso, attesa = time.monotonic(), RESO_LUNGO if len(turno.testo) > TESTO_LUNGO else RESO
+    if not turno.concluso and len(turno.testo) != stato.reso and adesso - stato.ultimo_reso >= attesa:
+        stato.reso, stato.ultimo_reso = len(turno.testo), adesso
+        eventi.append(_evento("html", {"html": str(rendi(turno.testo))}))
     if turno.concluso:
-        messaggio = (MessaggioChat.objects.filter(conversazione_id=turno.conversazione_id,
-                                                  ruolo=MessaggioChat.ASSISTENTE).order_by("-pk").first())
+        messaggio = MessaggioChat.objects.filter(turno_id=turno_id, ruolo=MessaggioChat.ASSISTENTE).order_by("-pk").first()
         # con la richiesta: i form delle schede (proposte, salva) hanno il token CSRF
         html = render_to_string("ai/_messaggi.html", {"messaggi": [messaggio]}, request=request) if messaggio else ""
         eventi.append(_evento("fine", {"stato": turno.stato, "html": html}))

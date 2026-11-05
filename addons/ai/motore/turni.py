@@ -17,7 +17,10 @@ from django.utils import timezone
 
 from .. import catalogo, proposte, protezione, strumenti
 from ..gateway import ChiamataStrumento, ErroreModello, Fine, Inizio, Testo, Uso, esegui as gateway
-from ..models import Evento, MessaggioChat, Turno
+from core import allegati as core_allegati
+
+from .. import allegati_chat
+from ..models import Artifact, Evento, MessaggioChat, Proposta, Turno
 from . import prompt
 
 log = logging.getLogger("ai.motore")
@@ -72,20 +75,63 @@ def _chiudi_chiamate_aperte(turno, motivo):
                                                  "errore": True} for b in aperte]})
 
 
-def avvia(conversazione, testo, utente, azienda=None, compito="chat", sincrono=False, nota=""):
-    """Registra la domanda e avvia il turno: in un thread, oppure nel processo stesso con `sincrono` (worker delle
-    pianificate) o AI_TURNI_SINCRONI (test). `nota` va al modello nel <contesto>, non nella chat."""
+def in_corso_di(conversazione):
+    """La risposta che l'utente sta aspettando. Il turno del titolo non conta: gira dopo la risposta, e se bloccasse la
+    chat il messaggio scritto in quel momento andrebbe perso."""
+    return conversazione.turni.filter(stato=Turno.IN_CORSO).exclude(compito="titoli").first()
+
+
+class NonSiPuoRipartire(Exception):
+    """Il messaggio per l'utente: perché non si può rigenerare o modificare da quel punto."""
+
+
+def riparti(conversazione, messaggio, testo, utente, azienda=None):
+    """Rigenera o modifica: il messaggio resta con i suoi allegati, ciò che viene dopo sparisce, e la cronologia del
+    modello (ricostruita dagli eventi) torna a quel punto, riassunti compresi. I turni restano: i costi sono stati
+    pagati. Una proposta già eseguita ferma tutto: cancellare la risposta non annullerebbe la modifica ai dati."""
     segna_interrotti(conversazione)
-    in_corso = conversazione.turni.filter(stato=Turno.IN_CORSO).first()
+    with transaction.atomic():
+        if in_corso_di(conversazione) is not None:
+            raise NonSiPuoRipartire("C'è già una risposta in corso: fermala o aspetta che finisca.")
+        posizione = conversazione.messaggi.filter(ruolo=MessaggioChat.UTENTE, pk__lt=messaggio.pk).count()
+        domande = list(conversazione.eventi.filter(tipo=Evento.UTENTE).order_by("pk").values_list("pk", flat=True))
+        if messaggio.ruolo != MessaggioChat.UTENTE or posizione >= len(domande):
+            raise NonSiPuoRipartire("Da questo messaggio non si può ripartire.")
+        da_togliere = conversazione.eventi.filter(pk__gte=domande[posizione])
+        turni_tolti = set(da_togliere.exclude(turno=None).values_list("turno_id", flat=True))
+        decise = Proposta.objects.filter(turno_id__in=turni_tolti)
+        if decise.filter(stato=Proposta.ESEGUITA).exists():
+            raise NonSiPuoRipartire("In questa parte della chat una modifica ai dati è già stata eseguita: ripartire non "
+                                    "la annullerebbe. Scrivi un nuovo messaggio.")
+        decise.filter(stato=Proposta.IN_ATTESA).update(stato=Proposta.ANNULLATA, esito="Chat ripartita da un messaggio precedente.")
+        decise.update(comunicata=True)
+        Artifact.objects.filter(turno_id__in=turni_tolti, salvato=False).delete()
+        conversazione.messaggi.filter(pk__gt=messaggio.pk).delete()
+        da_togliere.delete()
+        messaggio.testo = testo
+        messaggio.save(update_fields=["testo"])
+    return avvia(conversazione, testo, utente, azienda, messaggio=messaggio)
+
+
+def avvia(conversazione, testo, utente, azienda=None, compito="chat", sincrono=False, nota="", file=(), messaggio=None):
+    """Registra la domanda e avvia il turno: in un thread, oppure nel processo stesso con `sincrono` (worker delle
+    pianificate) o AI_TURNI_SINCRONI (test). `nota` va al modello nel <contesto>, non nella chat. `file`: gli allegati
+    del messaggio, già controllati. `messaggio`: quello esistente, quando si riparte da lì."""
+    segna_interrotti(conversazione)
+    in_corso = in_corso_di(conversazione)
     if in_corso is not None:
         return in_corso
     with transaction.atomic():
         turno = Turno.objects.create(conversazione=conversazione, utente=utente, azienda=azienda, compito=compito)
         esiti = proposte.da_comunicare(conversazione)
+        if messaggio is None:
+            messaggio = MessaggioChat.objects.create(conversazione=conversazione, ruolo=MessaggioChat.UTENTE, testo=testo)
+        for f in file:
+            core_allegati.salva(messaggio, f, utente)
+        nota = "\n".join(n for n in (nota, allegati_chat.nota(messaggio)) if n)
         Evento.objects.create(conversazione=conversazione, turno=turno, tipo=Evento.UTENTE, dati={
             "ruolo": "utente", "testo": prompt.con_contesto(testo, utente, azienda, conversazione.ambito, esiti,
                                                             nota)})
-        MessaggioChat.objects.create(conversazione=conversazione, ruolo=MessaggioChat.UTENTE, testo=testo)
     if sincrono or getattr(settings, "AI_TURNI_SINCRONI", False):
         esegui(turno.pk)
     else:
@@ -262,11 +308,12 @@ def _chiudi(e, stato, coda="", errore=""):
             turno.provenienza = provenienza.calcola(turno, testo, len(e.protezione.protetti) if e.protezione else 0)
         except Exception:                          # la provenienza è un di più: non deve rompere il turno
             log.exception("provenienza del turno %s", turno.pk)
-    turno.save()
-    if turno.conversazione_id and testo:
-        MessaggioChat.objects.create(conversazione=turno.conversazione, ruolo=MessaggioChat.ASSISTENTE, testo=testo,
-                                     turno=turno)
-        turno.conversazione.save(update_fields=["aggiornata"])
+    with transaction.atomic():                         # insieme: chi vede il turno concluso trova già il messaggio
+        turno.save()
+        if turno.conversazione_id and testo:
+            MessaggioChat.objects.create(conversazione=turno.conversazione, ruolo=MessaggioChat.ASSISTENTE, testo=testo,
+                                         turno=turno)
+            turno.conversazione.save(update_fields=["aggiornata"])
     if stato == Turno.COMPLETATO and turno.compito == "chat" and turno.conversazione_id \
             and not turno.conversazione.nascosta:
         from . import titoli

@@ -292,3 +292,31 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-badge.is-neutro { background: var(--ui-surface-2); color: var(--ui-text-2); }
 .ai-badge.is-protetto { background: var(--ui-primary-tint); color: var(--ui-primary); }
 .ai-badge-meta { font-size: 11px; color: var(--ui-text-3); }
+
+/* allegati, azioni sui messaggi, voto, ricerca nelle chat */
+.ai-allegati { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0; padding: 0; }
+.ai-composer .ai-allegati { margin: 0 0 6px; }
+.ai-msg-piede { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.ai-azione-msg { background: none; border: 0; padding: 2px 4px; font-size: 12px; color: var(--ui-text-3); cursor: pointer; border-radius: 6px; }
+.ai-azione-msg:hover, .ai-azione-msg:focus-visible { color: var(--ui-text); background: var(--ui-surface-2); }
+.ai-azione-msg.is-attivo { color: var(--ui-primary); background: var(--ui-primary-tint); }
+.ai-msg-piede .ai-azione-msg, .ai-msg-piede .ai-rigenera { opacity: .75; }
+.ai-msg:hover .ai-msg-piede .ai-azione-msg, .ai-msg-piede .ai-azione-msg:focus-visible { opacity: 1; }
+.ai-voto { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.ai-voto-commento { display: inline-flex; gap: 4px; }
+.ai-voto-commento .ui-input { width: 240px; }
+.ai-modifica { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.ai-modifica[hidden], .ai-rinomina[hidden], .ai-rigenera[hidden] { display: none; }
+.ai-modifica-bottoni { display: flex; justify-content: flex-end; gap: 6px; }
+.ai-rinomina { display: flex; flex: 1; gap: 6px; }
+.ai-cerca-chat { padding: 0 12px 8px; }
+.ai-md pre { position: relative; }
+.ai-copia-codice { position: absolute; top: 6px; right: 6px; font-size: 11px; padding: 2px 6px; border: 1px solid var(--ui-border); border-radius: 6px; background: var(--ui-surface); color: var(--ui-text-2); cursor: pointer; }
+.ai-md pre[data-lingua]::before { content: attr(data-lingua); position: absolute; top: 6px; right: 58px; font-size: 11px; color: var(--ui-text-3); }
+/* colori del codice (Pygments, classi corte) */
+.ai-md pre .k, .ai-md pre .kn, .ai-md pre .kd, .ai-md pre .kr, .ai-md pre .kc { color: #8250df; }
+.ai-md pre .s, .ai-md pre .s1, .ai-md pre .s2, .ai-md pre .sb, .ai-md pre .sd { color: #0a7f5a; }
+.ai-md pre .c, .ai-md pre .c1, .ai-md pre .cm { color: #6e7781; font-style: italic; }
+.ai-md pre .m, .ai-md pre .mi, .ai-md pre .mf { color: #b35900; }
+.ai-md pre .nf, .ai-md pre .nc { color: #0550ae; }
+.ai-md pre .nb, .ai-md pre .bp { color: #953800; }

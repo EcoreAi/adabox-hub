@@ -1,15 +1,25 @@
 """Chat con l'assistente: pagina a tutto schermo a tre colonne (pannelli laterali chiusi di default)."""
+import json
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.contenttypes.models import ContentType
+from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
+from django.utils.http import content_disposition_header
+from django.utils.text import get_valid_filename
 from django.views.decorators.http import require_POST
 
+from core import allegati as core_allegati
+from core.allegati import AllegatoNonValido
+from core.models import Allegato
 from core.registry import modules
 
-from . import motore, suggerimenti
-from .models import Artifact, Conversazione, MessaggioChat, Proposta, Turno
+from . import allegati_chat, motore, suggerimenti
+from .models import Artifact, Conversazione, MessaggioChat, Proposta, Turno, ValutazioneRisposta
 
 PANNELLI_SINISTRA = [("storico", "Cronologia chat", "ai-storico"), ("preferite", "Chat preferite", "ai-stella")]
 PANNELLI_DESTRA = [("artifact", "Artifact salvati", "ai-artifact"), ("documenti", "Documenti salvati", "ai-documento"),
@@ -54,7 +64,7 @@ def chat(request, pk=None):
     ambito = next((a for a in app if conversazione and a["slug"] == conversazione.ambito), None)
     if conversazione is not None:
         motore.segna_interrotti(conversazione)
-    in_corso = conversazione.turni.filter(stato=Turno.IN_CORSO).first() if conversazione else None
+    in_corso = motore.in_corso_di(conversazione) if conversazione else None
     return render(request, "ai/chat.html", {
         "conversazione": conversazione, "ambito": ambito, "turno": in_corso, "avviso_spesa": _avviso_spesa(request),
         "messaggi": conversazione.messaggi.all() if conversazione else [],
@@ -72,12 +82,27 @@ def _salvati(request):
             "artifact": [a for a in salvati if a.tipo == Artifact.TABELLA]}
 
 
+def _errore_invio(request, testo, pk):
+    """Il file rifiutato: col messaggio scritto ancora nel campo, se si invia dalla chat."""
+    if request.headers.get("HX-Request"):
+        return HttpResponse(status=204, headers={"HX-Trigger": json.dumps({"ai-errore": testo})})
+    messages.error(request, testo)
+    return redirect(reverse("ai:conversazione", args=[pk]) if pk else reverse("ai:chat"))
+
+
 @require_POST
 @login_required
 @permission_required("ai.add_conversazione", raise_exception=True)
 def invia(request, pk=None):
     testo = request.POST.get("testo", "").strip()
     conversazione = get_object_or_404(_mie(request), pk=pk) if pk else None
+    file = request.FILES.getlist("allegati")
+    try:
+        allegati_chat.controlla(file)
+    except AllegatoNonValido as e:
+        return _errore_invio(request, str(e), pk)
+    if file and not testo:
+        testo = "Guarda l'allegato."
     if not testo:
         return HttpResponse(status=204) if request.headers.get("HX-Request") else redirect(
             reverse("ai:conversazione", args=[pk]) if pk else reverse("ai:chat"))
@@ -93,7 +118,7 @@ def invia(request, pk=None):
         conversazione.ambito = ambito
         conversazione.save(update_fields=["ambito"])
     primo = conversazione.messaggi.order_by("-pk").values_list("pk", flat=True).first() or 0
-    turno = motore.avvia(conversazione, testo, request.user, getattr(request, "azienda", None))
+    turno = motore.avvia(conversazione, testo, request.user, getattr(request, "azienda", None), file=file)
     conversazione.save(update_fields=["aggiornata"])
     url = reverse("ai:conversazione", args=[conversazione.pk])
     if request.headers.get("HX-Request"):
@@ -103,6 +128,109 @@ def invia(request, pk=None):
         return render(request, "ai/_messaggi.html", {
             "messaggi": conversazione.messaggi.filter(pk__gt=primo), "turno": None if turno.concluso else turno})
     return redirect(url)
+
+
+def _ripartenza(request, conversazione, messaggio, testo):
+    try:
+        motore.riparti(conversazione, messaggio, testo, request.user, getattr(request, "azienda", None))
+    except motore.NonSiPuoRipartire as e:
+        messages.error(request, str(e))
+    return redirect("ai:conversazione", pk=conversazione.pk)
+
+
+@require_POST
+@login_required
+@permission_required("ai.add_conversazione", raise_exception=True)
+def rigenera(request, pk):
+    """Di nuovo l'ultima risposta: l'ultima domanda resta com'è."""
+    conversazione = get_object_or_404(_mie(request), pk=pk)
+    domanda = conversazione.messaggi.filter(ruolo=MessaggioChat.UTENTE).order_by("-pk").first()
+    if domanda is None:
+        return redirect("ai:conversazione", pk=pk)
+    return _ripartenza(request, conversazione, domanda, domanda.testo)
+
+
+@require_POST
+@login_required
+@permission_required("ai.add_conversazione", raise_exception=True)
+def modifica_messaggio(request, pk):
+    """Il messaggio cambia e tutto ciò che veniva dopo sparisce: la chat è una sola, non si ramifica."""
+    messaggio = get_object_or_404(MessaggioChat.objects.select_related("conversazione"), pk=pk, ruolo=MessaggioChat.UTENTE,
+                                  conversazione__in=_mie(request))
+    testo = request.POST.get("testo", "").strip()
+    if not testo:
+        messages.error(request, "Il messaggio non può essere vuoto.")
+        return redirect("ai:conversazione", pk=messaggio.conversazione_id)
+    return _ripartenza(request, messaggio.conversazione, messaggio, testo)
+
+
+@require_POST
+@login_required
+def rinomina(request, pk):
+    c = get_object_or_404(_mie(request), pk=pk)
+    titolo = " ".join(request.POST.get("titolo", "").split())[:120]
+    if titolo:                                           # scelto da una persona: il titolo automatico non lo tocca più
+        c.titolo, c.titolo_generato = titolo, True
+        c.save(update_fields=["titolo", "titolo_generato"])
+    return redirect("ai:conversazione", pk=c.pk)
+
+
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+def cerca_chat(request):
+    """Nelle proprie chat: titolo e testo dei messaggi."""
+    testo = request.GET.get("q", "").strip()[:100]
+    chat = _mie(request)
+    if testo:
+        chat = chat.filter(Q(titolo__icontains=testo) | Q(pk__in=MessaggioChat.objects.filter(testo__icontains=testo).values("conversazione_id")))
+    return render(request, "ai/_elenco_chat.html", {"chat": chat[:50], "vuoto": "Nessuna chat trovata." if testo else "Nessuna conversazione ancora."})
+
+
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+def esporta(request, pk):
+    """La conversazione in Markdown, come si legge a video."""
+    c = get_object_or_404(_mie(request), pk=pk)
+    righe = [f"# {c.titolo}", "", f"Esportata il {timezone.localtime():%d/%m/%Y %H:%M}", ""]
+    for m in c.messaggi.all():
+        righe += [f"## {'Tu' if m.ruolo == MessaggioChat.UTENTE else 'Assistente'} · {timezone.localtime(m.creato):%d/%m/%Y %H:%M}", "", m.testo, ""]
+        righe += [f"Allegato: {a.nome}" for a in allegati_chat.di(m)]
+    risposta = HttpResponse("\n".join(righe), content_type="text/markdown; charset=utf-8")
+    risposta["Content-Disposition"] = content_disposition_header(True, f"{get_valid_filename(c.titolo) or 'chat'}.md")
+    return risposta
+
+
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+def allegato(request, pk):
+    """Un file allegato a una delle proprie chat."""
+    voce = get_object_or_404(Allegato, pk=pk, content_type=ContentType.objects.get_for_model(MessaggioChat),
+                             object_id__in=MessaggioChat.objects.filter(conversazione__in=_mie(request)).values("pk"))
+    return core_allegati.risposta(voce)
+
+
+@require_POST
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+def voto(request, pk):
+    """Pollice su o giù, ripremerlo lo toglie. Con la risposta passa agli amministratori anche il commento."""
+    m = get_object_or_404(MessaggioChat, pk=pk, ruolo=MessaggioChat.ASSISTENTE, conversazione__in=_mie(request))
+    attuale = ValutazioneRisposta.objects.filter(messaggio=m).first()
+    if "commento" in request.POST:
+        if attuale:
+            attuale.commento = request.POST["commento"].strip()[:500]
+            attuale.save(update_fields=["commento", "creata"])
+        return render(request, "ai/_voto.html", {"m": m, "v": attuale, "grazie": True})
+    valore = {"1": 1, "-1": -1}.get(request.POST.get("voto"))
+    if valore is None:
+        return HttpResponse(status=400)
+    if attuale and attuale.voto == valore:
+        attuale.delete()
+        attuale = None
+    else:
+        attuale, _ = ValutazioneRisposta.objects.update_or_create(messaggio=m, defaults={
+            "voto": valore, "utente": request.user, "azienda": getattr(request, "azienda", None)})
+    return render(request, "ai/_voto.html", {"m": m, "v": attuale})
 
 
 @require_POST

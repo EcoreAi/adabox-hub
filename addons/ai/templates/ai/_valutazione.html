@@ -1,0 +1,8 @@
+{% load ai %}<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Domanda</div></div>
+  <div class="ui-card-body">{{ obj.domanda|linebreaksbr }}</div>
+</section>
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Risposta</div></div>
+  <div class="ui-card-body ai-md">{{ obj.messaggio.testo|markdown_ai }}</div>
+</section>

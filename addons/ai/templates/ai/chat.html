@@ -29,7 +29,8 @@
   <aside class="ai-pannello" id="ai-pannello-sinistra" hidden>
     <section data-contenuto="storico" hidden>
       <header class="ai-pannello-testa"><h2>Cronologia</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
-      {% include "ai/_elenco_chat.html" with chat=storico vuoto="Nessuna conversazione ancora." %}
+      <div class="ai-cerca-chat"><input class="ui-input" type="search" name="q" placeholder="Cerca nelle chat…" aria-label="Cerca nelle chat" hx-get="{% url 'ai:cerca_chat' %}" hx-trigger="input changed delay:300ms, search" hx-target="#ai-elenco-storico"></div>
+      <div id="ai-elenco-storico">{% include "ai/_elenco_chat.html" with chat=storico vuoto="Nessuna conversazione ancora." %}</div>
     </section>
     <section data-contenuto="preferite" hidden>
       <header class="ai-pannello-testa"><h2>Preferite</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
@@ -48,8 +49,11 @@
         {% if conversazione %}
         {# titolo e azioni della conversazione: una riga che scorre con i messaggi, non una seconda barra #}
         <div class="ai-titolo-chat">
-          <h1>{{ conversazione.titolo }}</h1>
+          <h1 data-titolo>{{ conversazione.titolo }}</h1>
+          <form class="ai-rinomina" method="post" action="{% url 'ai:rinomina' conversazione.pk %}" data-rinomina hidden>{% csrf_token %}<input class="ui-input" name="titolo" value="{{ conversazione.titolo }}" maxlength="120" aria-label="Titolo della chat" required><button type="submit" class="ui-btn ui-btn-sm ui-btn-primary">Salva</button></form>
           <span class="ai-spazio"></span>
+          <button type="button" class="ai-azione" data-apri-rinomina data-tip="Rinomina" aria-label="Rinomina la chat"><svg><use href="#icon-edit"/></svg></button>
+          <a class="ai-azione" href="{% url 'ai:esporta' conversazione.pk %}" data-tip="Esporta in Markdown" aria-label="Esporta la chat"><svg><use href="#icon-download"/></svg></a>
           <form method="post" action="{% url 'ai:preferita' conversazione.pk %}">{% csrf_token %}
             <button type="submit" class="ai-azione{% if conversazione.preferita %} is-preferita{% endif %}" aria-pressed="{{ conversazione.preferita|yesno:'true,false' }}"
                     data-tip="{% if conversazione.preferita %}Togli dalle preferite{% else %}Aggiungi alle preferite{% endif %}" aria-label="Preferita"><svg><use href="#ai-stella"/></svg></button>
@@ -72,15 +76,18 @@
     <div class="ai-fondo">
       <div class="ai-colonna">
         {% if avviso_spesa %}<p class="ai-avviso" role="status">{{ avviso_spesa }}</p>{% endif %}
-        <form class="ai-composer" method="post"
+        <p class="ai-avviso" role="alert" data-errore hidden></p>
+        <form class="ai-composer" method="post" enctype="multipart/form-data" hx-encoding="multipart/form-data"
               action="{% if conversazione %}{% url 'ai:invia_conversazione' conversazione.pk %}{% else %}{% url 'ai:invia' %}{% endif %}"
               hx-post="{% if conversazione %}{% url 'ai:invia_conversazione' conversazione.pk %}{% else %}{% url 'ai:invia' %}{% endif %}"
               hx-target="#ai-messaggi" hx-swap="beforeend">
           {% csrf_token %}
           <input type="hidden" name="ambito" value="{{ conversazione.ambito|default:'' }}" data-ambito>
+          <ul class="ai-allegati" data-allegati hidden></ul>
           <textarea name="testo" rows="3" class="ai-input" placeholder="{% if conversazione %}Rispondi…{% else %}Come posso aiutarti oggi?{% endif %}" aria-label="Messaggio" required></textarea>
           <div class="ai-composer-barra">
-            <button type="button" class="ai-tondo" disabled data-tip="Allegati: in arrivo" aria-label="Allega (in arrivo)"><svg><use href="#ai-piu"/></svg></button>
+            <input type="file" name="allegati" multiple hidden data-file accept=".pdf,.docx,.xlsx,.xlsm,.csv,.tsv,.txt,.md,.json,.xml,.html,.htm,.eml">
+            <button type="button" class="ai-tondo" data-allega data-tip="Allega PDF, Word, Excel, CSV o testo (fino a 5 file)" aria-label="Allega dei file"><svg><use href="#ai-piu"/></svg></button>
             {% if app %}
             <div class="ai-app-scelta">
               <button type="button" class="ai-app-btn" data-apri-app aria-haspopup="true" aria-expanded="false" aria-controls="ai-scheda-app">
