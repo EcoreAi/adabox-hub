@@ -36,7 +36,7 @@ def specifiche(vista, request):
             spec["opzioni"] = [(str(k), v) for k, v in f.flatchoices]
         elif f.is_relation:
             qs = f.related_model._default_manager.all()
-            azienda_id = getattr(getattr(request, "azienda", None), "pk", None)    # lazy: può avvolgere None
+            azienda_id = getattr(getattr(request, "azienda", None), "pk", None)
             if any(c.name == "azienda" for c in f.related_model._meta.get_fields()):
                 qs = qs.none() if azienda_id is None else qs.filter(azienda_id=azienda_id)
             spec["opzioni"] = [(str(o.pk), str(o)) for o in qs[:LIMITE_OPZIONI]]

@@ -156,7 +156,7 @@ class ValutazioneView(ModelView):
     def get_queryset(self, request):
         qs = super().get_queryset(request).select_related("ticket")
         azienda_id = getattr(getattr(request, "azienda", None), "pk", None)
-        return qs.filter(ticket__azienda_id=azienda_id) if azienda_id is not None else qs
+        return qs.filter(ticket__azienda_id=azienda_id) if azienda_id is not None else qs.none()
 
     def has_add_permission(self, request):
         return False

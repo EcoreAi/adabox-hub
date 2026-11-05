@@ -20,7 +20,8 @@ def _url(p):
 
 
 def _mie_e_condivise(contesto):
-    return Pagina.objects.filter(Q(utente=contesto.utente) | Q(condivisa=True)).select_related("utente").order_by("app", "ordine", "pk")
+    return ((Pagina.objects.filter(utente=contesto.utente) | motore.condivise(contesto.azienda)).distinct()
+            .select_related("utente").order_by("app", "ordine", "pk"))
 
 
 def _trova(contesto, pagina):

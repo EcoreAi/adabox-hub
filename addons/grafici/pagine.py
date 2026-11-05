@@ -33,7 +33,7 @@ def _mia(request, pk):
 
 def _visibile(request, pk):
     p = get_object_or_404(Pagina.objects.select_related("utente"), pk=pk)
-    if p.utente_id != request.user.id and not p.condivisa:
+    if p.utente_id != request.user.id and not motore.condivise(request.azienda).filter(pk=p.pk).exists():
         raise Http404
     return p
 
@@ -83,7 +83,7 @@ def pagine(request):
     nascoste = {p.app for p in mie if p.app and p.nascosta}
     return render(request, "grafici/pagine.html", {
         "libere": [p for p in mie if not p.app], "app_pagine": [p for p in mie if p.app],
-        "condivise": Pagina.objects.filter(condivisa=True).exclude(utente=request.user).select_related("utente"),
+        "condivise": motore.condivise(request.azienda).exclude(utente=request.user).select_related("utente"),
         "app_nascoste": [a for a in motore.app_con_indicatori(request.user) if a["slug"] in nascoste],
         "libreria": motore.libreria_di(request.user),
         "destinazioni": motore.destinazioni(request), "icone": motore.ICONE})
@@ -220,7 +220,7 @@ def nascondi_app(request, app):
 
 def _grafico_visibile(request, pk):
     g = get_object_or_404(Grafico.objects.select_related("utente"), pk=pk)
-    if not motore.puo_vedere(g, request.user):
+    if not motore.puo_vedere(g, request.user, request.azienda):
         raise Http404
     return g
 
@@ -240,7 +240,8 @@ def _scelte_pagine(g, request):
 def _persone(g, request):
     """Con chi si può condividere: i colleghi attivi, non i clienti del portale."""
     condivisi = set(g.condiviso_con.values_list("pk", flat=True))
-    utenti = get_user_model().objects.filter(is_active=True).exclude(profilo__esterno=True).exclude(pk=g.utente_id).order_by("first_name", "last_name", "username")
+    utenti = get_user_model().objects.none() if request.azienda is None else get_user_model().objects.filter(
+        is_active=True, profilo__aziende=request.azienda).exclude(profilo__esterno=True).exclude(pk=g.utente_id).order_by("first_name", "last_name", "username")
     return [{"pk": u.pk, "nome": u.get_full_name() or u.get_username(), "dentro": u.pk in condivisi} for u in utenti]
 
 

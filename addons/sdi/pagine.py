@@ -34,8 +34,7 @@ def invia(request, pk):
 
 def _trasmissione(request, pk):
     azienda_id = getattr(getattr(request, "azienda", None), "pk", None)
-    qs = Trasmissione.objects.all() if azienda_id is None else Trasmissione.objects.filter(azienda_id=azienda_id)
-    return get_object_or_404(qs, pk=pk)
+    return get_object_or_404(Trasmissione.objects.none() if azienda_id is None else Trasmissione.objects.filter(azienda_id=azienda_id), pk=pk)
 
 
 @login_required

@@ -75,7 +75,7 @@ class RigaOreView(ModelView):
             if "progetto" in form.fields:
                 form.fields["progetto"].queryset = form.fields["progetto"].queryset.filter(pk__in=progetti)
             if "compito" in form.fields:
-                form.fields["compito"].queryset = Compito.objects.filter(progetto__in=progetti)
+                form.fields["compito"].queryset = Compito.objects.filter(progetto__in=progetti, azienda=request.azienda)
             if not vede_tutte(user):
                 form.fields.pop("utente", None)            # si registra solo per sé
         return type(base)(base.__name__, (base,), {"__init__": __init__, "__module__": base.__module__})

@@ -21,6 +21,7 @@ from django.views.decorators.http import require_POST
 
 from contatti.models import Contatto
 from core import allegati, chatter, modelli_email
+from core.dashboard import queryset
 from core.models import Allegato, Messaggio, ProfiloUtente
 from helpdesk.guida import cerca
 from helpdesk.models import Articolo, FaseTicket, Ticket
@@ -230,7 +231,7 @@ def invita(contatto, da_utente):
 def invita_contatto(request, pk):
     if not request.user.has_perm("assistenza.add_accessoportale"):
         raise PermissionDenied
-    contatto = get_object_or_404(Contatto, pk=pk)
+    contatto = get_object_or_404(queryset(request, Contatto), pk=pk)
     try:
         invita(contatto, request.user)
     except ValueError as e:

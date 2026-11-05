@@ -1,5 +1,3 @@
-from django.utils.functional import SimpleLazyObject
-
 from .azienda import corrente
 
 
@@ -105,15 +103,15 @@ def modulo_di(percorso):
 
 
 class AziendaCorrenteMiddleware:
-    """request.azienda: lazy, nessuna query se la pagina non la usa; None per l'anonimo."""
+    """request.azienda: l'azienda corrente, o None per l'anonimo e per chi non ne ha una attiva.
+
+    Si risolve subito e non in modo lazy: un oggetto lazy che avvolge None non è None, quindi i controlli
+    `azienda is None` non scattavano e i filtri `azienda=request.azienda` finivano in un errore 500."""
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
         user = getattr(request, "user", None)
-        if user is not None and user.is_authenticated:
-            request.azienda = SimpleLazyObject(lambda: corrente(request))
-        else:
-            request.azienda = None
+        request.azienda = corrente(request) if user is not None and user.is_authenticated else None
         return self.get_response(request)

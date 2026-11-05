@@ -98,3 +98,114 @@ def test_api_senza_azienda_non_restituisce_nulla(client, scena):
     _togli_aziende(u)
     vuota = client.get("/api/v1/acquisti/ordini/", HTTP_AUTHORIZATION=f"Bearer {chiaro}")
     assert vuota.status_code == 200 and b"ORDINE-A" not in vuota.content and b"ORDINE-B" not in vuota.content
+
+
+def _root_di(azienda):
+    """Un superuser che lavora solo in un'azienda (o in nessuna): i permessi non contano, conta solo l'azienda."""
+    root = User.objects.create_superuser("root", "r@example.com", "pass12345!")
+    root.profilo.aziende.set([azienda] if azienda else [])
+    root.profilo.azienda_predefinita = azienda
+    root.profilo.save()
+    return root
+
+
+@pytest.mark.parametrize("url", ["/automazioni/", "/documenti/", "/banca/riconcilia/", "/capacita/carico/", "/fatturazione/scadenze/"])
+def test_senza_azienda_le_pagine_rispondono_senza_errori(client, scena, url):
+    """request.azienda è None davvero: i controlli `is None` scattano e i filtri non vanno in errore."""
+    client.force_login(_root_di(None))
+    assert client.get(url).status_code == 200
+
+
+def test_senza_azienda_nessuno_spazio_documenti_viene_creato(client, scena):
+    from documenti.models import Spazio
+    client.force_login(_root_di(None))
+    client.get("/documenti/")
+    assert not Spazio.objects.exists()
+
+
+def _fattura(azienda, sigla):
+    from fatturazione.models import Fattura, Incasso, Scadenza
+    cliente = Contatto.objects.create(azienda=azienda, nome=f"CLIENTE-{sigla}", cliente=True)
+    fattura = Fattura.objects.create(azienda=azienda, cliente=cliente)
+    scadenza = Scadenza.objects.create(fattura=fattura, data="2026-01-31", importo=100)
+    return fattura, scadenza, Incasso.objects.create(scadenza=scadenza, data="2026-01-31", importo=100)
+
+
+@pytest.mark.parametrize("lista", ["/fatturazione/scadenze/", "/fatturazione/incassi/"])
+def test_le_righe_figlie_seguono_l_azienda_del_documento(client, scena, lista):
+    """Scadenze e incassi non hanno un'azienda propria: si filtrano su quella della fattura, mai su tutte."""
+    a, b = scena[1], scena[2]
+    _fattura(a, "A"), _fattura(b, "B")
+    client.force_login(_root_di(a))
+    pagina = client.get(lista).content.decode()
+    assert "CLIENTE-A" in pagina and "CLIENTE-B" not in pagina
+
+
+@pytest.mark.parametrize("lista", ["/fatturazione/scadenze/", "/fatturazione/incassi/"])
+def test_senza_azienda_le_righe_figlie_sono_vuote(client, scena, lista):
+    _fattura(scena[1], "A")
+    client.force_login(_root_di(None))
+    assert "CLIENTE-A" not in client.get(lista).content.decode()
+
+
+def test_senza_azienda_il_dettaglio_di_una_scadenza_e_404(client, scena):
+    _, scadenza, _ = _fattura(scena[1], "A")
+    client.force_login(_root_di(None))
+    assert client.get(f"/fatturazione/scadenze/{scadenza.pk}/").status_code == 404
+
+
+def test_invito_al_portale_solo_per_i_contatti_dell_azienda(client, scena, mailoutbox):
+    a, b = scena[1], scena[2]
+    altrui = Contatto.objects.create(azienda=b, nome="ALTRUI", email="altrui@example.com")
+    client.force_login(_root_di(a))
+    assert client.post(f"/assistenza/contatto/{altrui.pk}/invita/").status_code == 404
+    assert not mailoutbox
+
+
+def test_compito_di_sviluppo_solo_dai_ticket_dell_azienda(client, scena):
+    from helpdesk.models import FaseTicket, Ticket
+    from progetti.models import Compito
+    a, b = scena[1], scena[2]
+    altrui = Ticket.objects.create(azienda=b, oggetto="ALTRUI", fase=FaseTicket.objects.create(nome="Nuovo"))
+    client.force_login(_root_di(a))
+    assert client.post(f"/assistenza/ticket/{altrui.pk}/compito/").status_code == 404
+    assert not Compito.objects.exists()
+
+
+def test_xml_della_trasmissione_solo_dell_azienda(client, scena):
+    from sdi.models import Trasmissione
+    a, b = scena[1], scena[2]
+    fattura, _, _ = _fattura(b, "B")
+    trasmissione = Trasmissione.objects.create(azienda=b, fattura=fattura)
+    for azienda in (a, None):
+        User.objects.filter(username="root").delete()
+        client.force_login(_root_di(azienda))
+        assert client.get(f"/sdi/trasmissione/{trasmissione.pk}/xml/").status_code == 404
+
+
+def test_collaudo_solo_dell_azienda(client, scena):
+    from progetti.models import Progetto
+    from qualita.models import Collaudo
+    a, b = scena[1], scena[2]
+    progetto = Progetto.objects.create(azienda=b, nome="ALTRUI")
+    collaudo = Collaudo.objects.create(azienda=b, progetto=progetto, nome="ALTRUI")
+    client.force_login(_root_di(a))
+    assert client.get(f"/qualita/collaudi/{collaudo.pk}/esegui/").status_code == 404
+
+
+def test_pagine_condivise_solo_nell_azienda_del_proprietario(client, scena):
+    from grafici.models import Pagina
+    a, b = scena[1], scena[2]
+    collega = User.objects.create_user("collega", "c@example.com", "pass12345!")
+    collega.profilo.aziende.set([a])
+    esterno = User.objects.create_user("esterno", "e@example.com", "pass12345!")
+    esterno.profilo.aziende.set([b])
+    nostra = Pagina.objects.create(utente=collega, titolo="NOSTRA", condivisa=True)
+    altrui = Pagina.objects.create(utente=esterno, titolo="ALTRUI", condivisa=True)
+    u = scena[0]
+    u.user_permissions.add(*Permission.objects.filter(content_type__app_label="grafici"))
+    client.force_login(u)
+    elenco = client.get("/grafici/").content.decode()
+    assert "NOSTRA" in elenco and "ALTRUI" not in elenco
+    assert client.get(f"/grafici/pagina/{nostra.pk}/").status_code == 200
+    assert client.get(f"/grafici/pagina/{altrui.pk}/").status_code == 404

@@ -151,7 +151,7 @@ class ModelView:
 
     def get_queryset(self, request):
         qs = self.model._default_manager.all()
-        azienda_id = getattr(getattr(request, "azienda", None), "pk", None)    # lazy: può avvolgere None
+        azienda_id = getattr(getattr(request, "azienda", None), "pk", None)
         if self.company_field:                     # senza azienda corrente non si vede nulla, mai tutto
             qs = qs.none() if azienda_id is None else qs.filter(**{f"{self.company_field}_id": azienda_id})
         if self.ordering:
