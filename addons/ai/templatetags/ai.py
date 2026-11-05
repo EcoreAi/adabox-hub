@@ -29,6 +29,15 @@ def artifact(messaggio):
 
 
 @register.filter
+def documenti(messaggio):
+    """I documenti scritti o modificati da Ada nel turno di una risposta."""
+    if getattr(messaggio, "ruolo", "") != "assistente" or not messaggio.turno_id:
+        return []
+    from ai.models import DocumentoChat
+    return DocumentoChat.objects.filter(versioni__turno_id=messaggio.turno_id).distinct()
+
+
+@register.filter
 def svg_artifact(a):
     from django.utils.safestring import mark_safe
 

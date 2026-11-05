@@ -252,6 +252,7 @@
   // --- risposta in diretta: la bolla "in corso" segue il turno con Server-Sent Events ---
   const csrf = form.querySelector('input[name="csrfmiddlewaretoken"]').value;
   const NOMI = {
+    scrivi_documento: 'scrivo il documento', leggi_documento: 'leggo il documento', modifica_documento: 'modifico il documento',
     data_e_ora: 'controllo data e ora', app_disponibili: 'guardo le app disponibili',
     elenco_viste: 'guardo dove sono i dati', descrivi_vista: 'leggo la struttura dei dati',
     cerca_record: 'cerco i record', leggi_record: 'leggo il record', aggrega_record: 'calcolo i totali',
@@ -300,6 +301,7 @@
     });
     sorgente.addEventListener('fine', (e) => {
       sorgente.close();
+      document.dispatchEvent(new CustomEvent('ai:risposta-finita'));
       const dati = JSON.parse(e.data);
       if (dati.html) bolla.outerHTML = dati.html; else bolla.remove();
       if (window.htmx) window.htmx.process(messaggi);
@@ -332,6 +334,48 @@
   document.body.addEventListener('htmx:afterRequest', (e) => {
     if (e.detail.elt === form && !messaggi.querySelector('[data-flusso]')) { aggiorna(); input.focus(); }
   });
+
+  // --- documento accanto alla chat: leggi o modifica, niente modifiche perse ---
+  const tela = () => document.querySelector('[data-tela]');
+  let modificato = false;
+  const modo = (quale) => {
+    const t = tela();
+    if (!t) return;
+    t.querySelectorAll('[data-modo]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.modo === quale)));
+    t.querySelector('[data-letto]').hidden = quale !== 'leggi';
+    t.querySelector('[data-scrittura]').hidden = quale !== 'modifica';
+    if (quale === 'modifica') t.querySelector('textarea[name=testo]').focus();
+  };
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tela] [data-modo]');
+    if (b) modo(b.dataset.modo);
+  });
+  document.addEventListener('input', (e) => {
+    if (e.target.closest('[data-tela] [data-scrittura]')) modificato = true;
+  });
+  document.body.addEventListener('htmx:afterSwap', (e) => {
+    if (e.detail.target && e.detail.target.id === 'ai-tela') modificato = false;
+  });
+  document.body.addEventListener('htmx:afterSettle', (e) => {
+    const t = tela();
+    if (t && e.detail.target === t && t.querySelector('[role=alert]') && t.querySelector('.ai-tela-perso')) modo('modifica');
+  });
+  // dopo una risposta di Ada il documento si ricarica, se non ci sono modifiche da salvare
+  document.addEventListener('ai:risposta-finita', () => {
+    const t = tela();
+    if (!t || !window.htmx) return;
+    if (modificato) {
+      if (!t.querySelector('[data-avviso-cambiato]')) {
+        const p = document.createElement('p');
+        p.className = 'ai-avviso'; p.dataset.avvisoCambiato = '';
+        p.textContent = 'Ada potrebbe aver cambiato il documento: salvando le tue modifiche ti avviserò se c\'è un conflitto.';
+        t.querySelector('.ai-tela-schede').before(p);
+      }
+      return;
+    }
+    window.htmx.ajax('GET', t.dataset.url, { target: '#ai-tela', swap: 'outerHTML' });
+  });
+  window.addEventListener('beforeunload', (e) => { if (modificato) { e.preventDefault(); e.returnValue = ''; } });
 
   decora();
   aggiorna();

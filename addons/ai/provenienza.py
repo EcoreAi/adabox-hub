@@ -12,7 +12,8 @@ DATA = re.compile(r"\b\d{1,4}[/-]\d{1,2}[/-]\d{1,4}\b|\b\d{1,2}:\d{2}\b")
 LINK = re.compile(r"\]\([^)]*\)|https?://\S+")
 MAX_SEGNALATI = 5
 # Da dove viene un dato letto: una pagina web o un file non sono dati del gestionale, e il badge non deve dirlo
-FUORI_DAL_GESTIONALE = {"cerca_web": "web", "leggi_pagina": "web", "leggi_allegato": "allegati"}
+FUORI_DAL_GESTIONALE = {"cerca_web": "web", "leggi_pagina": "web", "leggi_allegato": "allegati",
+                        "scrivi_documento": "documento", "leggi_documento": "documento", "modifica_documento": "documento"}
 ESTERNO = re.compile(r"mcp\d+_")                       # gli strumenti dei sistemi esterni (ai/mcp.py)
 
 
@@ -68,7 +69,7 @@ def _trovato(valore, fonti):
 def calcola(turno, testo, protetti=0):
     eventi = list(Evento.objects.filter(turno=turno).order_by("pk"))
     strumenti, letture, fonti, nomi = [], 0, [], {}
-    fuori = {"web": 0, "allegati": 0, "esterni": 0}
+    fuori = {"web": 0, "allegati": 0, "esterni": 0, "documento": 0}
     for ev in eventi:
         if ev.tipo == Evento.UTENTE:
             fonti += [v for _, v in numeri(ev.dati.get("testo", ""))]
@@ -91,7 +92,7 @@ def calcola(turno, testo, protetti=0):
     for t, v in nella_risposta:
         if not _trovato(v, fonti) and t not in non_verificati:
             non_verificati.append(t)
-    if not letture and not any(fuori.values()):
+    if not letture and not any(v for k, v in fuori.items() if k != "documento"):
         esito = "senza fonti" if nella_risposta else "conversazione"
     else:
         esito = "parziale" if non_verificati else "verificato"

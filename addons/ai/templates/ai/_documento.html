@@ -1,0 +1,5 @@
+{# Un documento scritto o modificato da Ada in questa risposta: si apre accanto alla chat. #}
+<a class="ai-doc-scheda" href="{% url 'ai:conversazione' d.conversazione_id %}?documento={{ d.pk }}" data-apri-documento="{{ d.pk }}">
+  <span class="ai-doc-icona" aria-hidden="true"><svg><use href="#ai-documento"/></svg></span>
+  <span class="ai-doc-testi"><span class="ai-doc-titolo">{{ d.titolo }}</span><span class="ai-doc-meta">Documento · versione {{ d.versione }} · apri accanto alla chat</span></span>
+</a>

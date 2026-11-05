@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -18,8 +18,9 @@ from core.allegati import AllegatoNonValido
 from core.models import Allegato
 from core.registry import modules
 
-from . import allegati_chat, catalogo, motore, suggerimenti
-from .models import Artifact, Conversazione, MessaggioChat, ProgettoChat, Proposta, Turno, ValutazioneRisposta
+from . import allegati_chat, catalogo, documenti_chat, motore, suggerimenti
+from .strumenti.registro import ErroreStrumento
+from .models import Artifact, Conversazione, DocumentoChat, VersioneDocumento, MessaggioChat, ProgettoChat, Proposta, Turno, ValutazioneRisposta
 
 PANNELLI_SINISTRA = [("storico", "Cronologia chat", "ai-storico"), ("preferite", "Chat preferite", "ai-stella"), ("progetti", "Progetti", "ai-documento")]
 PANNELLI_DESTRA = [("artifact", "Artifact salvati", "ai-artifact"), ("documenti", "Documenti salvati", "ai-documento"),
@@ -67,7 +68,9 @@ def chat(request, pk=None):
     if conversazione is not None:
         motore.segna_interrotti(conversazione)
     in_corso = motore.in_corso_di(conversazione) if conversazione else None
+    aperto = _mio_documento(request, request.GET.get("documento"), conversazione) if conversazione else None
     return render(request, "ai/chat.html", {
+        "documento": aperto, "versioni": aperto.versioni.all()[:20] if aperto else [],
         "conversazione": conversazione, "ambito": ambito, "turno": in_corso, "avviso_spesa": _avviso_spesa(request),
         "messaggi": conversazione.messaggi.all() if conversazione else [],
         "storico": mie[:50], "preferite": mie.filter(preferita=True)[:50],
@@ -83,7 +86,8 @@ def _salvati(request):
     """Artifact salvati per pannello: grafici nel loro, tabelle in «Artifact salvati»."""
     salvati = Artifact.objects.filter(utente=request.user, salvato=True).order_by("-pk")[:100]
     return {"grafici": [a for a in salvati if a.tipo == Artifact.GRAFICO],
-            "artifact": [a for a in salvati if a.tipo == Artifact.TABELLA]}
+            "artifact": [a for a in salvati if a.tipo == Artifact.TABELLA],
+            "documenti": DocumentoChat.objects.filter(utente=request.user, salvato=True, conversazione__nascosta=False).order_by("-pk")[:100]}
 
 
 def _mio_progetto(request, pk):
@@ -136,7 +140,9 @@ def invia(request, pk=None):
             conversazione.modello = scelto
             conversazione.save(update_fields=["modello"])
     primo = conversazione.messaggi.order_by("-pk").values_list("pk", flat=True).first() or 0
-    turno = motore.avvia(conversazione, testo, request.user, getattr(request, "azienda", None), file=file)
+    aperto = _mio_documento(request, request.POST.get("documento"), conversazione) if not nuova else None
+    turno = motore.avvia(conversazione, testo, request.user, getattr(request, "azienda", None), file=file,
+                         nota=documenti_chat.nota(aperto))
     conversazione.save(update_fields=["aggiornata"])
     url = reverse("ai:conversazione", args=[conversazione.pk])
     if request.headers.get("HX-Request"):
@@ -409,3 +415,88 @@ def strumenti_mcp(request, pk):
     server.save(update_fields=["strumenti"])
     messages.success(request, f"Strumenti accesi: {sum(v['abilitato'] for v in server.strumenti)}.")
     return redirect("ai:mcp_dettaglio", pk=pk)
+
+
+def _mio_documento(request, pk, conversazione=None):
+    """Un documento dell'utente (della conversazione, se data), o None."""
+    if not str(pk or "").isdigit():
+        return None
+    qs = DocumentoChat.objects.filter(pk=pk, utente=request.user, conversazione__nascosta=False)
+    return qs.filter(conversazione=conversazione).first() if conversazione is not None else qs.first()
+
+
+def _tela(request, d, **extra):
+    return render(request, "ai/_tela.html", {"documento": d, "versioni": d.versioni.all()[:20], **extra})
+
+
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+def documento(request, pk):
+    """L'editor accanto alla chat (anche ricaricato dopo una risposta di Ada); fuori da HTMX porta alla chat."""
+    d = _mio_documento(request, pk)
+    if d is None:
+        raise Http404
+    if not request.headers.get("HX-Request"):
+        return redirect(f"{reverse('ai:conversazione', args=[d.conversazione_id])}?documento={d.pk}")
+    return _tela(request, d)
+
+
+@require_POST
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+def salva_documento(request, pk):
+    d = _mio_documento(request, pk)
+    if d is None:
+        raise Http404
+    try:
+        vista = int(request.POST.get("versione", ""))
+    except ValueError:
+        vista = -1
+    try:
+        d = documenti_chat.nuova_versione(d, request.POST.get("testo", "").replace("\r\n", "\n"), VersioneDocumento.UTENTE, versione_vista=vista)
+    except documenti_chat.Conflitto:
+        d.refresh_from_db()
+        return _tela(request, d, avviso="Nel frattempo il documento è cambiato: le tue modifiche non sono salvate. Eccole qui sotto, da ricopiare.",
+                     non_salvato=request.POST.get("testo", ""))
+    except ErroreStrumento as e:
+        return _tela(request, d, avviso=str(e), non_salvato=request.POST.get("testo", ""))
+    return _tela(request, d, salvato=True)
+
+
+@require_POST
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+def ripristina_documento(request, pk, numero):
+    d = _mio_documento(request, pk)
+    if d is None:
+        raise Http404
+    versione = get_object_or_404(VersioneDocumento, documento=d, numero=numero)
+    d = documenti_chat.nuova_versione(d, versione.testo, VersioneDocumento.UTENTE)
+    return _tela(request, d, avviso=f"Ripristinata la versione {numero}: è diventata la versione {d.versione}.")
+
+
+@require_POST
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+def stella_documento(request, pk):
+    d = _mio_documento(request, pk)
+    if d is None:
+        raise Http404
+    d.salvato = not d.salvato
+    d.save(update_fields=["salvato"])
+    return _tela(request, d)
+
+
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+def scarica_documento(request, pk, formato):
+    d = _mio_documento(request, pk)
+    if d is None or formato not in ("md", "docx"):
+        raise Http404
+    nome = get_valid_filename(d.titolo) or "documento"
+    if formato == "md":
+        risposta = HttpResponse(f"# {d.titolo}\n\n{d.testo}", content_type="text/markdown; charset=utf-8")
+    else:
+        risposta = HttpResponse(documenti_chat.in_word(d), content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    risposta["Content-Disposition"] = content_disposition_header(True, f"{nome}.{formato}")
+    return risposta

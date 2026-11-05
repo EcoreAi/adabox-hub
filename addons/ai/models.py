@@ -541,3 +541,40 @@ class ServerMCP(models.Model):
     def token(self):
         from core import cifratura
         return cifratura.decifra(self.token_cifrato)
+
+
+class DocumentoChat(models.Model):
+    """Un testo lungo che Ada e l'utente scrivono insieme, aperto accanto alla chat. Ogni modifica è una versione."""
+    conversazione = models.ForeignKey(Conversazione, on_delete=models.CASCADE, related_name="documenti", verbose_name="conversazione")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+", verbose_name="utente")
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, verbose_name="azienda")
+    titolo = models.CharField("titolo", max_length=200)
+    testo = models.TextField("testo", blank=True)
+    versione = models.PositiveIntegerField("versione", default=1)
+    salvato = models.BooleanField("salvato", default=False)
+    creato = models.DateTimeField("creato il", auto_now_add=True)
+    aggiornato = models.DateTimeField("modificato il", auto_now=True)
+
+    class Meta:
+        verbose_name = "documento della chat"
+        verbose_name_plural = "documenti della chat"
+        ordering = ["pk"]
+
+    def __str__(self):
+        return self.titolo
+
+
+class VersioneDocumento(models.Model):
+    ADA, UTENTE = "ada", "utente"
+    documento = models.ForeignKey(DocumentoChat, on_delete=models.CASCADE, related_name="versioni", verbose_name="documento")
+    numero = models.PositiveIntegerField("numero")
+    testo = models.TextField("testo", blank=True)
+    autore = models.CharField("autore", max_length=6, choices=[(ADA, "Ada"), (UTENTE, "Utente")])
+    turno = models.ForeignKey(Turno, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="turno")
+    creata = models.DateTimeField("creata il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "versione del documento"
+        verbose_name_plural = "versioni del documento"
+        ordering = ["-numero"]
+        constraints = [models.UniqueConstraint(fields=["documento", "numero"], name="ai_versione_documento_unica")]

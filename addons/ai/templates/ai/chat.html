@@ -14,7 +14,7 @@
 {% include 'theme/partials/_icons.html' %}
 {% include "ai/_icone.html" %}
 {% include 'theme/partials/_header.html' %}
-<div class="ai-chat" data-ai-chat>
+<div class="ai-chat{% if documento %} con-documento{% endif %}" data-ai-chat>
 
   {# ---------- colonna sinistra: barra di icone ---------- #}
   <nav class="ai-rail" aria-label="Navigazione">
@@ -89,6 +89,7 @@
               hx-target="#ai-messaggi" hx-swap="beforeend">
           {% csrf_token %}
           <input type="hidden" name="ambito" value="{{ conversazione.ambito|default:'' }}" data-ambito>
+          {% if documento %}<input type="hidden" name="documento" value="{{ documento.pk }}">{% endif %}
           {% if progetto_nuova %}<input type="hidden" name="progetto" value="{{ progetto_nuova.pk }}"><p class="ai-progetto-nuova">Nuova chat nel progetto <strong>{{ progetto_nuova.nome }}</strong></p>{% endif %}
           <ul class="ai-allegati" data-allegati hidden></ul>
           <textarea name="testo" rows="3" class="ai-input" placeholder="{% if conversazione %}Rispondi…{% else %}Come posso aiutarti oggi?{% endif %}" aria-label="Messaggio" required></textarea>
@@ -150,13 +151,15 @@
   </main>
 
   {# ---------- colonna destra: pannello e barra di icone ---------- #}
+  {% if documento %}{% include "ai/_tela.html" %}{% endif %}
   <aside class="ai-pannello ai-pannello-destra" id="ai-pannello-destra" hidden>
     {% for chiave, etichetta, icona in pannelli_destra %}
     <section data-contenuto="{{ chiave }}" hidden>
       <header class="ai-pannello-testa"><h2>{{ etichetta }}</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
       {% if chiave == "grafici" %}{% include "ai/_elenco_artifact.html" with voci=salvati.grafici icona=icona %}
       {% elif chiave == "artifact" %}{% include "ai/_elenco_artifact.html" with voci=salvati.artifact icona=icona %}
-      {% else %}<div class="ai-vuoto"><svg><use href="#{{ icona }}"/></svg><p>Nessun documento salvato.<br>Arriveranno con la ricerca nei documenti.</p></div>{% endif %}
+      {% elif salvati.documenti %}<ul class="ai-elenco">{% for d in salvati.documenti %}<li><a href="{% url 'ai:conversazione' d.conversazione_id %}?documento={{ d.pk }}"><span class="ai-elenco-titolo">{{ d.titolo }}</span><span class="ai-elenco-data">{{ d.aggiornato|date:"d/m H:i" }}</span></a></li>{% endfor %}</ul>
+      {% else %}<div class="ai-vuoto"><svg><use href="#{{ icona }}"/></svg><p>Nessun documento salvato.<br>Chiedi ad Ada di scriverne uno e salvalo con la stella.</p></div>{% endif %}
     </section>
     {% endfor %}
   </aside>

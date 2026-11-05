@@ -324,3 +324,31 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 /* gruppo 2: modello, progetti */
 .ai-modello { width: auto; max-width: 180px; padding: 4px 8px; font-size: 12px; height: auto; }
 .ai-progetto-nuova { font-size: 12px; color: var(--ui-text-2); margin: 0 0 6px; }
+
+/* documento accanto alla chat */
+.ai-doc-scheda { display: flex; align-items: center; gap: 12px; margin: 10px 0; padding: 12px 14px; border: 1px solid var(--ui-border); border-radius: 12px; text-decoration: none; color: inherit; max-width: 460px; background: var(--ui-surface, #fff); }
+.ai-doc-scheda:hover { border-color: var(--ui-primary, #2b4bb5); }
+.ai-doc-icona svg { width: 22px; height: 22px; }
+.ai-doc-testi { display: flex; flex-direction: column; min-width: 0; }
+.ai-doc-titolo { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-doc-meta { font-size: .8rem; color: var(--ui-muted, #6b7280); }
+.ai-tela { width: min(48vw, 780px); flex: none; display: flex; flex-direction: column; gap: 10px; padding: 16px 20px; border-left: 1px solid var(--ui-border); overflow-y: auto; background: var(--ui-surface, #fff); }
+.ai-tela-testa { display: flex; align-items: center; gap: 6px; }
+.ai-tela-titolo { font-size: 1.05rem; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-azione-testo { font-size: .75rem; font-weight: 600; width: auto; padding: 0 6px; }
+.ai-tela-schede { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--ui-border); }
+.ai-tela-scheda { border: 0; background: none; padding: 6px 10px; cursor: pointer; color: var(--ui-muted, #6b7280); border-bottom: 2px solid transparent; }
+.ai-tela-scheda[aria-selected="true"] { color: inherit; border-bottom-color: var(--ui-primary, #2b4bb5); font-weight: 600; }
+.ai-tela-letto { line-height: 1.6; }
+.ai-tela-form { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.ai-tela-testo { flex: 1; min-height: 50vh; font-family: var(--font-mono, ui-monospace, monospace); font-size: .9rem; line-height: 1.5; resize: vertical; }
+.ai-tela-barra { display: flex; align-items: center; gap: 8px; }
+.ai-tela-versioni ul { list-style: none; padding: 0; margin: 8px 0 0; }
+.ai-tela-versioni li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--ui-border); font-size: .85rem; }
+.ai-tela-perso textarea { width: 100%; }
+@media (max-width: 900px) {
+  .ai-tela { position: absolute; inset: 0; width: auto; z-index: 45; }
+}
+.ai-chat.con-documento .ai-suggerimento-tasti { display: none; }
+.ai-chat.con-documento .ai-composer-barra { flex-wrap: wrap; min-width: 0; }
+.ai-chat.con-documento .ai-modello { max-width: 9rem; }

@@ -3,4 +3,4 @@ from .registro import Contesto, ErroreStrumento, Strumento, disponibili, esegui,
 
 from . import base, conoscenza, esperti, memoria, pianificazioni, scritture, specialisti, viste, web  # noqa: F401,E402  (registrano gli strumenti)
 
-from .. import artifact  # noqa: F401,E402  (grafici e tabelle)
+from .. import artifact, documenti_chat  # noqa: F401,E402  (grafici e tabelle, documenti accanto alla chat)
