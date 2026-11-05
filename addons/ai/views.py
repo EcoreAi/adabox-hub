@@ -71,6 +71,7 @@ class ProfiloView(ModelView):
 class ConsumiView(ModelView):
     """Ogni chiamata ai modelli (turni della chat, titoli, pianificate): token, costo, esito."""
     model = Turno
+    storico = False
     tra_aziende = True
     slug = "consumi"
     verbose_name_plural = "consumi"
@@ -171,6 +172,7 @@ class PianificataView(ModelView):
 class RegistroModificheView(ModelView):
     """Registro delle modifiche proposte dall'assistente: chi, cosa, quando, esito (solo lettura)."""
     model = Proposta
+    storico = False
     tra_aziende = True
     slug = "registro"
     verbose_name = "modifica dell'assistente"

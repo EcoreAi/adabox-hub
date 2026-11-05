@@ -8,6 +8,8 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from core import registro
+
 from .models import Proposta
 from .strumenti import Contesto, ErroreStrumento, disponibili
 
@@ -85,7 +87,8 @@ def conferma(proposta, utente, azienda, *, guardie=True):
             nuova = strumento.anteprima(contesto, **proposta.argomenti)          # di nuovo: permessi e validità
             if nuova.get("impronta", {}) != proposta.impronta:
                 raise ErroreStrumento("Il record è cambiato dopo la proposta: chiedi all'assistente di rifarla.")
-            risultato = strumento.funzione(contesto, **proposta.argomenti)
+            with registro.origine("ai", utente):
+                risultato = strumento.funzione(contesto, **proposta.argomenti)
             if not isinstance(risultato, dict):
                 risultato = {"esito": str(risultato or "Fatto.")}
             _nota_nel_chatter(risultato.get("record"), utente, proposta)

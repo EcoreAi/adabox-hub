@@ -65,6 +65,7 @@ class ModelView:
     readonly_fields = ()
     company_field = None          # None = modello globale
     ai_descrizione = ""                         # per Ada: che cosa contiene e come la chiamano gli utenti, se il nome non basta
+    storico = True                              # False: record che cambiano troppo spesso per finire nel registro delle modifiche
     tra_aziende = False                         # True: pagina di amministrazione dell'istanza, mostra tutte le aziende di proposito
     sequence_field = None         # ("campo", "modulo.codice"): numero assegnato alla creazione
     chatter = False               # pannello messaggi/note/allegati/attività nel dettaglio
@@ -124,9 +125,9 @@ class ModelView:
 
     def get_urls_viste(self):
         """URL delle viste facoltative, solo se dichiarate."""
-        from . import calendario, grafico, kanban, stampa
+        from . import calendario, grafico, kanban, pivot, stampa
         s = self.slug
-        urls = []
+        urls = [path(f"{s}/pivot/", pivot.PivotView.as_view(vista=self), name=f"{s}_pivot")] if self.list_group_by else []
         if self.reports:
             urls += [path(f"{s}/<int:pk>/stampa/<int:indice>/", stampa.StampaView.as_view(vista=self), name=f"{s}_stampa"),
                      path(f"{s}/stampa/<int:indice>/", stampa.StampaMassaView.as_view(vista=self), name=f"{s}_stampa_massa")]
@@ -143,7 +144,7 @@ class ModelView:
         """[(nome, etichetta, url)] delle viste dichiarate, per il selettore nella testata."""
         viste = [("lista", "Lista", self.url("lista"))]
         for nome, etichetta, attivo in [("kanban", "Kanban", self.kanban_group), ("calendario", "Calendario", self.calendar_date),
-                                        ("grafico", "Grafico", self.graph)]:
+                                        ("grafico", "Grafico", self.graph), ("pivot", "Pivot", self.list_group_by)]:
             if attivo:
                 try:
                     viste.append((nome, etichetta, self.url(nome)))

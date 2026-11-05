@@ -439,6 +439,15 @@ completate.
   `/ai/flusso/`; il resto resta su gunicorn (WSGI). Quando cambiano i moduli installati, `stream` risponde 503 e
   si riavvia da solo, come il worker.
 
+## Ricerche, pivot e registro
+
+Valgono per ogni lista di ogni modulo, compresi quelli su misura, senza scrivere codice:
+
+- **Ricerche salvate**: il menu «Ricerche» della lista salva filtri, ricerca, raggruppamento e ordine, per sé o per chi lavora nella stessa azienda. La stella la fa aprire da sola; `?tutti=1` apre la lista completa.
+- **Cerca ovunque**: la casella in alto, o `/cerca/`, usa i `search_fields` di ogni vista che l'utente può vedere, con i suoi permessi e la sua azienda.
+- **Pivot**: compare accanto alla lista se la vista dichiara `list_group_by`. Righe, colonne e fino a tre misure, con i filtri della lista ed esportazione in Excel.
+- **Registro delle modifiche**: chi ha cambiato cosa, quando e da dove (pagine, API, assistente, lavoro in background), su ogni record con una vista e sulle righe dei documenti. `storico = False` esclude i modelli che cambiano troppo spesso. Si legge da `/core/registro/` e sul dettaglio del record, con il permesso `core.view_registromodifica`. Non vede `QuerySet.update()`, `bulk_create()` e i campi molti-a-molti, e non ha una pulizia automatica: la tabella cresce.
+
 ## Sviluppare un modulo
 
 La guida è in [docs/guida-moduli.md](docs/guida-moduli.md): `modulo nuovo` crea un modulo funzionante, `modulo controlla` verifica le regole sul codice, `modulo compatibilita` lo prova accanto agli altri.

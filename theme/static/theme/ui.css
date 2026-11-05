@@ -1661,3 +1661,12 @@ body:has(.ui-nav-altre.is-open .ui-menucol) main { filter: blur(3px); opacity: .
 .wd-griglia.is-modifica .an-menu { display: none; }
 .wd-griglia:empty { display: none; }
 .wd-cassetto-cerca { width: 100%; margin-bottom: 8px; } .wd-cassetto-azioni { margin-top: 10px; } .wd-cassetto-azioni .ui-btn { width: 100%; justify-content: center; }
+
+/* Ricerca in tutte le app e ricerche salvate */
+.ui-cerca-globale { margin-left: auto; margin-right: 12px; }
+.ui-cerca-globale .ui-input { width: 180px; }
+.ui-ricerche { min-width: 280px; padding: 8px; }
+.ui-ricerca { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
+.ui-ricerca a { flex: 1; }
+.ui-ricerca-nuova { display: flex; flex-direction: column; gap: 6px; }
+@media (max-width: 900px) { .ui-cerca-globale { display: none; } }

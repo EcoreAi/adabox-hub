@@ -1,7 +1,7 @@
 from ninja.errors import HttpError
 from ninja.security import HttpBearer
 
-from core import azienda
+from core import azienda, registro
 from core.models import Azienda, TokenApi
 
 
@@ -10,6 +10,7 @@ class TokenAuth(HttpBearer):
         t = TokenApi.verifica(token)
         if t:
             request.user = t.utente
+            registro.imposta(t.utente, "api")
             return t.utente
         return None
 

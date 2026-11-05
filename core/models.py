@@ -546,3 +546,51 @@ class ModelloEmail(models.Model):
 
     def __str__(self):
         return self.nome or self.codice
+
+
+class RicercaSalvata(models.Model):
+    """Una ricerca di una lista, da riaprire con un clic: personale o condivisa con chi lavora nella stessa azienda."""
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, verbose_name="azienda")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="ricerche_salvate", verbose_name="proprietario")
+    vista = models.CharField("vista", max_length=70, db_index=True, help_text="modulo.slug")
+    nome = models.CharField("nome", max_length=80)
+    parametri = models.TextField("parametri", blank=True, help_text="la parte dopo il ? dell'indirizzo della lista")
+    condivisa = models.BooleanField("condivisa con l'azienda", default=False)
+    predefinita = models.BooleanField("si apre da sola", default=False)
+    creata = models.DateTimeField("creata il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "ricerca salvata"
+        verbose_name_plural = "ricerche salvate"
+        ordering = ["nome", "pk"]
+        constraints = [models.UniqueConstraint(fields=["azienda", "utente", "vista", "nome"], name="core_ricerca_unica")]
+
+    def __str__(self):
+        return self.nome
+
+
+class RegistroModifica(models.Model):
+    """Chi ha cambiato cosa, quando e da dove: una riga per ogni salvataggio o eliminazione dei record con una vista.
+    Si aggiunge e basta: dalle pagine e dall'API non si modifica né si cancella."""
+    CREATO, AGGIORNATO, ELIMINATO = "creato", "aggiornato", "eliminato"
+    AZIONI = [(CREATO, "Creato"), (AGGIORNATO, "Aggiornato"), (ELIMINATO, "Eliminato")]
+    ORIGINI = [("ui", "Pagine"), ("api", "API"), ("ai", "Assistente"), ("worker", "Lavoro in background"), ("sistema", "Sistema")]
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="azienda")
+    content_type = models.ForeignKey("contenttypes.ContentType", on_delete=models.CASCADE, verbose_name="tipo di record")
+    object_id = models.PositiveBigIntegerField("record", db_index=True)
+    oggetto = models.CharField("record", max_length=200)
+    azione = models.CharField("azione", max_length=10, choices=AZIONI)
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="utente")
+    utente_nome = models.CharField("nome dell'utente", max_length=150, blank=True, help_text="resta anche se l'utente viene eliminato")
+    origine = models.CharField("origine", max_length=8, choices=ORIGINI, default="sistema")
+    modifiche = models.JSONField("modifiche", default=list, blank=True)
+    creato = models.DateTimeField("quando", auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "modifica"
+        verbose_name_plural = "registro delle modifiche"
+        ordering = ["-creato", "-pk"]
+        indexes = [models.Index(fields=["content_type", "object_id", "-creato"]), models.Index(fields=["azienda", "-creato"])]
+
+    def __str__(self):
+        return f"{self.oggetto}: {self.get_azione_display().lower()}"

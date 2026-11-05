@@ -45,6 +45,7 @@
 </section>
 {% endfor %}
 {% for s in sezioni_extra %}{% include s.template %}{% endfor %}
+{% if storico %}{% include "core/vista/_storico.html" %}{% endif %}
 {% if chatter %}</div>{% include "core/chatter/_pannello.html" %}</div>{% endif %}
 <div id="modale"></div>
 {% endblock %}

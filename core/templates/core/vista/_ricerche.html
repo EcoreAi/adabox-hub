@@ -1,0 +1,17 @@
+{% if id_vista %}<div class="ui-dropdown">
+  <button type="button" class="ui-btn ui-btn-secondary" aria-haspopup="true" aria-expanded="false">Ricerche{% if ricerche %} ({{ ricerche|length }}){% endif %}</button>
+  <div class="ui-dropdown-menu is-right ui-ricerche" role="menu">
+    {% for r in ricerche %}<div class="ui-ricerca">
+      <a href="?{{ r.parametri }}{% if not r.parametri %}tutti=1{% endif %}">{{ r.nome }}{% if r.condivisa and r.utente_id != request.user.pk %} <small>di {{ r.utente.get_username }}</small>{% elif r.condivisa %} <small>condivisa</small>{% endif %}</a>
+      {% if r.utente_id == request.user.pk %}<form method="post" action="{% url 'core:ricerca_predefinita' r.pk %}">{% csrf_token %}<button type="submit" class="ui-btn ui-btn-sm ui-btn-secondary" title="Apri questa ricerca quando entri nella lista">{% if r.predefinita %}★{% else %}☆{% endif %}</button></form>
+      <form method="post" action="{% url 'core:ricerca_elimina' r.pk %}">{% csrf_token %}<button type="submit" class="ui-btn ui-btn-sm ui-btn-secondary" aria-label="Elimina {{ r.nome }}">×</button></form>{% endif %}
+    </div>{% empty %}<div class="ui-ricerca"><small>Nessuna ricerca salvata.</small></div>{% endfor %}
+    <hr>
+    <form class="ui-ricerca-nuova" method="post" action="{% url 'core:ricerca_salva' %}">{% csrf_token %}
+      <input type="hidden" name="vista" value="{{ id_vista }}"><input type="hidden" name="parametri" value="{{ request.GET.urlencode }}">
+      <input class="ui-input" name="nome" maxlength="80" placeholder="Salva i filtri attuali come…" aria-label="Nome della ricerca" required>
+      <label><input type="checkbox" name="condivisa" value="1"> Condividi con l'azienda</label>
+      <button type="submit" class="ui-btn ui-btn-sm ui-btn-primary">Salva</button>
+    </form>
+  </div>
+</div>{% endif %}

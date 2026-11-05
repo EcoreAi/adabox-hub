@@ -65,6 +65,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "core.registro.Middleware",
     "core.middleware.AziendaCorrenteMiddleware",
     "core.middleware.ModuloDisattivatoMiddleware",
     "core.middleware.LicenzaScadutaMiddleware",

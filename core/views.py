@@ -18,8 +18,10 @@ from . import attivita as attivita_servizio
 from . import barra, due_fattori, lavori, licenza, parametri
 
 from .forms import AziendaPredefinitaForm, CampoPersonalizzatoForm, ProfiloForm, TokenApiForm
+from django.db.models import Q
+
 from .models import LicenzaIstanza, RichiestaModulo
-from .models import (Azienda, CampoPersonalizzato, EmailRicevuta, Lavoro, Modulo, Parametro, ProfiloUtente,
+from .models import (Azienda, CampoPersonalizzato, EmailRicevuta, Lavoro, Modulo, Parametro, ProfiloUtente, RegistroModifica,
                      TokenApi)
 from .registry import modules, pacchetti, sincronia
 from .signals import crea_profilo
@@ -39,6 +41,9 @@ def voci_kernel(user):
     if user.has_perm("core.view_modulo"):
         voci.append({"label": "Applicazioni", "url": reverse("core:applicazioni"), "icon": "layout",
                      "sub": "Le app attive e quelle che si possono aggiungere"})
+    if user.has_perm("core.view_registromodifica"):
+        voci.append({"label": "Registro delle modifiche", "url": reverse("core:registro_lista"), "icon": "shield",
+                     "sub": "Chi ha cambiato cosa, quando e da dove"})
     if user.has_perm("core.view_azienda"):
         voci.append({"label": "Aziende", "url": reverse("core:aziende_lista"), "icon": "tool",
                      "sub": "Anagrafica delle aziende dell'istanza"})
@@ -416,6 +421,7 @@ class SoloSuperuserView(ModelView):
 @register
 class LavoroView(SoloSuperuserView):
     model = Lavoro
+    storico = False
     list_display = ["funzione", "stato", "tentativi", "esegui_dopo", "finito"]
     list_filter = ["stato"]
     search_fields = ["funzione"]
@@ -541,6 +547,7 @@ def le_mie_app(request):
 @register
 class EmailRicevutaView(SoloSuperuserView):
     model = EmailRicevuta
+    storico = False
     slug = "email"
     list_display = ["oggetto", "mittente", "stato", "ricevuta"]
     list_filter = ["stato"]
@@ -579,3 +586,28 @@ def salute(request):
     except DatabaseError:
         return JsonResponse({"stato": "errore"}, status=503)
     return JsonResponse({"stato": "ok"})
+
+
+@register
+class RegistroModificaView(ModelView):
+    """Il registro delle modifiche: si legge e basta. Chi cambia i record di tutte le aziende compare solo al superuser."""
+    model = RegistroModifica
+    slug = "registro"
+    storico = False
+    tra_aziende = True
+    list_display = ["creato", "oggetto", "content_type", "azione", "utente_nome", "origine"]
+    list_filter = ["azione", "origine", "content_type", "utente", "creato"]
+    search_fields = ["oggetto", "utente_nome"]
+    ordering = ["-creato", "-pk"]
+    form_layout = [("Modifica", [("creato", "azione"), ("oggetto", "content_type"), ("utente_nome", "origine"), "modifiche"])]
+    readonly_fields = ["creato", "azione", "oggetto", "content_type", "utente_nome", "origine", "modifiche"]
+
+    def get_queryset(self, request):
+        azienda_id = getattr(getattr(request, "azienda", None), "pk", None)
+        filtro = Q(azienda_id=azienda_id) if azienda_id is not None else Q(pk__in=[])
+        if request.user.is_superuser:
+            filtro |= Q(azienda__isnull=True)
+        return super().get_queryset(request).filter(filtro)
+
+    def _perm(self, request, azione):
+        return azione == "view" and super()._perm(request, azione)

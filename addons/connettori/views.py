@@ -44,6 +44,7 @@ class WebhookView(ModelView):
 @register
 class ConsegnaView(ModelView):
     model = ConsegnaWebhook
+    storico = False
     slug = "consegne"
     list_display = ["evento", "webhook", "stato", "tentativi", "risposta", "errore", "creata", "consegnata_il"]
     list_filter = ["stato", "webhook", "creata"]

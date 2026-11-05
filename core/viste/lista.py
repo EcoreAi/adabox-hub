@@ -4,12 +4,12 @@ from urllib.parse import urlencode
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.views import View
 
 from core import proprieta
 
-from . import filtri, gruppi
+from . import filtri, gruppi, salvate
 
 
 def urls_di(vista):
@@ -46,6 +46,8 @@ class ListaView(VistaBase):
         vista = self.vista
         if not vista.has_view_permission(request):
             raise PermissionDenied
+        if not request.GET and not parziale(request) and (predefinita := salvate.predefinita(request, vista)):
+            return redirect(f"{vista.url('lista')}?{predefinita.parametri}")
         qs = filtri.applica(vista, request, vista.get_queryset(request))
         raggruppabili = gruppi.raggruppabili(vista)
         chiave = request.GET.get("g", "")
@@ -83,7 +85,7 @@ class ListaView(VistaBase):
             **contesto_testata(request, vista, "lista"),
             "filtri": filtri.specifiche(vista, request), "page_obj": page_obj,
             "q": request.GET.get("q", ""), "puo_aggiungere": vista.has_add_permission(request),
-            "azioni": azioni,
+            "azioni": azioni, **salvate.contesto(request, vista),
         }
         return render(request, vista.template_tabella if parziale(request) else vista.template_lista, ctx)
 

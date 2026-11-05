@@ -1,6 +1,7 @@
 from django.urls import include, path
 
-from . import applicazioni, due_fattori_viste, utenti, views
+from . import applicazioni, cerca, due_fattori_viste, utenti, views
+from .viste import salvate as salvate_viste
 from .viste import allegati as allegati_viste
 from .viste import chatter as chatter_viste
 from .viste import kanban as kanban_viste
@@ -21,6 +22,10 @@ urlpatterns = [
     path("profilo/token/<int:pk>/revoca/", views.token_revoca, name="token_revoca"),
     path("azienda/cambia/", views.cambia_azienda, name="cambia_azienda"),
     path("salute/", views.salute, name="salute"),
+    path("cerca/", cerca.pagina, name="cerca"),
+    path("ricerche/salva/", salvate_viste.salva, name="ricerca_salva"),
+    path("ricerche/<int:pk>/elimina/", salvate_viste.elimina, name="ricerca_elimina"),
+    path("ricerche/<int:pk>/predefinita/", salvate_viste.predefinita_vista, name="ricerca_predefinita"),
     path("impostazioni/", views.impostazioni, name="impostazioni"),
     path("kanban/nota/<int:pk>/", kanban_viste.nota, name="kanban_nota"),
     path("impostazioni/barra/", views.impostazioni_barra, name="impostazioni_barra"),
