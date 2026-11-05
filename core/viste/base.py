@@ -17,16 +17,13 @@ def _campo_form(campo, **kwargs):
 def form_per_azienda(base, azienda_id):
     """Sottoclasse del form in cui le scelte di FK e M2M verso modelli per azienda (con il campo `azienda`)
     sono limitate all'azienda corrente: un record di un'altra azienda non si può né vedere né collegare."""
-    if azienda_id is None:
-        return base
-
     def __init__(self, *args, **kwargs):
         base.__init__(self, *args, **kwargs)
         for campo in self.fields.values():
             queryset = getattr(campo, "queryset", None)
             if queryset is not None and any(f.name == "azienda" and f.is_relation
                                             for f in queryset.model._meta.get_fields()):
-                campo.queryset = queryset.filter(azienda_id=azienda_id)
+                campo.queryset = queryset.none() if azienda_id is None else queryset.filter(azienda_id=azienda_id)
 
     return type(base)(base.__name__, (base,), {"__init__": __init__, "__module__": base.__module__})
 
@@ -155,8 +152,8 @@ class ModelView:
     def get_queryset(self, request):
         qs = self.model._default_manager.all()
         azienda_id = getattr(getattr(request, "azienda", None), "pk", None)    # lazy: può avvolgere None
-        if self.company_field and azienda_id is not None:
-            qs = qs.filter(**{f"{self.company_field}_id": azienda_id})
+        if self.company_field:                     # senza azienda corrente non si vede nulla, mai tutto
+            qs = qs.none() if azienda_id is None else qs.filter(**{f"{self.company_field}_id": azienda_id})
         if self.ordering:
             return qs.order_by(*self.ordering)
         return qs if qs.ordered else qs.order_by("pk")    # paginazione stabile
@@ -194,6 +191,8 @@ class ModelView:
         return self._perm(request, "view")
 
     def has_add_permission(self, request):
+        if self.company_field and getattr(getattr(request, "azienda", None), "pk", None) is None:
+            return False                           # il record non avrebbe un'azienda a cui appartenere
         return self._perm(request, "add")
 
     def has_change_permission(self, request, obj=None):
