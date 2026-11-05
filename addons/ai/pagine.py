@@ -18,10 +18,10 @@ from core.allegati import AllegatoNonValido
 from core.models import Allegato
 from core.registry import modules
 
-from . import allegati_chat, motore, suggerimenti
-from .models import Artifact, Conversazione, MessaggioChat, Proposta, Turno, ValutazioneRisposta
+from . import allegati_chat, catalogo, motore, suggerimenti
+from .models import Artifact, Conversazione, MessaggioChat, ProgettoChat, Proposta, Turno, ValutazioneRisposta
 
-PANNELLI_SINISTRA = [("storico", "Cronologia chat", "ai-storico"), ("preferite", "Chat preferite", "ai-stella")]
+PANNELLI_SINISTRA = [("storico", "Cronologia chat", "ai-storico"), ("preferite", "Chat preferite", "ai-stella"), ("progetti", "Progetti", "ai-documento")]
 PANNELLI_DESTRA = [("artifact", "Artifact salvati", "ai-artifact"), ("documenti", "Documenti salvati", "ai-documento"),
                    ("grafici", "Grafici salvati", "ai-grafico")]
 
@@ -60,6 +60,8 @@ def _avviso_spesa(request):
 def chat(request, pk=None):
     conversazione = get_object_or_404(_mie(request), pk=pk) if pk else None
     mie = _mie(request)
+    azienda = getattr(request, "azienda", None)
+    progetti = list(ProgettoChat.objects.filter(utente=request.user, azienda=azienda)) if azienda else []
     app = app_selezionabili(request.user)
     ambito = next((a for a in app if conversazione and a["slug"] == conversazione.ambito), None)
     if conversazione is not None:
@@ -72,6 +74,8 @@ def chat(request, pk=None):
         "salvati": _salvati(request),
         "pannelli_sinistra": PANNELLI_SINISTRA, "pannelli_destra": PANNELLI_DESTRA,
         "app": app, "suggerimenti": suggerimenti.per(), "suggerimenti_per_app": suggerimenti.tutti(),
+        "progetti": progetti, "progetto_nuova": _mio_progetto(request, request.GET.get("progetto")) if conversazione is None else None,
+        "modelli_sceglibili": [m for m, _ in catalogo.sceglibili(azienda)],
     })
 
 
@@ -80,6 +84,14 @@ def _salvati(request):
     salvati = Artifact.objects.filter(utente=request.user, salvato=True).order_by("-pk")[:100]
     return {"grafici": [a for a in salvati if a.tipo == Artifact.GRAFICO],
             "artifact": [a for a in salvati if a.tipo == Artifact.TABELLA]}
+
+
+def _mio_progetto(request, pk):
+    """Un progetto dell'utente nell'azienda corrente, o None."""
+    azienda = getattr(request, "azienda", None)
+    if azienda is None or not str(pk or "").isdigit():
+        return None
+    return ProgettoChat.objects.filter(pk=pk, utente=request.user, azienda=azienda).first()
 
 
 def _errore_invio(request, testo, pk):
@@ -98,7 +110,7 @@ def invia(request, pk=None):
     conversazione = get_object_or_404(_mie(request), pk=pk) if pk else None
     file = request.FILES.getlist("allegati")
     try:
-        allegati_chat.controlla(file)
+        allegati_chat.controlla(file, getattr(request, "azienda", None))
     except AllegatoNonValido as e:
         return _errore_invio(request, str(e), pk)
     if file and not testo:
@@ -112,11 +124,17 @@ def invia(request, pk=None):
     ambito = ambito if ambito in ammessi else ""
     if nuova:
         titolo = " ".join(testo.split())
-        conversazione = Conversazione.objects.create(utente=request.user, ambito=ambito,
+        conversazione = Conversazione.objects.create(utente=request.user, ambito=ambito, progetto=_mio_progetto(request, request.POST.get("progetto")),
                                                      titolo=titolo[:60] + ("…" if len(titolo) > 60 else ""))
     elif "ambito" in request.POST and ambito != conversazione.ambito:     # app cambiata dal bottone «App»
         conversazione.ambito = ambito
         conversazione.save(update_fields=["ambito"])
+    if "modello" in request.POST:                        # vuoto = quello degli amministratori
+        ammessi_modelli = {str(m.pk): m for m, _ in catalogo.sceglibili(getattr(request, "azienda", None))}
+        scelto = ammessi_modelli.get(request.POST["modello"])
+        if conversazione.modello_id != getattr(scelto, "pk", None):
+            conversazione.modello = scelto
+            conversazione.save(update_fields=["modello"])
     primo = conversazione.messaggi.order_by("-pk").values_list("pk", flat=True).first() or 0
     turno = motore.avvia(conversazione, testo, request.user, getattr(request, "azienda", None), file=file)
     conversazione.save(update_fields=["aggiornata"])
@@ -162,6 +180,16 @@ def modifica_messaggio(request, pk):
         messages.error(request, "Il messaggio non può essere vuoto.")
         return redirect("ai:conversazione", pk=messaggio.conversazione_id)
     return _ripartenza(request, messaggio.conversazione, messaggio, testo)
+
+
+@require_POST
+@login_required
+def sposta(request, pk):
+    """In un progetto o fuori. Vale dal messaggio successivo."""
+    c = get_object_or_404(_mie(request), pk=pk)
+    c.progetto = _mio_progetto(request, request.POST.get("progetto"))
+    c.save(update_fields=["progetto"])
+    return redirect("ai:conversazione", pk=c.pk)
 
 
 @require_POST

@@ -77,7 +77,7 @@ def test_solo_il_file_senza_testo_si_puo_inviare(client, s):
 
 
 @pytest.mark.parametrize("nome", ["foto.png", "virus.exe", "senza_estensione"])
-def test_tipi_non_leggibili_rifiutati(nome):
+def test_tipi_non_leggibili_rifiutati(db, nome):
     with pytest.raises(AllegatoNonValido):
         allegati_chat.controlla([_file(nome)])
 

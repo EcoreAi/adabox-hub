@@ -50,6 +50,9 @@ class Conversazione(models.Model):
     titolo_generato = models.BooleanField("titolo scritto dall'assistente", default=False)
     assistente = models.ForeignKey(Assistente, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
                                    verbose_name="assistente", help_text="fisso solo per gli esperti")
+    modello = models.ForeignKey("Modello", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                                verbose_name="modello scelto", help_text="vuoto = quello deciso dagli amministratori")
+    progetto = models.ForeignKey("ProgettoChat", on_delete=models.SET_NULL, null=True, blank=True, related_name="chat", verbose_name="progetto")
     nascosta = models.BooleanField("interna", default=False, help_text="conversazione di un esperto: non in cronologia")
     segnaposto = models.JSONField("segnaposto dei dati personali", default=dict, blank=True, editable=False,
                                   help_text="[FULLNAME_1] -> valore: stabili per conversazione (ai.protezione)")
@@ -144,6 +147,7 @@ class Modello(models.Model):
                                                blank=True)
     strumenti = models.BooleanField("usa strumenti", default=True)
     visione = models.BooleanField("legge immagini", default=False)
+    sceglibile = models.BooleanField("sceglibile dagli utenti", default=False, help_text="compare nella scelta del modello in chat; i tetti di spesa restano gli stessi")
     ragionamento = models.BooleanField("ragiona (effort)", default=False)
     residenza_ue = models.BooleanField("dati in UE", default=False)
     attivo = models.BooleanField("attivo", default=True)
@@ -476,3 +480,37 @@ class ValutazioneRisposta(models.Model):
         """La domanda a cui rispondeva."""
         voce = MessaggioChat.objects.filter(conversazione_id=self.messaggio.conversazione_id, ruolo=MessaggioChat.UTENTE, pk__lt=self.messaggio_id).order_by("-pk").first()
         return voce.testo if voce else ""
+
+
+class MemoriaUtente(models.Model):
+    """Una cosa da ricordare tra le chat: di una persona in una azienda, confermata da lei, cancellabile quando vuole."""
+    LUNGHEZZA = 500
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="memorie_ai", verbose_name="utente")
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, related_name="+", verbose_name="azienda")
+    testo = models.CharField("da ricordare", max_length=LUNGHEZZA)
+    creata = models.DateTimeField("creata il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "ricordo"
+        verbose_name_plural = "memoria"
+        ordering = ["-pk"]
+
+    def __str__(self):
+        return self.testo[:60]
+
+
+class ProgettoChat(models.Model):
+    """Un gruppo di chat con istruzioni e file propri: personale, come le chat."""
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="progetti_ai", verbose_name="utente")
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, related_name="+", verbose_name="azienda")
+    nome = models.CharField("nome", max_length=80)
+    istruzioni = models.TextField("istruzioni", blank=True, help_text="valgono per tutte le chat del progetto")
+    creato = models.DateTimeField("creato il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "progetto"
+        verbose_name_plural = "progetti"
+        ordering = ["nome", "pk"]
+
+    def __str__(self):
+        return self.nome

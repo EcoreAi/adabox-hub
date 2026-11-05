@@ -19,7 +19,7 @@ from .. import catalogo, proposte, protezione, strumenti
 from ..gateway import ChiamataStrumento, ErroreModello, Fine, Inizio, Testo, Uso, esegui as gateway
 from core import allegati as core_allegati
 
-from .. import allegati_chat
+from .. import allegati_chat, contesto_utente
 from ..models import Artifact, Evento, MessaggioChat, Proposta, Turno
 from . import prompt
 
@@ -128,10 +128,12 @@ def avvia(conversazione, testo, utente, azienda=None, compito="chat", sincrono=F
             messaggio = MessaggioChat.objects.create(conversazione=conversazione, ruolo=MessaggioChat.UTENTE, testo=testo)
         for f in file:
             core_allegati.salva(messaggio, f, utente)
-        nota = "\n".join(n for n in (nota, allegati_chat.nota(messaggio)) if n)
+        nota = "\n".join(n for n in (contesto_utente.nota_memoria(utente, azienda), contesto_utente.nota_progetto(conversazione),
+                                     nota, allegati_chat.nota(messaggio)) if n)
+        immagini = [a.pk for a in allegati_chat.immagini_di(messaggio)]
         Evento.objects.create(conversazione=conversazione, turno=turno, tipo=Evento.UTENTE, dati={
-            "ruolo": "utente", "testo": prompt.con_contesto(testo, utente, azienda, conversazione.ambito, esiti,
-                                                            nota)})
+            "ruolo": "utente", "testo": prompt.con_contesto(testo, utente, azienda, conversazione.ambito, esiti, nota),
+            **({"immagini": immagini} if immagini else {})})
     if sincrono or getattr(settings, "AI_TURNI_SINCRONI", False):
         esegui(turno.pk)
     else:
@@ -205,9 +207,20 @@ def esegui(turno_id):
             profilo = assistente.profilo
         else:
             profilo = catalogo.profilo_per(turno.compito, turno.azienda, conversazione.ambito)
-        catena = catalogo.catena(profilo, turno.azienda)
+        catena = catalogo.con_scelta(catalogo.catena(profilo, turno.azienda), conversazione.modello, turno.azienda)
+        from ..strumenti import web
         ammessi = {s.nome: s for s in assistenti.filtra_strumenti(
-            strumenti.disponibili(utente, conversazione.ambito), assistente, esperto=turno.compito == "esperto")}
+            web.filtra(strumenti.disponibili(utente, conversazione.ambito), turno.azienda), assistente, esperto=turno.compito == "esperto")}
+        _, con_immagine, nell_ultimo = allegati_chat.con_immagini(messaggi_del_modello(conversazione))
+        senza_immagini = False
+        if con_immagine:
+            adatti = [a for a in catena if allegati_chat.modello_ammesso_per_immagini(a[0], turno.azienda)]
+            if adatti:
+                catena = adatti
+            elif nell_ultimo:
+                raise catalogo.NessunModello("Nessun modello abilitato può leggere questa immagine.")
+            else:                                      # un'immagine di prima: la chat continua senza vederla
+                senza_immagini = True
         sistema = prompt.sistema(assistente)
         contesto = strumenti.Contesto(utente=utente, azienda=turno.azienda, conversazione=conversazione, turno=turno)
         e.protezione = protezione.Protezione(conversazione)
@@ -224,7 +237,8 @@ def esegui(turno_id):
             testo_passo = []
             try:
                 for pezzo in gateway(catena, protezione=e.protezione, sistema=sistema,
-                                     messaggi=messaggi_del_modello(conversazione),
+                                     messaggi=(messaggi_del_modello(conversazione) if senza_immagini
+                                               else allegati_chat.con_immagini(messaggi_del_modello(conversazione))[0]),
                                      strumenti=[s.definizione() for s in ammessi.values()],
                                      max_token=profilo.max_token, effort=profilo.effort):
                     if isinstance(pezzo, Inizio):

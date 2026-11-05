@@ -261,7 +261,7 @@
     grafico: 'disegno il grafico', tabella: 'preparo la tabella',
     crea_pianificata: "preparo l'attività pianificata", elenco_pianificate: 'guardo le attività pianificate',
     cerca_conoscenza: 'cerco nei documenti e nelle note', leggi_documento: 'leggo il documento',
-    leggi_foglio: 'leggo il foglio', leggi_allegato: "leggo l'allegato", previsione: 'calcolo la previsione', classifica: 'valuto il testo',
+    leggi_foglio: 'leggo il foglio', leggi_allegato: "leggo l'allegato", cerca_web: 'cerco sul web', leggi_pagina: 'leggo la pagina', ricorda: 'preparo il ricordo', previsione: 'calcolo la previsione', classifica: 'valuto il testo',
     elenco_esperti: 'guardo quali esperti ci sono', chiedi_esperto: "chiedo all'esperto", riassunto: 'riassumo la conversazione',
   };
   const segui = (bolla) => {

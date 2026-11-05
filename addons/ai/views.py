@@ -2,7 +2,7 @@ from core import cifratura
 from core.viste import Inline, ModelView, register
 
 from .forms import AssistenteForm, ChiaveAziendaForm, PianificataForm, ProviderForm
-from .models import (AnelloCatena, Assistente, ChiaveAzienda, Modello, Pianificata, Profilo, Proposta, Provider, ValutazioneRisposta,
+from .models import (AnelloCatena, Assistente, ChiaveAzienda, Modello, Pianificata, Profilo, Proposta, Provider, MemoriaUtente, ProgettoChat, ValutazioneRisposta,
                      Turno)
 
 
@@ -233,3 +233,40 @@ class ValutazioniView(ModelView):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+
+class _SoloMie(ModelView):
+    """Personali: anche un amministratore vede solo le sue."""
+    company_field = "azienda"
+    storico = False
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(utente=request.user)
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.utente = request.user
+        super().save_model(request, obj, form, change)
+
+
+@register
+class MemoriaView(_SoloMie):
+    """Ciò che Ada ricorda di te in questa azienda: lo vedi tutto, lo cancelli quando vuoi."""
+    model = MemoriaUtente
+    slug = "memoria"
+    list_display = ["testo", "creata"]
+    search_fields = ["testo"]
+    form_layout = [("Da ricordare", ["testo"])]
+    readonly_fields = ["creata"]
+    ai_descrizione = "Le cose che l'utente ha chiesto ad Ada di ricordare."
+
+
+@register
+class ProgettoChatView(_SoloMie):
+    """Chat raggruppate con istruzioni e file comuni."""
+    model = ProgettoChat
+    slug = "progetti"
+    list_display = ["nome", "creato"]
+    search_fields = ["nome", "istruzioni"]
+    form_layout = [("Progetto", ["nome", "istruzioni"])]
+    readonly_fields = ["creato"]

@@ -147,6 +147,8 @@ def leggi_allegato(contesto, id, pagina=1):
     allegato = allegati_chat.della_conversazione(contesto.conversazione).filter(pk=id).first()
     if allegato is None:
         raise ErroreStrumento(f"Nessun allegato n. {id} in questa chat.")
+    if allegati_chat.e_immagine(allegato.nome):
+        raise ErroreStrumento(f"«{allegato.nome}» è un'immagine: la vedi nel messaggio, se il modello la può leggere.")
     with allegato.file.open("rb") as f:
         testo = testo_da_file(allegato.nome, f.read())
     if not testo.strip():

@@ -14,7 +14,12 @@ def _messaggi(sistema, messaggi):
     risultato = [{"role": "system", "content": sistema}]
     for m in messaggi:
         if m["ruolo"] == "utente":
-            risultato.append({"role": "user", "content": m["testo"]})
+            if m.get("immagini_dati"):
+                risultato.append({"role": "user", "content": [
+                    *({"type": "image_url", "image_url": {"url": f"data:{i['mime']};base64,{i['dati']}"}} for i in m["immagini_dati"]),
+                    {"type": "text", "text": m["testo"]}]})
+            else:
+                risultato.append({"role": "user", "content": m["testo"]})
         elif m["ruolo"] == "assistente":
             testo = "".join(b["testo"] for b in m["blocchi"] if b["tipo"] == "testo")
             chiamate = [{"id": b["id"], "type": "function",

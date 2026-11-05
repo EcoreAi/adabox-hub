@@ -36,6 +36,11 @@
       <header class="ai-pannello-testa"><h2>Preferite</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
       {% include "ai/_elenco_chat.html" with chat=preferite vuoto="Segna una chat con la stella per ritrovarla qui." %}
     </section>
+    <section data-contenuto="progetti" hidden>
+      <header class="ai-pannello-testa"><h2>Progetti</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
+      <ul class="ai-elenco">{% for p in progetti %}<li><a href="{% url 'ai:chat' %}?progetto={{ p.pk }}"><span class="ai-elenco-titolo">{{ p.nome }}</span><span class="ai-elenco-data">Nuova chat</span></a></li>{% endfor %}</ul>
+      <p class="ai-cerca-chat"><a class="ui-link" href="{% url 'ai:progetti_nuovo' %}">Nuovo progetto</a> · <a class="ui-link" href="{% url 'ai:progetti_lista' %}">Gestisci</a></p>
+    </section>
   </aside>
 
   {# ---------- colonna centrale ---------- #}
@@ -52,6 +57,7 @@
           <h1 data-titolo>{{ conversazione.titolo }}</h1>
           <form class="ai-rinomina" method="post" action="{% url 'ai:rinomina' conversazione.pk %}" data-rinomina hidden>{% csrf_token %}<input class="ui-input" name="titolo" value="{{ conversazione.titolo }}" maxlength="120" aria-label="Titolo della chat" required><button type="submit" class="ui-btn ui-btn-sm ui-btn-primary">Salva</button></form>
           <span class="ai-spazio"></span>
+          {% if progetti %}<form method="post" action="{% url 'ai:sposta' conversazione.pk %}">{% csrf_token %}<select class="ui-input ai-modello" name="progetto" aria-label="Progetto della chat" onchange="this.form.submit()"><option value="">Nessun progetto</option>{% for p in progetti %}<option value="{{ p.pk }}"{% if conversazione.progetto_id == p.pk %} selected{% endif %}>{{ p.nome }}</option>{% endfor %}</select></form>{% endif %}
           <button type="button" class="ai-azione" data-apri-rinomina data-tip="Rinomina" aria-label="Rinomina la chat"><svg><use href="#icon-edit"/></svg></button>
           <a class="ai-azione" href="{% url 'ai:esporta' conversazione.pk %}" data-tip="Esporta in Markdown" aria-label="Esporta la chat"><svg><use href="#icon-download"/></svg></a>
           <form method="post" action="{% url 'ai:preferita' conversazione.pk %}">{% csrf_token %}
@@ -83,11 +89,12 @@
               hx-target="#ai-messaggi" hx-swap="beforeend">
           {% csrf_token %}
           <input type="hidden" name="ambito" value="{{ conversazione.ambito|default:'' }}" data-ambito>
+          {% if progetto_nuova %}<input type="hidden" name="progetto" value="{{ progetto_nuova.pk }}"><p class="ai-progetto-nuova">Nuova chat nel progetto <strong>{{ progetto_nuova.nome }}</strong></p>{% endif %}
           <ul class="ai-allegati" data-allegati hidden></ul>
           <textarea name="testo" rows="3" class="ai-input" placeholder="{% if conversazione %}Rispondi…{% else %}Come posso aiutarti oggi?{% endif %}" aria-label="Messaggio" required></textarea>
           <div class="ai-composer-barra">
-            <input type="file" name="allegati" multiple hidden data-file accept=".pdf,.docx,.xlsx,.xlsm,.csv,.tsv,.txt,.md,.json,.xml,.html,.htm,.eml">
-            <button type="button" class="ai-tondo" data-allega data-tip="Allega PDF, Word, Excel, CSV o testo (fino a 5 file)" aria-label="Allega dei file"><svg><use href="#ai-piu"/></svg></button>
+            <input type="file" name="allegati" multiple hidden data-file accept=".pdf,.docx,.xlsx,.xlsm,.csv,.tsv,.txt,.md,.json,.xml,.html,.htm,.eml,.png,.jpg,.jpeg,.webp,.gif">
+            <button type="button" class="ai-tondo" data-allega data-tip="Allega PDF, Word, Excel, CSV, testo o immagini (fino a 5 file)" aria-label="Allega dei file"><svg><use href="#ai-piu"/></svg></button>
             {% if app %}
             <div class="ai-app-scelta">
               <button type="button" class="ai-app-btn" data-apri-app aria-haspopup="true" aria-expanded="false" aria-controls="ai-scheda-app">
@@ -109,6 +116,7 @@
             {% endif %}
             <span class="ai-chip ai-chip-ambito" data-chip-ambito hidden><img alt=""><span data-chip-nome></span>
               <button type="button" class="ai-chip-x" data-togli-ambito aria-label="Usa tutte le app"><svg><use href="#icon-x"/></svg></button></span>
+            {% if modelli_sceglibili %}<select class="ui-input ai-modello" name="modello" aria-label="Modello" data-tip="Il modello per questa chat"><option value="">Automatico</option>{% for m in modelli_sceglibili %}<option value="{{ m.pk }}"{% if conversazione.modello_id == m.pk %} selected{% endif %}>{{ m.etichetta }}</option>{% endfor %}</select>{% endif %}
             <span class="ai-spazio"></span>
             <span class="ai-suggerimento-tasti">Invio per inviare · Maiusc+Invio per andare a capo</span>
             <button type="submit" class="ai-invia" aria-label="Invia"><svg><use href="#ai-freccia"/></svg></button>
@@ -157,6 +165,7 @@
     <button type="button" class="ai-rail-btn" data-pannello="{{ chiave }}" data-lato="destra" aria-expanded="false"
             aria-controls="ai-pannello-destra" data-tip="{{ etichetta }}" aria-label="{{ etichetta }}"><svg><use href="#{{ icona }}"/></svg></button>
     {% endfor %}
+    {% if perms.ai.view_memoriautente %}<a class="ai-rail-btn" href="{% url 'ai:memoria_lista' %}" data-tip="Memoria: ciò che Ada ricorda di te" aria-label="Memoria"><svg><use href="#ai-scintilla"/></svg></a>{% endif %}
     {% if perms.ai.view_pianificata %}
     <hr class="ai-rail-sep">
     <a class="ai-rail-btn" href="{% url 'ai:pianificate_lista' %}" data-tip="Attività pianificate" aria-label="Attività pianificate"><svg><use href="#ai-sveglia"/></svg></a>

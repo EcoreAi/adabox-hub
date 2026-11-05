@@ -1,0 +1,8 @@
+{% load ai %}{% ct_progetto as ct_p %}<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Chat del progetto</div><a class="ui-btn ui-btn-sm ui-btn-primary" href="{% url 'ai:chat' %}?progetto={{ obj.pk }}">Nuova chat</a></div>
+  <div class="ui-card-body">{% for c in obj.chat.all %}<div><a class="ui-link" href="{% url 'ai:conversazione' c.pk %}">{{ c.titolo }}</a></div>{% empty %}Ancora nessuna chat.{% endfor %}</div>
+</section>
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">File del progetto</div></div>
+  <div class="ui-card-body" data-ct-progetto hx-get="{% url 'core:allegati_elenco' ct_p obj.pk %}" hx-trigger="load"></div>
+</section>

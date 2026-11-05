@@ -2,7 +2,7 @@
 indirizzo non è pubblico e ci si collega proprio a quell'indirizzo, così il DNS non può cambiare tra controllo e chiamata."""
 import ipaddress
 import socket
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import httpx2 as httpx
 
@@ -53,6 +53,36 @@ def post_sicuro(url, corpo, intestazioni, tempo=10, http_client=None):
         return client.post(f"https://{host_ip}:{porta}{percorso}", content=corpo,
                            headers={**intestazioni, "Host": parti.netloc},
                            extensions={"sni_hostname": parti.hostname}).status_code
+    finally:
+        if http_client is None:
+            client.close()
+
+
+def scarica(url, tipi=("text/html", "text/plain"), massimo=2_000_000, tempo=10, reindirizzamenti=3, http_client=None):
+    """(testo, url finale) di una pagina pubblica. Ogni reindirizzamento si ricontrolla, e ci si collega all'indirizzo
+    controllato. Rifiutato se non è pubblico, se il tipo non è ammesso; oltre `massimo` byte si taglia."""
+    client = http_client or httpx.Client(timeout=tempo, follow_redirects=False, trust_env=False)
+    try:
+        for _ in range(reindirizzamenti + 1):
+            parti, porta = controlla(url)
+            ip = indirizzo_pubblico(parti.hostname, porta)
+            host_ip = f"[{ip}]" if ":" in ip else ip
+            percorso = (parti.path or "/") + (f"?{parti.query}" if parti.query else "")
+            with client.stream("GET", f"{parti.scheme}://{host_ip}:{porta}{percorso}", extensions={"sni_hostname": parti.hostname},
+                               headers={"Host": parti.netloc, "User-Agent": "Mozilla/5.0 (compatible; AdaboxHub/1.0)", "Accept": "text/html,text/plain"}) as r:
+                if r.status_code in (301, 302, 303, 307, 308) and r.headers.get("location"):
+                    url = urljoin(url, r.headers["location"])
+                    continue
+                tipo = r.headers.get("content-type", "").split(";")[0].strip().lower()
+                if r.status_code != 200 or tipo not in tipi:
+                    raise Rifiutato(f"risposta {r.status_code}, tipo {tipo or 'sconosciuto'}")
+                corpo = b""
+                for pezzo in r.iter_bytes():
+                    corpo += pezzo
+                    if len(corpo) > massimo:
+                        break
+                return corpo.decode(r.encoding or "utf-8", "replace"), url
+        raise Rifiutato("troppi reindirizzamenti")
     finally:
         if http_client is None:
             client.close()

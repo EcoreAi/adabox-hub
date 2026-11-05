@@ -64,3 +64,11 @@ def voto(messaggio):
     """Il voto dato a una risposta dell'assistente, se c'è."""
     from ai.models import ValutazioneRisposta
     return ValutazioneRisposta.objects.filter(messaggio=messaggio).first()
+
+
+@register.simple_tag
+def ct_progetto():
+    from django.contrib.contenttypes.models import ContentType
+
+    from ai.models import ProgettoChat
+    return ContentType.objects.get_for_model(ProgettoChat).pk

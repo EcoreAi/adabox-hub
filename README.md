@@ -454,6 +454,16 @@ Da «Profilo» un token si crea con una durata (90 giorni di partenza), in sola 
 
 Si applica all'API generata dalle viste: elenco, lettura, creazione, modifica, eliminazione e bottoni. `/api/v1/me/` resta sempre leggibile.
 
+## La chat dell'assistente
+
+Oltre a rispondere sui dati, la chat ha allegati, rigenera e modifica, ricerca nelle chat, export e pollici. Le opzioni da decidere:
+
+- **Ricerca sul web**: `ai.url_ricerca_web` (SearXNG) più `ai.ricerca_web`, azienda per azienda, spenta di default. Una query con dati personali non esce, e se il controllo non risponde non si cerca. Si aprono solo indirizzi già comparsi nei risultati o scritti dall'utente.
+- **Immagini**: verso i modelli cloud servono `ai.immagini_cloud`, spento di default, perché dentro un'immagine i dati personali non si mascherano. Il modello deve avere «legge immagini». I modelli locali non hanno questo vincolo.
+- **Scelta del modello**: compaiono in chat i modelli con «sceglibile dagli utenti». I tetti di spesa restano gli stessi.
+- **Memoria**: `/ai/memoria/`, per persona e per azienda. Ada propone, l'utente conferma, e può cancellare quando vuole. Nemmeno il superuser vede quella degli altri.
+- **Progetti**: `/ai/progetti/`, con istruzioni e file comuni alle chat. Personali, come le chat.
+
 ## Sviluppare un modulo
 
 La guida è in [docs/guida-moduli.md](docs/guida-moduli.md): `modulo nuovo` crea un modulo funzionante, `modulo controlla` verifica le regole sul codice, `modulo compatibilita` lo prova accanto agli altri.

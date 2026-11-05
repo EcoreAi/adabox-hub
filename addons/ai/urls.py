@@ -14,6 +14,7 @@ urlpatterns = [
     path("chat/<int:pk>/rinomina/", pagine.rinomina, name="rinomina"),
     path("chat/<int:pk>/rigenera/", pagine.rigenera, name="rigenera"),
     path("chat/<int:pk>/esporta/", pagine.esporta, name="esporta"),
+    path("chat/<int:pk>/sposta/", pagine.sposta, name="sposta"),
     path("chat/cerca/", pagine.cerca_chat, name="cerca_chat"),
     path("messaggio/<int:pk>/modifica/", pagine.modifica_messaggio, name="modifica_messaggio"),
     path("messaggio/<int:pk>/voto/", pagine.voto, name="voto"),

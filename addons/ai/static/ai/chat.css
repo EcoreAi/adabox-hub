@@ -320,3 +320,7 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-md pre .m, .ai-md pre .mi, .ai-md pre .mf { color: #b35900; }
 .ai-md pre .nf, .ai-md pre .nc { color: #0550ae; }
 .ai-md pre .nb, .ai-md pre .bp { color: #953800; }
+
+/* gruppo 2: modello, progetti */
+.ai-modello { width: auto; max-width: 180px; padding: 4px 8px; font-size: 12px; height: auto; }
+.ai-progetto-nuova { font-size: 12px; color: var(--ui-text-2); margin: 0 0 6px; }
