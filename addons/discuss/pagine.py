@@ -18,7 +18,7 @@ from core.generici import ct_di, vista_e_oggetto
 from core.models import Allegato, TipoAttivita
 from core.models import Messaggio as MessaggioChatter
 
-from . import assegnazioni, chiamate, eventi, ia, notifiche, presenza as presenze, schede, servizi, testo
+from . import clienti, assegnazioni, chiamate, eventi, ia, notifiche, presenza as presenze, schede, servizi, testo
 from .models import Canale, ConversazioneEsterna, Iscrizione, Messaggio, Notifica, Presenza
 
 PERMESSO = "discuss.view_canale"
@@ -130,6 +130,21 @@ def barra(request):
     return render(request, "discuss/_barra.html", _barra(request, canale))
 
 
+def _cliente_chat(request, canale):
+    """La fascia del cliente: la sua scheda se è collegato, altrimenti come collegarlo. Solo per chi sta nella chat,
+    può vedere i contatti e lavora nell'azienda dello sportello."""
+    conv = getattr(canale, "esterna", None) if canale.livechat else None
+    if (conv is None or not clienti.attivi() or not request.user.has_perm("contatti.view_contatto")
+            or servizi.iscrizione(request.user, canale) is None):
+        return None
+    azienda = request.azienda
+    if conv.sportello.azienda_id not in (None, getattr(azienda, "pk", None)):
+        return None
+    if conv.contatto_pk is not None and (contatto := clienti.contatto_di(conv)) is not None:
+        return {"scheda": schede.scheda(request, ct_di(contatto).pk, contatto.pk), "automatico": conv.contatto_automatico}
+    return {"candidati": clienti.candidati(conv, azienda), "puo_creare": request.user.has_perm("contatti.add_contatto") and azienda is not None}
+
+
 def _dati_canale(request, canale):
     """Testata della conversazione: nome, presenza dell'altra persona, chi può fare cosa."""
     membri = list(canale.membri.order_by("first_name", "username"))
@@ -138,7 +153,7 @@ def _dati_canale(request, canale):
             "n_fissati": canale.messaggi.filter(fissato_il__isnull=False, eliminato=False).count(),
             "puo_gestire": servizi.puo_gestire(request.user, canale), "chiamata_attiva": chiamate.attiva_del(canale),
             "ia_attiva": ia.disponibile(request.user), "esterna": getattr(canale, "esterna", None) if canale.livechat else None,
-            "operatori_chat": assegnazioni.operatori_di(canale),
+            "operatori_chat": assegnazioni.operatori_di(canale), "cliente_chat": _cliente_chat(request, canale),
             **_diritti(request, canale)}
     if canale.diretto and len(altri) == 1:
         dati["altra"] = altri[0]

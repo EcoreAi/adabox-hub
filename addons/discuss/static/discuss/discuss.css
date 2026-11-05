@@ -265,3 +265,11 @@ body:has(#ds-app) .ak-etichetta svg { margin: 0; }
 .ds-modello-voce summary { cursor: pointer; font-weight: 600; font-size: 13.5px; }
 .ds-modello-testo { margin: 6px 0; font-size: 13px; color: var(--ui-text-2); white-space: pre-wrap; }
 .ds-fascia-allarme .ui-btn { margin-left: 8px; }
+
+/* il cliente della chat */
+.ds-fascia-cliente { display: block; }
+.ds-cliente-testa { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.ds-cliente-scelta summary { cursor: pointer; }
+.ds-cliente-scelta .ui-input { margin: 6px 0; width: 100%; }
+.ds-cliente-voce { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; }
+.ds-cliente-nota { margin-top: 6px; }

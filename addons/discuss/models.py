@@ -355,6 +355,9 @@ class ConversazioneEsterna(models.Model):
     connessione = models.ForeignKey("Connessione", on_delete=models.CASCADE, null=True, blank=True, related_name="conversazioni")
     assegnata_a = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="chat_assegnate", verbose_name="assegnata a")
     id_esterno = models.CharField("numero o chat", max_length=64, blank=True, db_index=True)
+    contatto_pk = models.PositiveBigIntegerField("contatto", null=True, blank=True, db_index=True, editable=False,
+                                                 help_text="non una chiave esterna: i Contatti sono facoltativi")
+    contatto_automatico = models.BooleanField("riconosciuto dal numero", default=False, editable=False)
     ultimo_in_arrivo = models.DateTimeField("ultimo messaggio del cliente", null=True, blank=True)
     impronta_ip = models.CharField("impronta dell'indirizzo", max_length=64, db_index=True, help_text="Solo per fermare gli abusi: l'indirizzo non si conserva.")
     ultimo_visto = models.DateTimeField("ultima visita", auto_now_add=True)

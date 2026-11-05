@@ -14,6 +14,7 @@ class DiscussConfig(AppConfig):
         hooks.sezione_dettaglio("discuss.ModelloWhatsApp", "discuss/_modello_stato.html", order=5)
         hooks.sezione_dettaglio("discuss.Connessione", "discuss/_connessione_guida.html", order=5)
         hooks.sezione_dettaglio("discuss.Sportello", "discuss/_sportello_codice.html", order=5)
+        hooks.sezione_dettaglio("contatti.Contatto", "discuss/_chat_del_contatto.html", order=35, permission="discuss.view_canale")
         hooks.azione("core.vista_dettaglio", "discuss/_azioni_record.html", order=20, permission="discuss.add_messaggio")
         from core.chatter import entrata
 

@@ -32,7 +32,7 @@ from django.views.decorators.http import require_POST
 
 from core import allegati, lavori, parametri
 
-from . import assistente_sito, eventi, ia, livechat
+from . import clienti, assistente_sito, eventi, ia, livechat
 from .models import Connessione, ConversazioneEsterna, EventoEsterno, Messaggio, Sportello
 
 log = logging.getLogger("discuss.connettori")
@@ -181,6 +181,7 @@ def _conversazione(c, e):
     nome = " ".join(e.nome.split())[:80] or f"Cliente {e.mittente[-4:]}"
     conv = livechat.crea_conversazione(s, nome, origine=c.tipo, connessione=c, id_esterno=e.mittente, impronta_ip=f"{c.tipo}:{c.pk}",
                                        pagina=c.nome, usa_ai=assistente_sito.usa_ai(s))
+    clienti.riconosci(conv)
     return conv, True
 
 
