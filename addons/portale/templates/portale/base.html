@@ -1,25 +1,24 @@
-{% load static tema %}<!DOCTYPE html>
+{% load static tema portale %}<!DOCTYPE html>
 <html lang="it">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Portale clienti{% endblock %} · {{ theme.brand }}</title>
   <link rel="stylesheet" href="{% statico 'theme/ui.css' %}">
-  <link rel="stylesheet" href="{% statico 'assistenza/portale.css' %}">
+  <link rel="stylesheet" href="{% statico 'portale/portale.css' %}">
+  {% block head_extra %}{% endblock %}
   <link rel="icon" type="image/svg+xml" href="{% url 'theme:favicon' %}">
 </head>
-{# Portale dei clienti: testata propria, niente app interne. #}
+{# Portale dei clienti: testata propria con le sezioni delle app installate, niente app interne. #}
 <body class="ui-body">
 {% include 'theme/partials/_icons.html' %}
 <header class="ui-header">
   <div class="ui-container ui-header-inner">
-    <a class="ui-logo" href="{% url 'assistenza:portale' %}"><span class="ui-logo-mark">{% include "theme/partials/_logo.html" %}</span>
+    <a class="ui-logo" href="{% url 'portale:home' %}"><span class="ui-logo-mark">{% include "theme/partials/_logo.html" %}</span>
       <span>{{ theme.brand }} <small class="pt-sotto">Portale clienti</small></span></a>
     <nav class="ui-nav" aria-label="Portale">
-      {% with nome=request.resolver_match.url_name %}
-      <a href="{% url 'assistenza:portale' %}" class="{% if nome == 'portale' or nome == 'portale_ticket' %}is-active{% endif %}">Le mie richieste</a>
-      <a href="{% url 'assistenza:portale_progetti' %}" class="{% if nome == 'portale_progetti' %}is-active{% endif %}">Progetti</a>
-      <a href="{% url 'assistenza:portale_guida' %}" class="{% if nome == 'portale_guida' or nome == 'portale_articolo' %}is-active{% endif %}">Guida</a>
-      <a href="{% url 'assistenza:portale_nuovo' %}" class="{% if nome == 'portale_nuovo' %}is-active{% endif %}">Nuova segnalazione</a>
+      {% sezioni_portale as sezioni_testata %}{% with nome=request.resolver_match.url_name %}
+      <a href="{% url 'portale:home' %}" class="{% if request.resolver_match.namespace == 'portale' and nome == 'home' %}is-active{% endif %}">Home</a>
+      {% for s in sezioni_testata %}<a href="{{ s.url }}" class="{% if nome in s.attive and request.resolver_match.namespace in s.url_name %}is-active{% endif %}">{{ s.titolo }}</a>{% endfor %}
       {% endwith %}
     </nav>
     <div class="ui-profile"><div class="ui-dropdown">

@@ -17,3 +17,8 @@ class FatturazioneConfig(AppConfig):
         hooks.sezione_dettaglio("vendite.OrdineVendita", "fatturazione/_fatture_ordine.html", order=30,
                                 permission="fatturazione.view_fattura")
         hooks.sezione_dettaglio("fatturazione.Fattura", "fatturazione/_scadenze.html", order=10)
+        from django.apps import apps
+        if apps.is_installed("portale"):                   # le fatture nel portale clienti
+            from portale import sezioni
+            hooks.percorso_portale("/fatturazione/portale/")
+            sezioni.registra("fatture", "Fatture", "fatturazione:portale_fatture", ordine=20, riepilogo="fatturazione.portale.riepilogo")

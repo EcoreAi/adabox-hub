@@ -17,7 +17,7 @@
       {% elif confermata %}
       <h1 class="ui-card-title">Indirizzo confermato</h1>
       <p>La segnalazione <strong>{{ ticket.numero }}</strong> è collegata a te: se hai l'accesso, la trovi nel portale clienti.</p>
-      <a class="ui-btn ui-btn-primary" href="{% url 'assistenza:portale' %}">Vai al portale</a>
+      {% url 'assistenza:portale' as url_portale %}{% if url_portale %}<a class="ui-btn ui-btn-primary" href="{{ url_portale }}">Vai al portale</a>{% endif %}
       {% else %}
       <h1 class="ui-card-title">Conferma il tuo indirizzo</h1>
       <p>Collega la segnalazione <strong>{{ ticket.numero }}</strong> a <strong>{{ ticket.email_cliente }}</strong> per seguirla dal portale clienti.</p>

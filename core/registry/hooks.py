@@ -7,6 +7,7 @@ _testata = []                  # [dict(template, order, permission)] voci della 
 _dashboard = []                # [dict(template, order, permission)] sezioni in testa alla dashboard
 _azioni = defaultdict(list)    # "chiave" -> [dict(template, order, permission)] azioni in un punto di un template
 _widget = []                   # [dict(funzione, modulo, permission)] altri widget per la libreria della dashboard
+_portale = []                  # prefissi degli indirizzi che i clienti del portale possono aprire
 
 
 def _chiave(model):
@@ -102,3 +103,17 @@ def svuota():
     _dashboard.clear()
     _azioni.clear()
     _widget.clear()
+
+
+def percorso_portale(prefisso):
+    """Da chiamare nel ready() dell'app: gli utenti esterni (clienti del portale) possono aprire gli indirizzi che
+    iniziano con `prefisso`, es. "/fatturazione/portale/". Il resto dell'applicazione resta chiuso per loro."""
+    if prefisso not in _portale:
+        _portale.append(prefisso)
+
+
+def percorsi_portale():
+    """I prefissi del portale dei moduli accesi (i loro indirizzi iniziano con «/<modulo>/»)."""
+    from .modules import disattivati
+    spenti = disattivati()
+    return tuple(p for p in _portale if p.strip("/").split("/", 1)[0] not in spenti)

@@ -23,8 +23,9 @@ class UtenteEsternoMiddleware:
         from django.conf import settings
         from django.shortcuts import redirect, render
         if esterno(getattr(request, "user", None)):
+            from .registry import hooks
             percorso = request.path_info
-            ammessi = (*self.SEMPRE, *settings.PORTALE_PERCORSI)
+            ammessi = (*self.SEMPRE, *settings.PORTALE_PERCORSI, *hooks.percorsi_portale())
             if not percorso.startswith(ammessi):
                 if settings.PORTALE_HOME and percorso != settings.PORTALE_HOME:
                     return redirect(settings.PORTALE_HOME)

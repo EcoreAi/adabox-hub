@@ -1,0 +1,18 @@
+{% extends "portale/base.html" %}
+{% block contenuto %}
+<div class="ui-page-head"><div><h1 class="ui-page-title">Buongiorno, {{ accesso.contatto.nome }}</h1>
+  <p class="ui-help">Qui trovi i documenti e le richieste di {{ cliente }}.</p></div></div>
+<div class="pt-schede">
+  {% for s in sezioni %}
+  <section class="ui-card is-revealed pt-scheda">
+    <div class="ui-card-head"><div class="ui-card-title">{{ s.titolo }}{% if s.dati.conta is not None %} <span class="pt-conta">{{ s.dati.conta }}</span>{% endif %}</div>
+      <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ s.url }}">Apri</a></div>
+    <div class="ui-card-body">
+      {% if s.dati.nota %}<p class="ui-help">{{ s.dati.nota }}</p>{% endif %}
+      {% if s.dati.voci %}<ul class="pt-voci">{% for titolo, url, nota in s.dati.voci %}<li><a href="{{ url }}">{{ titolo }}</a>{% if nota %} <span class="ui-help">{{ nota }}</span>{% endif %}</li>{% endfor %}</ul>
+      {% elif not s.dati.nota %}<p class="ui-help">Niente di nuovo.</p>{% endif %}
+    </div>
+  </section>
+  {% empty %}<p class="ui-help">Il portale non ha ancora sezioni attive.</p>{% endfor %}
+</div>
+{% endblock %}

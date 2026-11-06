@@ -1,4 +1,4 @@
-"""Portale clienti: il cliente (utente esterno con un accesso legato al suo contatto) vede i ticket e i progetti
+"""Le sezioni dell'assistenza nel portale clienti (modulo portale): il cliente vede i ticket e i progetti
 della sua azienda, apre ticket, risponde e allega file. Vede solo i messaggi pubblici: mai le note interne, i
 tracciamenti o gli eventi di sistema. Gli utenti interni non entrano qui: hanno l'helpdesk."""
 from django.apps import apps
@@ -26,28 +26,14 @@ from core.models import Allegato, Messaggio, ProfiloUtente
 from helpdesk.guida import cerca
 from helpdesk.models import Articolo, FaseTicket, Ticket
 from helpdesk.pagine import _voto_dato, contesto_guida, registra_utilita
+from portale.accesso import contesto as contesto_portale
+from portale.accesso import portale
 from progetti.models import Progetto
 
 from .instradamento import instrada
-from .models import AccessoPortale, DatiTicket
+from .models import DatiTicket
 
 MAX_ALLEGATI = 5
-
-
-def _accesso(request):
-    accesso = AccessoPortale.objects.filter(utente=request.user).select_related("contatto__societa").first()
-    if accesso is None:
-        raise PermissionDenied("Il portale è riservato ai clienti.")
-    return accesso
-
-
-def portale(vista):
-    @login_required
-    def interna(request, *args, **kwargs):
-        request.accesso = _accesso(request)
-        return vista(request, *args, **kwargs)
-    interna.__name__ = vista.__name__
-    return interna
 
 
 def _ticket(accesso):
@@ -60,7 +46,7 @@ def _progetti(accesso):
 
 
 def _contesto(request, **altro):
-    return {"accesso": request.accesso, "cliente": request.accesso.cliente, **altro}
+    return contesto_portale(request, **altro)
 
 
 def _pubblici(ticket):
@@ -196,59 +182,14 @@ def scarica(request, pk, allegato):
     return allegati.risposta(file)
 
 
-# ---------- invito (dagli utenti interni, dalla scheda del contatto) ----------
-
-def link_password(utente):
-    uid = urlsafe_base64_encode(force_bytes(utente.pk))
-    return settings.SITO_URL + reverse("password_reset_confirm", args=[uid, default_token_generator.make_token(utente)])
-
-
-def invita(contatto, da_utente):
-    """Crea (o riattiva) l'utente esterno del contatto e gli manda il link per scegliere la password."""
-    if not contatto.email:
-        raise ValueError("Il contatto non ha un indirizzo email.")
-    Utente = get_user_model()
-    accesso = AccessoPortale.objects.filter(contatto=contatto).select_related("utente").first()
-    if accesso is None:
-        if Utente.objects.filter(username__iexact=contatto.email).exists():
-            raise ValueError(f"Esiste già un utente {contatto.email}: non può diventare un accesso al portale.")
-        utente = Utente.objects.create_user(contatto.email.lower(), contatto.email, get_random_string(32),
-                                            first_name=contatto.nome[:150])
-        ProfiloUtente.objects.update_or_create(utente=utente, defaults={"esterno": True})
-        accesso = AccessoPortale.objects.create(utente=utente, contatto=contatto, invitato_da=da_utente)
-    utente = accesso.utente
-    if not utente.is_active:
-        utente.is_active = True
-        utente.save(update_fields=["is_active"])
-    modelli_email.messaggio("assistenza.invito", contatto.azienda, {
-        "nome": contatto.nome, "cliente": accesso.cliente, "link_password": link_password(utente),
-        "link_accesso": f"{settings.SITO_URL}{reverse('login')}", "nome_utente": utente.username}, [contatto.email]).send()
-    return accesso
+def riepilogo_richieste(accesso):
+    """Per la home del portale: le richieste aperte e le ultime aggiornate."""
+    ticket = _ticket(accesso)
+    aperte = ticket.filter(fase__chiusa=False)
+    return {"conta": aperte.count(), "nota": "richieste aperte" if aperte.exists() else "Nessuna richiesta aperta.",
+            "voci": [(f"{t.numero} · {t.oggetto}", reverse("assistenza:portale_ticket", args=[t.pk]), t.fase.nome) for t in aperte[:4]]}
 
 
-@login_required
-@require_POST
-def invita_contatto(request, pk):
-    if not request.user.has_perm("assistenza.add_accessoportale"):
-        raise PermissionDenied
-    contatto = get_object_or_404(queryset(request, Contatto), pk=pk)
-    try:
-        invita(contatto, request.user)
-    except ValueError as e:
-        messages.error(request, str(e))
-    else:
-        messages.success(request, f"Invito al portale mandato a {contatto.email}.")
-    return redirect("contatti:contatti_dettaglio", pk=pk)
-
-
-@login_required
-@require_POST
-def revoca_contatto(request, pk):
-    if not request.user.has_perm("assistenza.delete_accessoportale"):
-        raise PermissionDenied
-    accesso = get_object_or_404(AccessoPortale, contatto_id=pk)
-    accesso.utente.is_active = False
-    accesso.utente.save(update_fields=["is_active"])
-    messages.success(request, f"Accesso al portale di {accesso.contatto} sospeso.")
-    return redirect("contatti:contatti_dettaglio", pk=pk)
-
+def riepilogo_progetti(accesso):
+    progetti = list(_progetti(accesso)[:4])
+    return {"conta": _progetti(accesso).count(), "voci": [(p.nome, reverse("assistenza:portale_progetti"), "") for p in progetti]}

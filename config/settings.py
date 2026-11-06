@@ -115,8 +115,9 @@ AUTH_PASSWORD_VALIDATORS = [
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "core:home"
 # portale degli utenti esterni (clienti): gli unici indirizzi che vedono, e dove arrivano dopo l'accesso
-PORTALE_HOME = env("PORTALE_HOME", default="/assistenza/portale/")
-PORTALE_PERCORSI = env.list("PORTALE_PERCORSI", default=["/assistenza/portale/"])
+PORTALE_HOME = env("PORTALE_HOME", default="/portale/")
+# indirizzi in più per i clienti del portale; quelli delle app li registrano le app stesse (hooks.percorso_portale)
+PORTALE_PERCORSI = env.list("PORTALE_PERCORSI", default=[])
 LOGOUT_REDIRECT_URL = "login"
 
 LANGUAGE_CODE = "it"

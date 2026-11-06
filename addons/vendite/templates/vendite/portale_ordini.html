@@ -1,0 +1,16 @@
+{% extends "portale/base.html" %}
+{% block title %}Preventivi e ordini{% endblock %}
+{% block contenuto %}
+<div class="ui-page-head"><div><h1 class="ui-page-title">Preventivi e ordini</h1><p class="ui-help">I preventivi che ti abbiamo inviato e gli ordini di {{ cliente }}.</p></div></div>
+<section class="ui-card is-revealed">
+  {% if ordini %}<div class="ui-table-wrap"><table class="ui-table pt-tabella">
+    <thead><tr><th>Numero</th><th>Data</th><th>Stato</th><th class="n">Totale</th><th></th></tr></thead>
+    <tbody>{% for o, risposta in ordini %}<tr>
+      <td>{{ o.numero_ordine|default:o.numero }}</td><td>{{ o.data|date:"d/m/Y" }}</td>
+      <td>{{ o.get_stato_display }}{% if o.risposta %} · {{ o.get_risposta_display }}{% endif %}</td>
+      <td class="n">{{ o.totale }} €</td>
+      <td class="n">{% if risposta %}<a class="ui-btn ui-btn-primary ui-btn-sm" href="{{ risposta }}">Rispondi</a> {% endif %}<a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'vendite:portale_pdf' o.pk %}">PDF</a></td>
+    </tr>{% endfor %}</tbody></table></div>
+  {% else %}<div class="ui-card-body"><p class="ui-help">Non ci sono ancora preventivi né ordini.</p></div>{% endif %}
+</section>
+{% endblock %}

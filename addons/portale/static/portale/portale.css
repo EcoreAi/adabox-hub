@@ -13,3 +13,12 @@
 .pt-dati dt { color: var(--ui-text-3); }
 .pt-dati dd { margin: 0; }
 .pt-sottotitolo { margin: 16px 0 4px; font-size: 13px; }
+
+/* home del portale: una scheda per sezione */
+.pt-schede { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
+.pt-conta { margin-left: 6px; font-size: 13px; font-weight: 600; color: var(--ui-text-3); }
+.pt-voci { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.pt-voci a { color: var(--ui-text); text-decoration: none; font-weight: 600; }
+.pt-voci a:hover { color: var(--ui-primary); }
+.pt-tabella td.n, .pt-tabella th.n { text-align: right; white-space: nowrap; }
+.pt-scheda .ui-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
