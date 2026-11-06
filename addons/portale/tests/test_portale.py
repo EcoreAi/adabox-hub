@@ -76,7 +76,8 @@ def test_risposta_al_preventivo_dal_portale(client, scena):
     ordine = _ordine(scena, scena["rossi"], OrdineVendita.INVIATO, "PRV/1")
     _entra(client, scena)
     link = re.search(r'href="(/vendite/preventivo/[^"]+)"', client.get(reverse("vendite:portale_ordini")).content.decode()).group(1)
-    assert client.get(link).status_code == 200                                        # il cliente ci arriva dal portale
+    pagina = client.get(link)
+    assert pagina.status_code == 200 and "Preventivo PRV/1" in pagina.content.decode()   # il cliente ci arriva dal portale e lo vede
     client.post(link, {"azione": "accetta", "nome": "Anna Rossi", "conferma": "1"})
     ordine.refresh_from_db()
     assert ordine.risposta == OrdineVendita.ACCETTATO

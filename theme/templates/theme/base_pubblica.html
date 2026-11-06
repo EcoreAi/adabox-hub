@@ -1,0 +1,20 @@
+{% load static tema %}<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ theme.brand }}{% endblock %}</title>
+  <link rel="stylesheet" href="{% statico 'theme/ui.css' %}">
+  <link rel="icon" type="image/svg+xml" href="{% url 'theme:favicon' %}">
+  {% block head_extra %}{% endblock %}
+</head>
+{# Pagine aperte a chiunque abbia il link (preventivo, pagamento): stesso aspetto per anonimi, clienti del portale e
+   utenti interni, senza la testata delle app. theme/base.html invece mostra il contenuto pubblico solo agli anonimi. #}
+<body class="ui-body">
+  {% include 'theme/partials/_icons.html' %}
+  {% block public_content %}{% endblock %}
+  <script src="{% statico 'theme/vendor/htmx.min.js' %}" defer></script>
+  <script src="{% statico 'theme/ui.js' %}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
