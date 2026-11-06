@@ -48,7 +48,7 @@ def nota(documento):
     if documento is None:
         return ""
     return (f"Accanto alla chat l'utente ha aperto il documento n. {documento.pk} «{documento.titolo}» (versione {documento.versione}). "
-            "Se chiede modifiche si riferisce a questo: leggilo con leggi_documento e cambialo con modifica_documento.")
+            "Se chiede modifiche si riferisce a questo: leggilo con leggi_documento_chat e cambialo con modifica_documento.")
 
 
 # ---------- strumenti di Ada ----------
@@ -73,7 +73,7 @@ def scrivi_documento(contesto, titolo, testo):
                     "di' in breve che cosa contiene."}
 
 
-def leggi_documento(contesto, documento):
+def leggi_documento_chat(contesto, documento):
     d = _della_chat(contesto, documento)
     ultima = d.versioni.first()
     return {"documento": d.pk, "titolo": d.titolo, "versione": d.versione,
@@ -90,7 +90,7 @@ def modifica_documento(contesto, documento, modifiche=None, testo=None, titolo="
         volte = nuovo.count(cerca) if cerca else 0
         if volte != 1:
             raise ErroreStrumento(f"Modifica {i}: il testo da cercare compare {volte} volte; deve comparire una volta sola, "
-                                  "copialo esatto con leggi_documento (aggiungi parole intorno se serve). Nessuna modifica salvata.")
+                                  "copialo esatto con leggi_documento_chat (aggiungi parole intorno se serve). Nessuna modifica salvata.")
         nuovo = nuovo.replace(cerca, sostituisci, 1)
     if titolo.strip():
         DocumentoChat.objects.filter(pk=d.pk).update(titolo=titolo.strip()[:200])
@@ -106,8 +106,9 @@ registra(Strumento(
     {"type": "object", "properties": {"titolo": {"type": "string"}, "testo": {"type": "string", "description": "il testo in Markdown"}},
      "required": ["titolo", "testo"]}, scrivi_documento, concorrente=False))
 registra(Strumento(
-    "leggi_documento", "Legge il testo attuale di un documento della chat: l'utente potrebbe averlo modificato.",
-    {"type": "object", "properties": {"documento": DOCUMENTO}, "required": ["documento"]}, leggi_documento))
+    "leggi_documento_chat", "Legge il testo attuale di un documento scritto in questa chat (non dell'app Documenti): l'utente potrebbe "
+                            "averlo modificato.",
+    {"type": "object", "properties": {"documento": DOCUMENTO}, "required": ["documento"]}, leggi_documento_chat))
 registra(Strumento(
     "modifica_documento", "Modifica un documento della chat. Per cambiare una parte usa «modifiche»: ogni «cerca» deve essere copiato "
                           "esatto dal testo attuale e comparire una volta sola. Per riscriverlo tutto usa «testo». Ogni modifica è "

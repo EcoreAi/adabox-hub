@@ -39,7 +39,7 @@ def test_ada_scrive_legge_e_modifica(s):
     r = _strumento("scrivi_documento", s["u"]).funzione(s["ctx"], titolo="Offerta", testo="# Offerta\n\nPrezzo: 100 euro.\nValida 30 giorni.")
     d = DocumentoChat.objects.get(pk=r["documento"])
     assert d.versione == 1 and d.versioni.get().autore == "ada" and _strumento("scrivi_documento", s["u"]).rischio == "lettura"
-    assert "Prezzo" in _strumento("leggi_documento", s["u"]).funzione(s["ctx"], documento=d.pk)["testo"]
+    assert "Prezzo" in _strumento("leggi_documento_chat", s["u"]).funzione(s["ctx"], documento=d.pk)["testo"]
     modifica = _strumento("modifica_documento", s["u"]).funzione
     modifica(s["ctx"], documento=d.pk, modifiche=[{"cerca": "100 euro", "sostituisci": "120 euro"}])
     d.refresh_from_db()
@@ -57,7 +57,7 @@ def test_solo_i_documenti_di_questa_chat(s):
     d = documenti_chat.crea(s["c"], s["u"], s["az"], "A", "testo")
     altra = Conversazione.objects.create(utente=s["u"], titolo="y")
     with pytest.raises(ErroreStrumento, match="non trovato"):
-        _strumento("leggi_documento", s["u"]).funzione(Contesto(utente=s["u"], azienda=s["az"], conversazione=altra), documento=d.pk)
+        _strumento("leggi_documento_chat", s["u"]).funzione(Contesto(utente=s["u"], azienda=s["az"], conversazione=altra), documento=d.pk)
 
 
 def test_editor_salva_conflitto_e_ripristino(s, client):
@@ -117,7 +117,7 @@ def test_la_nota_dice_ad_ada_quale_documento_e_aperto(s, client, monkeypatch):
 
 def test_non_conta_come_dato_del_gestionale(s):
     Evento.objects.create(conversazione=s["c"], turno=s["t"], tipo=Evento.ASSISTENTE,
-                          dati={"ruolo": "assistente", "blocchi": [{"tipo": "strumento", "id": "a", "nome": "leggi_documento", "argomenti": {}}]})
+                          dati={"ruolo": "assistente", "blocchi": [{"tipo": "strumento", "id": "a", "nome": "leggi_documento_chat", "argomenti": {}}]})
     Evento.objects.create(conversazione=s["c"], turno=s["t"], tipo=Evento.STRUMENTO,
                           dati={"ruolo": "strumento", "risultati": [{"id": "a", "contenuto": "testo", "errore": False}]})
     pv = provenienza.calcola(s["t"], "Ho accorciato il documento.")

@@ -13,7 +13,7 @@ LINK = re.compile(r"\]\([^)]*\)|https?://\S+")
 MAX_SEGNALATI = 5
 # Da dove viene un dato letto: una pagina web o un file non sono dati del gestionale, e il badge non deve dirlo
 FUORI_DAL_GESTIONALE = {"cerca_web": "web", "leggi_pagina": "web", "leggi_allegato": "allegati",
-                        "scrivi_documento": "documento", "leggi_documento": "documento", "modifica_documento": "documento"}
+                        "scrivi_documento": "documento", "leggi_documento_chat": "documento", "modifica_documento": "documento"}
 ESTERNO = re.compile(r"mcp\d+_")                       # gli strumenti dei sistemi esterni (ai/mcp.py)
 
 
