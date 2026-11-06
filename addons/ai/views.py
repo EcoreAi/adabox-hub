@@ -1,7 +1,7 @@
 from core import cifratura
 from core.viste import Inline, ModelView, register
 
-from .forms import AssistenteForm, ChiaveAziendaForm, PianificataForm, ProviderForm, ServerMCPForm, ServizioVoceForm
+from .forms import AssistenteForm, ChiaveAziendaForm, PianificataForm, ProgettoChatForm, ProviderForm, ServerMCPForm, ServizioVoceForm
 from .models import (AnelloCatena, Assistente, ChiaveAzienda, Modello, Pianificata, Profilo, Proposta, Provider, MemoriaUtente, ProgettoChat, ServerMCP, ServizioVoce, ValutazioneRisposta,
                      Turno)
 
@@ -267,6 +267,7 @@ class ProgettoChatView(_SoloMie):
     """Chat raggruppate con istruzioni e file comuni."""
     model = ProgettoChat
     slug = "progetti"
+    form_class = ProgettoChatForm
     list_display = ["nome", "creato"]
     search_fields = ["nome", "istruzioni"]
     form_layout = [("Progetto", ["nome", "istruzioni"])]

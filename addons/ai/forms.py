@@ -4,7 +4,7 @@ from django import forms
 
 from core import cifratura
 
-from .models import Assistente, ChiaveAzienda, Pianificata, Provider, ServerMCP, ServizioVoce
+from .models import Assistente, ChiaveAzienda, Pianificata, ProgettoChat, Provider, ServerMCP, ServizioVoce
 
 
 class ProviderForm(forms.ModelForm):
@@ -93,7 +93,7 @@ class PianificataForm(forms.ModelForm):
         fields = ["nome", "istruzioni", "ambito", "ricorrenza", "alle", "giorni", "giorno_mese", "ogni_ore",
                   "minuti_prima", "in_discuss", "per_email", "attiva"]
         widgets = {"alle": forms.TimeInput(attrs={"type": "time"}, format="%H:%M"),
-                   "istruzioni": forms.Textarea(attrs={"rows": 4})}
+                   "istruzioni": forms.Textarea(attrs={"rows": 4, "data-scrivi-con-ada": "pianificata"})}
 
     def __init__(self, *args, **kwargs):
         from core.registry import modules
@@ -133,7 +133,7 @@ class AssistenteForm(forms.ModelForm):
         model = Assistente
         fields = ["nome", "descrizione", "app", "predefinito", "istruzioni", "strumenti", "profilo", "gruppi",
                   "domande_oro", "attivo"]
-        widgets = {"istruzioni": forms.Textarea(attrs={"rows": 6}), "domande_oro": forms.Textarea(attrs={"rows": 5})}
+        widgets = {"istruzioni": forms.Textarea(attrs={"rows": 6, "data-scrivi-con-ada": "assistente"}), "domande_oro": forms.Textarea(attrs={"rows": 5})}
 
     def __init__(self, *args, **kwargs):
         from core.registry import modules
@@ -207,3 +207,10 @@ class ServizioVoceForm(forms.ModelForm):
         if self.cleaned_data.get("nuova_chiave"):
             self.instance.chiave_cifrata = cifratura.cifra(self.cleaned_data["nuova_chiave"])
         return super().save(commit)
+
+
+class ProgettoChatForm(forms.ModelForm):
+    class Meta:
+        model = ProgettoChat
+        fields = ["nome", "istruzioni"]
+        widgets = {"istruzioni": forms.Textarea(attrs={"rows": 10, "data-scrivi-con-ada": "progetto"})}

@@ -1,0 +1,33 @@
+{% load ai tema %}{# «Scrivi con Ada» nei campi di istruzioni: lo script si attiva solo dove c'è un campo [data-scrivi-con-ada]. #}
+{% campi_scrivi_con_ada as campi %}{{ campi|json_script:"ai-scrivi-campi" }}
+<dialog class="ai-scrivi" id="ai-scrivi" aria-labelledby="ai-scrivi-titolo">
+  <form method="dialog" class="ai-scrivi-corpo" data-scrivi-modulo>
+    <header class="ai-scrivi-testa"><h2 id="ai-scrivi-titolo">Scrivi con Ada</h2><button type="submit" value="annulla" class="ai-scrivi-chiudi" aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
+    <section data-fase="domande" hidden>
+      <p class="ai-scrivi-guida">Rispondi in poche parole: Ada scrive la bozza e controlla nel gestionale i nomi che citi. La bozza va nel campo solo se la scegli.</p>
+      <div data-domande></div>
+    </section>
+    <section data-fase="scelta" hidden>
+      <p class="ai-scrivi-guida">Il campo ha già un testo. Ada può migliorarlo (più breve, senza ripetizioni né contraddizioni, nomi controllati) oppure puoi ripartire dalle domande.</p>
+    </section>
+    <section data-fase="attesa" hidden>
+      <p class="ai-scrivi-attesa" role="status"><span class="ai-puntini" aria-hidden="true"><i></i><i></i><i></i></span> Ada sta scrivendo e controlla i nomi nel gestionale…</p>
+    </section>
+    <section data-fase="bozza" hidden>
+      <label class="ai-scrivi-etichetta" for="ai-scrivi-bozza">Bozza (puoi modificarla)</label>
+      <textarea class="ui-input" id="ai-scrivi-bozza" rows="12" data-bozza></textarea>
+      <div class="ai-scrivi-note" data-note hidden><strong>Da sapere</strong><div data-note-testo></div></div>
+    </section>
+    <p class="ai-avviso" role="alert" data-scrivi-errore hidden></p>
+    <footer class="ai-scrivi-piede">
+      <button type="button" class="ui-btn ui-btn-ghost" data-azione="domande" hidden>Riparti dalle domande</button>
+      <span class="ai-spazio"></span>
+      <button type="submit" value="annulla" class="ui-btn ui-btn-secondary">Annulla</button>
+      <button type="button" class="ui-btn ui-btn-primary" data-azione="scrivi" hidden>Scrivi la bozza</button>
+      <button type="button" class="ui-btn ui-btn-primary" data-azione="migliora" hidden>Migliora il testo</button>
+      <button type="button" class="ui-btn ui-btn-primary" data-azione="usa" hidden>Usa questo testo</button>
+    </footer>
+  </form>
+</dialog>
+<script src="{% statico 'ai/scrivi_con_ada.js' %}" defer data-url="{% url 'ai:scrivi_con_ada' 'CAMPO' %}"></script>
+<link rel="stylesheet" href="{% statico 'ai/scrivi_con_ada.css' %}">

@@ -81,3 +81,10 @@ def ct_progetto():
 
     from ai.models import ProgettoChat
     return ContentType.objects.get_for_model(ProgettoChat).pk
+
+
+@register.simple_tag
+def campi_scrivi_con_ada():
+    """Le domande di «Scrivi con Ada» per ogni campo, per lo script del riquadro."""
+    from ai.aiuto_testi import CAMPI
+    return {k: {"domande": v["domande"]} for k, v in CAMPI.items()}

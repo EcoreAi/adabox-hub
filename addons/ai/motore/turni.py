@@ -229,6 +229,9 @@ def esegui(turno_id):
         from ..strumenti import web
         ammessi = {s.nome: s for s in assistenti.filtra_strumenti(
             web.filtra(strumenti.disponibili(utente, conversazione.ambito, turno.azienda), turno.azienda, turno.web), assistente, esperto=turno.compito == "esperto")}
+        if turno.compito == "aiuto":                      # «Scrivi con Ada»: solo letture del gestionale
+            from .. import aiuto_testi
+            ammessi = aiuto_testi.filtra_strumenti(ammessi)
         copia, con_immagine, nell_ultimo = allegati_chat.con_immagini(messaggi_del_modello(conversazione))
         senza_immagini = False
         if con_immagine:

@@ -581,3 +581,32 @@ def audio_voce(request, pk, parte):
     risposta = HttpResponse(audio, content_type=tipo)
     risposta["Cache-Control"] = "private, max-age=3600"
     return risposta
+
+
+@require_POST
+@login_required
+@permission_required("ai.add_conversazione", raise_exception=True)
+def scrivi_con_ada(request, campo):
+    """Avvia la bozza di un campo di istruzioni; il browser chiede l'esito finché Ada non ha finito."""
+    from . import aiuto_testi
+    voce = aiuto_testi.CAMPI.get(campo)
+    if voce is None:
+        raise Http404
+    if not request.user.has_perm(voce["permesso"]):
+        return JsonResponse({"errore": "Non hai il permesso di scrivere questo campo."}, status=403)
+    try:
+        risposte = json.loads(request.POST.get("risposte") or "{}")
+    except ValueError:
+        risposte = {}
+    turno = aiuto_testi.avvia(request.user, getattr(request, "azienda", None), campo, request.POST.get("testo", ""),
+                              risposte if isinstance(risposte, dict) else {})
+    return JsonResponse({"esito": reverse("ai:esito_scrittura", args=[turno.pk])})
+
+
+@login_required
+@permission_required("ai.add_conversazione", raise_exception=True)
+def esito_scrittura(request, pk):
+    from . import aiuto_testi
+    turno = get_object_or_404(Turno, pk=pk, utente=request.user, compito=aiuto_testi.COMPITO)
+    risultato = aiuto_testi.esito(turno)
+    return JsonResponse(risultato if risultato is not None else {"in_corso": True})
