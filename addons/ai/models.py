@@ -628,3 +628,18 @@ class ServizioVoce(models.Model):
     def chiave(self):
         from core import cifratura
         return cifratura.decifra(self.chiave_cifrata) if self.chiave_cifrata else ""
+
+
+class CollegamentoProgetto(models.Model):
+    """Un record del gestionale (commessa, cliente, opportunità, campagna, ticket...) legato a un progetto della chat:
+    Ada lo riceve come contesto in tutte le chat del progetto, e dal record si torna al progetto."""
+    progetto = models.ForeignKey(ProgettoChat, on_delete=models.CASCADE, related_name="collegamenti", verbose_name="progetto")
+    content_type = models.ForeignKey("contenttypes.ContentType", on_delete=models.CASCADE, related_name="+")
+    object_id = models.PositiveBigIntegerField()
+    creato = models.DateTimeField("collegato il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "collegamento del progetto"
+        verbose_name_plural = "collegamenti del progetto"
+        ordering = ["pk"]
+        constraints = [models.UniqueConstraint(fields=["progetto", "content_type", "object_id"], name="ai_collegamento_unico")]

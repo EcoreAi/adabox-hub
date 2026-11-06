@@ -6,6 +6,16 @@
     <span class="ai-spazio"></span>
     <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'ai:progetti_modifica' progetto_aperto.pk %}"><svg><use href="#icon-edit"/></svg> Modifica</a>
   </div>
+  <div class="ai-collegamenti" aria-label="Record collegati">
+    <span class="ai-collegamenti-etichetta">Collegato a</span>
+    {% for c in collegamenti_progetto %}<span class="ai-chip ai-chip-collegamento"><span class="ai-collega-tipo">{{ c.tipo }}</span>{% if c.url %}<a href="{{ c.url }}">{{ c.titolo }}</a>{% else %}{{ c.titolo }}{% endif %}
+      {% if perms.ai.change_progettochat %}<form method="post" action="{% url 'ai:scollega' progetto_aperto.pk c.collegamento.pk %}">{% csrf_token %}<button type="submit" class="ai-chip-x" aria-label="Scollega {{ c.titolo }}" data-tip="Scollega"><svg><use href="#icon-x"/></svg></button></form>{% endif %}</span>
+    {% empty %}<span class="ai-progetto-vuoto">nessun record: collega una commessa, un cliente, un'opportunità… e Ada li conoscerà in tutte le chat del progetto.</span>{% endfor %}
+    {% if perms.ai.change_progettochat %}<details class="ai-collega"><summary class="ui-btn ui-btn-ghost ui-btn-sm">+ Collega</summary>
+      <div class="ai-collega-pannello"><input class="ui-input" type="search" name="q" placeholder="Cerca un record da collegare…" aria-label="Cerca un record da collegare" autocomplete="off"
+        hx-get="{% url 'ai:cerca_collegamento' progetto_aperto.pk %}" hx-trigger="input changed delay:350ms, search" hx-target="next .ai-collega-esiti">
+        <div class="ai-collega-esiti"></div></div></details>{% endif %}
+  </div>
   {% if progetto_aperto.istruzioni.strip %}
   <details class="ai-progetto-istruzioni"><summary><span>Istruzioni</span> {{ progetto_aperto.istruzioni|truncatechars:140 }}</summary>
     <div class="ai-progetto-istruzioni-testo">{{ progetto_aperto.istruzioni|linebreaksbr }}</div></details>

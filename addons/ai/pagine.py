@@ -19,9 +19,9 @@ from core.models import Allegato
 from core import barra
 from core.registry import modules
 
-from . import allegati_chat, catalogo, documenti_chat, motore, ricerca, suggerimenti, voce
+from . import allegati_chat, catalogo, collegamenti, documenti_chat, motore, ricerca, suggerimenti, voce
 from .strumenti.registro import ErroreStrumento
-from .models import Artifact, Conversazione, DocumentoChat, VersioneDocumento, MessaggioChat, ProgettoChat, Proposta, Turno, ValutazioneRisposta
+from .models import Artifact, CollegamentoProgetto, Conversazione, DocumentoChat, VersioneDocumento, MessaggioChat, ProgettoChat, Proposta, Turno, ValutazioneRisposta
 
 PANNELLI_SINISTRA = [("storico", "Cronologia chat", "ai-storico"), ("preferite", "Chat preferite", "ai-stella"), ("progetti", "Progetti", "ai-cartella")]
 PANNELLI_DESTRA = [("artifact", "Artifact salvati", "ai-artifact"), ("documenti", "Documenti salvati", "ai-documento"),
@@ -131,6 +131,7 @@ def chat(request, pk=None, progetto=None):
         "pannelli_sinistra": PANNELLI_SINISTRA, "pannelli_destra": PANNELLI_DESTRA,
         "app": app, "suggerimenti": suggerimenti.per(), "suggerimenti_per_app": suggerimenti.tutti(),
         "progetti": progetti, "progetto_aperto": progetto_aperto,
+        "collegamenti_progetto": collegamenti.del_progetto(request, progetto_aperto) if progetto_aperto else [],
         "progetto_nuova": (progetto_aperto or _mio_progetto(request, request.GET.get("progetto"))) if conversazione is None else None,
         "livelli_modello": livelli_modello(azienda),
         "app_gruppi": barra.gruppi([{**a, "categoria": a.get("category", "")} for a in app]),
@@ -805,3 +806,46 @@ def elimina_elemento(request, tipo, pk):
     else:
         raise Http404
     return JsonResponse({"ok": True})
+
+
+@login_required
+@permission_required("ai.change_progettochat", raise_exception=True)
+def cerca_collegamento(request, pk):
+    """I record che l'utente vede, da collegare al progetto (come «Cerca ovunque»)."""
+    progetto = _mio_progetto(request, pk)
+    if progetto is None:
+        raise Http404
+    testo = request.GET.get("q", "").strip()[:100]
+    risultati = collegamenti.cerca(request, testo) if len(testo) >= 2 else []
+    return render(request, "ai/_cerca_collegamento.html", {"progetto": progetto, "risultati": risultati, "testo": testo})
+
+
+@require_POST
+@login_required
+@permission_required("ai.change_progettochat", raise_exception=True)
+def collega(request, pk):
+    """Collega un record al progetto, se l'utente lo vede. Da dove si è partiti (progetto o record) si torna lì."""
+    progetto = _mio_progetto(request, pk)
+    if progetto is None:
+        raise Http404
+    ct, record = request.POST.get("ct", ""), request.POST.get("record", "")
+    trovato = collegamenti.risolvi(request, ct, record) if ct.isdigit() and record.isdigit() else None
+    if trovato is None:
+        messages.error(request, "Record non trovato o non visibile.")
+    else:
+        CollegamentoProgetto.objects.get_or_create(progetto=progetto, content_type_id=int(ct), object_id=int(record))
+        messages.success(request, f"«{trovato[1]}» collegato al progetto «{progetto.nome}».")
+    indietro = request.POST.get("indietro", "")
+    return redirect(indietro if indietro.startswith("/") and not indietro.startswith("//") else reverse("ai:progetto", args=[progetto.pk]))
+
+
+@require_POST
+@login_required
+@permission_required("ai.change_progettochat", raise_exception=True)
+def scollega(request, pk, collegamento):
+    progetto = _mio_progetto(request, pk)
+    if progetto is None:
+        raise Http404
+    CollegamentoProgetto.objects.filter(pk=collegamento, progetto=progetto).delete()
+    indietro = request.POST.get("indietro", "")
+    return redirect(indietro if indietro.startswith("/") and not indietro.startswith("//") else reverse("ai:progetto", args=[progetto.pk]))

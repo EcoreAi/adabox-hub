@@ -28,6 +28,9 @@ def nota_progetto(conversazione):
     if file := allegati_chat.di_progetto(progetto):
         righe.append("File del progetto, da leggere con leggi_allegato se servono: " + ", ".join(f"«{a.nome}» (allegato n. {a.pk})" for a in file))
     righe += _nota_cartella(conversazione, progetto)
+    from . import collegamenti
+    if collegati := collegamenti.nota(conversazione.utente, progetto):
+        righe.append(collegati)
     return "\n".join(righe)
 
 

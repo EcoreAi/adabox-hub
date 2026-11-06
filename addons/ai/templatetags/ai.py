@@ -88,3 +88,21 @@ def campi_scrivi_con_ada():
     """Le domande di «Scrivi con Ada» per ogni campo, per lo script del riquadro."""
     from ai.aiuto_testi import CAMPI
     return {k: {"domande": v["domande"]} for k, v in CAMPI.items()}
+
+
+@register.simple_tag(takes_context=True)
+def progetti_del_record(context, obj, vista=None):
+    """Per la sezione nel dettaglio di un record: (progetti collegati, progetti dell'utente da collegare, tipo di record)."""
+    request = context.get("request")
+    if request is None or obj is None or getattr(vista, "modulo", "") == "ai":
+        return None
+    from django.contrib.contenttypes.models import ContentType
+
+    from ai import collegamenti
+    from ai.models import ProgettoChat
+    azienda = getattr(request, "azienda", None)
+    collegati = collegamenti.progetti_del_record(request.user, azienda, obj)
+    tutti = list(ProgettoChat.objects.filter(utente=request.user, azienda=azienda)) if azienda else []
+    if not tutti:
+        return None
+    return {"collegati": collegati, "liberi": [p for p in tutti if p not in collegati], "ct": ContentType.objects.get_for_model(type(obj)).pk}
