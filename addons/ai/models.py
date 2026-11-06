@@ -385,6 +385,8 @@ class Pianificata(models.Model):
     eventi_fatti = models.JSONField("eventi già preparati", default=list, blank=True, editable=False)
     conversazione = models.ForeignKey(Conversazione, on_delete=models.SET_NULL, null=True, blank=True,
                                       related_name="+", verbose_name="conversazione")
+    progetto = models.ForeignKey("ProgettoChat", on_delete=models.SET_NULL, null=True, blank=True, related_name="pianificate",
+                                 verbose_name="progetto", help_text="la sua chat sta nel progetto: istruzioni, file e record collegati valgono anche qui")
     creata = models.DateTimeField("creata il", auto_now_add=True)
 
     class Meta:

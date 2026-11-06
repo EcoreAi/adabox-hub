@@ -83,6 +83,7 @@ class ChiaveAziendaForm(forms.ModelForm):
 
 
 class PianificataForm(forms.ModelForm):
+    progetti_utente = ProgettoChat.objects.none()          # i progetti dell'utente: li mette la vista
     """Giorni della settimana a caselle; i campi che servono dipendono da «quando»."""
     giorni = forms.TypedMultipleChoiceField(label="giorni della settimana", coerce=int, required=False,
                                             choices=Pianificata.GIORNI_SETTIMANA, widget=forms.CheckboxSelectMultiple)
@@ -90,7 +91,7 @@ class PianificataForm(forms.ModelForm):
 
     class Meta:
         model = Pianificata
-        fields = ["nome", "istruzioni", "ambito", "ricorrenza", "alle", "giorni", "giorno_mese", "ogni_ore",
+        fields = ["nome", "istruzioni", "ambito", "progetto", "ricorrenza", "alle", "giorni", "giorno_mese", "ogni_ore",
                   "minuti_prima", "in_discuss", "per_email", "attiva"]
         widgets = {"alle": forms.TimeInput(attrs={"type": "time"}, format="%H:%M"),
                    "istruzioni": forms.Textarea(attrs={"rows": 4, "data-scrivi-con-ada": "pianificata"})}
@@ -100,7 +101,8 @@ class PianificataForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["ambito"].choices = [("", "Tutte le app")] + [
             (slug, m.name) for slug, m in modules.manifests_attivi().items() if m.application and slug != "ai"]
-        if self.instance.pk:
+        self.fields["progetto"].queryset = self.progetti_utente
+        if "giorni" not in self.initial or not self.instance.pk:   # anche nuova: i giorni predefiniti spuntati (lun-ven)
             self.initial["giorni"] = self.instance.elenco_giorni()
 
     def clean_giorni(self):

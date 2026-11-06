@@ -132,6 +132,7 @@ def chat(request, pk=None, progetto=None):
         "app": app, "suggerimenti": suggerimenti.per(), "suggerimenti_per_app": suggerimenti.tutti(),
         "progetti": progetti, "progetto_aperto": progetto_aperto,
         "collegamenti_progetto": collegamenti.del_progetto(request, progetto_aperto) if progetto_aperto else [],
+        **(_lavoro_del_progetto(request, progetto_aperto) if progetto_aperto else {}),
         "progetto_nuova": (progetto_aperto or _mio_progetto(request, request.GET.get("progetto"))) if conversazione is None else None,
         "livelli_modello": livelli_modello(azienda),
         "app_gruppi": barra.gruppi([{**a, "categoria": a.get("category", "")} for a in app]),
@@ -140,6 +141,24 @@ def chat(request, pk=None, progetto=None):
         "dettatura": voce.dettatura_disponibile(azienda), "lettura": voce.servizio_per(azienda) is not None,
         **_salva_nei_documenti(request, azienda, conversazione, progetto_aperto),
     })
+
+
+def _lavoro_del_progetto(request, progetto):
+    """Attività pianificate del progetto e link per mettere una sessione di lavoro nel calendario."""
+    from urllib.parse import urlencode
+
+    from django.conf import settings
+    voci = {"pianificate_progetto": list(progetto.pianificate.filter(utente=request.user)) if request.user.has_perm("ai.view_pianificata") else []}
+    if "calendario" in settings.ADDONS_ATTIVI and request.user.has_perm("calendario.add_evento"):
+        try:
+            nuovo = reverse("calendario:eventi_nuovo")
+        except Exception:                                           # noqa: BLE001 - vista del calendario cambiata
+            nuovo = ""
+        if nuovo:
+            indirizzo = request.build_absolute_uri(reverse("ai:progetto", args=[progetto.pk]))
+            voci["url_sessione"] = nuovo + "?" + urlencode({"titolo": f"Lavoro su «{progetto.nome}»",
+                                                             "descrizione": f"Progetto di Ada: {indirizzo}"})
+    return voci
 
 
 def _salva_nei_documenti(request, azienda, conversazione, progetto_aperto):

@@ -557,3 +557,5 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-collega-risultati button:hover { background: var(--ui-surface-2); }
 .ai-collega-risultati .ai-elenco-titolo { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ai-collega-piu { font-size: 12px; font-weight: 600; color: var(--ui-primary); }
+.ai-chip-collegamento.is-spenta { opacity: .55; text-decoration: line-through; }
+.ai-collegamenti .ui-btn svg { width: 14px; height: 14px; }

@@ -16,6 +16,13 @@
         hx-get="{% url 'ai:cerca_collegamento' progetto_aperto.pk %}" hx-trigger="input changed delay:350ms, search" hx-target="next .ai-collega-esiti">
         <div class="ai-collega-esiti"></div></div></details>{% endif %}
   </div>
+  <div class="ai-collegamenti" aria-label="Attività del progetto">
+    <span class="ai-collegamenti-etichetta">Attività</span>
+    {% for p in pianificate_progetto %}<a class="ai-chip ai-chip-collegamento{% if not p.attiva %} is-spenta{% endif %}" href="{% url 'ai:pianificate_dettaglio' p.pk %}"><span class="ai-collega-tipo">{{ p.frequenza }}</span>{{ p.nome }}</a>
+    {% empty %}<span class="ai-progetto-vuoto">Ada può lavorare da sola sul progetto, per esempio ogni lunedì scrivere lo stato della commessa.</span>{% endfor %}
+    {% if perms.ai.add_pianificata %}<a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'ai:pianificate_nuovo' %}?progetto={{ progetto_aperto.pk }}">+ Attività pianificata</a>{% endif %}
+    {% if url_sessione %}<a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ url_sessione }}"><svg><use href="#ai-sveglia"/></svg> Sessione in calendario</a>{% endif %}
+  </div>
   {% if progetto_aperto.istruzioni.strip %}
   <details class="ai-progetto-istruzioni"><summary><span>Istruzioni</span> {{ progetto_aperto.istruzioni|truncatechars:140 }}</summary>
     <div class="ai-progetto-istruzioni-testo">{{ progetto_aperto.istruzioni|linebreaksbr }}</div></details>

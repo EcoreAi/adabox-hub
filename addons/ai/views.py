@@ -112,11 +112,18 @@ class PianificataView(ModelView):
     list_filter = ["attiva", "ricorrenza"]
     search_fields = ["nome", "istruzioni"]
     form_class = PianificataForm
-    form_layout = [("Attività", ["nome", "istruzioni", "ambito"]),
+    form_layout = [("Attività", ["nome", "istruzioni", ("ambito", "progetto")]),
                    ("Quando", [("ricorrenza", "alle"), "giorni", ("giorno_mese", "ogni_ore", "minuti_prima")]),
                    ("Risultato (sempre anche nella sua chat)", [("in_discuss", "per_email"), "attiva"])]
     readonly_fields = ["utente", "prossima", "ultima", "esito", "errori", "conversazione"]
     buttons = ["esegui_ora", "sospendi", "riattiva"]
+
+    def get_form_class(self, request=None):
+        base = super().get_form_class(request)
+        if request is None:
+            return base
+        progetti = ProgettoChat.objects.filter(utente=request.user, azienda=getattr(request, "azienda", None))
+        return type("PianificataFormUtente", (base,), {"progetti_utente": progetti})
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
