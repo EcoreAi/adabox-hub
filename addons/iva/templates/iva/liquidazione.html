@@ -1,0 +1,29 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Liquidazione IVA · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Liquidazione IVA {{ anno }}</h1><div class="sub">{% if trimestrale %}Trimestrale{% else %}Mensile{% endif %} · dai registri delle vendite e degli acquisti · la periodicità si cambia nelle impostazioni del modulo</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="?anno={{ anno }}&formato=csv">Esporta CSV</a><a class="ui-btn ui-btn-secondary" href="{% url 'iva:lipe' %}?anno={{ anno }}">Comunicazione LIPE</a></div>
+</div>
+<div class="ui-card is-revealed">
+  <form class="ui-filtri" method="get">
+    <select class="ui-input" name="anno" aria-label="Anno">{% for a in anni %}<option value="{{ a }}"{% if a == anno %} selected{% endif %}>{{ a }}</option>{% endfor %}</select>
+    <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Mostra</button>
+  </form>
+  {% if periodi %}
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Periodo</th><th class="ui-num">IVA a debito</th><th class="ui-num">IVA detratta</th><th class="ui-num">Riporti</th><th class="ui-num">Da versare</th><th class="ui-num">A credito</th><th>Scadenza</th><th>Stato</th></tr></thead>
+    <tbody>{% for r in periodi %}<tr>
+      <td><a class="ui-link" href="{% url 'iva:periodo' r.anno r.periodicita r.periodo %}">{{ r.nome|capfirst }}</a></td>
+      <td class="ui-num">{{ r.esigibile|floatformat:"2g" }}</td><td class="ui-num">{{ r.detratta|floatformat:"2g" }}</td>
+      <td class="ui-num">{% if r.credito_precedente %}−{{ r.credito_precedente|floatformat:"2g" }}{% elif r.debito_precedente %}+{{ r.debito_precedente|floatformat:"2g" }}{% else %}—{% endif %}</td>
+      <td class="ui-num">{% if r.da_versare %}<strong>{{ r.da_versare|floatformat:"2g" }}</strong>{% if r.rinviato %} <span class="ui-pill" title="Sotto la soglia minima: passa al periodo dopo">rinviato</span>{% endif %}{% else %}—{% endif %}</td>
+      <td class="ui-num">{% if r.a_credito %}{{ r.a_credito|floatformat:"2g" }}{% else %}—{% endif %}</td>
+      <td>{% with s=r.scadenza %}{{ s.0|date:"d/m/Y" }} · F24 {{ s.1 }}{% endwith %}</td>
+      <td>{% if r.liquidazione.versata_il %}<span class="ui-pill ui-pill-success">versata il {{ r.liquidazione.versata_il|date:"d/m/Y" }}</span>{% elif r.da_chiusura %}<span class="ui-pill">chiusa</span>{% else %}<span class="ui-pill ui-pill-warning">aperta</span>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun periodo da liquidare in questo anno.</p></div></div>{% endif %}
+</div>
+<p class="sub ui-section">L'IVA si calcola senza contabilità: fatture emesse e fatture ricevute registrate del periodo. La dichiarazione annuale e il versamento restano allo studio; qui si preparano i numeri, si chiude il periodo e si genera la LIPE.</p>
+{% endblock %}

@@ -1,0 +1,3 @@
+.iva-campi { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0 1rem; }
+.iva-campi .ui-form-group:last-child { grid-column: 1 / -1; }
+.iva-xml { max-height: 24rem; overflow: auto; font-size: .8rem; background: var(--ui-surface-2, #f6f7f9); padding: .75rem; border-radius: 6px; }

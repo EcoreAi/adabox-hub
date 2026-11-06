@@ -1,0 +1,15 @@
+{% if obj.stato == 'registrata' or obj.stato == 'da_verificare' %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">IVA detraibile</div></div>
+  <div class="ui-card-body">
+    {% if perms.iva.change_detraibilita %}
+    <form class="ui-filtri" method="post" action="{% url 'iva:detraibilita' obj.pk %}">{% csrf_token %}
+      <label class="sub" for="iva-perc">Percentuale</label>
+      <input class="ui-input" id="iva-perc" type="number" name="percentuale" min="0" max="100" step="0.01" value="{% if obj.detraibilita %}{{ obj.detraibilita.percentuale|stringformat:'g' }}{% else %}100{% endif %}" style="max-width:7rem">
+      <input class="ui-input" type="text" name="motivo" maxlength="120" placeholder="Motivo, es. auto aziendale" value="{{ obj.detraibilita.motivo|default:'' }}" aria-label="Motivo">
+      <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Salva</button>
+    </form>
+    <p class="sub">Entra nella liquidazione IVA del periodo in cui la fattura è registrata. Esempi: auto 40%, telefoni 50%, rappresentanza 0%.</p>
+    {% else %}<p>{% if obj.detraibilita %}{{ obj.detraibilita.percentuale|stringformat:'g' }}%{% if obj.detraibilita.motivo %} · {{ obj.detraibilita.motivo }}{% endif %}{% else %}100%{% endif %}</p>{% endif %}
+  </div>
+</section>{% endif %}

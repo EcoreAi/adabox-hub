@@ -1,0 +1,27 @@
+{% extends 'core/base_app.html' %}{% load tema %}
+{% block head_extra %}<link rel="stylesheet" href="{% statico 'iva/iva.css' %}">{% endblock %}
+{% block title %}Comunicazione LIPE · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Comunicazione LIPE · {{ trimestre }}° trimestre {{ anno }}</h1><div class="sub">Liquidazioni periodiche IVA, fornitura IVP18 · da inviare entro il {{ scadenza }}</div></div>
+  <div class="ui-pagehead-actions">{% if xml %}<a class="ui-btn ui-btn-primary" href="?anno={{ anno }}&trimestre={{ trimestre }}&scarica=1">Scarica il file</a>{% endif %}</div>
+</div>
+<div class="ui-card is-revealed">
+  <form class="ui-filtri" method="get">
+    <select class="ui-input" name="anno" aria-label="Anno">{% for a in anni %}<option value="{{ a }}"{% if a == anno %} selected{% endif %}>{{ a }}</option>{% endfor %}</select>
+    <select class="ui-input" name="trimestre" aria-label="Trimestre">{% for t in "1234" %}<option value="{{ t }}"{% if t|add:0 == trimestre %} selected{% endif %}>{{ t }}° trimestre</option>{% endfor %}</select>
+    <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Mostra</button>
+  </form>
+  <div class="ui-card-body">
+    {% for e in errori %}<div class="ui-alert ui-alert-danger">{{ e }}</div>{% endfor %}
+    {% for a in avvisi %}<div class="ui-alert ui-alert-warning">{{ a }}</div>{% endfor %}
+    <div class="ui-table-wrap"><table class="ui-table is-revealed">
+      <thead><tr><th>Modulo</th><th class="ui-num">VP2 attive</th><th class="ui-num">VP3 passive</th><th class="ui-num">VP4 esigibile</th><th class="ui-num">VP5 detratta</th><th class="ui-num">VP14 da versare</th><th class="ui-num">VP14 a credito</th></tr></thead>
+      <tbody>{% for r in voci %}<tr><td><a class="ui-link" href="{% url 'iva:periodo' r.anno r.periodicita r.periodo %}">{{ r.nome|capfirst }}</a></td>
+        <td class="ui-num">{{ r.attive|floatformat:"2g" }}</td><td class="ui-num">{{ r.passive|floatformat:"2g" }}</td><td class="ui-num">{{ r.esigibile|floatformat:"2g" }}</td><td class="ui-num">{{ r.detratta|floatformat:"2g" }}</td><td class="ui-num">{{ r.da_versare|floatformat:"2g" }}</td><td class="ui-num">{{ r.a_credito|floatformat:"2g" }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% if xml %}<details class="ui-section"><summary>Contenuto del file {{ nome }}</summary><pre class="iva-xml">{{ xml }}</pre></details>{% endif %}
+    <p class="sub ui-section">Prima dell'invio passa il file nel software di controllo gratuito dell'Agenzia delle Entrate (o lascialo controllare allo studio che lo trasmette). Si invia da Fisconline/Entratel o dall'intermediario indicato nelle impostazioni.</p>
+  </div>
+</div>
+{% endblock %}

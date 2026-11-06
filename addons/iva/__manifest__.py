@@ -1,0 +1,31 @@
+{
+    "name": "IVA",
+    "summary": "Liquidazione IVA mensile o trimestrale dai registri, con credito riportato e detraibilità, e file LIPE",
+    "version": "1.0.0",
+    "author": "ICHNOBYTE S.R.L.",
+    "category": "Contabilità",
+    "depends": ["sdi"],
+    "min_core": "1.0",
+    "application": True,
+    "icon": "iva/icon.svg",
+    "menu": [
+        {"label": "Liquidazione", "url_name": "iva:liquidazione", "permission": "iva.view_liquidazione"},
+        {"label": "Comunicazione LIPE", "url_name": "iva:lipe", "permission": "iva.view_liquidazione"},
+    ],
+    "groups": {
+        "IVA / Lettura": ["iva.view_liquidazione", "iva.view_detraibilita"],
+        "IVA / Responsabile": ["iva.*"],
+    },
+    "settings": [
+        {"chiave": "periodicita", "label": "Liquidazione IVA", "tipo": "scelta", "default": "M", "per_azienda": True,
+         "scelte": [["M", "Mensile"], ["T", "Trimestrale (con l'1% di interessi)"]]},
+        {"chiave": "cf_dichiarante", "label": "Codice fiscale di chi firma la LIPE", "tipo": "testo", "per_azienda": True,
+         "help": "Il legale rappresentante: obbligatorio per le società (16 caratteri)"},
+        {"chiave": "carica_dichiarante", "label": "Codice carica di chi firma", "tipo": "intero", "default": 1,
+         "per_azienda": True, "help": "1 = rappresentante legale (tabella dei codici carica dell'Agenzia)"},
+        {"chiave": "cf_intermediario", "label": "Codice fiscale dell'intermediario che invia la LIPE", "tipo": "testo",
+         "per_azienda": True, "help": "Lo studio che trasmette il file; vuoto se lo invia l'azienda"},
+        {"chiave": "soglia_versamento", "label": "Versamento minimo dell'IVA", "tipo": "decimale", "default": "100",
+         "help": "Sotto questa cifra il debito passa al periodo dopo (100 € dal 2024)"},
+    ],
+}

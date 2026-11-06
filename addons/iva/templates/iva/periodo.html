@@ -1,0 +1,75 @@
+{% extends 'core/base_app.html' %}{% load tema %}
+{% block head_extra %}<link rel="stylesheet" href="{% statico 'iva/iva.css' %}">{% endblock %}
+{% block title %}Liquidazione IVA {{ r.nome }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Liquidazione IVA · {{ r.nome|capfirst }}</h1>
+    <div class="sub">{% if r.da_chiusura %}Chiusa il {{ liq.chiusa_il|date:"d/m/Y H:i" }}{% if liq.chiusa_da %} da {{ liq.chiusa_da.get_full_name|default:liq.chiusa_da.username }}{% endif %}{% else %}Aperta: si ricalcola dai registri{% endif %} · versamento entro il {{ scadenza.0|date:"d/m/Y" }}, F24 codice {{ scadenza.1 }}</div></div>
+  <div class="ui-pagehead-actions">
+    <a class="ui-btn ui-btn-secondary" href="{% url 'iva:liquidazione' %}?anno={{ r.anno }}">Tutto l'anno</a>
+    {% if puo %}{% if r.da_chiusura %}<form method="post" action="{% url 'iva:riapri' r.anno r.periodicita r.periodo %}">{% csrf_token %}<button class="ui-btn ui-btn-secondary" type="submit">Riapri</button></form>
+    {% else %}<form method="post" action="{% url 'iva:chiudi' r.anno r.periodicita r.periodo %}">{% csrf_token %}<button class="ui-btn ui-btn-primary" type="submit">Chiudi il periodo</button></form>{% endif %}{% endif %}
+  </div>
+</div>
+{% if cambiati %}<div class="ui-alert ui-alert-warning">Dopo la chiusura i registri sono cambiati: {% for nome, prima, ora in cambiati %}{{ nome }} {{ prima|floatformat:"2g" }} → {{ ora|floatformat:"2g" }}{% if not forloop.last %}; {% endif %}{% endfor %}. Riapri e richiudi se va corretta.</div>{% endif %}
+{% for a in r.avvisi %}<div class="ui-alert ui-alert-warning">{{ a }}</div>{% endfor %}
+
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Risultato</div></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Rigo</th><th>Voce</th><th class="ui-num">Importo</th></tr></thead>
+    <tbody>{% for codice, etichetta, valore, nome in voci %}{% if valore or nome in "attive passive esigibile detratta" %}<tr>
+      <td>{{ codice }}</td><td>{% if nome == "da_versare" or nome == "a_credito" %}<strong>{{ etichetta }}</strong>{% else %}{{ etichetta }}{% endif %}</td>
+      <td class="ui-num">{% if nome == "da_versare" or nome == "a_credito" %}<strong>{{ valore|floatformat:"2g" }}</strong>{% else %}{{ valore|floatformat:"2g" }}{% endif %}</td>
+    </tr>{% endif %}{% endfor %}
+    {% if not r.da_versare and not r.a_credito %}<tr><td>VP14</td><td><strong>Niente da versare</strong></td><td class="ui-num">0,00</td></tr>{% endif %}</tbody>
+  </table></div>
+  {% if r.rinviato %}<div class="ui-card-body"><p class="sub">Sotto il versamento minimo di {{ soglia|floatformat:"2g" }} €: non si versa ora, passa al periodo successivo.</p></div>{% endif %}
+  {% if r.da_chiusura and puo %}<div class="ui-card-body"><form class="ui-filtri" method="post" action="{% url 'iva:versata' r.anno r.periodicita r.periodo %}">{% csrf_token %}
+    <label class="sub" for="data-versamento">Versata il</label><input class="ui-input" id="data-versamento" type="date" name="data" value="{{ liq.versata_il|date:'Y-m-d' }}">
+    <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Salva</button></form></div>{% endif %}
+</section>
+
+{% if c %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">IVA a debito · {{ c.documenti_vendite }} documenti emessi</div><a class="ui-link" href="{% url 'fatturazione:registro_iva' %}?anno={{ r.anno }}{% if r.periodicita == 'M' %}&mese={{ r.periodo }}{% endif %}">Registro vendite</a></div>
+  {% if c.vendite %}<div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Aliquota</th><th class="ui-num">Imponibile</th><th class="ui-num">Imposta</th><th></th></tr></thead>
+    <tbody>{% for v in c.vendite %}<tr><td>{{ v.descrizione }}</td><td class="ui-num">{{ v.imponibile|floatformat:"2g" }}</td><td class="ui-num">{{ v.imposta|floatformat:"2g" }}</td><td class="sub">{{ v.nota }}</td></tr>{% endfor %}
+    {% if c.differita_incassata %}<tr><td>IVA differita incassata nel periodo</td><td></td><td class="ui-num">{{ c.differita_incassata|floatformat:"2g" }}</td><td class="sub">da fatture dei periodi prima</td></tr>{% endif %}</tbody>
+  </table></div>{% else %}<div class="ui-card-body"><p class="sub">Nessuna fattura emessa nel periodo.</p></div>{% endif %}
+</section>
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">IVA a credito · {{ c.documenti_acquisti }} fatture ricevute registrate</div><a class="ui-link" href="{% url 'sdi:registro_acquisti' %}?anno={{ r.anno }}{% if r.periodicita == 'M' %}&mese={{ r.periodo }}{% endif %}">Registro acquisti</a></div>
+  {% if c.acquisti %}<div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Aliquota</th><th class="ui-num">Imponibile</th><th class="ui-num">Imposta</th><th></th></tr></thead>
+    <tbody>{% for v in c.acquisti %}<tr><td>{{ v.descrizione }}</td><td class="ui-num">{{ v.imponibile|floatformat:"2g" }}</td><td class="ui-num">{{ v.imposta|floatformat:"2g" }}</td><td class="sub">{{ v.nota }}</td></tr>{% endfor %}
+    {% if c.integrazione %}<tr><td>Autofatture d'integrazione</td><td></td><td class="ui-num">{{ c.integrazione|floatformat:"2g" }}</td><td class="sub">anche a debito</td></tr>{% endif %}
+    {% if c.indetraibile %}<tr><td>Non detraibile</td><td></td><td class="ui-num">−{{ c.indetraibile|floatformat:"2g" }}</td><td class="sub">dalla percentuale di detraibilità delle fatture</td></tr>{% endif %}</tbody>
+  </table></div>{% else %}<div class="ui-card-body"><p class="sub">Nessuna fattura ricevuta registrata nel periodo.</p></div>{% endif %}
+  {% if c.split or c.differita_sospesa %}<div class="ui-card-body"><p class="sub">{% if c.split %}IVA in scissione dei pagamenti, versata dai clienti: {{ c.split|floatformat:"2g" }} €. {% endif %}{% if c.differita_sospesa %}IVA a esigibilità differita emessa nel periodo, da versare all'incasso: {{ c.differita_sospesa|floatformat:"2g" }} €.{% endif %}</p></div>{% endif %}
+</section>
+{% endif %}
+
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Voci che non stanno nei registri</div></div>
+  <div class="ui-card-body">
+    {% if r.da_chiusura or not puo %}
+      <p class="sub">Credito dell'anno prima {{ r.credito_anno_precedente|floatformat:"2g" }} · crediti d'imposta {{ r.crediti_imposta|floatformat:"2g" }} · versamenti auto UE {{ r.versamenti_auto|floatformat:"2g" }} · acconto {{ r.acconto|floatformat:"2g" }}</p>
+      {% if liq.note %}<p>{{ liq.note|linebreaksbr }}</p>{% endif %}
+    {% else %}
+      <form method="post">{% csrf_token %}{% for e in form.non_field_errors %}<div class="ui-form-error">{{ e }}</div>{% endfor %}
+        <div class="iva-campi">{% for campo in form %}{% include "core/vista/_campo.html" %}{% endfor %}</div>
+        <button class="ui-btn ui-btn-secondary" type="submit">Salva</button></form>
+    {% endif %}
+  </div>
+</section>
+
+{% if bollo %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Imposta di bollo · {{ bollo.trimestre }}° trimestre</div></div>
+  <div class="ui-card-body"><p>{% if bollo.numero %}{{ bollo.numero }} fatture elettroniche con il bollo: <strong>{{ bollo.importo|floatformat:"2g" }} €</strong>, F24 codice {{ bollo.codice }}, entro il {{ bollo.scadenza|date:"d/m/Y" }}.{% else %}Nessuna fattura con il bollo nel trimestre.{% endif %}</p>
+  <p class="sub">L'importo esatto lo calcola l'Agenzia nell'area Fatture e corrispettivi. Sotto i 5.000 € il primo trimestre si versa con il secondo, e se i primi due insieme restano sotto, con il terzo.</p></div>
+</section>
+{% endif %}
+{% endblock %}
