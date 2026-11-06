@@ -1,0 +1,20 @@
+{% extends 'theme/base_pubblica.html' %}{% load tema %}
+{% block title %}Esito del pagamento · {{ theme.brand }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{% statico 'pagamenti/pagamenti.css' %}">{% endblock %}
+{% block public_content %}
+<div class="pg-pagina"><div class="ui-card is-revealed pg-foglio">
+  <small>{{ pagamento.fattura.azienda }}</small>
+  {% if pagamento.stato == "pagato" %}
+  <h1 class="pg-ok">Pagamento ricevuto, grazie!</h1>
+  <p>Abbiamo registrato il pagamento di <strong>{{ pagamento.importo|floatformat:2 }} €</strong> per la fattura {{ pagamento.fattura.numero }}.</p>
+  {% elif annullato %}
+  <h1>Pagamento annullato</h1><p>Non è stato addebitato nulla. Puoi riprovare quando vuoi.</p>
+  <a class="ui-btn ui-btn-primary" href="{{ link_fattura }}">Torna alla fattura</a>
+  {% else %}
+  <h1>Pagamento in verifica</h1>
+  <p>{% if errore %}Non siamo riusciti a verificare il pagamento adesso ({{ errore }}).{% else %}Il fornitore non ha ancora confermato il pagamento.{% endif %} Se l'addebito è avvenuto lo registreremo appena arriva la conferma: non serve pagare di nuovo.</p>
+  <a class="ui-btn ui-btn-secondary" href="{{ request.path }}">Controlla di nuovo</a>
+  {% endif %}
+  {% if user.is_authenticated and user.accesso_portale %}<p><a class="ui-link" href="{% url 'portale:home' %}">Torna al portale</a></p>{% endif %}
+</div></div>
+{% endblock %}

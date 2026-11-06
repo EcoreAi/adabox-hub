@@ -1,0 +1,9 @@
+.pg-pagina { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--ui-surface-2); }
+.pg-foglio { width: min(520px, 100%); padding: 28px 30px; display: flex; flex-direction: column; gap: 10px; }
+.pg-foglio h1 { margin: 0; font-size: 24px; }
+.pg-foglio small { color: var(--ui-text-3); }
+.pg-importo { display: flex; flex-direction: column; margin: 10px 0; }
+.pg-importo strong { font-size: 32px; letter-spacing: -.01em; }
+.pg-paga { width: 100%; justify-content: center; padding: 12px; font-size: 16px; }
+.pg-ok { color: #1a7f37; }
+.pg-azioni { display: flex; gap: 10px; }

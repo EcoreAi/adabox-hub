@@ -1,0 +1,8 @@
+{% if obj.tipo == "stripe" %}<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Webhook di Stripe</div></div>
+  <div class="ui-card-body">
+    <p>Su Stripe, in <em>Sviluppatori → Webhook</em>, aggiungi un endpoint con questo indirizzo e l'evento <code>checkout.session.completed</code>, poi copia qui il suo segreto (<code>whsec_…</code>):</p>
+    <p><code>{{ request.scheme }}://{{ request.get_host }}{% url 'pagamenti:webhook' obj.pk %}</code></p>
+    <p class="ui-help">Senza webhook l'incasso si registra comunque quando il cliente torna dalla pagina di pagamento; il webhook serve se la chiude prima.</p>
+  </div>
+</section>{% endif %}

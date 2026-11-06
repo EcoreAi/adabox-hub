@@ -1,0 +1,20 @@
+{% extends 'theme/base_pubblica.html' %}{% load tema %}
+{% block title %}Pagamento · {{ theme.brand }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{% statico 'pagamenti/pagamenti.css' %}">{% endblock %}
+{% block public_content %}
+<div class="pg-pagina"><div class="ui-card is-revealed pg-foglio">
+{% if invalido %}
+  <h1>Link non valido</h1><p>Il link non è corretto o è scaduto. Chiedi a chi ti ha mandato la fattura di inviartelo di nuovo.</p>
+{% else %}
+  <small>{{ fattura.azienda }}</small>
+  <h1>Fattura {{ fattura.numero }}</h1>
+  <p>Per {{ fattura.cliente.nome }} · del {{ fattura.data|date:"d/m/Y" }}</p>
+  <div class="pg-importo"><small>{% if pagabile %}Da pagare{% else %}Totale{% endif %}</small><strong>{% if pagabile %}{{ fattura.residuo|floatformat:2 }}{% else %}{{ fattura.totale|floatformat:2 }}{% endif %} €</strong></div>
+  {% for m in messages %}<div class="ui-alert ui-alert-{{ m.tags|default:'info' }}">{{ m }}</div>{% endfor %}
+  {% if pagabile %}<form method="post">{% csrf_token %}<button type="submit" class="ui-btn ui-btn-primary pg-paga">Paga ora con carta</button></form>
+  <p class="ui-help">Il pagamento avviene sulla pagina sicura del nostro fornitore: i dati della carta non passano da qui.</p>
+  {% elif fattura.pagata or fattura.residuo <= 0 %}<p class="pg-ok">Questa fattura risulta pagata. Grazie!</p>
+  {% else %}<p class="ui-help">Il pagamento online non è disponibile per questa fattura: per pagarla usa le coordinate indicate nel documento.</p>{% endif %}
+{% endif %}
+</div></div>
+{% endblock %}

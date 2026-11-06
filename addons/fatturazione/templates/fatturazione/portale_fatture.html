@@ -5,12 +5,12 @@
 <section class="ui-card is-revealed">
   {% if fatture %}<div class="ui-table-wrap"><table class="ui-table pt-tabella">
     <thead><tr><th>Numero</th><th>Data</th><th>Documento</th><th class="n">Totale</th><th class="n">Da pagare</th><th>Prossima scadenza</th><th></th></tr></thead>
-    <tbody>{% for f, residuo, scadenza in fatture %}<tr>
+    <tbody>{% for f, residuo, scadenza, pagabile in fatture %}<tr>
       <td>{{ f.numero }}</td><td>{{ f.data|date:"d/m/Y" }}</td><td>{{ f.get_tipo_display }}</td>
       <td class="n">{{ f.totale }} €</td>
       <td class="n">{% if f.pagata or not residuo %}<span class="ui-pill ui-pill-ok">Pagata</span>{% else %}{{ residuo }} €{% endif %}</td>
       <td>{{ scadenza|date:"d/m/Y"|default:"—" }}</td>
-      <td class="n"><a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'fatturazione:portale_pdf' f.pk %}">PDF</a></td>
+      <td class="n">{% if pagabile %}<form method="post" action="{% url 'pagamenti:paga_portale' f.pk %}" style="display:inline">{% csrf_token %}<button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">Paga ora</button></form> {% endif %}<a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'fatturazione:portale_pdf' f.pk %}">PDF</a></td>
     </tr>{% endfor %}</tbody></table></div>
   {% else %}<div class="ui-card-body"><p class="ui-help">Non ci sono fatture.</p></div>{% endif %}
 </section>

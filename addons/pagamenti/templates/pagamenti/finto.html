@@ -1,0 +1,14 @@
+{% extends 'theme/base_pubblica.html' %}{% load tema %}
+{% block title %}Pagamento simulato · {{ theme.brand }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{% statico 'pagamenti/pagamenti.css' %}">{% endblock %}
+{% block public_content %}
+<div class="pg-pagina"><div class="ui-card is-revealed pg-foglio">
+  <small>Fornitore simulato · nessun addebito reale</small>
+  <h1>Paga {{ pagamento.importo|floatformat:2 }} €</h1>
+  <p>Fattura {{ pagamento.fattura.numero }} di {{ pagamento.fattura.azienda }}.</p>
+  <form method="post" class="pg-azioni">{% csrf_token %}
+    <button type="submit" name="azione" value="paga" class="ui-btn ui-btn-primary">Paga (simulato)</button>
+    <button type="submit" name="azione" value="annulla" class="ui-btn ui-btn-ghost">Annulla</button>
+  </form>
+</div></div>
+{% endblock %}

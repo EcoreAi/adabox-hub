@@ -26,9 +26,19 @@ def _prossima(fattura):
     return min((s.data for s in aperte), default=None)
 
 
+def _pagabile_online():
+    """Con il modulo Pagamenti online: la funzione che dice se una fattura si paga con «Paga ora»."""
+    from django.apps import apps
+    if not apps.is_installed("pagamenti"):
+        return lambda fattura: False
+    from pagamenti.servizi import pagabile
+    return pagabile
+
+
 @portale
 def fatture(request):
-    elenco = [(f, f.residuo, _prossima(f)) for f in _fatture(request.accesso)[:200]]
+    pagabile = _pagabile_online()
+    elenco = [(f, f.residuo, _prossima(f), pagabile(f)) for f in _fatture(request.accesso)[:200]]
     return render(request, "fatturazione/portale_fatture.html", contesto(request, fatture=elenco))
 
 

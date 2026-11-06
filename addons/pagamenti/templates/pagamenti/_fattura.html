@@ -1,0 +1,8 @@
+{% load pagamenti %}{% pagamento_fattura obj as pg %}{% if pg.pagabile or pg.pagamenti %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Pagamento online</div></div>
+  <div class="ui-card-body">
+    {% if pg.pagabile %}<p>Link per pagare con carta, da mandare al cliente: <a class="ui-link" href="{{ pg.link }}" target="_blank" rel="noopener">{{ pg.link|truncatechars:60 }}</a></p>{% endif %}
+    {% for p in pg.pagamenti %}<div class="ui-help">{{ p.creato|date:"d/m/Y H:i" }} · {{ p.importo }} € · {{ p.get_stato_display }}{% if p.nota %} · {{ p.nota }}{% endif %}</div>{% endfor %}
+  </div>
+</section>{% endif %}
