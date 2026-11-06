@@ -323,6 +323,8 @@
     if (e.detail.target !== messaggi) return;
     input.value = '';
     if (campoFile) { campoFile.value = ''; mostraFile(); }
+    const sceltaRicerca = form.querySelector('[data-ricerca]');
+    if (sceltaRicerca) sceltaRicerca.checked = false;
     decora();
     aggiorna();
     inFondo();

@@ -117,6 +117,7 @@
             {% endif %}
             <span class="ai-chip ai-chip-ambito" data-chip-ambito hidden><img alt=""><span data-chip-nome></span>
               <button type="button" class="ai-chip-x" data-togli-ambito aria-label="Usa tutte le app"><svg><use href="#icon-x"/></svg></button></span>
+            {% if ricerca_disponibile %}<label class="ai-ricerca-scelta" data-tip="Ada cerca e legge più fonti sul web e ti consegna un rapporto con le fonti: richiede qualche minuto"><input type="checkbox" name="ricerca" value="1" data-ricerca><svg><use href="#icon-search"/></svg><span>Ricerca approfondita</span></label>{% endif %}
             {% if modelli_sceglibili %}<select class="ui-input ai-modello" name="modello" aria-label="Modello" data-tip="Il modello per questa chat"><option value="">Automatico</option>{% for m in modelli_sceglibili %}<option value="{{ m.pk }}"{% if conversazione.modello_id == m.pk %} selected{% endif %}>{{ m.etichetta }}</option>{% endfor %}</select>{% endif %}
             <span class="ai-spazio"></span>
             <span class="ai-suggerimento-tasti">Invio per inviare · Maiusc+Invio per andare a capo</span>

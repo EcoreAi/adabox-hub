@@ -174,7 +174,8 @@ class Modello(models.Model):
 class Profilo(models.Model):
     """Quale catena di modelli usare per un compito, per tutti o per un'app o un'azienda."""
     COMPITI = [("chat", "Chat e agente"), ("titoli", "Titoli delle chat"), ("riassunti", "Riassunti"),
-               ("pianificate", "Attività pianificate"), ("classificazione", "Classificazione")]
+               ("pianificate", "Attività pianificate"), ("classificazione", "Classificazione"),
+               ("ricerca", "Ricerca approfondita")]
     EFFORT = [("", "Predefinito del modello"), ("low", "Basso"), ("medium", "Medio"), ("high", "Alto"),
               ("xhigh", "Molto alto"), ("max", "Massimo")]
     nome = models.CharField("nome", max_length=80)

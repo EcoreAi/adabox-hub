@@ -98,6 +98,7 @@ def riparti(conversazione, messaggio, testo, utente, azienda=None):
         if messaggio.ruolo != MessaggioChat.UTENTE or posizione >= len(domande):
             raise NonSiPuoRipartire("Da questo messaggio non si può ripartire.")
         da_togliere = conversazione.eventi.filter(pk__gte=domande[posizione])
+        compito = getattr(Evento.objects.filter(pk=domande[posizione]).select_related("turno").first().turno, "compito", "chat")
         turni_tolti = set(da_togliere.exclude(turno=None).values_list("turno_id", flat=True))
         decise = Proposta.objects.filter(turno_id__in=turni_tolti)
         if decise.filter(stato=Proposta.ESEGUITA).exists():
@@ -110,6 +111,9 @@ def riparti(conversazione, messaggio, testo, utente, azienda=None):
         da_togliere.delete()
         messaggio.testo = testo
         messaggio.save(update_fields=["testo"])
+    if compito == "ricerca":
+        from .. import ricerca
+        return avvia(conversazione, testo, utente, azienda, messaggio=messaggio, compito=compito, nota=ricerca.ISTRUZIONI)
     return avvia(conversazione, testo, utente, azienda, messaggio=messaggio)
 
 
@@ -159,8 +163,11 @@ class _Fermati(Exception):
 
 class _Esecuzione:
     def __init__(self, turno):
+        from .. import ricerca
         self.turno = turno
         self.inizio = time.monotonic()
+        lunga = turno.compito == ricerca.COMPITO          # la ricerca approfondita ha un budget più ampio
+        self.passi, self.secondi, self.costo = (ricerca.PASSI, ricerca.SECONDI, ricerca.COSTO) if lunga else (MAX_PASSI, MAX_SECONDI, MAX_COSTO)
         self.ultimo_salvataggio = 0.0
         self.testo_turno = []                     # tutto il testo visibile del turno (tra un passo e l'altro)
         self.protezione = None
@@ -187,9 +194,9 @@ class _Esecuzione:
         self.turno.costo += modello.costo(uso.come_dict())
 
     def oltre_budget(self):
-        if time.monotonic() - self.inizio > MAX_SECONDI:
+        if time.monotonic() - self.inizio > self.secondi:
             return "il tempo massimo del turno"
-        if self.turno.costo > MAX_COSTO:
+        if self.turno.costo > self.costo:
             return "la spesa massima per una risposta"
         return None
 
@@ -227,7 +234,7 @@ def esegui(turno_id):
         from . import compattazione
         if compattazione.se_serve(turno):
             e.avanzamento({"strumento": "riassunto", "stato": "fatto", "passo": 0})
-        for passo in range(1, MAX_PASSI + 1):
+        for passo in range(1, e.passi + 1):
             motivo = e.oltre_budget()
             if motivo:
                 _chiudi(e, Turno.COMPLETATO, f"\n\n_Mi fermo qui: ho raggiunto {motivo}. Chiedimi di continuare._")
@@ -316,6 +323,12 @@ def _chiudi(e, stato, coda="", errore=""):
     testo = "".join(e.testo_turno).strip()
     turno.testo, turno.stato, turno.finito, turno.errore = testo, stato, timezone.now(), errore[:2000]
     turno.battito = turno.finito
+    if stato == Turno.COMPLETATO and turno.compito == "ricerca" and turno.conversazione_id:
+        from .. import ricerca
+        try:
+            ricerca.concludi(turno)
+        except Exception:                          # le fonti sono un di più: non devono rompere il turno
+            log.exception("fonti della ricerca %s", turno.pk)
     if stato == Turno.COMPLETATO and turno.conversazione_id:
         from .. import provenienza
         try:
@@ -328,7 +341,7 @@ def _chiudi(e, stato, coda="", errore=""):
             MessaggioChat.objects.create(conversazione=turno.conversazione, ruolo=MessaggioChat.ASSISTENTE, testo=testo,
                                          turno=turno)
             turno.conversazione.save(update_fields=["aggiornata"])
-    if stato == Turno.COMPLETATO and turno.compito == "chat" and turno.conversazione_id \
+    if stato == Turno.COMPLETATO and turno.compito in ("chat", "ricerca") and turno.conversazione_id \
             and not turno.conversazione.nascosta:
         from . import titoli
         try:

@@ -18,7 +18,7 @@ from core.allegati import AllegatoNonValido
 from core.models import Allegato
 from core.registry import modules
 
-from . import allegati_chat, catalogo, documenti_chat, motore, suggerimenti
+from . import allegati_chat, catalogo, documenti_chat, motore, ricerca, suggerimenti
 from .strumenti.registro import ErroreStrumento
 from .models import Artifact, Conversazione, DocumentoChat, VersioneDocumento, MessaggioChat, ProgettoChat, Proposta, Turno, ValutazioneRisposta
 
@@ -79,6 +79,7 @@ def chat(request, pk=None):
         "app": app, "suggerimenti": suggerimenti.per(), "suggerimenti_per_app": suggerimenti.tutti(),
         "progetti": progetti, "progetto_nuova": _mio_progetto(request, request.GET.get("progetto")) if conversazione is None else None,
         "modelli_sceglibili": [m for m, _ in catalogo.sceglibili(azienda)],
+        "ricerca_disponibile": ricerca.disponibile(azienda),
     })
 
 
@@ -141,8 +142,10 @@ def invia(request, pk=None):
             conversazione.save(update_fields=["modello"])
     primo = conversazione.messaggi.order_by("-pk").values_list("pk", flat=True).first() or 0
     aperto = _mio_documento(request, request.POST.get("documento"), conversazione) if not nuova else None
+    approfondita = request.POST.get("ricerca") == "1" and ricerca.disponibile(getattr(request, "azienda", None))
     turno = motore.avvia(conversazione, testo, request.user, getattr(request, "azienda", None), file=file,
-                         nota=documenti_chat.nota(aperto))
+                         compito=ricerca.COMPITO if approfondita else "chat",
+                         nota="\n".join(n for n in (documenti_chat.nota(aperto), ricerca.ISTRUZIONI if approfondita else "") if n))
     conversazione.save(update_fields=["aggiornata"])
     url = reverse("ai:conversazione", args=[conversazione.pk])
     if request.headers.get("HX-Request"):

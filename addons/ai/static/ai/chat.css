@@ -352,3 +352,13 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-chat.con-documento .ai-suggerimento-tasti { display: none; }
 .ai-chat.con-documento .ai-composer-barra { flex-wrap: wrap; min-width: 0; }
 .ai-chat.con-documento .ai-modello { max-width: 9rem; }
+
+/* ricerca approfondita */
+.ai-ricerca-scelta { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--ui-border); border-radius: 999px; cursor: pointer; font-size: .85rem; color: var(--ui-muted, #6b7280); user-select: none; }
+.ai-ricerca-scelta svg { width: 15px; height: 15px; }
+.ai-ricerca-scelta input { position: absolute; opacity: 0; pointer-events: none; }
+.ai-ricerca-scelta:has(input:checked) { color: var(--ui-primary, #2b4bb5); border-color: var(--ui-primary, #2b4bb5); background: color-mix(in srgb, var(--ui-primary, #2b4bb5) 8%, transparent); font-weight: 600; }
+.ai-ricerca-scelta:has(input:focus-visible) { outline: 2px solid var(--ui-primary, #2b4bb5); outline-offset: 2px; }
+.ai-chat.con-documento .ai-ricerca-scelta span { display: none; }
+.ai-ricerca-nota { font-size: .85rem; color: var(--ui-muted, #6b7280); margin: 0 0 6px; }
+.ai-ricerca-scelta { white-space: nowrap; flex: none; }
