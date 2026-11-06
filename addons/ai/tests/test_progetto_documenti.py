@@ -52,21 +52,34 @@ def test_ada_riceve_i_documenti_della_cartella(d):
     assert "Bilancio" not in nota
 
 
-def test_pagina_del_progetto_con_la_cartella(client, d):
+def test_albero_con_la_cartella(client, d):
     _doc(d["sotto"], "Voce.docx")
     client.force_login(d["u"])
-    pagina = client.get(reverse("ai:progetto", args=[d["progetto"].pk])).content.decode()
-    assert "Voce.docx" in pagina and "data-carica-archivio" in pagina and "webkitdirectory" in pagina and 'id="ai-salva-doc"' in pagina
-    d["progetto"].cartella_documenti = None
-    d["progetto"].save()
-    assert "collega una cartella dei Documenti" in client.get(reverse("ai:progetto", args=[d["progetto"].pk])).content.decode()
+    html = client.get(reverse("ai:albero_progetto", args=[d["progetto"].pk])).content.decode()
+    file = html.split('data-gruppo="file"')[1]
+    assert "Voce.docx" in file and "Specifiche" in file and 'data-carica-albero="cartella"' in file and "in AdaV3" in file
+    assert "/elimina/archivio/" in file
+    assert 'id="ai-salva-doc"' in client.get(reverse("ai:progetto", args=[d["progetto"].pk])).content.decode()
+
+
+def test_cestino_dei_documenti_dall_albero(client, d):
+    doc = _doc(d["aperta"], "Vecchio.pdf")
+    client.force_login(d["u"])
+    assert client.post(reverse("ai:elimina_elemento", args=["archivio", doc.pk])).json() == {"ok": True}
+    doc.refresh_from_db()
+    assert doc.cestinato_il is not None                                            # nel cestino, recuperabile
+    riservato = _doc(d["riservata"], "Bilancio.xlsx")
+    assert client.post(reverse("ai:elimina_elemento", args=["archivio", riservato.pk])).status_code == 404
+    riservato.refresh_from_db()
+    assert riservato.cestinato_il is None
 
 
 def test_carica_una_cartella_intera(client, d):
     client.force_login(d["u"])
     file = [SimpleUploadedFile("a.txt", b"uno"), SimpleUploadedFile("b.txt", b"due"), SimpleUploadedFile("c.txt", b"tre")]
-    client.post(reverse("ai:carica_archivio", args=[d["progetto"].pk]),
-                {"file": file, "percorso": ["Progetto/a.txt", "Progetto/Note/b.txt", "Progetto/Note/2026/c.txt"]})
+    r = client.post(reverse("ai:carica_archivio", args=[d["progetto"].pk]),
+                    {"file": file, "percorso": ["Progetto/a.txt", "Progetto/Note/b.txt", "Progetto/Note/2026/c.txt"]})
+    assert r.json() == {"caricati": 3, "errori": []}
     note = Cartella.objects.get(nome="Note", padre=d["aperta"])
     assert Documento.objects.filter(cartella=d["aperta"], nome="a.txt").exists()
     assert Documento.objects.filter(cartella=note, nome="b.txt").exists()
@@ -76,8 +89,8 @@ def test_carica_una_cartella_intera(client, d):
 def test_senza_permesso_di_scrittura_non_carica(client, d):
     d["u"].user_permissions.remove(Permission.objects.get(codename="add_documento", content_type__app_label="documenti"))
     client.force_login(User.objects.get(pk=d["u"].pk))
-    client.post(reverse("ai:carica_archivio", args=[d["progetto"].pk]), {"file": [SimpleUploadedFile("a.txt", b"x")], "percorso": ["a.txt"]})
-    assert not Documento.objects.exists()
+    r = client.post(reverse("ai:carica_archivio", args=[d["progetto"].pk]), {"file": [SimpleUploadedFile("a.txt", b"x")], "percorso": ["a.txt"]})
+    assert r.status_code == 403 and not Documento.objects.exists()
 
 
 def test_salva_nei_documenti(client, d):

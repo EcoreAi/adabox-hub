@@ -520,3 +520,19 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-progetto-voce > details > summary > a { display: flex; flex-direction: row; align-items: center; gap: 0; padding-top: 7px; padding-bottom: 7px; }
 .ai-progetto-voce > details > summary > a .ai-progetto-icona { flex: none; }
 .ai-albero-gruppo li a { flex-direction: row; justify-content: space-between; }
+
+/* albero del progetto: caricare ed eliminare */
+.ai-albero-azioni { display: inline-flex; gap: 2px; margin-left: 6px; }
+.ai-albero-btn { display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 6px;
+  background: transparent; color: var(--ui-text-3); cursor: pointer; }
+.ai-albero-btn:hover, .ai-albero-btn:focus-visible { background: var(--ui-surface); color: var(--ui-primary); outline: none; box-shadow: 0 0 0 1px var(--ui-border); }
+.ai-albero-btn svg { width: 13px; height: 13px; }
+.ai-albero-gruppo li { position: relative; display: flex; align-items: center; }
+.ai-albero-gruppo li > a { flex: 1; min-width: 0; }
+.ai-albero-elimina { position: absolute; right: 2px; opacity: 0; background: var(--ui-surface-2); }
+.ai-albero-gruppo li:hover .ai-albero-elimina, .ai-albero-elimina:focus-visible { opacity: 1; }
+.ai-albero-elimina:hover { color: #b42318; }
+@media (hover: none) { .ai-albero-elimina { opacity: 1; position: static; } }
+.ai-albero-gruppo ul { max-height: 260px; overflow-y: auto; }
+.ai-albero-stato { margin: 2px 0 4px 20px; font-size: 12px; color: var(--ui-text-3); }
+.ai-progetto-guida { margin: 14px 0 0; text-align: center; font-size: 13px; color: var(--ui-text-3); }

@@ -178,7 +178,7 @@
         </form>
 
         {% if progetto_aperto %}
-        {% include "ai/_pagina_progetto.html" %}
+        <p class="ai-progetto-guida">Chat, documenti, grafici e file del progetto sono nella sua cartella, nella colonna di sinistra.</p>
         {% elif not conversazione %}
         <ul class="ai-suggerimenti" data-suggerimenti aria-label="Domande suggerite">
           {% for s in suggerimenti %}<li><button type="button" class="ai-sugg" data-sugg>{{ s }}</button></li>{% endfor %}

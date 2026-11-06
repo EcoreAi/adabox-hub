@@ -12,19 +12,14 @@ def _progetto(s, nome="Sviluppo AdaV3", **extra):
 
 
 def test_pagina_del_progetto(client, s):
+    """Titolo, istruzioni e casella: chat, documenti, grafici e file stanno nell'albero a sinistra, non in card."""
     p = _progetto(s, istruzioni="Rispondi breve.")
-    c = Conversazione.objects.create(utente=s["u"], titolo="Specifica voce", progetto=p)
-    fuori = Conversazione.objects.create(utente=s["u"], titolo="Chat fuori")
-    documenti_chat.crea(c, s["u"], s["az"], "Note di rilascio", "testo")
-    Artifact.objects.create(conversazione=c, utente=s["u"], azienda=s["az"], tipo="grafico", titolo="Ticket per mese")
-    Artifact.objects.create(conversazione=fuori, utente=s["u"], azienda=s["az"], tipo="tabella", titolo="Altro")
+    Conversazione.objects.create(utente=s["u"], titolo="Specifica voce", progetto=p)
     pagina = client.get(reverse("ai:progetto", args=[p.pk])).content.decode()
-    for testo in ("Sviluppo AdaV3", "Rispondi breve.", "Specifica voce", "Note di rilascio", "Ticket per mese", 'name="progetto" value="%d"' % p.pk,
-                  reverse("ai:progetti_modifica", args=[p.pk]), "allegati/elenco/"):
+    for testo in ("Sviluppo AdaV3", "Rispondi breve.", 'name="progetto" value="%d"' % p.pk, reverse("ai:progetti_modifica", args=[p.pk]),
+                  "ai-progetto-guida", reverse("ai:albero_progetto", args=[p.pk])):
         assert testo in pagina, testo
-    centro = pagina.split('class="ai-progetto-sezioni"')[1]
-    assert "Chat fuori" not in centro and "Altro" not in centro
-    assert 'data-suggerimenti' not in pagina                                     # al posto dei suggerimenti
+    assert "ai-progetto-sezioni" not in pagina and 'data-suggerimenti' not in pagina
 
 
 def test_progetto_di_altri_o_di_un_altra_azienda(client, s):
@@ -62,13 +57,35 @@ def test_sottocartelle_del_progetto(client, s):
     html = client.get(f"{reverse('ai:albero_progetto', args=[p.pk])}?chat={chat[3].pk}").content.decode()
     gruppi = html.split('class="ai-albero-gruppo"')[1:]
     assert [g.split("<span>")[1].split("</span>")[0] for g in gruppi] == ["Chat", "Documenti", "Grafici e tabelle", "File"]
-    assert gruppi[0].startswith(" open") and "Vedi tutti (10)" in gruppi[0] and gruppi[0].count("<li>") == 9   # 8 + «vedi tutti»
-    assert 'class="is-attiva"' in gruppi[0] and "Note di rilascio" in gruppi[1] and "★ Per stato" in gruppi[2]
+    assert ' open' in gruppi[0].split(">")[0] and gruppi[0].count("<li>") == 10                 # tutte, l'elenco scorre
+    assert 'class="is-attiva"' in gruppi[0] and "data-corrente" in gruppi[0] and "Note di rilascio" in gruppi[1] and "★ Per stato" in gruppi[2]
     assert "specifica.txt" in gruppi[3] and "solo del progetto" in gruppi[3]
+    assert all("data-elimina" in g for g in gruppi) and 'data-carica-albero="cartella"' in gruppi[3] and "i file del progetto" in gruppi[3]
     altro = User.objects.create_user("bruno", password="x")
     altro.user_permissions.set(Permission.objects.filter(content_type__app_label="ai"))
     client.force_login(altro)
     assert client.get(reverse("ai:albero_progetto", args=[p.pk])).status_code == 404
+
+
+def test_carica_ed_elimina_dall_albero_senza_cartella(client, s):
+    from core.models import Allegato
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from ai.models import DocumentoChat
+    p = _progetto(s)
+    r = client.post(reverse("ai:carica_archivio", args=[p.pk]), {"file": [SimpleUploadedFile("a.txt", b"uno"), SimpleUploadedFile("b.txt", b"due")]})
+    assert r.json() == {"caricati": 2, "errori": []} and Allegato.objects.filter(object_id=p.pk).count() == 2
+    c = Conversazione.objects.create(utente=s["u"], titolo="x", progetto=p)
+    d = documenti_chat.crea(c, s["u"], s["az"], "Bozza", "testo")
+    a = Artifact.objects.create(conversazione=c, utente=s["u"], azienda=s["az"], tipo="tabella", titolo="T")
+    assert client.post(reverse("ai:elimina_elemento", args=["documento", d.pk])).json() == {"ok": True}
+    assert client.post(reverse("ai:elimina_elemento", args=["artifact", a.pk])).json() == {"ok": True}
+    assert not DocumentoChat.objects.exists() and not Artifact.objects.exists()
+    altro = User.objects.create_user("bruno", password="x")
+    altro.user_permissions.set(Permission.objects.filter(content_type__app_label="ai"))
+    d2 = documenti_chat.crea(c, s["u"], s["az"], "Altra", "testo")
+    client.force_login(altro)
+    assert client.post(reverse("ai:elimina_elemento", args=["documento", d2.pk])).status_code == 404
+    assert client.post(reverse("ai:carica_archivio", args=[p.pk]), {"file": [SimpleUploadedFile("c.txt", b"x")]}).status_code == 404
 
 
 def test_chip_del_progetto_con_la_x_e_prima_chat(client, s, settings):

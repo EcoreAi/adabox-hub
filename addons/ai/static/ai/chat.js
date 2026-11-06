@@ -443,11 +443,58 @@
     dettagli.addEventListener('toggle', () => { if (dettagli.open) caricaAlbero(dettagli); });
     if (dettagli.open) caricaAlbero(dettagli);
   });
+  const ricaricaAlbero = (dentro) => {
+    const dettagli = dentro.closest('details[data-albero]');
+    const contenitore = dettagli && dettagli.querySelector('[data-albero-contenuto]');
+    if (!contenitore) return;
+    const aperti = [...contenitore.querySelectorAll('.ai-albero-gruppo[open]')].map((g) => g.dataset.gruppo);
+    delete contenitore.dataset.caricato;
+    caricaAlbero(dettagli);
+    contenitore.addEventListener('htmx:afterSettle', () => {           // le sottocartelle aperte restano aperte
+      aperti.forEach((g) => { const d = contenitore.querySelector(`.ai-albero-gruppo[data-gruppo="${g}"]`); if (d) d.open = true; });
+    }, { once: true });
+  };
+  // eliminare dall'albero: chiede conferma; se è la chat o il documento aperti si torna alla pagina del progetto
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-elimina]');
+    if (!b) return;
+    e.preventDefault();
+    if (!window.confirm(b.dataset.conferma)) return;
+    b.disabled = true;
+    const r = await fetch(b.dataset.elimina, { method: 'POST', headers: { 'X-CSRFToken': csrf }, redirect: 'manual' });
+    const dettagli = b.closest('details[data-albero]');
+    const apertoQui = b.hasAttribute('data-corrente') || (b.dataset.elimina.includes('/elimina/documento/') && document.querySelector('[data-tela]')
+      && b.closest('li').querySelector('a').href.endsWith(`?documento=${document.querySelector('[data-tela]').dataset.documento}`));
+    if (apertoQui && dettagli) { window.location.href = dettagli.querySelector('summary a').href; return; }
+    if (!r.ok && r.type !== 'opaqueredirect') { b.disabled = false; window.alert('Non è stato possibile eliminarlo.'); return; }
+    ricaricaAlbero(b);
+  });
+  // caricare file o una cartella intera dall'albero (sottocartella File)
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-carica-albero]');
+    if (!b) return;
+    e.preventDefault(); e.stopPropagation();                        // non apre né chiude la sottocartella
+    b.closest('.ai-albero-gruppo').querySelector(`[data-albero-caricamento] input[data-tipo="${b.dataset.caricaAlbero}"]`).click();
+  });
+  document.addEventListener('change', async (e) => {
+    const campo = e.target.closest('[data-albero-caricamento] input[type=file]');
+    if (!campo || !campo.files.length) return;
+    const gruppo = campo.closest('.ai-albero-gruppo');
+    const stato = gruppo.querySelector('[data-albero-stato]');
+    const dati = new FormData();
+    [...campo.files].forEach((f) => { dati.append('file', f); dati.append('percorso', f.webkitRelativePath || ''); });
+    stato.hidden = false; stato.textContent = `Carico ${campo.files.length} file…`;
+    try {
+      const r = await fetch(campo.form.getAttribute('action'), { method: 'POST', body: dati, headers: { 'X-CSRFToken': csrf } });
+      const j = await r.json();
+      if (!r.ok && !j.caricati) throw new Error(j.errore || (j.errori || []).join(' ') || 'Caricamento non riuscito.');
+      if (j.errori && j.errori.length) window.alert(j.errori.join('\n'));
+      ricaricaAlbero(gruppo);
+    } catch (err) { stato.textContent = err.message; }
+  });
   // dopo una risposta (chat nuova, documento, grafico) l'albero aperto si aggiorna
   document.addEventListener('ai:risposta-finita', () => setTimeout(() => {
-    document.querySelectorAll('details[data-albero][open] [data-albero-contenuto]').forEach((c) => {
-      delete c.dataset.caricato; caricaAlbero(c.closest('details'));
-    });
+    document.querySelectorAll('details[data-albero][open] [data-albero-contenuto]').forEach((c) => ricaricaAlbero(c));
   }, 400));
 
   // --- «Salva nei Documenti»: documenti scritti con Ada, grafici e tabelle nell'archivio, nella cartella scelta ---
@@ -489,25 +536,6 @@
   document.body.addEventListener('htmx:afterSettle', mostraSalva);
   document.addEventListener('ai:risposta-finita', () => setTimeout(mostraSalva, 80));
   mostraSalva();
-
-  // --- pagina del progetto: file o una cartella intera dal PC nella cartella dei Documenti ---
-  const caricaArchivio = document.querySelector('[data-carica-archivio]');
-  if (caricaArchivio) {
-    const stato = caricaArchivio.querySelector('[data-carica-stato]');
-    caricaArchivio.querySelectorAll('[data-scegli]').forEach((b) => b.addEventListener('click', () => {
-      caricaArchivio.querySelector(b.dataset.scegli === 'cartella' ? '[data-carica-cartella]' : '[data-carica-file]').click();
-    }));
-    caricaArchivio.querySelectorAll('input[type=file]').forEach((campo) => campo.addEventListener('change', async () => {
-      if (!campo.files.length) return;
-      const dati = new FormData();
-      dati.append('csrfmiddlewaretoken', csrf);
-      [...campo.files].forEach((f) => { dati.append('file', f); dati.append('percorso', f.webkitRelativePath || ''); });
-      stato.textContent = `Carico ${campo.files.length} file…`;
-      caricaArchivio.querySelectorAll('button').forEach((b) => { b.disabled = true; });
-      await fetch(caricaArchivio.action, { method: 'POST', body: dati });
-      window.location.reload();
-    }));
-  }
 
   // --- documento accanto alla chat: leggi o modifica, niente modifiche perse ---
   const tela = () => document.querySelector('[data-tela]');

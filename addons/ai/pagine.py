@@ -131,7 +131,6 @@ def chat(request, pk=None, progetto=None):
         "pannelli_sinistra": PANNELLI_SINISTRA, "pannelli_destra": PANNELLI_DESTRA,
         "app": app, "suggerimenti": suggerimenti.per(), "suggerimenti_per_app": suggerimenti.tutti(),
         "progetti": progetti, "progetto_aperto": progetto_aperto,
-        **(_contenuti_progetto(request, progetto_aperto) if progetto_aperto else {}),
         "progetto_nuova": (progetto_aperto or _mio_progetto(request, request.GET.get("progetto"))) if conversazione is None else None,
         "livelli_modello": livelli_modello(azienda),
         "app_gruppi": barra.gruppi([{**a, "categoria": a.get("category", "")} for a in app]),
@@ -663,22 +662,29 @@ def esito_scrittura(request, pk):
 @login_required
 @permission_required("ai.view_conversazione", raise_exception=True)
 def carica_archivio(request, pk):
-    """File o una cartella intera dal PC nella cartella dei Documenti del progetto (sottocartelle comprese)."""
+    """File o una cartella intera dal PC, dall'albero del progetto: nella cartella dei Documenti collegata (sottocartelle
+    comprese) se c'è, altrimenti tra i file del progetto."""
     from . import archivio
     progetto = _mio_progetto(request, pk)
-    if progetto is None or not archivio.attivo():
+    if progetto is None:
         raise Http404
-    radice = archivio.cartella(request.user, progetto.azienda, progetto.cartella_documenti, scrittura=True)
-    if radice is None:
-        messages.error(request, "Non puoi caricare file nella cartella di questo progetto.")
-        return redirect("ai:progetto", progetto=progetto.pk)
-    caricati, errori = archivio.carica_cartella(request.user, progetto.azienda, radice, request.FILES.getlist("file"),
-                                                request.POST.getlist("percorso"))
-    if caricati:
-        messages.success(request, f"Caricati nei Documenti: {len(caricati)}.")
-    for e in errori[:10]:
-        messages.error(request, e)
-    return redirect("ai:progetto", progetto=progetto.pk)
+    file, percorsi = request.FILES.getlist("file"), request.POST.getlist("percorso")
+    if progetto.cartella_documenti and archivio.attivo():
+        radice = archivio.cartella(request.user, progetto.azienda, progetto.cartella_documenti, scrittura=True)
+        if radice is None:
+            return JsonResponse({"errore": "Non puoi caricare file nella cartella dei Documenti di questo progetto."}, status=403)
+        caricati, errori = archivio.carica_cartella(request.user, progetto.azienda, radice, file, percorsi)
+        return JsonResponse({"caricati": len(caricati), "errori": errori[:10]}, status=400 if errori and not caricati else 200)
+    if not request.user.has_perm("ai.change_progettochat"):
+        return JsonResponse({"errore": "Non puoi aggiungere file a questo progetto."}, status=403)
+    caricati, errori = 0, []
+    for f in file[:archivio.MASSIMI_FILE_CARICAMENTO]:
+        try:
+            core_allegati.salva(progetto, f, request.user)
+            caricati += 1
+        except AllegatoNonValido as e:
+            errori.append(str(e))
+    return JsonResponse({"caricati": caricati, "errori": errori[:10]}, status=400 if errori and not caricati else 200)
 
 
 @require_POST
@@ -729,24 +735,73 @@ def salva_documenti(request, tipo, pk):
 @login_required
 @permission_required("ai.view_conversazione", raise_exception=True)
 def albero_progetto(request, pk):
-    """Le sottocartelle di un progetto nella colonna di sinistra: chat, documenti, grafici e tabelle, file."""
+    """Le sottocartelle di un progetto nella colonna di sinistra: chat, documenti, grafici e tabelle, file, con i comandi
+    per caricare ed eliminare."""
     from django.contrib.contenttypes.models import ContentType
+
+    from . import archivio
     progetto = _mio_progetto(request, pk)
     if progetto is None:
         raise Http404
     contenuti = _contenuti_progetto(request, progetto)
+    radice = contenuti["cartella_progetto"]
     allegati = list(Allegato.objects.filter(content_type=ContentType.objects.get_for_model(ProgettoChat), object_id=progetto.pk).order_by("-pk"))
-    file = [(d.nome, url, d.cartella.nome if d.cartella_id != contenuti["cartella_progetto"].pk else "") for d, url in contenuti["documenti_cartella"]]
-    file += [(a.nome, reverse("core:allegato_scarica", args=[a.pk]), "solo del progetto") for a in allegati]
     corrente = int(request.GET["chat"]) if request.GET.get("chat", "").isdigit() else None
-    n = VOCI_PER_SOTTOCARTELLA
+    puo_eliminare_chat = request.user.has_perm("ai.delete_conversazione")
+    puo_modificare = request.user.has_perm("ai.change_progettochat")
+
+    def voce(nome, url, nota="", attiva=False, elimina="", conferma=""):
+        return {"nome": nome, "url": url, "nota": nota, "attiva": attiva, "elimina": elimina, "conferma": conferma}
+    chat = [voce(c.titolo, reverse("ai:conversazione", args=[c.pk]), attiva=c.pk == corrente,
+                 elimina=reverse("ai:elimina", args=[c.pk]) if puo_eliminare_chat else "",
+                 conferma=f"Eliminare la chat «{c.titolo}»?") for c in contenuti["chat_progetto"]]
+    documenti = [voce(d.titolo, f"{reverse('ai:conversazione', args=[d.conversazione_id])}?documento={d.pk}",
+                      elimina=reverse("ai:elimina_elemento", args=["documento", d.pk]),
+                      conferma=f"Eliminare il documento «{d.titolo}» con tutte le sue versioni?") for d in contenuti["documenti_progetto"]]
+    grafici = [voce(("★ " if a.salvato else "") + a.titolo, reverse("ai:artifact", args=[a.pk]), a.get_tipo_display(),
+                    elimina=reverse("ai:elimina_elemento", args=["artifact", a.pk]), conferma=f"Eliminare «{a.titolo}»?")
+               for a in contenuti["artifact_progetto"]]
+    file = [voce(d.nome, url, d.cartella.nome if d.cartella_id != radice.pk else "",
+                 elimina=reverse("ai:elimina_elemento", args=["archivio", d.pk]) if contenuti["cartella_scrivibile"] else "",
+                 conferma=f"Spostare «{d.nome}» nel cestino dei Documenti? Si può recuperare.") for d, url in contenuti["documenti_cartella"]]
+    file += [voce(a.nome, reverse("core:allegato_scarica", args=[a.pk]), "solo del progetto",
+                  elimina=reverse("core:allegato_elimina", args=[a.pk]) if puo_modificare else "",
+                  conferma=f"Eliminare definitivamente «{a.nome}»?") for a in allegati]
+    destinazione = (radice.percorso() if contenuti["cartella_scrivibile"] else "") if radice else ("i file del progetto" if puo_modificare else "")
     gruppi = [
-        ("chat", "Chat", len(contenuti["chat_progetto"]),
-         [(c.titolo, reverse("ai:conversazione", args=[c.pk]), "", c.pk == corrente) for c in contenuti["chat_progetto"][:n]]),
-        ("documenti", "Documenti", len(contenuti["documenti_progetto"]),
-         [(d.titolo, f"{reverse('ai:conversazione', args=[d.conversazione_id])}?documento={d.pk}", "", False) for d in contenuti["documenti_progetto"][:n]]),
-        ("artifact", "Grafici e tabelle", len(contenuti["artifact_progetto"]),
-         [(("★ " if a.salvato else "") + a.titolo, reverse("ai:artifact", args=[a.pk]), a.get_tipo_display(), False) for a in contenuti["artifact_progetto"][:n]]),
-        ("file", "File", contenuti["documenti_cartella_totale"] + len(allegati), [(nome, url, nota, False) for nome, url, nota in file[:n]]),
+        ("chat", "Chat", len(contenuti["chat_progetto"]), chat),
+        ("documenti", "Documenti", len(contenuti["documenti_progetto"]), documenti),
+        ("artifact", "Grafici e tabelle", len(contenuti["artifact_progetto"]), grafici),
+        ("file", "File", contenuti["documenti_cartella_totale"] + len(allegati), file[:archivio.MASSIMO_ELENCO * 3]),
     ]
-    return render(request, "ai/_albero_progetto.html", {"progetto": progetto, "gruppi": gruppi, "corrente": corrente})
+    return render(request, "ai/_albero_progetto.html", {"progetto": progetto, "gruppi": gruppi, "corrente": corrente,
+                                                        "carica_in": destinazione})
+
+
+@require_POST
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+def elimina_elemento(request, tipo, pk):
+    """Dall'albero del progetto: un documento scritto con Ada, un grafico o una tabella (definitivo), oppure un file
+    dei Documenti (nel cestino dei Documenti, recuperabile, se l'utente può modificarlo)."""
+    if tipo == "documento":
+        d = _mio_documento(request, pk)
+        if d is None:
+            raise Http404
+        d.delete()
+    elif tipo == "artifact":
+        _mio_artifact(request, pk).delete()
+    elif tipo == "archivio":
+        from . import archivio
+        if not archivio.attivo():
+            raise Http404
+        from documenti import accesso, servizi
+        documento = accesso.documenti(request.user, getattr(request, "azienda", None)).filter(pk=pk, cestinato_il__isnull=True).first()
+        if documento is None:
+            raise Http404
+        if not accesso.puo_modificare(request.user, documento):
+            return JsonResponse({"errore": "Non puoi eliminare questo file."}, status=403)
+        servizi.cestina([documento])
+    else:
+        raise Http404
+    return JsonResponse({"ok": True})
