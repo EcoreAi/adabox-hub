@@ -53,7 +53,9 @@ def flusso(modello, chiave, *, sistema, messaggi, strumenti=(), max_token=16000,
     if strumenti and modello.strumenti:
         corpo["tools"] = [{"type": "function", "function": {"name": s["nome"], "description": s["descrizione"],
                                                              "parameters": s["schema"]}} for s in strumenti]
-    if effort and modello.ragionamento:
+    if effort == "none" and modello.provider.locale:                # Ollama: niente ragionamento, risposta subito
+        corpo["reasoning_effort"] = "none"
+    elif effort and modello.ragionamento:
         corpo["reasoning_effort"] = "high" if effort in ("high", "xhigh", "max") else effort
     intestazioni = {"Content-Type": "application/json"}
     if chiave:

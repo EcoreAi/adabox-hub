@@ -211,9 +211,46 @@
       return li;
     }));
     listaFile.hidden = !campoFile.files.length;
+    aggiornaConferma();
+  }
+  // immagini verso un modello cloud: l'azienda lascia decidere all'utente, immagine per immagine
+  const boxConferma = form.querySelector('[data-conferma-box]');
+  const campoConferma = form.querySelector('[data-conferma-campo]');
+  const conImmagini = () => [...campoFile.files].some((f) => f.type.startsWith('image/'));
+  const daConfermare = () => Boolean(boxConferma) && conImmagini() && campoConferma.value !== '1';
+  function aggiornaConferma() {
+    if (!boxConferma) return;
+    if (!conImmagini()) campoConferma.value = '';
+    const fatta = campoConferma.value === '1';
+    boxConferma.hidden = !conImmagini();
+    boxConferma.classList.toggle('is-confermata', fatta);
+    boxConferma.querySelector('[data-conferma-domanda]').hidden = fatta;
+    boxConferma.querySelector('[data-conferma-fatta]').hidden = !fatta;
+    boxConferma.querySelector('[data-conferma-bottoni]').hidden = fatta;
+  }
+  if (boxConferma) {
+    boxConferma.querySelector('[data-conferma-si]').addEventListener('click', () => { campoConferma.value = '1'; aggiornaConferma(); input.focus(); });
+    boxConferma.querySelector('[data-conferma-togli]').addEventListener('click', () => {
+      const dt = new DataTransfer();
+      [...campoFile.files].forEach((f) => { if (!f.type.startsWith('image/')) dt.items.add(f); });
+      campoFile.files = dt.files;
+      mostraFile();
+      aggiorna();
+      input.focus();
+    });
+    // senza conferma non si invia: si mostra di nuovo il riquadro
+    const ferma = (e) => {
+      if (!daConfermare()) return;
+      e.preventDefault();
+      boxConferma.classList.remove('is-richiamo'); void boxConferma.offsetWidth; boxConferma.classList.add('is-richiamo');
+      boxConferma.querySelector('[data-conferma-si]').focus();
+    };
+    form.addEventListener('submit', ferma, true);
+    document.body.addEventListener('htmx:beforeRequest', (e) => { if (e.detail.elt === form) ferma(e); });
   }
   form.querySelector('[data-allega]').addEventListener('click', () => campoFile.click());
-  campoFile.addEventListener('change', () => { mostraErrore(''); mostraFile(); aggiorna(); });
+  // file scelti di nuovo: la conferma delle immagini vale per quelle viste, si chiede ancora
+  campoFile.addEventListener('change', () => { mostraErrore(''); if (campoConferma) campoConferma.value = ''; mostraFile(); aggiorna(); });
   document.body.addEventListener('ai-errore', (e) => { mostraErrore(e.detail.value); aggiorna(); });
 
   // --- azioni sui messaggi: copia (anche senza HTTPS, dove il browser non dà gli appunti), modifica, rigenera ---
@@ -270,7 +307,7 @@
   // --- risposta in diretta: la bolla "in corso" segue il turno con Server-Sent Events ---
   const csrf = form.querySelector('input[name="csrfmiddlewaretoken"]').value;
   const NOMI = {
-    scrivi_documento: 'scrivo il documento', leggi_documento: 'leggo il documento', modifica_documento: 'modifico il documento',
+    leggi_immagine: "leggo l'immagine sul server", scrivi_documento: 'scrivo il documento', leggi_documento: 'leggo il documento', modifica_documento: 'modifico il documento',
     data_e_ora: 'controllo data e ora', app_disponibili: 'guardo le app disponibili',
     elenco_viste: 'guardo dove sono i dati', descrivi_vista: 'leggo la struttura dei dati',
     cerca_record: 'cerco i record', leggi_record: 'leggo il record', aggrega_record: 'calcolo i totali',
@@ -340,6 +377,7 @@
   document.body.addEventListener('htmx:afterSwap', (e) => {
     if (e.detail.target !== messaggi) return;
     input.value = '';
+    if (campoConferma) campoConferma.value = '';
     if (campoFile) { campoFile.value = ''; mostraFile(); }
     form.querySelectorAll('[data-menu-icona][data-reimposta]').forEach((m) => m.scegli && m.scegli(''));
     decora();

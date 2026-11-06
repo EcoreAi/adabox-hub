@@ -28,6 +28,7 @@ log = logging.getLogger("ai.motore")
 MAX_PASSI = 12
 MAX_SECONDI = 300
 MAX_COSTO = Decimal("0.50")                     # dollari per turno
+MAX_TOKEN_DESCRIZIONE = 350                     # descrizione di un'immagine fatta in locale (su CPU circa 40 secondi)
 INTERVALLO_SALVATAGGIO = 0.25                   # secondi tra due salvataggi del testo in uscita
 SENZA_BATTITO = timedelta(seconds=90)
 
@@ -98,7 +99,8 @@ def riparti(conversazione, messaggio, testo, utente, azienda=None):
         if messaggio.ruolo != MessaggioChat.UTENTE or posizione >= len(domande):
             raise NonSiPuoRipartire("Da questo messaggio non si può ripartire.")
         da_togliere = conversazione.eventi.filter(pk__gte=domande[posizione])
-        originale = Evento.objects.filter(pk=domande[posizione]).select_related("turno").first().turno
+        domanda = Evento.objects.filter(pk=domande[posizione]).select_related("turno").first()
+        originale, conferma = domanda.turno, domanda.dati.get("immagini_confermate")
         compito, con_web = getattr(originale, "compito", "chat"), getattr(originale, "web", True)
         turni_tolti = set(da_togliere.exclude(turno=None).values_list("turno_id", flat=True))
         decise = Proposta.objects.filter(turno_id__in=turni_tolti)
@@ -114,11 +116,13 @@ def riparti(conversazione, messaggio, testo, utente, azienda=None):
         messaggio.save(update_fields=["testo"])
     if compito == "ricerca":
         from .. import ricerca
-        return avvia(conversazione, testo, utente, azienda, messaggio=messaggio, compito=compito, nota=ricerca.ISTRUZIONI)
-    return avvia(conversazione, testo, utente, azienda, messaggio=messaggio, web=con_web)
+        return avvia(conversazione, testo, utente, azienda, messaggio=messaggio, compito=compito, nota=ricerca.ISTRUZIONI,
+                     immagini_confermate=conferma)
+    return avvia(conversazione, testo, utente, azienda, messaggio=messaggio, web=con_web, immagini_confermate=conferma)
 
 
-def avvia(conversazione, testo, utente, azienda=None, compito="chat", sincrono=False, nota="", file=(), messaggio=None, web=True):
+def avvia(conversazione, testo, utente, azienda=None, compito="chat", sincrono=False, nota="", file=(), messaggio=None, web=True,
+          immagini_confermate=None):
     """Registra la domanda e avvia il turno: in un thread, oppure nel processo stesso con `sincrono` (worker delle
     pianificate) o AI_TURNI_SINCRONI (test). `nota` va al modello nel <contesto>, non nella chat. `file`: gli allegati
     del messaggio, già controllati. `messaggio`: quello esistente, quando si riparte da lì."""
@@ -136,9 +140,15 @@ def avvia(conversazione, testo, utente, azienda=None, compito="chat", sincrono=F
         nota = "\n".join(n for n in (contesto_utente.nota_memoria(utente, azienda), contesto_utente.nota_progetto(conversazione),
                                      nota, allegati_chat.nota(messaggio)) if n)
         immagini = [a.pk for a in allegati_chat.immagini_di(messaggio)]
+        # chi ha confermato l'invio delle immagini verso il cloud, e quando: resta nella storia della chat
+        conferma = immagini_confermate if immagini and immagini_confermate else None
+        if conferma is True:
+            conferma = {"utente": utente.username, "quando": timezone.now().isoformat()}
         Evento.objects.create(conversazione=conversazione, turno=turno, tipo=Evento.UTENTE, dati={
             "ruolo": "utente", "testo": prompt.con_contesto(testo, utente, azienda, conversazione.ambito, esiti, nota),
-            **({"immagini": immagini} if immagini else {})})
+            **({"immagini": immagini} if immagini else {}), **({"immagini_confermate": conferma} if conferma else {})})
+        if conferma:
+            log.info("immagini verso il cloud confermate da %s (chat %s, allegati %s)", utente.username, conversazione.pk, immagini)
     if sincrono or getattr(settings, "AI_TURNI_SINCRONI", False):
         esegui(turno.pk)
     else:
@@ -219,10 +229,18 @@ def esegui(turno_id):
         from ..strumenti import web
         ammessi = {s.nome: s for s in assistenti.filtra_strumenti(
             web.filtra(strumenti.disponibili(utente, conversazione.ambito, turno.azienda), turno.azienda, turno.web), assistente, esperto=turno.compito == "esperto")}
-        _, con_immagine, nell_ultimo = allegati_chat.con_immagini(messaggi_del_modello(conversazione))
+        copia, con_immagine, nell_ultimo = allegati_chat.con_immagini(messaggi_del_modello(conversazione))
         senza_immagini = False
         if con_immagine:
-            adatti = [a for a in catena if allegati_chat.modello_ammesso_per_immagini(a[0], turno.azienda)]
+            confermate = _immagini_confermate(conversazione)
+            adatti = [a for a in catena if allegati_chat.modello_ammesso_per_immagini(a[0], turno.azienda, confermate)]
+            locali = allegati_chat.visione_locale(turno.azienda)
+            if not adatti and nell_ultimo and locali:
+                # l'immagine non può uscire: la descrive un modello sui nostri server e la descrizione (testo, mascherato
+                # come il resto) va al modello della chat, che tiene strumenti e dati del gestionale
+                _descrivi_in_locale(e, conversazione, copia, locali)
+                copia, con_immagine, nell_ultimo = allegati_chat.con_immagini(messaggi_del_modello(conversazione))
+        if con_immagine:
             if adatti:
                 catena = adatti
             elif nell_ultimo:
@@ -309,6 +327,44 @@ def esegui(turno_id):
         _chiudi_chiamate_aperte(turno, "il turno si è fermato per un errore interno")
         _chiudi(e, Turno.ERRORE, "\n\n_Si è verificato un errore interno._", errore=repr(errore))
     return turno
+
+
+DESCRIVI = ("Descrivi in italiano, in modo fedele e concreto, l'immagine allegata: che cosa mostra e i testi leggibili, trascritti "
+            "esattamente. Non inventare ciò che non si vede. Domanda dell'utente sull'immagine: {domanda}")
+
+
+def _descrivi_in_locale(e, conversazione, messaggi, locali):
+    """Fa descrivere le immagini dell'ultimo messaggio a un modello locale e mette la descrizione nella domanda, al posto
+    dei file: il modello della chat (anche cloud) riceve solo il testo."""
+    indice = max(i for i, m in enumerate(messaggi) if m.get("immagini_dati"))
+    domanda = messaggi[indice]["testo"].rsplit("</contesto>", 1)[-1].strip()[:1000]
+    e.avanzamento({"strumento": "leggi_immagine", "stato": "in corso", "passo": 0})
+    pezzi, modello = [], None
+    for pezzo in gateway(locali, protezione=None, sistema="Descrivi le immagini in modo fedele, senza inventare.",
+                         messaggi=[{"ruolo": "utente", "testo": DESCRIVI.format(domanda=domanda), "immagini_dati": messaggi[indice]["immagini_dati"]}],
+                         strumenti=[], max_token=MAX_TOKEN_DESCRIZIONE, effort="none"):
+        if isinstance(pezzo, Inizio):
+            modello = pezzo.modello
+        elif isinstance(pezzo, Testo):
+            pezzi.append(pezzo.testo)
+        elif isinstance(pezzo, Uso):
+            e.aggiungi_uso(modello, pezzo)
+    descrizione = "".join(pezzi).strip() or "(il modello locale non ha saputo descriverla)"
+    ultimo = conversazione.eventi.filter(tipo=Evento.UTENTE, dati__has_key="immagini").order_by("-pk").first()
+    dati = dict(ultimo.dati)
+    dati["immagini_descritte"] = dati.pop("immagini")
+    dati["testo"] += (f"\n\n<immagini_allegate descritte_da=\"{getattr(modello, 'etichetta', 'modello locale')}, sui nostri server\">\n"
+                      f"Le immagini non ti vengono inviate: questa è la loro descrizione, fatta da un modello piccolo che può sbagliare "
+                      f"i dettagli.\n{descrizione}\n</immagini_allegate>")
+    ultimo.dati = dati
+    ultimo.save(update_fields=["dati"])
+    e.avanzamento({"passo": 0, "fatti": [{"strumento": "leggi_immagine", "errore": False}]})
+
+
+def _immagini_confermate(conversazione):
+    """Se l'utente ha confermato l'invio verso il cloud dell'ultima immagine (quella che va al modello)."""
+    ultimo = conversazione.eventi.filter(tipo=Evento.UTENTE, dati__has_key="immagini").order_by("-pk").first()
+    return bool(ultimo and ultimo.dati.get("immagini_confermate"))
 
 
 def _registra_parziale(turno, testo_passo):

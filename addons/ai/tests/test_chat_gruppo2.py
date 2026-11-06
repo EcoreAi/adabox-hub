@@ -283,12 +283,12 @@ def _png(nome="foto.png", dati=PNG):
 
 
 def _immagini_cloud(monkeypatch, valore=True):
-    monkeypatch.setattr(allegati_chat, "immagini_verso_il_cloud", lambda azienda: valore)
+    monkeypatch.setattr(allegati_chat, "immagini_verso_il_cloud", lambda azienda, confermate=False: valore)
 
 
-def test_immagini_spente_di_default_senza_modello_locale(s):
+def test_immagini_di_default_chiedono_conferma_senza_modello_locale(s):
     Modello.objects.filter(pk=s["modello"].pk).update(visione=False)
-    with pytest.raises(AllegatoNonValido, match="non si mascherano"):
+    with pytest.raises(allegati_chat.ImmagineDaConfermare, match="senza mascherare"):
         allegati_chat.controlla([_png()], s["az"])
 
 

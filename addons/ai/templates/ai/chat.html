@@ -92,6 +92,15 @@
           {% if documento %}<input type="hidden" name="documento" value="{{ documento.pk }}">{% endif %}
           {% if progetto_nuova %}<input type="hidden" name="progetto" value="{{ progetto_nuova.pk }}"><p class="ai-progetto-nuova">Nuova chat nel progetto <strong>{{ progetto_nuova.nome }}</strong></p>{% endif %}
           <ul class="ai-allegati" data-allegati hidden></ul>
+          {% if conferma_immagini %}<input type="hidden" name="conferma_immagini" value="" data-conferma-campo>
+          <div class="ai-conferma-immagini" data-conferma-box hidden>
+            <svg aria-hidden="true"><use href="#icon-alert-triangle"/></svg>
+            <div>
+              <p data-conferma-domanda>Le immagini allegate arriveranno a <strong>{{ conferma_immagini }}</strong> così come sono: i dati personali che contengono non si possono mascherare. Inviale solo se non mostrano dati di altre persone (documenti, volti, indirizzi, numeri).</p>
+              <p data-conferma-fatta hidden>Confermato: le immagini andranno a <strong>{{ conferma_immagini }}</strong>. La conferma resta registrata.</p>
+              <span class="ai-conferma-bottoni" data-conferma-bottoni><button type="button" class="ui-btn ui-btn-sm ui-btn-primary" data-conferma-si>Invia comunque</button><button type="button" class="ui-btn ui-btn-sm ui-btn-ghost" data-conferma-togli>Togli le immagini</button></span>
+            </div>
+          </div>{% endif %}
           <p class="ai-voce-stato" data-voce-stato role="status" hidden></p>
           <textarea name="testo" rows="3" class="ai-input" placeholder="{% if conversazione %}Rispondi…{% else %}Come posso aiutarti oggi?{% endif %}" aria-label="Messaggio" required></textarea>
           <div class="ai-composer-barra">

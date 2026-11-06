@@ -32,6 +32,15 @@ def _mie(request):
     return Conversazione.objects.filter(utente=request.user, nascosta=False)
 
 
+def _fornitore_immagini(azienda):
+    """Il nome del modello cloud che riceverebbe un'immagine, per il riquadro di conferma."""
+    try:
+        catena = catalogo.catena(catalogo.profilo_per("chat", azienda), azienda)
+    except catalogo.NessunModello:
+        return "un modello cloud"
+    return next((m.etichetta for m, _ in catena if m.visione and not m.provider.locale), "un modello cloud")
+
+
 def livelli_modello(azienda):
     """[(livello, modello)] della scelta in chat: Standard il più economico dei modelli sceglibili, Max il più capace
     (il più caro). Con Automatico vale la catena degli amministratori."""
@@ -91,6 +100,7 @@ def chat(request, pk=None):
         "livelli_modello": livelli_modello(azienda),
         "app_gruppi": barra.gruppi([{**a, "categoria": a.get("category", "")} for a in app]),
         "ricerca_disponibile": ricerca.disponibile(azienda),
+        "conferma_immagini": _fornitore_immagini(azienda) if allegati_chat.serve_conferma(azienda) else "",
         "dettatura": voce.dettatura_disponibile(azienda), "lettura": voce.servizio_per(azienda) is not None,
     })
 
@@ -126,8 +136,9 @@ def invia(request, pk=None):
     testo = request.POST.get("testo", "").strip()
     conversazione = get_object_or_404(_mie(request), pk=pk) if pk else None
     file = request.FILES.getlist("allegati")
+    confermate = request.POST.get("conferma_immagini") == "1"
     try:
-        allegati_chat.controlla(file, getattr(request, "azienda", None))
+        allegati_chat.controlla(file, getattr(request, "azienda", None), confermate)
     except AllegatoNonValido as e:
         return _errore_invio(request, str(e), pk)
     if file and not testo:
@@ -162,6 +173,7 @@ def invia(request, pk=None):
     nota_web = "Per questo messaggio l'utente ha acceso la ricerca sul web: usala se serve e cita i link delle fonti." if sul_web else ""
     turno = motore.avvia(conversazione, testo, request.user, getattr(request, "azienda", None), file=file,
                          compito=ricerca.COMPITO if approfondita else "chat", web=approfondita or sul_web,
+                         immagini_confermate=confermate and allegati_chat.serve_conferma(getattr(request, "azienda", None)),
                          nota="\n".join(n for n in (documenti_chat.nota(aperto), ricerca.ISTRUZIONI if approfondita else "", nota_web) if n))
     conversazione.save(update_fields=["aggiornata"])
     url = reverse("ai:conversazione", args=[conversazione.pk])

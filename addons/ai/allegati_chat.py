@@ -28,26 +28,52 @@ def e_immagine(nome):
     return _estensione(nome) in IMMAGINI
 
 
-def immagini_verso_il_cloud(azienda):
-    """Dentro un'immagine i dati personali non si mascherano: verso i modelli cloud le accende l'azienda."""
+class ImmagineDaConfermare(AllegatoNonValido):
+    """L'azienda lascia decidere all'utente: l'immagine parte verso il cloud solo se lui conferma."""
+
+
+def modo_immagini(azienda):
+    """mai, conferma o sempre: come le immagini possono arrivare ai modelli cloud per l'azienda."""
     try:
-        return bool(parametri.leggi("ai.immagini_cloud", azienda))
+        modo = parametri.leggi("ai.immagini_cloud", azienda)
     except KeyError:
-        return False
+        return "mai"
+    return modo if modo in ("mai", "conferma", "sempre") else ("sempre" if modo is True else "conferma")
 
 
-def modello_ammesso_per_immagini(modello, azienda):
-    return modello.visione and (modello.provider.locale or immagini_verso_il_cloud(azienda))
+def immagini_verso_il_cloud(azienda, confermate=False):
+    """Dentro un'immagine i dati personali non si mascherano: verso i modelli cloud solo se l'azienda lo permette,
+    sempre o con la conferma dell'utente per quel messaggio."""
+    modo = modo_immagini(azienda)
+    return modo == "sempre" or (modo == "conferma" and confermate)
 
 
-def controlla(file, azienda=None):
+def visione_locale(azienda=None):
+    """[(modello, chiave)] dei modelli sui nostri server che leggono le immagini: lì l'immagine non esce."""
+    return [(m, m.provider.chiave_per(azienda)) for m in Modello.objects.filter(visione=True, attivo=True, provider__attivo=True, provider__locale=True)
+            .select_related("provider").order_by("pk")]
+
+
+def serve_conferma(azienda):
+    """Per la casella: se un'immagine allegata chiede la conferma dell'utente (nessun modello locale, azienda in «conferma»)."""
+    return modo_immagini(azienda) == "conferma" and not visione_locale(azienda)
+
+
+def modello_ammesso_per_immagini(modello, azienda, confermate=False):
+    return modello.visione and (modello.provider.locale or immagini_verso_il_cloud(azienda, confermate))
+
+
+def controlla(file, azienda=None, confermate=False):
     """Prima di creare qualsiasi cosa: un file sbagliato non deve lasciare una chat a metà."""
     if len(file) > MASSIMO:
         raise AllegatoNonValido(f"Al massimo {MASSIMO} file per messaggio.")
     for f in file:
         nome = core_allegati.valida(f)
         if e_immagine(nome):
-            if not (immagini_verso_il_cloud(azienda) or Modello.objects.filter(visione=True, attivo=True, provider__attivo=True, provider__locale=True).exists()):
+            if not (immagini_verso_il_cloud(azienda, confermate) or visione_locale(azienda)):
+                if modo_immagini(azienda) == "conferma":
+                    raise ImmagineDaConfermare(f"«{nome}» arriverebbe a un modello cloud così com'è, senza mascherare i dati personali: "
+                                               "conferma l'invio dal riquadro dell'immagine, oppure toglila.")
                 raise AllegatoNonValido(f"«{nome}»: le immagini verso i modelli cloud sono spente, perché dentro un'immagine i dati personali non si mascherano. Le accende un amministratore da Impostazioni.")
             if f.size > MASSIMO_IMMAGINE_MB * 1024 * 1024:
                 raise AllegatoNonValido(f"«{nome}»: un'immagine può arrivare a {MASSIMO_IMMAGINE_MB} MB.")
