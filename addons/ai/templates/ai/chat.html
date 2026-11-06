@@ -96,7 +96,7 @@
               hx-post="{% if conversazione %}{% url 'ai:invia_conversazione' conversazione.pk %}{% else %}{% url 'ai:invia' %}{% endif %}"
               hx-target="#ai-messaggi" hx-swap="beforeend">
           {% csrf_token %}
-          <input type="hidden" name="ambito" value="{{ conversazione.ambito|default:'' }}" data-ambito>
+          <input type="hidden" name="ambito" value="{% if conversazione %}{{ conversazione.ambito }}{% else %}{{ ambito_nuova }}{% endif %}" data-ambito>
           {% if documento %}<input type="hidden" name="documento" value="{{ documento.pk }}">{% endif %}
           {% if progetto_nuova %}<input type="hidden" name="progetto" value="{{ progetto_nuova.pk }}"><p class="ai-progetto-nuova"><span class="ai-chip ai-chip-progetto"><svg aria-hidden="true"><use href="#ai-cartella"/></svg>Nuova chat nel progetto <strong>{{ progetto_nuova.nome }}</strong><a class="ai-chip-x" href="{% url 'ai:chat' %}" data-tip="Chat fuori dal progetto" aria-label="Esci dal progetto: chat nuova senza progetto"><svg><use href="#icon-x"/></svg></a></span></p>{% endif %}
           <ul class="ai-allegati" data-allegati hidden></ul>

@@ -4,6 +4,7 @@
     <span class="ai-progetto-simbolo" aria-hidden="true"><svg><use href="#ai-cartella"/></svg></span>
     <h1>{{ progetto_aperto.nome }}</h1>
     <span class="ai-spazio"></span>
+    {% if ambito_nuova %}<span class="ai-progetto-vuoto" data-tip="Le chat nuove del progetto partono limitate a questa app">App predefinita: {% for a in app %}{% if a.slug == ambito_nuova %}<strong>{{ a.label }}</strong>{% endif %}{% endfor %}</span>{% endif %}
     <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'ai:progetti_modifica' progetto_aperto.pk %}"><svg><use href="#icon-edit"/></svg> Modifica</a>
   </div>
   <div class="ai-collegamenti" aria-label="Record collegati">

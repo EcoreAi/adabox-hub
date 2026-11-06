@@ -512,6 +512,8 @@ class ProgettoChat(models.Model):
     istruzioni = models.TextField("istruzioni", blank=True, help_text="valgono per tutte le chat del progetto")
     # cartella dell'app Documenti (se installata): numero e non chiave esterna, perché ai non dipende da documenti
     cartella_documenti = models.PositiveIntegerField("cartella dei Documenti", null=True, blank=True)
+    ambito = models.CharField("app predefinita", max_length=31, blank=True,
+                              help_text="le chat nuove del progetto partono limitate a questa app (si cambia dalla casella)")
     creato = models.DateTimeField("creato il", auto_now_add=True)
 
     class Meta:

@@ -122,6 +122,7 @@ def chat(request, pk=None, progetto=None):
         motore.segna_interrotti(conversazione)
     in_corso = motore.in_corso_di(conversazione) if conversazione else None
     aperto = _mio_documento(request, request.GET.get("documento"), conversazione) if conversazione else None
+    progetto_nuova = (progetto_aperto or _mio_progetto(request, request.GET.get("progetto"))) if conversazione is None else None
     return render(request, "ai/chat.html", {
         "documento": aperto, "versioni": aperto.versioni.all()[:20] if aperto else [],
         "conversazione": conversazione, "ambito": ambito, "turno": in_corso, "avviso_spesa": _avviso_spesa(request),
@@ -133,7 +134,9 @@ def chat(request, pk=None, progetto=None):
         "progetti": progetti, "progetto_aperto": progetto_aperto,
         "collegamenti_progetto": collegamenti.del_progetto(request, progetto_aperto) if progetto_aperto else [],
         **(_lavoro_del_progetto(request, progetto_aperto) if progetto_aperto else {}),
-        "progetto_nuova": (progetto_aperto or _mio_progetto(request, request.GET.get("progetto"))) if conversazione is None else None,
+        "progetto_nuova": progetto_nuova,
+        # chat nuova in un progetto con un'app predefinita: parte limitata a quell'app (se l'utente la vede ancora)
+        "ambito_nuova": progetto_nuova.ambito if progetto_nuova and progetto_nuova.ambito in {a["slug"] for a in app} else "",
         "livelli_modello": livelli_modello(azienda),
         "app_gruppi": barra.gruppi([{**a, "categoria": a.get("category", "")} for a in app]),
         "ricerca_disponibile": ricerca.disponibile(azienda),

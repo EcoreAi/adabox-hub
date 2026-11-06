@@ -216,15 +216,22 @@ class ProgettoChatForm(forms.ModelForm):
     cartella_documenti = forms.TypedChoiceField(label="cartella dei Documenti", required=False, coerce=int, empty_value=None,
                                                 help_text="Ada legge i file di questa cartella (e delle sottocartelle) in tutte le chat del "
                                                           "progetto, con i permessi di chi scrive; lì si salvano documenti, grafici e tabelle")
+    ambito = forms.ChoiceField(label="app predefinita", required=False,
+                               help_text="le chat nuove del progetto partono limitate a questa app; dalla casella si toglie o si cambia")
     cartelle = []
+    app = []                                             # [(slug, nome)] delle app che l'utente vede: le mette la vista
 
     class Meta:
         model = ProgettoChat
-        fields = ["nome", "istruzioni", "cartella_documenti"]
+        fields = ["nome", "istruzioni", "ambito", "cartella_documenti"]
         widgets = {"istruzioni": forms.Textarea(attrs={"rows": 10, "data-scrivi-con-ada": "progetto"})}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        app = [("", "Tutte le app")] + list(self.app)
+        if self.instance.ambito and self.instance.ambito not in {s for s, _ in self.app}:
+            app.append((self.instance.ambito, f"{self.instance.ambito} (non più disponibile)"))
+        self.fields["ambito"].choices = app
         scelte = [("", "Nessuna")] + [(c.pk, percorso) for c, percorso in self.cartelle]
         if self.instance.cartella_documenti and self.instance.cartella_documenti not in {c.pk for c, _ in self.cartelle}:
             scelte.append((self.instance.cartella_documenti, "(cartella che non vedi più)"))
