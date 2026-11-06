@@ -50,8 +50,15 @@ def _progetti_con_recenti(request, azienda):
 
 def _contenuti_progetto(request, progetto):
     """Ciò che è nato nelle chat del progetto, per tipo: compare da solo, senza salvarlo a mano."""
+    from . import archivio
     chat = _mie(request).filter(progetto=progetto).order_by("-aggiornata")
+    radice = archivio.cartella(request.user, progetto.azienda, progetto.cartella_documenti) if archivio.attivo() else None
+    documenti = archivio.documenti_in(request.user, progetto.azienda, radice) if radice else []
     return {
+        "archivio_attivo": archivio.attivo(), "cartella_progetto": radice,
+        "url_cartella_progetto": archivio.url_cartella(radice) if radice else "",
+        "documenti_cartella": [(d, archivio.url_documento(d)) for d in documenti[:60]], "documenti_cartella_totale": len(documenti),
+        "cartella_scrivibile": bool(radice and archivio.cartella(request.user, progetto.azienda, radice.pk, scrittura=True)),
         "chat_progetto": chat[:100],
         "documenti_progetto": DocumentoChat.objects.filter(utente=request.user, conversazione__progetto=progetto,
                                                            conversazione__nascosta=False).order_by("-aggiornato")[:50],
@@ -139,7 +146,18 @@ def chat(request, pk=None, progetto=None):
         "ricerca_disponibile": ricerca.disponibile(azienda),
         "conferma_immagini": _fornitore_immagini(azienda) if allegati_chat.serve_conferma(azienda) else "",
         "dettatura": voce.dettatura_disponibile(azienda), "lettura": voce.servizio_per(azienda) is not None,
+        **_salva_nei_documenti(request, azienda, conversazione, progetto_aperto),
     })
+
+
+def _salva_nei_documenti(request, azienda, conversazione, progetto_aperto):
+    """Per il riquadro «Salva nei Documenti»: le cartelle in cui l'utente scrive, con quella del progetto già scelta."""
+    from . import archivio
+    scrivibili = archivio.cartelle(request.user, azienda, scrittura=True)
+    if not scrivibili:
+        return {}
+    progetto = progetto_aperto or (conversazione.progetto if conversazione and conversazione.progetto_id else None)
+    return {"cartelle_scrivibili": scrivibili, "cartella_predefinita": getattr(progetto, "cartella_documenti", None)}
 
 
 def _salvati(request):
@@ -647,3 +665,70 @@ def esito_scrittura(request, pk):
     turno = get_object_or_404(Turno, pk=pk, utente=request.user, compito=aiuto_testi.COMPITO)
     risultato = aiuto_testi.esito(turno)
     return JsonResponse(risultato if risultato is not None else {"in_corso": True})
+
+
+@require_POST
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+def carica_archivio(request, pk):
+    """File o una cartella intera dal PC nella cartella dei Documenti del progetto (sottocartelle comprese)."""
+    from . import archivio
+    progetto = _mio_progetto(request, pk)
+    if progetto is None or not archivio.attivo():
+        raise Http404
+    radice = archivio.cartella(request.user, progetto.azienda, progetto.cartella_documenti, scrittura=True)
+    if radice is None:
+        messages.error(request, "Non puoi caricare file nella cartella di questo progetto.")
+        return redirect("ai:progetto", progetto=progetto.pk)
+    caricati, errori = archivio.carica_cartella(request.user, progetto.azienda, radice, request.FILES.getlist("file"),
+                                                request.POST.getlist("percorso"))
+    if caricati:
+        messages.success(request, f"Caricati nei Documenti: {len(caricati)}.")
+    for e in errori[:10]:
+        messages.error(request, e)
+    return redirect("ai:progetto", progetto=progetto.pk)
+
+
+@require_POST
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+def salva_documenti(request, tipo, pk):
+    """Un documento scritto con Ada (Word), un grafico (PDF con i valori) o una tabella (CSV) nell'archivio Documenti.
+    Se nella cartella c'è già un file con quel nome diventa la sua versione nuova."""
+    from django.utils.text import slugify
+
+    from . import archivio, artifact
+    azienda = getattr(request, "azienda", None)
+    if tipo == "documento":
+        d = _mio_documento(request, pk)
+        if d is None:
+            raise Http404
+        nome, contenuto = f"{d.titolo}.docx", documenti_chat.in_word(d)
+    elif tipo == "artifact":
+        a = _mio_artifact(request, pk)
+        try:
+            dati = artifact.ricalcola(a)                   # i dati di oggi, con i permessi di oggi
+        except Exception:                                  # noqa: BLE001 - vista o permessi cambiati: la fotografia
+            dati = a.dati
+        if a.tipo == Artifact.GRAFICO:
+            if not artifact.svg_di(a, dati):
+                return JsonResponse({"errore": "Questo grafico non ha dati da salvare."}, status=400)
+            from core import report
+            try:
+                nome, contenuto = f"{a.titolo}.pdf", artifact.pdf_di(a, dati)
+            except report.ReportNonDisponibile as e:
+                return JsonResponse({"errore": str(e)}, status=503)
+        else:
+            nome, contenuto = f"{a.titolo}.csv", artifact.csv_di(a, dati).encode()
+    else:
+        raise Http404
+    nome = nome.replace("/", "-").replace("\\", "-").strip() or f"{slugify(tipo)}.bin"
+    try:
+        documento = archivio.salva(request.user, azienda, request.POST.get("cartella"), nome, contenuto)
+    except archivio.ArchivioNonDisponibile as e:
+        return JsonResponse({"errore": str(e)}, status=403)
+    except core_allegati.AllegatoNonValido as e:
+        return JsonResponse({"errore": str(e)}, status=400)
+    versione = f" (versione {documento.versione})" if documento.versione > 1 else ""
+    return JsonResponse({"messaggio": f"Salvato in «{documento.cartella.percorso()}» come «{documento.nome}»{versione}.",
+                         "url": archivio.url_documento(documento)})

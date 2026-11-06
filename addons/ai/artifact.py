@@ -67,6 +67,22 @@ def svg_di(artifact, dati=None):
     return svg.DISEGNI[artifact.spec.get("grafico", "barre")](serie, artifact.titolo)
 
 
+def pdf_di(artifact, dati):
+    """Il grafico in PDF per l'archivio: titolo, disegno vettoriale, valori e data dei dati (un SVG da solo non si
+    archivia: i file .svg possono contenere script e il kernel li rifiuta)."""
+    from html import escape
+
+    from core import report
+    HTML = report.weasyprint().HTML                       # ReportNonDisponibile senza Pango
+    disegno = svg_di(artifact, dati).replace('font-family="inherit"', 'font-family="Helvetica, Arial, sans-serif"')
+    righe = "".join(f"<tr><td>{escape(str(e))}</td><td class='n'>{escape(str(v))}</td></tr>" for e, v in dati.get("serie", []))
+    pagina = (f"<html><head><meta charset='utf-8'><style>@page {{ size: A4 landscape; margin: 18mm; }} body {{ font-family: Helvetica, Arial, sans-serif; color: #1d1d1f; }}"
+              f" h1 {{ font-size: 18pt; margin: 0 0 4mm; }} p {{ color: #6e6e73; font-size: 9pt; margin: 0 0 6mm; }} svg {{ width: 100%; height: auto; }}"
+              f" table {{ border-collapse: collapse; margin-top: 8mm; font-size: 9pt; }} td {{ border-bottom: 1px solid #e5e5ea; padding: 2mm 6mm 2mm 0; }} .n {{ text-align: right; }}</style></head>"
+              f"<body><h1>{escape(artifact.titolo)}</h1><p>Dati del {timezone.localtime():%d/%m/%Y %H:%M}</p>{disegno}<table>{righe}</table></body></html>")
+    return HTML(string=pagina).write_pdf()
+
+
 def csv_di(artifact, dati):
     uscita = io.StringIO()
     scrittore = csv.writer(uscita, delimiter=";")

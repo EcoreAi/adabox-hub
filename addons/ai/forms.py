@@ -210,7 +210,22 @@ class ServizioVoceForm(forms.ModelForm):
 
 
 class ProgettoChatForm(forms.ModelForm):
+    """La cartella dei Documenti si sceglie tra quelle che l'utente vede (vedi ProgettoChatView.get_form_class)."""
+    cartella_documenti = forms.TypedChoiceField(label="cartella dei Documenti", required=False, coerce=int, empty_value=None,
+                                                help_text="Ada legge i file di questa cartella (e delle sottocartelle) in tutte le chat del "
+                                                          "progetto, con i permessi di chi scrive; lì si salvano documenti, grafici e tabelle")
+    cartelle = []
+
     class Meta:
         model = ProgettoChat
-        fields = ["nome", "istruzioni"]
+        fields = ["nome", "istruzioni", "cartella_documenti"]
         widgets = {"istruzioni": forms.Textarea(attrs={"rows": 10, "data-scrivi-con-ada": "progetto"})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        scelte = [("", "Nessuna")] + [(c.pk, percorso) for c, percorso in self.cartelle]
+        if self.instance.cartella_documenti and self.instance.cartella_documenti not in {c.pk for c, _ in self.cartelle}:
+            scelte.append((self.instance.cartella_documenti, "(cartella che non vedi più)"))
+        self.fields["cartella_documenti"].choices = scelte
+        if not self.cartelle and not self.instance.cartella_documenti:
+            del self.fields["cartella_documenti"]

@@ -307,7 +307,7 @@
   // --- risposta in diretta: la bolla "in corso" segue il turno con Server-Sent Events ---
   const csrf = form.querySelector('input[name="csrfmiddlewaretoken"]').value;
   const NOMI = {
-    leggi_immagine: "leggo l'immagine sul server", scrivi_documento: 'scrivo il documento', leggi_documento: 'leggo il documento', modifica_documento: 'modifico il documento',
+    leggi_immagine: "leggo l'immagine sul server", scrivi_documento: 'scrivo il documento', leggi_documento_chat: 'leggo il documento', modifica_documento: 'modifico il documento',
     data_e_ora: 'controllo data e ora', app_disponibili: 'guardo le app disponibili',
     elenco_viste: 'guardo dove sono i dati', descrivi_vista: 'leggo la struttura dei dati',
     cerca_record: 'cerco i record', leggi_record: 'leggo il record', aggrega_record: 'calcolo i totali',
@@ -429,6 +429,65 @@
     document.addEventListener('click', (e) => { if (!menu.contains(e.target)) chiudi(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !tendina.hidden) { chiudi(); bottone.focus(); } });
   });
+
+  // --- «Salva nei Documenti»: documenti scritti con Ada, grafici e tabelle nell'archivio, nella cartella scelta ---
+  const salvaDoc = document.getElementById('ai-salva-doc');
+  const mostraSalva = () => {
+    if (salvaDoc) document.querySelectorAll('[data-salva-documenti][hidden]').forEach((b) => { b.hidden = false; });
+  };
+  if (salvaDoc) {
+    const esito = salvaDoc.querySelector('[data-salva-esito]');
+    const conferma = salvaDoc.querySelector('[data-salva-conferma]');
+    document.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-salva-documenti]');
+      if (!b) return;
+      salvaDoc.dataset.url = b.dataset.salvaDocumenti;
+      salvaDoc.querySelector('[data-salva-cosa]').textContent = `Salva ${b.dataset.cosa}.`;
+      esito.hidden = true; esito.replaceChildren(); conferma.hidden = false; conferma.disabled = false;
+      salvaDoc.querySelector('[data-salva-chiudi]').textContent = 'Annulla';
+      salvaDoc.showModal();
+    });
+    conferma.addEventListener('click', async () => {
+      conferma.disabled = true;
+      const dati = new FormData();
+      dati.append('cartella', salvaDoc.querySelector('[data-salva-cartella]').value);
+      try {
+        const r = await fetch(salvaDoc.dataset.url, { method: 'POST', body: dati, headers: { 'X-CSRFToken': csrf } });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.errore || 'Salvataggio non riuscito.');
+        const link = document.createElement('a');
+        link.href = j.url; link.className = 'ui-link'; link.textContent = 'Apri nei Documenti';
+        esito.replaceChildren(document.createTextNode(`${j.messaggio} `), link);
+        conferma.hidden = true;
+        salvaDoc.querySelector('[data-salva-chiudi]').textContent = 'Chiudi';
+      } catch (err) {
+        esito.textContent = err.message; conferma.disabled = false;
+      }
+      esito.hidden = false;
+    });
+  }
+  document.body.addEventListener('htmx:afterSettle', mostraSalva);
+  document.addEventListener('ai:risposta-finita', () => setTimeout(mostraSalva, 80));
+  mostraSalva();
+
+  // --- pagina del progetto: file o una cartella intera dal PC nella cartella dei Documenti ---
+  const caricaArchivio = document.querySelector('[data-carica-archivio]');
+  if (caricaArchivio) {
+    const stato = caricaArchivio.querySelector('[data-carica-stato]');
+    caricaArchivio.querySelectorAll('[data-scegli]').forEach((b) => b.addEventListener('click', () => {
+      caricaArchivio.querySelector(b.dataset.scegli === 'cartella' ? '[data-carica-cartella]' : '[data-carica-file]').click();
+    }));
+    caricaArchivio.querySelectorAll('input[type=file]').forEach((campo) => campo.addEventListener('change', async () => {
+      if (!campo.files.length) return;
+      const dati = new FormData();
+      dati.append('csrfmiddlewaretoken', csrf);
+      [...campo.files].forEach((f) => { dati.append('file', f); dati.append('percorso', f.webkitRelativePath || ''); });
+      stato.textContent = `Carico ${campo.files.length} file…`;
+      caricaArchivio.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+      await fetch(caricaArchivio.action, { method: 'POST', body: dati });
+      window.location.reload();
+    }));
+  }
 
   // --- documento accanto alla chat: leggi o modifica, niente modifiche perse ---
   const tela = () => document.querySelector('[data-tela]');

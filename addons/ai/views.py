@@ -268,9 +268,20 @@ class ProgettoChatView(_SoloMie):
     model = ProgettoChat
     slug = "progetti"
     form_class = ProgettoChatForm
+    form_layout = [("Progetto", ["nome", "istruzioni", "cartella_documenti"])]
+
+    def get_form_class(self, request=None):
+        base = super().get_form_class(request)
+        if request is None:
+            return base
+        from . import archivio
+        return type("ProgettoChatFormUtente", (base,), {"cartelle": archivio.cartelle(request.user, getattr(request, "azienda", None))})
+
+    def layout_dettaglio(self):                      # la cartella si vede nella pagina del progetto, con nome e documenti
+        return [(t, [[c for c in riga if c != "cartella_documenti"] for riga in righe if riga != ["cartella_documenti"]])
+                for t, righe in super().layout_dettaglio()]
     list_display = ["nome", "creato"]
     search_fields = ["nome", "istruzioni"]
-    form_layout = [("Progetto", ["nome", "istruzioni"])]
     readonly_fields = ["creato"]
 
 

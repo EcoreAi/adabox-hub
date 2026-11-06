@@ -508,6 +508,8 @@ class ProgettoChat(models.Model):
     azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, related_name="+", verbose_name="azienda")
     nome = models.CharField("nome", max_length=80)
     istruzioni = models.TextField("istruzioni", blank=True, help_text="valgono per tutte le chat del progetto")
+    # cartella dell'app Documenti (se installata): numero e non chiave esterna, perché ai non dipende da documenti
+    cartella_documenti = models.PositiveIntegerField("cartella dei Documenti", null=True, blank=True)
     creato = models.DateTimeField("creato il", auto_now_add=True)
 
     class Meta:

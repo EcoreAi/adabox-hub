@@ -206,6 +206,21 @@
 
   {# ---------- colonna destra: pannello e barra di icone ---------- #}
   {% if documento %}{% include "ai/_tela.html" %}{% endif %}
+  {% if cartelle_scrivibili %}
+  <dialog class="ai-salva-doc" id="ai-salva-doc" aria-labelledby="ai-salva-doc-titolo">
+    <form method="dialog" class="ai-salva-doc-corpo" data-salva-doc>
+      <h2 id="ai-salva-doc-titolo">Salva nei Documenti</h2>
+      <p class="ai-progetto-vuoto" data-salva-cosa></p>
+      <label class="ai-scrivi-etichetta" for="ai-salva-cartella">Cartella</label>
+      <select class="ui-input" id="ai-salva-cartella" data-salva-cartella>{% for c, percorso in cartelle_scrivibili %}<option value="{{ c.pk }}"{% if c.pk == cartella_predefinita %} selected{% endif %}>{{ percorso }}</option>{% endfor %}</select>
+      <p class="ai-progetto-vuoto">Se nella cartella c'è già un file con lo stesso nome, diventa la sua versione nuova.</p>
+      <p class="ai-salva-esito" role="status" data-salva-esito hidden></p>
+      <footer class="ai-scrivi-piede"><span class="ai-spazio"></span>
+        <button type="submit" value="chiudi" class="ui-btn ui-btn-secondary" data-salva-chiudi>Annulla</button>
+        <button type="button" class="ui-btn ui-btn-primary" data-salva-conferma>Salva</button></footer>
+    </form>
+  </dialog>
+  {% endif %}
   <aside class="ai-pannello ai-pannello-destra" id="ai-pannello-destra" hidden>
     {% for chiave, etichetta, icona in pannelli_destra %}
     <section data-contenuto="{{ chiave }}" hidden>

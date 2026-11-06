@@ -484,3 +484,17 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-chip-progetto { display: inline-flex; align-items: center; gap: 6px; }
 .ai-chip-progetto > svg { width: 14px; height: 14px; color: var(--ui-primary); }
 .ai-chip-progetto .ai-chip-x svg { width: 12px; height: 12px; }
+
+/* salva nei Documenti, cartella del progetto */
+.ai-salva-doc { width: min(520px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--ui-border); border-radius: 18px; background: var(--ui-surface); color: var(--ui-text); box-shadow: 0 24px 60px rgba(15, 23, 42, .22); }
+.ai-salva-doc::backdrop { background: rgba(15, 23, 42, .35); }
+.ai-salva-doc-corpo { display: flex; flex-direction: column; gap: 10px; padding: 20px 22px; }
+.ai-salva-doc-corpo h2 { margin: 0; font-size: 17px; }
+.ai-salva-doc .ai-scrivi-piede { display: flex; gap: 8px; margin-top: 6px; }
+.ai-salva-esito { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--ui-surface-2); font-size: 13px; }
+.ai-progetto-largo { grid-column: 1 / -1; }
+.ai-carica-archivio { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.ai-progetto-file-solo { margin-top: 12px; font-size: 13px; }
+.ai-progetto-file-solo summary { cursor: pointer; color: var(--ui-text-2); }
+.ai-chat.con-documento .ai-composer-barra { gap: 4px; }
+.ai-chat.con-documento .ai-composer-barra .ai-tondo, .ai-chat.con-documento .ai-composer-barra .ai-invia { width: 31px; height: 31px; }

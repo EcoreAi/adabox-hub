@@ -18,9 +18,27 @@
       <li><a href="{% url 'ai:artifact' a.pk %}" target="_blank" rel="noopener" data-tip="Si apre con i dati di oggi"><span class="ai-elenco-titolo"><svg aria-hidden="true"><use href="#{% if a.tipo == 'grafico' %}ai-grafico{% else %}ai-artifact{% endif %}"/></svg>{% if a.salvato %}★ {% endif %}{{ a.titolo }}</span><span class="ai-elenco-data">{{ a.get_tipo_display }} · {{ a.creato|date:"d/m" }}</span></a></li>{% endfor %}</ul>
     {% else %}<p class="ai-progetto-vuoto">Grafici e tabelle chiesti nelle chat del progetto compaiono qui, e si riaprono con i dati di oggi.</p>{% endif %}
   </section>
-  <section class="ai-progetto-sezione" aria-labelledby="ai-p-file">
-    <h2 id="ai-p-file">File</h2>
-    <p class="ai-progetto-vuoto">Ada li legge in tutte le chat del progetto.</p>
+  <section class="ai-progetto-sezione{% if cartella_progetto %} ai-progetto-largo{% endif %}" aria-labelledby="ai-p-file">
+    <h2 id="ai-p-file">File {% if cartella_progetto %}<span class="ai-conta">{{ documenti_cartella_totale }}</span>{% endif %}</h2>
+    {% if cartella_progetto %}
+    <p class="ai-progetto-vuoto">Cartella dei Documenti <a class="ui-link" href="{{ url_cartella_progetto }}">{{ cartella_progetto.percorso }}</a>: Ada legge questi file in tutte le chat del progetto, e qui salvi documenti, grafici e tabelle.</p>
+    {% if documenti_cartella %}<ul class="ai-progetto-elenco">{% for d, url in documenti_cartella %}
+      <li><a href="{{ url }}"><span class="ai-elenco-titolo"><svg aria-hidden="true"><use href="#ai-documento"/></svg>{{ d.nome }}</span><span class="ai-elenco-data">{% if d.cartella_id != cartella_progetto.pk %}{{ d.cartella.nome }} · {% endif %}v{{ d.versione }} · {{ d.modificato|date:"d/m" }}</span></a></li>{% endfor %}</ul>
+    {% else %}<p class="ai-progetto-vuoto">La cartella è vuota.</p>{% endif %}
+    {% if cartella_scrivibile %}
+    <form class="ai-carica-archivio" method="post" enctype="multipart/form-data" action="{% url 'ai:carica_archivio' progetto_aperto.pk %}" data-carica-archivio>{% csrf_token %}
+      <input type="file" name="file" multiple hidden data-carica-file>
+      <input type="file" multiple webkitdirectory hidden data-carica-cartella>
+      <button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-scegli="file">Carica file</button>
+      <button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-scegli="cartella">Carica una cartella</button>
+      <span class="ai-progetto-vuoto" data-carica-stato role="status"></span>
+    </form>
+    {% endif %}
+    <details class="ai-progetto-file-solo"><summary>File solo del progetto</summary>
+      <div hx-get="{% url 'core:allegati_elenco' ct_p progetto_aperto.pk %}" hx-trigger="load"></div></details>
+    {% else %}
+    <p class="ai-progetto-vuoto">Ada li legge in tutte le chat del progetto.{% if archivio_attivo %} Per tenerli in cartelle e condividerli, <a class="ui-link" href="{% url 'ai:progetti_modifica' progetto_aperto.pk %}">collega una cartella dei Documenti</a>.{% endif %}</p>
     <div hx-get="{% url 'core:allegati_elenco' ct_p progetto_aperto.pk %}" hx-trigger="load"></div>
+    {% endif %}
   </section>
 </div>
