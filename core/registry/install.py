@@ -130,7 +130,20 @@ def aggiorna(slugs=None, tutti=False, riavvia=False):
         raise NienteDaAggiornare("nessun modulo da aggiornare")
     info = modules.scopri()
     piano = modules.ordina(piano, info)
+    # una versione nuova può dipendere da un modulo che non c'era (es. assistenza 1.2 dal portale): si installa prima
+    nuove = [s for s in modules.ordina(_chiusura(piano, info), info) if s not in attuali]
+    if fuori := [s for s in nuove if not licenza.ammesso(s)]:
+        raise NonLicenziato(f"le versioni nuove richiedono moduli non coperti dalla licenza: {', '.join(fuori)}")
     backup.esegui("pre-aggiorna-" + "-".join(piano))
+    if nuove:
+        scrivi_stato(modules.ordina(attuali + nuove, info))
+        try:
+            _applica("installa", nuove)
+        except ApplicaFallita as e:
+            scrivi_stato(attuali)
+            _segna_errore(nuove, info, str(e))
+            raise
+        log.info("installati per l'aggiornamento: %s", ", ".join(nuove))
     try:
         _applica("aggiorna", piano)
     except ApplicaFallita as e:
