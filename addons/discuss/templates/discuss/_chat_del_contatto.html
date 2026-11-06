@@ -1,0 +1,9 @@
+{% load discuss_clienti %}{% chat_del_contatto obj as voci %}{% if voci %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Chat con questo contatto</div></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Conversazione</th><th>Provenienza</th><th>Ultimo messaggio</th><th>Stato</th></tr></thead>
+    <tbody>{% for c in voci %}<tr><td><a class="ui-link" href="{% url 'discuss:canale' c.canale_id %}">{{ c.nome }}</a></td><td>{{ c.canale.get_origine_display_breve|default:c.sportello.nome }}</td><td>{{ c.ultimo_in_arrivo|default:c.creata|date:"d/m/Y H:i" }}</td><td>{% if c.chiusa %}Chiusa{% else %}Aperta{% endif %}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endif %}

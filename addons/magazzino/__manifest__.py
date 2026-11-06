@@ -1,11 +1,12 @@
 {
     "name": "Magazzino",
     "summary": "Giacenze, movimenti, consegne con DDT, ricevimenti e scorte minime",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Magazzino",
     "depends": ["prodotti", "contatti"],
     "min_core": "1.0",
+    "riepilogo": "magazzino.riepilogo.voci",
     "application": True,
     "icon": "magazzino/icon.svg",
     "dashboard": "magazzino.dashboard.kpi",

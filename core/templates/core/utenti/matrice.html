@@ -1,0 +1,10 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Matrice degli accessi · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Matrice degli accessi</h1><div class="sub">Chi può fare cosa in ogni modulo. Cambiando una cella si crea un'eccezione per quella persona; «Dal ruolo» la toglie</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'core:utenti' %}"><svg><use href="#icon-arrow-left"/></svg> Utenti</a></div></div>
+<section class="ui-card is-revealed"><div class="ui-table-wrap"><table class="ui-table ut-matrice"><thead><tr><th>Utente</th>{% for slug, m in moduli %}<th>{{ m.name }}</th>{% endfor %}</tr></thead><tbody>
+  {% for r in righe %}<tr><th scope="row"><a class="ui-link" href="{% url 'core:utente' r.u.pk %}">{% firstof r.u.get_full_name r.u.username %}</a><div class="sub">{% if r.u.is_superuser %}superutente{% elif r.profilo.ruolo %}{{ r.profilo.ruolo }}{% else %}senza ruolo: livelli dedotti dai gruppi{% endif %}</div></th>{% for cella in r.celle %}{% include "core/utenti/_cella.html" with u=r.u %}{% endfor %}</tr>{% endfor %}
+</tbody></table></div></section>
+<p class="ut-legenda sub"><span class="ut-campione is-nessuno"></span> Nessun accesso <span class="ut-campione is-lettura"></span> Sola lettura <span class="ut-campione is-lavoro"></span> Lavoro <span class="ut-campione is-responsabile"></span> Responsabile · le celle con il bordo sono eccezioni</p>
+{% endblock %}

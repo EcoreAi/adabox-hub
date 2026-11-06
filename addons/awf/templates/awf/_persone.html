@@ -1,0 +1,13 @@
+{# Per chi lavora: reparto (testo, con i reparti di Personale come suggerimenti), responsabile, persone. Contesto: utenti, reparti, reparto, responsabile_pk, persone_pk #}
+<label class="ui-label" for="reparto">In quale reparto lavora? <span class="ui-help">(facoltativo)</span></label>
+<input class="ui-input" id="reparto" name="reparto" maxlength="80" value="{{ reparto }}" placeholder="es. Vendite"{% if reparti %} list="reparti-personale"{% endif %} style="max-width:420px">
+{% if reparti %}<datalist id="reparti-personale">{% for r in reparti %}<option value="{{ r }}">{% endfor %}</datalist>{% endif %}
+
+<label class="ui-label" for="responsabile" style="margin-top:14px">Chi lo segue? <span class="ui-help">riceve i riepiloghi e le richieste di ok</span></label>
+<select class="ui-input" id="responsabile" name="responsabile" required style="max-width:420px">
+  {% for u in utenti %}<option value="{{ u.pk }}"{% if u.pk == responsabile_pk %} selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>{% endfor %}
+</select>
+
+<fieldset style="border:0;padding:0;margin:14px 0 0"><legend class="ui-label">A chi passa il lavoro? <span class="ui-help">(facoltativo: le persone che ricevono quello che prepara)</span></legend>
+  <ul class="ui-checkbox-list" style="columns:2;max-width:640px">{% for u in utenti %}<li><label><input class="ui-checkbox" type="checkbox" name="persone" value="{{ u.pk }}"{% if u.pk in persone_pk %} checked{% endif %}>{{ u.get_full_name|default:u.username }}</label></li>{% endfor %}</ul>
+</fieldset>

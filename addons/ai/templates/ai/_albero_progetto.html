@@ -1,0 +1,18 @@
+{# Le sottocartelle di un progetto nella colonna di sinistra, con i comandi per caricare ed eliminare. #}
+{% for chiave, titolo, totale, voci in gruppi %}
+<details class="ai-albero-gruppo" data-gruppo="{{ chiave }}"{% if chiave == "chat" and corrente %} open{% endif %}>
+  <summary><svg class="ai-albero-freccia" aria-hidden="true"><use href="#icon-chevron-down"/></svg><span>{{ titolo }}</span><span class="ai-conta">{{ totale }}</span>
+    {% if chiave == "file" and carica_in %}<span class="ai-albero-azioni">
+      <button type="button" class="ai-albero-btn" data-carica-albero="file" data-tip="Carica file in {{ carica_in }}" aria-label="Carica file in {{ carica_in }}"><svg><use href="#ai-carica"/></svg></button>
+      <button type="button" class="ai-albero-btn" data-carica-albero="cartella" data-tip="Carica una cartella intera in {{ carica_in }}" aria-label="Carica una cartella in {{ carica_in }}"><svg><use href="#ai-cartella"/></svg></button>
+    </span>{% endif %}
+  </summary>
+  {% if chiave == "file" and carica_in %}<form hidden data-albero-caricamento action="{% url 'ai:carica_archivio' progetto.pk %}">
+    <input type="file" multiple data-tipo="file"><input type="file" multiple webkitdirectory data-tipo="cartella"></form>
+    <p class="ai-albero-stato" role="status" data-albero-stato hidden></p>{% endif %}
+  {% if voci %}<ul>{% for v in voci %}
+    <li><a href="{{ v.url }}"{% if chiave == "artifact" %} target="_blank" rel="noopener"{% endif %}{% if v.attiva %} class="is-attiva" aria-current="page"{% endif %} title="{{ v.nome }}{% if v.nota %} · {{ v.nota }}{% endif %}"><span class="ai-elenco-titolo">{{ v.nome }}</span>{% if v.nota %}<span class="ai-albero-nota">{{ v.nota }}</span>{% endif %}</a>
+      {% if v.elimina %}<button type="button" class="ai-albero-btn ai-albero-elimina" data-elimina="{{ v.elimina }}" data-conferma="{{ v.conferma }}"{% if v.attiva %} data-corrente{% endif %} aria-label="Elimina {{ v.nome }}" data-tip="Elimina"><svg><use href="#icon-trash"/></svg></button>{% endif %}</li>{% endfor %}
+  </ul>{% else %}<p class="ai-albero-vuoto">{% if chiave == "chat" %}Nessuna chat{% elif chiave == "file" %}Nessun file{% if carica_in %}: caricali con ↑{% endif %}{% elif chiave == "documenti" %}Quelli che scrivi con Ada{% else %}Quelli chiesti ad Ada{% endif %}</p>{% endif %}
+</details>
+{% endfor %}

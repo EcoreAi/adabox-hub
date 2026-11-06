@@ -1,0 +1,3 @@
+{% include "discuss/_testa_pannello.html" with titolo_pannello="File della conversazione" %}
+<div class="ds-pannello-corpo">{% for a in voci %}<a class="ds-file-voce" href="{% url 'discuss:allegato' a.pk %}" target="_blank" rel="noopener">{% if a.tipo_file == "immagine" %}<img src="{% url 'discuss:allegato' a.pk %}" alt="" loading="lazy">{% else %}<svg class="ds-icona"><use href="#icon-paperclip"/></svg>{% endif %}<span><strong>{{ a.nome }}</strong><small class="ui-help">{{ a.dimensione|filesizeformat }}{% if a.caricato_da %} · {{ a.caricato_da.get_full_name|default:a.caricato_da.username }}{% endif %}</small></span></a>
+{% empty %}<div class="ui-empty"><p>Nessun file condiviso.</p></div>{% endfor %}</div>

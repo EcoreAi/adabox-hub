@@ -1,0 +1,15 @@
+{% load discuss %}{% guida_connessione obj request as g %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div><div class="ui-card-title">{% if obj.sandbox %}Connessione di prova{% else %}Come collegarla{% endif %}</div><div class="ui-card-sub">{% if obj.sandbox %}Non esce nulla in rete: il cliente e le API sono simulati nella sandbox{% else %}{{ obj.get_tipo_display }} reale{% endif %}</div></div></div>
+  <div class="ui-card-body">
+    {% if obj.sandbox %}<a class="ui-btn ui-btn-primary" href="{% url 'discuss:sandbox' obj.pk %}">Apri la sandbox</a>
+    <p class="ui-help">Per andare in produzione: togli «Connessione di prova» e inserisci le credenziali vere. Il codice è lo stesso.</p>
+    {% else %}
+    <label class="ui-label">Indirizzo del webhook<input class="ui-input" readonly value="{{ g.webhook }}" onclick="this.select()"></label>
+    {% if not g.https %}<p class="ui-help" role="alert">Questo indirizzo non è in HTTPS: {{ obj.get_tipo_display }} non accetta webhook senza HTTPS.</p>{% endif %}
+    {% if obj.tipo == "whatsapp" %}<label class="ui-label">Token di verifica da dare a Meta<input class="ui-input" readonly value="{{ obj.verifica }}" onclick="this.select()"></label>
+    <ol class="ui-help"><li>In Meta for Developers, WhatsApp → Configurazione: incolla indirizzo e token di verifica.</li><li>Iscriviti all'evento «messages».</li><li>Qui servono l'ID del numero, il token di accesso e la chiave segreta dell'app.</li></ol>
+    {% else %}<ol class="ui-help"><li>Crea il bot con @BotFather e incolla qui il token.</li><li>Premi «Collega a Telegram».</li></ol>
+    <form method="post" action="{% url 'discuss:tg_registra' obj.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-primary" type="submit"{% if not g.https %} disabled{% endif %}>Collega a Telegram</button></form>{% endif %}
+    {% endif %}
+    {% if obj.ultimo_evento %}<p class="ui-help">Ultimo messaggio ricevuto: {{ obj.ultimo_evento|date:"d/m/Y H:i" }}</p>{% endif %}
+    {% if obj.ultimo_errore %}<p class="ui-help" role="alert">Ultimo errore: {{ obj.ultimo_errore }}</p>{% endif %}
+  </div></section>

@@ -1,31 +1,70 @@
 {% extends 'core/base_app.html' %}
-{% block title %}Barra in alto · Impostazioni · {{ theme.brand }}{% endblock %}
+{% block title %}{% if aziendale %}Barra in alto · Impostazioni{% else %}Le mie app nel menu{% endif %} · {{ theme.brand }}{% endblock %}
 {% block app_content %}
 <div class="ui-pagehead">
-  <div><h1>Barra in alto</h1>
-    <div class="sub"><a class="ui-link" href="{% url 'core:impostazioni' %}">Impostazioni</a> · vale per tutti gli utenti{% if not personalizzata %} · ora: scelta automatica{% endif %}</div></div>
+  {% if aziendale %}<div><h1>Ordine nel menu</h1>
+    <div class="sub"><a class="ui-link" href="{% url 'core:applicazioni' %}">Applicazioni</a> · vale per tutti, tranne chi ha scelto il suo{% if not personalizzata %} · ora: scelta automatica{% endif %}</div></div>
+  {% else %}<div><h1>Le mie app nel menu</h1>
+    <div class="sub">Vale solo per te{% if not personalizzata %} · ora: come il resto dell'azienda{% endif %}</div></div>{% endif %}
 </div>
-<form method="post" class="ui-card is-revealed ui-section">
+<form method="post" id="ba-form">
   {% csrf_token %}
-  <div class="ui-card-body">
-    <p class="ui-help" style="margin-top:0;">Spunta le app da tenere sempre nella barra, nell'ordine indicato (1 = la prima a sinistra).
-      Le altre vanno nel menu «Altre». Ognuno vede solo le app a cui ha accesso, e l'app in cui si trova resta sempre visibile.</p>
-  </div>
-  <div class="ui-table-wrap"><table class="ui-table is-revealed">
-    <thead><tr><th class="ui-col-check">Nella barra</th><th>App</th><th style="width:120px">Ordine</th></tr></thead>
-    <tbody>{% for r in righe %}<tr>
-      <td class="ui-col-check"><input type="checkbox" class="ui-checkbox" id="fissa_{{ r.slug }}" name="fissa_{{ r.slug }}" value="1"{% if r.fissa %} checked{% endif %}></td>
-      <td><label for="fissa_{{ r.slug }}">{{ r.nome }}</label> <span class="ui-help" style="display:inline">{{ r.slug }}</span></td>
-      <td><input class="ui-input" type="number" min="1" max="99" name="ordine_{{ r.slug }}" value="{{ r.ordine }}" aria-label="Ordine di {{ r.nome }}" style="max-width:90px"></td>
-    </tr>{% endfor %}</tbody>
-  </table></div>
-  <div class="ui-card-body">
-    <label class="ui-label" for="quante">Se non spunti nessuna app: quante mostrarne (le prime in elenco)</label>
-    <input class="ui-input" type="number" id="quante" name="quante" min="1" max="{{ massimo }}" value="{{ quante }}" style="max-width:90px">
-    <div class="ui-form-actions" style="margin-top:16px;">
+  <section class="ui-card is-revealed ui-section">
+    <div class="ui-card-head"><div><div class="ui-card-title">Nella barra in alto</div><div class="ui-card-sub">Nell'ordine in cui le vedi, da sinistra a destra. L'occhio nasconde una voce dal menu: l'app resta raggiungibile dalla pagina delle app.</div></div></div>
+    <ol class="ba-lista" id="ba-barra">
+      {% for r in barra %}{% include "core/_riga_barra.html" with attiva=True %}{% endfor %}
+    </ol>
+  </section>
+  <section class="ui-card is-revealed ui-section">
+    <div class="ui-card-head"><div><div class="ui-card-title">Nel menu «Altre»</div><div class="ui-card-sub">Il menu a tendina in fondo alla barra: le app vanno da sole nella colonna della loro area, in ordine alfabetico.</div></div></div>
+    <ol class="ba-lista" id="ba-altre">{% for r in altre %}{% include "core/_riga_barra.html" with attiva=False %}{% endfor %}</ol>
+    <p class="ui-help ba-vuoto" id="ba-altre-vuoto"{% if altre %} hidden{% endif %}>Nessuna: tutte le app stanno nella barra.</p>
+  </section>
+  <div class="ui-card is-revealed ui-section"><div class="ui-card-body">
+    {% if aziendale %}<label class="ui-label" for="quante">Con la scelta automatica: quante app tenere nella barra</label>
+    <input class="ui-input" type="number" id="quante" name="quante" min="1" max="{{ massimo }}" value="{{ quante }}" style="max-width:90px">{% endif %}
+    <div class="ui-form-actions"{% if aziendale %} style="margin-top:16px;"{% endif %}>
       <button type="submit" class="ui-btn ui-btn-primary"><svg><use href="#icon-save"/></svg> Salva</button>
-      {% if personalizzata %}<button type="submit" name="ripristina" value="1" class="ui-btn ui-btn-ghost">Torna alla scelta automatica</button>{% endif %}
+      {% if personalizzata %}<button type="submit" name="ripristina" value="1" class="ui-btn ui-btn-ghost">{% if aziendale %}Torna alla scelta automatica{% else %}Torna al menu dell'azienda{% endif %}</button>{% endif %}
     </div>
-  </div>
+  </div></div>
 </form>
+<script>
+// Le frecce spostano nella barra, l'altro bottone passa da una lista all'altra, l'occhio nasconde: si salva ciò che si vede.
+(function () {
+  const barra = document.getElementById('ba-barra'), altre = document.getElementById('ba-altre'), vuoto = document.getElementById('ba-altre-vuoto');
+  const riallinea = () => {
+    let visibili = 0;
+    barra.querySelectorAll('.ba-riga').forEach((r, i) => {
+      if (!r.classList.contains('is-nascosta')) visibili += 1;
+      r.querySelector('.ba-pos').textContent = r.classList.contains('is-nascosta') ? '' : visibili;
+      r.querySelector('[name^=ordine_]').value = i + 1;
+    });
+    [[barra, true], [altre, false]].forEach(([lista, dentro]) => lista.querySelectorAll('.ba-riga').forEach((r) => {
+      r.classList.toggle('in-barra', dentro);
+      r.querySelectorAll('[name^=fissa_], [name^=ordine_]').forEach((c) => { c.disabled = !dentro; });
+    }));
+    altre.querySelectorAll('.ba-pos').forEach((p) => { p.textContent = ''; });
+    vuoto.hidden = altre.children.length > 0;
+  };
+  document.getElementById('ba-form').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-ba]');
+    if (!b) return;
+    const riga = b.closest('.ba-riga');
+    if (b.dataset.ba === 'occhio') {
+      const nascosta = riga.classList.toggle('is-nascosta');
+      riga.querySelector('[name^=nascosta_]').disabled = !nascosta;
+      b.setAttribute('aria-pressed', String(nascosta));
+      b.title = nascosta ? 'Nascosta: clic per mostrarla' : 'Visibile: clic per nasconderla';
+    }
+    if (b.dataset.ba === 'su' && riga.previousElementSibling) riga.previousElementSibling.before(riga);
+    if (b.dataset.ba === 'giu' && riga.nextElementSibling) riga.nextElementSibling.after(riga);
+    if (b.dataset.ba === 'altre') altre.prepend(riga);
+    if (b.dataset.ba === 'barra') barra.append(riga);
+    riallinea();
+    const stesso = riga.querySelector(`[data-ba="${b.dataset.ba}"]`);
+    if (stesso && stesso.offsetParent) stesso.focus();
+  });
+})();
+</script>
 {% endblock %}

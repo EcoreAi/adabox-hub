@@ -1,0 +1,26 @@
+{% load analisi tema static %}{% schede_analisi scheda_attiva as sch %}{# Le schede della dashboard in una riga sola: Panoramica, le pagine e le app in uso; il resto in «Altre schede», per area. #}
+<link rel="stylesheet" href="{% statico 'grafici/analisi.css' %}">
+<nav class="an-schede" aria-label="Schede della dashboard">
+  <a class="an-scheda{% if scheda_attiva == 'panoramica' %} is-attiva{% endif %}" href="{% url 'core:dashboard' %}"><svg><use href="#icon-home"/></svg><span>Panoramica</span></a>
+  {% for s in sch.visibili %}
+  <a class="an-scheda{% if s.app %} an-scheda-app{% endif %}{% if s.attiva %} is-attiva{% endif %}{% if s.condivisa %} is-condivisa{% endif %}" href="{{ s.url }}"{% if s.condivisa %} title="Condivisa da {{ s.proprietario }}"{% endif %}>{% if s.immagine %}<img src="{% static s.immagine %}" alt="">{% else %}<svg><use href="#icon-{{ s.icona|default:'bar-chart' }}"/></svg>{% endif %}<span>{{ s.titolo }}</span></a>
+  {% endfor %}
+  <span class="an-spazio"></span>
+  {% if sch.gruppi or sch.pagine %}
+  <details class="an-menu an-altre"><summary class="an-scheda"><svg><use href="#icon-layout"/></svg><span>Altre schede</span><svg class="an-freccia"><use href="#icon-chevron-down"/></svg></summary>
+    <div class="an-menu-pannello an-altre-pannello">
+      {% if sch.pagine %}<div class="an-altre-colonna"><div class="an-altre-titolo">Le tue pagine</div>{% for s in sch.pagine %}<a href="{{ s.url }}"><svg><use href="#icon-{{ s.icona|default:'bar-chart' }}"/></svg>{{ s.titolo }}</a>{% endfor %}</div>{% endif %}
+      {% for g in sch.gruppi %}<div class="an-altre-colonna"><div class="an-altre-titolo">{{ g.titolo }}</div>{% for s in g.voci %}<a href="{{ s.url }}">{% if s.immagine %}<img src="{% static s.immagine %}" alt="">{% else %}<svg><use href="#icon-{{ s.icona|default:'bar-chart' }}"/></svg>{% endif %}{{ s.titolo }}</a>{% endfor %}</div>{% endfor %}
+    </div>
+  </details>
+  {% endif %}
+  {% if perms.grafici.add_pagina %}
+  <details class="an-menu an-nuova"><summary class="an-scheda an-piu" title="Nuova pagina"><svg><use href="#icon-plus"/></svg><span>Nuova pagina</span></summary>
+    <form class="an-menu-pannello an-nuova-pannello" method="post" action="{% url 'grafici:nuova' %}">{% csrf_token %}
+      <input class="ui-input" name="titolo" placeholder="Titolo della pagina" maxlength="100" required autocomplete="off" aria-label="Titolo della pagina">
+      <button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Crea</button>
+    </form>
+  </details>
+  {% endif %}
+</nav>
+<script src="{% statico 'grafici/analisi.js' %}" defer></script>

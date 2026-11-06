@@ -1,5 +1,8 @@
 """Documenti di magazzino nati dagli ordini confermati (segnali di vendite e acquisti)."""
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
+
+from core import chatter
 
 from .models import Consegna, Magazzino, Ricevimento, RigaConsegna, RigaRicevimento
 
@@ -28,6 +31,28 @@ def ricevimento_da_ordine(sender, ordine, utente=None, **kwargs):
     for r in righe:
         RigaRicevimento.objects.create(ricevimento=ricevimento, prodotto=r.prodotto, quantita=r.quantita)
     return ricevimento
+
+
+def _annulla_documenti(ordine, modello, utente, parola_fatti, parola_annullati):
+    """Annulla i documenti ancora aperti dell'ordine; se la merce si è già mossa, l'ordine non si annulla."""
+    documenti = list(di(ordine, modello).exclude(stato=modello.ANNULLATO))
+    fatti = [d for d in documenti if d.stato == modello.FATTO]
+    if fatti:
+        raise ValidationError(f"{ordine} non si può annullare: {parola_fatti} {', '.join(str(d) for d in fatti)}.")
+    for documento in documenti:
+        vecchi = chatter.valori(documento, ["stato"])
+        documento.stato = modello.ANNULLATO
+        documento.save(update_fields=["stato"])
+        chatter.traccia(documento, vecchi, utente)
+    return f"{parola_annullati}: {len(documenti)}." if documenti else None
+
+
+def annulla_consegne(sender, ordine, utente=None, **kwargs):
+    return _annulla_documenti(ordine, Consegna, utente, "merce già spedita con", "Consegne annullate")
+
+
+def annulla_ricevimenti(sender, ordine, utente=None, **kwargs):
+    return _annulla_documenti(ordine, Ricevimento, utente, "merce già ricevuta con", "Ricevimenti annullati")
 
 
 def recupera_ordini(azienda):

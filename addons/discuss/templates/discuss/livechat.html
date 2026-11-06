@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{ s.nome }}</title>
+{% load tema %}<link rel="stylesheet" href="{% statico 'discuss/livechat.css' %}"></head>
+<body>
+<div class="lc" id="lc" data-avvia="{% url 'discuss:lc_avvia' s.chiave %}" data-messaggi="{% url 'discuss:lc_messaggi' s.chiave %}" data-scrivi="{% url 'discuss:lc_scrivi' s.chiave %}" data-persona="{% url 'discuss:lc_persona' s.chiave %}" data-nome-ai="{{ s.nome_ai }}" data-chiave="{{ s.chiave }}" data-pagina="{{ pagina }}">
+  <header class="lc-testa"><h1>{{ s.nome }}</h1><p id="lc-stato">{% if usa_ai %}{{ s.nome_ai }}{% elif online %}Online{% else %}Ora non c'è nessuno online{% endif %}</p></header>
+  {% if usa_ai %}<p class="lc-trasparenza" id="lc-trasparenza">Stai parlando con un'intelligenza artificiale: può sbagliare, per ciò che conta chiedi conferma a un collega.{% if s.modalita == "ai" %} Puoi chiedere una persona in ogni momento.{% endif %}</p>{% endif %}
+  <div class="lc-elenco" id="lc-elenco" aria-live="polite">
+    <div class="lc-msg"><span>{% if online or usa_ai %}{{ s.benvenuto }}{% else %}{{ s.assenza }}{% endif %}</span></div>
+    <div class="lc-digita" id="lc-digita" hidden>{{ s.nome_ai }} sta scrivendo…</div>
+  </div>
+  <form class="lc-inizio" id="lc-inizio">
+    <label>Il tuo nome{% if usa_ai %} (facoltativo){% endif %}<input name="nome" maxlength="80"{% if not usa_ai %} required{% endif %} autocomplete="name"></label>
+    <label>Email{% if online %} (facoltativa){% else %}, per ricevere la risposta{% endif %}<input name="email" type="email" maxlength="254" autocomplete="email"></label>
+    <label class="lc-nascosto" aria-hidden="true">Sito web<input name="sito_web" tabindex="-1" autocomplete="off"></label>
+    <label>Messaggio<textarea name="testo" rows="3" maxlength="2000" required></textarea></label>
+    {% if s.privacy_url %}<p class="lc-nota">Scrivendo accetti l'<a href="{{ s.privacy_url }}" target="_blank" rel="noopener noreferrer">informativa privacy</a>.</p>{% endif %}
+    <button type="submit">Invia</button>
+  </form>
+  <form class="lc-scrivi" id="lc-scrivi" hidden><textarea name="testo" rows="1" maxlength="2000" aria-label="Scrivi un messaggio" placeholder="Scrivi…" required></textarea><button type="submit">Invia</button></form>
+  <button type="button" class="lc-persona" id="lc-persona" hidden>Parla con una persona</button>
+  <p class="lc-errore" id="lc-errore" role="alert" hidden></p>
+</div>
+<script src="{% statico 'discuss/livechat.js' %}" defer></script>
+</body></html>

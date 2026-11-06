@@ -1,0 +1,57 @@
+{% extends 'core/base_app.html' %}
+{% load static tema %}
+{% block title %}{{ pagina.titolo }} · Analisi · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>{{ pagina.titolo }}</h1>
+    <div class="sub">{% if pagina.app %}Scheda dell'app {{ info_app.label }} · {% endif %}{% if mio %}{{ widget|length }} widget{% if pagina.condivisa %} · condivisa con l'azienda{% endif %}{% else %}condivisa da {{ pagina.utente.get_full_name|default:pagina.utente.username }} · vedi i dati che i tuoi permessi ti consentono{% endif %}</div></div>
+  <div class="ui-pagehead-actions wd-azioni">
+    {% if mio and perms.grafici.add_grafico %}<a class="ui-btn ui-btn-primary" href="{% url 'grafici:costruttore' %}?destinazione={% if pagina.app %}app:{{ pagina.app }}{% else %}{{ pagina.pk }}{% endif %}"><svg><use href="#icon-plus"/></svg> Nuovo grafico</a>{% endif %}
+    {% if mio %}
+    <button type="button" class="ui-btn ui-btn-secondary" id="wd-aggiungi"><svg><use href="#icon-plus"/></svg> Aggiungi widget <span class="ui-gruppo-n" id="wd-nascosti-n">{{ nascosti|length }}</span></button>
+    <button type="button" class="ui-btn ui-btn-secondary" id="wd-modifica" aria-pressed="false"><svg><use href="#icon-edit"/></svg> Personalizza</button>
+    <form method="post" action="{% url 'grafici:ripristina' pagina.pk %}" id="wd-ripristina"{% if not personalizzata %} hidden{% endif %}>{% csrf_token %}<button class="ui-btn ui-btn-ghost" type="submit" title="Torna all'ordine di partenza">Ripristina</button></form>
+    {% endif %}
+    <form method="post" action="{% url 'grafici:aggiorna_pagina' pagina.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-ghost" type="submit" title="Ricalcola tutti i grafici adesso"><svg><use href="#icon-refresh"/></svg> Aggiorna</button></form>
+    {% if mio %}
+    <details class="an-menu"><summary class="ui-btn ui-btn-ghost" aria-label="Altre azioni sulla pagina"><svg><use href="#icon-more"/></svg></summary>
+      <div class="an-menu-pannello an-menu-largo">
+        <div class="an-menu-titolo">Pagina</div>
+        <form method="post" action="{% url 'grafici:modifica' pagina.pk %}" class="an-form-riga">{% csrf_token %}
+          <input class="ui-input" name="titolo" value="{{ pagina.titolo }}" maxlength="100" aria-label="Titolo">
+          {% if not pagina.app %}<select class="ui-input" name="icona" aria-label="Icona">{% for v, e in icone %}<option value="{{ v }}"{% if v == pagina.icona %} selected{% endif %}>{{ e }}</option>{% endfor %}</select>{% endif %}
+          <button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Salva</button>
+        </form>
+        <div class="an-menu-sep"></div>
+        {% if not pagina.app %}
+        <form method="post" action="{% url 'grafici:sposta' pagina.pk %}" class="an-form-riga">{% csrf_token %}<button name="direzione" value="-1" type="submit">← Sposta prima</button><button name="direzione" value="1" type="submit">Sposta dopo →</button></form>
+        {% if perms.grafici.condividi_pagina %}<form method="post" action="{% url 'grafici:condividi' pagina.pk %}">{% csrf_token %}<button type="submit"><svg><use href="#icon-share"/></svg> {% if pagina.condivisa %}Non condividere più{% else %}Condividi con l'azienda{% endif %}</button></form>{% endif %}
+        <div class="an-menu-sep"></div>
+        <form method="post" action="{% url 'grafici:elimina' pagina.pk %}" onsubmit="return confirm('Eliminare la pagina? I grafici restano in libreria.')">{% csrf_token %}<button type="submit" class="an-pericolo"><svg><use href="#icon-trash"/></svg> Elimina pagina</button></form>
+        {% else %}
+        <form method="post" action="{% url 'grafici:nascondi_app' pagina.app %}">{% csrf_token %}<button type="submit"><svg><use href="#icon-eye-off"/></svg> Nascondi questa scheda</button></form>
+        {% endif %}
+      </div>
+    </details>
+    {% endif %}
+  </div>
+</div>
+{% include "grafici/_schede.html" %}
+<p class="wd-aiuto" id="wd-aiuto" hidden>Trascina le card dove vuoi, o usa le frecce; ⤢ cambia la larghezza; × lo toglie da questa pagina (resta in libreria, e nelle altre pagine). Le modifiche si salvano da sole.</p>
+<div class="wd-griglia"{% if mio %} id="wd-griglia"{% endif %} data-salva="{{ url_layout }}">
+  {% for w in widget %}{% if w.template %}{% include w.template %}{% else %}{% include "core/_widget.html" %}{% endif %}{% endfor %}
+</div>
+{% if not widget %}
+<div class="ui-card is-revealed"><div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-bar-chart"/></svg>
+  <p>{% if mio %}Pagina vuota. Premi <strong>Aggiungi widget</strong> per scegliere dalla libreria KPI e grafici, o <strong>Nuovo grafico</strong> per crearne uno.{% else %}Questa pagina non ha ancora grafici.{% endif %}</p></div></div></div>
+{% endif %}
+{% if mio %}
+{% include "core/_cassetto.html" %}
+{% endif %}
+{{ contesto_ada|json_script:"ada-contesto" }}
+{% endblock %}
+{% block scripts %}
+<script src="{% statico 'theme/vendor/chart.umd.js' %}" defer></script>
+<script src="{% statico 'core/grafici.js' %}" defer></script>
+<script src="{% statico 'core/dashboard.js' %}" defer></script>
+{% endblock %}

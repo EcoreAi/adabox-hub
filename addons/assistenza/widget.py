@@ -2,21 +2,26 @@
 progetto; nasce un ticket instradato al team del progetto, con i dati tecnici e lo screenshot.
 
 Controlli: progetto con assistenza attiva e siti ammessi (CORS: l'origine deve essere tra i siti del supporto),
-al massimo LIMITE_ORA segnalazioni l'ora per indirizzo, campo esca contro i bot, dimensioni dei campi."""
+al massimo LIMITE_ORA segnalazioni l'ora per indirizzo, campo esca contro i bot, dimensioni dei campi.
+
+L'email è solo dichiarata: il ticket non si lega a un contatto (e non compare nel portale di nessuno) finché chi
+scrive non conferma l'indirizzo con il link firmato che riceve."""
 import json
 import logging
 from datetime import timedelta
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.mail import send_mail
+from django.core import signing
 from django.core.validators import validate_email
 from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
 from contatti.models import Contatto
-from core import allegati
+from core import allegati, modelli_email
 from helpdesk.models import Ticket
 
 from .instradamento import instrada
@@ -27,6 +32,8 @@ log = logging.getLogger("assistenza.widget")
 LIMITE_ORA = 10
 MAX_SCREENSHOT_MB = 5
 TIPI = {t for t, _ in DatiTicket.TIPI}
+SALE_CONFERMA = "assistenza.widget.email"
+GIORNI_CONFERMA = 30
 CAMPI_TECNICI = ("pagina", "browser", "schermo", "finestra", "lingua", "versione", "errori", "utente_app")
 
 
@@ -64,20 +71,44 @@ def _tecnici(testo, ip):
     return pulito
 
 
-def _contatto(supporto, email, nome):
-    contatto = Contatto.objects.filter(azienda=supporto.azienda, email__iexact=email).order_by("pk").first()
+def _contatto(ticket, email, nome):
+    contatto = Contatto.objects.filter(azienda=ticket.azienda, email__iexact=email).order_by("pk").first()
     if contatto is None:
-        contatto = Contatto.objects.create(azienda=supporto.azienda, tipo=Contatto.PERSONA, nome=nome or email,
-                                           email=email, societa=supporto.progetto.cliente)
+        progetto = ticket.assistenza.progetto
+        contatto = Contatto.objects.create(azienda=ticket.azienda, tipo=Contatto.PERSONA, nome=nome or email,
+                                           email=email, societa=progetto.cliente if progetto else None)
     return contatto
 
 
-def _conferma(ticket, email):
+def link_conferma(ticket, email, nome):
+    token = signing.dumps({"t": ticket.pk, "e": email.lower(), "n": nome}, salt=SALE_CONFERMA)
+    return f"{settings.SITO_URL}{reverse('assistenza:widget_conferma', args=[token])}"
+
+
+def conferma_email(request, token):
+    """La pagina non cambia nulla in GET (i filtri antispam aprono i link): la conferma è il POST del bottone."""
     try:
-        send_mail(f"Segnalazione ricevuta: {ticket.numero}",
-                  f"Abbiamo ricevuto la tua segnalazione «{ticket.oggetto}» con il numero {ticket.numero}.\n"
-                  f"Ti scriveremo qui; se hai l'accesso al portale la segui da {settings.SITO_URL}"
-                  f"{settings.PORTALE_HOME}\n", None, [email], fail_silently=True)
+        dati = signing.loads(token, salt=SALE_CONFERMA, max_age=GIORNI_CONFERMA * 86400)
+    except signing.BadSignature:
+        return render(request, "assistenza/conferma_email.html", {"scaduto": True}, status=400)
+    ticket = (Ticket.objects.filter(pk=dati["t"], email_cliente__iexact=dati["e"], assistenza__canale=DatiTicket.WIDGET)
+              .select_related("assistenza__progetto__cliente").first())
+    if ticket is None:
+        return render(request, "assistenza/conferma_email.html", {"scaduto": True}, status=400)
+    confermata = ticket.contatto_id is not None
+    if request.method == "POST" and not confermata:
+        contatto = _contatto(ticket, dati["e"], dati.get("n"))
+        Ticket.objects.filter(azienda=ticket.azienda, email_cliente__iexact=dati["e"], contatto=None,
+                              assistenza__canale=DatiTicket.WIDGET).update(contatto=contatto)
+        confermata = True
+    return render(request, "assistenza/conferma_email.html", {"ticket": ticket, "confermata": confermata})
+
+
+def _conferma(ticket, email, nome):
+    try:
+        modelli_email.messaggio("assistenza.ricevuta", ticket.azienda, {
+            "numero": ticket.numero, "oggetto_ticket": ticket.oggetto, "link": link_conferma(ticket, email, nome)},
+            [email]).send(fail_silently=True)
     except Exception:
         log.exception("conferma del ticket %s", ticket.pk)
 
@@ -118,7 +149,7 @@ def segnala(request, chiave):
                                    or not (screenshot.content_type or "").startswith("image/")):
         return _errore(f"lo screenshot deve essere un'immagine di al massimo {MAX_SCREENSHOT_MB} MB", origine)
     ticket = Ticket.objects.create(azienda=supporto.azienda, oggetto=oggetto, descrizione=descrizione,
-                                   contatto=_contatto(supporto, email, nome), email_cliente=email)
+                                   email_cliente=email)
     instrada(ticket, progetto=supporto.progetto, canale=DatiTicket.WIDGET, tipo=tipo,
              tecnici=_tecnici(request.POST.get("tecnici"), ip), forza=True)
     if screenshot is not None:
@@ -126,5 +157,5 @@ def segnala(request, chiave):
             allegati.salva(ticket, screenshot)
         except allegati.AllegatoNonValido as e:
             log.info("screenshot del ticket %s non salvato: %s", ticket.pk, e)
-    _conferma(ticket, email)
+    _conferma(ticket, email, nome)
     return _cors(JsonResponse({"ok": True, "numero": ticket.numero}), origine)

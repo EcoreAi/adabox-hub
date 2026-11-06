@@ -5,7 +5,7 @@ from functools import wraps
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.migrations.recorder import MigrationRecorder
-from django.http import HttpResponseBadRequest
+from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import NoReverseMatch, reverse
 from django.utils.html import format_html
@@ -15,12 +15,15 @@ from django.views.decorators.http import require_GET, require_POST
 from . import azienda as az
 from . import moduli as mod
 from . import attivita as attivita_servizio
-from . import barra, parametri
+from . import barra, due_fattori, lavori, licenza, parametri
 
 from .forms import AziendaPredefinitaForm, CampoPersonalizzatoForm, ProfiloForm, TokenApiForm
-from .models import (Azienda, CampoPersonalizzato, EmailRicevuta, Lavoro, Modulo, Parametro, ProfiloUtente,
+from django.db.models import Q
+
+from .models import LicenzaIstanza, RichiestaModulo
+from .models import (Azienda, CampoPersonalizzato, EmailRicevuta, Lavoro, Modulo, Parametro, ProfiloUtente, RegistroModifica,
                      TokenApi)
-from .registry import modules, pacchetti
+from .registry import modules, pacchetti, sincronia
 from .signals import crea_profilo
 from .viste import ModelView, register
 
@@ -32,6 +35,15 @@ def voci_kernel(user):
     if attivita_servizio.mie(user).exists():
         voci.append({"label": "Le mie attività", "url": reverse("core:attivita"), "icon": "check",
                      "sub": f"Da fare oggi o scadute: {attivita_servizio.da_fare_oggi(user)}"})
+    if user.has_perm("auth.change_user"):
+        voci.append({"label": "Utenti e ruoli", "url": reverse("core:utenti"), "icon": "users",
+                     "sub": "Chi entra, con quale ruolo e che cosa può fare in ogni modulo"})
+    if user.has_perm("core.view_modulo"):
+        voci.append({"label": "Applicazioni", "url": reverse("core:applicazioni"), "icon": "layout",
+                     "sub": "Le app attive e quelle che si possono aggiungere"})
+    if user.has_perm("core.view_registromodifica"):
+        voci.append({"label": "Registro delle modifiche", "url": reverse("core:registro_lista"), "icon": "shield",
+                     "sub": "Chi ha cambiato cosa, quando e da dove"})
     if user.has_perm("core.view_azienda"):
         voci.append({"label": "Aziende", "url": reverse("core:aziende_lista"), "icon": "tool",
                      "sub": "Anagrafica delle aziende dell'istanza"})
@@ -74,10 +86,37 @@ def home(request):
 @login_required
 def dashboard(request):
     from . import dashboard as dash
-    schede = dash.schede(request)
-    attivita_kernel = dash.scheda_attivita(request)
+    widget, schede = dash.catalogo(request)
+    visibili, nascosti = dash.disposizione(request.user, widget)
+    visibili = dash.carica(visibili)
+    from .registry import hooks
     return render(request, "core/dashboard.html", {
-        "schede": ([attivita_kernel] if attivita_kernel else []) + schede, "grafici": dash.grafici(schede)})
+        "widget": visibili, "nascosti": nascosti, "schede": schede, "personalizzata": bool(dash.layout_di(request.user)),
+        "contesto_ada": dash.contesto_per_ada(visibili), "sezioni_dashboard": hooks.sezioni_dashboard(request)})
+
+
+@login_required
+@require_POST
+def dashboard_layout(request):
+    """Ordine, larghezze e widget tolti, dal client in JSON."""
+    import json
+
+    from . import dashboard as dash
+    try:
+        dati = json.loads(request.body or b"{}")
+        salvato = dash.salva_layout(request.user, dati, dash.catalogo(request)[0])
+    except (ValueError, TypeError):
+        return JsonResponse({"errore": "disposizione non valida"}, status=400)
+    return JsonResponse({"ok": True, **salvato})
+
+
+@login_required
+@require_POST
+def dashboard_reset(request):
+    from .models import DashboardUtente
+    DashboardUtente.objects.filter(utente=request.user).delete()
+    messages.success(request, "Dashboard riportata a quella di partenza.")
+    return redirect("core:dashboard")
 
 
 @login_required
@@ -108,8 +147,8 @@ def profilo(request):
     if len(az.consentite(request.user)) > 1:
         form_azienda = AziendaPredefinitaForm(instance=crea_profilo(request.user))
     return render(request, "core/profilo.html", {
-        "form": form, "form_azienda": form_azienda,
-        "form_token": TokenApiForm(), "token": request.user.token_api.all(),
+        "form": form, "form_azienda": form_azienda, "due_fattori_attiva": due_fattori.attiva(request.user),
+        "form_token": TokenApiForm(utente=request.user), "token": request.user.token_api.all(),
         "token_chiaro": request.session.pop(CHIAVE_TOKEN_NUOVO, None),   # mostrato una sola volta
     })
 
@@ -129,13 +168,14 @@ def azienda_predefinita(request):
 @require_POST
 @login_required
 def token_nuovo(request):
-    form = TokenApiForm(request.POST)
+    form = TokenApiForm(request.POST, utente=request.user)
     if form.is_valid():
-        _, chiaro = TokenApi.genera(request.user, form.cleaned_data["nome"])
+        _, chiaro = TokenApi.genera(request.user, form.cleaned_data["nome"], scadenza=form.scadenza(),
+                                    sola_lettura=form.cleaned_data["sola_lettura"], moduli=form.cleaned_data["moduli"])
         request.session[CHIAVE_TOKEN_NUOVO] = chiaro
         messages.success(request, "Token creato: copialo ora, non sarà più mostrato.")
     else:
-        messages.error(request, "Indica un nome per il token.")
+        messages.error(request, "Controlla il token: serve un nome e i moduli devono essere tra quelli che vedi.")
     return redirect("core:profilo")
 
 
@@ -220,6 +260,7 @@ def _schede_moduli():
     # migrazioni ancora registrate = tabelle rimaste (disinstallato senza --elimina-dati)
     con_dati = set(MigrationRecorder.Migration.objects.values_list("app", flat=True).distinct())
     schede = []
+    fuori = licenza.fuori_licenza()
     for r in righe:
         m = info[r.slug].manifest if r.slug in info else None
         installato = r.slug in installati
@@ -231,7 +272,7 @@ def _schede_moduli():
             Modulo.ERRORE: ["aggiorna", "disinstalla"] if installato else (["installa"] if m else []),
         }[r.stato]
         schede.append({"riga": r, "manifest": m, "ops": ops, "installato": installato,
-                       "dati_presenti": not installato and r.slug in con_dati,
+                       "dati_presenti": not installato and r.slug in con_dati, "fuori_licenza": r.slug in fuori or not licenza.ammesso(r.slug),
                        "origine": pacchetti.origine(info[r.slug].cartella) if r.slug in info else None})
     return schede
 
@@ -239,7 +280,10 @@ def _schede_moduli():
 def _pagina_moduli(request, log=None):
     from django.conf import settings
     ctx = {"schede": _schede_moduli(), "firma_obbligatoria": settings.MODULI_FIRMA_OBBLIGATORIA,
-           "catalogo_configurato": bool(settings.MODULI_CATALOGO_URL)}
+           "catalogo_configurato": bool(settings.MODULI_CATALOGO_URL), "licenza": licenza.attuale(),
+           "licenza_obbligatoria": licenza.obbligatoria(), "riga_licenza": LicenzaIstanza.objects.first(),
+           "portale": sincronia.configurata(), "richieste": RichiestaModulo.objects.filter(stato=RichiestaModulo.INVIATA)[:20],
+           "utenti_attivi": licenza.utenti_attivi()}
     if settings.MODULI_CATALOGO_URL:
         try:
             ctx["catalogo"] = [v for v in pacchetti.leggi_catalogo() if v["stato"] != "presente"]
@@ -322,6 +366,32 @@ def moduli_scarica(request):
     return redirect(f"{reverse('core:moduli')}#modulo-{esito.slug}")
 
 
+@require_POST
+@solo_superuser
+def moduli_licenza(request):
+    """Carica un file di licenza (per le istanze senza portale)."""
+    file = request.FILES.get("licenza")
+    if file is None:
+        messages.error(request, "Scegli un file di licenza.")
+        return redirect("core:moduli")
+    try:
+        stato = licenza.salva(file.read().decode("utf-8", errors="replace"))
+    except ValueError as e:
+        messages.error(request, f"Licenza rifiutata: {e}")
+        return redirect("core:moduli")
+    messages.success(request, f"Licenza di {stato.cliente} caricata, valida fino al {stato.scadenza:%d/%m/%Y}.")
+    return redirect("core:moduli")
+
+
+@require_POST
+@solo_superuser
+def moduli_sincronizza(request):
+    """Il giro col portale parte nel worker: installare moduli non è cosa da una richiesta web."""
+    lavori.accoda("core.registry.sincronia.esegui")
+    messages.success(request, "Sincronizzazione col portale avviata: l'esito compare qui tra poco.")
+    return redirect("core:moduli")
+
+
 @require_GET
 @solo_superuser
 def moduli_stato(request):
@@ -352,6 +422,7 @@ class SoloSuperuserView(ModelView):
 @register
 class LavoroView(SoloSuperuserView):
     model = Lavoro
+    storico = False
     list_display = ["funzione", "stato", "tentativi", "esegui_dopo", "finito"]
     list_filter = ["stato"]
     search_fields = ["funzione"]
@@ -382,6 +453,11 @@ def impostazioni(request):
     manifest = modules.manifests_attivi()
     moduli_con = [slug for slug, m in manifest.items() if m.settings]
     inviato = request.POST.get("modulo") if request.method == "POST" else None
+    if inviato == "sicurezza":
+        if request.user.is_superuser and request.POST.get("obbligo") in dict(due_fattori.OBBLIGHI):
+            due_fattori.scrivi_obbligo(request.POST["obbligo"])
+            messages.success(request, "Regola della verifica in due passaggi salvata.")
+        return redirect(f"{reverse('core:impostazioni')}#sicurezza")
     if inviato is not None and inviato not in moduli_con:
         return HttpResponseBadRequest("modulo sconosciuto")
     schede = []
@@ -392,44 +468,87 @@ def impostazioni(request):
             messages.success(request, f"Impostazioni di {manifest[slug].name} salvate.")
             return redirect(f"{reverse('core:impostazioni')}#{slug}")
         schede.append({"slug": slug, "nome": manifest[slug].name, "form": form})
-    return render(request, "core/impostazioni.html", {"schede": schede})
+    return render(request, "core/impostazioni.html", {"schede": schede, "obblighi": due_fattori.OBBLIGHI,
+                                                      "obbligo": due_fattori.leggi_obbligo()})
+
+
+def _scelte_barra(request, tutte):
+    """Gli slug spuntati nel form della barra, nell'ordine indicato."""
+    scelte = []
+    for indice, (slug, _) in enumerate(tutte):
+        if request.POST.get(f"fissa_{slug}"):
+            ordine = request.POST.get(f"ordine_{slug}", "")
+            scelte.append((int(ordine) if ordine.lstrip("-").isdigit() else 999, indice, slug))
+    return [slug for _, _, slug in sorted(scelte)]
+
+
+def _liste_barra(tutte, scelta):
+    """Le due liste come le mostra davvero l'header (la funzione è la stessa), con anche le voci nascoste, segnate."""
+    manifest = modules.manifests_attivi()
+    voci = [{"slug": slug, "nome": nome, "categoria": manifest[slug].category if slug in manifest else ""}
+            for slug, nome in tutte if slug != barra.DASHBOARD]
+    dashboard = {"slug": barra.DASHBOARD, "nome": "Dashboard", "categoria": "Direzione"}
+    nascoste = set(scelta["nascoste"])
+    barra_, altre = barra.componi(voci, dashboard, {**scelta, "nascoste": []})
+    altre = [{**v, "colonna": g["titolo"]} for g in barra.gruppi(altre, "nome") for v in g["voci"]]      # come nel menu
+    posizione = 0
+    for i, r in enumerate(barra_, start=1):
+        r["ordine"] = i
+        if r["slug"] not in nascoste:
+            posizione += 1
+            r["posizione"] = posizione
+    for r in [*barra_, *altre]:
+        r["nascosta"] = r["slug"] in nascoste
+    return {"barra": barra_, "altre": altre}
+
+
+def _nascoste_barra(request, tutte):
+    return [slug for slug, _ in tutte if request.POST.get(f"nascosta_{slug}")]
 
 
 @login_required
 def impostazioni_barra(request):
-    """Quali app restano nella barra in alto e in che ordine; le altre vanno nel menu "Altre"."""
+    """Quali voci stanno nella barra in alto, in che ordine e quali sono nascoste, per tutti; le altre vanno in "Altre"."""
     if not request.user.has_perm("core.change_parametro"):
         raise PermissionDenied
     manifest = modules.manifests_attivi()
-    in_testa = set(getattr(settings, "NAV_APP_IN_TESTA", []))          # sempre per prime: non si scelgono
-    tutte = [(slug, m.name) for slug, m in manifest.items() if m.application and slug not in in_testa]
+    spenti = modules.disattivati()
+    nomi = modules.etichette()
+    tutte = [(barra.DASHBOARD, "Dashboard"), *((slug, nomi.get(slug) or m.nav_label or m.name) for slug, m in manifest.items() if m.application and slug not in spenti)]
     if request.method == "POST":
         if request.POST.get("ripristina"):
             Parametro.objects.filter(chiave=barra.CHIAVE, azienda__isnull=True).delete()
             messages.success(request, "Barra in alto riportata alla scelta automatica.")
             return redirect("core:impostazioni_barra")
-        scelte = []
-        for indice, (slug, _) in enumerate(tutte):
-            if request.POST.get(f"fissa_{slug}"):
-                ordine = request.POST.get(f"ordine_{slug}", "")
-                scelte.append((int(ordine) if ordine.lstrip("-").isdigit() else 999, indice, slug))
         quante = request.POST.get("quante", "")
-        barra.scrivi([slug for _, _, slug in sorted(scelte)],
-                     int(quante) if quante.isdigit() else barra.leggi()["quante"])
+        barra.scrivi(_scelte_barra(request, tutte), int(quante) if quante.isdigit() else barra.leggi()["quante"], _nascoste_barra(request, tutte))
         messages.success(request, "Barra in alto salvata.")
         return redirect("core:impostazioni_barra")
     attuale = barra.leggi()
-    posizioni = {slug: i + 1 for i, slug in enumerate(attuale["fisse"])}
-    righe = sorted([{"slug": slug, "nome": nome, "fissa": slug in posizioni, "ordine": posizioni.get(slug, "")}
-                    for slug, nome in tutte], key=lambda r: (not r["fissa"], r["ordine"] or 0, r["nome"].lower()))
     return render(request, "core/impostazioni_barra.html", {
-        "righe": righe, "quante": attuale["quante"], "massimo": barra.MASSIMO,
+        **_liste_barra(tutte, attuale), "quante": attuale["quante"], "massimo": barra.MASSIMO, "aziendale": True,
         "personalizzata": Parametro.objects.filter(chiave=barra.CHIAVE, azienda__isnull=True).exists()})
+
+
+@login_required
+def le_mie_app(request):
+    """Ognuno decide per sé: che cosa sta nella barra, in che ordine, che cosa nascondere. Le altre restano in «Altre»."""
+    tutte = [(barra.DASHBOARD, "Dashboard"), *((a["slug"], a["nav_label"]) for a in modules.app_visibili(request.user))]
+    profilo = crea_profilo(request.user)
+    if request.method == "POST":
+        ripristina = bool(request.POST.get("ripristina"))
+        profilo.barra = {} if ripristina else {"fisse": _scelte_barra(request, tutte), "nascoste": _nascoste_barra(request, tutte), "completa": True}
+        profilo.save(update_fields=["barra"])
+        messages.success(request, "Il tuo menu segue di nuovo quello dell'azienda." if ripristina else "Il tuo menu è salvato.")
+        return redirect("core:le_mie_app")
+    return render(request, "core/impostazioni_barra.html", {
+        **_liste_barra(tutte, barra.per_utente(request.user)), "aziendale": False, "personalizzata": bool(profilo.barra)})
 
 
 @register
 class EmailRicevutaView(SoloSuperuserView):
     model = EmailRicevuta
+    storico = False
     slug = "email"
     list_display = ["oggetto", "mittente", "stato", "ricevuta"]
     list_filter = ["stato"]
@@ -455,3 +574,41 @@ class CampoPersonalizzatoView(ModelView):
     form_class = CampoPersonalizzatoForm
     form_layout = [("Campo", ["modello", ("label", "nome"), ("tipo", "ordine"), "scelte", "aiuto"]),
                    ("Comportamento", [("obbligatorio", "in_lista", "filtrabile"), "azienda"])]
+
+
+def salute(request):
+    """Per il controllo delle istanze: risponde se l'applicazione gira e il database c'è. Nessun dettaglio all'esterno."""
+    from django.db import DatabaseError, connection
+    from django.http import JsonResponse
+    try:
+        connection.ensure_connection()
+        with connection.cursor() as cursore:
+            cursore.execute("SELECT 1")
+    except DatabaseError:
+        return JsonResponse({"stato": "errore"}, status=503)
+    return JsonResponse({"stato": "ok"})
+
+
+@register
+class RegistroModificaView(ModelView):
+    """Il registro delle modifiche: si legge e basta. Chi cambia i record di tutte le aziende compare solo al superuser."""
+    model = RegistroModifica
+    slug = "registro"
+    storico = False
+    tra_aziende = True
+    list_display = ["creato", "oggetto", "content_type", "azione", "utente_nome", "origine"]
+    list_filter = ["azione", "origine", "content_type", "utente", "creato"]
+    search_fields = ["oggetto", "utente_nome"]
+    ordering = ["-creato", "-pk"]
+    form_layout = [("Modifica", [("creato", "azione"), ("oggetto", "content_type"), ("utente_nome", "origine"), "modifiche"])]
+    readonly_fields = ["creato", "azione", "oggetto", "content_type", "utente_nome", "origine", "modifiche"]
+
+    def get_queryset(self, request):
+        azienda_id = getattr(getattr(request, "azienda", None), "pk", None)
+        filtro = Q(azienda_id=azienda_id) if azienda_id is not None else Q(pk__in=[])
+        if request.user.is_superuser:
+            filtro |= Q(azienda__isnull=True)
+        return super().get_queryset(request).filter(filtro)
+
+    def _perm(self, request, azione):
+        return azione == "view" and super()._perm(request, azione)

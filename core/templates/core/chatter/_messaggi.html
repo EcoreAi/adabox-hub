@@ -2,7 +2,7 @@
 {% for m in chatter.messaggi %}
   <article class="ui-messaggio ui-messaggio-{{ m.tipo }}">
     <header>
-      <span class="ui-avatar">{% if m.autore %}{{ m.autore.username|slice:":1"|upper }}{% else %}·{% endif %}</span>
+      <span class="ui-avatar"{% if m.autore_id %} data-presenza-utente="{{ m.autore_id }}"{% endif %}>{% if m.autore %}{{ m.autore.username|slice:":1"|upper }}{% else %}·{% endif %}</span>
       <strong>{% if m.autore %}{{ m.autore.get_full_name|default:m.autore.username }}{% elif m.autore_email %}{{ m.autore_email }}{% else %}Sistema{% endif %}</strong>
       {% if m.autore_email and not m.autore %}<span class="ui-pill ui-pill-info">esterno</span>{% endif %}
       {% if m.tipo == "nota" %}<span class="ui-pill ui-pill-warn">nota</span>{% endif %}

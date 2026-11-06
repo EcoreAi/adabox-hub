@@ -1,5 +1,3 @@
-from django.utils.functional import SimpleLazyObject
-
 from .azienda import corrente
 
 
@@ -25,12 +23,33 @@ class UtenteEsternoMiddleware:
         from django.conf import settings
         from django.shortcuts import redirect, render
         if esterno(getattr(request, "user", None)):
+            from .registry import hooks
             percorso = request.path_info
-            ammessi = (*self.SEMPRE, *settings.PORTALE_PERCORSI)
+            ammessi = (*self.SEMPRE, *settings.PORTALE_PERCORSI, *hooks.percorsi_portale())
             if not percorso.startswith(ammessi):
                 if settings.PORTALE_HOME and percorso != settings.PORTALE_HOME:
                     return redirect(settings.PORTALE_HOME)
                 return render(request, "core/solo_portale.html", status=403)
+        return self.get_response(request)
+
+
+class DueFattoriObbligoMiddleware:
+    """Con la 2FA obbligatoria, chi non l'ha ancora attivata resta sulla pagina di attivazione. Le API con il token
+    restano fuori: non hanno una pagina da mostrare."""
+    SEMPRE = ("/accounts/", "/static/", "/favicon.", "/profilo/due-fattori/", "/api/")
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        user = getattr(request, "user", None)
+        if user is not None and user.is_authenticated and not esterno(user) \
+                and not request.path_info.startswith(self.SEMPRE):
+            from django.shortcuts import redirect
+
+            from . import due_fattori
+            if due_fattori.obbligatoria_per(user) and not due_fattori.attiva(user):
+                return redirect("core:due_fattori")
         return self.get_response(request)
 
 
@@ -53,6 +72,25 @@ class ModuloDisattivatoMiddleware:
         return self.get_response(request)
 
 
+class LicenzaScadutaMiddleware:
+    """Licenza assente, non valida o scaduta oltre la grazia: i dati si leggono ma non si scrivono. Restano aperti
+    l'accesso e le pagine da cui si rimette a posto la licenza."""
+    SEMPRE = ("/accounts/", "/static/", "/favicon.", "/moduli/", "/applicazioni/")
+    LETTURA = ("GET", "HEAD", "OPTIONS")
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.method not in self.LETTURA and not request.path_info.startswith(self.SEMPRE):
+            from django.shortcuts import render
+
+            from . import licenza
+            if licenza.bloccata():
+                return render(request, "core/licenza_scaduta.html", status=403)
+        return self.get_response(request)
+
+
 def modulo_di(percorso):
     """Il modulo di un indirizzo: il namespace delle sue pagine, o /api/v1/<modulo>/ per le API."""
     from django.urls import Resolver404, resolve
@@ -66,15 +104,15 @@ def modulo_di(percorso):
 
 
 class AziendaCorrenteMiddleware:
-    """request.azienda: lazy, nessuna query se la pagina non la usa; None per l'anonimo."""
+    """request.azienda: l'azienda corrente, o None per l'anonimo e per chi non ne ha una attiva.
+
+    Si risolve subito e non in modo lazy: un oggetto lazy che avvolge None non è None, quindi i controlli
+    `azienda is None` non scattavano e i filtri `azienda=request.azienda` finivano in un errore 500."""
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
         user = getattr(request, "user", None)
-        if user is not None and user.is_authenticated:
-            request.azienda = SimpleLazyObject(lambda: corrente(request))
-        else:
-            request.azienda = None
+        request.azienda = corrente(request) if user is not None and user.is_authenticated else None
         return self.get_response(request)

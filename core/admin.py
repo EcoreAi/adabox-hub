@@ -1,6 +1,6 @@
 from django.contrib import admin, messages
 
-from .models import Azienda, Modulo, Parametro, Pianificazione, ProfiloUtente, Sequenza, TokenApi
+from .models import Azienda, DueFattori, ModelloEmail, Modulo, Parametro, Pianificazione, ProfiloUtente, Ruolo, Sequenza, TokenApi
 
 
 @admin.register(Azienda)
@@ -10,10 +10,28 @@ class AziendaAdmin(admin.ModelAdmin):
     search_fields = ("nome", "partita_iva")
 
 
+@admin.register(DueFattori)
+class DueFattoriAdmin(admin.ModelAdmin):
+    """Chi ha perso il telefono e i codici: eliminando la riga, l'utente riaccede con la sola password."""
+    list_display = ("utente", "attiva_dal", "bloccata_fino")
+    search_fields = ("utente__username", "utente__email")
+    readonly_fields = ("utente", "attiva_dal", "bloccata_fino")
+
+    def has_add_permission(self, request):
+        return False
+
+
 @admin.register(ProfiloUtente)
 class ProfiloUtenteAdmin(admin.ModelAdmin):
-    list_display = ("utente", "azienda_predefinita")
+    list_display = ("utente", "ruolo", "azienda_predefinita", "esterno")
+    list_filter = ("ruolo", "esterno")
     filter_horizontal = ("aziende",)
+
+
+@admin.register(Ruolo)
+class RuoloAdmin(admin.ModelAdmin):
+    """I ruoli si curano meglio da «Utenti e ruoli» nell'app; qui restano per le emergenze."""
+    list_display = ("nome", "livello_base", "amministra", "predefinito", "ordine")
 
 
 @admin.register(Modulo)
@@ -88,6 +106,13 @@ class SequenzaAdmin(admin.ModelAdmin):
     list_display = ("codice", "azienda", "formato", "prossimo", "azzera", "anno")
     list_filter = ("azienda", "azzera")
     search_fields = ("codice",)
+
+
+@admin.register(ModelloEmail)
+class ModelloEmailAdmin(admin.ModelAdmin):
+    list_display = ("codice", "nome", "azienda", "aggiornato")
+    list_filter = ("azienda",)
+    search_fields = ("codice", "nome", "oggetto")
 
 
 @admin.register(Parametro)

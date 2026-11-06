@@ -16,12 +16,13 @@ MESI = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", 
         "novembre", "dicembre"]
 
 
-def periodo(request):
+def periodo(request, dati=None):
+    dati = request.GET if dati is None else dati
     oggi = timezone.localdate()
-    anno = request.GET.get("anno", "")
-    mese = request.GET.get("mese", "")
+    anno = dati.get("anno", "")
+    mese = dati.get("mese", "")
     anno = int(anno) if anno.isdigit() else oggi.year
-    mese = int(mese) if mese.isdigit() and 1 <= int(mese) <= 12 else (None if "mese" in request.GET else oggi.month)
+    mese = int(mese) if mese.isdigit() and 1 <= int(mese) <= 12 else (None if "mese" in dati else oggi.month)
     return anno, mese
 
 

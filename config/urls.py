@@ -1,13 +1,18 @@
 from django.contrib import admin
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
+from core import due_fattori_viste
 from core.api import api
 from core.registry.urls import patterns_moduli
 
+admin.site.login = login_required(admin.site.login)     # anche l'admin entra dal login con la verifica in due passaggi
+
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("accounts/login/", auth_views.LoginView.as_view(redirect_authenticated_user=True), name="login"),
+    path("accounts/login/", due_fattori_viste.Accedi.as_view(), name="login"),
+    path("accounts/verifica/", due_fattori_viste.accesso, name="due_fattori_accesso"),
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("accounts/password_change/", auth_views.PasswordChangeView.as_view(), name="password_change"),
     path("accounts/password_change/done/", auth_views.PasswordChangeDoneView.as_view(), name="password_change_done"),

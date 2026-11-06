@@ -10,6 +10,21 @@
   <div class="ui-card-body"><p class="ui-help" style="margin-top:0;">Quali app restano visibili nella barra in alto e in che ordine; le altre vanno nel menu «Altre».</p>
     <a class="ui-btn ui-btn-secondary" href="{% url 'core:impostazioni_barra' %}">Scegli le app della barra</a></div>
 </section>
+{% if user.is_superuser %}
+<section class="ui-card is-revealed ui-section" id="sicurezza">
+  <div class="ui-card-head"><div><div class="ui-card-title">Sicurezza</div>
+    <div class="ui-card-sub">Verifica in due passaggi: all'accesso, oltre alla password, un codice dall'app sul telefono</div></div></div>
+  <div class="ui-card-body">
+    <form method="post">{% csrf_token %}<input type="hidden" name="modulo" value="sicurezza">
+      <div class="df-scelte">{% for valore, testo in obblighi %}
+        <label class="df-scelta"><input type="radio" name="obbligo" value="{{ valore }}"{% if valore == obbligo %} checked{% endif %}> <span>{{ testo }}</span></label>{% endfor %}
+      </div>
+      <p class="ui-help">Chi rientra nell'obbligo la attiva al prossimo clic, guidato passo per passo. Chi perde telefono e codici si sblocca dall'admin, in «Autenticazioni a due fattori».</p>
+      <button type="submit" class="ui-btn ui-btn-primary"><svg><use href="#icon-save"/></svg> Salva</button>
+    </form>
+  </div>
+</section>
+{% endif %}
 {% for s in schede %}
 <section class="ui-card is-revealed ui-section" id="{{ s.slug }}">
   <div class="ui-card-head"><div class="ui-card-title">{{ s.nome }}</div></div>

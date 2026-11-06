@@ -1,0 +1,15 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Cerca · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Cerca</h1><div class="sub">In tutte le app che puoi vedere{% if azienda %}, per {{ azienda }}{% endif %}</div></div></div>
+<div class="ui-card is-revealed">
+  <form class="ui-filtri" method="get"><div class="ui-search ui-filtri-q"><input class="ui-input" type="search" name="q" value="{{ q }}" placeholder="Cerca…" aria-label="Cerca" autofocus></div><button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Cerca</button></form>
+  {% if troppo_corta %}<div class="ui-card-body"><p>Scrivi almeno due caratteri.</p></div>
+  {% elif q and not gruppi %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun risultato per «{{ q }}».</p></div></div>{% endif %}
+  {% if not completa %}<div class="ui-card-body"><p class="ui-help">La ricerca si è fermata dopo qualche secondo: alcune app non sono state controllate. Prova con un termine più preciso.</p></div>{% endif %}
+</div>
+{% for g in gruppi %}<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">{{ g.vista }}</div>{% if g.altri %}<a class="ui-link" href="{{ g.url }}{{ q|urlencode }}">Vedi tutti</a>{% endif %}</div>
+  <div class="ui-card-body">{% for v in g.voci %}<div><a class="ui-link" href="{{ v.url }}">{{ v.titolo }}</a></div>{% endfor %}</div>
+</section>{% endfor %}
+{% endblock %}

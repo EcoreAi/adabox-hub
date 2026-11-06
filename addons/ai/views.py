@@ -1,8 +1,8 @@
 from core import cifratura
 from core.viste import Inline, ModelView, register
 
-from .forms import AssistenteForm, ChiaveAziendaForm, PianificataForm, ProviderForm
-from .models import (AnelloCatena, Assistente, ChiaveAzienda, Modello, Pianificata, Profilo, Proposta, Provider,
+from .forms import AssistenteForm, ChiaveAziendaForm, PianificataForm, ProgettoChatForm, ProviderForm, ServerMCPForm, ServizioVoceForm
+from .models import (AnelloCatena, Assistente, ChiaveAzienda, Modello, Pianificata, Profilo, Proposta, Provider, MemoriaUtente, ProgettoChat, ServerMCP, ServizioVoce, ValutazioneRisposta,
                      Turno)
 
 
@@ -25,6 +25,7 @@ class ProviderView(ModelView):
 @register
 class ChiaveAziendaView(ModelView):
     model = ChiaveAzienda
+    tra_aziende = True
     slug = "chiavi"
     list_display = ["provider", "azienda", "chiave"]
     form_class = ChiaveAziendaForm
@@ -54,6 +55,7 @@ class ModelloView(ModelView):
 @register
 class ProfiloView(ModelView):
     model = Profilo
+    tra_aziende = True
     slug = "profili"
     list_display = ["nome", "compito", "app", "azienda", "effort", "catena_modelli", "attivo"]
     list_filter = ["compito", "attivo"]
@@ -69,6 +71,8 @@ class ProfiloView(ModelView):
 class ConsumiView(ModelView):
     """Ogni chiamata ai modelli (turni della chat, titoli, pianificate): token, costo, esito."""
     model = Turno
+    storico = False
+    tra_aziende = True
     slug = "consumi"
     verbose_name_plural = "consumi"
     list_display = ["iniziato", "utente", "azienda", "compito", "modello", "passi", "costo", "protetti", "stato"]
@@ -102,16 +106,25 @@ class ConsumiView(ModelView):
 class PianificataView(ModelView):
     """Le attività che l'assistente esegue da solo: ognuno vede le proprie, gli amministratori tutte."""
     model = Pianificata
+    tra_aziende = True
     slug = "pianificate"
     list_display = ["nome", "quando", "attiva", "prossima", "esito"]
     list_filter = ["attiva", "ricorrenza"]
     search_fields = ["nome", "istruzioni"]
     form_class = PianificataForm
-    form_layout = [("Attività", ["nome", "istruzioni", "ambito"]),
+    form_layout = [("Attività", ["nome", "istruzioni", ("ambito", "progetto")]),
                    ("Quando", [("ricorrenza", "alle"), "giorni", ("giorno_mese", "ogni_ore", "minuti_prima")]),
                    ("Risultato (sempre anche nella sua chat)", [("in_discuss", "per_email"), "attiva"])]
     readonly_fields = ["utente", "prossima", "ultima", "esito", "errori", "conversazione"]
     buttons = ["esegui_ora", "sospendi", "riattiva"]
+
+    def get_form_class(self, request=None):
+        base = super().get_form_class(request)
+        if request is None:
+            return base
+        from . import aree
+        progetti = aree.visibili(request.user, getattr(request, "azienda", None))
+        return type("PianificataFormUtente", (base,), {"progetti_utente": progetti})
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -167,6 +180,8 @@ class PianificataView(ModelView):
 class RegistroModificheView(ModelView):
     """Registro delle modifiche proposte dall'assistente: chi, cosa, quando, esito (solo lettura)."""
     model = Proposta
+    storico = False
+    tra_aziende = True
     slug = "registro"
     verbose_name = "modifica dell'assistente"
     verbose_name_plural = "registro delle modifiche"
@@ -206,3 +221,177 @@ class AssistenteView(ModelView):
     def col_n_strumenti(self, obj):
         return len(obj.strumenti) if obj.strumenti else "tutti"
     col_n_strumenti.short_description = "Strumenti"
+
+
+@register
+class ValutazioniView(ModelView):
+    """I pollici sulle risposte, con la domanda: per capire dove l'assistente sbaglia. Si leggono e basta."""
+    model = ValutazioneRisposta
+    slug = "valutazioni"
+    storico = False
+    list_display = ["creata", "voto", "commento", "utente"]
+    list_filter = ["voto", "creata"]
+    search_fields = ["commento", "messaggio__testo"]
+    form_layout = [("Valutazione", [("creata", "voto"), ("utente", "commento")])]
+    readonly_fields = ["creata", "voto", "utente", "commento"]
+    company_field = "azienda"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+class _SoloMie(ModelView):
+    """Personali: anche un amministratore vede solo le sue."""
+    company_field = "azienda"
+    storico = False
+    personale = True
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(utente=request.user)
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.utente = request.user
+        super().save_model(request, obj, form, change)
+
+
+@register
+class MemoriaView(_SoloMie):
+    """Ciò che Ada ricorda di te in questa azienda: lo vedi tutto, lo cancelli quando vuoi."""
+    model = MemoriaUtente
+    slug = "memoria"
+    list_display = ["testo", "creata"]
+    search_fields = ["testo"]
+    form_layout = [("Da ricordare", ["testo"])]
+    readonly_fields = ["creata"]
+    ai_descrizione = "Le cose che l'utente ha chiesto ad Ada di ricordare."
+
+
+@register
+class ProgettoChatView(_SoloMie):
+    """Chat raggruppate con istruzioni e file comuni."""
+    model = ProgettoChat
+    slug = "progetti"
+    form_class = ProgettoChatForm
+    form_layout = [("Area di lavoro", ["nome", "istruzioni", ("ambito", "cartella_documenti")]), ("Condivisione", ["membri"])]
+
+    def get_form_class(self, request=None):
+        base = super().get_form_class(request)
+        if request is None:
+            return base
+        from . import archivio
+        from . import aree
+        from .pagine import app_selezionabili
+        azienda = getattr(request, "azienda", None)
+        return type("ProgettoChatFormUtente", (base,), {"cartelle": archivio.cartelle(request.user, azienda),
+                                                        "app": [(a["slug"], a["label"]) for a in app_selezionabili(request.user)],
+                                                        "candidati": aree.candidati(azienda, request.user) if azienda else None})
+
+    # condivisa: i membri la vedono (dettaglio, file), ma solo chi l'ha creata la modifica o la elimina
+    def get_queryset(self, request):
+        from . import aree
+        return ModelView.get_queryset(self, request).filter(pk__in=aree.visibili(request.user, getattr(request, "azienda", None)).values("pk"))
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and (obj is None or obj.utente_id == request.user.pk)
+
+    def has_delete_permission(self, request, obj=None):
+        return super().has_delete_permission(request, obj) and (obj is None or obj.utente_id == request.user.pk)
+
+    def save_model(self, request, obj, form, change):
+        from . import aree
+        super().save_model(request, obj, form, change)
+        if "membri" in form.cleaned_data:
+            aree.imposta_membri(obj, form.cleaned_data["membri"])
+
+    def col_condivisa(self, obj):
+        n = obj.membri.count()
+        return f"con {n} {'persona' if n == 1 else 'persone'}" if n else "no"
+    col_condivisa.short_description = "Condivisa"
+
+    def col_di(self, obj):
+        return obj.utente.get_full_name() or obj.utente.username
+    col_di.short_description = "Di"
+
+    def layout_dettaglio(self):                      # cartella e membri si vedono nella sezione dell'area, con nomi veri
+        via = {"cartella_documenti", "membri"}
+        sezioni = [(t, [[c for c in riga if c not in via] for riga in righe]) for t, righe in super().layout_dettaglio()]
+        return [(t, [r for r in righe if r]) for t, righe in sezioni if any(righe)]
+    list_display = ["nome", "di", "condivisa", "creato"]
+    search_fields = ["nome", "istruzioni"]
+    readonly_fields = ["creato"]
+
+
+@register
+class ServerMCPView(ModelView):
+    """I sistemi esterni di cui Ada usa gli strumenti. Gli strumenti si accendono uno per uno, dopo averli letti."""
+    model = ServerMCP
+    slug = "mcp"
+    list_display = ["nome", "url", "token", "attivo", "aggiornato", "ultimo_errore"]
+    form_class = ServerMCPForm
+    form_layout = [("Server", ["nome", "url", "rete_interna", "attivo", "nuovo_token"])]
+    company_field = "azienda"
+    storico = False
+    personale = True
+    buttons = ["leggi_strumenti"]
+
+    def layout_dettaglio(self):
+        return [(t, [[c for c in riga if c != "nuovo_token"] for riga in righe if riga != ["nuovo_token"]]) for t, righe in super().layout_dettaglio()]
+
+    def col_token(self, obj):
+        try:
+            return cifratura.mascherato(cifratura.decifra(obj.token_cifrato)) or "—"
+        except cifratura.SegretoIlleggibile:
+            return "illeggibile"
+    col_token.short_description = "Token"
+
+    def leggi_strumenti(self, request, obj):
+        from . import mcp
+        try:
+            voci = mcp.aggiorna(obj)
+        except mcp.ErroreMCP as e:
+            return f"Strumenti non letti: {e}"
+        return f"Letti {len(voci)} strumenti. Quelli nuovi sono spenti: leggili e accendi solo quelli che servono."
+    leggi_strumenti.short_description = "Leggi gli strumenti dal server"
+    leggi_strumenti.ai = False
+
+
+@register
+class ServizioVoceView(ModelView):
+    """I servizi che leggono le risposte ad alta voce: Kokoro in locale o un fornitore cloud con la sua chiave."""
+    model = ServizioVoce
+    slug = "voce"
+    tra_aziende = True
+    list_display = ["nome", "tipo", "azienda", "chiave", "attivo"]
+    form_class = ServizioVoceForm
+    form_layout = [("Servizio", [("nome", "tipo"), ("azienda", "attivo"), "nuova_chiave", "regione"]),
+                   ("Voci (vuoto = quelle consigliate)", [("modello",), ("voce_it", "voce_en")])]
+    storico = False
+    personale = True
+    buttons = ["prova"]
+
+    def layout_dettaglio(self):
+        return [(t, [[c for c in riga if c != "nuova_chiave"] for riga in righe if riga != ["nuova_chiave"]]) for t, righe in super().layout_dettaglio()]
+
+    def col_chiave(self, obj):
+        if obj.locale:
+            return "—"
+        try:
+            return cifratura.mascherato(obj.chiave()) or "manca"
+        except cifratura.SegretoIlleggibile:
+            return "illeggibile"
+    col_chiave.short_description = "Chiave"
+
+    def prova(self, request, obj):
+        from . import voce
+        try:
+            for lingua, frase in (("it", "Buongiorno, sono Ada."), ("en", "Hello, I am Ada.")):
+                voce.sintetizza(obj, frase, lingua)
+        except voce.ErroreVoce as e:
+            return f"Prova non riuscita: {e}"
+        return "Prova riuscita: il servizio legge in italiano e in inglese."
+    prova.short_description = "Prova il servizio"
+    prova.ai = False

@@ -1,0 +1,18 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Automazioni · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Automazioni</h1><div class="sub">{% if schede %}{{ attive }} regol{{ attive|pluralize:"a,e" }} accese su {{ schede|length }}{% else %}Il gestionale lavora da solo: tu decidi quando, a che condizioni e che cosa fare{% endif %}</div></div>
+  {% if puo_cambiare %}<a class="ui-btn ui-btn-primary" href="{% url 'automazioni:regola_nuova' %}"><svg><use href="#icon-plus"/></svg> Nuova regola</a>{% endif %}</div>
+{% if schede %}<div class="au-griglia">{% for s in schede %}
+  <a class="au-regola{% if s.regola.attiva %} is-attiva{% endif %}" href="{% url 'automazioni:regola' s.regola.pk %}" style="--i:{{ forloop.counter0 }}">
+    <div class="au-regola-testa"><span class="au-lampo"><svg><use href="#icon-zap"/></svg></span><strong>{{ s.regola.nome }}</strong>
+      <span class="ui-pill {% if s.regola.attiva %}ui-pill-ok{% else %}ui-pill-neutral{% endif %}">{% if s.regola.attiva %}Accesa{% else %}Spenta{% endif %}</span></div>
+    <div class="au-regola-quando">{{ s.quando }}</div>
+    <ul class="au-regola-azioni">{% for a in s.allora %}<li><svg><use href="#icon-{{ a.icona }}"/></svg>{{ a.testo }}</li>{% endfor %}</ul>
+    <div class="au-regola-piede"><span>{{ s.volte }} volt{{ s.volte|pluralize:"a,e" }}</span>{% if s.errori %}<span class="ui-pill ui-pill-danger">{{ s.errori }} con errori</span>{% endif %}{% if s.ultima %}<span>ultima il {{ s.ultima|date:"d/m H:i" }}</span>{% endif %}</div>
+  </a>{% endfor %}</div>{% endif %}
+{% if ricette and puo_cambiare %}<h2 class="au-titolo">Regole pronte</h2><p class="au-sotto">Un clic e la regola è creata, spenta e già scritta. La guardi, cambi quello che vuoi e la accendi.</p>
+<div class="au-ricette">{% for r in ricette %}<form method="post" action="{% url 'automazioni:ricetta' r.codice %}" class="au-ricetta" style="--i:{{ forloop.counter0 }}">{% csrf_token %}
+  <span class="au-ricetta-icona"><svg><use href="#icon-{{ r.icona }}"/></svg></span><strong>{{ r.nome }}</strong><p>{{ r.descrizione }}</p>
+  <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit"><svg><use href="#icon-plus"/></svg> Usa questa</button></form>{% endfor %}</div>{% endif %}
+{% endblock %}

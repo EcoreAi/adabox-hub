@@ -1,0 +1,29 @@
+{% load commesse %}{% redditivita obj as r %}{% fatture_collegabili obj as collegabili %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Redditività</div>
+    <div class="ui-card-sub">{{ r.condizioni.get_tipo_display }}{% if r.condizioni.tipo == "ore" %} · {{ r.condizioni.tariffa|floatformat:2 }} €/h{% endif %} · {{ r.ore|floatformat:"-2" }} ore lavorate</div></div>
+    <div class="spacer"></div><a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'commesse:condizioni_progetto' obj.pk %}">Condizioni</a></div>
+  <div class="ui-card-body">
+    <div class="cm-tessere">
+      <div class="cm-tessera"><small>Ricavi</small><strong>{{ r.ricavi|floatformat:2 }} €</strong></div>
+      <div class="cm-tessera"><small>Costo delle ore</small><strong>{{ r.costo|floatformat:2 }} €</strong></div>
+      <div class="cm-tessera {% if r.margine >= 0 %}is-positivo{% else %}is-negativo{% endif %}"><small>Margine</small><strong>{{ r.margine|floatformat:2 }} €</strong></div>
+      <div class="cm-tessera"><small>Margine %</small><strong>{{ r.percentuale }}%</strong></div>
+    </div>
+    {% if r.ricavi %}<div class="cm-barra" role="img" aria-label="{{ r.quota_fatturato }}% fatturato, {{ r.quota_attesa }}% da fatturare">
+      <span class="is-fatturato" style="--cm-l:{{ r.quota_fatturato }}%"></span><span class="is-attesa" style="--cm-l:{{ r.quota_attesa }}%"></span></div>
+    <div class="cm-legenda"><span><i class="is-fatturato" style="background:var(--ui-primary-lift)"></i>Fatturato {{ r.fatturato|floatformat:2 }} €</span>
+      <span><i style="background:#fbbf24"></i>Da fatturare {{ r.in_attesa|floatformat:2 }} € ({{ r.ore_da_fatturare|floatformat:"-2" }} h)</span></div>{% endif %}
+    {% if r.persone %}<div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>Persona</th><th class="num">Ore</th><th class="num">Costo</th></tr></thead><tbody>
+      {% for p in r.persone %}<tr><td>{{ p.utente|default:"—" }}</td><td class="num">{{ p.ore|floatformat:"-2" }}</td><td class="num">{{ p.costo|floatformat:2 }} €</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+    <div class="cm-azioni" style="margin-top:14px">
+      {% if perms.fatturazione.add_fattura %}
+      {% if r.condizioni.tipo == "ore" and r.ore_da_fatturare %}<a class="ui-btn ui-btn-primary ui-btn-sm" href="{% url 'commesse:fattura_ore' obj.pk %}">Fattura le ore</a>{% endif %}
+      {% if r.condizioni.tipo == "corpo" %}<form method="post" action="{% url 'commesse:fattura_corpo' obj.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Crea la fattura a corpo</button></form>{% endif %}
+      {% endif %}
+      {% if collegabili and perms.commesse.change_condizioni %}<form method="post" action="{% url 'commesse:collega_fattura' obj.pk %}" class="cm-azioni">{% csrf_token %}
+        <select class="ui-input" name="fattura" aria-label="Fattura da collegare" style="width:auto">{% for f in collegabili %}<option value="{{ f.pk }}">{{ f }} · {{ f.imponibile|floatformat:2 }} €</option>{% endfor %}</select>
+        <button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit">Collega al progetto</button></form>{% endif %}
+    </div>
+  </div>
+</section>

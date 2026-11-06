@@ -1,8 +1,10 @@
+import re
+
 from django import forms
 
 from core import cifratura
 
-from .models import Assistente, ChiaveAzienda, Pianificata, Provider
+from .models import Assistente, ChiaveAzienda, Pianificata, ProgettoChat, Provider, ServerMCP, ServizioVoce
 
 
 class ProviderForm(forms.ModelForm):
@@ -81,6 +83,7 @@ class ChiaveAziendaForm(forms.ModelForm):
 
 
 class PianificataForm(forms.ModelForm):
+    progetti_utente = ProgettoChat.objects.none()          # i progetti dell'utente: li mette la vista
     """Giorni della settimana a caselle; i campi che servono dipendono da «quando»."""
     giorni = forms.TypedMultipleChoiceField(label="giorni della settimana", coerce=int, required=False,
                                             choices=Pianificata.GIORNI_SETTIMANA, widget=forms.CheckboxSelectMultiple)
@@ -88,17 +91,18 @@ class PianificataForm(forms.ModelForm):
 
     class Meta:
         model = Pianificata
-        fields = ["nome", "istruzioni", "ambito", "ricorrenza", "alle", "giorni", "giorno_mese", "ogni_ore",
+        fields = ["nome", "istruzioni", "ambito", "progetto", "ricorrenza", "alle", "giorni", "giorno_mese", "ogni_ore",
                   "minuti_prima", "in_discuss", "per_email", "attiva"]
         widgets = {"alle": forms.TimeInput(attrs={"type": "time"}, format="%H:%M"),
-                   "istruzioni": forms.Textarea(attrs={"rows": 4})}
+                   "istruzioni": forms.Textarea(attrs={"rows": 4, "data-scrivi-con-ada": "pianificata"})}
 
     def __init__(self, *args, **kwargs):
         from core.registry import modules
         super().__init__(*args, **kwargs)
         self.fields["ambito"].choices = [("", "Tutte le app")] + [
             (slug, m.name) for slug, m in modules.manifests_attivi().items() if m.application and slug != "ai"]
-        if self.instance.pk:
+        self.fields["progetto"].queryset = self.progetti_utente
+        if "giorni" not in self.initial or not self.instance.pk:   # anche nuova: i giorni predefiniti spuntati (lun-ven)
             self.initial["giorni"] = self.instance.elenco_giorni()
 
     def clean_giorni(self):
@@ -131,7 +135,7 @@ class AssistenteForm(forms.ModelForm):
         model = Assistente
         fields = ["nome", "descrizione", "app", "predefinito", "istruzioni", "strumenti", "profilo", "gruppi",
                   "domande_oro", "attivo"]
-        widgets = {"istruzioni": forms.Textarea(attrs={"rows": 6}), "domande_oro": forms.Textarea(attrs={"rows": 5})}
+        widgets = {"istruzioni": forms.Textarea(attrs={"rows": 6, "data-scrivi-con-ada": "assistente"}), "domande_oro": forms.Textarea(attrs={"rows": 5})}
 
     def __init__(self, *args, **kwargs):
         from core.registry import modules
@@ -150,3 +154,96 @@ class AssistenteForm(forms.ModelForm):
         if not isinstance(domande, list) or not all(isinstance(d, dict) and d.get("domanda") for d in domande):
             self.add_error("domande_oro", 'Una lista di oggetti con almeno "domanda".')
         return dati
+
+
+class ServerMCPForm(forms.ModelForm):
+    """Il token si scrive qui, si salva cifrato e non si rilegge."""
+    nuovo_token = forms.CharField(label="token", required=False, strip=True,
+                                  widget=forms.PasswordInput(render_value=False, attrs={"autocomplete": "new-password"}),
+                                  help_text="lascia vuoto per non cambiarlo")
+
+    class Meta:
+        model = ServerMCP
+        fields = ["nome", "url", "rete_interna", "attivo"]
+
+    def clean_url(self):
+        from core import rete
+        url = self.cleaned_data["url"].strip()
+        try:
+            if not self.data.get("rete_interna"):
+                rete.controlla(url, solo_https=True)
+            elif not url.startswith(("http://", "https://")):
+                raise rete.Rifiutato("serve un indirizzo http o https")
+        except rete.Rifiutato as e:
+            raise forms.ValidationError(f"Indirizzo non valido: {e}.") from e
+        return url
+
+    def save(self, commit=True):
+        if self.cleaned_data.get("nuovo_token"):
+            self.instance.token_cifrato = cifratura.cifra(self.cleaned_data["nuovo_token"])
+        return super().save(commit)
+
+
+class ServizioVoceForm(forms.ModelForm):
+    """La chiave si scrive qui, si salva cifrata e non si rilegge."""
+    nuova_chiave = forms.CharField(label="chiave API", required=False, strip=True,
+                                   widget=forms.PasswordInput(render_value=False, attrs={"autocomplete": "new-password"}),
+                                   help_text="non serve per Kokoro; lascia vuoto per non cambiarla")
+
+    class Meta:
+        model = ServizioVoce
+        fields = ["nome", "tipo", "azienda", "regione", "modello", "voce_it", "voce_en", "attivo"]
+
+    def clean(self):
+        dati = super().clean()
+        tipo = dati.get("tipo")
+        if tipo == ServizioVoce.AZURE and not re.fullmatch(r"[a-z0-9]{2,30}", dati.get("regione") or ""):
+            self.add_error("regione", "Per Azure serve la regione, es. westeurope.")
+        if tipo == ServizioVoce.CARTESIA and not (dati.get("voce_it") and dati.get("voce_en")):
+            self.add_error("voce_it", "Per Cartesia scrivi l'ID delle due voci, dalla libreria voci di Cartesia.")
+        if tipo and tipo != ServizioVoce.KOKORO and not (dati.get("nuova_chiave") or self.instance.chiave_cifrata):
+            self.add_error("nuova_chiave", "Per un fornitore cloud serve la chiave API.")
+        return dati
+
+    def save(self, commit=True):
+        if self.cleaned_data.get("nuova_chiave"):
+            self.instance.chiave_cifrata = cifratura.cifra(self.cleaned_data["nuova_chiave"])
+        return super().save(commit)
+
+
+class ProgettoChatForm(forms.ModelForm):
+    """La cartella dei Documenti si sceglie tra quelle che l'utente vede (vedi ProgettoChatView.get_form_class)."""
+    cartella_documenti = forms.TypedChoiceField(label="cartella dei Documenti", required=False, coerce=int, empty_value=None,
+                                                help_text="Ada legge i file di questa cartella (e delle sottocartelle) in tutte le chat dell'area "
+                                                          "di lavoro, con i permessi di chi scrive; lì si salvano documenti, grafici e tabelle")
+    ambito = forms.ChoiceField(label="app predefinita", required=False,
+                               help_text="le chat nuove dell'area partono limitate a questa app; dalla casella si toglie o si cambia")
+    membri = forms.ModelMultipleChoiceField(label="condivisa con", required=False, queryset=None, widget=forms.CheckboxSelectMultiple,
+                                            help_text="colleghi della stessa azienda: usano istruzioni, file, cartella e record collegati e "
+                                                      "aprono chat nell'area; le loro chat restano loro, salvo quelle che condividono")
+    cartelle = []
+    app = []                                             # [(slug, nome)] delle app che l'utente vede: le mette la vista
+    candidati = None                                     # gli utenti con cui si può condividere: li mette la vista
+
+    class Meta:
+        model = ProgettoChat
+        fields = ["nome", "istruzioni", "ambito", "cartella_documenti", "membri"]
+        widgets = {"istruzioni": forms.Textarea(attrs={"rows": 10, "data-scrivi-con-ada": "progetto"})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from django.contrib.auth import get_user_model
+        self.fields["membri"].queryset = self.candidati if self.candidati is not None else get_user_model().objects.none()
+        self.fields["membri"].label_from_instance = lambda u: u.get_full_name() or u.username
+        if self.instance.pk:
+            self.initial["membri"] = list(self.instance.membri.values_list("utente_id", flat=True))
+        app = [("", "Tutte le app")] + list(self.app)
+        if self.instance.ambito and self.instance.ambito not in {s for s, _ in self.app}:
+            app.append((self.instance.ambito, f"{self.instance.ambito} (non più disponibile)"))
+        self.fields["ambito"].choices = app
+        scelte = [("", "Nessuna")] + [(c.pk, percorso) for c, percorso in self.cartelle]
+        if self.instance.cartella_documenti and self.instance.cartella_documenti not in {c.pk for c, _ in self.cartelle}:
+            scelte.append((self.instance.cartella_documenti, "(cartella che non vedi più)"))
+        self.fields["cartella_documenti"].choices = scelte
+        if not self.cartelle and not self.instance.cartella_documenti:
+            del self.fields["cartella_documenti"]

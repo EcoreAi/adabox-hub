@@ -18,7 +18,7 @@
       {% for r in righe %}
       <tr>
         <th scope="row"><a class="ui-link" href="{% url 'progetti:compiti_dettaglio' r.compito.pk %}">{{ r.compito.titolo }}</a><div class="ui-help">{{ r.compito.progetto }}</div></th>
-        {% for c in r.celle %}<td><input class="ui-input ui-ore" name="{{ c.nome }}" value="{{ c.valore }}" inputmode="decimal" aria-label="{{ r.compito.titolo }} {{ c.giorno|date:'d/m' }}"></td>{% endfor %}
+        {% for c in r.celle %}<td><input class="ui-input ui-ore" name="{{ c.nome }}" value="{{ c.valore }}"{% if c.chiusa %} disabled title="Ore approvate o fatturate"{% endif %} inputmode="decimal" aria-label="{{ r.compito.titolo }} {{ c.giorno|date:'d/m' }}"></td>{% endfor %}
         <td class="ui-num">{{ r.totale }}</td>
       </tr>
       {% endfor %}

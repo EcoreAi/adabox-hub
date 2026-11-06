@@ -1,6 +1,7 @@
 from core.viste import ModelView, register
 
-from .models import Canale
+from .forms import ConnessioneForm
+from .models import Canale, Connessione, ModelloWhatsApp, Sportello, VoceConoscenza
 
 
 @register
@@ -16,3 +17,53 @@ class CanaleView(ModelView):
 
     def get_queryset(self, request):
         return super().get_queryset(request).exclude(tipo=Canale.DIRETTO)    # i messaggi diretti restano privati
+
+
+@register
+class SportelloView(ModelView):
+    """Le chat del sito: chi risponde, i testi e i domini ammessi. Il codice da incollare è nel dettaglio."""
+    model = Sportello
+    tra_aziende = True
+    slug = "sportelli"
+    list_display = ["nome", "attivo", "creato"]
+    list_filter = ["attivo"]
+    search_fields = ["nome"]
+    form_layout = [("Sportello", ["nome", "benvenuto", "assenza", "operatori", "distribuzione", "domini", "privacy_url", "attivo"]),
+                   ("Risposte con l'AI", ["modalita", "nome_ai", "istruzioni", ("risposte_per_chat", "risposte_al_giorno"), "azienda"])]
+    readonly_fields = ["creato"]
+
+
+@register
+class VoceConoscenzaView(ModelView):
+    """Ciò che l'AI del sito può dire ai visitatori: domande frequenti e documenti approvati."""
+    model = VoceConoscenza
+    slug = "conoscenza"
+    list_display = ["titolo", "tipo", "sportello", "attiva", "n_frammenti", "aggiornata"]
+    list_filter = ["sportello", "tipo", "attiva"]
+    search_fields = ["titolo", "testo"]
+    form_layout = [("Voce", ["sportello", "tipo", "titolo", "testo", "attiva"])]
+
+
+@register
+class ConnessioneView(ModelView):
+    """I numeri WhatsApp e i bot Telegram. I segreti si scrivono nel modulo e non si mostrano più."""
+    model = Connessione
+    slug = "connessioni"
+    list_display = ["nome", "tipo", "sportello", "sandbox", "attiva", "ultimo_evento"]
+    list_filter = ["tipo", "sandbox", "attiva"]
+    search_fields = ["nome"]
+    form_class = ConnessioneForm
+    form_layout = [("Connessione", [("nome", "tipo"), "sportello", ("sandbox", "attiva")]),
+                   ("Credenziali, solo per una connessione vera", [("id_numero", "id_account"), "nuovo_token", "nuovo_segreto"])]
+    readonly_fields = ["ultimo_evento"]
+
+
+@register
+class ModelloWhatsAppView(ModelView):
+    """I testi approvati da Meta per ricontattare un cliente dopo le 24 ore."""
+    model = ModelloWhatsApp
+    slug = "modelliwa"
+    list_display = ["nome", "lingua", "categoria", "stato", "connessione", "aggiornato"]
+    list_filter = ["stato", "categoria", "connessione"]
+    search_fields = ["nome", "corpo"]
+    form_layout = [("Modello", ["connessione", ("nome", "lingua"), "categoria", "corpo"])]

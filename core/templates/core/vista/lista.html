@@ -5,6 +5,7 @@
   <div><h1>{{ vista.verbose_name_plural|capfirst }}</h1><div class="sub">{{ page_obj.paginator.count }} in totale</div></div>
   <div class="ui-pagehead-actions">
     {% include "core/vista/_selettore.html" %}
+    {% include "core/vista/_ricerche.html" %}
     <div class="ui-dropdown">
       <button type="button" class="ui-btn ui-btn-secondary" aria-haspopup="true" aria-expanded="false"><svg><use href="#icon-download"/></svg> Dati</button>
       <div class="ui-dropdown-menu is-right" role="menu">

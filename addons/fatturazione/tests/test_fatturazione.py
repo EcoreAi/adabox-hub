@@ -47,6 +47,8 @@ def _fattura(azienda, cliente, righe, **extra):
 def _form(cliente, righe, **extra):
     dati = {"cliente": cliente.pk, "tipo": "TD01", "data": OGGI.isoformat(), "righe0-TOTAL_FORMS": str(len(righe)),
             "righe0-INITIAL_FORMS": "0", "righe0-MIN_NUM_FORMS": "0", "righe0-MAX_NUM_FORMS": "1000", **extra}
+    for n in (1, 2, 3):
+        dati.update({f"righe{n}-TOTAL_FORMS": "0", f"righe{n}-INITIAL_FORMS": "0", f"righe{n}-MIN_NUM_FORMS": "0", f"righe{n}-MAX_NUM_FORMS": "1000"})
     for i, r in enumerate(righe):
         dati.update({f"righe0-{i}-{k}": v for k, v in {"quantita": "1", "sconto": "0", **r}.items()})
     return dati
@@ -183,7 +185,7 @@ def test_dashboard(client, superuser, scena):
     operazioni.emetti(nota)
     richiesta = type("R", (), {"user": superuser, "azienda": azienda})()
     dati = kpi(richiesta)
-    assert dati["kpi"][0]["valore"].startswith("100") and dati["kpi"][1]["valore"].startswith("244")
+    assert dati["kpi"][0]["valore"].startswith("100") and dati["kpi"][1]["valore"].startswith("122")       # la nota ha scalato metà dalla scadenza
 
 
 def test_demo(scena):
@@ -212,3 +214,68 @@ def test_stampa_pdf_e_invio_con_allegato(client, superuser, scena):
     client.post(f"/fatturazione/fatture/{f.pk}/bottone/invia/")
     nome, contenuto, tipo = mail.outbox[-1].attachments[0]
     assert nome == f"Fattura 1-{ANNO}.pdf" and contenuto.startswith(b"%PDF")
+
+
+def _ordine_confermato(azienda, cliente, prodotto):
+    ordine = OrdineVendita.objects.create(azienda=azienda, cliente=cliente, stato=OrdineVendita.CONFERMATO,
+                                          numero_ordine="SO/1")
+    RigaVendita.objects.create(ordine=ordine, prodotto=prodotto, quantita=Decimal(1))
+    ordine.ricalcola()
+    return ordine
+
+
+def test_ordine_non_si_fattura_due_volte(client, superuser, scena):
+    azienda, cliente, monitor, _ = scena
+    ordine = _ordine_confermato(azienda, cliente, monitor)
+    fattura = operazioni.da_ordine(ordine)
+    with pytest.raises(ValidationError, match="già fatturato"):
+        operazioni.da_ordine(ordine)
+    assert b"Crea la fattura" not in client.get(f"/vendite/ordini/{ordine.pk}/").content
+    assert client.post(f"/fatturazione/da-ordine/{ordine.pk}/").status_code == 302
+    assert ordine.fatture.count() == 1
+    fattura.stato = Fattura.ANNULLATA                                    # annullata la bozza si può rifare
+    fattura.save(update_fields=["stato"])
+    assert b"Crea la fattura" in client.get(f"/vendite/ordini/{ordine.pk}/").content
+    assert operazioni.da_ordine(ordine).pk != fattura.pk
+
+
+def test_ordine_si_rifattura_dopo_lo_storno_completo(scena):
+    azienda, cliente, monitor, _ = scena
+    ordine = _ordine_confermato(azienda, cliente, monitor)
+    fattura = operazioni.emetti(operazioni.da_ordine(ordine))
+    nota = operazioni.nota_di_credito(fattura)
+    with pytest.raises(ValidationError):                                 # la nota in bozza non storna ancora
+        operazioni.da_ordine(ordine)
+    operazioni.emetti(nota)
+    assert fattura.stornata and operazioni.da_ordine(ordine).stato == Fattura.BOZZA
+
+
+def test_scissione_dei_pagamenti_scadenze_sul_netto(client, superuser, scena):
+    azienda, cliente, _, corso = scena
+    split = AliquotaIva.objects.get(codice="22S")
+    normale = AliquotaIva.objects.get(codice="22")
+    termine = TerminePagamento.objects.create(nome="30/60", rate=[{"giorni": 30, "percentuale": 50},
+                                                                  {"giorni": 60, "percentuale": 50}])
+    f = Fattura.objects.create(azienda=azienda, cliente=cliente, termine_pagamento=termine)
+    RigaFattura.objects.create(fattura=f, descrizione="PA", prezzo=Decimal(100), aliquota=split)
+    RigaFattura.objects.create(fattura=f, descrizione="Altro", prezzo=Decimal(100), aliquota=normale)
+    f.ricalcola()
+    assert f.totale == Decimal("244.00") and f.iva_in_scissione == Decimal("22.00") and f.da_incassare == Decimal("222.00")
+    operazioni.emetti(f)
+    assert sum(s.importo for s in f.scadenze.all()) == Decimal("222.00")
+    assert b"Netto a pagare" in client.get(f"/fatturazione/fatture/{f.pk}/").content
+
+
+def test_annullo_ordine_annulla_le_bozze_e_si_ferma_sulle_emesse(client, superuser, scena):
+    azienda, cliente, monitor, _ = scena
+    ordine = _ordine_confermato(azienda, cliente, monitor)
+    bozza = operazioni.da_ordine(ordine)
+    client.post(f"/vendite/ordini/{ordine.pk}/bottone/annulla/")
+    bozza.refresh_from_db(); ordine.refresh_from_db()
+    assert ordine.stato == OrdineVendita.ANNULLATO and bozza.stato == Fattura.ANNULLATA
+
+    secondo = _ordine_confermato(azienda, cliente, monitor)
+    emessa = operazioni.emetti(operazioni.da_ordine(secondo))
+    client.post(f"/vendite/ordini/{secondo.pk}/bottone/annulla/")
+    secondo.refresh_from_db(); emessa.refresh_from_db()
+    assert secondo.stato == OrdineVendita.CONFERMATO and emessa.stato == Fattura.EMESSA

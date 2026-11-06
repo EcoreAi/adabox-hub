@@ -1,0 +1,15 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Cosa mostrare nel riepilogo · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Cosa mostrare nel riepilogo</h1><div class="sub">Togli la spunta a ciò che non vuoi vedere: vale solo per te. Le voci sono quelle dei moduli a cui hai accesso</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'riepilogo:pagina' %}"><svg><use href="#icon-arrow-left"/></svg> Il mio riepilogo</a></div></div>
+<form method="post" class="rp-imp">{% csrf_token %}
+  <section class="ui-card is-revealed ui-section"><div class="ui-card-body"><label class="rp-toggle"><input type="checkbox" name="mostra_al_login" value="1"{% if preferenza.mostra_al_login %} checked{% endif %}> Apri il riepilogo da solo quando accedo</label></div></section>
+  {% for m in moduli %}<section class="ui-card is-revealed ui-section rp-imp-modulo">
+    <div class="ui-card-head"><div class="ui-card-title">{{ m.nome }}</div><div class="rp-imp-azioni"><button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-tutte="1">Tutte</button><button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-tutte="0">Nessuna</button></div></div>
+    <div class="ui-card-body rp-imp-voci">{% for v in m.voci %}<label class="rp-imp-voce{% if v.silenziata %} is-silenziata{% endif %}"><input type="checkbox" name="mostra" value="{{ v.chiave }}"{% if not v.silenziata %} checked{% endif %}> <span>{{ v.nome|capfirst }}</span> <small class="ui-pill ui-pill-neutral">{{ v.sezione_testo }}</small>{% if v.numero %} <small class="rp-imp-adesso">adesso {{ v.numero }}</small>{% endif %}</label>{% endfor %}</div>
+  </section>{% empty %}<section class="ui-card is-revealed"><div class="ui-empty"><p>Nessun modulo da mostrare.</p></div></section>{% endfor %}
+  <div class="rp-imp-salva"><button class="ui-btn ui-btn-primary" type="submit"><svg><use href="#icon-save"/></svg> Salva</button>{% if silenziate %} <span class="sub">Oggi silenzi {{ silenziate }} voc{{ silenziate|pluralize:"e,i" }}.</span>{% endif %}</div>
+</form>
+<script>document.querySelectorAll('[data-tutte]').forEach(b=>b.addEventListener('click',()=>{b.closest('.rp-imp-modulo').querySelectorAll('input[name=mostra]').forEach(c=>{c.checked=b.dataset.tutte==='1'})}));</script>
+{% endblock %}

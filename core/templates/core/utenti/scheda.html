@@ -1,0 +1,39 @@
+{% extends 'core/base_app.html' %}
+{% block title %}{% if utente %}{% firstof utente.get_full_name utente.username %}{% else %}Nuovo utente{% endif %} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>{% if utente %}{% firstof utente.get_full_name utente.username %}{% else %}Nuovo utente{% endif %}</h1><div class="sub">{% if utente %}{{ utente.username }} · ultimo accesso {{ utente.last_login|date:"d/m/Y H:i"|default:"mai" }}{% else %}Riceverà un'email per scegliere la password{% endif %}</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'core:utenti' %}"><svg><use href="#icon-arrow-left"/></svg> Utenti</a></div></div>
+{% if se_stesso %}<div class="ui-alert ui-alert-info">Stai modificando te stesso: ruolo e stato attivo non si cambiano da qui, così non ti chiudi fuori.</div>
+{% elif utente.is_superuser %}<div class="ui-alert ui-alert-warning">È un superutente. Con un ruolo diverso da Global Admin smette di esserlo.</div>{% endif %}
+<form method="post" class="ut-form">{% csrf_token %}
+  {% if form.non_field_errors %}<div class="ui-alert ui-alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+  <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Persona</div></div>
+    <div class="ui-card-body ut-griglia">
+      {% for campo in form %}{% if campo.name in "first_name last_name email username" %}<div class="ui-form-group"><label class="ui-label" for="{{ campo.id_for_label }}">{{ campo.label }}</label>{{ campo }}{% if campo.help_text %}<p class="ui-help">{{ campo.help_text }}</p>{% endif %}{% for e in campo.errors %}<p class="ui-error">{{ e }}</p>{% endfor %}</div>{% endif %}{% endfor %}
+      <div class="ui-form-group"><label class="ut-check">{{ form.is_active }} Attivo{% if se_stesso %} (non modificabile su te stesso){% endif %}</label></div>
+      {% if not utente %}<div class="ui-form-group"><label class="ut-check">{{ form.invito }} {{ form.invito.label }}</label></div>{% endif %}
+    </div></section>
+  <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div><div class="ui-card-title">Ruolo e moduli</div><div class="ui-card-sub">Il ruolo decide il livello in ogni modulo; qui sotto le eccezioni solo per questa persona</div></div></div>
+    <div class="ui-card-body">
+      <div class="ui-form-group" style="max-width:420px"><label class="ui-label" for="{{ form.ruolo.id_for_label }}">Ruolo</label>{{ form.ruolo }}{% for e in form.ruolo.errors %}<p class="ui-error">{{ e }}</p>{% endfor %}</div>
+      {% if moduli %}<div class="ui-table-wrap"><table class="ui-table ut-moduli"><thead><tr><th>Modulo</th><th>Dal ruolo</th><th>Per questa persona</th></tr></thead><tbody>
+        {% for m in moduli %}<tr><td>{{ m.nome }}</td><td class="ut-dal-ruolo" data-slug="{{ m.slug }}">{{ m.del_ruolo_testo }}</td>
+          <td><select class="ui-input ui-input-sm" name="livello_{{ m.slug }}" aria-label="Livello in {{ m.nome }}"><option value="">Come il ruolo</option>{% for codice, nome in livelli %}<option value="{{ codice }}"{% if m.eccezione == codice %} selected{% endif %}>{{ nome }}</option>{% endfor %}</select></td></tr>{% endfor %}
+      </tbody></table></div>{% endif %}
+    </div></section>
+  <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Aziende</div></div>
+    <div class="ui-card-body ut-aziende">{{ form.aziende }}{% for e in form.aziende.errors %}<p class="ui-error">{{ e }}</p>{% endfor %}</div></section>
+  <div class="ut-salva"><button class="ui-btn ui-btn-primary" type="submit"><svg><use href="#icon-save"/></svg> Salva</button></div>
+</form>
+{% if utente %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Accesso</div></div>
+  <div class="ui-card-body ut-azioni">
+    <form method="post" action="{% url 'core:utente_invito' utente.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-secondary" type="submit">Rimanda l'email per la password</button></form>
+    {% if due_fattori %}<form method="post" action="{% url 'core:utente_due_fattori' utente.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-secondary" type="submit" title="Se ha perso telefono e codici di recupero">Azzera la verifica in due passaggi</button></form>{% else %}<span class="sub">Verifica in due passaggi non attiva.</span>{% endif %}
+    <details class="ut-gruppi"><summary class="sub">Gruppi Django effettivi ({{ gruppi|length }})</summary><p class="sub">{{ gruppi|join:", "|default:"nessuno" }}</p></details>
+  </div></section>{% endif %}
+<script>
+(function(){const livelli={{ livelli_ruoli|safe }};const nomi={{ "{" }}{% for c,n in livelli %}"{{ c }}":"{{ n }}"{% if not forloop.last %},{% endif %}{% endfor %}{{ "}" }};
+const sel=document.getElementById('{{ form.ruolo.id_for_label }}');if(!sel)return;
+sel.addEventListener('change',()=>{const l=livelli[sel.value]||{};document.querySelectorAll('.ut-dal-ruolo').forEach(td=>{td.textContent=sel.value?(nomi[l[td.dataset.slug]]||'—'):'—'})});})();
+</script>
+{% endblock %}

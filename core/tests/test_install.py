@@ -129,6 +129,19 @@ def test_aggiorna(ambiente, settings):
     assert any("pre-aggiorna-crm" in b for b in backups(settings))
 
 
+def test_aggiorna_installa_prima_le_dipendenze_nuove(ambiente, monkeypatch):
+    """Una versione nuova che dipende da un modulo mai installato (es. assistenza 1.2 dal portale) lo installa prima."""
+    # il backup nativo di SQLite resta in attesa con scritture non confermate nella transazione del test: qui non serve
+    monkeypatch.setattr(install.backup, "esegui", lambda motivo: None)
+    ambiente.crea("portale")
+    ambiente.crea("assistenza", version="1.2.0", depends=["portale"])
+    install.scrivi_stato(["assistenza"])
+    Modulo.objects.create(slug="assistenza", nome="Assistenza", versione_installata="1.1.0")
+    assert install.aggiorna(["assistenza"]) == ["assistenza"]
+    assert [c[:2] for c in ambiente.chiamate] == [("installa", ["portale"]), ("aggiorna", ["assistenza"])]
+    assert set(install.modules.installati()) == {"portale", "assistenza"}
+
+
 def test_niente_da_aggiornare(ambiente):
     ambiente.crea("crm")
     install.scrivi_stato(["crm"])

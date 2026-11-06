@@ -1,9 +1,9 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.shortcuts import redirect
 
-from core.viste import Inline, ModelView, register
+from core.viste import Inline, ModelView, register, schede
 from personale.models import Dipendente
 
 from . import flusso
@@ -40,11 +40,26 @@ class NotaView(ModelView):
     list_sum = ["totale"]
     kanban_group = "stato"
     kanban_fields = ["dipendente", "totale"]
+    kanban_ricco = True
+    kanban_colori = {"bozza": "grigio", "inviata": "azzurro", "approvata": "viola", "rifiutata": "grigio", "rimborsata": "verde"}
     chatter = True
     tracked_fields = ["stato", "totale"]
     buttons = ["invia", "approva", "rifiuta", "riapri", "rimborsa"]
     actions = ["rimborsa_selezionate"]
     reports = [{"nome": "Stampa", "template": "spese/report/nota.html"}]
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("dipendente")
+
+    def kanban_scheda(self, request, obj):
+        esito = {NotaSpese.BOZZA: ("grigio", "icon-edit", "Da inviare"), NotaSpese.INVIATA: ("arancio", "icon-info", "Da approvare"),
+                 NotaSpese.APPROVATA: ("azzurro", "icon-check", "Da rimborsare"), NotaSpese.RIFIUTATA: (*schede.FERMO, "Rifiutata"),
+                 NotaSpese.RIMBORSATA: (*schede.FATTO, "Rimborsata")}[obj.stato]
+        return schede.scheda(esito, sottotitolo=str(obj.dipendente), valore=schede.euro(obj.totale))
+
+    def kanban_colonna(self, request, valore, qs):
+        return {"riepilogo": schede.euro_tondi(qs.aggregate(t=Sum("totale"))["t"])}
 
     def col_totale(self, obj):
         return euro(obj.totale)

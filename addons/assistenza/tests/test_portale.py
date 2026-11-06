@@ -8,8 +8,9 @@ from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 
-from assistenza.models import AccessoPortale, DatiTicket, Supporto
-from assistenza.portale import invita
+from assistenza.models import DatiTicket, Supporto
+from portale.inviti import invita
+from portale.models import AccessoPortale
 from contatti.models import Contatto
 from core import allegati, chatter
 from core.models import Azienda
@@ -48,7 +49,7 @@ def test_invito_con_il_link_per_la_password(client, scena):
     client.force_login(User.objects.create_superuser("root", "r@example.com", "x"))
     html = client.get(f"/contatti/contatti/{scena['anna'].pk}/").content.decode()
     assert "Invita al portale" in html
-    client.post(f"/assistenza/contatto/{scena['anna'].pk}/invita/")
+    client.post(f"/portale/contatto/{scena['anna'].pk}/invita/")
     accesso = AccessoPortale.objects.get(contatto=scena["anna"])
     assert accesso.utente.username == "anna@rossi.it" and accesso.utente.profilo.esterno
     link = re.search(r"https?://\S+/accounts/reset/\S+/", mail.outbox[-1].body).group(0)
@@ -56,7 +57,7 @@ def test_invito_con_il_link_per_la_password(client, scena):
     r = client.get(urlparse(link).path, follow=True)
     assert "Scegli la password" in r.content.decode()
     client.force_login(User.objects.get(username="root"))
-    client.post(f"/assistenza/contatto/{scena['anna'].pk}/revoca/")
+    client.post(f"/portale/contatto/{scena['anna'].pk}/revoca/")
     assert not User.objects.get(pk=accesso.utente.pk).is_active
 
 

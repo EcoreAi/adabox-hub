@@ -1,0 +1,6 @@
+{# Risultati della ricerca per collegare un record al progetto. #}
+{% if testo|length < 2 %}<p class="ai-progetto-vuoto">Scrivi almeno due lettere: cerca tra i record che puoi vedere (commesse, clienti, opportunità, campagne, ticket…).</p>
+{% elif not risultati %}<p class="ai-progetto-vuoto">Nessun record trovato per «{{ testo }}».</p>
+{% else %}<ul class="ai-collega-risultati">{% for r in risultati %}
+  <li><form method="post" action="{% url 'ai:collega' progetto.pk %}">{% csrf_token %}<input type="hidden" name="ct" value="{{ r.ct }}"><input type="hidden" name="record" value="{{ r.pk }}">
+    <button type="submit"><span class="ai-collega-tipo">{{ r.vista }}</span><span class="ai-elenco-titolo">{{ r.titolo }}</span><span class="ai-collega-piu">Collega</span></button></form></li>{% endfor %}</ul>{% endif %}

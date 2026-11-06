@@ -84,7 +84,7 @@ def _come_data(valore):
     return valore
 
 
-def serie_storica(vista, request, data, misura="count", per="mese", filtri=None, testo=""):
+def serie_storica(vista, request, data, misura="count", per="mese", filtri=None, testo="", lista=None):
     """([(periodo, valore)] dei periodi completi fino a quello in corso escluso, periodo in corso)."""
     from .strumenti import viste
     if per not in UNITA:
@@ -93,7 +93,7 @@ def serie_storica(vista, request, data, misura="count", per="mese", filtri=None,
     lookup, campo, _ = viste._percorso(vista, data, con_operatore=False)
     if not isinstance(campo, (models.DateField, models.DateTimeField)):
         raise ErroreStrumento(f"«{data}» non è un campo data.")
-    qs = viste.filtra(vista, request, vista.get_queryset(request), testo, filtri).order_by()
+    qs = viste.filtra(vista, request, vista.get_queryset(request), testo, filtri, lista).order_by()
     if qs.query.distinct:
         qs = vista.model._default_manager.filter(pk__in=qs.values("pk"))
     righe = qs.annotate(_p=UNITA[per](lookup)).values("_p").annotate(_v=espressione).order_by("_p")
@@ -136,7 +136,7 @@ def calcola_previsione(spec, contesto):
     from .strumenti.viste import vista_per
     vista = vista_per(contesto, spec["vista"])
     storia, attuale = serie_storica(vista, richiesta.per(contesto), spec["data"], spec.get("misura", "count"),
-                                    spec.get("per", "mese"), spec.get("filtri"), spec.get("testo", ""))
+                                    spec.get("per", "mese"), spec.get("filtri"), spec.get("testo", ""), spec.get("lista"))
     futuro, modello = prevedi(storia, spec.get("orizzonte", 3))
     per = spec.get("per", "mese")
     return {"storico": [[etichetta(p, per), round(v, 2)] for p, v in storia],

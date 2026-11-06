@@ -1,0 +1,12 @@
+<section class="ui-card is-revealed ui-section">
+  <details>
+    <summary class="ui-card-head"><span class="ui-card-title">Storico delle modifiche ({{ storico|length }})</span></summary>
+    <div class="ui-table-wrap"><table class="ui-table is-revealed">
+      <thead><tr><th>Quando</th><th>Chi</th><th>Da dove</th><th>Cosa</th></tr></thead>
+      <tbody>{% for v in storico %}<tr>
+        <td>{{ v.creato|date:"d/m/Y H:i" }}</td><td>{{ v.utente_nome|default:"—" }}</td><td>{{ v.get_origine_display }}</td>
+        <td>{{ v.get_azione_display }}{% for m in v.modifiche %}<br>{% if m.riga %}{{ m.riga }}{% if m.campo %}: {% endif %}{% endif %}{% if m.campo %}{{ m.campo }}: {{ m.prima|default:"—" }} → {{ m.dopo|default:"—" }}{% endif %}{% endfor %}</td>
+      </tr>{% endfor %}</tbody>
+    </table></div>
+  </details>
+</section>

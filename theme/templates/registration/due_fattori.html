@@ -1,0 +1,24 @@
+{% extends 'theme/base.html' %}
+{% block title %}Verifica · {{ theme.brand }}{% endblock %}
+{% block public_content %}
+<div class="ui-login df-sfondo">
+  <div class="ui-login-card df-entra">
+    <div class="ui-login-header">
+      <span class="df-scudo df-scudo-grande is-attivo"><svg><use href="#icon-shield"/></svg></span>
+      <h1>Verifica che sei tu</h1>
+      <p id="df-spiega">Inserisci il codice di 6 cifre che vedi nell'app di autenticazione.</p>
+    </div>
+    <form method="post" class="ui-login-body" data-df-form>
+      {% csrf_token %}
+      {% if errore %}<div class="ui-alert ui-alert-danger df-scuoti" role="alert">{{ errore }}</div>{% endif %}
+      {% if messages %}{% for m in messages %}<div class="ui-alert ui-alert-{{ m.tags|default:'info' }}">{{ m }}</div>{% endfor %}{% endif %}
+      <input class="ui-input df-codice" name="codice" id="df-codice" required autofocus autocomplete="one-time-code"
+             inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" aria-labelledby="df-spiega" data-df-codice>
+      <label class="df-ricorda"><input type="checkbox" name="ricorda" value="1"> Non chiedere più su questo dispositivo per 30 giorni</label>
+      <button class="ui-btn ui-btn-primary" type="submit" style="width:100%; justify-content:center;">Verifica</button>
+      <p class="df-link"><button type="button" class="ui-link df-testo" data-df-recupero>Non hai il telefono? Usa un codice di recupero</button></p>
+      <p class="df-link"><a href="{% url 'login' %}">Torna all'accesso</a></p>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,23 +1,35 @@
 from django.urls import include, path
 
-from . import views
+from . import applicazioni, cerca, due_fattori_viste, utenti, views
+from .viste import salvate as salvate_viste
 from .viste import allegati as allegati_viste
 from .viste import chatter as chatter_viste
+from .viste import kanban as kanban_viste
 from .viste import registry
 
 app_name = "core"
 urlpatterns = [
     path("", views.home, name="home"),
     path("dashboard/", views.dashboard, name="dashboard"),
+    path("dashboard/layout/", views.dashboard_layout, name="dashboard_layout"),
+    path("dashboard/ripristina/", views.dashboard_reset, name="dashboard_reset"),
     path("app/", views.launcher, name="launcher"),
     path("stile/", views.stile, name="stile"),
     path("profilo/", views.profilo, name="profilo"),
+    path("profilo/due-fattori/", due_fattori_viste.gestione, name="due_fattori"),
     path("profilo/azienda/", views.azienda_predefinita, name="azienda_predefinita"),
     path("profilo/token/", views.token_nuovo, name="token_nuovo"),
     path("profilo/token/<int:pk>/revoca/", views.token_revoca, name="token_revoca"),
     path("azienda/cambia/", views.cambia_azienda, name="cambia_azienda"),
+    path("salute/", views.salute, name="salute"),
+    path("cerca/", cerca.pagina, name="cerca"),
+    path("ricerche/salva/", salvate_viste.salva, name="ricerca_salva"),
+    path("ricerche/<int:pk>/elimina/", salvate_viste.elimina, name="ricerca_elimina"),
+    path("ricerche/<int:pk>/predefinita/", salvate_viste.predefinita_vista, name="ricerca_predefinita"),
     path("impostazioni/", views.impostazioni, name="impostazioni"),
+    path("kanban/nota/<int:pk>/", kanban_viste.nota, name="kanban_nota"),
     path("impostazioni/barra/", views.impostazioni_barra, name="impostazioni_barra"),
+    path("profilo/le-mie-app/", views.le_mie_app, name="le_mie_app"),
     path("chatter/<int:ct>/<int:pk>/", chatter_viste.pannello, name="chatter"),
     path("chatter/<int:ct>/<int:pk>/messaggi/", chatter_viste.altri_messaggi, name="chatter_messaggi"),
     path("chatter/<int:ct>/<int:pk>/scrivi/", chatter_viste.scrivi, name="chatter_scrivi"),
@@ -30,12 +42,31 @@ urlpatterns = [
     path("allegati/carica/<int:ct>/<int:pk>/", allegati_viste.carica, name="allegato_carica"),
     path("allegati/<int:pk>/", allegati_viste.scarica, name="allegato_scarica"),
     path("allegati/<int:pk>/elimina/", allegati_viste.elimina, name="allegato_elimina"),
+    path("utenti/", utenti.lista, name="utenti"),
+    path("utenti/nuovo/", utenti.scheda, name="utente_nuovo"),
+    path("utenti/matrice/", utenti.matrice, name="matrice"),
+    path("utenti/ruoli/", utenti.ruoli_lista, name="ruoli"),
+    path("utenti/ruoli/nuovo/", utenti.ruolo, name="ruolo_nuovo"),
+    path("utenti/ruoli/<int:pk>/", utenti.ruolo, name="ruolo"),
+    path("utenti/ruoli/<int:pk>/elimina/", utenti.ruolo_elimina, name="ruolo_elimina"),
+    path("utenti/<int:pk>/", utenti.scheda, name="utente"),
+    path("utenti/<int:pk>/invito/", utenti.invito, name="utente_invito"),
+    path("utenti/<int:pk>/due-fattori/", utenti.due_fattori_azzera, name="utente_due_fattori"),
+    path("utenti/<int:pk>/livello/", utenti.livello, name="utente_livello"),
     path("moduli/", views.moduli, name="moduli"),
     path("moduli/azione/", views.moduli_azione, name="moduli_azione"),
     path("moduli/attivazione/", views.moduli_attivazione, name="moduli_attivazione"),
     path("moduli/carica/", views.moduli_carica, name="moduli_carica"),
     path("moduli/scarica/", views.moduli_scarica, name="moduli_scarica"),
     path("moduli/stato/", views.moduli_stato, name="moduli_stato"),
+    path("moduli/licenza/", views.moduli_licenza, name="moduli_licenza"),
+    path("moduli/sincronizza/", views.moduli_sincronizza, name="moduli_sincronizza"),
+    path("applicazioni/", applicazioni.pagina, name="applicazioni"),
+    path("applicazioni/richiedi/", applicazioni.richiedi, name="applicazioni_richiedi"),
+    path("applicazioni/attivazione/", applicazioni.attivazione, name="applicazioni_attivazione"),
+    path("applicazioni/<slug:slug>/", applicazioni.scheda, name="applicazione"),
+    path("applicazioni/<slug:slug>/ruolo/", applicazioni.ruolo, name="applicazione_ruolo"),
+    path("applicazioni/<slug:slug>/nome/", applicazioni.nome, name="applicazione_nome"),
 ]
 # viste generate dalle ModelView del kernel, sotto /core/ come i moduli sotto /<slug>/
 urlpatterns += [path("core/", include(registry.urlpatterns("core")))]

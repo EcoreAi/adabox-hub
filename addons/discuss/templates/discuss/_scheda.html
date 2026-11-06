@@ -1,0 +1,15 @@
+{% if s.stato == "ok" %}<div class="ds-scheda" data-url="{{ s.url_scheda }}" hx-get="{{ s.url_scheda }}" hx-trigger="every 60s [!this.querySelector('details[open]') && !document.hidden]" hx-swap="outerHTML">
+  <div class="ds-scheda-testa"><div><small>{{ s.tipo }}</small><a class="ds-scheda-titolo" href="{{ s.url }}">{{ s.titolo }}</a></div></div>
+  {% if s.campi %}<dl class="ds-scheda-campi">{% for c in s.campi %}<div><dt>{{ c.etichetta }}</dt><dd>{{ c.valore }}</dd></div>{% endfor %}</dl>{% endif %}
+  {% if avviso %}<div class="ds-scheda-avviso" role="status">{{ avviso }}</div>{% endif %}
+  <div class="ds-scheda-azioni">
+    <a class="ds-scheda-btn" href="{{ s.url }}">Apri</a>
+    {% if s.url_modifica %}<a class="ds-scheda-btn" href="{{ s.url_modifica }}">Modifica</a>{% endif %}
+    {% for etichetta, url in s.bottoni %}<button type="button" class="ds-scheda-btn" data-scheda-azione hx-post="{{ url }}" hx-swap="none" hx-confirm="{{ etichetta }}: confermi?">{{ etichetta }}</button>{% endfor %}
+    {% if s.ha_chatter %}<button type="button" class="ds-scheda-btn" hx-post="{% url 'discuss:scheda_segui' s.ct s.pk %}" hx-target="closest .ds-scheda" hx-swap="outerHTML">{% if s.segue %}Smetti di seguire{% else %}Segui{% endif %}</button>
+    <details class="ds-scheda-nota"><summary class="ds-scheda-btn">Aggiungi una nota</summary>
+      <form hx-post="{% url 'discuss:scheda_nota' s.ct s.pk %}" hx-target="closest .ds-scheda" hx-swap="outerHTML"><input class="ui-input" name="corpo" required aria-label="Nota sul record" placeholder="La nota finisce sul record"><button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Salva</button></form></details>{% endif %}
+  </div>
+</div>{% elif s.stato == "vietato" %}<div class="ds-scheda"><div class="ds-scheda-muta">Hai ricevuto un record che non puoi vedere: chiedi a chi te l'ha mandato.</div></div>
+{% elif s.stato == "spento" %}<div class="ds-scheda"><div class="ds-scheda-muta">Questo record appartiene a un'app non attiva.</div></div>
+{% else %}<div class="ds-scheda"><div class="ds-scheda-muta">Questo record non c'è più.</div></div>{% endif %}

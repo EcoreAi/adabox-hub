@@ -90,7 +90,8 @@ def costruisci(contesto, nome="", istruzioni="", quando="giorni", alle="", giorn
 
 def _consegna(p):
     voci = ["nella sua chat"]
-    if p.in_discuss and "discuss" in settings.ADDONS_ATTIVI:
+    from ..pianificate import discuss_attivo
+    if p.in_discuss and discuss_attivo():
         voci.append("in Discuss")
     if p.per_email:
         voci.append("per email" if p.utente.email else "per email (manca l'indirizzo nel profilo)")

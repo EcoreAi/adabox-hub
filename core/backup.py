@@ -39,12 +39,16 @@ def _postgres(dest, db):
         raise BackupFallito(f"pg_dump fallito: {esito.stderr.strip()}")
 
 
+LUNGHEZZA_MOTIVO = 150
+
+
 def esegui(motivo):
     """Copia il DB in BACKUP_DIR/<AAAA-MM-GG-HHMMSS>-<motivo>.<sqlite3|dump>. Restituisce il Path."""
     db = settings.DATABASES["default"]
     engine = db["ENGINE"]
     cartella = Path(settings.BACKUP_DIR)
     data = timezone.localtime().strftime("%Y-%m-%d-%H%M%S")
+    motivo = motivo[:LUNGHEZZA_MOTIVO]                  # con molti moduli insieme il nome supererebbe il limite del disco
     try:
         cartella.mkdir(parents=True, exist_ok=True)
         if "sqlite3" in engine:

@@ -1,0 +1,36 @@
+{% extends 'core/base_app.html' %}
+{% load tema static %}
+{% block title %}Pagine · Analisi · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Analisi</h1><div class="sub">Le tue pagine di grafici e KPI: ognuna è una scheda della dashboard</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'core:dashboard' %}">Dashboard</a><a class="ui-btn ui-btn-secondary" href="{% url 'grafici:salvati_lista' %}">Grafici salvati</a>{% if perms.grafici.add_grafico %}<a class="ui-btn ui-btn-primary" href="{% url 'grafici:costruttore' %}"><svg><use href="#icon-plus"/></svg> Nuovo grafico</a>{% endif %}</div>
+</div>
+{% include "grafici/_schede.html" with scheda_attiva="" %}
+<div class="an-gestione">
+  <section class="ui-card is-revealed">
+    <div class="ui-card-head"><div><div class="ui-card-title">Le tue pagine</div><div class="ui-card-sub">{{ libere|length }} liber{{ libere|length|pluralize:"a,e" }} · {{ app_pagine|length }} sched{{ app_pagine|length|pluralize:"a,e" }} di app personalizzat{{ app_pagine|length|pluralize:"a,e" }}</div></div></div>
+    <div class="ui-card-body">
+      <form class="an-form-riga an-crea" method="post" action="{% url 'grafici:nuova' %}">{% csrf_token %}
+        <input class="ui-input" name="titolo" placeholder="Titolo della nuova pagina" maxlength="100" required>
+        <select class="ui-input" name="icona" aria-label="Icona">{% for v, e in icone %}<option value="{{ v }}">{{ e }}</option>{% endfor %}</select>
+        <button class="ui-btn ui-btn-primary" type="submit"><svg><use href="#icon-plus"/></svg> Crea</button>
+      </form>
+      {% if libere %}<ul class="an-elenco">{% for p in libere %}<li><a href="{% url 'grafici:pagina' p.pk %}"><svg><use href="#icon-{{ p.icona }}"/></svg><strong>{{ p.titolo }}</strong><small>{{ p.n_widget }} widget{% if p.condivisa %} · condivisa con l'azienda{% endif %}</small></a></li>{% endfor %}</ul>
+      {% else %}<p class="ui-help">Nessuna pagina libera: creane una qui o con «Nuova pagina» tra le schede.</p>{% endif %}
+      {% if app_pagine %}<h3 class="an-h3">Schede delle app</h3>
+      <ul class="an-elenco">{% for p in app_pagine %}<li><a href="{% url 'grafici:pagina_app' p.app %}"><svg><use href="#icon-{{ p.icona|default:'zap' }}"/></svg><strong>{{ p.titolo }}</strong><small>{{ p.n_widget }} widget{% if p.nascosta %} · scheda nascosta{% endif %}</small></a>
+        {% if p.nascosta %}<form method="post" action="{% url 'grafici:nascondi_app' p.app %}">{% csrf_token %}<button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit"><svg><use href="#icon-eye"/></svg> Mostra</button></form>{% endif %}</li>{% endfor %}</ul>{% endif %}
+    </div>
+  </section>
+  <section class="ui-card is-revealed">
+    <div class="ui-card-head"><div><div class="ui-card-title">Condivise con te</div><div class="ui-card-sub">Pagine di colleghi: i dati sono quelli che i tuoi permessi ti fanno vedere</div></div></div>
+    <div class="ui-card-body">{% if condivise %}<ul class="an-elenco">{% for p in condivise %}<li><a href="{% url 'grafici:pagina' p.pk %}"><svg><use href="#icon-{{ p.icona }}"/></svg><strong>{{ p.titolo }}</strong><small>di {{ p.utente.get_full_name|default:p.utente.username }}</small></a></li>{% endfor %}</ul>{% else %}<p class="ui-help">Nessuna pagina condivisa da altri.</p>{% endif %}</div>
+  </section>
+  <section class="ui-card is-revealed">
+    <div class="ui-card-head"><div><div class="ui-card-title">Libreria</div><div class="ui-card-sub">I tuoi grafici e quelli condivisi con te: ognuno può stare in più pagine</div></div></div>
+    <div class="ui-card-body">{% if libreria %}<ul class="an-elenco">{% for g in libreria %}<li><a href="{% url 'grafici:grafico' g.pk %}"><svg><use href="#icon-bar-chart"/></svg><strong>{{ g.titolo }}</strong><small>{{ g.get_tipo_display }}{% if g.utente_id != user.id %} · condiviso da {{ g.utente.get_full_name|default:g.utente.username }}{% endif %}</small></a></li>{% endfor %}</ul>
+      {% else %}<p class="ui-help">Vuota: crea il primo con «Nuovo grafico» o chiedilo ad Ada.</p>{% endif %}</div>
+  </section>
+</div>
+{% endblock %}

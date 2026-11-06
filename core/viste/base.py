@@ -17,16 +17,13 @@ def _campo_form(campo, **kwargs):
 def form_per_azienda(base, azienda_id):
     """Sottoclasse del form in cui le scelte di FK e M2M verso modelli per azienda (con il campo `azienda`)
     sono limitate all'azienda corrente: un record di un'altra azienda non si può né vedere né collegare."""
-    if azienda_id is None:
-        return base
-
     def __init__(self, *args, **kwargs):
         base.__init__(self, *args, **kwargs)
         for campo in self.fields.values():
             queryset = getattr(campo, "queryset", None)
             if queryset is not None and any(f.name == "azienda" and f.is_relation
                                             for f in queryset.model._meta.get_fields()):
-                campo.queryset = queryset.filter(azienda_id=azienda_id)
+                campo.queryset = queryset.none() if azienda_id is None else queryset.filter(azienda_id=azienda_id)
 
     return type(base)(base.__name__, (base,), {"__init__": __init__, "__module__": base.__module__})
 
@@ -54,7 +51,12 @@ class ModelView:
     list_sum = ()                 # campi numerici con i totali (per gruppo e in fondo)
     kanban_group = None           # vista kanban: campo con scelte o FK
     kanban_fields = ()            # campi mostrati nella card (oltre al titolo)
-    kanban_limite = 50            # card per colonna
+    kanban_limite = 30            # card caricate alla volta per colonna, le altre scorrendo
+    kanban_ordini = ()            # ordinamenti in più nel selettore della colonna: [("-valore", "Valore"), ...]
+    kanban_valori_chiusi = ()     # colonne ripiegate di partenza, per i campi con scelte (per le FK: `chiusa` o `vinta` del record)
+    kanban_ordine_chiuse = ""     # nelle colonne chiuse, di partenza: es. "-chiusa_il", le più recenti prima
+    kanban_ricco = False          # le card e le colonne vengono da kanban_scheda e kanban_colonna
+    kanban_colori = {}            # {valore della colonna: colore da core.colori}; senza, per posizione
     calendar_date = None          # vista calendario: campo data
     calendar_color = None         # campo con scelte che colora gli eventi
     graph = None                  # vista grafico: {"tipi": [...], "misure": [...], "per": [...]}
@@ -62,6 +64,10 @@ class ModelView:
     form_class = None
     readonly_fields = ()
     company_field = None          # None = modello globale
+    ai_descrizione = ""                         # per Ada: che cosa contiene e come la chiamano gli utenti, se il nome non basta
+    storico = True                              # False: record che cambiano troppo spesso per finire nel registro delle modifiche
+    personale = False                           # True: record di una sola persona, che non si condivide (memoria, progetti dell'assistente)
+    tra_aziende = False                         # True: pagina di amministrazione dell'istanza, mostra tutte le aziende di proposito
     sequence_field = None         # ("campo", "modulo.codice"): numero assegnato alla creazione
     chatter = False               # pannello messaggi/note/allegati/attività nel dettaglio
     tracked_fields = ()           # campi le cui modifiche finiscono nel chatter
@@ -120,9 +126,9 @@ class ModelView:
 
     def get_urls_viste(self):
         """URL delle viste facoltative, solo se dichiarate."""
-        from . import calendario, grafico, kanban, stampa
+        from . import calendario, grafico, kanban, pivot, stampa
         s = self.slug
-        urls = []
+        urls = [path(f"{s}/pivot/", pivot.PivotView.as_view(vista=self), name=f"{s}_pivot")] if self.list_group_by else []
         if self.reports:
             urls += [path(f"{s}/<int:pk>/stampa/<int:indice>/", stampa.StampaView.as_view(vista=self), name=f"{s}_stampa"),
                      path(f"{s}/stampa/<int:indice>/", stampa.StampaMassaView.as_view(vista=self), name=f"{s}_stampa_massa")]
@@ -139,7 +145,7 @@ class ModelView:
         """[(nome, etichetta, url)] delle viste dichiarate, per il selettore nella testata."""
         viste = [("lista", "Lista", self.url("lista"))]
         for nome, etichetta, attivo in [("kanban", "Kanban", self.kanban_group), ("calendario", "Calendario", self.calendar_date),
-                                        ("grafico", "Grafico", self.graph)]:
+                                        ("grafico", "Grafico", self.graph), ("pivot", "Pivot", self.list_group_by)]:
             if attivo:
                 try:
                     viste.append((nome, etichetta, self.url(nome)))
@@ -149,9 +155,9 @@ class ModelView:
 
     def get_queryset(self, request):
         qs = self.model._default_manager.all()
-        azienda_id = getattr(getattr(request, "azienda", None), "pk", None)    # lazy: può avvolgere None
-        if self.company_field and azienda_id is not None:
-            qs = qs.filter(**{f"{self.company_field}_id": azienda_id})
+        azienda_id = getattr(getattr(request, "azienda", None), "pk", None)
+        if self.company_field:                     # senza azienda corrente non si vede nulla, mai tutto
+            qs = qs.none() if azienda_id is None else qs.filter(**{f"{self.company_field}_id": azienda_id})
         if self.ordering:
             return qs.order_by(*self.ordering)
         return qs if qs.ordered else qs.order_by("pk")    # paginazione stabile
@@ -189,6 +195,8 @@ class ModelView:
         return self._perm(request, "view")
 
     def has_add_permission(self, request):
+        if self.company_field and getattr(getattr(request, "azienda", None), "pk", None) is None:
+            return False                           # il record non avrebbe un'azienda a cui appartenere
         return self._perm(request, "add")
 
     def has_change_permission(self, request, obj=None):
@@ -209,6 +217,23 @@ class ModelView:
     def get_actions(self, request):
         """[(nome, etichetta)] delle azioni di massa che l'utente può usare."""
         return [(n, self.etichetta_metodo(n)) for n in self.actions if self.permesso_metodo(request, getattr(self, n))]
+
+    def kanban_queryset(self, qs):
+        """Le relazioni che servono a kanban_scheda, per non fare una query a card."""
+        return qs
+
+    def kanban_scheda(self, request, obj):
+        """Con kanban_ricco: {accento, scadenza: {icona, testo}, sottotitolo, righe: [testo], valore, etichette: [(nome, colore o #rrggbb già controllato)], stelle: (piene, vuote, testo),
+        barra: (percentuale, testo), persona: {iniziali, nome, tinta}, persone: [le stesse]}. core.viste.schede li costruisce. Tutto facoltativo; i colori da core.colori."""
+        return {}
+
+    def kanban_colonna(self, request, valore, qs):
+        """Con kanban_ricco: {colore, riepilogo} della colonna; `qs` sono i suoi record filtrati, tutti e non solo quelli mostrati."""
+        return {}
+
+    def kanban_spostabile(self):
+        """Uno stato non modificabile nel form cambia solo dalle sue azioni (numero, scadenze, magazzino): non col trascinamento."""
+        return self.opts.get_field(self.kanban_group).editable
 
     def kanban_vietato(self, request, obj):
         """Motivo per cui lo spostamento nel kanban (già applicato a obj, non salvato) non è ammesso, o None."""

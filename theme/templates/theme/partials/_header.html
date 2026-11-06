@@ -13,9 +13,19 @@
       {% if theme.nav_altre %}
       <div class="ui-dropdown ui-nav-altre">
         <button type="button" class="ui-nav-voce{% for item in theme.nav_altre %}{% if current == item.url_name %} is-active{% endif %}{% endfor %}" aria-haspopup="true" aria-expanded="false" aria-controls="nav-altre">Altre <svg class="chev"><use href="#icon-chevron-down"/></svg></button>
+        {% if theme.nav_altre_gruppi %}
+        <div id="nav-altre" class="ui-dropdown-menu ui-menucol">
+          <div class="ui-container ui-menucol-colonne">
+            {% for gruppo in theme.nav_altre_gruppi %}<div class="ui-menucol-colonna"><div class="ui-menucol-titolo">{{ gruppo.titolo }}</div>
+              {% for item in gruppo.voci %}<a href="{% url item.url_name %}"{% if current == item.url_name %} class="is-active"{% endif %}>{{ item.label }}</a>{% endfor %}</div>
+            {% endfor %}
+          </div>
+        </div>
+        {% else %}
         <div id="nav-altre" class="ui-dropdown-menu is-right" role="menu">
           {% for item in theme.nav_altre %}<a href="{% url item.url_name %}" role="menuitem">{{ item.label }}</a>{% endfor %}
         </div>
+        {% endif %}
       </div>
       {% endif %}
     </nav>
@@ -24,6 +34,7 @@
       <svg><use href="#icon-menu"/></svg>
     </button>
 
+    {% url 'core:cerca' as url_cerca %}{% if user.is_authenticated and azienda and url_cerca %}<form class="ui-cerca-globale" method="get" action="{{ url_cerca }}" role="search"><input class="ui-input" type="search" name="q" placeholder="Cerca ovunque…" aria-label="Cerca in tutte le app" minlength="2" required></form>{% endif %}
     {% for voce in voci_testata %}{% include voce.template %}{% endfor %}
 
     <div class="ui-profile">
@@ -37,9 +48,21 @@
           {% url 'core:profilo' as url_profilo %}
           {% if url_profilo %}<a href="{{ url_profilo }}"><svg><use href="#icon-user"/></svg> Profilo</a>{% endif %}
           <a href="{% url 'password_change' %}"><svg><use href="#icon-lock"/></svg> Cambia password</a>
-          {% if user.is_staff %}
+          {% url 'core:le_mie_app' as url_mie_app %}
+          {% if url_mie_app %}<a href="{{ url_mie_app }}"><svg><use href="#icon-layout"/></svg> Le mie app nel menu</a>{% endif %}
+          {% url 'core:applicazioni' as url_applicazioni %}
+          {% if perms.core.view_modulo and url_applicazioni or voci_profilo %}
           <hr>
-          <a href="{% url 'admin:index' %}"><svg><use href="#icon-tool"/></svg> Amministrazione</a>
+          {% if perms.core.view_modulo and url_applicazioni %}<a href="{{ url_applicazioni }}"><svg><use href="#icon-layout"/></svg> Applicazioni</a>{% endif %}
+          {% for voce in voci_profilo %}<a href="{{ voce.url }}"><svg><use href="#icon-{{ voce.icon }}"/></svg> {{ voce.label }}</a>{% endfor %}
+          {% endif %}
+          {% url 'core:utenti' as url_utenti %}
+          {% url 'core:impostazioni' as url_impostazioni %}
+          {% if perms.auth.change_user and url_utenti or perms.core.change_parametro and url_impostazioni or user.is_staff %}
+          <hr>
+          {% if perms.auth.change_user and url_utenti %}<a href="{{ url_utenti }}"><svg><use href="#icon-users"/></svg> Utenti e ruoli</a>{% endif %}
+          {% if perms.core.change_parametro and url_impostazioni %}<a href="{{ url_impostazioni }}"><svg><use href="#icon-tool"/></svg> Impostazioni</a>{% endif %}
+          {% if user.is_staff %}<a href="{% url 'admin:index' %}"><svg><use href="#icon-tool"/></svg> Amministrazione</a>{% endif %}
           {% endif %}
           <hr>
           <form method="post" action="{% url 'logout' %}" class="ui-logout-form">

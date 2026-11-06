@@ -10,10 +10,17 @@ LIMITE_OPZIONI = 200
 
 
 def _campo(vista, nome):
-    try:
-        return vista.opts.get_field(nome)
-    except FieldDoesNotExist:
-        return None
+    """Il campo, anche attraverso le relazioni (fattura__cliente); None se il percorso non esiste."""
+    opts, campo = vista.opts, None
+    for parte in nome.split("__"):
+        if opts is None:
+            return None
+        try:
+            campo = opts.get_field(parte)
+        except FieldDoesNotExist:
+            return None
+        opts = campo.related_model._meta if campo.is_relation and campo.related_model else None
+    return campo
 
 
 def _etichetta(f):
@@ -36,9 +43,9 @@ def specifiche(vista, request):
             spec["opzioni"] = [(str(k), v) for k, v in f.flatchoices]
         elif f.is_relation:
             qs = f.related_model._default_manager.all()
-            azienda = getattr(request, "azienda", None)
-            if azienda is not None and any(c.name == "azienda" for c in f.related_model._meta.get_fields()):
-                qs = qs.filter(azienda=azienda)
+            azienda_id = getattr(getattr(request, "azienda", None), "pk", None)
+            if any(c.name == "azienda" for c in f.related_model._meta.get_fields()):
+                qs = qs.none() if azienda_id is None else qs.filter(azienda_id=azienda_id)
             spec["opzioni"] = [(str(o.pk), str(o)) for o in qs[:LIMITE_OPZIONI]]
         elif isinstance(f, (models.DateField, models.DateTimeField)):
             spec.update(tipo="data", valore=None, da=request.GET.get(f"f_{nome}_da", ""),

@@ -1,0 +1,12 @@
+{% load helpdesk_extra %}{% articoli_suggeriti obj as suggeriti %}
+{% if obj.valutazione or suggeriti %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">{% if obj.valutazione %}Giudizio del cliente{% else %}Dalla guida{% endif %}</div></div>
+  <div class="ui-card-body">
+    {% if obj.valutazione %}<p class="hd-giudizio"><span class="hd-stelle">{{ obj.valutazione.stelle }}</span> {{ obj.valutazione.get_voto_display }}</p>
+    {% if obj.valutazione.commento %}<blockquote class="hd-commento">{{ obj.valutazione.commento|linebreaksbr }}</blockquote>{% endif %}{% endif %}
+    {% if suggeriti %}<p class="ui-help">Articoli che forse rispondono già:</p>
+    {% for a in suggeriti %}<div class="ui-allegato"><a class="ui-link" href="{% url 'helpdesk:articoli_dettaglio' a.pk %}">{{ a.titolo }}</a></div>{% endfor %}{% endif %}
+  </div>
+</section>
+{% endif %}

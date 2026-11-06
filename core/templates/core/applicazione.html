@@ -1,0 +1,37 @@
+{% extends 'core/base_app.html' %}
+{% block title %}{{ v.nome }} · Applicazioni · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>{{ v.nome }}</h1><div class="sub"><a class="ui-link" href="{% url 'core:applicazioni' %}">Applicazioni</a> · {{ v.etichetta }} · nome nel menu, chi può usarla e che cosa può farci</div></div>
+  <div class="ui-pagehead-actions">{% if v.stato == "non_attiva" %}<form method="post" action="{% url 'core:applicazioni_attivazione' %}">{% csrf_token %}<input type="hidden" name="slug" value="{{ v.slug }}"><input type="hidden" name="attivo" value="1"><button type="submit" class="ui-btn ui-btn-primary">Attiva</button></form>{% endif %}</div>
+</div>
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Nome nel menu</div><div class="ui-card-sub">Vale per tutti e resta anche dopo gli aggiornamenti. Le pagine interne dell'app non cambiano.</div></div></div>
+  <div class="ui-card-body"><form method="post" action="{% url 'core:applicazione_nome' v.slug %}" class="ui-modulo-ops">{% csrf_token %}
+    <input class="ui-input" name="etichetta" value="{% if v.nome != v.nome_originale %}{{ v.nome }}{% endif %}" placeholder="{{ v.nome_originale }}" maxlength="40" aria-label="Nome nel menu" style="max-width:280px">
+    <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Salva</button>
+    {% if v.nome != v.nome_originale %}<span class="ui-help">Il nome del modulo è «{{ v.nome_originale }}»: lascia vuoto per tornare a quello.</span>{% endif %}
+  </form></div>
+</section>
+{% if not con_permessi %}<div class="ui-card is-revealed"><div class="ui-card-body"><p class="ui-help" style="margin:0">Quest'app non ha permessi propri: accesa, è disponibile per tutti.</p></div></div>
+{% else %}
+<div class="mk-legenda">{% for nome, testo in spiegazioni %}<div><strong>{{ nome }}</strong>{{ testo }}</div>{% endfor %}</div>
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Per ruolo</div><div class="ui-card-sub">Vale subito per tutte le persone con quel ruolo</div></div></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Ruolo</th><th>In quest'app</th></tr></thead>
+    <tbody>{% for x in righe_ruoli %}<tr><td>{{ x.r.nome }}</td><td>
+      {% if x.tecnico %}<span class="ui-help">Tutto</span>{% elif perms.core.change_ruolo %}<form method="post" action="{% url 'core:applicazione_ruolo' v.slug %}">{% csrf_token %}<input type="hidden" name="ruolo" value="{{ x.r.pk }}">
+        <select name="livello" class="ui-input" style="max-width:260px" onchange="this.form.submit()" aria-label="Livello del ruolo {{ x.r.nome }}"><option value="">Come tutte le app: {{ x.base }}</option>{% for codice, nome in livelli %}<option value="{{ codice }}"{% if x.scelto == codice %} selected{% endif %}>{{ nome }}</option>{% endfor %}</select></form>
+      {% else %}{{ x.base }}{% endif %}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Per persona</div><div class="ui-card-sub">Un'eccezione qui vince sul ruolo</div></div></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed ut-matrice">
+    <thead><tr><th>Persona</th><th>Ruolo</th><th>In quest'app</th></tr></thead>
+    <tbody>{% for p in persone %}<tr><td>{{ p.u.get_full_name|default:p.u.username }}</td><td>{{ p.ruolo|default:"—" }}</td>{% include "core/utenti/_cella.html" with u=p.u cella=p.cella %}</tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endif %}
+{% endblock %}

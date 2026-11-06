@@ -1,14 +1,30 @@
-{% load discuss %}<article class="ds-messaggio{% if m.autore_id == request.user.pk %} is-mio{% endif %}" id="m{{ m.pk }}">
-  <span class="ui-avatar ds-avatar" aria-hidden="true">{{ m.autore|iniziale }}</span>
+{% load discuss %}{% if m.giorno %}<div class="ds-giorno"><span>{{ m.giorno }}</span></div>{% endif %}{% if m.tipo == "sistema" %}<div class="ds-avviso-riga" id="m{{ m.pk }}" data-id="{{ m.pk }}"><span>{{ m.corpo }}</span> <time class="ui-help" datetime="{{ m.creato|date:'c' }}">{{ m.creato|date:"H:i" }}</time></div>{% else %}<article class="ds-messaggio{% if m.autore_id == request.user.pk %} is-mio{% endif %}{% if m.continua %} is-continua{% endif %}{% if m.fissato_il %} is-fissato{% endif %}" id="m{{ m.pk }}" data-id="{{ m.pk }}" data-autore="{{ m.nome_mittente }}">
+  {% if m.continua %}<time class="ds-ora-mini" datetime="{{ m.creato|date:'c' }}">{{ m.creato|date:"H:i" }}</time>{% else %}<span class="ui-avatar ds-avatar" aria-hidden="true">{% if m.autore_esterno %}{{ m.autore_esterno|slice:":1"|upper }}{% else %}{{ m.autore|iniziale }}{% endif %}</span>{% endif %}
   <div class="ds-corpo">
-    <div class="ds-intestazione"><strong>{{ m.autore.get_full_name|default:m.autore.username|default:"Utente rimosso" }}</strong>
-      <time datetime="{{ m.creato|date:'c' }}" class="ui-help">{{ m.creato|date:"d/m H:i" }}</time>{% if m.modificato_il and not m.eliminato %} <span class="ui-help">(modificato)</span>{% endif %}
-      {% if m.autore_id == request.user.pk and not m.eliminato %}<span class="ds-azioni">
-        <button type="button" hx-get="{% url 'discuss:modifica' m.pk %}" hx-target="#m{{ m.pk }}" hx-swap="outerHTML">Modifica</button>
-        <button type="button" hx-post="{% url 'discuss:elimina' m.pk %}" hx-target="#m{{ m.pk }}" hx-swap="outerHTML" hx-confirm="Eliminare il messaggio?">Elimina</button>
-      </span>{% endif %}</div>
+    {% if m.risposta_a_id %}<a class="ds-citato" href="#m{{ m.risposta_a_id }}" data-vai="{{ m.risposta_a_id }}"><strong>{{ m.risposta_a.nome_mittente }}</strong> {% if m.risposta_a.eliminato %}<em>messaggio eliminato</em>{% else %}{{ m.risposta_a.corpo|testo_piano|truncatechars:90|default:"file allegato" }}{% endif %}</a>{% endif %}
+    {% if not m.continua %}<div class="ds-intestazione"><strong>{{ m.nome_mittente }}</strong>
+      <time datetime="{{ m.creato|date:'c' }}" class="ui-help">{{ m.creato|date:"H:i" }}</time>{% if m.modificato_il and not m.eliminato %} <span class="ui-help">(modificato)</span>{% endif %}{% if m.da_ai %} <span class="ds-distintivo">AI</span>{% endif %}{% if m.fissato_il %} <span class="ds-etichetta-fissato" title="Fissato da {{ m.fissato_da.get_full_name|default:m.fissato_da.username }}">Fissato</span>{% endif %}</div>{% elif m.modificato_il and not m.eliminato %}<span class="ui-help ds-mod-mini">(modificato)</span>{% endif %}
     {% if m.eliminato %}<div class="ui-help"><em>Messaggio eliminato.</em></div>
-    {% else %}<div class="ds-testo">{{ m.corpo|messaggio_html }}</div>
-    {% for a in m|allegati_messaggio %}<a class="ds-allegato" href="{% url 'discuss:allegato' a.pk %}">📎 {{ a.nome }} <span class="ui-help">{{ a.dimensione|filesizeformat }}</span></a>{% endfor %}{% endif %}
+    {% else %}{% if m.corpo %}<div class="ds-testo">{{ m.corpo|messaggio_html }}</div>{% endif %}
+    {% if m.file %}<div class="ds-file">{% for a in m.file %}{% if a.tipo_file == "immagine" %}<a class="ds-immagine" href="{% url 'discuss:allegato' a.pk %}" target="_blank" rel="noopener"><img src="{% url 'discuss:allegato' a.pk %}" alt="{{ a.nome }}" loading="lazy"></a>{% elif a.tipo_file == "audio" %}<audio class="ds-audio" controls preload="metadata" src="{% url 'discuss:allegato' a.pk %}"></audio>{% else %}<a class="ds-allegato" href="{% url 'discuss:allegato' a.pk %}"><svg class="ds-icona"><use href="#icon-paperclip"/></svg> {{ a.nome }} <span class="ui-help">{{ a.dimensione|filesizeformat }}</span></a>{% endif %}{% endfor %}</div>{% endif %}
+    {% if m.ha_audio %}{% if m.trascrizione %}<div class="ds-trascrizione"><small>Trascrizione</small>{{ m.trascrizione }}</div>{% elif m.trascrizione_stato == "in_corso" %}<div class="ds-trascrizione ui-help">Trascrizione in corso…</div>{% elif m.trascrizione_stato == "errore" %}<div class="ds-trascrizione ui-help">Trascrizione non riuscita.</div>{% endif %}{% if puo_trascrivere and not m.trascrizione and m.trascrizione_stato != "in_corso" %}<button type="button" class="ds-n-risposte" hx-post="{% url 'discuss:trascrivi' m.pk %}" hx-target="closest .ds-messaggio" hx-swap="outerHTML">Trascrivi</button>{% endif %}{% endif %}
+    {% if m.consegna %}<div class="ui-help ds-consegna{% if m.consegna == 'errore' or m.consegna == 'finestra' %} is-errore{% endif %}">{{ m.consegna_testo }}{% if m.consegna_errore %}: {{ m.consegna_errore }}{% endif %}</div>{% endif %}
+    {% if m.fonti %}<div class="ui-help ds-fonti">Ha consultato: {{ m.fonti|join:" · " }}</div>{% endif %}
+    {% for s in m.schede %}{% include "discuss/_scheda.html" %}{% endfor %}
+    {% for a in m.anteprime %}<a class="ds-anteprima" href="{{ a.url }}" target="_blank" rel="noopener noreferrer"><small>{{ a.sito }}</small><strong>{{ a.titolo }}</strong>{% if a.descrizione %}<span>{{ a.descrizione }}</span>{% endif %}</a>{% endfor %}
+    {% if m.gruppi_reazioni %}<div class="ds-reazioni">{% for r in m.gruppi_reazioni %}<button type="button" class="ds-reazione{% if r.mia %} is-mia{% endif %}" title="{{ r.nomi|join:', ' }}" hx-post="{% url 'discuss:reazione' m.pk %}" hx-vals='{"emoji": "{{ r.emoji }}"}' hx-target="closest .ds-messaggio" hx-swap="outerHTML">{{ r.emoji }} <span>{{ r.n }}</span></button>{% endfor %}</div>{% endif %}
+    {% if m.n_risposte %}<button type="button" class="ds-n-risposte" data-pannello="{% url 'discuss:risposte' m.pk %}">{{ m.n_risposte }} rispost{{ m.n_risposte|pluralize:"a,e" }}</button>{% endif %}{% endif %}
   </div>
-</article>
+  {% if not m.eliminato %}<div class="ds-azioni" role="toolbar" aria-label="Azioni sul messaggio">
+    {% if puo_reagire %}<button type="button" data-reagisci="👍" title="Mi piace" aria-label="Mi piace">👍</button><button type="button" data-reagisci="❤️" title="Cuore" aria-label="Cuore">❤️</button><button type="button" data-reagisci="😂" title="Risata" aria-label="Risata">😂</button><button type="button" data-emoji-reazione title="Altra reazione" aria-label="Altra reazione">🙂</button>{% endif %}
+    {% if puo_scrivere %}<button type="button" data-rispondi title="Rispondi" aria-label="Rispondi"><svg class="ds-icona"><use href="#icon-corner-up-left"/></svg></button>{% endif %}
+    {% if puo_fissare %}<button type="button" hx-post="{% url 'discuss:fissa' m.pk %}" hx-target="closest .ds-messaggio" hx-swap="outerHTML" title="{% if m.fissato_il %}Togli dai fissati{% else %}Fissa nel canale{% endif %}" aria-label="{% if m.fissato_il %}Togli dai fissati{% else %}Fissa nel canale{% endif %}"><svg class="ds-icona"><use href="#icon-pin"/></svg></button>{% endif %}
+    <details class="ds-altro"><summary title="Altro" aria-label="Altro">⋯</summary><div class="ds-altro-menu">
+      <button type="button" data-lavoro="{% url 'discuss:da_messaggio' m.pk %}">Crea attività o record…</button>
+      <button type="button" data-da-leggere="{% url 'discuss:da_leggere' m.pk %}">Segna da leggere</button>
+      <button type="button" data-copia-link="{% url 'discuss:canale' m.canale_id %}?a={{ m.pk }}">Copia il link</button>
+      {% if m.autore_id == request.user.pk %}<button type="button" hx-get="{% url 'discuss:modifica' m.pk %}" hx-target="closest .ds-messaggio" hx-swap="outerHTML">Modifica</button>{% endif %}
+      {% if m.autore_id == request.user.pk or puo_moderare %}<button type="button" class="is-pericolo" hx-post="{% url 'discuss:elimina' m.pk %}" hx-target="closest .ds-messaggio" hx-swap="outerHTML" hx-confirm="Eliminare il messaggio?">Elimina</button>{% endif %}
+    </div></details>
+  </div>{% endif %}
+</article>{% endif %}

@@ -35,13 +35,56 @@ class Azienda(ProprietaMixin):
         return self.nome
 
 
+class DashboardUtente(models.Model):
+    """La dashboard come l'ha disposta l'utente: ordine e larghezza dei widget, e quelli che ha tolto."""
+    utente = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="dashboard", verbose_name="utente")
+    layout = models.JSONField("disposizione", default=dict, blank=True,
+                              help_text='{"widget": [{"id": "todo:kpi", "w": 1}, …], "nascosti": ["crm:g0", …]}')
+    aggiornato = models.DateTimeField("aggiornata il", auto_now=True)
+
+    class Meta:
+        verbose_name = "dashboard dell'utente"
+        verbose_name_plural = "dashboard degli utenti"
+
+    def __str__(self):
+        return f"dashboard di {self.utente}"
+
+
+class Ruolo(models.Model):
+    """Che cosa può fare una persona in ogni modulo: un livello di partenza e, dove serve, un livello diverso per modulo.
+    I livelli diventano i gruppi Django dei moduli (vedi core.ruoli)."""
+    LIVELLI = [("nessuno", "Nessun accesso"), ("lettura", "Sola lettura"), ("lavoro", "Lavoro"), ("responsabile", "Responsabile")]
+    nome = models.CharField("nome", max_length=60, unique=True)
+    descrizione = models.CharField("descrizione", max_length=200, blank=True)
+    livello_base = models.CharField("livello in tutti i moduli", max_length=12, choices=LIVELLI, default="lavoro")
+    livelli = models.JSONField("livelli per modulo", default=dict, blank=True, help_text="{slug del modulo: livello}, dove il ruolo si discosta dal livello base")
+    amministra = models.BooleanField("amministra la piattaforma", default=False,
+                                     help_text="utenti, ruoli, impostazioni e admin di Django")
+    tecnico = models.BooleanField("accesso tecnico completo", default=False,
+                                  help_text="superutente: anche moduli, lavori e tutto l'admin di Django; per chi gestisce la piattaforma")
+    predefinito = models.BooleanField("ai nuovi utenti", default=False, help_text="il ruolo di chi viene creato senza sceglierne uno")
+    ordine = models.PositiveSmallIntegerField("ordine", default=10)
+
+    class Meta:
+        verbose_name = "ruolo"
+        verbose_name_plural = "ruoli"
+        ordering = ["ordine", "nome"]
+
+    def __str__(self):
+        return self.nome
+
+
 class ProfiloUtente(models.Model):
     utente = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profilo")
+    ruolo = models.ForeignKey(Ruolo, on_delete=models.SET_NULL, null=True, blank=True, related_name="profili", verbose_name="ruolo",
+                              help_text="vuoto: i gruppi si gestiscono a mano, come prima dei ruoli")
+    eccezioni = models.JSONField("eccezioni per modulo", default=dict, blank=True, help_text="{slug del modulo: livello} che vince sul ruolo")
     aziende = models.ManyToManyField(Azienda, verbose_name="aziende consentite", blank=True)
     azienda_predefinita = models.ForeignKey(Azienda, on_delete=models.SET_NULL, null=True, blank=True,
                                             related_name="+", verbose_name="azienda predefinita")
     esterno = models.BooleanField("utente esterno", default=False,
                                   help_text="un cliente: vede solo il portale, mai le pagine interne")
+    barra = models.JSONField("app nella barra", default=dict, blank=True, help_text='{"fisse": [slug, ...]}: l\'ordine scelto da questa persona; vuoto = quello dell\'azienda')
 
     class Meta:
         verbose_name = "profilo utente"
@@ -49,6 +92,86 @@ class ProfiloUtente(models.Model):
 
     def __str__(self):
         return f"profilo di {self.utente}"
+
+
+class DueFattori(models.Model):
+    """Autenticazione a due fattori di un utente: segreto TOTP cifrato e codici di recupero (solo le impronte)."""
+    utente = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="due_fattori",
+                                  verbose_name="utente")
+    segreto_cifrato = models.TextField("segreto cifrato", editable=False)
+    attiva_dal = models.DateTimeField("attiva dal", null=True, blank=True, editable=False,
+                                      help_text="vuoto finché la procedura di attivazione non è conclusa")
+    codici_recupero = models.JSONField("codici di recupero", default=list, editable=False)
+    ultimo_passo = models.BigIntegerField("ultimo passo usato", default=0, editable=False,
+                                          help_text="un codice già usato non vale una seconda volta")
+    fallimenti = models.PositiveSmallIntegerField("tentativi falliti", default=0, editable=False)
+    bloccata_fino = models.DateTimeField("bloccata fino a", null=True, blank=True, editable=False)
+    generazione = models.PositiveIntegerField("generazione dei dispositivi fidati", default=1, editable=False)
+
+    class Meta:
+        verbose_name = "autenticazione a due fattori"
+        verbose_name_plural = "autenticazioni a due fattori"
+
+    def __str__(self):
+        return f"2FA di {self.utente}"
+
+
+class SpostamentoKanban(models.Model):
+    """Una scheda spostata a mano tra le colonne di un kanban: chi, da dove a dove, quando, con una nota se c'è."""
+    content_type = models.ForeignKey("contenttypes.ContentType", on_delete=models.CASCADE, verbose_name="tipo")
+    object_id = models.PositiveBigIntegerField("record")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="spostata da")
+    da = models.CharField("da", max_length=120, blank=True)
+    a = models.CharField("a", max_length=120, blank=True)
+    nota = models.TextField("nota", blank=True)
+    quando = models.DateTimeField("quando", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "spostamento nel kanban"
+        verbose_name_plural = "spostamenti nel kanban"
+        ordering = ["-quando", "-pk"]
+        indexes = [models.Index(fields=["content_type", "object_id", "-quando"])]
+
+    def __str__(self):
+        return f"{self.da} → {self.a}"
+
+
+class LicenzaIstanza(models.Model):
+    """La licenza di questa istanza e l'ultimo catalogo ricevuti dal portale (una riga sola)."""
+    testo = models.TextField("file di licenza", blank=True)
+    catalogo = models.JSONField("catalogo", default=dict, blank=True)
+    ultima_sincronia = models.DateTimeField("ultima sincronizzazione", null=True, blank=True)
+    ultimo_errore = models.TextField("ultimo errore", blank=True)
+    ultimo_esito = models.JSONField("ultime operazioni", default=list, blank=True)
+    aggiornata = models.DateTimeField("aggiornata il", auto_now=True)
+
+    class Meta:
+        verbose_name = "licenza dell'istanza"
+        verbose_name_plural = "licenza dell'istanza"
+
+
+class RichiestaModulo(models.Model):
+    """Un'app del catalogo chiesta dall'amministratore del cliente: la decide ICHNOBYTE sul portale."""
+    INVIATA, EVASA, RIFIUTATA = "inviata", "evasa", "rifiutata"
+    INSTALLAZIONE, DEMO = "installazione", "demo"
+    TIPI = [(INSTALLAZIONE, "Installazione"), (DEMO, "Demo")]
+    tipo = models.CharField("tipo", max_length=15, choices=TIPI, default=INSTALLAZIONE)
+    STATI = [(INVIATA, "Inviata"), (EVASA, "Attivata"), (RIFIUTATA, "Non accolta")]
+    slug = models.SlugField("modulo", max_length=31)
+    nome = models.CharField("nome", max_length=120)
+    nota = models.TextField("nota", blank=True)
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="chiesta da")
+    stato = models.CharField("stato", max_length=10, choices=STATI, default=INVIATA)
+    consegnata = models.BooleanField("arrivata al portale", default=False)
+    creata = models.DateTimeField("chiesta il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "richiesta di modulo"
+        verbose_name_plural = "richieste di moduli"
+        ordering = ["-creata"]
+
+    def __str__(self):
+        return self.nome
 
 
 class Modulo(models.Model):
@@ -66,6 +189,7 @@ class Modulo(models.Model):
     aggiornato_il = models.DateTimeField("aggiornato il", null=True, blank=True)
     gruppi_creati = models.JSONField("gruppi creati", default=list, blank=True)
     ultimo_errore = models.TextField("ultimo errore", blank=True)
+    etichetta = models.CharField("nome nel menu", max_length=40, blank=True, help_text="scelto dall'Admin; vuoto = quello del modulo")
     disattivato = models.BooleanField("disattivato", default=False,
                                       help_text="installato ma spento per tutti: menu, pagine, API e pianificazioni")
 
@@ -85,6 +209,9 @@ class TokenApi(models.Model):
     creato = models.DateTimeField("creato il", auto_now_add=True)
     ultimo_uso = models.DateTimeField("ultimo uso", null=True, blank=True)
     attivo = models.BooleanField("attivo", default=True)
+    scadenza = models.DateField("valido fino al", null=True, blank=True, help_text="vuoto = senza scadenza")
+    sola_lettura = models.BooleanField("sola lettura", default=False)
+    moduli = models.JSONField("solo questi moduli", default=list, blank=True, help_text="vuoto = tutti quelli che l'utente vede")
 
     class Meta:
         verbose_name = "token API"
@@ -99,14 +226,25 @@ class TokenApi(models.Model):
         return hashlib.sha256(chiaro.encode()).hexdigest()
 
     @classmethod
-    def genera(cls, utente, nome):
+    def genera(cls, utente, nome, scadenza=None, sola_lettura=False, moduli=()):
         chiaro = secrets.token_urlsafe(32)
-        return cls.objects.create(utente=utente, nome=nome, chiave=cls._hash(chiaro)), chiaro
+        return cls.objects.create(utente=utente, nome=nome, chiave=cls._hash(chiaro), scadenza=scadenza,
+                                  sola_lettura=sola_lettura, moduli=list(moduli)), chiaro
+
+    @property
+    def scaduto(self):
+        return self.scadenza is not None and self.scadenza < timezone.localdate()
+
+    def permette(self, modulo, scrittura):
+        """Il token restringe ciò che l'utente può fare, non lo allarga mai: i permessi dell'utente valgono comunque."""
+        return (not scrittura or not self.sola_lettura) and (not self.moduli or modulo in self.moduli)
 
     @classmethod
     def verifica(cls, chiaro):
         token = (cls.objects.filter(chiave=cls._hash(chiaro), attivo=True, utente__is_active=True)
                  .select_related("utente").first())
+        if token and token.scaduto:
+            return None
         if token:
             cls.objects.filter(pk=token.pk).update(ultimo_uso=timezone.now())
         return token
@@ -399,3 +537,74 @@ class CampoPersonalizzato(models.Model):
                 valore, _, etichetta = riga.partition("|")
                 voci.append((valore.strip(), (etichetta or valore).strip()))
         return voci
+
+
+class ModelloEmail(models.Model):
+    """Il testo di un'email scritto dall'azienda: sostituisce quello del modulo, o è un modello suo per le automazioni
+    (allora ha `dominio`, il tipo di record su cui si usa, e `nome`)."""
+    azienda = models.ForeignKey(Azienda, on_delete=models.CASCADE, related_name="modelli_email", verbose_name="azienda")
+    codice = models.CharField("codice", max_length=80)
+    nome = models.CharField("nome", max_length=120, blank=True)
+    dominio = models.CharField("si usa su", max_length=30, blank=True)
+    oggetto = models.CharField("oggetto", max_length=250)
+    corpo = models.TextField("testo")
+    aggiornato = models.DateTimeField("modificato il", auto_now=True)
+    aggiornato_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                      related_name="+", verbose_name="modificato da")
+
+    class Meta:
+        verbose_name = "modello di email"
+        verbose_name_plural = "modelli di email"
+        ordering = ["nome", "codice"]
+        constraints = [models.UniqueConstraint(fields=["azienda", "codice"], name="modello_email_unico")]
+
+    def __str__(self):
+        return self.nome or self.codice
+
+
+class RicercaSalvata(models.Model):
+    """Una ricerca di una lista, da riaprire con un clic: personale o condivisa con chi lavora nella stessa azienda."""
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, verbose_name="azienda")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="ricerche_salvate", verbose_name="proprietario")
+    vista = models.CharField("vista", max_length=70, db_index=True, help_text="modulo.slug")
+    nome = models.CharField("nome", max_length=80)
+    parametri = models.TextField("parametri", blank=True, help_text="la parte dopo il ? dell'indirizzo della lista")
+    condivisa = models.BooleanField("condivisa con l'azienda", default=False)
+    predefinita = models.BooleanField("si apre da sola", default=False)
+    creata = models.DateTimeField("creata il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "ricerca salvata"
+        verbose_name_plural = "ricerche salvate"
+        ordering = ["nome", "pk"]
+        constraints = [models.UniqueConstraint(fields=["azienda", "utente", "vista", "nome"], name="core_ricerca_unica")]
+
+    def __str__(self):
+        return self.nome
+
+
+class RegistroModifica(models.Model):
+    """Chi ha cambiato cosa, quando e da dove: una riga per ogni salvataggio o eliminazione dei record con una vista.
+    Si aggiunge e basta: dalle pagine e dall'API non si modifica né si cancella."""
+    CREATO, AGGIORNATO, ELIMINATO = "creato", "aggiornato", "eliminato"
+    AZIONI = [(CREATO, "Creato"), (AGGIORNATO, "Aggiornato"), (ELIMINATO, "Eliminato")]
+    ORIGINI = [("ui", "Pagine"), ("api", "API"), ("ai", "Assistente"), ("worker", "Lavoro in background"), ("sistema", "Sistema")]
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="azienda")
+    content_type = models.ForeignKey("contenttypes.ContentType", on_delete=models.CASCADE, verbose_name="tipo di record")
+    object_id = models.PositiveBigIntegerField("record", db_index=True)
+    oggetto = models.CharField("record", max_length=200)
+    azione = models.CharField("azione", max_length=10, choices=AZIONI)
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="utente")
+    utente_nome = models.CharField("nome dell'utente", max_length=150, blank=True, help_text="resta anche se l'utente viene eliminato")
+    origine = models.CharField("origine", max_length=8, choices=ORIGINI, default="sistema")
+    modifiche = models.JSONField("modifiche", default=list, blank=True)
+    creato = models.DateTimeField("quando", auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "modifica"
+        verbose_name_plural = "registro delle modifiche"
+        ordering = ["-creato", "-pk"]
+        indexes = [models.Index(fields=["content_type", "object_id", "-creato"]), models.Index(fields=["azienda", "-creato"])]
+
+    def __str__(self):
+        return f"{self.oggetto}: {self.get_azione_display().lower()}"

@@ -1,0 +1,6 @@
+{% load capacita %}{% consegna_progetto obj as s %}{% if s.compiti or s.senza_data %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head cp-testa"><a class="ui-card-title ui-link" href="{% url 'capacita:consegne' %}">Consegna prevista</a>{% include "capacita/_esito.html" %}</div>
+  <div class="ui-card-body"><div class="cp-date"><div><small>Prevista</small><strong>{{ s.prevista|date:"d/m/Y"|default:"—" }}</strong></div><div><small>Promessa</small><strong>{{ s.scadenza|date:"d/m/Y"|default:"—" }}</strong></div><div><small>Fatto</small><strong>{{ s.avanzamento }}%</strong></div></div>
+  {% if s.senza_data %}<p class="cp-nota">La data non conta {{ s.senza_data }} compit{{ s.senza_data|pluralize:"o,i" }} senza stima o assegnatario.</p>{% endif %}</div>
+</section>{% endif %}

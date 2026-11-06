@@ -1,0 +1,14 @@
+{% if cliente_chat %}<div class="ds-fascia ds-fascia-chiamata ds-fascia-cliente">
+  {% if cliente_chat.scheda %}
+    <div class="ds-cliente-testa"><span>{% if cliente_chat.automatico %}Riconosciuto dal numero{% else %}Cliente collegato{% endif %}</span>
+      <form method="post" action="{% url 'discuss:lc_cliente_scollega' canale.pk %}">{% csrf_token %}<button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Scollega</button></form></div>
+    {% include "discuss/_scheda.html" with s=cliente_chat.scheda %}
+  {% else %}
+    <details class="ds-cliente-scelta"{% if cliente_chat.candidati %} open{% endif %}><summary>Collega questa chat a un contatto</summary>
+      {% if cliente_chat.candidati %}<div class="ds-cliente-nota">Possibili corrispondenze, da confermare:</div>{% include "discuss/_clienti_risultati.html" with risultati=cliente_chat.candidati canale_pk=canale.pk q="" %}{% endif %}
+      <input class="ui-input" type="search" name="q" placeholder="Cerca per nome, email, telefono o codice" aria-label="Cerca un contatto" hx-get="{% url 'discuss:lc_cliente_cerca' canale.pk %}" hx-trigger="input changed delay:300ms" hx-target="next .ds-cliente-risultati">
+      <div class="ds-cliente-risultati"></div>
+      {% if cliente_chat.puo_creare %}<form method="post" action="{% url 'discuss:lc_cliente_crea' canale.pk %}">{% csrf_token %}<button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Crea un contatto da questa chat</button></form>{% endif %}
+    </details>
+  {% endif %}
+</div>{% endif %}

@@ -10,4 +10,5 @@ urlpatterns = [
     path("carica/", pagine.carica, name="carica"),
     path("ricevute/<int:pk>/originale/", pagine.originale, name="originale"),
     path("registro-acquisti/", pagine.registro_acquisti, name="registro_acquisti"),
+    path("scadenzario/", pagine.scadenzario_fornitori, name="scadenzario"),
 ]

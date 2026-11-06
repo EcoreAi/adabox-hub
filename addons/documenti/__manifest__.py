@@ -1,11 +1,12 @@
 {
     "name": "Documenti",
     "summary": "Archivio di file per cartelle con permessi, tag, anteprima, condivisione e richieste",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
     "min_core": "1.0",
+    "riepilogo": "documenti.riepilogo.voci",
     "application": True,
     "icon": "documenti/icon.svg",
     "dashboard": "documenti.dashboard.kpi",

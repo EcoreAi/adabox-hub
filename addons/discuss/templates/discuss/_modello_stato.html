@@ -1,0 +1,5 @@
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div><div class="ui-card-title">Approvazione: {{ obj.get_stato_display }}</div><div class="ui-card-sub">Solo i modelli approvati si possono inviare ai clienti</div></div></div>
+  <div class="ui-card-body">{% if obj.motivo %}<p class="ui-help" role="alert">{{ obj.motivo }}</p>{% endif %}
+    {% if obj.categoria == "MARKETING" %}<p class="ui-help">Marketing: mandalo solo a chi ha dato il consenso a ricevere questi messaggi.</p>{% endif %}
+    {% if obj.connessione.sandbox %}<a class="ui-btn ui-btn-secondary" href="{% url 'discuss:sandbox' obj.connessione_id %}">Approvalo dalla sandbox</a>
+    {% else %}<form method="post" action="{% url 'discuss:wa_a_meta' obj.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-primary" type="submit">Invia a Meta per l'approvazione</button></form>{% endif %}</div></section>

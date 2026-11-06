@@ -11,6 +11,14 @@ NUMERO = re.compile(r"(?<![\w/\-.,])(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)
 DATA = re.compile(r"\b\d{1,4}[/-]\d{1,2}[/-]\d{1,4}\b|\b\d{1,2}:\d{2}\b")
 LINK = re.compile(r"\]\([^)]*\)|https?://\S+")
 MAX_SEGNALATI = 5
+# Da dove viene un dato letto: una pagina web o un file non sono dati del gestionale, e il badge non deve dirlo
+FUORI_DAL_GESTIONALE = {"cerca_web": "web", "leggi_pagina": "web", "leggi_allegato": "allegati",
+                        "scrivi_documento": "documento", "leggi_documento_chat": "documento", "modifica_documento": "documento"}
+ESTERNO = re.compile(r"mcp\d+_")                       # gli strumenti dei sistemi esterni (ai/mcp.py)
+
+
+def _origine(nome):
+    return "esterni" if nome and ESTERNO.match(nome) else FUORI_DAL_GESTIONALE.get(nome)
 # «13 settimane», «3 mesi», «2 ore»: parametri della domanda o del periodo, non dati da verificare
 UNITA_DI_TEMPO = re.compile(r"\s*(?:secondi|minut[oi]|or[ae]\b|giorn[oi]|settiman[ae]|mes[ei]|trimestr[ei]|"
                             r"semestr[ei]|ann[oi])", re.IGNORECASE)
@@ -60,16 +68,23 @@ def _trovato(valore, fonti):
 
 def calcola(turno, testo, protetti=0):
     eventi = list(Evento.objects.filter(turno=turno).order_by("pk"))
-    strumenti, letture, fonti = [], 0, []
+    strumenti, letture, fonti, nomi = [], 0, [], {}
+    fuori = {"web": 0, "allegati": 0, "esterni": 0, "documento": 0}
     for ev in eventi:
         if ev.tipo == Evento.UTENTE:
             fonti += [v for _, v in numeri(ev.dati.get("testo", ""))]
         elif ev.tipo == Evento.ASSISTENTE:
-            strumenti += [b["nome"] for b in ev.dati.get("blocchi", []) if b["tipo"] == "strumento"]
+            chiamate = [b for b in ev.dati.get("blocchi", []) if b["tipo"] == "strumento"]
+            strumenti += [b["nome"] for b in chiamate]
+            nomi.update({b.get("id"): b["nome"] for b in chiamate})
         elif ev.tipo == Evento.STRUMENTO:
             for r in ev.dati.get("risultati", []):
                 if not r.get("errore"):
-                    letture += 1
+                    origine = _origine(nomi.get(r.get("id")))
+                    if origine:
+                        fuori[origine] += 1
+                    else:
+                        letture += 1
                     fonti += [v for _, v in numeri(r["contenuto"], italiano=False)]
                     fonti += [v for _, v in numeri(r["contenuto"])]
     nella_risposta = [(t, v) for t, v in numeri(testo, durate=False) if _da_verificare(v)]
@@ -77,9 +92,10 @@ def calcola(turno, testo, protetti=0):
     for t, v in nella_risposta:
         if not _trovato(v, fonti) and t not in non_verificati:
             non_verificati.append(t)
-    if not letture:
+    if not letture and not any(v for k, v in fuori.items() if k != "documento"):
         esito = "senza fonti" if nella_risposta else "conversazione"
     else:
         esito = "parziale" if non_verificati else "verificato"
-    return {"esito": esito, "strumenti": sorted(set(strumenti)), "letture": letture, "pii": protetti,
+    return {"esito": esito, "strumenti": sorted(set(strumenti)), "letture": letture, "letture_web": fuori["web"], "letture_allegati": fuori["allegati"],
+            "letture_esterne": fuori["esterni"], "pii": protetti,
             "non_verificati": non_verificati[:MAX_SEGNALATI], "n_non_verificati": len(non_verificati)}

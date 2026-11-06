@@ -1,0 +1,35 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Ricavi ricorrenti · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Ricavi ricorrenti</h1><div class="sub">Quanto entra ogni mese dai contratti in corso, imponibile</div></div>
+  <div class="actions"><a class="ui-btn ui-btn-primary" href="{% url 'ricorrenti:canoni_nuovo' %}">Nuovo contratto</a></div></div>
+<div class="cm-tessere">
+  <div class="cm-tessera is-positivo"><small>Al mese</small><strong>{{ mensile|floatformat:2 }} €</strong></div>
+  <div class="cm-tessera"><small>All'anno</small><strong>{{ annuale|floatformat:2 }} €</strong></div>
+  <div class="cm-tessera"><small>Contratti in corso</small><strong>{{ numero }}</strong></div>
+  <div class="cm-tessera"><small>Da attivare</small><strong>{{ da_attivare }}</strong></div>
+</div>
+{% if numero %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Fatture previste nei prossimi 12 mesi: {{ totale_previsto|floatformat:2 }} €</div></div>
+  <div class="ui-card-body"><table class="rc-barre"><thead class="ui-sr-only"><tr><th>Mese</th><th>Quota</th><th>Importo</th></tr></thead><tbody>
+    {% for p in previsione %}<tr title="{{ p.mese }}: {{ p.importo|floatformat:2 }} €"><th scope="row">{{ p.mese }}</th>
+      <td aria-hidden="true"><span class="rc-barra" style="--rc-l:{{ p.quota }}%"></span></td><td class="num">{{ p.importo|floatformat:2 }} €</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">In scadenza entro 90 giorni</div></div>
+  <div class="ui-table-wrap">{% if in_scadenza %}<table class="ui-table is-revealed"><thead><tr><th>Contratto</th><th>Cliente</th><th>Fine</th><th>Che cosa succede</th></tr></thead><tbody>
+    {% for c in in_scadenza %}<tr><td><a class="ui-link" href="{% url 'ricorrenti:canoni_dettaglio' c.pk %}">{{ c }}</a></td><td>{{ c.cliente }}</td>
+      <td>{% if c.cessa_il %}{{ c.cessa_il|date:"d/m/Y" }}{% else %}{{ c.scadenza|date:"d/m/Y" }}{% endif %}</td>
+      <td>{% if c.cessa_il %}<span class="ui-pill ui-pill-warn">Disdetto</span>{% elif c.rinnovo_tacito %}Si rinnova da solo{% else %}<span class="ui-pill ui-pill-warn">Non si rinnova</span>{% endif %}</td></tr>{% endfor %}</tbody></table>
+  {% else %}<div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun contratto in scadenza.</p></div>{% endif %}</div>
+</section>
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">I clienti che pesano di più, al mese</div></div>
+  <div class="ui-card-body"><table class="rc-barre"><thead class="ui-sr-only"><tr><th>Cliente</th><th>Quota</th><th>Importo</th></tr></thead><tbody>
+    {% for v in clienti %}<tr title="{{ v.cliente }}: {{ v.quota }}%"><th scope="row">{{ v.cliente }}</th><td aria-hidden="true"><span class="rc-barra" style="--rc-l:{{ v.quota }}%"></span></td><td class="num">{{ v.mensile|floatformat:2 }} €</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% else %}<section class="ui-card is-revealed"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun contratto in corso. I contratti nuovi partono da «Attiva».</p></div></section>{% endif %}
+{% endblock %}

@@ -55,6 +55,9 @@ class GraficoView(VistaBase):
         titolo = f"{etichetta_misura(vista, misura)} per {dict(gruppi.raggruppabili_grafico(vista)).get(per, per).lower()}"
         return render(request, "core/vista/grafico.html", {
             "vista": vista, "urls": urls_di(vista), "tipo": tipo, "misura": misura, "per": per, "titolo": titolo,
+            "serie_json": {"tipo": tipo, "titolo": titolo, "etichette": [e for e, _ in serie], "valori": [float(v) for _, v in serie]},
+            "contesto_ada": {"pagina": f"Grafico: {vista.verbose_name_plural}", "titolo": titolo, "tipo": tipo,
+                             "dati": [(e, float(v)) for e, v in serie], "filtri": {k: v for k, v in request.GET.items() if k == "q" or k.startswith("f_")}},
             "tipi": [(t, NOMI_TIPI.get(t, t)) for t in g.get("tipi", ["barre"])],
             "misure": [(m, etichetta_misura(vista, m)) for m in g.get("misure", ["count"])],
             "assi": gruppi.raggruppabili_grafico(vista),

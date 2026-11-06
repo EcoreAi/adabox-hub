@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
 from core import chatter
+from core.dashboard import queryset
 from helpdesk.models import FaseTicket, Ticket
 from progetti.models import Compito, TipoCompito
 from progetti.segnali import rilascio_pubblicato
@@ -47,7 +48,7 @@ def crea_compito(ticket, utente):
 def crea_compito_vista(request, pk):
     if not (request.user.has_perm("progetti.add_compito") and request.user.has_perm("helpdesk.change_ticket")):
         raise PermissionDenied
-    ticket = get_object_or_404(Ticket, pk=pk)
+    ticket = get_object_or_404(queryset(request, Ticket), pk=pk)
     try:
         compito = crea_compito(ticket, request.user)
     except ValueError as e:

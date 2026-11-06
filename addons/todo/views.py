@@ -1,7 +1,9 @@
+from django.db.models import Q
 from django.utils.html import format_html
 
 from core import chatter
-from core.viste import ModelView, register
+from core.colori import sicuro
+from core.viste import ModelView, register, schede
 
 from .models import Attivita, Tag
 
@@ -28,7 +30,11 @@ class AttivitaView(ModelView):
     tracked_fields = ["stato", "assegnatario", "scadenza"]
     list_group_by = ["stato", "assegnatario", "scadenza:mese"]
     kanban_group = "stato"
+    kanban_ordini = [("scadenza", "Scadenza")]
+    kanban_valori_chiusi = ("fatta", "annullata")
     kanban_fields = ["numero", "scadenza", "assegnatario"]
+    kanban_ricco = True
+    kanban_colori = {"aperta": "indaco", "in_corso": "azzurro", "fatta": "verde", "annullata": "grigio"}
     calendar_date = "scadenza"
     calendar_color = "stato"
     graph = {"tipi": ["barre", "torta", "linee"], "misure": ["count"], "per": ["stato", "assegnatario", "scadenza:mese"]}
@@ -37,6 +43,22 @@ class AttivitaView(ModelView):
     actions = ["archivia"]
     buttons = ["segna_fatta"]
     api = True
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("assegnatario").prefetch_related("tag")
+
+    def kanban_scheda(self, request, obj):
+        esito = {Attivita.FATTA: (*schede.FATTO, "Fatta"), Attivita.ANNULLATA: (*schede.FERMO, "Annullata")}.get(obj.stato) or schede.entro(obj.scadenza)
+        return schede.scheda(esito, sottotitolo=obj.numero, etichette=[(t.nome, sicuro(t.colore)) for t in obj.tag.all()], persona=schede.persona(obj.assegnatario))
+
+    def get_queryset(self, request):
+        """Si vedono le attività proprie (assegnate o create) e quelle senza titolare; tutte con vedi_tutte_attivita."""
+        qs = super().get_queryset(request)
+        user = request.user
+        if user.is_superuser or user.has_perm("todo.vedi_tutte_attivita"):
+            return qs
+        return qs.filter(Q(assegnatario=user) | Q(creato_da=user) | Q(assegnatario=None, creato_da=None))
 
     def save_model(self, request, obj, form, change):
         if not change:

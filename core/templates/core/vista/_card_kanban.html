@@ -1,0 +1,17 @@
+<article class="ui-kanban-card{% if c.scheda.accento %} is-accento-{{ c.scheda.accento }}{% endif %}"{% if puo_spostare %} data-trascinabile{% endif %} data-pk="{{ c.obj.pk }}"
+               data-sposta="{% url vista.modulo|add:':'|add:vista.slug|add:'_sposta' pk=c.obj.pk %}">
+        {% if puo_spostare %}<span class="ui-kanban-maniglia" aria-hidden="true" title="Trascina per spostare"><svg viewBox="0 0 8 14" width="8" height="14"><circle cx="2" cy="2" r="1"/><circle cx="6" cy="2" r="1"/><circle cx="2" cy="7" r="1"/><circle cx="6" cy="7" r="1"/><circle cx="2" cy="12" r="1"/><circle cx="6" cy="12" r="1"/></svg></span>{% endif %}
+        <div class="ui-kanban-testa"><a class="ui-kanban-titolo" href="{% url vista.modulo|add:':'|add:vista.slug|add:'_dettaglio' pk=c.obj.pk %}">{{ c.obj }}</a>{% if c.scheda.stelle %}<span class="ui-kanban-stelle" title="Priorità: {{ c.scheda.stelle.2 }}" aria-label="Priorità: {{ c.scheda.stelle.2 }}">{% for _ in c.scheda.stelle.0 %}★{% endfor %}<i>{% for _ in c.scheda.stelle.1 %}★{% endfor %}</i></span>{% endif %}</div>
+        {% if c.scheda %}{% include "core/vista/_scheda_kanban.html" with s=c.scheda %}{% endif %}
+        {% for etichetta, valore in c.campi %}<div class="ui-kanban-campo"><span>{{ etichetta }}</span> {{ valore }}</div>{% endfor %}
+        {% if c.spostato %}<div class="ui-kanban-spostata" title="{{ c.spostato.nome }} · {{ c.spostato.da }} → {{ c.spostato.a }} · {{ c.spostato.quando|date:'d/m/Y H:i' }}{% if c.spostato.nota %} · {{ c.spostato.nota }}{% endif %}"><span class="ui-kanban-persona ui-tinta-{{ c.spostato.tinta }}">{{ c.spostato.iniziali }}</span><span class="ui-kanban-spostata-testo">{{ c.spostato.a }} · {{ c.spostato.quando|date:'d/m H:i' }}</span>{% if c.spostato.nota %}<svg class="ui-kanban-spostata-nota" width="12" height="12" aria-label="Con una nota"><use href="#icon-edit"/></svg>{% endif %}</div>{% endif %}
+        {% if puo_spostare %}
+        <noscript>
+          <form method="post" action="{% url vista.modulo|add:':'|add:vista.slug|add:'_sposta' pk=c.obj.pk %}">
+            {% csrf_token %}<input type="hidden" name="ritorno" value="{{ query_filtri }}">
+            <select name="valore" class="ui-input" aria-label="Sposta in">{% for v, e in tutte %}<option value="{{ v }}"{% if v == col.valore %} selected{% endif %}>{{ e }}</option>{% endfor %}</select>
+            <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Sposta</button>
+          </form>
+        </noscript>
+        {% endif %}
+      </article>

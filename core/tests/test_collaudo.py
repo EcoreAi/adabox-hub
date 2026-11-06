@@ -23,7 +23,7 @@ def test_collaudo_buono_e_cattivo(addons_tmp, capsys):
     ordine, info = collaudo.da_collaudare()
     assert ordine.index("buono") < ordine.index("dipendente")
     risultati = {s: collaudo.collauda(s, info) for s in ordine}
-    assert risultati["buono"].ok and [p for p, _ in risultati["buono"].passi] == ["migrate", "installa", "test", "disinstalla"]
+    assert risultati["buono"].ok and [p for p, _ in risultati["buono"].passi] == ["migrate", "installa", "migrazioni", "test", "disinstalla"]
     assert risultati["dipendente"].ok                          # la dipendenza è copiata nell'istanza
     assert not risultati["cattivo"].ok and risultati["cattivo"].passi[-1] == ("test", False)
     assert "rotto apposta" in risultati["cattivo"].dettaglio

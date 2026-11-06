@@ -65,7 +65,7 @@ def _sezioni(utente, azienda, visibili, conteggi):
 @permission_required("documenti.view_documento", raise_exception=True)
 def archivio(request):
     azienda = request.azienda
-    if request.user.has_perm("documenti.add_documento"):
+    if azienda is not None and request.user.has_perm("documenti.add_documento"):
         spazio_personale(request.user, azienda)
     visibili = accesso.visibili(request.user, azienda)
     scrivibili = {c.pk for c in accesso.scrivibili(request.user, azienda)}

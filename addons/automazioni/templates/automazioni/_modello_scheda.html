@@ -1,0 +1,3 @@
+<a class="au-modello" href="{% url 'automazioni:modello' v.codice %}"><div class="au-regola-testa"><span class="au-lampo"><svg><use href="#icon-inbox"/></svg></span><strong>{{ v.nome }}</strong>
+  {% if v.del_modulo and v.proprio %}<span class="ui-pill ui-pill-info">Personalizzato</span>{% elif not v.del_modulo %}<span class="ui-pill ui-pill-neutral">{{ v.gruppo }}</span>{% endif %}</div>
+  <div class="au-regola-quando">{% if v.proprio %}{{ v.proprio.oggetto }}{% else %}{{ v.oggetto }}{% endif %}</div></a>

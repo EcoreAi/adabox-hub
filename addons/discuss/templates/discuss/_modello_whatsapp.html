@@ -1,0 +1,11 @@
+<div class="ds-modulo">
+  <h2>Manda un modello</h2>
+  <p class="ui-help">Il testo è approvato da Meta, tu riempi le parti variabili. Riapre la conversazione solo se il cliente risponde. I modelli di marketing vanno solo a chi ha dato il consenso.</p>
+  {% for m in voci %}<details class="ds-modello-voce"{% if forloop.first %} open{% endif %}><summary>{{ m.nome }}{% if m.categoria == "MARKETING" %} · marketing{% endif %}</summary>
+    <p class="ds-modello-testo">{{ m.corpo }}</p>
+    <form method="post" action="{% url 'discuss:wa_modello' canale.pk %}" class="ds-modulo">{% csrf_token %}<input type="hidden" name="modello" value="{{ m.pk }}">
+      {% for i in m.indici %}<label class="ui-label">Parte {{ i }}<input class="ui-input" name="v{{ i }}" maxlength="200" required{% if i == 1 %} value="{{ conv.nome }}"{% endif %}></label>{% endfor %}
+      <div class="ds-dialogo-azioni"><button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Invia</button></div></form></details>
+  {% empty %}<p class="ui-help">Nessun modello approvato per questo numero: creane uno in «Modelli WhatsApp».</p>{% endfor %}
+  <div class="ds-dialogo-azioni"><button type="button" class="ui-btn ui-btn-ghost" data-chiudi>Chiudi</button></div>
+</div>

@@ -1,0 +1,59 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Negozio degli agenti AI · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Negozio degli agenti AI</h1>
+  <div class="sub">Agenti AI in affitto che lavorano in adabox, sotto il controllo di Agate: scegli, provali qualche giorno, poi decidi.</div></div></div>
+
+{% if aperte %}<div class="ui-alert ui-alert-info">Hai {{ aperte }} richiest{{ aperte|pluralize:"a,e" }} in corso: <a class="ui-link" href="{% url 'awf:richieste' %}">seguil{{ aperte|pluralize:"a,e" }} in Richieste</a>.</div>{% endif %}
+
+{% if not forge %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Prima di iniziare</div></div>
+  <div class="ui-card-body"><form method="post">{% csrf_token %}
+    <input type="hidden" name="azione" value="fabbrica">
+    <p>Serve solo l'indirizzo del negozio di Agentlia: te lo dà Agentlia insieme al contratto quadro.</p>
+    <label class="ui-label" for="forge_url">Indirizzo del negozio</label>
+    <input class="ui-input" id="forge_url" name="forge_url" type="url" required placeholder="https://forge.agentlia.it" style="max-width:420px">
+    <div class="ui-form-actions"><button class="ui-btn ui-btn-primary" type="submit">Apri il negozio</button></div>
+  </form></div></section>
+{% elif errore %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body"><div class="ui-empty">
+  <svg><use href="#icon-alert-triangle"/></svg>
+  <p><strong>La fabbrica non risponde, riprova tra poco.</strong></p>
+  <p class="ui-help">Le richieste già inviate non si perdono: le trovi in <a class="ui-link" href="{% url 'awf:richieste' %}">Richieste</a>. Dettaglio per chi assiste: {{ errore }}</p>
+  <a class="ui-btn ui-btn-secondary" href="{% url 'awf:negozio' %}">Riprova</a>
+</div></div></section>
+{% else %}
+{% if reparti|length > 1 %}
+<nav class="ui-gettoni" aria-label="Reparti">
+  <a class="ui-gettone{% if not reparto %} is-active{% endif %}" href="{% url 'awf:negozio' %}">Tutti</a>
+  {% for codice, nome in reparti %}<a class="ui-gettone{% if reparto == codice %} is-active{% endif %}" href="{% url 'awf:negozio' %}?reparto={{ codice|urlencode }}">{{ nome }}</a>{% endfor %}
+</nav>
+{% endif %}
+<div class="ui-vetrina">
+  {% for s in squadre %}
+  <section class="ui-card is-revealed"><div class="ui-card-body">
+    <div class="ui-vetrina-testa">
+      <span class="ui-vetrina-icona" aria-hidden="true">{% if s.icona %}{{ s.icona }}{% else %}<svg><use href="#icon-users"/></svg>{% endif %}</span>
+      <div><div class="ui-card-title">{{ s.nome }}</div>{% if s.reparto_extra %}<div class="ui-help">{{ s.reparto_extra }}</div>{% endif %}</div>
+    </div>
+    {% if s.slogan %}<p style="margin:0">{{ s.slogan }}</p>{% endif %}
+    {% if s.vantaggi %}<ul class="ui-elenco-si">{% for v in s.vantaggi|slice:":3" %}<li>{{ v }}</li>{% endfor %}</ul>{% endif %}
+    <div>{% if s.giorni_prova %}<span class="ui-pill ui-pill-info">{{ s.giorni_prova }} giorn{{ s.giorni_prova|pluralize:"o,i" }} di prova</span>{% endif %}</div>
+    <div class="ui-vetrina-prezzo">{% if s.settimana %}da {{ s.settimana }} €/settimana{% else %}prezzo su misura{% endif %} <span class="ui-help">+ modelli AI</span></div>
+    <div class="ui-vetrina-azioni">
+      <a class="ui-btn ui-btn-secondary" href="{% url 'awf:scheda' s.slug %}">Scopri</a>
+      <a class="ui-btn ui-btn-primary" href="{% url 'awf:assumi' s.slug %}">Assumi</a>
+    </div>
+  </div></section>
+  {% endfor %}
+</div>
+{% if not squadre %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body"><div class="ui-empty">
+  <svg><use href="#icon-inbox"/></svg>
+  {% if reparto %}<p>Nessun agente per questo reparto, per ora.</p><a class="ui-btn ui-btn-secondary" href="{% url 'awf:negozio' %}">Vedi tutti gli agenti</a>
+  {% else %}<p>Il negozio è vuoto per ora: Agentlia sta preparando gli agenti per adabox.</p>{% endif %}
+</div></div></section>
+{% endif %}
+<p class="ui-help">Puoi anche chiederlo all'assistente AI: «Mi servono agenti AI per il reparto vendite, mi aiuti?».</p>
+{% endif %}
+{% endblock %}

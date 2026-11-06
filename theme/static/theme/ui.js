@@ -34,6 +34,21 @@
   document.addEventListener('click', closeAllDropdowns);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAllDropdowns(); });
 
+  // --- Il menu «Altre» a colonne si apre anche passandoci sopra, dove c'è un mouse. Il clic subito dopo non lo richiude.
+  const mega = document.querySelector('.ui-nav-altre:has(.ui-menucol)');
+  if (mega && matchMedia('(hover: hover) and (min-width: 901px)').matches) {
+    const voce = mega.querySelector('.ui-nav-voce');
+    let timer = null;
+    const dopo = (fn, ms) => { clearTimeout(timer); timer = setTimeout(fn, ms); };
+    const imposta = (aperto) => { mega.classList.toggle('is-open', aperto); voce.setAttribute('aria-expanded', String(aperto)); };
+    voce.addEventListener('pointerenter', () => dopo(() => { imposta(true); mega.dataset.daPassaggio = '1'; }, 120));
+    mega.addEventListener('pointerenter', (e) => { if (e.target !== voce && mega.classList.contains('is-open')) clearTimeout(timer); });
+    mega.addEventListener('pointerleave', () => dopo(() => imposta(false), 220));
+    voce.addEventListener('click', (e) => {
+      if (mega.dataset.daPassaggio) { delete mega.dataset.daPassaggio; e.stopImmediatePropagation(); e.stopPropagation(); }
+    }, true);
+  }
+
   // --- Menu mobile: il bottone .ui-nav-toggle apre/chiude .ui-nav
   const toggle = document.querySelector('.ui-nav-toggle');
   const nav = document.querySelector('.ui-nav');
@@ -96,4 +111,82 @@
     clearTimeout(el._t);
     el._t = setTimeout(() => el.classList.remove('is-visible'), 3000);
   };
+
+  // --- Verifica in due passaggi: 6 cifre e parte da sola; codice di recupero; copia dei codici
+  document.querySelectorAll('[data-df-codice]').forEach((campo) => {
+    campo.addEventListener('input', () => {
+      if (campo.classList.contains('is-recupero')) return;
+      campo.value = campo.value.replace(/\D/g, '').slice(0, 6);
+      if (campo.value.length === 6) campo.form.requestSubmit();
+    });
+  });
+  document.querySelectorAll('[data-df-recupero]').forEach((bottone) => {
+    bottone.addEventListener('click', () => {
+      const campo = bottone.closest('form').querySelector('[data-df-codice]');
+      campo.classList.add('is-recupero');
+      campo.removeAttribute('pattern');
+      campo.inputMode = 'text';
+      campo.autocomplete = 'off';
+      campo.maxLength = 9;
+      campo.placeholder = 'XXXX-XXXX';
+      campo.value = '';
+      campo.focus();
+      bottone.closest('p').hidden = true;
+    });
+  });
+  document.querySelectorAll('[data-df-copia]').forEach((bottone) => {
+    bottone.addEventListener('click', async () => {
+      const voci = [...document.getElementById(bottone.dataset.dfCopia).children].map((li) => li.textContent);
+      await navigator.clipboard.writeText(voci.join('\n'));
+      window.uiToast('Codici copiati');
+    });
+  });
+
+  // --- Cronometro delle ore nella barra in alto
+  document.querySelectorAll('[data-cronometro-da]').forEach((el) => {
+    const da = Number(el.dataset.cronometroDa);
+    const due = (n) => String(n).padStart(2, '0');
+    const scrivi = () => {
+      const s = Math.max(0, Math.floor(Date.now() / 1000) - da);
+      el.textContent = `${due(Math.floor(s / 3600))}:${due(Math.floor(s / 60) % 60)}:${due(s % 60)}`;
+    };
+    scrivi();
+    setInterval(scrivi, 1000);
+  });
+  // --- Guida: articoli suggeriti mentre si scrive l'oggetto
+  document.querySelectorAll('[data-guida-cerca]').forEach((campo) => {
+    const elenco = document.getElementById(campo.dataset.guidaCerca);
+    let attesa;
+    campo.addEventListener('input', () => {
+      clearTimeout(attesa);
+      attesa = setTimeout(async () => {
+        const testo = campo.value.trim();
+        if (testo.length < 3) { elenco.hidden = true; return; }
+        const risposta = await fetch(`${elenco.dataset.url}?q=${encodeURIComponent(testo)}`, { credentials: 'same-origin' });
+        if (!risposta.ok) return;
+        const { articoli } = await risposta.json();
+        elenco.replaceChildren(...articoli.map((a) => {
+          const voce = document.createElement('a');
+          voce.href = a.url; voce.target = '_blank'; voce.rel = 'noopener'; voce.textContent = a.titolo;
+          return voce;
+        }));
+        elenco.hidden = !articoli.length;
+      }, 300);
+    });
+  });
+
+  // --- Fatturazione delle ore: il totale segue le righe scelte
+  document.querySelectorAll('[data-ore-form]').forEach((form) => {
+    const totale = form.querySelector('[data-ore-totale]');
+    const ore = form.querySelector('[data-ore-somma]');
+    const formato = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' });
+    const ricalcola = () => {
+      let euro = 0; let h = 0;
+      form.querySelectorAll('[data-ore-riga]:checked').forEach((c) => { euro += Number(c.dataset.importo); h += Number(c.dataset.ore); });
+      totale.textContent = formato.format(euro);
+      ore.textContent = h.toLocaleString('it-IT', { maximumFractionDigits: 2 });
+    };
+    form.addEventListener('change', ricalcola);
+    ricalcola();
+  });
 })();

@@ -439,6 +439,35 @@ completate.
   `/ai/flusso/`; il resto resta su gunicorn (WSGI). Quando cambiano i moduli installati, `stream` risponde 503 e
   si riavvia da solo, come il worker.
 
+## Ricerche, pivot e registro
+
+Valgono per ogni lista di ogni modulo, compresi quelli su misura, senza scrivere codice:
+
+- **Ricerche salvate**: il menu «Ricerche» della lista salva filtri, ricerca, raggruppamento e ordine, per sé o per chi lavora nella stessa azienda. La stella la fa aprire da sola; `?tutti=1` apre la lista completa.
+- **Cerca ovunque**: la casella in alto, o `/cerca/`, usa i `search_fields` di ogni vista che l'utente può vedere, con i suoi permessi e la sua azienda.
+- **Pivot**: compare accanto alla lista se la vista dichiara `list_group_by`. Righe, colonne e fino a tre misure, con i filtri della lista ed esportazione in Excel.
+- **Registro delle modifiche**: chi ha cambiato cosa, quando e da dove (pagine, API, assistente, lavoro in background), su ogni record con una vista e sulle righe dei documenti. `storico = False` esclude i modelli che cambiano troppo spesso. Si legge da `/core/registro/` e sul dettaglio del record, con il permesso `core.view_registromodifica`. Non vede `QuerySet.update()`, `bulk_create()` e i campi molti-a-molti, e non ha una pulizia automatica: la tabella cresce.
+
+## I token dell'API
+
+Da «Profilo» un token si crea con una durata (90 giorni di partenza), in sola lettura e limitato ad alcuni moduli. Un token restringe ciò che il suo utente può fare, non lo allarga mai. Scaduto, non autentica più. I token creati prima di queste opzioni restano validi, senza scadenza e con pieni poteri, finché non si revocano.
+
+Si applica all'API generata dalle viste: elenco, lettura, creazione, modifica, eliminazione e bottoni. `/api/v1/me/` resta sempre leggibile.
+
+## La chat dell'assistente
+
+Oltre a rispondere sui dati, la chat ha allegati, rigenera e modifica, ricerca nelle chat, export e pollici. Le opzioni da decidere:
+
+- **Ricerca sul web**: `ai.url_ricerca_web` (SearXNG) più `ai.ricerca_web`, azienda per azienda, spenta di default. Una query con dati personali non esce, e se il controllo non risponde non si cerca. Si aprono solo indirizzi già comparsi nei risultati o scritti dall'utente.
+- **Immagini**: verso i modelli cloud servono `ai.immagini_cloud`, spento di default, perché dentro un'immagine i dati personali non si mascherano. Il modello deve avere «legge immagini». I modelli locali non hanno questo vincolo.
+- **Scelta del modello**: compaiono in chat i modelli con «sceglibile dagli utenti». I tetti di spesa restano gli stessi.
+- **Memoria**: `/ai/memoria/`, per persona e per azienda. Ada propone, l'utente conferma, e può cancellare quando vuole. Nemmeno il superuser vede quella degli altri.
+- **Progetti**: `/ai/progetti/`, con istruzioni e file comuni alle chat. Personali, come le chat.
+
+## Sviluppare un modulo
+
+La guida è in [docs/guida-moduli.md](docs/guida-moduli.md): `modulo nuovo` crea un modulo funzionante, `modulo controlla` verifica le regole sul codice, `modulo compatibilita` lo prova accanto agli altri.
+
 ## Distribuire i moduli
 
 Un modulo si consegna come pacchetto zip firmato da ICHNOBYTE; ogni istanza accetta solo le chiavi di cui si fida.
@@ -462,6 +491,68 @@ Un modulo si consegna come pacchetto zip firmato da ICHNOBYTE; ogni istanza acce
    con il backup automatico. Una versione minore di quella presente è rifiutata; la cartella precedente resta in
    `backup/moduli/`.
 
+## Vendere i moduli ai clienti
+
+Ogni cliente ha solo ciò che ha comprato: sul suo server non arriva il codice degli altri moduli. La protezione vera è
+questa, o l'ospitare l'istanza senza dare accesso al server. Licenza e firme sono un deterrente: chi ha root può toglierle.
+
+**Dalla nostra parte**, il modulo **Rivendita** su un'istanza di ICHNOBYTE è il portale, che non si consegna ai clienti:
+
+1. `MODULI_CHIAVE_PRIVATA=/percorso/chiave.pem` nel suo `.env` (firma licenze e cataloghi; da `modulo chiavi`).
+2. `manage.py rivendita_pubblica --tutti`, o «Carica un pacchetto», mette in vendita i moduli (zip firmati, nell'archivio privato).
+3. **Piani** con le loro app e il prezzo, poi un'**Istanza** per ogni cliente: piano, moduli in più, utenti, scadenza. «Genera il token» lo mostra una volta sola.
+4. Le **Richieste** dei clienti si approvano con un bottone: il modulo passa nella licenza dell'istanza.
+
+**Dalla parte del cliente**, l'immagine contiene kernel e tema, nessun modulo: `docker build -f deploy/Dockerfile.cliente -t adabox_hub_cliente:<versione> .`,
+`deploy/compose.cliente.yml` per l'avvio, e nel `.env`:
+
+```
+LICENZA_OBBLIGATORIA=True
+LICENZA_PORTALE_URL=https://portale.ichnobyte.it/rivendita/api
+LICENZA_TOKEN=<il token dell'istanza>
+MODULI_CHIAVI_FIDATE=<chiave pubblica>
+```
+
+Ogni ora il worker chiede al portale licenza e catalogo firmati per quell'istanza («Sincronizza ora» in `/moduli/`, o
+`manage.py licenza sincronizza`) e si allinea: scarica e installa i moduli coperti, aggiorna quelli nuovi, disinstalla i
+revocati **lasciando i dati** e toglie dal disco il codice non coperto. Web e streaming si ricaricano da soli
+(`deploy/osserva_moduli.sh`). Un modulo fuori licenza è spento e non si installa; alla scadenza valgono i giorni di grazia,
+poi l'istanza è in **sola lettura**; il tetto di utenti vale su quelli attivi. Se il portale non risponde resta tutto com'è.
+Se la licenza comprende `ai`, non serve quella separata dell'assistente.
+
+L'Admin del cliente lavora dal front, senza admin di Django (riservato al Global Admin), con le voci nel menu utente.
+In **`/applicazioni/`** vede tre sezioni: le app attive; quelle **installate ma non attive**, dove finisce ogni modulo
+nuovo in arrivo dal portale (al primo avvio il piano è già acceso); quelle **da acquistare**, in grigio, di cui ha solo la
+descrizione, con «Informazioni», «Guarda la demo» (`url_demo` del modulo o `RIVENDITA_URL_DEMO`), «Richiedi una demo» e
+«Richiedi l'installazione». Attivando un'app decide chi la usa: livello per ruolo ed eccezioni per persona. «Ordine nel
+menu» vale per tutti; ognuno può scegliere il suo da «Le mie app nel menu». Il Global Admin ha `/moduli/` (licenza,
+caricamento, installazione). Senza portale: `manage.py licenza firma --firma chiave.pem --cliente … --moduli crm,contatti
+--scadenza AAAA-MM-GG` crea il file da caricare in `/moduli/` o con `manage.py licenza carica`; i pacchetti si caricano a mano.
+
+## Le istanze ospitate da noi
+
+Ogni cliente ha la sua istanza: container, database Postgres, segreti e backup propri. `deploy/flotta.py` le gestisce sul server, con la sola libreria standard.
+
+```bash
+export FLOTTA_RADICE=/srv/adabox-istanze                                # dove stanno segreti e backup (default ~/adabox-istanze)
+export FLOTTA_URL_PORTALE=https://portale.ichnobyte.it/rivendita/api    # come le istanze raggiungono il portale
+export FLOTTA_PORTALE=adabox_hub_web                                    # il container del portale
+
+deploy/flotta.py immagine --versione 1.4.0
+deploy/flotta.py crea rossi --cliente "Rossi Srl" --dominio hub.rossi.it --email admin@rossi.it --piano Base --versione 1.4.0
+deploy/flotta.py elenco
+deploy/flotta.py aggiorna --tutte --versione 1.5.0 --prima prova
+deploy/flotta.py backup --tutte
+deploy/flotta.py ferma rossi; deploy/flotta.py avvia rossi; deploy/flotta.py log rossi web
+deploy/flotta.py elimina rossi --conferma rossi
+```
+
+- **`crea`** registra l'istanza sul portale, genera i segreti in `<radice>/rossi/.env` (leggibile solo dal proprietario), avvia i container, scarica i moduli del piano e crea il primo admin col ruolo Admin. La password si vede solo in quel momento. Se fallisce a metà: `elimina --senza-backup` e si riparte.
+- **`aggiorna`** salva database e file, cambia versione e controlla `/salute/`. Se l'istanza non si riprende ripristina il database e la versione di prima, e **si ferma**: le istanze successive restano intatte. Con `--prima` si comincia da quella di prova. I moduli invece si aggiornano dal portale, ogni ora.
+- **`backup`** conserva gli ultimi 14 salvataggi per istanza, sullo stesso server: copiarli altrove e pianificarli con cron resta da fare.
+- **Il proxy non si tocca in automatico**: `crea` scrive `<radice>/rossi/proxy.caddy`, da includere nella configurazione di Caddy dopo aver puntato il DNS. Le istanze ascoltano solo su `127.0.0.1`.
+- **Servizi AI condivisi**: `--servizi-ai` collega l'istanza alla rete dei servizi di questo server. Vanno poi indicati in `/impostazioni/`.
+
 ## Comandi `modulo`
 
 | Comando | Effetto |
@@ -473,6 +564,7 @@ Un modulo si consegna come pacchetto zip firmato da ICHNOBYTE; ogni istanza acce
 | `modulo disinstalla <slug> [--elimina-dati] [--riavvia] [--si]` | rifiuta se altri moduli ne dipendono; senza `--elimina-dati` le tabelle restano |
 | `modulo sincronizza` | allinea la tabella `Modulo` al disco |
 | `modulo chiavi` · `impacchetta` · `carica` · `indice` · `collauda` | distribuzione dei moduli (vedi sopra) |
+| `modulo nuovo` · `controlla` · `compatibilita` | sviluppo di un modulo (vedi `docs/guida-moduli.md`) |
 
 Il lavoro vero lo fa `modulo_applica` (uso interno) in un processo nuovo, che legge il file
 di stato aggiornato e quindi ha il modulo in `INSTALLED_APPS`. Se fallisce, il file di stato

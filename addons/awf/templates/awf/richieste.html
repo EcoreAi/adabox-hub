@@ -1,0 +1,32 @@
+{% extends 'core/base_app.html' %}
+{% load awf %}
+{% block title %}Richieste · Agenti AI · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Richieste</h1>
+  <div class="sub">Gli agenti che hai chiesto, passo per passo: dalla richiesta al lavoro</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="{% url 'awf:negozio' %}">Vai al Negozio</a></div></div>
+
+{% if errori %}<div class="ui-alert ui-alert-warning">Agentlia non ha risposto per: {% for e in errori %}{{ e }}{% if not forloop.last %}; {% endif %}{% endfor %}. Si riprova da solo ogni 5 minuti.</div>{% endif %}
+
+{% for v in voci %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title"><a class="ui-link" href="{% url 'awf:richiesta' v.r.pk %}">{{ v.r.team_nome|nome_squadra|default:v.r.team_slug }}</a> · {{ v.r.settimane }} settiman{{ v.r.settimane|pluralize:"a,e" }}</div>
+  <div class="ui-card-sub">chiesta il {{ v.r.creata|date:"d/m/Y H:i" }}{% if v.r.creata_da %} da {{ v.r.creata_da.get_full_name|default:v.r.creata_da.username }}{% endif %}{% if v.r.reparto_azienda %} · reparto {{ v.r.reparto_azienda }}{% endif %}</div></div>
+  <div class="ui-card-body">
+    <ol class="ui-passi" aria-label="Avanzamento">{% for etichetta, stato in v.tappe %}<li class="is-{{ stato }}"{% if stato == 'attuale' %} aria-current="step"{% endif %}>{{ etichetta }}</li>{% endfor %}</ol>
+    {% if v.r.messaggio %}<p>{% if v.r.stato == 'rifiutata' %}<strong>Perché:</strong> {% else %}<strong>Da Agentlia:</strong> {% endif %}{{ v.r.messaggio }}</p>{% endif %}
+    <p class="ui-help">{{ v.prossimo }}</p>
+    {% if v.azione.perche %}<div class="ui-alert ui-alert-info">{% if v.azione.titolo %}<strong>{{ v.azione.titolo }}</strong> {% endif %}{{ v.azione.perche }}</div>{% endif %}
+    <div class="ui-form-actions" style="margin-bottom:0">
+      {% if v.azione %}<a class="ui-btn ui-btn-primary" href="{{ v.azione.link }}"{% if v.azione.esterno %} target="_blank" rel="noopener"{% endif %}>{{ v.azione.etichetta }}</a>{% endif %}
+      {% if v.r.aperta %}<form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="pk" value="{{ v.r.pk }}"><button class="ui-btn ui-btn-ghost" name="azione" value="aggiorna" type="submit">Aggiorna ora</button></form>{% endif %}
+      {% if v.r.stato == 'inviata' %}<form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="pk" value="{{ v.r.pk }}"><button class="ui-btn ui-btn-ghost" name="azione" value="ritira" type="submit">Ritira la richiesta</button></form>{% endif %}
+    </div>
+  </div></section>
+{% empty %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body"><div class="ui-empty">
+  <svg><use href="#icon-inbox"/></svg>
+  <p>Nessuna richiesta finora.</p>
+  <a class="ui-btn ui-btn-primary" href="{% url 'awf:negozio' %}">Vai al Negozio</a>
+</div></div></section>
+{% endfor %}
+{% endblock %}

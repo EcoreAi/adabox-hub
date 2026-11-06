@@ -50,6 +50,9 @@ class Contratto(AziendaMixin):
     fine = models.DateField("al", null=True, blank=True, help_text="vuoto = senza scadenza")
     attivo = models.BooleanField("attivo", default=True)
     note = models.TextField("note", blank=True)
+    ore_incluse = models.DecimalField("monte ore incluso", max_digits=8, decimal_places=2, default=0,
+                                      help_text="ore comprese nel contratto; 0 = nessun monte ore, si fattura tutto")
+    monte_avvisato = models.PositiveSmallIntegerField("avviso sul monte ore mandato al", default=0, editable=False)
 
     class Meta(AziendaMixin.Meta):
         verbose_name = "contratto"
@@ -133,32 +136,3 @@ class DatiTicket(models.Model):
 
     def __str__(self):
         return f"Assistenza · {self.ticket}"
-
-
-class AccessoPortale(models.Model):
-    """L'accesso di un cliente al portale: un utente esterno legato a un contatto (persona di un'azienda cliente).
-    Vede i ticket e i progetti della sua azienda."""
-    utente = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="accesso_portale",
-                                  verbose_name="utente")
-    contatto = models.ForeignKey("contatti.Contatto", on_delete=models.CASCADE, related_name="accessi_portale",
-                                 verbose_name="contatto")
-    invitato_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
-                                    related_name="+", verbose_name="invitato da")
-    invitato_il = models.DateTimeField("invitato il", auto_now_add=True)
-
-    class Meta:
-        verbose_name = "accesso al portale"
-        verbose_name_plural = "accessi al portale"
-
-    def __str__(self):
-        return f"{self.utente} · {self.contatto}"
-
-    @property
-    def cliente(self):
-        """L'azienda cliente (il contatto stesso se è un'azienda)."""
-        return self.contatto.societa or self.contatto
-
-    def contatti(self):
-        """Il cliente e tutte le sue persone: i loro ticket sono visibili dal portale."""
-        cliente = self.cliente
-        return [cliente.pk, *cliente.persone.values_list("pk", flat=True)]

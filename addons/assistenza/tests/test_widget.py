@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -68,12 +69,43 @@ def test_segnalazione_completa(client, scena):
     assert dati.tecnici["pagina"] == f"{SITO}/ordini/12" and dati.tecnici["versione"] == "2.3.1"
     assert "inventato" not in dati.tecnici and dati.tecnici["ip"]
     assert ticket.team == scena["team"] and ticket.assegnatario == scena["sara"]
-    anna = ticket.contatto
-    assert anna.email == "anna@rossi.it" and anna.societa == scena["cliente"] and anna.tipo == "persona"
+    assert ticket.contatto is None and ticket.email_cliente == "anna@rossi.it"     # l'email è solo dichiarata
     assert Allegato.objects.filter(content_type=ContentType.objects.get_for_model(Ticket), object_id=ticket.pk).exists()
     assert mail.outbox[-1].to == ["anna@rossi.it"] and ticket.numero in mail.outbox[-1].subject
+    assert not Contatto.objects.filter(email="anna@rossi.it").exists()
+
+
+def _link(ticket):
+    return re.search(r"https?://\S+/widget/conferma/\S+", mail.outbox[-1].body).group(0).split("://")[1].partition("/")[2]
+
+
+def test_email_altrui_non_entra_nel_portale_senza_conferma(client, scena):
+    anna = Contatto.objects.create(azienda=scena["cliente"].azienda, nome="Anna", email="anna@rossi.it", societa=scena["cliente"])
+    _invia(client, scena["supporto"].chiave)
+    ticket = Ticket.objects.get()
+    assert ticket.contatto is None
+    url = "/" + _link(ticket)
+    assert client.get(url).status_code == 200                    # i filtri antispam aprono il link: nessun effetto
+    ticket.refresh_from_db()
+    assert ticket.contatto is None
+    assert b"Indirizzo confermato" in client.post(url).content
+    ticket.refresh_from_db()
+    assert ticket.contatto == anna
+
+
+def test_conferma_crea_il_contatto_e_raccoglie_le_segnalazioni(client, scena):
+    _invia(client, scena["supporto"].chiave)
     _invia(client, scena["supporto"].chiave, oggetto="Un altro")
-    assert Contatto.objects.filter(email="anna@rossi.it").count() == 1                    # stesso contatto
+    client.post("/" + _link(Ticket.objects.first()))
+    anna = Contatto.objects.get(email="anna@rossi.it")
+    assert anna.societa == scena["cliente"] and anna.tipo == "persona"
+    assert Ticket.objects.filter(contatto=anna).count() == 2
+
+
+def test_link_manomesso(client, scena):
+    _invia(client, scena["supporto"].chiave)
+    assert client.post("/" + _link(Ticket.objects.get())[:-3] + "xyz/").status_code == 400
+    assert Ticket.objects.get().contatto is None
 
 
 def test_campo_esca_ed_errori(client, scena):

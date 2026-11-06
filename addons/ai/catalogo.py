@@ -35,6 +35,24 @@ def catena(profilo, azienda=None):
     return risultato
 
 
+def sceglibili(azienda=None):
+    """[(modello, chiave)] che un utente può scegliere in chat: quelli abilitati e con una chiave."""
+    risultato = []
+    for modello in Modello.objects.filter(sceglibile=True, attivo=True, provider__attivo=True).select_related("provider").order_by("etichetta"):
+        chiave = modello.provider.chiave_per(azienda)
+        if modello.provider.tipo != Provider.ANTHROPIC or chiave:
+            risultato.append((modello, chiave))
+    return risultato
+
+
+def con_scelta(anelli, modello_scelto, azienda=None):
+    """La catena con il modello scelto davanti; se non è più sceglibile vale quella degli amministratori."""
+    if modello_scelto is None:
+        return anelli
+    voce = next(((m, c) for m, c in sceglibili(azienda) if m.pk == modello_scelto.pk), None)
+    return [voce, *[a for a in anelli if a[0].pk != voce[0].pk]] if voce else anelli
+
+
 # Prezzi e limiti dal riferimento ufficiale Anthropic (ottobre 2026); si modificano dal catalogo.
 MODELLI_INIZIALI = [
     ("claude-haiku-5-5", "Claude Haiku 5.5", "0.10", "0.50", "0.125", "0.01"),

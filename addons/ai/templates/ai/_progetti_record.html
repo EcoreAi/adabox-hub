@@ -1,0 +1,13 @@
+{% load ai %}{% progetti_del_record obj vista as pr %}{% if pr %}{# Nel dettaglio di ogni record: i miei progetti di Ada collegati, e collegarne un altro. #}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Aree di lavoro collegate</div></div>
+  <div class="ui-card-body">
+    {% for p in pr.collegati %}<div><a class="ui-link" href="{% url 'ai:progetto' p.pk %}">{{ p.nome }}</a></div>{% empty %}<p class="ui-help">Nessuna tua area di lavoro è collegata a questo record. Collegandola, Ada lo conosce in tutte le chat dell'area.</p>{% endfor %}
+    {% if pr.liberi and perms.ai.change_progettochat %}
+    <form method="post" class="ui-form-row" style="margin-top:10px;align-items:center;gap:8px" onsubmit="this.action=this.action.replace('/0/', '/' + this.progetto.value + '/')" action="{% url 'ai:collega' 0 %}">{% csrf_token %}
+      <input type="hidden" name="ct" value="{{ pr.ct }}"><input type="hidden" name="record" value="{{ obj.pk }}"><input type="hidden" name="indietro" value="{{ request.get_full_path }}">
+      <select class="ui-input" name="progetto" aria-label="Area di lavoro da collegare" style="max-width:280px">{% for p in pr.liberi %}<option value="{{ p.pk }}">{{ p.nome }}</option>{% endfor %}</select>
+      <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Collega a quest'area di lavoro</button>
+    </form>{% endif %}
+  </div>
+</section>{% endif %}

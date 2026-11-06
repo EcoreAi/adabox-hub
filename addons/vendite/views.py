@@ -1,10 +1,14 @@
-from django.utils import timezone
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.db.models import Sum
 
-from core import chatter, lavori, sequenze
-from core.viste import Inline, ModelView, register
+from core import chatter, lavori
+from core.models import Messaggio
+from core.viste import Inline, ModelView, register, schede
 
 from .models import OrdineVendita, RigaVendita
-from .segnali import ordine_confermato
+from . import fido, operazioni
+from .segnali import ordine_annullato
 
 
 def euro(valore):
@@ -33,6 +37,8 @@ class OrdineView(ModelView):
     list_sum = ["totale"]
     kanban_group = "stato"
     kanban_fields = ["cliente", "totale", "data"]
+    kanban_ricco = True
+    kanban_colori = {"bozza": "grigio", "inviato": "azzurro", "confermato": "verde", "annullato": "grigio"}
     graph = {"tipi": ["barre", "linee", "torta"], "misure": ["sum:totale", "count"],
              "per": ["data:mese", "commerciale", "cliente", "stato"]}
     chatter = True
@@ -40,6 +46,19 @@ class OrdineView(ModelView):
     buttons = ["invia", "conferma", "annulla", "riporta_in_bozza"]
     reports = [{"nome": "Stampa", "template": "vendite/report/ordine.html"}]
     api = True
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("cliente", "commerciale")
+
+    def kanban_scheda(self, request, obj):
+        esito = {OrdineVendita.CONFERMATO: (*schede.FATTO, f"Confermato il {obj.confermato_il:%d/%m/%Y}" if obj.confermato_il else "Confermato"),
+                 OrdineVendita.ANNULLATO: (*schede.FERMO, "Annullato")}.get(obj.stato) or schede.entro(obj.validita, "Valido fino al", "Scaduto il", "Senza scadenza")
+        etichette = {OrdineVendita.ACCETTATO: [("Accettato online", "verde")], OrdineVendita.RIFIUTATO: [("Rifiutato online", "rosa")]}.get(obj.risposta)
+        return schede.scheda(esito, sottotitolo=obj.cliente.nome, valore=schede.euro(obj.totale), etichette=etichette, persona=schede.persona(obj.commerciale))
+
+    def kanban_colonna(self, request, valore, qs):
+        return {"riepilogo": schede.euro_tondi(qs.aggregate(t=Sum("totale"))["t"])}
 
     def col_documento(self, obj):
         return str(obj)
@@ -89,9 +108,12 @@ class OrdineView(ModelView):
             return f"Il cliente {obj.cliente} non ha un indirizzo email."
         if not obj.righe.exists():
             return "Il documento non ha righe."
-        lavori.accoda("vendite.lavori.invia", ordine_id=obj.pk, utente_id=request.user.pk)
         if obj.stato == OrdineVendita.BOZZA:
             self._stato(request, obj, OrdineVendita.INVIATO)
+        if obj.risposta == OrdineVendita.RIFIUTATO:      # un nuovo invio riapre la risposta
+            obj.risposta, obj.risposta_il, obj.risposta_ip, obj.risposta_motivo = "", None, None, ""
+            obj.save(update_fields=["risposta", "risposta_il", "risposta_ip", "risposta_motivo"])
+        lavori.accoda("vendite.lavori.invia", ordine_id=obj.pk, utente_id=request.user.pk)
         return f"{obj.titolo_documento} {obj} inviato a {obj.cliente.email}."
     invia.short_description = "Invia per email"
     invia.rischio = "irreversibile"
@@ -101,9 +123,13 @@ class OrdineView(ModelView):
             return f"{obj} non è un preventivo da confermare."
         if not obj.righe.exists():
             return "Il documento non ha righe."
-        self._stato(request, obj, OrdineVendita.CONFERMATO, confermato_il=timezone.localdate(),
-                    numero_ordine=sequenze.prossimo("vendite.ordine", obj.azienda))
-        ordine_confermato.send(sender=OrdineVendita, ordine=obj, utente=request.user)
+        esito = fido.controllo(obj)
+        if esito and esito["blocca"]:
+            return f"Ordine non confermato. {esito['testo']}"
+        operazioni.conferma(obj, request.user)
+        if esito:
+            chatter.scrivi(obj, request.user, f"Confermato oltre il fido. {esito['testo']}", tipo=Messaggio.NOTA)
+            return f"Ordine {obj.numero_ordine} confermato. Attenzione: {esito['testo']}"
         return f"Ordine {obj.numero_ordine} confermato."
     conferma.short_description = "Conferma l'ordine"
     conferma.rischio = "irreversibile"
@@ -111,8 +137,15 @@ class OrdineView(ModelView):
     def annulla(self, request, obj):
         if obj.stato == OrdineVendita.ANNULLATO:
             return f"{obj} è già annullato."
-        self._stato(request, obj, OrdineVendita.ANNULLATO)
-        return f"{obj} annullato."
+        stato = obj.stato
+        try:
+            with transaction.atomic():
+                self._stato(request, obj, OrdineVendita.ANNULLATO)
+                risposte = ordine_annullato.send(sender=OrdineVendita, ordine=obj, utente=request.user)
+        except ValidationError as e:
+            obj.stato = stato
+            return " ".join(e.messages)
+        return " ".join([f"{obj} annullato.", *(testo for _, testo in risposte if testo)])
     annulla.short_description = "Annulla"
 
     def riporta_in_bozza(self, request, obj):

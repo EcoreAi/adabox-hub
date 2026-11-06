@@ -17,7 +17,10 @@ from django.utils import timezone
 
 from .. import catalogo, proposte, protezione, strumenti
 from ..gateway import ChiamataStrumento, ErroreModello, Fine, Inizio, Testo, Uso, esegui as gateway
-from ..models import Evento, MessaggioChat, Turno
+from core import allegati as core_allegati
+
+from .. import allegati_chat, contesto_utente
+from ..models import Artifact, Evento, MessaggioChat, Proposta, Turno
 from . import prompt
 
 log = logging.getLogger("ai.motore")
@@ -25,6 +28,7 @@ log = logging.getLogger("ai.motore")
 MAX_PASSI = 12
 MAX_SECONDI = 300
 MAX_COSTO = Decimal("0.50")                     # dollari per turno
+MAX_TOKEN_DESCRIZIONE = 350                     # descrizione di un'immagine fatta in locale (su CPU circa 40 secondi)
 INTERVALLO_SALVATAGGIO = 0.25                   # secondi tra due salvataggi del testo in uscita
 SENZA_BATTITO = timedelta(seconds=90)
 
@@ -72,20 +76,79 @@ def _chiudi_chiamate_aperte(turno, motivo):
                                                  "errore": True} for b in aperte]})
 
 
-def avvia(conversazione, testo, utente, azienda=None, compito="chat", sincrono=False, nota=""):
-    """Registra la domanda e avvia il turno: in un thread, oppure nel processo stesso con `sincrono` (worker delle
-    pianificate) o AI_TURNI_SINCRONI (test). `nota` va al modello nel <contesto>, non nella chat."""
+def in_corso_di(conversazione):
+    """La risposta che l'utente sta aspettando. Il turno del titolo non conta: gira dopo la risposta, e se bloccasse la
+    chat il messaggio scritto in quel momento andrebbe perso."""
+    return conversazione.turni.filter(stato=Turno.IN_CORSO).exclude(compito="titoli").first()
+
+
+class NonSiPuoRipartire(Exception):
+    """Il messaggio per l'utente: perché non si può rigenerare o modificare da quel punto."""
+
+
+def riparti(conversazione, messaggio, testo, utente, azienda=None):
+    """Rigenera o modifica: il messaggio resta con i suoi allegati, ciò che viene dopo sparisce, e la cronologia del
+    modello (ricostruita dagli eventi) torna a quel punto, riassunti compresi. I turni restano: i costi sono stati
+    pagati. Una proposta già eseguita ferma tutto: cancellare la risposta non annullerebbe la modifica ai dati."""
     segna_interrotti(conversazione)
-    in_corso = conversazione.turni.filter(stato=Turno.IN_CORSO).first()
+    with transaction.atomic():
+        if in_corso_di(conversazione) is not None:
+            raise NonSiPuoRipartire("C'è già una risposta in corso: fermala o aspetta che finisca.")
+        posizione = conversazione.messaggi.filter(ruolo=MessaggioChat.UTENTE, pk__lt=messaggio.pk).count()
+        domande = list(conversazione.eventi.filter(tipo=Evento.UTENTE).order_by("pk").values_list("pk", flat=True))
+        if messaggio.ruolo != MessaggioChat.UTENTE or posizione >= len(domande):
+            raise NonSiPuoRipartire("Da questo messaggio non si può ripartire.")
+        da_togliere = conversazione.eventi.filter(pk__gte=domande[posizione])
+        domanda = Evento.objects.filter(pk=domande[posizione]).select_related("turno").first()
+        originale, conferma = domanda.turno, domanda.dati.get("immagini_confermate")
+        compito, con_web = getattr(originale, "compito", "chat"), getattr(originale, "web", True)
+        turni_tolti = set(da_togliere.exclude(turno=None).values_list("turno_id", flat=True))
+        decise = Proposta.objects.filter(turno_id__in=turni_tolti)
+        if decise.filter(stato=Proposta.ESEGUITA).exists():
+            raise NonSiPuoRipartire("In questa parte della chat una modifica ai dati è già stata eseguita: ripartire non "
+                                    "la annullerebbe. Scrivi un nuovo messaggio.")
+        decise.filter(stato=Proposta.IN_ATTESA).update(stato=Proposta.ANNULLATA, esito="Chat ripartita da un messaggio precedente.")
+        decise.update(comunicata=True)
+        Artifact.objects.filter(turno_id__in=turni_tolti, salvato=False).delete()
+        conversazione.messaggi.filter(pk__gt=messaggio.pk).delete()
+        da_togliere.delete()
+        messaggio.testo = testo
+        messaggio.save(update_fields=["testo"])
+    if compito == "ricerca":
+        from .. import ricerca
+        return avvia(conversazione, testo, utente, azienda, messaggio=messaggio, compito=compito, nota=ricerca.ISTRUZIONI,
+                     immagini_confermate=conferma)
+    return avvia(conversazione, testo, utente, azienda, messaggio=messaggio, web=con_web, immagini_confermate=conferma)
+
+
+def avvia(conversazione, testo, utente, azienda=None, compito="chat", sincrono=False, nota="", file=(), messaggio=None, web=True,
+          immagini_confermate=None):
+    """Registra la domanda e avvia il turno: in un thread, oppure nel processo stesso con `sincrono` (worker delle
+    pianificate) o AI_TURNI_SINCRONI (test). `nota` va al modello nel <contesto>, non nella chat. `file`: gli allegati
+    del messaggio, già controllati. `messaggio`: quello esistente, quando si riparte da lì."""
+    segna_interrotti(conversazione)
+    in_corso = in_corso_di(conversazione)
     if in_corso is not None:
         return in_corso
     with transaction.atomic():
-        turno = Turno.objects.create(conversazione=conversazione, utente=utente, azienda=azienda, compito=compito)
+        turno = Turno.objects.create(conversazione=conversazione, utente=utente, azienda=azienda, compito=compito, web=web)
         esiti = proposte.da_comunicare(conversazione)
+        if messaggio is None:
+            messaggio = MessaggioChat.objects.create(conversazione=conversazione, ruolo=MessaggioChat.UTENTE, testo=testo)
+        for f in file:
+            core_allegati.salva(messaggio, f, utente)
+        nota = "\n".join(n for n in (contesto_utente.nota_memoria(utente, azienda), contesto_utente.nota_progetto(conversazione),
+                                     nota, allegati_chat.nota(messaggio)) if n)
+        immagini = [a.pk for a in allegati_chat.immagini_di(messaggio)]
+        # chi ha confermato l'invio delle immagini verso il cloud, e quando: resta nella storia della chat
+        conferma = immagini_confermate if immagini and immagini_confermate else None
+        if conferma is True:
+            conferma = {"utente": utente.username, "quando": timezone.now().isoformat()}
         Evento.objects.create(conversazione=conversazione, turno=turno, tipo=Evento.UTENTE, dati={
-            "ruolo": "utente", "testo": prompt.con_contesto(testo, utente, azienda, conversazione.ambito, esiti,
-                                                            nota)})
-        MessaggioChat.objects.create(conversazione=conversazione, ruolo=MessaggioChat.UTENTE, testo=testo)
+            "ruolo": "utente", "testo": prompt.con_contesto(testo, utente, azienda, conversazione.ambito, esiti, nota),
+            **({"immagini": immagini} if immagini else {}), **({"immagini_confermate": conferma} if conferma else {})})
+        if conferma:
+            log.info("immagini verso il cloud confermate da %s (chat %s, allegati %s)", utente.username, conversazione.pk, immagini)
     if sincrono or getattr(settings, "AI_TURNI_SINCRONI", False):
         esegui(turno.pk)
     else:
@@ -111,8 +174,11 @@ class _Fermati(Exception):
 
 class _Esecuzione:
     def __init__(self, turno):
+        from .. import ricerca
         self.turno = turno
         self.inizio = time.monotonic()
+        lunga = turno.compito == ricerca.COMPITO          # la ricerca approfondita ha un budget più ampio
+        self.passi, self.secondi, self.costo = (ricerca.PASSI, ricerca.SECONDI, ricerca.COSTO) if lunga else (MAX_PASSI, MAX_SECONDI, MAX_COSTO)
         self.ultimo_salvataggio = 0.0
         self.testo_turno = []                     # tutto il testo visibile del turno (tra un passo e l'altro)
         self.protezione = None
@@ -139,9 +205,9 @@ class _Esecuzione:
         self.turno.costo += modello.costo(uso.come_dict())
 
     def oltre_budget(self):
-        if time.monotonic() - self.inizio > MAX_SECONDI:
+        if time.monotonic() - self.inizio > self.secondi:
             return "il tempo massimo del turno"
-        if self.turno.costo > MAX_COSTO:
+        if self.turno.costo > self.costo:
             return "la spesa massima per una risposta"
         return None
 
@@ -159,16 +225,38 @@ def esegui(turno_id):
             profilo = assistente.profilo
         else:
             profilo = catalogo.profilo_per(turno.compito, turno.azienda, conversazione.ambito)
-        catena = catalogo.catena(profilo, turno.azienda)
+        catena = catalogo.con_scelta(catalogo.catena(profilo, turno.azienda), conversazione.modello, turno.azienda)
+        from ..strumenti import web
         ammessi = {s.nome: s for s in assistenti.filtra_strumenti(
-            strumenti.disponibili(utente, conversazione.ambito), assistente, esperto=turno.compito == "esperto")}
+            web.filtra(strumenti.disponibili(utente, conversazione.ambito, turno.azienda), turno.azienda, turno.web), assistente, esperto=turno.compito == "esperto")}
+        if turno.compito == "aiuto":                      # «Scrivi con Ada»: solo letture del gestionale
+            from .. import aiuto_testi
+            ammessi = aiuto_testi.filtra_strumenti(ammessi)
+        copia, con_immagine, nell_ultimo = allegati_chat.con_immagini(messaggi_del_modello(conversazione))
+        senza_immagini = False
+        if con_immagine:
+            confermate = _immagini_confermate(conversazione)
+            adatti = [a for a in catena if allegati_chat.modello_ammesso_per_immagini(a[0], turno.azienda, confermate)]
+            locali = allegati_chat.visione_locale(turno.azienda)
+            if not adatti and nell_ultimo and locali:
+                # l'immagine non può uscire: la descrive un modello sui nostri server e la descrizione (testo, mascherato
+                # come il resto) va al modello della chat, che tiene strumenti e dati del gestionale
+                _descrivi_in_locale(e, conversazione, copia, locali)
+                copia, con_immagine, nell_ultimo = allegati_chat.con_immagini(messaggi_del_modello(conversazione))
+        if con_immagine:
+            if adatti:
+                catena = adatti
+            elif nell_ultimo:
+                raise catalogo.NessunModello("Nessun modello abilitato può leggere questa immagine.")
+            else:                                      # un'immagine di prima: la chat continua senza vederla
+                senza_immagini = True
         sistema = prompt.sistema(assistente)
         contesto = strumenti.Contesto(utente=utente, azienda=turno.azienda, conversazione=conversazione, turno=turno)
         e.protezione = protezione.Protezione(conversazione)
         from . import compattazione
         if compattazione.se_serve(turno):
             e.avanzamento({"strumento": "riassunto", "stato": "fatto", "passo": 0})
-        for passo in range(1, MAX_PASSI + 1):
+        for passo in range(1, e.passi + 1):
             motivo = e.oltre_budget()
             if motivo:
                 _chiudi(e, Turno.COMPLETATO, f"\n\n_Mi fermo qui: ho raggiunto {motivo}. Chiedimi di continuare._")
@@ -178,7 +266,8 @@ def esegui(turno_id):
             testo_passo = []
             try:
                 for pezzo in gateway(catena, protezione=e.protezione, sistema=sistema,
-                                     messaggi=messaggi_del_modello(conversazione),
+                                     messaggi=(messaggi_del_modello(conversazione) if senza_immagini
+                                               else allegati_chat.con_immagini(messaggi_del_modello(conversazione))[0]),
                                      strumenti=[s.definizione() for s in ammessi.values()],
                                      max_token=profilo.max_token, effort=profilo.effort):
                     if isinstance(pezzo, Inizio):
@@ -243,6 +332,44 @@ def esegui(turno_id):
     return turno
 
 
+DESCRIVI = ("Descrivi in italiano, in modo fedele e concreto, l'immagine allegata: che cosa mostra e i testi leggibili, trascritti "
+            "esattamente. Non inventare ciò che non si vede. Domanda dell'utente sull'immagine: {domanda}")
+
+
+def _descrivi_in_locale(e, conversazione, messaggi, locali):
+    """Fa descrivere le immagini dell'ultimo messaggio a un modello locale e mette la descrizione nella domanda, al posto
+    dei file: il modello della chat (anche cloud) riceve solo il testo."""
+    indice = max(i for i, m in enumerate(messaggi) if m.get("immagini_dati"))
+    domanda = messaggi[indice]["testo"].rsplit("</contesto>", 1)[-1].strip()[:1000]
+    e.avanzamento({"strumento": "leggi_immagine", "stato": "in corso", "passo": 0})
+    pezzi, modello = [], None
+    for pezzo in gateway(locali, protezione=None, sistema="Descrivi le immagini in modo fedele, senza inventare.",
+                         messaggi=[{"ruolo": "utente", "testo": DESCRIVI.format(domanda=domanda), "immagini_dati": messaggi[indice]["immagini_dati"]}],
+                         strumenti=[], max_token=MAX_TOKEN_DESCRIZIONE, effort="none"):
+        if isinstance(pezzo, Inizio):
+            modello = pezzo.modello
+        elif isinstance(pezzo, Testo):
+            pezzi.append(pezzo.testo)
+        elif isinstance(pezzo, Uso):
+            e.aggiungi_uso(modello, pezzo)
+    descrizione = "".join(pezzi).strip() or "(il modello locale non ha saputo descriverla)"
+    ultimo = conversazione.eventi.filter(tipo=Evento.UTENTE, dati__has_key="immagini").order_by("-pk").first()
+    dati = dict(ultimo.dati)
+    dati["immagini_descritte"] = dati.pop("immagini")
+    dati["testo"] += (f"\n\n<immagini_allegate descritte_da=\"{getattr(modello, 'etichetta', 'modello locale')}, sui nostri server\">\n"
+                      f"Le immagini non ti vengono inviate: questa è la loro descrizione, fatta da un modello piccolo che può sbagliare "
+                      f"i dettagli.\n{descrizione}\n</immagini_allegate>")
+    ultimo.dati = dati
+    ultimo.save(update_fields=["dati"])
+    e.avanzamento({"passo": 0, "fatti": [{"strumento": "leggi_immagine", "errore": False}]})
+
+
+def _immagini_confermate(conversazione):
+    """Se l'utente ha confermato l'invio verso il cloud dell'ultima immagine (quella che va al modello)."""
+    ultimo = conversazione.eventi.filter(tipo=Evento.UTENTE, dati__has_key="immagini").order_by("-pk").first()
+    return bool(ultimo and ultimo.dati.get("immagini_confermate"))
+
+
 def _registra_parziale(turno, testo_passo):
     if turno.conversazione_id:
         Evento.objects.create(conversazione=turno.conversazione, turno=turno, tipo=Evento.ASSISTENTE, dati={
@@ -256,18 +383,25 @@ def _chiudi(e, stato, coda="", errore=""):
     testo = "".join(e.testo_turno).strip()
     turno.testo, turno.stato, turno.finito, turno.errore = testo, stato, timezone.now(), errore[:2000]
     turno.battito = turno.finito
+    if stato == Turno.COMPLETATO and turno.compito == "ricerca" and turno.conversazione_id:
+        from .. import ricerca
+        try:
+            ricerca.concludi(turno)
+        except Exception:                          # le fonti sono un di più: non devono rompere il turno
+            log.exception("fonti della ricerca %s", turno.pk)
     if stato == Turno.COMPLETATO and turno.conversazione_id:
         from .. import provenienza
         try:
             turno.provenienza = provenienza.calcola(turno, testo, len(e.protezione.protetti) if e.protezione else 0)
         except Exception:                          # la provenienza è un di più: non deve rompere il turno
             log.exception("provenienza del turno %s", turno.pk)
-    turno.save()
-    if turno.conversazione_id and testo:
-        MessaggioChat.objects.create(conversazione=turno.conversazione, ruolo=MessaggioChat.ASSISTENTE, testo=testo,
-                                     turno=turno)
-        turno.conversazione.save(update_fields=["aggiornata"])
-    if stato == Turno.COMPLETATO and turno.compito == "chat" and turno.conversazione_id \
+    with transaction.atomic():                         # insieme: chi vede il turno concluso trova già il messaggio
+        turno.save()
+        if turno.conversazione_id and testo:
+            MessaggioChat.objects.create(conversazione=turno.conversazione, ruolo=MessaggioChat.ASSISTENTE, testo=testo,
+                                         turno=turno)
+            turno.conversazione.save(update_fields=["aggiornata"])
+    if stato == Turno.COMPLETATO and turno.compito in ("chat", "ricerca") and turno.conversazione_id \
             and not turno.conversazione.nascosta:
         from . import titoli
         try:

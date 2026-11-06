@@ -50,6 +50,11 @@ class Conversazione(models.Model):
     titolo_generato = models.BooleanField("titolo scritto dall'assistente", default=False)
     assistente = models.ForeignKey(Assistente, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
                                    verbose_name="assistente", help_text="fisso solo per gli esperti")
+    modello = models.ForeignKey("Modello", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                                verbose_name="modello scelto", help_text="vuoto = quello deciso dagli amministratori")
+    progetto = models.ForeignKey("ProgettoChat", on_delete=models.SET_NULL, null=True, blank=True, related_name="chat", verbose_name="area di lavoro")
+    condivisa = models.BooleanField("condivisa con l'area", default=False,
+                                    help_text="gli altri membri dell'area di lavoro la leggono, senza poterci scrivere")
     nascosta = models.BooleanField("interna", default=False, help_text="conversazione di un esperto: non in cronologia")
     segnaposto = models.JSONField("segnaposto dei dati personali", default=dict, blank=True, editable=False,
                                   help_text="[FULLNAME_1] -> valore: stabili per conversazione (ai.protezione)")
@@ -144,6 +149,7 @@ class Modello(models.Model):
                                                blank=True)
     strumenti = models.BooleanField("usa strumenti", default=True)
     visione = models.BooleanField("legge immagini", default=False)
+    sceglibile = models.BooleanField("sceglibile dagli utenti", default=False, help_text="compare nella scelta del modello in chat; i tetti di spesa restano gli stessi")
     ragionamento = models.BooleanField("ragiona (effort)", default=False)
     residenza_ue = models.BooleanField("dati in UE", default=False)
     attivo = models.BooleanField("attivo", default=True)
@@ -170,7 +176,8 @@ class Modello(models.Model):
 class Profilo(models.Model):
     """Quale catena di modelli usare per un compito, per tutti o per un'app o un'azienda."""
     COMPITI = [("chat", "Chat e agente"), ("titoli", "Titoli delle chat"), ("riassunti", "Riassunti"),
-               ("pianificate", "Attività pianificate"), ("classificazione", "Classificazione")]
+               ("pianificate", "Attività pianificate"), ("classificazione", "Classificazione"),
+               ("ricerca", "Ricerca approfondita")]
     EFFORT = [("", "Predefinito del modello"), ("low", "Basso"), ("medium", "Medio"), ("high", "Alto"),
               ("xhigh", "Molto alto"), ("max", "Massimo")]
     nome = models.CharField("nome", max_length=80)
@@ -216,6 +223,8 @@ class Turno(models.Model):
                                verbose_name="utente")
     azienda = models.ForeignKey("core.Azienda", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="azienda")
     compito = models.CharField("compito", max_length=20, default="chat")
+    web = models.BooleanField("ricerca sul web", default=True,
+                              help_text="in chat solo se l'utente l'ha scelta per quel messaggio; le attività pianificate la usano se l'azienda l'ha accesa")
     stato = models.CharField("stato", max_length=10, choices=STATI, default=IN_CORSO)
     modello = models.ForeignKey(Modello, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="modello")
     testo = models.TextField("testo della risposta", blank=True)
@@ -378,6 +387,8 @@ class Pianificata(models.Model):
     eventi_fatti = models.JSONField("eventi già preparati", default=list, blank=True, editable=False)
     conversazione = models.ForeignKey(Conversazione, on_delete=models.SET_NULL, null=True, blank=True,
                                       related_name="+", verbose_name="conversazione")
+    progetto = models.ForeignKey("ProgettoChat", on_delete=models.SET_NULL, null=True, blank=True, related_name="pianificate",
+                                 verbose_name="area di lavoro", help_text="la sua chat sta nell'area di lavoro: istruzioni, file e record collegati valgono anche qui")
     creata = models.DateTimeField("creata il", auto_now_add=True)
 
     class Meta:
@@ -452,3 +463,204 @@ class Licenza(models.Model):
         verbose_name = "licenza"
         verbose_name_plural = "licenze"
         ordering = ["-pk"]
+
+
+class ValutazioneRisposta(models.Model):
+    """Il pollice su una risposta: chi lo mette sa che la risposta e la domanda diventano visibili agli amministratori."""
+    messaggio = models.OneToOneField(MessaggioChat, on_delete=models.CASCADE, related_name="valutazione", verbose_name="risposta")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="utente")
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="azienda")
+    voto = models.SmallIntegerField("voto", choices=[(1, "Utile"), (-1, "Da migliorare")])
+    commento = models.CharField("commento", max_length=500, blank=True)
+    creata = models.DateTimeField("data", auto_now=True)
+
+    class Meta:
+        verbose_name = "valutazione"
+        verbose_name_plural = "valutazioni"
+        ordering = ["-creata", "-pk"]
+
+    def __str__(self):
+        return f"{self.get_voto_display()}: {self.messaggio.testo[:40]}"
+
+    @property
+    def domanda(self):
+        """La domanda a cui rispondeva."""
+        voce = MessaggioChat.objects.filter(conversazione_id=self.messaggio.conversazione_id, ruolo=MessaggioChat.UTENTE, pk__lt=self.messaggio_id).order_by("-pk").first()
+        return voce.testo if voce else ""
+
+
+class MemoriaUtente(models.Model):
+    """Una cosa da ricordare tra le chat: di una persona in una azienda, confermata da lei, cancellabile quando vuole."""
+    LUNGHEZZA = 500
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="memorie_ai", verbose_name="utente")
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, related_name="+", verbose_name="azienda")
+    testo = models.CharField("da ricordare", max_length=LUNGHEZZA)
+    creata = models.DateTimeField("creata il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "ricordo"
+        verbose_name_plural = "memoria"
+        ordering = ["-pk"]
+
+    def __str__(self):
+        return self.testo[:60]
+
+
+class ProgettoChat(models.Model):
+    """Un gruppo di chat con istruzioni e file propri: personale, come le chat."""
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="progetti_ai", verbose_name="utente")
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, related_name="+", verbose_name="azienda")
+    nome = models.CharField("nome", max_length=80)
+    istruzioni = models.TextField("istruzioni", blank=True, help_text="valgono per tutte le chat dell'area di lavoro")
+    # cartella dell'app Documenti (se installata): numero e non chiave esterna, perché ai non dipende da documenti
+    cartella_documenti = models.PositiveIntegerField("cartella dei Documenti", null=True, blank=True)
+    ambito = models.CharField("app predefinita", max_length=31, blank=True,
+                              help_text="le chat nuove dell'area partono limitate a questa app (si cambia dalla casella)")
+    creato = models.DateTimeField("creato il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "area di lavoro"
+        verbose_name_plural = "aree di lavoro"
+        ordering = ["nome", "pk"]
+
+    def __str__(self):
+        return self.nome
+
+
+class ServerMCP(models.Model):
+    """Un sistema esterno di cui Ada può usare gli strumenti (MCP). Lo collega e lo rivede un amministratore."""
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, related_name="+", verbose_name="azienda")
+    nome = models.CharField("nome", max_length=80, help_text="es. Gestionale del cliente")
+    url = models.CharField("indirizzo MCP", max_length=300, help_text="es. https://crm.esempio.it/mcp")
+    token_cifrato = models.TextField(blank=True, editable=False)
+    rete_interna = models.BooleanField("nella rete del cliente", default=False,
+                                       help_text="permette http e indirizzi privati: solo per sistemi interni di cui ti fidi")
+    attivo = models.BooleanField("attivo", default=True)
+    strumenti = models.JSONField("strumenti", default=list, blank=True, editable=False)
+    aggiornato = models.DateTimeField("strumenti letti il", null=True, blank=True, editable=False)
+    ultimo_errore = models.CharField("ultimo errore", max_length=300, blank=True, editable=False)
+
+    class Meta:
+        verbose_name = "server MCP"
+        verbose_name_plural = "server MCP"
+        ordering = ["nome", "pk"]
+        permissions = [("usa_servermcp", "Usa in chat gli strumenti dei sistemi esterni")]
+
+    def __str__(self):
+        return self.nome
+
+    def token(self):
+        from core import cifratura
+        return cifratura.decifra(self.token_cifrato)
+
+
+class DocumentoChat(models.Model):
+    """Un testo lungo che Ada e l'utente scrivono insieme, aperto accanto alla chat. Ogni modifica è una versione."""
+    conversazione = models.ForeignKey(Conversazione, on_delete=models.CASCADE, related_name="documenti", verbose_name="conversazione")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+", verbose_name="utente")
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, verbose_name="azienda")
+    titolo = models.CharField("titolo", max_length=200)
+    testo = models.TextField("testo", blank=True)
+    versione = models.PositiveIntegerField("versione", default=1)
+    salvato = models.BooleanField("salvato", default=False)
+    creato = models.DateTimeField("creato il", auto_now_add=True)
+    aggiornato = models.DateTimeField("modificato il", auto_now=True)
+
+    class Meta:
+        verbose_name = "documento della chat"
+        verbose_name_plural = "documenti della chat"
+        ordering = ["pk"]
+
+    def __str__(self):
+        return self.titolo
+
+
+class VersioneDocumento(models.Model):
+    ADA, UTENTE = "ada", "utente"
+    documento = models.ForeignKey(DocumentoChat, on_delete=models.CASCADE, related_name="versioni", verbose_name="documento")
+    numero = models.PositiveIntegerField("numero")
+    testo = models.TextField("testo", blank=True)
+    autore = models.CharField("autore", max_length=6, choices=[(ADA, "Ada"), (UTENTE, "Utente")])
+    turno = models.ForeignKey(Turno, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="turno")
+    creata = models.DateTimeField("creata il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "versione del documento"
+        verbose_name_plural = "versioni del documento"
+        ordering = ["-numero"]
+        constraints = [models.UniqueConstraint(fields=["documento", "numero"], name="ai_versione_documento_unica")]
+
+
+class ServizioVoce(models.Model):
+    """Un servizio che legge ad alta voce le risposte: Kokoro sui nostri server oppure un fornitore cloud con chiave."""
+    KOKORO, CARTESIA, MISTRAL, AZURE, GEMINI = "kokoro", "cartesia", "mistral", "azure", "gemini"
+    TIPI = [(KOKORO, "Kokoro (locale, sui nostri server)"), (CARTESIA, "Cartesia"), (MISTRAL, "Mistral (Voxtral)"),
+            (AZURE, "Azure AI Speech"), (GEMINI, "Google Gemini TTS")]
+    PREDEFINITI = {                                      # modello, voce italiana, voce inglese
+        KOKORO: ("speaches-ai/Kokoro-82M-v1.0-ONNX", "if_sara", "af_heart"),
+        CARTESIA: ("sonic-3.6", "", ""),
+        MISTRAL: ("voxtral-mini-tts-3-0", "voice_482", "gb_jane_neutral"),
+        AZURE: ("", "it-IT-IsabellaNeural", "en-US-JennyNeural"),
+        GEMINI: ("gemini-3.1-flash-tts-preview", "Kore", "Kore"),
+    }
+    nome = models.CharField("nome", max_length=80)
+    tipo = models.CharField("tipo", max_length=10, choices=TIPI)
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, related_name="+",
+                                verbose_name="azienda", help_text="vuota = per tutte le aziende")
+    chiave_cifrata = models.TextField(blank=True, editable=False)
+    regione = models.CharField("regione Azure", max_length=40, blank=True, help_text="solo Azure, es. westeurope")
+    modello = models.CharField("modello", max_length=100, blank=True, help_text="vuoto = quello consigliato")
+    voce_it = models.CharField("voce italiana", max_length=100, blank=True, help_text="vuota = quella consigliata")
+    voce_en = models.CharField("voce inglese", max_length=100, blank=True, help_text="vuota = quella consigliata")
+    attivo = models.BooleanField("attivo", default=True)
+
+    class Meta:
+        verbose_name = "servizio voce"
+        verbose_name_plural = "servizi voce"
+        ordering = ["nome", "pk"]
+
+    def __str__(self):
+        return self.nome
+
+    @property
+    def locale(self):
+        return self.tipo == self.KOKORO
+
+    def valore(self, campo):
+        """modello, voce_it o voce_en: quello scelto o quello consigliato per il tipo."""
+        indice = {"modello": 0, "voce_it": 1, "voce_en": 2}[campo]
+        return getattr(self, campo) or self.PREDEFINITI.get(self.tipo, ("", "", ""))[indice]
+
+    def chiave(self):
+        from core import cifratura
+        return cifratura.decifra(self.chiave_cifrata) if self.chiave_cifrata else ""
+
+
+class CollegamentoProgetto(models.Model):
+    """Un record del gestionale (commessa, cliente, opportunità, campagna, ticket...) legato a un progetto della chat:
+    Ada lo riceve come contesto in tutte le chat del progetto, e dal record si torna al progetto."""
+    progetto = models.ForeignKey(ProgettoChat, on_delete=models.CASCADE, related_name="collegamenti", verbose_name="progetto")
+    content_type = models.ForeignKey("contenttypes.ContentType", on_delete=models.CASCADE, related_name="+")
+    object_id = models.PositiveBigIntegerField()
+    creato = models.DateTimeField("collegato il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "collegamento dell'area di lavoro"
+        verbose_name_plural = "collegamenti dell'area di lavoro"
+        ordering = ["pk"]
+        constraints = [models.UniqueConstraint(fields=["progetto", "content_type", "object_id"], name="ai_collegamento_unico")]
+
+
+
+class MembroArea(models.Model):
+    """Un collega con cui è condivisa un'area di lavoro: usa istruzioni, file, cartella e record collegati e apre chat
+    nell'area. Le sue chat restano sue, salvo quelle che condivide. Le impostazioni le cambia solo chi ha creato l'area."""
+    progetto = models.ForeignKey(ProgettoChat, on_delete=models.CASCADE, related_name="membri", verbose_name="area di lavoro")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="aree_condivise", verbose_name="utente")
+    aggiunto = models.DateTimeField("aggiunto il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "membro dell'area di lavoro"
+        verbose_name_plural = "membri dell'area di lavoro"
+        ordering = ["pk"]
+        constraints = [models.UniqueConstraint(fields=["progetto", "utente"], name="ai_membro_area_unico")]

@@ -1,0 +1,10 @@
+{% load acquisti %}{% listino_prodotto obj as voci %}
+{% if voci %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Listini dei fornitori</div></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Fornitore</th><th>Codice</th><th class="ui-num">Da quantità</th><th class="ui-num">Prezzo</th><th class="ui-num">Giorni</th><th>Fino al</th></tr></thead>
+    <tbody>{% for v in voci %}<tr><td><a class="ui-link" href="{% url 'acquisti:listini_dettaglio' v.pk %}">{{ v.fornitore }}</a>{% if v.preferito %} <span class="ui-pill">preferito</span>{% endif %}</td><td>{{ v.codice_fornitore }}</td><td class="ui-num">{{ v.quantita_minima|floatformat:"-3" }}</td><td class="ui-num">{{ v.prezzo|floatformat:2 }} €</td><td class="ui-num">{{ v.giorni_consegna|default:"–" }}</td><td>{{ v.valido_al|date:"d/m/Y"|default:"–" }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endif %}

@@ -52,8 +52,8 @@ services:
     depends_on:
       - web
     env_file: .env
-    command: ["uvicorn", "config.asgi:application", "--host", "0.0.0.0", "--port", "8001", "--workers", "2",
-              "--proxy-headers", "--forwarded-allow-ips", "*", "--timeout-graceful-shutdown", "10"]
+    # quando il worker installa un modulo, osserva_moduli esce e restart riparte con il codice nuovo
+    command: ["sh", "-c", "sh deploy/osserva_moduli.sh esci & exec uvicorn config.asgi:application --host 0.0.0.0 --port 8001 --workers 2 --proxy-headers --forwarded-allow-ips '*' --timeout-graceful-shutdown 10"]
     volumes:
       - .:/app
       - ./addons:/app/addons
@@ -74,3 +74,36 @@ services:
       - ./staticfiles:/app/staticfiles:ro
       - ./media:/app/media:ro
       - ./private:/app/private:ro
+
+  # voce locale, opzionale (profilo "voce"): Speaches con faster-whisper (voce → testo) e Kokoro (testo → voce),
+  # API compatibile OpenAI. Senza autenticazione: non è pubblicato, lo raggiungono solo i servizi su questa rete.
+  # I modelli stanno in ./volumes/speaches (vedi docs/voce.md). URL da mettere in /impostazioni/: http://adabox_hub_speaches:8000
+  speaches:
+    image: ghcr.io/speaches-ai/speaches:latest-cpu
+    container_name: adabox_hub_speaches
+    restart: unless-stopped
+    profiles: ["voce"]
+    volumes:
+      - ./volumes/speaches:/home/ubuntu/.cache/huggingface/hub
+    environment:
+      # nessun download dalla rete mentre gira: i modelli si scaricano a mano (docs/voce.md)
+      HF_HUB_OFFLINE: "1"
+    expose:
+      - "8000"
+
+  # modelli locali con la visione, opzionale (profilo "visione"): Ollama su CPU. Le immagini allegate in chat restano
+  # sul server. Non pubblicato. URL del provider (Compatibile OpenAI, locale): http://adabox_hub_ollama:11434/v1
+  # Modelli: docker exec adabox_hub_ollama ollama pull qwen3.5:0.8b (vedi docs/visione-locale.md)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: adabox_hub_ollama
+    restart: unless-stopped
+    profiles: ["visione"]
+    volumes:
+      - ./volumes/ollama:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: "30m"
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+    expose:
+      - "11434"

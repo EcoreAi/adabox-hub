@@ -1,13 +1,27 @@
 {% load ai %}{% for m in messaggi %}
-<article class="ai-msg ai-msg-{{ m.ruolo }}">
+<article class="ai-msg ai-msg-{{ m.ruolo }}" data-messaggio="{{ m.pk }}">
   {% if m.ruolo == "assistente" %}<span class="ai-msg-avatar" aria-hidden="true"><svg><use href="#ai-scintilla"/></svg></span>{% endif %}
   <div class="ai-msg-corpo">
     {% if m.ruolo == "assistente" %}<div class="ai-msg-testo ai-md">{{ m.testo|markdown_ai }}</div>
     {% for a in m|artifact %}{% include "ai/_artifact.html" %}{% endfor %}
+    {% for d in m|documenti %}{% include "ai/_documento.html" %}{% endfor %}
     {% for p in m|proposte %}{% include "ai/_proposta.html" %}{% endfor %}
     {% include "ai/_provenienza.html" with pv=m|provenienza %}
-    {% else %}<div class="ai-msg-testo">{{ m.testo|urlize|linebreaksbr }}</div>{% endif %}
-    <time datetime="{{ m.creato|date:'c' }}">{{ m.creato|date:"H:i" }}</time>
+    {% else %}<div class="ai-msg-testo">{{ m.testo|urlize|linebreaksbr }}</div>
+    {% with file=m|allegati %}{% if file %}<ul class="ai-allegati">{% for a in file %}<li><a class="ai-chip" href="{% url 'ai:allegato' a.pk %}" target="_blank" rel="noopener">{{ a.nome }}</a></li>{% endfor %}</ul>{% endif %}{% endwith %}
+    <form class="ai-modifica" method="post" action="{% url 'ai:modifica_messaggio' m.pk %}" data-modifica hidden>{% csrf_token %}
+      <textarea class="ui-input" name="testo" rows="3" aria-label="Modifica il messaggio" required>{{ m.testo }}</textarea>
+      <small>Tutto ciò che viene dopo questo messaggio sparisce e l'assistente risponde di nuovo.</small>
+      <span class="ai-modifica-bottoni"><button type="button" class="ui-btn ui-btn-sm ui-btn-secondary" data-annulla-modifica>Annulla</button><button type="submit" class="ui-btn ui-btn-sm ui-btn-primary">Invia</button></span>
+    </form>{% endif %}
+    <div class="ai-msg-piede">
+      <time datetime="{{ m.creato|date:'c' }}">{{ m.creato|date:"H:i" }}</time>
+      <button type="button" class="ai-azione-msg" data-copia data-tip="Copia" aria-label="Copia il messaggio">Copia</button>
+      {% if m.ruolo == "utente" %}<button type="button" class="ai-azione-msg" data-apri-modifica data-tip="Modifica e invia di nuovo" aria-label="Modifica il messaggio">Modifica</button>
+      {% else %}<form class="ai-rigenera" method="post" action="{% url 'ai:rigenera' m.conversazione_id %}" hidden data-solo-ultima>{% csrf_token %}<button type="submit" class="ai-azione-msg" data-tip="Risposta nuova alla stessa domanda" aria-label="Rigenera la risposta">Rigenera</button></form>
+      <button type="button" class="ai-azione-msg" data-ascolta="{% url 'ai:parti_voce' m.pk %}" data-audio="{% url 'ai:audio_voce' m.pk 0 %}" hidden data-tip="Leggi ad alta voce" aria-label="Leggi ad alta voce" aria-pressed="false">Ascolta</button>
+      {% include "ai/_voto.html" with v=m|voto %}{% endif %}
+    </div>
   </div>
 </article>
 {% endfor %}{% if turno %}{% include "ai/_in_corso.html" %}{% endif %}

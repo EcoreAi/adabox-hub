@@ -57,7 +57,7 @@ class NotificaSdiView(ModelView):
     def get_queryset(self, request):
         qs = super().get_queryset(request).select_related("trasmissione")
         azienda_id = getattr(getattr(request, "azienda", None), "pk", None)
-        return qs.filter(azienda_id=azienda_id) if azienda_id is not None else qs
+        return qs.filter(azienda_id=azienda_id) if azienda_id is not None else qs.none()
 
     def has_add_permission(self, request):
         return False
@@ -148,7 +148,7 @@ class ScadenzaPassivaView(ModelView):
     slug = "pagamenti"
     verbose_name_plural = "scadenze da pagare"
     list_display = ["fattura", "fornitore", "data", "importo", "modalita", "pagata", "pagata_il"]
-    list_filter = ["pagata", "data"]
+    list_filter = ["pagata", "data", "fattura__fornitore"]
     search_fields = ["fattura__numero", "fattura__fornitore__nome"]
     form_layout = [("Scadenza", [("fattura", "data"), ("importo", "modalita"), "iban", ("pagata", "pagata_il")])]
     readonly_fields = ["fattura", "data", "importo", "modalita", "iban", "pagata", "pagata_il"]
@@ -165,7 +165,7 @@ class ScadenzaPassivaView(ModelView):
     def get_queryset(self, request):
         qs = super().get_queryset(request).select_related("fattura__fornitore")
         azienda_id = getattr(getattr(request, "azienda", None), "pk", None)
-        return qs.filter(fattura__azienda_id=azienda_id) if azienda_id is not None else qs
+        return qs.filter(fattura__azienda_id=azienda_id) if azienda_id is not None else qs.none()
 
     def has_add_permission(self, request):
         return False

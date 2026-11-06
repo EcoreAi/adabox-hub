@@ -1,0 +1,37 @@
+{% load acquisti %}{% riscontro_di obj as r %}
+{% if r %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Riscontro: ordine, merce, fattura</div></div>
+  <div class="ui-card-body">
+    <span class="ui-pill">{{ r.etichetta_ricevimento }}</span>
+    <span class="ui-pill{% if r.stato_fatturazione == 'oltre' %} ui-pill-danger{% endif %}">{{ r.etichetta_fatturazione }}</span>
+  </div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Riga</th><th class="ui-num">Ordinato</th><th class="ui-num">Ricevuto</th><th class="ui-num">Reso</th><th class="ui-num">Manca</th><th class="ui-num">Valore ricevuto</th></tr></thead>
+    <tbody>{% for g in r.righe %}<tr>
+      <td>{{ g.nome }}</td><td class="ui-num">{{ g.ordinato|floatformat:"-3" }}</td>
+      {% if g.a_magazzino %}<td class="ui-num">{{ g.ricevuto|floatformat:"-3" }}</td><td class="ui-num">{{ g.reso|floatformat:"-3" }}</td><td class="ui-num">{{ g.residuo|floatformat:"-3" }}</td>
+      {% else %}<td class="ui-num" colspan="3">fuori magazzino</td>{% endif %}
+      <td class="ui-num">{{ g.valore|floatformat:2 }} €</td>
+    </tr>{% endfor %}</tbody>
+    <tfoot><tr><td colspan="5">Valore ricevuto</td><td class="ui-num"><strong>{{ r.valore_ricevuto|floatformat:2 }} €</strong></td></tr>
+      {% if r.sdi %}<tr><td colspan="5">Fatturato</td><td class="ui-num"><strong>{{ r.fatturato|floatformat:2 }} €</strong></td></tr>
+      {% if r.fatture %}<tr><td colspan="5">Scostamento</td><td class="ui-num"><strong>{{ r.scostamento|floatformat:2 }} €</strong></td></tr>{% endif %}{% endif %}</tfoot>
+  </table></div>
+  {% if r.sdi %}
+  <div class="ui-card-body">
+    {% for x in r.fatture %}<div class="ui-allegato"><a class="ui-link" href="{% url 'sdi:passive_dettaglio' x.fattura.pk %}">{{ x.fattura }}</a>
+      <span class="ui-allegato-info">{{ x.collegamento.importo|floatformat:2 }} €{% if x.collegamento.automatico %} · collegata in automatico{% endif %}</span>
+      {% if perms.acquisti.change_ordineacquisto %}<form method="post" action="{% url 'acquisti:scollega_fattura' x.collegamento.pk %}" style="display:inline;">{% csrf_token %}<input type="hidden" name="ritorno" value="{{ request.path }}"><button class="ui-btn ui-btn-secondary ui-btn-sm">Scollega</button></form>{% endif %}
+    </div>{% endfor %}
+    {% if r.collegabili and perms.acquisti.change_ordineacquisto %}
+    <form method="post" action="{% url 'acquisti:collega_fattura' %}" class="ui-filtri">{% csrf_token %}
+      <input type="hidden" name="ordine" value="{{ obj.pk }}"><input type="hidden" name="ritorno" value="{{ request.path }}">
+      <select class="ui-input" name="fattura" aria-label="Fattura da collegare" required><option value="">Collega una fattura…</option>{% for f in r.collegabili %}<option value="{{ f.pk }}">{{ f }} · {{ f.imponibile|floatformat:2 }} €</option>{% endfor %}</select>
+      <input class="ui-input" name="importo" inputmode="decimal" placeholder="Importo (vuoto = tutto il resto)" aria-label="Importo da imputare">
+      <button class="ui-btn ui-btn-secondary ui-btn-sm">Collega</button>
+    </form>{% endif %}
+  </div>
+  {% endif %}
+</section>
+{% endif %}

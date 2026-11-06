@@ -14,7 +14,7 @@
 {% include 'theme/partials/_icons.html' %}
 {% include "ai/_icone.html" %}
 {% include 'theme/partials/_header.html' %}
-<div class="ai-chat" data-ai-chat>
+<div class="ai-chat{% if documento %} con-documento{% endif %}" data-ai-chat{% if lettura %} data-lettura{% endif %}{% if sola_lettura %} data-sola-lettura{% endif %}{% if progetto_aperto or conversazione.progetto_id %} data-in-progetto{% endif %}>
 
   {# ---------- colonna sinistra: barra di icone ---------- #}
   <nav class="ai-rail" aria-label="Navigazione">
@@ -29,11 +29,22 @@
   <aside class="ai-pannello" id="ai-pannello-sinistra" hidden>
     <section data-contenuto="storico" hidden>
       <header class="ai-pannello-testa"><h2>Cronologia</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
-      {% include "ai/_elenco_chat.html" with chat=storico vuoto="Nessuna conversazione ancora." %}
+      <div class="ai-cerca-chat"><input class="ui-input" type="search" name="q" placeholder="Cerca nelle chat…" aria-label="Cerca nelle chat" hx-get="{% url 'ai:cerca_chat' %}" hx-trigger="input changed delay:300ms, search" hx-target="#ai-elenco-storico"></div>
+      <div id="ai-elenco-storico">{% include "ai/_elenco_chat.html" with chat=storico vuoto="Nessuna conversazione ancora." %}</div>
     </section>
     <section data-contenuto="preferite" hidden>
       <header class="ai-pannello-testa"><h2>Preferite</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
       {% include "ai/_elenco_chat.html" with chat=preferite vuoto="Segna una chat con la stella per ritrovarla qui." %}
+    </section>
+    <section data-contenuto="progetti" hidden>
+      <header class="ai-pannello-testa"><h2>Aree di lavoro</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
+      <ul class="ai-elenco ai-progetti">{% for p in progetti %}
+        {% with aperto=conversazione.progetto_id|default_if_none:0 %}
+        <li class="ai-progetto-voce"><details data-albero="{% url 'ai:albero_progetto' p.pk %}{% if conversazione %}?chat={{ conversazione.pk }}{% endif %}"{% if aperto == p.pk or progetto_aperto.pk == p.pk %} open{% endif %}>
+          <summary><svg class="ai-albero-freccia" aria-hidden="true"><use href="#icon-chevron-down"/></svg><a href="{% url 'ai:progetto' p.pk %}"{% if progetto_aperto.pk == p.pk or aperto == p.pk %} class="is-attiva" aria-current="page"{% endif %}><svg class="ai-progetto-icona" aria-hidden="true"><use href="#ai-cartella"/></svg><span class="ai-area-nome">{{ p.nome }}</span>{% if p.utente_id != user.pk %}<span class="ai-area-di" title="Area di {{ p.utente.get_full_name|default:p.utente.username }}, condivisa con te">di {{ p.utente.first_name|default:p.utente.username }}</span>{% elif p.n_membri %}<svg class="ai-area-condivisa" aria-label="Condivisa con {{ p.n_membri }}"><use href="#ai-persone"/></svg>{% endif %}</a></summary>
+          <div class="ai-albero" data-albero-contenuto aria-live="polite"></div>
+        </details></li>{% endwith %}{% empty %}<li class="ai-vuoto"><p>Un'area di lavoro raccoglie chat, istruzioni, file e record collegati su un argomento.</p></li>{% endfor %}</ul>
+      <p class="ai-cerca-chat"><a class="ui-link" href="{% url 'ai:progetti_nuovo' %}">Nuova area di lavoro</a> · <a class="ui-link" href="{% url 'ai:progetti_lista' %}">Gestisci</a></p>
     </section>
   </aside>
 
@@ -47,9 +58,17 @@
       <div class="ai-colonna">
         {% if conversazione %}
         {# titolo e azioni della conversazione: una riga che scorre con i messaggi, non una seconda barra #}
+        {% if conversazione.progetto_id %}<nav class="ai-percorso" aria-label="Percorso"><a href="{% url 'ai:progetto' conversazione.progetto_id %}"><svg aria-hidden="true"><use href="#ai-cartella"/></svg>{{ conversazione.progetto.nome }}</a><span aria-hidden="true">›</span></nav>{% endif %}
+        {% if sola_lettura %}<p class="ai-sola-lettura" role="note"><svg aria-hidden="true"><use href="#ai-persone"/></svg><span>Chat di <strong>{{ autore_chat }}</strong>, condivisa con l'area di lavoro: la leggi, ma non ci scrivi. Per continuare apri una tua chat nell'area.</span></p>{% endif %}
         <div class="ai-titolo-chat">
-          <h1>{{ conversazione.titolo }}</h1>
+          <h1 data-titolo>{{ conversazione.titolo }}</h1>
+          <form class="ai-rinomina" method="post" action="{% url 'ai:rinomina' conversazione.pk %}" data-rinomina hidden>{% csrf_token %}<input class="ui-input" name="titolo" value="{{ conversazione.titolo }}" maxlength="120" aria-label="Titolo della chat" required><button type="submit" class="ui-btn ui-btn-sm ui-btn-primary">Salva</button></form>
           <span class="ai-spazio"></span>
+          {% if not sola_lettura %}
+          {% if puo_condividere %}<form method="post" action="{% url 'ai:condividi_chat' conversazione.pk %}">{% csrf_token %}<button type="submit" class="ai-azione{% if conversazione.condivisa %} is-preferita{% endif %}" aria-pressed="{{ conversazione.condivisa|yesno:'true,false' }}" data-tip="{% if conversazione.condivisa %}Condivisa con l'area: torna privata{% else %}Condividi con l'area di lavoro (gli altri membri la leggono){% endif %}" aria-label="Condividi con l'area di lavoro"><svg><use href="#ai-persone"/></svg></button></form>{% endif %}
+          {% if progetti %}<form method="post" action="{% url 'ai:sposta' conversazione.pk %}">{% csrf_token %}<select class="ui-input ai-modello" name="progetto" aria-label="Area di lavoro della chat" onchange="this.form.submit()"><option value="">Nessuna area di lavoro</option>{% for p in progetti %}<option value="{{ p.pk }}"{% if conversazione.progetto_id == p.pk %} selected{% endif %}>{{ p.nome }}</option>{% endfor %}</select></form>{% endif %}
+          <button type="button" class="ai-azione" data-apri-rinomina data-tip="Rinomina" aria-label="Rinomina la chat"><svg><use href="#icon-edit"/></svg></button>
+          <a class="ai-azione" href="{% url 'ai:esporta' conversazione.pk %}" data-tip="Esporta in Markdown" aria-label="Esporta la chat"><svg><use href="#icon-download"/></svg></a>
           <form method="post" action="{% url 'ai:preferita' conversazione.pk %}">{% csrf_token %}
             <button type="submit" class="ai-azione{% if conversazione.preferita %} is-preferita{% endif %}" aria-pressed="{{ conversazione.preferita|yesno:'true,false' }}"
                     data-tip="{% if conversazione.preferita %}Togli dalle preferite{% else %}Aggiungi alle preferite{% endif %}" aria-label="Preferita"><svg><use href="#ai-stella"/></svg></button>
@@ -57,9 +76,12 @@
           <form method="post" action="{% url 'ai:elimina' conversazione.pk %}" onsubmit="return confirm('Eliminare questa conversazione?')">{% csrf_token %}
             <button type="submit" class="ai-azione" data-tip="Elimina" aria-label="Elimina la conversazione"><svg><use href="#icon-trash"/></svg></button>
           </form>
+          {% endif %}
         </div>
         {% endif %}
-        {% if not messaggi %}
+        {% if progetto_aperto %}
+        {% include "ai/_testa_progetto.html" %}
+        {% elif not messaggi %}
         <div class="ai-saluto">
           <span class="ai-scintilla" aria-hidden="true"><svg><use href="#ai-scintilla"/></svg></span>
           <h1>Ciao, {{ user.first_name|default:user.username }}</h1>
@@ -69,34 +91,83 @@
       </div>
     </div>
 
-    <div class="ai-fondo">
+    <div class="ai-fondo"{% if sola_lettura %} hidden{% endif %}>
       <div class="ai-colonna">
         {% if avviso_spesa %}<p class="ai-avviso" role="status">{{ avviso_spesa }}</p>{% endif %}
-        <form class="ai-composer" method="post"
+        <p class="ai-avviso" role="alert" data-errore hidden></p>
+        <form class="ai-composer" method="post" enctype="multipart/form-data" hx-encoding="multipart/form-data"
               action="{% if conversazione %}{% url 'ai:invia_conversazione' conversazione.pk %}{% else %}{% url 'ai:invia' %}{% endif %}"
               hx-post="{% if conversazione %}{% url 'ai:invia_conversazione' conversazione.pk %}{% else %}{% url 'ai:invia' %}{% endif %}"
               hx-target="#ai-messaggi" hx-swap="beforeend">
           {% csrf_token %}
-          <input type="hidden" name="ambito" value="{{ conversazione.ambito|default:'' }}" data-ambito>
+          <input type="hidden" name="ambito" value="{% if conversazione %}{{ conversazione.ambito }}{% else %}{{ ambito_nuova }}{% endif %}" data-ambito>
+          {% if documento %}<input type="hidden" name="documento" value="{{ documento.pk }}">{% endif %}
+          {% if progetto_nuova %}<input type="hidden" name="progetto" value="{{ progetto_nuova.pk }}"><p class="ai-progetto-nuova"><span class="ai-chip ai-chip-progetto"><svg aria-hidden="true"><use href="#ai-cartella"/></svg>Nuova chat nell'area <strong>{{ progetto_nuova.nome }}</strong><a class="ai-chip-x" href="{% url 'ai:chat' %}" data-tip="Chat fuori dall'area" aria-label="Esci dall'area di lavoro: chat nuova senza area"><svg><use href="#icon-x"/></svg></a></span></p>{% endif %}
+          <ul class="ai-allegati" data-allegati hidden></ul>
+          {% if conferma_immagini %}<input type="hidden" name="conferma_immagini" value="" data-conferma-campo>
+          <div class="ai-conferma-immagini" data-conferma-box hidden>
+            <svg aria-hidden="true"><use href="#icon-alert-triangle"/></svg>
+            <div>
+              <p data-conferma-domanda>Le immagini allegate arriveranno a <strong>{{ conferma_immagini }}</strong> così come sono: i dati personali che contengono non si possono mascherare. Inviale solo se non mostrano dati di altre persone (documenti, volti, indirizzi, numeri).</p>
+              <p data-conferma-fatta hidden>Confermato: le immagini andranno a <strong>{{ conferma_immagini }}</strong>. La conferma resta registrata.</p>
+              <span class="ai-conferma-bottoni" data-conferma-bottoni><button type="button" class="ui-btn ui-btn-sm ui-btn-primary" data-conferma-si>Invia comunque</button><button type="button" class="ui-btn ui-btn-sm ui-btn-ghost" data-conferma-togli>Togli le immagini</button></span>
+            </div>
+          </div>{% endif %}
+          <p class="ai-voce-stato" data-voce-stato role="status" hidden></p>
           <textarea name="testo" rows="3" class="ai-input" placeholder="{% if conversazione %}Rispondi…{% else %}Come posso aiutarti oggi?{% endif %}" aria-label="Messaggio" required></textarea>
           <div class="ai-composer-barra">
-            <button type="button" class="ai-tondo" disabled data-tip="Allegati: in arrivo" aria-label="Allega (in arrivo)"><svg><use href="#ai-piu"/></svg></button>
+            <input type="file" name="allegati" multiple hidden data-file accept=".pdf,.docx,.xlsx,.xlsm,.csv,.tsv,.txt,.md,.json,.xml,.html,.htm,.eml,.png,.jpg,.jpeg,.webp,.gif">
+            <button type="button" class="ai-tondo" data-allega data-tip="Allega PDF, Word, Excel, CSV, testo o immagini (fino a 5 file)" aria-label="Allega dei file"><svg><use href="#ai-piu"/></svg></button>
+            {% if ricerca_disponibile %}
+            <div class="ai-menu-icona" data-menu-icona data-reimposta>
+              <input type="hidden" name="ricerca" value="" data-valore>
+              <button type="button" class="ai-tondo" data-apri-menu aria-haspopup="menu" aria-expanded="false" data-tip="Ricerca sul web: nessuna" aria-label="Ricerca sul web: nessuna"><svg><use href="#ai-globo-no"/></svg></button>
+              <div class="ai-menu" role="menu" aria-label="Ricerca sul web" hidden>
+                <div class="ai-menu-testa">Ricerca sul web</div>
+                <button type="button" role="menuitemradio" aria-checked="true" data-opzione="" data-icona="ai-globo-no" data-etichetta="Ricerca sul web: nessuna">
+                  <svg class="ai-menu-simbolo"><use href="#ai-globo-no"/></svg><span><strong>Nessuna</strong><small>Ada usa i dati del gestionale e gli allegati</small></span><svg class="ai-menu-spunta"><use href="#icon-check"/></svg></button>
+                <button type="button" role="menuitemradio" aria-checked="false" data-opzione="web" data-icona="ai-globo" data-etichetta="Ricerca sul web">
+                  <svg class="ai-menu-simbolo"><use href="#ai-globo"/></svg><span><strong>Ricerca sul web</strong><small>se serve, Ada cerca sul web e cita le fonti</small></span><svg class="ai-menu-spunta"><use href="#icon-check"/></svg></button>
+                <button type="button" role="menuitemradio" aria-checked="false" data-opzione="approfondita" data-icona="ai-approfondita" data-etichetta="Ricerca approfondita">
+                  <svg class="ai-menu-simbolo"><use href="#ai-approfondita"/></svg><span><strong>Ricerca approfondita</strong><small>più fonti e un rapporto con i link, in qualche minuto</small></span><svg class="ai-menu-spunta"><use href="#icon-check"/></svg></button>
+              </div>
+            </div>
+            {% endif %}
             {% if app %}
             <div class="ai-app-scelta">
-              <button type="button" class="ai-app-btn" data-apri-app aria-haspopup="true" aria-expanded="false" aria-controls="ai-scheda-app">
-                <svg><use href="#ai-app"/></svg><span>App</span></button>
+              <button type="button" class="ai-tondo" data-apri-app aria-haspopup="true" aria-expanded="false" aria-controls="ai-scheda-app" data-tip="Limita la chat a un'app" aria-label="Limita la chat a un'app"><svg><use href="#ai-app"/></svg></button>
               <div class="ai-scheda-app" id="ai-scheda-app" role="dialog" aria-label="Limita la chat a un'app" hidden>
-                <div class="ai-scheda-app-testa">Limita la chat a un'app</div>
-                <button type="button" class="ai-scheda-voce ai-scheda-tutte" data-ambito-app="" aria-pressed="{% if conversazione.ambito %}false{% else %}true{% endif %}">
-                  <span class="ai-scheda-icona"><svg><use href="#ai-dashboard"/></svg></span><span>Tutte le app</span></button>
-                <div class="ai-scheda-griglia">
-                  {% for a in app %}
-                  <button type="button" class="ai-scheda-voce" data-ambito-app="{{ a.slug }}" data-nome="{{ a.label }}"
-                          data-icona="{% if '/' in a.icon %}{% static a.icon %}{% endif %}" aria-pressed="false">
-                    <span class="ai-scheda-icona">{% if "/" in a.icon %}<img src="{% static a.icon %}" alt="">{% else %}<svg><use href="#icon-{{ a.icon|default:'zap' }}"/></svg>{% endif %}</span>
-                    <span>{{ a.label }}</span></button>
+                <div class="ai-scheda-app-testa">
+                  <span>Limita la chat a un'app</span>
+                  <button type="button" class="ai-scheda-tutte" data-ambito-app="" aria-pressed="{% if conversazione.ambito %}false{% else %}true{% endif %}"><svg><use href="#ai-dashboard"/></svg>Tutte le app</button>
+                </div>
+                <div class="ai-scheda-colonne">
+                  {% for gruppo in app_gruppi %}
+                  <div class="ai-scheda-colonna"><div class="ai-scheda-titolo">{{ gruppo.titolo }}</div>
+                    {% for a in gruppo.voci %}
+                    <button type="button" class="ai-scheda-voce" data-ambito-app="{{ a.slug }}" data-nome="{{ a.label }}"
+                            data-icona="{% if '/' in a.icon %}{% static a.icon %}{% endif %}" aria-pressed="false">
+                      <span class="ai-scheda-icona">{% if "/" in a.icon %}<img src="{% static a.icon %}" alt="">{% else %}<svg><use href="#icon-{{ a.icon|default:'zap' }}"/></svg>{% endif %}</span>
+                      <span>{{ a.label }}</span></button>
+                    {% endfor %}
+                  </div>
                   {% endfor %}
                 </div>
+              </div>
+            </div>
+            {% endif %}
+            {% if livelli_modello %}
+            <div class="ai-menu-icona" data-menu-icona>
+              <input type="hidden" name="modello" value="{% for livello, m in livelli_modello %}{% if conversazione.modello_id == m.pk %}{{ m.pk }}{% endif %}{% endfor %}" data-valore>
+              <button type="button" class="ai-tondo" data-apri-menu aria-haspopup="menu" aria-expanded="false" data-tip="Modello: automatico" aria-label="Modello: automatico"><svg><use href="#ai-auto"/></svg></button>
+              <div class="ai-menu" role="menu" aria-label="Modello" hidden>
+                <div class="ai-menu-testa">Modello per questa chat</div>
+                <button type="button" role="menuitemradio" aria-checked="true" data-opzione="" data-icona="ai-auto" data-etichetta="Modello: automatico">
+                  <svg class="ai-menu-simbolo"><use href="#ai-auto"/></svg><span><strong>Automatico</strong><small>quello scelto dagli amministratori per ogni richiesta</small></span><svg class="ai-menu-spunta"><use href="#icon-check"/></svg></button>
+                {% for livello, m in livelli_modello %}
+                <button type="button" role="menuitemradio" aria-checked="false" data-opzione="{{ m.pk }}" data-icona="{% if livello == 'max' %}ai-gemma{% else %}ai-fulmine{% endif %}" data-etichetta="Modello: {% if livello == 'max' %}Max{% else %}Standard{% endif %} ({{ m.etichetta }})">
+                  <svg class="ai-menu-simbolo"><use href="#{% if livello == 'max' %}ai-gemma{% else %}ai-fulmine{% endif %}"/></svg><span><strong>{% if livello == 'max' %}Max{% else %}Standard{% endif %}</strong><small>{{ m.etichetta }} · {% if livello == 'max' %}il più capace, costa di più{% else %}veloce ed economico{% endif %}</small></span><svg class="ai-menu-spunta"><use href="#icon-check"/></svg></button>
+                {% endfor %}
               </div>
             </div>
             {% endif %}
@@ -104,11 +175,15 @@
               <button type="button" class="ai-chip-x" data-togli-ambito aria-label="Usa tutte le app"><svg><use href="#icon-x"/></svg></button></span>
             <span class="ai-spazio"></span>
             <span class="ai-suggerimento-tasti">Invio per inviare · Maiusc+Invio per andare a capo</span>
+            {% if lettura %}<button type="button" class="ai-tondo" data-voce-automatica aria-pressed="false" data-tip="Risposta vocale: leggi ad alta voce ogni nuova risposta" aria-label="Risposta vocale"><svg><use href="#ai-altoparlante"/></svg></button>{% endif %}
+            {% if dettatura %}<button type="button" class="ai-tondo ai-microfono" data-microfono data-url="{% url 'ai:trascrivi_voce' %}" data-tip="Detta il messaggio: il testo arriva qui, da rileggere prima di inviare" aria-label="Detta il messaggio" aria-pressed="false"><svg><use href="#ai-microfono"/></svg></button>{% endif %}
             <button type="submit" class="ai-invia" aria-label="Invia"><svg><use href="#ai-freccia"/></svg></button>
           </div>
         </form>
 
-        {% if not conversazione %}
+        {% if progetto_aperto %}
+        <p class="ai-progetto-guida">Chat, documenti, grafici e file dell'area di lavoro sono nella sua cartella, nella colonna di sinistra.</p>
+        {% elif not conversazione %}
         <ul class="ai-suggerimenti" data-suggerimenti aria-label="Domande suggerite">
           {% for s in suggerimenti %}<li><button type="button" class="ai-sugg" data-sugg>{{ s }}</button></li>{% endfor %}
         </ul>
@@ -135,13 +210,30 @@
   </main>
 
   {# ---------- colonna destra: pannello e barra di icone ---------- #}
+  {% if documento %}{% include "ai/_tela.html" %}{% endif %}
+  {% if cartelle_scrivibili %}
+  <dialog class="ai-salva-doc" id="ai-salva-doc" aria-labelledby="ai-salva-doc-titolo">
+    <form method="dialog" class="ai-salva-doc-corpo" data-salva-doc>
+      <h2 id="ai-salva-doc-titolo">Salva nei Documenti</h2>
+      <p class="ai-progetto-vuoto" data-salva-cosa></p>
+      <label class="ai-scrivi-etichetta" for="ai-salva-cartella">Cartella</label>
+      <select class="ui-input" id="ai-salva-cartella" data-salva-cartella>{% for c, percorso in cartelle_scrivibili %}<option value="{{ c.pk }}"{% if c.pk == cartella_predefinita %} selected{% endif %}>{{ percorso }}</option>{% endfor %}</select>
+      <p class="ai-progetto-vuoto">Se nella cartella c'è già un file con lo stesso nome, diventa la sua versione nuova.</p>
+      <p class="ai-salva-esito" role="status" data-salva-esito hidden></p>
+      <footer class="ai-scrivi-piede"><span class="ai-spazio"></span>
+        <button type="submit" value="chiudi" class="ui-btn ui-btn-secondary" data-salva-chiudi>Annulla</button>
+        <button type="button" class="ui-btn ui-btn-primary" data-salva-conferma>Salva</button></footer>
+    </form>
+  </dialog>
+  {% endif %}
   <aside class="ai-pannello ai-pannello-destra" id="ai-pannello-destra" hidden>
     {% for chiave, etichetta, icona in pannelli_destra %}
     <section data-contenuto="{{ chiave }}" hidden>
       <header class="ai-pannello-testa"><h2>{{ etichetta }}</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
       {% if chiave == "grafici" %}{% include "ai/_elenco_artifact.html" with voci=salvati.grafici icona=icona %}
       {% elif chiave == "artifact" %}{% include "ai/_elenco_artifact.html" with voci=salvati.artifact icona=icona %}
-      {% else %}<div class="ai-vuoto"><svg><use href="#{{ icona }}"/></svg><p>Nessun documento salvato.<br>Arriveranno con la ricerca nei documenti.</p></div>{% endif %}
+      {% elif salvati.documenti %}<ul class="ai-elenco">{% for d in salvati.documenti %}<li><a href="{% url 'ai:conversazione' d.conversazione_id %}?documento={{ d.pk }}"><span class="ai-elenco-titolo">{{ d.titolo }}</span><span class="ai-elenco-data">{{ d.aggiornato|date:"d/m H:i" }}</span></a></li>{% endfor %}</ul>
+      {% else %}<div class="ai-vuoto"><svg><use href="#{{ icona }}"/></svg><p>Nessun documento salvato.<br>Chiedi ad Ada di scriverne uno e salvalo con la stella.</p></div>{% endif %}
     </section>
     {% endfor %}
   </aside>
@@ -150,6 +242,7 @@
     <button type="button" class="ai-rail-btn" data-pannello="{{ chiave }}" data-lato="destra" aria-expanded="false"
             aria-controls="ai-pannello-destra" data-tip="{{ etichetta }}" aria-label="{{ etichetta }}"><svg><use href="#{{ icona }}"/></svg></button>
     {% endfor %}
+    {% if perms.ai.view_memoriautente %}<a class="ai-rail-btn" href="{% url 'ai:memoria_lista' %}" data-tip="Memoria: ciò che Ada ricorda di te" aria-label="Memoria"><svg><use href="#ai-scintilla"/></svg></a>{% endif %}
     {% if perms.ai.view_pianificata %}
     <hr class="ai-rail-sep">
     <a class="ai-rail-btn" href="{% url 'ai:pianificate_lista' %}" data-tip="Attività pianificate" aria-label="Attività pianificate"><svg><use href="#ai-sveglia"/></svg></a>

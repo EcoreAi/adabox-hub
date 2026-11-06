@@ -9,7 +9,7 @@
   .totali td { padding: 1mm; } .totali tr:last-child td { font-weight: bold; font-size: 12pt; border-top: 1px solid #1d1d1f; }
 {% endblock %}
 {% block record %}
-<h1>Ordine al fornitore {{ obj }}</h1>
+<h1>{% if obj.stato == "bozza" or obj.stato == "inviato" %}Richiesta di offerta{% else %}Ordine al fornitore{% endif %} {{ obj }}</h1>
 <div style="font-size:9pt;color:#6e6e73;">del {{ obj.data|date:"d/m/Y" }}{% if obj.consegna_prevista %} · consegna prevista {{ obj.consegna_prevista|date:"d/m/Y" }}{% endif %}{% if obj.riferimento_fornitore %} · vostro riferimento {{ obj.riferimento_fornitore }}{% endif %}</div>
 <div class="intestatario">
   <strong>{{ obj.fornitore.nome }}</strong><br>
@@ -19,7 +19,7 @@
 <table class="righe">
   <thead><tr><th>Descrizione</th><th class="num">Q.tà</th><th class="num">Prezzo</th><th class="num">Sconto</th><th class="num">IVA</th><th class="num">Importo</th></tr></thead>
   <tbody>{% for r in obj.righe.all %}<tr>
-    <td>{{ r.descrizione }}</td><td class="num">{{ r.quantita|floatformat:"-3" }}</td><td class="num">{{ r.prezzo|floatformat:2 }}</td>
+    <td>{{ r.descrizione }}{% if r.codice_fornitore %}<br><span style="font-size:8pt;color:#6e6e73;">Vostro codice {{ r.codice_fornitore }}</span>{% endif %}</td><td class="num">{{ r.quantita|floatformat:"-3" }}</td><td class="num">{{ r.prezzo|floatformat:2 }}</td>
     <td class="num">{% if r.sconto %}{{ r.sconto|floatformat:"-2" }}%{% endif %}</td><td class="num">{{ r.aliquota.codice }}</td><td class="num">{{ r.importo|floatformat:2 }}</td></tr>{% endfor %}</tbody>
 </table>
 <table class="totali">

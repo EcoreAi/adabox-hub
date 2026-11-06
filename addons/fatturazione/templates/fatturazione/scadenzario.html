@@ -1,0 +1,26 @@
+{% extends 'core/base_app.html' %}
+{% block title %}{{ titolo }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>{{ titolo }}</h1><div class="sub">Al {{ oggi|date:"d/m/Y" }} · {{ righe|length }} {% if righe|length == 1 %}controparte{% else %}controparti{% endif %} · scaduto {{ totali.scaduto|floatformat:2 }}</div></div>
+  <div class="ui-pagehead-actions">
+    <a class="ui-btn ui-btn-secondary" href="?formato=csv">CSV</a>
+    <a class="ui-btn ui-btn-secondary" href="?formato=pdf">PDF</a>
+  </div>
+</div>
+<div class="ui-card is-revealed">
+  {% if righe %}
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>{{ etichetta }}</th>{% for _, nome in fasce %}<th class="ui-num">{{ nome }}</th>{% endfor %}<th class="ui-num">Totale</th></tr></thead>
+    <tbody>
+      {% for r in righe %}<tr>
+        <td><a class="ui-link" href="{{ r.url }}">{{ r.nome }}</a></td>
+        {% for v in r.celle %}<td class="ui-num">{% if v %}{{ v|floatformat:2 }}{% endif %}</td>{% endfor %}
+        <td class="ui-num"><strong>{{ r.totale|floatformat:2 }}</strong></td>
+      </tr>{% endfor %}
+      <tr><td><strong>Totale</strong></td>{% for v in totali.celle %}<td class="ui-num"><strong>{{ v|floatformat:2 }}</strong></td>{% endfor %}<td class="ui-num"><strong>{{ totali.totale|floatformat:2 }}</strong></td></tr>
+    </tbody>
+  </table></div>
+  {% else %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessuna scadenza aperta.</p></div></div>{% endif %}
+</div>
+{% endblock %}

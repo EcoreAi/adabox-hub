@@ -1,0 +1,61 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Impostazioni · Controllo AI · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Impostazioni</h1>
+  <div class="sub">{{ c.get_modalita_display }} · {% if riuscita %}Agate risponde{% else %}{{ c.esito_controllo|default:"collegamento non ancora provato" }}{% endif %}</div></div></div>
+
+<form method="post">{% csrf_token %}
+<input type="hidden" name="azione" value="salva">
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Quanto conta Agate</div></div>
+  <div class="ui-card-body">{% include "agate/_modalita.html" with attuale=c.modalita %}</div></section>
+
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Dove si trova Agate</div></div>
+  <div class="ui-card-body">
+    <label class="ui-label" for="gateway_url">Indirizzo di Agate</label>
+    <input class="ui-input" id="gateway_url" name="gateway_url" type="url" required value="{{ c.gateway_url }}">
+    <label class="ui-label" for="console_url">Indirizzo della console di Agate (per i link a chi approva)</label>
+    <input class="ui-input" id="console_url" name="console_url" type="url" value="{{ c.console_url }}">
+    <label class="ui-label" for="chiave">Chiave di Agate{% if chiave %}: salvata {{ chiave }}, lascia vuoto per non cambiarla{% endif %}</label>
+    <input class="ui-input" id="chiave" name="chiave" type="password" autocomplete="off"{% if not chiave %} required{% endif %}>
+  </div></section>
+
+<details class="ui-card is-revealed ui-section"><summary class="ui-card-head" style="cursor:pointer"><div class="ui-card-title">Avanzate</div></summary>
+  <div class="ui-card-body">
+    <label class="ui-label" for="segreto">Segreto dei webhook di Agate (whsec_…){% if segreto %}: salvato, lascia vuoto per non cambiarlo{% endif %}</label>
+    <input class="ui-input" id="segreto" name="segreto" type="password" autocomplete="off">
+    <p class="ui-help">Webhook da registrare in Agate (Impostazioni → Webhook, evento approval.decided): <code>{{ webhook_url }}</code>. Senza webhook l'esito delle approvazioni si controlla comunque ogni minuto.</p>
+    <label class="ui-label" for="prefisso">Prefisso degli strumenti in Agate</label>
+    <input class="ui-input" id="prefisso" name="prefisso" value="{{ c.prefisso }}">
+    <p class="ui-help">Gli strumenti dell'assistente si registrano in Agate con <code>python manage.py agate_strumenti --output strumenti.json</code> qui e <code>manage.py agate_add_internal_tools &lt;tenant&gt; production strumenti.json</code> in Agate.</p>
+  </div></details>
+<div class="ui-form-actions"><button class="ui-btn ui-btn-primary" type="submit">Salva e prova</button></div>
+</form>
+
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Collegamento con un codice</div>
+  <div class="ui-card-sub">{% if semplice %}<span class="ui-pill ui-pill-ok">fatto</span>{% else %}<span class="ui-pill ui-pill-neutral">collegato a mano</span>{% endif %}</div></div>
+  <div class="ui-card-body">
+    {% if c.incluso %}<p><strong>Agate incluso, aperto per voi da Agentlia</strong>{% if c.console_url %} — console: <a class="ui-link" href="{{ c.console_url }}" target="_blank" rel="noopener">{{ c.console_url }}</a>{% endif %}. L'azienda ne è la titolare: l'invito alla console è arrivato a chi ha confermato il primo agente.</p>{% endif %}
+    {% if semplice %}
+    <p>Collegato{% if c.tenant %} a «{{ c.tenant }}»{% endif %} il {{ c.con_codice_il|date:"d/m/Y H:i" }}: le decisioni si prendono in adabox, in <a class="ui-link" href="{% url 'agate:da_approvare' %}">Da approvare</a>, a nome di chi clicca.</p>
+    <p class="ui-help">Strumenti in Agate: {% if c.da_sincronizzare %}<strong>l'ultima risincronizzazione non è riuscita</strong> ({{ c.esito_sincronizzazione }}), si riprova da sola ogni minuto{% elif c.sincronizzato_il %}risincronizzati il {{ c.sincronizzato_il|date:"d/m/Y H:i" }}{% if c.esito_sincronizzazione %} ({{ c.esito_sincronizzazione }}){% endif %}{% else %}—{% endif %}.</p>
+    <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="azione" value="sincronizza"><button class="ui-btn ui-btn-ghost" type="submit">Risincronizza ora</button></form>
+    {% else %}
+    <p>Con un codice di Agate gli agenti si assumono in tre clic e le decisioni si prendono qui, senza aprire Agate.</p>
+    {% endif %}
+    <details style="margin-top:12px"><summary class="ui-help" style="cursor:pointer">{% if semplice %}Ricollega con un codice nuovo{% else %}Collega con un codice{% endif %}</summary>
+      <form method="post">{% csrf_token %}<input type="hidden" name="azione" value="codice">
+        <label class="ui-label" for="codice">Codice (agc_…)</label>
+        <input class="ui-input" id="codice" name="codice" required autocomplete="off" style="max-width:420px">
+        <label class="ui-label" for="gateway_codice">Indirizzo di Agate</label>
+        <input class="ui-input" id="gateway_codice" name="gateway_url" type="url" required value="{{ c.gateway_url }}" style="max-width:420px">
+        <div class="ui-form-actions"><button class="ui-btn ui-btn-secondary" type="submit">Collega</button></div>
+      </form></details>
+  </div></section>
+
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Modelli attraverso Agate</div></div>
+  <div class="ui-card-body">
+    <p>L'assistente può usare i modelli AI attraverso Agate, che nasconde i dati personali e conta i costi. Crea il provider «Agate» con i modelli scelti in Agate, poi mettilo nella catena dei compiti nei Profili dell'assistente.</p>
+    <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="azione" value="modelli"><button class="ui-btn ui-btn-secondary" type="submit">Usa Agate per i modelli</button></form>
+    <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="azione" value="prova"><button class="ui-btn ui-btn-ghost" type="submit">Prova il collegamento</button></form>
+  </div></section>
+{% endblock %}

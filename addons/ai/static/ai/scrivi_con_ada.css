@@ -1,0 +1,28 @@
+/* «Scrivi con Ada» */
+.ai-scrivi-btn { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; }
+.ai-scrivi-btn svg { width: 14px; height: 14px; color: var(--ui-primary); }
+.ai-scrivi { width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0; border: 1px solid var(--ui-border); border-radius: 18px;
+  background: var(--ui-surface); color: var(--ui-text); box-shadow: 0 24px 60px rgba(15, 23, 42, .22); }
+.ai-scrivi::backdrop { background: rgba(15, 23, 42, .35); backdrop-filter: blur(2px); }
+.ai-scrivi-corpo { display: flex; flex-direction: column; gap: 14px; padding: 20px 22px; }
+.ai-scrivi-testa { display: flex; align-items: center; justify-content: space-between; }
+.ai-scrivi-testa h2 { margin: 0; font-size: 17px; }
+.ai-scrivi-chiudi { display: inline-flex; width: 30px; height: 30px; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: var(--ui-text-2); cursor: pointer; }
+.ai-scrivi-chiudi:hover { background: var(--ui-surface-2); }
+.ai-scrivi-chiudi svg { width: 16px; height: 16px; }
+.ai-scrivi-guida { margin: 0; font-size: 13px; color: var(--ui-text-2); line-height: 1.5; }
+.ai-scrivi-domanda { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; font-size: 13px; font-weight: 600; }
+.ai-scrivi-domanda textarea, .ai-scrivi textarea { width: 100%; font-weight: 400; resize: vertical; }
+.ai-scrivi-etichetta { font-size: 13px; font-weight: 600; }
+.ai-scrivi-attesa { display: flex; align-items: center; gap: 10px; margin: 18px 0; font-size: 14px; color: var(--ui-text-2); }
+.ai-scrivi-attesa .ai-puntini { display: inline-flex; gap: 4px; }
+.ai-scrivi-attesa .ai-puntini i { width: 6px; height: 6px; border-radius: 50%; background: var(--ui-primary); animation: ai-scrivi-punto 1s infinite ease-in-out; }
+.ai-scrivi-attesa .ai-puntini i:nth-child(2) { animation-delay: .15s; } .ai-scrivi-attesa .ai-puntini i:nth-child(3) { animation-delay: .3s; }
+@keyframes ai-scrivi-punto { 50% { opacity: .25; transform: translateY(-2px); } }
+.ai-scrivi-note { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--ui-surface-2); font-size: 13px; white-space: pre-wrap; line-height: 1.45; }
+.ai-scrivi-note strong { display: block; margin-bottom: 4px; }
+.ai-scrivi-piede { display: flex; align-items: center; gap: 8px; }
+.ai-scrivi-piede .ai-spazio { flex: 1; }
+.ai-scrivi .ai-avviso { margin: 0; color: #b42318; font-size: 13px; }
+@media (prefers-reduced-motion: reduce) { .ai-scrivi-attesa .ai-puntini i { animation: none; } }
+.ai-scrivi-domanda textarea { min-height: 52px; height: 52px; }

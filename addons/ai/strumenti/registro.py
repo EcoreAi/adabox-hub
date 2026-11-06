@@ -8,12 +8,15 @@ from dataclasses import dataclass, field
 
 from django.core.exceptions import PermissionDenied
 
+from core.viste.interroga import ErroreInterrogazione
+
 log = logging.getLogger("ai.strumenti")
 LIMITE_RISULTATO = 20000                                # caratteri: oltre si tronca con un avviso
 
 
-class ErroreStrumento(Exception):
-    """Errore previsto (argomenti sbagliati, record inesistente...): il messaggio va al modello, senza traceback."""
+# Errore previsto (argomenti sbagliati, record inesistente...): il messaggio va al modello, senza traceback. È lo
+# stesso errore delle interrogazioni del kernel, così quello che il motore solleva arriva al modello senza travasi.
+ErroreStrumento = ErroreInterrogazione
 
 
 @dataclass
@@ -53,16 +56,21 @@ def registra(strumento):
     return strumento
 
 
-def disponibili(utente, ambito=""):
-    """Gli strumenti che l'utente può usare (in ordine stabile per la cache del prefisso)."""
+def disponibili(utente, ambito="", azienda=None):
+    """Gli strumenti che l'utente può usare (in ordine stabile per la cache del prefisso). Con l'azienda anche quelli
+    dei sistemi esterni (MCP) che ha acceso, ma non nelle chat limitate a un'app."""
     from core.registry.modules import disattivati
 
     from . import app
     app.carica()
     spenti = disattivati()
-    return [s for _, s in sorted(_registro.items())
+    interni = [s for _, s in sorted(_registro.items())
             if (s.permesso is None or utente.has_perm(s.permesso)) and (not ambito or not s.app or s.app == ambito)
             and s.app not in spenti and (s.disponibile is None or s.disponibile())]
+    if ambito or azienda is None:
+        return interni
+    from .. import mcp
+    return interni + sorted(mcp.strumenti(utente, azienda), key=lambda s: s.nome)
 
 
 def _testo(valore):

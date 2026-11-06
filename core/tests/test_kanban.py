@@ -19,7 +19,7 @@ def test_colonne_e_card(client, superuser, lavori):
     assert list(colonne) == ["in_coda", "in_corso", "fatto", "fallito"]
     assert colonne["in_coda"]["totale"] == 2 and colonne["fatto"]["card"][0]["obj"].funzione == "b.tre"
     html = r.content.decode()
-    assert 'draggable="true"' in html and "core/kanban.js" in html and "ui-selettore" in html
+    assert 'data-trascinabile' in html and "core/kanban.js" in html and "ui-selettore" in html
 
 
 def test_filtri_applicati(client, superuser, lavori):

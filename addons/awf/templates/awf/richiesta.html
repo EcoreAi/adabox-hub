@@ -1,0 +1,41 @@
+{% extends 'core/base_app.html' %}
+{% load awf %}
+{% block title %}{{ r.team_nome|nome_squadra|default:r.team_slug }} · Agenti AI · {{ theme.brand }}{% endblock %}
+{% block head_extra %}{% if a.ricarica %}<meta http-equiv="refresh" content="{{ a.ricarica }}">{% endif %}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>{{ r.team_nome|nome_squadra|default:r.team_slug }}</h1>
+  <div class="sub">{{ r.settimane }} settiman{{ r.settimane|pluralize:"a,e" }} · chiesto il {{ r.creata|date:"d/m/Y H:i" }}{% if r.creata_da %} da {{ r.creata_da.get_full_name|default:r.creata_da.username }}{% endif %}</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'awf:richieste' %}">Tutte le richieste</a></div></div>
+
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <ol class="ui-passi" aria-label="Avanzamento">{% for etichetta, stato in tappe %}<li class="is-{{ stato }}"{% if stato == 'attuale' %} aria-current="step"{% endif %}>{{ etichetta }}</li>{% endfor %}</ol>
+  <div class="ui-vetrina-testa" style="margin-top:16px">
+    <span class="ui-vetrina-icona" aria-hidden="true"><svg><use href="#icon-{% if a.fatto %}check{% elif a.ricarica %}zap{% else %}info{% endif %}"/></svg></span>
+    <div><h2 style="margin:0" id="avanzamento" aria-live="polite">{{ a.titolo }}</h2>
+      {% if a.testo %}<p style="margin:4px 0 0">{{ a.testo }}</p>{% endif %}</div>
+  </div>
+  {% if passi_incluso %}{% include "awf/_passi_incluso.html" with passi=passi_incluso %}{% endif %}
+
+  {% if a.conferma %}
+  <ul style="margin:12px 0">{% for d in a.conferma.differenze %}<li>{{ d }}</li>{% endfor %}</ul>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><tbody>
+    <tr><th style="width:30%">Durata proposta</th><td>{{ a.conferma.settimane }} settiman{{ a.conferma.settimane|pluralize:"a,e" }}</td></tr>
+    <tr><th>Prezzo</th><td>{{ a.conferma.prezzo }}</td></tr>
+    <tr><th>Tetti di spesa</th><td>{% for t in a.conferma.tetti %}{{ t }}{% if not forloop.last %}; {% endif %}{% empty %}nessuno{% endfor %}</td></tr>
+  </tbody></table></div>
+  <form method="post" class="ui-form-actions" style="align-items:flex-end;flex-wrap:wrap">{% csrf_token %}
+    <div><label class="ui-label" for="password">Per confermare, scrivi la tua password</label>
+      <input class="ui-input" id="password" name="password" type="password" required autocomplete="current-password" style="max-width:240px"></div>
+    <button class="ui-btn ui-btn-primary" name="azione" value="conferma" type="submit">Conferma il contratto</button>
+  </form>
+  <form method="post" style="margin-top:4px">{% csrf_token %}<input type="hidden" name="azione" value="rifiuta">
+    <button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit">Non lo voglio</button></form>
+  {% endif %}
+
+  {% if a.azione and a.azione.link %}<div class="ui-form-actions" style="margin-bottom:0">
+    <a class="ui-btn ui-btn-primary" href="{{ a.azione.link }}"{% if a.azione.esterno %} target="_blank" rel="noopener"{% endif %}>{{ a.azione.etichetta }}</a></div>{% endif %}
+  {% if a.ricarica %}<p class="ui-help" style="margin-bottom:0">La pagina si aggiorna da sola{% if a.ricarica > 10 %} ogni mezzo minuto{% endif %}: puoi anche chiuderla, la trovi in Richieste.</p>{% endif %}
+  {% if errore %}<p class="ui-help">Agentlia non ha risposto ({{ errore }}): riproviamo da soli.</p>{% endif %}
+  {% if r.stato == 'inviata' %}<form method="post" style="margin-top:8px">{% csrf_token %}<input type="hidden" name="azione" value="ritira"><button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit">Ritira la richiesta</button></form>{% endif %}
+</div></section>
+{% endblock %}

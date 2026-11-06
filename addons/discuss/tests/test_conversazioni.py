@@ -21,7 +21,7 @@ def persone(db, settings, tmp_path):
 
 def test_testo_leggero():
     html = testo.rendi('Ciao @anna, guarda **qui**: https://es.it/a?b=1&c=2 <script>x</script>\nfine')
-    assert '<span class="ds-menzione">@anna</span>' in html and "<strong>qui</strong>" in html
+    assert 'class="ds-menzione" href="/discuss/con/anna/">@anna</a>' in html and "<strong>qui</strong>" in html
     assert '<a href="https://es.it/a?b=1&amp;c=2" target="_blank"' in html
     assert "&lt;script&gt;" in html and "<br>fine" in html
     link = testo.rendi("https://es.it/@anna/profilo")

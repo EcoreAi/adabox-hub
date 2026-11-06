@@ -1,0 +1,12 @@
+{% load commesse %}{% if obj.ore_incluse %}{% monte_ore obj as m %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Monte ore</div></div>
+  <div class="ui-card-body">
+    <div class="cm-tessere">
+      <div class="cm-tessera"><small>Incluse</small><strong>{{ m.incluse|floatformat:"-2" }} h</strong></div>
+      <div class="cm-tessera"><small>Usate</small><strong>{{ m.usate|floatformat:"-2" }} h</strong></div>
+      <div class="cm-tessera {% if m.oltre %}is-negativo{% else %}is-positivo{% endif %}"><small>{% if m.oltre %}Oltre il monte, si fatturano{% else %}Restano{% endif %}</small><strong>{% if m.oltre %}{{ m.oltre|floatformat:"-2" }}{% else %}{{ m.residue|floatformat:"-2" }}{% endif %} h</strong></div>
+    </div>
+    <div class="cm-barra" role="img" aria-label="Usato il {{ m.percentuale }}%"><span class="is-{{ m.livello }}" style="--cm-l:{{ m.percentuale_barra }}%"></span></div>
+  </div>
+</section>{% endif %}

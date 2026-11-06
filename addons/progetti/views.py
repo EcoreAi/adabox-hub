@@ -1,7 +1,8 @@
-from django.db.models import Q
+from django.db.models import Q, Sum
 
 from core import chatter
-from core.viste import ModelView, register
+from core.colori import sicuro
+from core.viste import ModelView, register, schede
 
 from .models import (Compito, FaseCompito, Milestone, Progetto, Rilascio, Sprint, TipoCompito, blocco, crea_ciclo,
                      progetti_visibili)
@@ -46,10 +47,21 @@ class ProgettoView(ModelView):
     sequence_field = ("codice", "progetti.progetto")
     kanban_group = "stato"
     kanban_fields = ["codice", "cliente", "responsabile", "fine"]
+    kanban_ricco = True
+    kanban_colori = {"attivo": "azzurro", "sospeso": "grigio", "chiuso": "verde"}
     list_group_by = ["stato", "responsabile", "cliente"]
     chatter = True
     tracked_fields = ["stato", "responsabile", "fine", "budget_ore"]
     api = True
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("cliente", "responsabile")
+
+    def kanban_scheda(self, request, obj):
+        esito = {Progetto.CHIUSO: (*schede.FATTO, "Chiuso"), Progetto.SOSPESO: (*schede.FERMO, "Sospeso")}.get(obj.stato) or schede.entro(
+            obj.fine, "Consegna il", "Consegna prevista il", "Senza data di consegna")
+        return schede.scheda(esito, sottotitolo=" · ".join(str(p) for p in (obj.codice, obj.cliente) if p), persona=schede.persona(obj.responsabile))
 
     def get_queryset(self, request):
         return progetti_visibili(request.user, super().get_queryset(request))
@@ -77,7 +89,10 @@ class CompitoView(ModelView):
     list_group_by = ["progetto", "tipo", "fase", "sprint", "milestone", "rilascio", "assegnatari", "scadenza:mese"]
     list_sum = ["ore_previste", "punti"]
     kanban_group = "fase"
+    kanban_ordini = [("scadenza", "Scadenza")]
+    kanban_ordine_chiuse = "-completato_il"
     kanban_fields = ["tipo", "progetto", "scadenza", "priorita", "punti"]
+    kanban_ricco = True
     calendar_date = "scadenza"
     calendar_color = "priorita"
     graph = {"tipi": ["barre", "torta"], "misure": ["count", "sum:ore_previste", "sum:punti"],
@@ -86,6 +101,27 @@ class CompitoView(ModelView):
     tracked_fields = ["fase", "scadenza", "priorita", "sprint", "rilascio", "milestone"]
     buttons = ["completa"]
     api = True
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("progetto", "tipo", "fase").prefetch_related("assegnatari", "bloccato_da__fase")
+
+    def kanban_scheda(self, request, obj):
+        bloccanti = sum(1 for b in obj.bloccato_da.all() if not b.fase.chiusa)
+        righe = [" · ".join(p for p in (f"{obj.punti} punti" if obj.punti else "", f"{schede.ore(obj.ore_previste)} h previste" if obj.ore_previste else "") if p),
+                 f"Bloccato da {bloccanti} compit{'o' if bloccanti == 1 else 'i'}" if bloccanti else ""]
+        return schede.scheda((*schede.FATTO, "Completato") if obj.fase.chiusa else schede.entro(obj.scadenza),
+                             sottotitolo=obj.progetto.nome, righe=[r for r in righe if r],
+                             etichette=[(obj.tipo.nome, sicuro(obj.tipo.colore))] if obj.tipo_id else None,
+                             stelle=schede.stelle(1, "Alta", 1) if obj.priorita == Compito.ALTA else None,
+                             persone=[schede.persona(u) for u in obj.assegnatari.all()])
+
+    def kanban_colonna(self, request, valore, qs):
+        ore = qs.aggregate(t=Sum("ore_previste"))["t"] or 0
+        dati = {"riepilogo": f"{schede.ore(ore)} h previste"}
+        if FaseCompito.objects.filter(pk=valore, chiusa=True).exists():
+            dati["colore"] = "verde"
+        return dati
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -186,9 +222,19 @@ class SprintView(DelProgettoVisibile):
     company_field = "azienda"
     kanban_group = "stato"
     kanban_fields = ["progetto", "inizio", "fine"]
+    kanban_ricco = True
+    kanban_colori = {"pianificato": "indaco", "attivo": "azzurro", "chiuso": "verde"}
     chatter = True
     tracked_fields = ["stato", "fine"]
     buttons = ["avvia", "chiudi"]
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("progetto")
+
+    def kanban_scheda(self, request, obj):
+        esito = (*schede.FATTO, "Chiuso") if obj.stato == Sprint.CHIUSO else schede.entro(obj.fine, "Finisce il", "Doveva finire il")
+        return schede.scheda(esito, sottotitolo=obj.progetto.nome, righe=[f"Dal {obj.inizio:%d/%m/%Y}"] if obj.inizio else None)
 
     def get_buttons(self, request, obj):
         ammessi = {Sprint.PIANIFICATO: {"avvia"}, Sprint.ATTIVO: {"chiudi"}}.get(obj.stato, set())

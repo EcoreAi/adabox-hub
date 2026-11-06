@@ -1,0 +1,21 @@
+{% extends 'core/base_app.html' %}
+{% block title %}E se… · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>E se arrivasse un lavoro nuovo?</h1><div class="sub">Quando sarebbe pronto e chi slitterebbe. È solo una prova: non salva nulla</div></div></div>
+<form method="get" class="ui-card is-revealed"><div class="ui-card-body cp-form">
+  {% if errore %}<div class="ui-alert ui-alert-danger" role="alert">{{ errore }}</div>{% endif %}
+  <div><label class="ui-label" for="cp-progetto">Progetto</label><select class="ui-input" id="cp-progetto" name="progetto" required><option value=""></option>{% for p in progetti %}<option value="{{ p.pk }}"{% if dati.progetto == p.pk|stringformat:"d" %} selected{% endif %}>{{ p }}</option>{% endfor %}</select></div>
+  <div><label class="ui-label" for="cp-persona">Chi lo fa</label><select class="ui-input" id="cp-persona" name="persona" required><option value=""></option>{% for u in persone %}<option value="{{ u.pk }}"{% if dati.persona == u.pk|stringformat:"d" %} selected{% endif %}>{% firstof u.get_full_name u.username %}</option>{% endfor %}</select></div>
+  <div><label class="ui-label" for="cp-ore">Ore</label><input class="ui-input" id="cp-ore" name="ore" inputmode="decimal" required value="{{ dati.ore }}" placeholder="40"></div>
+  <div><label class="ui-label" for="cp-priorita">Priorità</label><select class="ui-input" id="cp-priorita" name="priorita"><option value="normale">Normale</option><option value="alta"{% if dati.priorita == 'alta' %} selected{% endif %}>Alta: passa davanti</option></select></div>
+  <button class="ui-btn ui-btn-primary" type="submit">Prova</button>
+</div></form>
+{% if esito %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Sarebbe pronto il {{ esito.voce.fine|date:"d/m/Y"|default:"oltre due anni" }}</div></div>
+  <div class="ui-card-body"><div class="cm-tessere">
+    <div class="cm-tessera"><small>Inizierebbe il</small><strong>{{ esito.voce.inizio|date:"d/m/Y"|default:"—" }}</strong></div>
+    <div class="cm-tessera"><small>Compiti che slittano</small><strong>{{ esito.totale }}</strong></div>
+    <div class="cm-tessera {% if esito.nuovi_ritardi %}is-negativo{% else %}is-positivo{% endif %}"><small>Nuovi ritardi</small><strong>{{ esito.nuovi_ritardi }}</strong></div></div>
+  {% if esito.slittano %}<div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Compito</th><th>Prima</th><th>Dopo</th><th class="num">Slitta</th><th>Scadenza</th></tr></thead><tbody>
+    {% for s in esito.slittano %}<tr><td><a class="ui-link" href="{% url 'progetti:compiti_dettaglio' s.voce.pk %}">{{ s.voce.titolo }}</a></td><td>{{ s.prima|date:"d/m/Y" }}</td><td>{{ s.voce.fine|date:"d/m/Y" }}</td><td class="num">{{ s.giorni }} g</td><td>{{ s.voce.scadenza|date:"d/m/Y"|default:"—" }}{% if s.nuovo_ritardo %} <span class="ui-pill ui-pill-danger">⚠ Nuovo ritardo</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<p>Non slitta nessun compito.</p>{% endif %}</div></section>{% endif %}
+{% endblock %}

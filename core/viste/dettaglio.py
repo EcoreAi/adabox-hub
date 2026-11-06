@@ -2,6 +2,7 @@ from django.core.exceptions import PermissionDenied
 from django.shortcuts import render
 
 from core import proprieta as proprieta_srv
+from core import registro
 from core.registry import hooks
 
 from .chatter import contesto_chatter
@@ -42,7 +43,7 @@ class DettaglioView(VistaBase):
             "puo_modificare": vista.has_change_permission(request, obj),
             "puo_eliminare": vista.has_delete_permission(request, obj),
             "url_modifica": vista.url("modifica", pk=obj.pk), "url_elimina": vista.url("elimina", pk=obj.pk),
-            "sezioni_extra": hooks.sezioni_per(vista.model, request),
+            "sezioni_extra": hooks.sezioni_per(vista.model, request), "storico": registro.di(request, obj),
             "righe": [{"titolo": i.titolo, "colonne": i.colonne(), "righe": i.righe(obj, request)} for i in vista.inlines],
             "totali": vista.totali(obj),
             "chatter": contesto_chatter(request, vista, obj) if vista.chatter else None,

@@ -1,6 +1,7 @@
+from django.apps import apps
 from django.core.exceptions import ValidationError
 
-from core.viste import Inline, ModelView, register
+from core.viste import Inline, ModelView, register, schede
 
 from . import operazioni
 from .models import Consegna, Magazzino, Movimento, Ricevimento, RigaConsegna, RigaRicevimento
@@ -62,11 +63,22 @@ class ConsegnaView(ModelView):
     inlines = [Inline(RigaConsegna, "consegna", ["prodotto", "descrizione", "quantita"], titolo="Merce")]
     kanban_group = "stato"
     kanban_fields = ["cliente", "data", "riferimento"]
+    kanban_ricco = True
+    kanban_colori = {"bozza": "azzurro", "fatto": "verde", "annullato": "grigio"}
     chatter = True
     tracked_fields = ["stato"]
     buttons = ["spedisci", "annulla"]
+    actions = ["fattura_differita"]
     reports = [{"nome": "DDT", "template": "magazzino/report/ddt.html"}]
     api = True
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("cliente")
+
+    def kanban_scheda(self, request, obj):
+        esito = {"fatto": (*schede.FATTO, "Spedita"), "annullato": (*schede.FERMO, "Annullato")}.get(obj.stato) or ("azzurro", "icon-calendar", "Da spedire")
+        return schede.scheda(esito, sottotitolo=obj.cliente.nome, righe=[r for r in (f"Del {obj.data:%d/%m/%Y}", obj.riferimento) if r])
 
     def col_documento(self, obj):
         return str(obj)
@@ -77,6 +89,24 @@ class ConsegnaView(ModelView):
 
     def get_buttons(self, request, obj):
         return super().get_buttons(request, obj) if obj.stato == Consegna.BOZZA else []
+
+    def get_actions(self, request):
+        azioni = super().get_actions(request)
+        return azioni if apps.is_installed("fatturazione") and request.user.has_perm("fatturazione.add_fattura") else [
+            (n, e) for n, e in azioni if n != "fattura_differita"]
+
+    def fattura_differita(self, request, queryset):
+        from django.contrib import messages
+        from django.shortcuts import redirect
+        from django.urls import reverse
+        from fatturazione import operazioni as fatturazione
+        try:
+            fattura = fatturazione.da_consegne(list(queryset))
+        except ValidationError as e:
+            return " ".join(e.messages)
+        messages.success(request, f"{fattura} creata con {fattura.ddt.count()} DDT: controllala ed emettila.")
+        return redirect(reverse("fatturazione:fatture_dettaglio", args=[fattura.pk]))
+    fattura_differita.short_description = "Crea fattura differita"
 
     def spedisci(self, request, obj):
         return _bottone(request, operazioni.spedisci, obj, lambda c: f"Consegna spedita con il DDT {c.numero}.")
@@ -105,10 +135,20 @@ class RicevimentoView(ModelView):
     inlines = [Inline(RigaRicevimento, "ricevimento", ["prodotto", "quantita"], titolo="Merce")]
     kanban_group = "stato"
     kanban_fields = ["fornitore", "data"]
+    kanban_ricco = True
+    kanban_colori = {"bozza": "azzurro", "fatto": "verde", "annullato": "grigio"}
     chatter = True
     tracked_fields = ["stato"]
     buttons = ["ricevi"]
     api = True
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("fornitore")
+
+    def kanban_scheda(self, request, obj):
+        esito = {"fatto": (*schede.FATTO, "Ricevuto"), "annullato": (*schede.FERMO, "Annullato")}.get(obj.stato) or ("azzurro", "icon-calendar", "Da ricevere")
+        return schede.scheda(esito, sottotitolo=obj.fornitore.nome, righe=[r for r in (f"Del {obj.data:%d/%m/%Y}", obj.riferimento) if r])
 
     def has_change_permission(self, request, obj=None):
         return super().has_change_permission(request, obj) and (obj is None or obj.stato == Ricevimento.BOZZA)

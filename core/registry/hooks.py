@@ -1,8 +1,13 @@
-"""Punti di aggancio tra moduli: sezioni aggiunte al dettaglio di un modello altrui, voci della testata."""
+"""Punti di aggancio tra moduli: sezioni aggiunte al dettaglio di un modello altrui, voci della testata, sezioni in
+testa alla dashboard e azioni che un modulo aggiunge a un punto preciso di un template altrui."""
 from collections import defaultdict
 
 _sezioni = defaultdict(list)   # "app.model" -> [dict(template, order, permission)]
 _testata = []                  # [dict(template, order, permission)] voci della barra in alto
+_dashboard = []                # [dict(template, order, permission)] sezioni in testa alla dashboard
+_azioni = defaultdict(list)    # "chiave" -> [dict(template, order, permission)] azioni in un punto di un template
+_widget = []                   # [dict(funzione, modulo, permission)] altri widget per la libreria della dashboard
+_portale = []                  # prefissi degli indirizzi che i clienti del portale possono aprire
 
 
 def _chiave(model):
@@ -41,7 +46,74 @@ def voci_testata(request):
     return sorted(visibili, key=lambda v: v["order"])
 
 
+def _visibili(voci, request):
+    """Le voci permesse all'utente, senza quelle dei moduli spenti (i template delle app seguono «<modulo>/...»)."""
+    user = getattr(request, "user", None)
+    if user is None or not user.is_authenticated:
+        return []
+    from .modules import disattivati
+    spenti = disattivati()
+    return sorted([v for v in voci if (v["permission"] is None or user.is_superuser or user.has_perm(v["permission"]))
+                   and v["template"].split("/", 1)[0] not in spenti], key=lambda v: v["order"])
+
+
+def sezione_dashboard(template, order=100, permission=None):
+    """Da chiamare nel ready() dell'app: `template` è incluso in testa alla dashboard, sotto il titolo (es. le schede
+    delle pagine di Analisi), solo per chi ha `permission`."""
+    voce = {"template": template, "order": order, "permission": permission}
+    if voce not in _dashboard:
+        _dashboard.append(voce)
+
+
+def sezioni_dashboard(request):
+    return _visibili(_dashboard, request)
+
+
+def widget_dashboard(funzione, modulo, permission=None):
+    """Da chiamare nel ready() dell'app: `funzione` (percorso puntato, riceve la richiesta) dà altri widget da mettere
+    in dashboard: [{id, tipo, titolo, app, su_richiesta, template, carica}]. `carica()` dà il widget completo quando serve."""
+    voce = {"funzione": funzione, "modulo": modulo, "permission": permission}
+    if voce not in _widget:
+        _widget.append(voce)
+
+
+def widget_extra(request):
+    from .modules import disattivati
+    user = request.user
+    spenti = disattivati()
+    return [v["funzione"] for v in _widget if v["modulo"] not in spenti and (v["permission"] is None or user.is_superuser or user.has_perm(v["permission"]))]
+
+
+def azione(chiave, template, order=100, permission=None):
+    """Da chiamare nel ready() dell'app: dove un template altrui scrive {% agganci "chiave" %} compare `template`,
+    con il contesto di quel punto (es. «Salva in Analisi» sotto un grafico dell'assistente: chiave «ai.artifact»)."""
+    voce = {"template": template, "order": order, "permission": permission}
+    if voce not in _azioni[chiave]:
+        _azioni[chiave].append(voce)
+
+
+def azioni_per(chiave, request):
+    return _visibili(_azioni.get(chiave, []), request)
+
+
 def svuota():
     """Solo per i test."""
     _sezioni.clear()
     _testata.clear()
+    _dashboard.clear()
+    _azioni.clear()
+    _widget.clear()
+
+
+def percorso_portale(prefisso):
+    """Da chiamare nel ready() dell'app: gli utenti esterni (clienti del portale) possono aprire gli indirizzi che
+    iniziano con `prefisso`, es. "/fatturazione/portale/". Il resto dell'applicazione resta chiuso per loro."""
+    if prefisso not in _portale:
+        _portale.append(prefisso)
+
+
+def percorsi_portale():
+    """I prefissi del portale dei moduli accesi (i loro indirizzi iniziano con «/<modulo>/»)."""
+    from .modules import disattivati
+    spenti = disattivati()
+    return tuple(p for p in _portale if p.strip("/").split("/", 1)[0] not in spenti)

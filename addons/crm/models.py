@@ -1,8 +1,10 @@
 from django.conf import settings
 from django.core.validators import MaxValueValidator
 from django.db import models
+from django.db.models.signals import pre_save
 from django.utils import timezone
 
+from core.colori import COLORI
 from core.mixins import AziendaMixin, ProprietaMixin
 
 
@@ -11,6 +13,7 @@ class FaseCrm(models.Model):
     ordine = models.PositiveSmallIntegerField("ordine", default=10)
     probabilita = models.PositiveSmallIntegerField("probabilità (%)", default=10, validators=[MaxValueValidator(100)])
     vinta = models.BooleanField("fase di vittoria", default=False)
+    colore = models.CharField("colore", max_length=10, choices=COLORI, default="indaco")
 
     class Meta:
         verbose_name = "fase"
@@ -23,6 +26,7 @@ class FaseCrm(models.Model):
 
 class EtichettaCrm(models.Model):
     nome = models.CharField("nome", max_length=60, unique=True)
+    colore = models.CharField("colore", max_length=10, choices=COLORI, default="grigio")
 
     class Meta:
         verbose_name = "etichetta"
@@ -43,6 +47,14 @@ class MotivoPerdita(models.Model):
 
     def __str__(self):
         return self.nome
+
+
+def conserva_colore(sender, instance, raw=False, **kwargs):
+    """Ogni aggiornamento del modulo ricarica i dati iniziali: il colore scelto dall'azienda non deve tornare quello di partenza."""
+    if raw and instance.pk:
+        attuale = sender.objects.filter(pk=instance.pk).values_list("colore", flat=True).first()
+        if attuale:
+            instance.colore = attuale
 
 
 def fase_iniziale():
@@ -113,3 +125,7 @@ def _probabilita_dalla_fase(azienda_id):
         return parametri.leggi("crm.probabilita_dalla_fase", Azienda.objects.filter(pk=azienda_id).first())
     except KeyError:                                   # modulo non ancora attivo (es. durante l'installazione)
         return True
+
+
+pre_save.connect(conserva_colore, sender=FaseCrm, dispatch_uid="crm.colore_fase")
+pre_save.connect(conserva_colore, sender=EtichettaCrm, dispatch_uid="crm.colore_etichetta")

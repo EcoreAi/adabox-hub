@@ -15,6 +15,7 @@
   {% endif %}
   {% if p.riepilogo %}<p class="ai-proposta-riepilogo">{{ p.riepilogo }}</p>{% endif %}
   {% if errore %}<p class="ai-proposta-errore" role="alert">{{ errore }}</p>{% endif %}
+  {% if p.in_attesa and p.esito %}<p class="ai-proposta-esito">{{ p.esito }}</p>{% endif %}
   {% if p.in_attesa and not p.scaduta %}
   <div class="ai-proposta-azioni">
     <form method="post" action="{% url 'ai:conferma_proposta' p.pk %}" hx-post="{% url 'ai:conferma_proposta' p.pk %}"

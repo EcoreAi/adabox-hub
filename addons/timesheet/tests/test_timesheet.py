@@ -118,3 +118,72 @@ def test_viste(client, scena):
     for url in ("/timesheet/ore/grafico/?misura=sum:ore", "/timesheet/ore/calendario/?mese=2026-10",
                 "/timesheet/ore/?g=progetto", "/timesheet/ore/esporta/?formato=csv"):
         assert client.get(url).status_code == 200, url
+
+
+def _riga_mia(utente):
+    from core.models import Azienda
+    from progetti.models import Progetto
+    azienda = Azienda.objects.get(pk=1)
+    progetto = Progetto.objects.create(azienda=azienda, nome="Crono", responsabile=utente)
+    return RigaOre.objects.create(azienda=azienda, progetto=progetto, utente=utente, ore=2)
+
+
+def test_ore_approvate_non_si_modificano(client, superuser):
+    riga = _riga_mia(superuser)
+    client.post("/timesheet/ore/azione/approva/", {"pk": [riga.pk]})
+    riga.refresh_from_db()
+    assert riga.approvata and riga.approvata_da == superuser
+    assert client.post(f"/timesheet/ore/{riga.pk}/modifica/", {"ore": "9"}).status_code in (403, 404)
+    riga.refresh_from_db()
+    assert riga.ore == 2
+    client.post("/timesheet/ore/azione/riapri/", {"pk": [riga.pk]})
+    riga.refresh_from_db()
+    assert not riga.approvata
+
+
+def test_solo_chi_ha_il_permesso_approva(client, db):
+    from django.contrib.auth.models import Permission, User
+    utente = User.objects.create_user("semplice", "s@example.com", "x")
+    utente.user_permissions.add(*Permission.objects.filter(content_type__app_label="timesheet", codename__in=["view_rigaore", "change_rigaore"]),
+                                Permission.objects.get(codename="vedi_tutti_progetti"))
+    client.force_login(User.objects.get(pk=utente.pk))
+    riga = _riga_mia(utente)
+    assert client.post("/timesheet/ore/azione/approva/", {"pk": [riga.pk]}).status_code == 403
+    riga.refresh_from_db()
+    assert not riga.approvata
+
+
+def test_cronometro_avvia_ferma_e_arrotonda(client, superuser):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from timesheet.models import Cronometro
+    from core.models import Azienda
+    from progetti.models import Progetto
+    progetto = Progetto.objects.create(azienda=Azienda.objects.get(pk=1), nome="Crono")
+    client.post("/timesheet/cronometro/avvia/", {"progetto": progetto.pk, "descrizione": "Riunione"})
+    crono = Cronometro.objects.get(utente=superuser)
+    assert b"data-cronometro-da" in client.get("/timesheet/ore/").content
+    Cronometro.objects.filter(pk=crono.pk).update(avviato=timezone.now() - timedelta(minutes=20))
+    client.post("/timesheet/cronometro/ferma/")
+    riga = RigaOre.objects.get(progetto=progetto)
+    assert riga.ore == Decimal("0.50") and riga.descrizione == "Riunione" and not Cronometro.objects.exists()
+
+
+def test_settimana_non_tocca_le_ore_approvate(client, superuser):
+    from django.utils import timezone
+
+    from core.models import Azienda
+    from progetti.models import Compito, FaseCompito, Progetto
+    azienda = Azienda.objects.get(pk=1)
+    progetto = Progetto.objects.create(azienda=azienda, nome="Sett")
+    fase = FaseCompito.objects.first() or FaseCompito.objects.create(nome="Da fare")
+    compito = Compito.objects.create(azienda=azienda, progetto=progetto, titolo="C", fase=fase)
+    compito.assegnatari.add(superuser)
+    oggi = timezone.localdate()
+    riga = RigaOre.objects.create(azienda=azienda, progetto=progetto, compito=compito, utente=superuser, ore=3, data=oggi, approvata=True)
+    assert b"disabled" in client.get(f"/timesheet/settimana/?data={oggi.isoformat()}").content
+    client.post("/timesheet/settimana/", {"data": oggi.isoformat(), f"ore_{compito.pk}_{oggi.isoformat()}": "8"})
+    riga.refresh_from_db()
+    assert riga.ore == 3

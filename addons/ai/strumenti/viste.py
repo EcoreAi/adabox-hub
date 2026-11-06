@@ -1,41 +1,29 @@
 """Strumenti di lettura generati dalle ModelView del kernel: quali viste ci sono, com'è fatta una vista, ricerca,
 dettaglio e aggregazioni. Sono strumenti generici con la vista come argomento ("vendite.ordini"): il codice
-valida vista, campi, filtri e permessi a ogni chiamata, sempre con l'utente e l'azienda di chi chiede."""
+valida vista, campi, filtri e permessi a ogni chiamata, sempre con l'utente e l'azienda di chi chiede.
+Il motore (filtri, percorsi dei campi, aggregazioni) è quello del kernel, core.viste.interroga: qui restano gli
+strumenti e la forma dei risultati per il modello."""
 import datetime
-import json
-import re
 from decimal import Decimal
 
-from django.conf import settings
-from django.core.exceptions import FieldDoesNotExist, ValidationError
 from django.db import models
-from django.db.models import Avg, Count, F, Max, Min, Q, Sum
-from django.db.models.functions import TruncDay, TruncMonth, TruncYear
 from django.http import Http404
 from django.utils import timezone
 
 from core.viste import registry
-from core.viste.gruppi import MESI
+from core.viste.interroga import (  # noqa: F401  (anche riesportati per gli altri strumenti e i test)
+    AGGREGATI, ESCLUSE, GRUPPI_MASSIMI, OPERATORI, SENSIBILE, SOLO_DATA, TRONCATURE, _campo, _decodifica,
+    _etichette_gruppi, _misura, _numero, _percorso, _sensibile, aggrega, campi_leggibili, filtra, id_vista,
+    viste_accessibili)
 
 from . import richiesta
 from .registro import ErroreStrumento, Strumento, registra
 
-ESCLUSI = {"ai"}                                         # le viste dell'assistente (provider, chiavi...) mai
-SENSIBILE = re.compile(r"password|chiave|token|segret|secret|cifrat|hash", re.IGNORECASE)
-OPERATORI = {"exact", "iexact", "icontains", "istartswith", "in", "gt", "gte", "lt", "lte", "isnull", "year",
-             "month"}
+ESCLUSI = ESCLUSE
 LIMITE_MASSIMO = 100
-GRUPPI_MASSIMI = 100
-AGGREGATI = {"sum": Sum, "avg": Avg, "min": Min, "max": Max}
-TRONCATURE = {"giorno": TruncDay, "mese": TruncMonth, "anno": TruncYear}
-SOLO_DATA = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
 # ---------- viste e campi ----------
-
-def id_vista(vista):
-    return f"{vista.modulo}.{vista.slug}"
-
 
 def _ambito(contesto):
     return getattr(contesto.conversazione, "ambito", "") or ""
@@ -43,20 +31,7 @@ def _ambito(contesto):
 
 def viste(contesto):
     """Le viste che l'utente può vedere (personalizzate per la sua richiesta), in ordine stabile."""
-    request = richiesta.per(contesto)
-    ambito = _ambito(contesto)
-    registry.autodiscover(["core", *settings.ADDONS_ATTIVI])
-    risultato = []
-    from core.registry.modules import disattivati
-    spenti = disattivati()
-    for modulo in ["core", *settings.ADDONS_ATTIVI]:
-        if modulo in ESCLUSI or modulo in spenti or (ambito and modulo != ambito):
-            continue
-        for v in registry.viste_di(modulo):
-            v = v.personalizzata(request)
-            if v.has_view_permission(request):
-                risultato.append(v)
-    return risultato
+    return viste_accessibili(richiesta.per(contesto), modulo=_ambito(contesto))
 
 
 def vista_per(contesto, nome):
@@ -69,89 +44,6 @@ def vista_per(contesto, nome):
 def _ammesso(metodo):
     """I bottoni e le azioni con `ai = False` (download, stampe...) non li vede l'assistente."""
     return getattr(metodo, "ai", True) is not False
-
-
-def _sensibile(campo):
-    return bool(SENSIBILE.search(campo.name))
-
-
-def campi_leggibili(vista):
-    """I campi del modello che l'assistente vede: concreti e M2M, tranne quelli sensibili e quelli interni
-    (non modificabili e non mostrati dalla vista)."""
-    mostrati = set(vista.readonly_fields) | set(vista.list_display)
-    campi = []
-    for f in vista.opts.get_fields():
-        if f.auto_created and not f.concrete:
-            continue
-        if not (f.concrete or f.many_to_many) or _sensibile(f) or f.name == "proprieta":
-            continue
-        if not f.primary_key and not getattr(f, "editable", True) and f.name not in mostrati:
-            continue
-        campi.append(f)
-    return campi
-
-
-def _campo(modello, nome):
-    try:
-        f = modello._meta.get_field(nome)
-    except FieldDoesNotExist:
-        return None
-    if _sensibile(f) or not (f.concrete or f.many_to_many):
-        return None
-    return f
-
-
-def _percorso(vista, chiave, con_operatore=True):
-    """'cliente__nome__icontains' → (lookup Django, campo finale, operatore). Al massimo un salto su una relazione."""
-    parti = chiave.split("__")
-    operatore = parti.pop() if con_operatore and len(parti) > 1 and parti[-1] in OPERATORI else ""
-    if not 1 <= len(parti) <= 2:
-        raise ErroreStrumento(f"Campo «{chiave}» non valido: al massimo un salto su una relazione (es. cliente__nome).")
-    f = _campo(vista.model, parti[0])
-    if f is None:
-        raise ErroreStrumento(f"La vista non ha il campo «{parti[0]}»: usa descrivi_vista per i campi.")
-    if len(parti) == 2:
-        if not f.is_relation:
-            raise ErroreStrumento(f"«{parti[0]}» non è una relazione.")
-        f = _campo(f.related_model, parti[1])
-        if f is None:
-            raise ErroreStrumento(f"«{parti[0]}» non ha il campo «{parti[1]}».")
-    return "__".join(parti), f, operatore
-
-
-def _decodifica(valore, nome):
-    if isinstance(valore, str):
-        try:
-            valore = json.loads(valore) if valore.strip() else {}
-        except ValueError:
-            raise ErroreStrumento(f"«{nome}» deve essere un oggetto JSON.")
-    return valore or {}
-
-
-def filtra(vista, request, qs, testo="", filtri=None):
-    """Ricerca libera sui search_fields della vista e filtri {campo[__operatore]: valore}."""
-    testo = (testo or "").strip()
-    if testo:
-        if not vista.search_fields:
-            raise ErroreStrumento("Questa vista non ha la ricerca libera: usa i filtri.")
-        q = Q()
-        for c in vista.search_fields:
-            q |= Q(**{f"{c}__icontains": testo})
-        qs = qs.filter(q)
-    distinti = False
-    for chiave, valore in _decodifica(filtri, "filtri").items():
-        lookup, f, operatore = _percorso(vista, chiave)
-        if operatore == "in" and not isinstance(valore, list):
-            raise ErroreStrumento(f"Il filtro «{chiave}» vuole una lista di valori.")
-        if isinstance(f, models.DateTimeField) and operatore in ("", "exact", "gt", "gte", "lt", "lte") \
-                and isinstance(valore, str) and SOLO_DATA.fullmatch(valore.strip()):
-            lookup = f"{lookup}__date"                    # «2026-07-01» su data e ora: il giorno, nel fuso locale
-        try:
-            qs = qs.filter(**{f"{lookup}__{operatore}" if operatore else lookup: valore})
-        except (ValueError, TypeError, ValidationError) as e:
-            raise ErroreStrumento(f"Valore non valido per «{chiave}»: {e}")
-        distinti = distinti or f.many_to_many or "__" in lookup
-    return qs.distinct() if distinti else qs
 
 
 # ---------- valori ----------
@@ -226,7 +118,8 @@ def _ordina(vista, qs, ordina):
 # ---------- strumenti ----------
 
 def elenco_viste(contesto, app=""):
-    elenco = [{"vista": id_vista(v), "nome": str(v.verbose_name_plural), "app": v.modulo} for v in viste(contesto)
+    elenco = [{"vista": id_vista(v), "nome": str(v.verbose_name_plural), "app": v.modulo,
+               **({"contiene": v.ai_descrizione} if v.ai_descrizione else {})} for v in viste(contesto)
               if not app or v.modulo == app]
     if not elenco:
         return "Nessuna vista accessibile" + (f" nell'app «{app}»." if app else ".")
@@ -339,85 +232,6 @@ def leggi_record(contesto, vista, id):
         risultato["totali"] = {str(e): str(val) for e, val in totali}
     if bottoni := [(n, e) for n, e in v.get_buttons(request, obj) if _ammesso(getattr(v, n))]:
         risultato["bottoni_disponibili"] = [{"nome": n, "etichetta": str(e)} for n, e in bottoni]
-    return risultato
-
-
-def _etichette_gruppi(f, parte, valori):
-    if f.is_relation:
-        oggetti = f.related_model._default_manager.in_bulk([v for v in valori if v is not None])
-        return {v: str(oggetti.get(v, v)) if v is not None else "—" for v in valori}
-    mappa = {k: str(e) for k, e in f.flatchoices} if f.choices else {}
-    risultato = {}
-    for v in valori:
-        if v is None or v == "":
-            risultato[v] = "—"
-        elif parte == "mese":
-            risultato[v] = f"{MESI[v.month - 1]} {v.year}"
-        elif parte == "anno":
-            risultato[v] = str(v.year)
-        elif parte == "giorno":
-            risultato[v] = (v.date() if isinstance(v, datetime.datetime) else v).isoformat()
-        elif isinstance(v, bool):
-            risultato[v] = "sì" if v else "no"
-        else:
-            risultato[v] = mappa.get(v, str(v))
-    return risultato
-
-
-def _misura(vista, misura):
-    """'count' | 'sum:campo' | 'avg:campo' | 'min:campo' | 'max:campo' → (espressione, campo o None)."""
-    if misura in ("", "count"):
-        return Count("pk", distinct=True), None
-    funzione, _, nome = misura.partition(":")
-    if funzione not in AGGREGATI or not nome:
-        raise ErroreStrumento("«misura» è count oppure sum:, avg:, min:, max: seguiti da un campo numerico.")
-    lookup, f, _ = _percorso(vista, nome, con_operatore=False)
-    numerico = isinstance(f, (models.IntegerField, models.DecimalField, models.FloatField))
-    if not numerico and not (funzione in ("min", "max") and isinstance(f, models.DateField)):
-        raise ErroreStrumento(f"«{nome}» non è un campo numerico.")
-    return AGGREGATI[funzione](lookup), f
-
-
-def _numero(v, f):
-    if v is None:
-        return 0
-    if isinstance(v, Decimal):
-        return int(v) if isinstance(f, models.IntegerField) else float(round(v, 2))
-    if isinstance(v, float):
-        return round(v, 2)
-    if isinstance(v, (datetime.date, datetime.datetime)):
-        return v.isoformat()
-    return v
-
-
-def aggrega(vista, request, per="", misura="count", filtri=None, testo=""):
-    """{"misura", "per", "gruppi": [{"gruppo", "valore"}], "totale"} con i dati aggregati nel database."""
-    espressione, f_misura = _misura(vista, misura or "count")
-    qs = filtra(vista, request, vista.get_queryset(request), testo, filtri).order_by()
-    if qs.query.distinct:                     # filtro su una relazione multipla: senza doppioni nelle somme
-        qs = vista.model._default_manager.filter(pk__in=qs.values("pk"))
-    totale = _numero(qs.aggregate(_v=espressione)["_v"], f_misura)
-    risultato = {"vista": id_vista(vista), "misura": misura or "count", "totale": totale}
-    if not per:
-        return risultato
-    nome, _, parte = per.partition(":")
-    lookup, f, _ = _percorso(vista, nome, con_operatore=False)
-    if parte:
-        if parte not in TRONCATURE or not isinstance(f, (models.DateField, models.DateTimeField)):
-            raise ErroreStrumento("«per» con :giorno, :mese o :anno vale solo per i campi data.")
-        chiave = TRONCATURE[parte](lookup)
-    elif isinstance(f, models.DateTimeField):
-        raise ErroreStrumento(f"Raggruppa «{nome}» per :giorno, :mese o :anno.")
-    elif isinstance(f, models.TextField):
-        raise ErroreStrumento("Non si raggruppa per un testo lungo.")
-    else:
-        chiave = F(lookup)
-    righe = list(qs.annotate(_g=chiave).values("_g").annotate(_v=espressione).order_by("_g")[:GRUPPI_MASSIMI + 1])
-    etichette = _etichette_gruppi(f, parte, [r["_g"] for r in righe])
-    risultato.update(per=per, gruppi=[{"gruppo": etichette[r["_g"]], "valore": _numero(r["_v"], f_misura)}
-                                      for r in righe[:GRUPPI_MASSIMI]])
-    if len(righe) > GRUPPI_MASSIMI:
-        risultato["nota"] = f"Più di {GRUPPI_MASSIMI} gruppi: mostrati i primi. Restringi i filtri."
     return risultato
 
 

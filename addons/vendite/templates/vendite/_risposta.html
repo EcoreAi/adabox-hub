@@ -1,0 +1,9 @@
+{% if obj.risposta or obj.stato == 'inviato' %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Risposta del cliente</div></div>
+  <div class="ui-card-body">
+    {% if obj.risposta == 'accettato' %}<p><span class="ui-pill ui-pill-ok">Accettato online</span> il {{ obj.risposta_il|date:"d/m/Y H:i" }} da <strong>{{ obj.risposta_nome }}</strong>{% if obj.risposta_ip %} (IP {{ obj.risposta_ip }}){% endif %}.</p>
+    {% elif obj.risposta == 'rifiutato' %}<p><span class="ui-pill ui-pill-warn">Rifiutato online</span> il {{ obj.risposta_il|date:"d/m/Y H:i" }}.{% if obj.risposta_motivo %} Motivo: {{ obj.risposta_motivo }}{% endif %}</p><p class="sub">Inviandolo di nuovo, il cliente potrà rispondere ancora.</p>
+    {% else %}<p>Il cliente può accettarlo o rifiutarlo dal link nell'email{% if obj.validita %} fino al {{ obj.validita|date:"d/m/Y" }}{% endif %}. Se modifichi il preventivo, il link già inviato non vale più: invialo di nuovo.</p>{% endif %}
+  </div>
+</section>{% endif %}

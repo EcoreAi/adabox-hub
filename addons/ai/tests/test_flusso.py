@@ -46,7 +46,7 @@ def test_flusso_di_un_turno_in_corso_fino_alla_fine(client, scena):
     primo = next(pezzi) + next(pezzi)                                       # un passo: avanzamento e testo
     assert "event: avanzamento" in primo and "data_e_ora" in primo and '"delta": "Sto "' in primo
     Turno.objects.filter(pk=turno.pk).update(testo="Sto controllando", stato="completato")
-    MessaggioChat.objects.create(conversazione=c, ruolo="assistente", testo="**Fatto**: sono le 10.")
+    MessaggioChat.objects.create(conversazione=c, ruolo="assistente", testo="**Fatto**: sono le 10.", turno=turno)
     resto = "".join(pezzi)
     assert "event: fine" in resto and "<strong>Fatto</strong>" in resto
 

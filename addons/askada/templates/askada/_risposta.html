@@ -1,0 +1,3 @@
+{% include "ai/_messaggi.html" with messaggi=messaggi turno=turno %}
+<input type="hidden" name="conversazione" value="{{ conversazione.pk }}" form="ak-form">
+<a class="ui-link" href="{% url 'ai:conversazione' conversazione.pk %}" data-ak-link hidden>Continua nella chat</a>

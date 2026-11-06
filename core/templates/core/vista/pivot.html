@@ -1,0 +1,25 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Pivot · {{ vista.verbose_name_plural|capfirst }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>{{ vista.verbose_name_plural|capfirst }}</h1><div class="sub">Pivot{% if filtri_attivi %} · con i filtri della lista{% endif %}</div></div>
+  <div class="ui-pagehead-actions">{% include "core/vista/_selettore.html" %}<a class="ui-btn ui-btn-secondary" href="?{{ query }}&formato=xlsx">Excel (.xlsx)</a></div>
+</div>
+<div class="ui-card is-revealed">
+  <form class="ui-filtri ui-filtri-pivot" method="get">
+    {% for k, v in filtri_attivi %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+    <label>Righe <select class="ui-input" name="riga">{% for a, e in assi %}<option value="{{ a }}"{% if a == riga %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
+    <label>Colonne <select class="ui-input" name="colonna"><option value="">Nessuna</option>{% for a, e in assi %}<option value="{{ a }}"{% if a == colonna %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
+    <label>Misure <select class="ui-input" name="misura" multiple size="3">{% for m, e in opzioni_misure %}<option value="{{ m }}"{% if m in misure %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
+    <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Mostra</button>
+  </form>
+  {% if errore %}<div class="ui-card-body"><p>{{ errore }}</p></div>{% endif %}
+  {% if dati.tagliate %}<div class="ui-card-body"><p class="ui-help">Mostro al massimo {{ righe_massime }} righe e {{ colonne_massime }} colonne: restringi con i filtri della lista. I totali comprendono anche ciò che non si vede.</p></div>{% endif %}
+  {% if dati and dati.righe %}<div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th></th>{% for c in dati.colonne %}<th class="ui-num" colspan="{{ nomi_misure|length }}">{{ c }}</th>{% endfor %}<th class="ui-num" colspan="{{ nomi_misure|length }}">Totale</th></tr>
+    {% if nomi_misure|length > 1 %}<tr><th></th>{% for c in dati.colonne %}{% for m in nomi_misure %}<th class="ui-num">{{ m }}</th>{% endfor %}{% endfor %}{% for m in nomi_misure %}<th class="ui-num">{{ m }}</th>{% endfor %}</tr>{% endif %}</thead>
+    <tbody>{% for r in dati.righe %}<tr><td>{{ r.etichetta }}</td>{% for cella in r.celle %}{% for v in cella %}<td class="ui-num">{{ v }}</td>{% endfor %}{% endfor %}{% for v in r.totali %}<td class="ui-num"><strong>{{ v }}</strong></td>{% endfor %}</tr>{% endfor %}
+      <tr><td><strong>Totale</strong></td>{% for cella in dati.totali_colonne %}{% for v in cella %}<td class="ui-num"><strong>{{ v }}</strong></td>{% endfor %}{% endfor %}{% for v in dati.totale %}<td class="ui-num"><strong>{{ v }}</strong></td>{% endfor %}</tr></tbody>
+  </table></div>{% elif not errore %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun dato con questi filtri.</p></div></div>{% endif %}
+</div>
+{% endblock %}

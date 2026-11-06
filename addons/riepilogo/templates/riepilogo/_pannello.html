@@ -1,0 +1,17 @@
+<div class="ui-modal rp-modal" role="dialog" aria-modal="true" aria-labelledby="rp-titolo">
+  <div class="ui-modal-box rp-box">
+    <header class="rp-testa">
+      <div><h2 id="rp-titolo">{{ saluto }}</h2><p>{{ dal_testo|capfirst }}{% if urgenti %} · <strong>{{ urgenti }} urgent{{ urgenti|pluralize:"e,i" }}</strong>{% endif %}</p></div>
+      <div class="rp-azioni">
+        <form hx-get="{% url 'riepilogo:pannello' %}" hx-target="#rp-pannello" hx-swap="innerHTML" hx-trigger="change"><select class="ui-input ui-input-sm" name="da" aria-label="Da quando">{% for codice, nome in scelte %}<option value="{{ codice }}"{% if codice == scelta %} selected{% endif %}>{{ nome|capfirst }}</option>{% endfor %}</select></form>
+        <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" hx-get="{% url 'riepilogo:pannello' %}?da={{ scelta }}" hx-target="#rp-pannello" hx-swap="innerHTML">Aggiorna</button>
+        <button type="button" class="ui-btn ui-btn-ghost ui-btn-sm rp-chiudi" aria-label="Chiudi" data-rp-chiudi><svg><use href="#icon-x"/></svg></button>
+      </div>
+    </header>
+    <div class="rp-corpo">{% include "riepilogo/_contenuto.html" %}</div>
+    <footer class="rp-piede">
+      <form hx-post="{% url 'riepilogo:preferenza' %}" hx-trigger="change" hx-swap="none">{% csrf_token %}<label class="rp-toggle"><input type="checkbox" name="mostra" value="1"{% if preferenza.mostra_al_login %} checked{% endif %}> Apri da solo quando accedo</label></form>
+      <span class="rp-link"><a class="ui-link" href="{% url 'riepilogo:impostazioni' %}">Cosa mostrare{% if silenziate %} ({{ silenziate }} silenziat{{ silenziate|pluralize:"a,e" }}){% endif %}</a> · <a class="ui-link" href="{% url 'riepilogo:pagina' %}">Apri come pagina</a></span>
+    </footer>
+  </div>
+</div>

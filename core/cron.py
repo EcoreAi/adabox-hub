@@ -6,5 +6,8 @@ KERNEL = [
 
 
 def sincronizza(**_):
+    from django.conf import settings
+
     from .lavori import sincronizza_pianificazioni
-    sincronizza_pianificazioni("core", KERNEL)
+    sincronizza_pianificazioni("core", [*KERNEL, {"nome": "Licenza e moduli dal portale", "funzione": "core.registry.sincronia.esegui",
+                                                  "ogni": settings.LICENZA_SINCRONIA_OGNI}])

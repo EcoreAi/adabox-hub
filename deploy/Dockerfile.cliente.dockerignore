@@ -1,0 +1,20 @@
+# Niente moduli e niente materiale interno nell'immagine: esclusi qui, non cancellati dopo, o resterebbero nei livelli.
+addons/
+.env
+.env.*
+.git
+.venv/
+**/__pycache__/
+**/*.pyc
+**/tests/
+db.sqlite3
+staticfiles/
+logs/
+.pytest_cache/
+backup/
+media/
+private/
+docs/
+dist/
+.moduli-in-arrivo/
+*.pem

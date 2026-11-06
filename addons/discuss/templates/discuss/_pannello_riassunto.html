@@ -1,0 +1,11 @@
+{% include "discuss/_testa_pannello.html" with titolo_pannello="Riassunto con Ada" %}
+<div class="ds-pannello-corpo"{% if r.stato == "in_corso" %} hx-get="{% url 'discuss:riassunto' canale.pk %}" hx-trigger="every 3s" hx-target="#ds-pannello"{% endif %}>
+  <form hx-post="{% url 'discuss:riassunto' canale.pk %}" hx-target="#ds-pannello" class="ds-modulo ds-modulo-stretto">
+    <label class="ui-label">Di quale periodo<select class="ui-input" name="ambito">{% for v, e in ambiti %}<option value="{{ v }}"{% if r.ambito == v %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
+    <button class="ui-btn ui-btn-primary ui-btn-sm" type="submit"{% if r.stato == "in_corso" %} disabled{% endif %}>Riassumi</button>
+  </form>
+  <p class="ui-help">Lo vedi solo tu. Ada può sbagliare: per ciò che conta, controlla i messaggi.</p>
+  {% if r.stato == "in_corso" %}<p class="ui-help" role="status">Ada sta leggendo…</p>
+  {% elif r.stato == "errore" %}<p class="ui-help" role="alert">{{ r.errore }}</p>
+  {% elif r %}<div class="ds-sintesi">{{ r.testo }}</div><p class="ui-help">{{ r.n_messaggi }} messagg{{ r.n_messaggi|pluralize:"io,i" }} · {{ r.creato|date:"d/m H:i" }}</p>{% endif %}
+</div>

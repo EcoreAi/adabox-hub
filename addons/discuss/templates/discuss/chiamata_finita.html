@@ -1,0 +1,4 @@
+<!DOCTYPE html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Chiamata terminata</title>
+{% load tema %}<link rel="stylesheet" href="{% statico 'discuss/chiamata.css' %}"></head>
+<body class="cm-body"><main class="cm-fine"><h1>La chiamata è terminata</h1><p>Puoi chiudere questa finestra.</p>{% if collega %}<a class="cm-btn cm-btn-primario" href="{% url 'discuss:canale' canale.pk %}">Torna alla conversazione</a>{% endif %}</main></body></html>

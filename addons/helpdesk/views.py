@@ -1,11 +1,12 @@
+from django.db.models import Avg, Count
 from django.utils import timezone
 from django.utils.html import format_html
 
 from core import chatter
-from core.viste import ModelView, register
+from core.viste import ModelView, register, schede
 
 from .email import segui_team
-from .models import FaseTicket, Team, Ticket
+from .models import Articolo, CategoriaArticolo, FaseTicket, Team, Ticket, Valutazione
 
 
 @register
@@ -24,6 +25,9 @@ class TicketView(ModelView):
     list_group_by = ["fase", "priorita", "team", "assegnatario", "creato:mese"]
     kanban_group = "fase"
     kanban_fields = ["numero", "priorita", "assegnatario", "sla"]
+    kanban_ricco = True
+    kanban_ordini = [("scadenza_sla", "Scadenza SLA")]
+    kanban_ordine_chiuse = "-chiuso_il"
     graph = {"tipi": ["barre", "torta", "linee"], "misure": ["count"],
              "per": ["fase", "priorita", "team", "assegnatario", "creato:mese"]}
     chatter = True
@@ -31,6 +35,29 @@ class TicketView(ModelView):
     actions = ["assegna_a_me"]
     buttons = ["prendi_in_carico", "risolvi"]
     api = True
+
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("contatto", "assegnatario", "fase")
+
+    def _esito_sla(self, obj):
+        if obj.fase.chiusa:
+            return (*schede.FATTO, "Chiuso")
+        if obj.scadenza_sla is None:
+            return "grigio", "icon-calendar", "Senza SLA"
+        ora = timezone.localtime(obj.scadenza_sla)
+        resto = (obj.scadenza_sla - timezone.now()).total_seconds()
+        if resto <= 0:
+            return "rosso", "icon-alert-triangle", f"SLA scaduto il {ora:%d/%m %H:%M}"
+        return ("arancio", "icon-alert-triangle", f"SLA entro le {ora:%H:%M}") if resto < 7200 else ("verde", "icon-calendar", f"SLA entro il {ora:%d/%m %H:%M}")
+
+    def kanban_scheda(self, request, obj):
+        return schede.scheda(self._esito_sla(obj), sottotitolo=" · ".join(str(p) for p in (obj.numero, self.col_cliente(obj)) if p and p != "—"),
+                             stelle=schede.stelle({Ticket.MEDIA: 1, Ticket.ALTA: 2, Ticket.URGENTE: 3}.get(obj.priorita, 0), obj.get_priorita_display()),
+                             persona=schede.persona(obj.assegnatario))
+
+    def kanban_colonna(self, request, valore, qs):
+        return {"colore": "verde"} if FaseTicket.objects.filter(pk=valore, chiusa=True).exists() else {}
 
     def destinatari_esterni(self, obj):
         return [obj.email_cliente] if obj.email_cliente else []
@@ -94,7 +121,12 @@ class TicketView(ModelView):
 class TeamView(ModelView):
     model = Team
     slug = "team"
-    list_display = ["nome"]
+    list_display = ["nome", "gradimento"]
+
+    def col_gradimento(self, obj):
+        dati = Valutazione.objects.filter(ticket__team=obj).aggregate(m=Avg("voto"), n=Count("pk"))
+        return f"{dati['m']:.1f} ★ su {dati['n']} valutazioni" if dati["n"] else "—"
+    col_gradimento.short_description = "Gradimento dei clienti"
 
 
 @register
@@ -102,3 +134,75 @@ class FaseTicketView(ModelView):
     model = FaseTicket
     slug = "fasi"
     list_display = ["nome", "ordine", "chiusa"]
+
+
+@register
+class ValutazioneView(ModelView):
+    model = Valutazione
+    slug = "valutazioni"
+    list_display = ["creata", "ticket", "stelle", "commento"]
+    list_filter = ["voto", "ticket__team", "creata"]
+    search_fields = ["ticket__numero", "ticket__oggetto", "commento"]
+    readonly_fields = ["ticket", "voto", "commento", "creata"]
+    form_layout = [("Valutazione", ["ticket", "voto", "commento", "creata"])]
+    ordering = ["-creata"]
+    list_group_by = ["voto", "ticket__team", "creata:mese"]
+    graph = {"tipi": ["barre", "torta"], "misure": ["count"], "per": ["voto", "ticket__team", "creata:mese"]}
+
+    def col_stelle(self, obj):
+        return format_html('<span class="hd-stelle" aria-label="{} su 5">{}</span>', obj.voto, obj.stelle)
+    col_stelle.short_description = "Voto"
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request).select_related("ticket")
+        azienda_id = getattr(getattr(request, "azienda", None), "pk", None)
+        return qs.filter(ticket__azienda_id=azienda_id) if azienda_id is not None else qs.none()
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@register
+class ArticoloView(ModelView):
+    model = Articolo
+    slug = "articoli"
+    list_display = ["titolo", "categoria", "stato", "visite", "utilita", "aggiornato"]
+    list_filter = ["pubblicato", "pubblico", "categoria"]
+    search_fields = ["titolo", "corpo"]
+    form_layout = [("Articolo", ["titolo", "categoria", "corpo"]), ("Pubblicazione", [("pubblicato", "pubblico")])]
+    readonly_fields = ["visite", "utile_si", "utile_no", "aggiornato"]
+    company_field = "azienda"
+    list_group_by = ["categoria", "pubblicato"]
+    import_key = "titolo"
+    actions = ["pubblica"]
+
+    def col_stato(self, obj):
+        if not obj.pubblicato:
+            return format_html('<span class="ui-pill ui-pill-neutral">Bozza</span>')
+        return format_html('<span class="ui-pill {}">{}</span>', "ui-pill-ok" if obj.pubblico else "ui-pill-info",
+                           "Online" if obj.pubblico else "Solo clienti")
+    col_stato.short_description = "Stato"
+
+    def col_utilita(self, obj):
+        voti = obj.utile_si + obj.utile_no
+        return f"{obj.utile_si * 100 // voti}% su {voti}" if voti else "—"
+    col_utilita.short_description = "Utile"
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.autore = request.user
+        super().save_model(request, obj, form, change)
+
+    def pubblica(self, request, queryset):
+        return f"Articoli pubblicati: {queryset.update(pubblicato=True)}."
+    pubblica.short_description = "Pubblica per i clienti"
+
+
+@register
+class CategoriaArticoloView(ModelView):
+    model = CategoriaArticolo
+    slug = "categorie-guida"
+    list_display = ["nome", "descrizione", "ordine"]

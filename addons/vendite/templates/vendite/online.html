@@ -1,0 +1,57 @@
+{% extends 'theme/base.html' %}
+{% block title %}{% if ordine %}Preventivo {{ ordine.numero }}{% else %}Preventivo{% endif %} · {{ theme.brand }}{% endblock %}
+{% block public_content %}
+<div class="vn-pagina df-sfondo"><div class="vn-foglio df-entra">
+{% if stato == 'invalido' %}
+  <div class="vn-esito"><h1>Link non valido</h1><p>Il link non è corretto. Chiedi a chi ti ha mandato il preventivo di inviartelo di nuovo.</p></div>
+{% else %}
+  <header class="vn-testa"><div><small>{{ ordine.azienda }}</small><h1>Preventivo {{ ordine.numero }}</h1>
+    <p>Per {{ ordine.cliente.nome }} · del {{ ordine.data|date:"d/m/Y" }}{% if ordine.validita %} · valido fino al {{ ordine.validita|date:"d/m/Y" }}{% endif %}</p></div>
+    {% if stato != 'modificato' %}<div class="vn-totale"><small>Totale</small><strong>{{ ordine.totale|floatformat:2 }} €</strong></div>{% endif %}</header>
+
+  {% if stato == 'risposto' and ordine.risposta == 'accettato' %}
+  <div class="vn-esito vn-ok{% if appena %} is-appena{% endif %}"><svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M15 27l8 8 15-16"/></svg>
+    <h2>{% if appena %}Grazie, {{ ordine.risposta_nome }}!{% else %}Preventivo accettato{% endif %}</h2>
+    <p>Accettato il {{ ordine.risposta_il|date:"d/m/Y" }} alle {{ ordine.risposta_il|date:"H:i" }} da {{ ordine.risposta_nome }}.{% if ordine.numero_ordine %} Ordine {{ ordine.numero_ordine }}.{% else %} Ti contatteremo per la conferma dell'ordine.{% endif %}</p></div>
+  {% elif stato == 'risposto' %}
+  <div class="vn-esito"><h2>Preventivo rifiutato</h2><p>Abbiamo ricevuto la tua risposta del {{ ordine.risposta_il|date:"d/m/Y" }}. Se cambi idea, scrivici: ti manderemo un nuovo link.</p></div>
+  {% elif stato == 'modificato' %}
+  <div class="vn-esito vn-avviso"><h2>Il preventivo è stato aggiornato</h2><p>Questo link si riferisce a una versione precedente: chiedi di ricevere quella nuova.</p></div>
+  {% elif stato == 'scaduto' %}
+  <div class="vn-esito vn-avviso"><h2>Il preventivo è scaduto</h2><p>Contattaci per riceverne uno aggiornato.</p></div>
+  {% elif stato == 'chiuso' %}
+  <div class="vn-esito vn-avviso"><h2>Il preventivo non è più aperto</h2><p>Per informazioni, contatta {{ ordine.azienda }}.</p></div>
+  {% endif %}
+
+  {% if stato != 'modificato' %}
+  <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>Descrizione</th><th class="num">Quantità</th><th class="num">Prezzo</th><th class="num">Sconto</th><th class="num">IVA</th><th class="num">Importo</th></tr></thead><tbody>
+    {% for r in righe %}<tr><td>{{ r.descrizione }}</td><td class="num">{{ r.quantita|floatformat:"-3" }}</td><td class="num">{{ r.prezzo|floatformat:2 }} €</td>
+      <td class="num">{% if r.sconto %}{{ r.sconto|floatformat:"-2" }}%{% else %}—{% endif %}</td><td class="num">{{ r.aliquota|default:"—" }}</td><td class="num">{{ r.importo|floatformat:2 }} €</td></tr>{% endfor %}</tbody></table></div>
+  <dl class="vn-somme"><div><dt>Imponibile</dt><dd>{{ ordine.imponibile|floatformat:2 }} €</dd></div>
+    {% for g in iva %}<div><dt>IVA {{ g.aliquota }}</dt><dd>{{ g.imposta|floatformat:2 }} €</dd></div>{% endfor %}
+    <div class="is-totale"><dt>Totale</dt><dd>{{ ordine.totale|floatformat:2 }} €</dd></div></dl>
+  {% if ordine.termine_pagamento %}<p class="vn-nota"><strong>Pagamento:</strong> {{ ordine.termine_pagamento }}</p>{% endif %}
+  {% if ordine.note %}<p class="vn-nota">{{ ordine.note|linebreaksbr }}</p>{% endif %}
+  {% endif %}
+
+  {% if stato == 'valido' %}
+  <section class="vn-risposta">
+    <form method="post">{% csrf_token %}<input type="hidden" name="azione" value="accetta">
+      <h2>Accetta il preventivo</h2>
+      {% if errore %}<div class="ui-alert ui-alert-danger" role="alert">{{ errore }}</div>{% endif %}
+      <label class="ui-label" for="vn-nome">Nome e cognome di chi accetta</label>
+      <input class="ui-input" id="vn-nome" name="nome" value="{{ nome|default:'' }}" maxlength="120" required autocomplete="name">
+      <label class="vn-conferma"><input type="checkbox" name="conferma" value="1" required> Ho letto il preventivo e lo accetto per {{ ordine.azienda }}, per un totale di {{ ordine.totale|floatformat:2 }} €, a nome di {{ ordine.cliente.nome }}.</label>
+      <button class="ui-btn ui-btn-primary vn-accetta" type="submit">Accetto il preventivo</button>
+    </form>
+    <details class="vn-rifiuto"><summary>Preferisci rifiutarlo?</summary>
+      <form method="post">{% csrf_token %}<input type="hidden" name="azione" value="rifiuta">
+        <label class="ui-label" for="vn-motivo">Vuoi dirci il motivo? (facoltativo)</label>
+        <textarea class="ui-input" id="vn-motivo" name="motivo" rows="3" maxlength="1000"></textarea>
+        <button class="ui-btn" type="submit">Rifiuta il preventivo</button>
+      </form></details>
+  </section>
+  {% endif %}
+{% endif %}
+</div></div>
+{% endblock %}

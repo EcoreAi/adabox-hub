@@ -1,0 +1,35 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Collega il Controllo AI · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Collega il Controllo AI</h1>
+  <div class="sub">Una volta sola: incolla il codice che ti dà chi gestisce Agate, al resto pensa adabox.</div></div></div>
+
+{% if errore %}<div class="ui-alert ui-alert-error">{{ errore }}</div>{% endif %}
+{% if not awf %}<div class="ui-alert ui-alert-warning">Serve anche il modulo «Agenti AI»: installalo, oppure collega a mano (qui sotto).</div>{% endif %}
+
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <form method="post">{% csrf_token %}<input type="hidden" name="azione" value="codice">
+    <label class="ui-label" for="codice">Codice</label>
+    <input class="ui-input" id="codice" name="codice" required autocomplete="off" spellcheck="false" value="{{ dati.codice }}" placeholder="agc_…" style="max-width:420px">
+    <p class="ui-help">In Agate: Collegamenti → «Collega un'applicazione con un codice», con il prefisso <code>awf</code>. Vale 7 giorni, una volta sola.</p>
+    <label class="ui-label" for="gateway_url" style="margin-top:12px">Indirizzo di Agate</label>
+    <input class="ui-input" id="gateway_url" name="gateway_url" type="url" required value="{{ dati.gateway_url }}" placeholder="https://api.agate.esempio.it" style="max-width:420px">
+    <details style="margin-top:12px"><summary class="ui-help" style="cursor:pointer">Indirizzo di adabox (di solito va bene così)</summary>
+      <label class="ui-label" for="base_url">Indirizzo pubblico di adabox, dove Agate lo raggiunge</label>
+      <input class="ui-input" id="base_url" name="base_url" type="url" value="{{ dati.base_url }}" style="max-width:420px">
+    </details>
+    <div class="ui-form-actions"><button class="ui-btn ui-btn-primary ui-btn-lg" type="submit">Collega</button></div>
+  </form>
+  <p style="margin:16px 0 4px"><strong>Cosa succede</strong></p>
+  <ol style="margin:0">
+    <li>adabox dà ad Agate gli strumenti degli agenti e dell'assistente AI, e riceve le sue chiavi (salvate cifrate).</li>
+    <li>Il Controllo AI diventa <strong>attivo</strong>: ogni modifica degli agenti e dell'assistente passa dalle regole dell'azienda.</li>
+    <li>Da lì gli agenti si assumono dal Negozio in tre clic, e le decisioni si prendono in adabox, in «Da approvare».</li>
+  </ol>
+</div></section>
+
+<details class="ui-card is-revealed ui-section"><summary class="ui-card-head" style="cursor:pointer"><div class="ui-card-title">Avanzate</div></summary>
+  <div class="ui-card-body">
+    <p>Hai l'indirizzo di Agate e una chiave invece del codice? <a class="ui-link" href="?passo=1">Collega a mano, in tre passi</a>. Allora la chiave degli agenti si genera in Agenti AI → Avanzate e le decisioni si prendono in Agate.</p>
+  </div></details>
+{% endblock %}

@@ -27,6 +27,9 @@ def me(request):
 def moduli(request):
     if not request.user.is_superuser:
         raise HttpError(403, "solo superuser")
+    token = getattr(request, "token_api", None)
+    if token is not None and token.moduli:
+        raise HttpError(403, "questo token vale solo per alcuni moduli")
     return [{"slug": m.slug, "nome": m.nome, "stato": m.stato, "versione_installata": m.versione_installata,
              "versione_disponibile": m.versione_disponibile, "application": m.application}
             for m in modules.sincronizza()]

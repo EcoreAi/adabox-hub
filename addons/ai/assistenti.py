@@ -20,7 +20,7 @@ def risolvi(conversazione, utente):
 def filtra_strumenti(strumenti, assistente, esperto=False):
     """Gli strumenti dell'assistente (tutti se non ne indica) e, per un esperto, solo le letture."""
     if assistente is not None and assistente.strumenti:
-        ammessi = set(assistente.strumenti)
+        ammessi = {*assistente.strumenti, "leggi_allegato"}     # gli allegati della chat si leggono sempre
         strumenti = [s for s in strumenti if s.nome in ammessi]
     if esperto:
         strumenti = [s for s in strumenti if s.rischio == "lettura" and s.nome != "chiedi_esperto"]

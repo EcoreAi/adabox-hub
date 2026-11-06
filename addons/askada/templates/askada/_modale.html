@@ -1,0 +1,17 @@
+{% include "ai/_icone.html" %}
+<div class="ui-modal ak-modale" role="dialog" aria-modal="true" aria-labelledby="ak-titolo">
+  <div class="ui-modal-box ak-box">
+    <header class="ak-testa"><div><h2 id="ak-titolo"><svg class="ak-scintilla"><use href="#ai-scintilla"/></svg> Chiedi ad Ada</h2><p>Su «{{ titolo }}»: Ada vede quello che vedi tu in questa pagina</p></div>
+      <button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-ak-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
+    <div class="ak-thread" id="ak-thread">
+      {% if recenti %}<p class="ak-recenti">Hai già chiesto qui: {% for d in recenti %}<a class="ui-link" href="{% url 'ai:conversazione' d.conversazione_id %}">{{ d.testo|truncatechars:40 }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+      <div class="ak-suggerimenti">{% for s in suggerimenti %}<button type="button" class="ak-chip" data-ak-sugg>{{ s }}</button>{% endfor %}</div>
+    </div>
+    <form id="ak-form" class="ak-form" method="post" action="{% url 'askada:chiedi' %}" hx-post="{% url 'askada:chiedi' %}" hx-target="#ak-thread" hx-swap="beforeend">{% csrf_token %}
+      <input type="hidden" name="url" value="{{ url }}"><input type="hidden" name="titolo" value="{{ titolo }}"><input type="hidden" name="contesto" value=""><input type="hidden" name="pagina" value="">
+      <textarea class="ui-input" name="testo" rows="2" required placeholder="Chiedi qualcosa su questa pagina…" aria-label="La tua domanda"></textarea>
+      <button class="ui-btn ui-btn-primary" type="submit" data-ak-invia>Chiedi</button>
+    </form>
+    <footer class="ak-piede"><span>Le risposte usano solo ciò che è sulla pagina e ciò che puoi vedere.</span><span id="ak-link-chat"></span></footer>
+  </div>
+</div>

@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from core import chatter
+from core.dashboard import queryset
 from progetti.models import Compito, TipoCompito, progetti_visibili
 
 from .models import Collaudo, Esecuzione
@@ -15,7 +16,7 @@ from .models import Collaudo, Esecuzione
 def _collaudo(request, pk):
     if not request.user.has_perm("qualita.view_collaudo"):
         raise PermissionDenied
-    return get_object_or_404(Collaudo.objects.filter(progetto__in=progetti_visibili(request.user).values("pk"))
+    return get_object_or_404(queryset(request, Collaudo).filter(progetto__in=progetti_visibili(request.user).values("pk"))
                              .select_related("progetto", "rilascio", "ambiente"), pk=pk)
 
 

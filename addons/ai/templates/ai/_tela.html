@@ -1,0 +1,37 @@
+{% load ai %}{# L'editor del documento accanto alla chat. Si ricarica dopo ogni risposta di Ada, se non ci sono modifiche da salvare. #}
+<section class="ai-tela" id="ai-tela" data-tela data-documento="{{ documento.pk }}" data-versione="{{ documento.versione }}"
+         data-url="{% url 'ai:documento' documento.pk %}" aria-label="Documento {{ documento.titolo }}">
+  <header class="ai-tela-testa">
+    <h2 class="ai-tela-titolo">{{ documento.titolo }}</h2>
+    <span class="ai-doc-meta">v{{ documento.versione }}</span>
+    <span class="ai-spazio"></span>
+    <form hx-post="{% url 'ai:stella_documento' documento.pk %}" hx-target="#ai-tela" hx-swap="outerHTML">{% csrf_token %}
+      <button type="submit" class="ai-azione{% if documento.salvato %} is-preferita{% endif %}" aria-pressed="{{ documento.salvato|yesno:'true,false' }}"
+              data-tip="{% if documento.salvato %}Togli dai salvati{% else %}Salva tra i documenti{% endif %}" aria-label="{% if documento.salvato %}Togli dai salvati{% else %}Salva tra i documenti{% endif %}"><svg><use href="#ai-stella"/></svg></button>
+    </form>
+    <button type="button" class="ai-azione" data-salva-documenti="{% url 'ai:salva_documenti' 'documento' documento.pk %}" data-cosa="il documento «{{ documento.titolo }}» (Word)" hidden data-tip="Salva nei Documenti" aria-label="Salva nei Documenti"><svg><use href="#ai-cartella"/></svg></button>
+    <a class="ai-azione" href="{% url 'ai:scarica_documento' documento.pk 'docx' %}" data-tip="Scarica in Word" aria-label="Scarica in Word"><svg><use href="#icon-download"/></svg></a>
+    <a class="ai-azione ai-azione-testo" href="{% url 'ai:scarica_documento' documento.pk 'md' %}" data-tip="Scarica in Markdown" aria-label="Scarica in Markdown">.md</a>
+    <a class="ai-azione" href="{% url 'ai:conversazione' documento.conversazione_id %}" data-tip="Chiudi il documento" aria-label="Chiudi il documento"><svg><use href="#icon-x"/></svg></a>
+  </header>
+  {% if avviso %}<p class="ai-avviso" role="alert">{{ avviso }}</p>{% endif %}
+  {% if non_salvato %}<details class="ai-tela-perso" open><summary>Il testo che non è stato salvato</summary><textarea class="ui-input" rows="6" readonly>{{ non_salvato }}</textarea></details>{% endif %}
+  <div class="ai-tela-schede" role="tablist">
+    <button type="button" class="ai-tela-scheda" role="tab" aria-selected="true" data-modo="leggi">Leggi</button>
+    <button type="button" class="ai-tela-scheda" role="tab" aria-selected="false" data-modo="modifica">Modifica</button>
+    {% if salvato %}<span class="ai-doc-meta" role="status">Salvato.</span>{% endif %}
+  </div>
+  <div class="ai-tela-letto ai-md" data-letto>{{ documento.testo|markdown_ai }}</div>
+  <form class="ai-tela-form" hx-post="{% url 'ai:salva_documento' documento.pk %}" hx-target="#ai-tela" hx-swap="outerHTML" data-scrittura hidden>{% csrf_token %}
+    <input type="hidden" name="versione" value="{{ documento.versione }}">
+    <textarea class="ui-input ai-tela-testo" name="testo" aria-label="Testo del documento (Markdown)" spellcheck="true">{{ documento.testo }}</textarea>
+    <div class="ai-tela-barra"><span class="ai-doc-meta">Markdown: # titolo, - elenco, **grassetto**</span><span class="ai-spazio"></span>
+      <button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">Salva</button></div>
+  </form>
+  {% if versioni|length > 1 %}
+  <details class="ai-tela-versioni"><summary>Versioni</summary>
+    <ul>{% for v in versioni %}<li><span>v{{ v.numero }} · {{ v.get_autore_display }} · {{ v.creata|date:"d/m H:i" }}</span>
+      {% if v.numero != documento.versione %}<form hx-post="{% url 'ai:ripristina_documento' documento.pk v.numero %}" hx-target="#ai-tela" hx-swap="outerHTML">{% csrf_token %}<button type="submit" class="ui-btn ui-btn-ghost ui-btn-sm">Ripristina</button></form>{% else %}<span class="ai-doc-meta">attuale</span>{% endif %}</li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+</section>

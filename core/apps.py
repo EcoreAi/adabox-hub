@@ -14,3 +14,5 @@ class CoreConfig(AppConfig):
         post_migrate.connect(cron.sincronizza, sender=self, dispatch_uid="core.cron")
         from .viste import registry
         registry.autodiscover(["core", *settings.ADDONS_ATTIVI])
+        from . import registro
+        registro.collega()

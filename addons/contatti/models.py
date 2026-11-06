@@ -39,15 +39,24 @@ class Contatto(AziendaMixin, ProprietaMixin):
     citta = models.CharField("città", max_length=100, blank=True)
     provincia = models.CharField("provincia", max_length=2, blank=True)
     nazione = models.CharField("nazione", max_length=2, default="IT")
-    partita_iva = models.CharField("partita IVA", max_length=11, blank=True, validators=[validatori.valida_partita_iva])
+    partita_iva = models.CharField("partita IVA", max_length=28, blank=True, help_text="anche estera, per il paese indicato")
     codice_fiscale = models.CharField("codice fiscale", max_length=16, blank=True,
                                       validators=[validatori.valida_codice_fiscale])
-    codice_sdi = models.CharField("codice SDI", max_length=7, blank=True, validators=[validatori.valida_sdi])
+    codice_sdi = models.CharField("codice SDI", max_length=7, blank=True, validators=[validatori.valida_sdi],
+                                  help_text="7 caratteri; per la Pubblica Amministrazione il codice univoco ufficio, di 6")
+    pubblica_amministrazione = models.BooleanField("Pubblica Amministrazione", default=False,
+                                                   help_text="fatture in formato FPA12, con il codice univoco ufficio")
+    vies_valido = models.BooleanField("valida nel VIES", null=True, blank=True, editable=False)
+    vies_il = models.DateTimeField("verifica VIES", null=True, blank=True, editable=False)
     cliente = models.BooleanField("cliente", default=False)
     fornitore = models.BooleanField("fornitore", default=False)
     categorie = models.ManyToManyField(Categoria, blank=True, verbose_name="categorie")
     responsabile = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
                                      related_name="+", verbose_name="responsabile")
+    fido = models.DecimalField("fido", max_digits=14, decimal_places=2, null=True, blank=True,
+                               help_text="quanto può avere aperto questo cliente, IVA compresa; vuoto = nessun controllo")
+    fido_blocca = models.BooleanField("blocca oltre il fido", default=False,
+                                      help_text="oltre il fido l'ordine non si conferma; altrimenti si avvisa soltanto")
     note = models.TextField("note", blank=True)
     attivo = models.BooleanField("attivo", default=True)
 
@@ -65,10 +74,17 @@ class Contatto(AziendaMixin, ProprietaMixin):
         self.codice_sdi = self.codice_sdi.upper()
         self.provincia = self.provincia.upper()
         self.nazione = (self.nazione or "IT").upper()
+        self.partita_iva = validatori.normalizza_partita_iva(self.partita_iva, self.nazione)
         if self.societa_id and self.societa_id == self.pk:
             errori["societa"] = "Un contatto non può essere la società di se stesso."
         if self.tipo == self.AZIENDA and self.societa_id:
             errori["societa"] = "Solo le persone appartengono a una società."
+        if errore := validatori.errore_partita_iva(self.partita_iva, self.nazione):
+            errori["partita_iva"] = errore
+        if self.pubblica_amministrazione and len(self.codice_sdi) != 6:
+            errori["codice_sdi"] = "La Pubblica Amministrazione ha un codice univoco ufficio di 6 caratteri (lo trovi su IndicePA)."
+        elif not self.pubblica_amministrazione and self.codice_sdi and len(self.codice_sdi) != 7:
+            errori["codice_sdi"] = "Il codice destinatario ha 7 caratteri; quello di 6 è solo della Pubblica Amministrazione."
         if self.partita_iva and self.azienda_id and (
                 Contatto.objects.filter(azienda_id=self.azienda_id, partita_iva=self.partita_iva)
                 .exclude(pk=self.pk).exists()):

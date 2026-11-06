@@ -1,0 +1,11 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Carico · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Carico</h1><div class="sub">Quanto è piena ogni settimana di ogni persona. Chi ha troppo lavoro non supera il 100%: il resto slitta avanti, e si vede in «Libera dal»</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="{% url 'capacita:persone_lista' %}">Capacità delle persone</a></div></div>
+{% if righe %}<section class="ui-card is-revealed"><div class="ui-table-wrap"><table class="ui-table cp-carico is-revealed"><thead><tr><th>Persona</th>{% for c in colonne %}<th class="num">{{ c|date:"d/m" }}</th>{% endfor %}<th>Libera dal</th></tr></thead><tbody>
+  {% for r in righe %}<tr><th scope="row">{% firstof r.utente.get_full_name r.utente.username %}</th>
+    {% for c in r.celle %}<td class="num cp-cella{% if c.percentuale >= 60 %} is-scura{% endif %}{% if c.assente %} is-assente{% endif %}" style="--cp-p:{{ c.percentuale }}%" title="{{ c.ore|floatformat:'-1' }} h su {{ c.disponibili|floatformat:'-1' }} h{% if c.compiti %}: {{ c.compiti }}{% endif %}">{% if c.assente %}—{% else %}{{ c.percentuale }}%{% endif %}</td>{% endfor %}
+    <td>{{ r.libera_dal|date:"d/m/Y" }}</td></tr>{% endfor %}</tbody></table></div></section>
+{% else %}<section class="ui-card is-revealed"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessuna persona ha compiti stimati da pianificare.</p></div></section>{% endif %}
+{% endblock %}

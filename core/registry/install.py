@@ -8,7 +8,7 @@ from pathlib import Path
 
 from django.conf import settings
 
-from core import backup
+from core import backup, licenza
 from core.models import Modulo
 
 from . import bootstrap, modules, reload
@@ -23,6 +23,7 @@ class NonInstallato(ErroreInstallazione): ...
 class NienteDaAggiornare(ErroreInstallazione): ...
 class DipendentiInstallati(ErroreInstallazione): ...
 class ApplicaFallita(ErroreInstallazione): ...
+class NonLicenziato(ErroreInstallazione): ...
 
 
 def scrivi_stato(slugs):
@@ -81,6 +82,11 @@ def _ricarica(riavvia):
         return False
 
 
+def ricarica():
+    """Fa ricaricare il server dopo un giro di sincronizzazione."""
+    return _ricarica(True)
+
+
 def installa(slugs, demo=False, riavvia=False, conferma=None):
     """Installa gli slug e le dipendenze mancanti. `conferma(extra)` decide se installare anche
     le dipendenze non richieste. Restituisce gli slug installati ([] se non confermato)."""
@@ -90,6 +96,8 @@ def installa(slugs, demo=False, riavvia=False, conferma=None):
     if not richiesti:
         raise GiaInstallato(f"già installati: {', '.join(slugs)}")
     piano = [s for s in modules.ordina(_chiusura(richiesti, info), info) if s not in attuali]
+    if fuori := [s for s in piano if not licenza.ammesso(s)]:
+        raise NonLicenziato(f"non coperti dalla licenza: {', '.join(fuori)}")
     extra = [s for s in piano if s not in richiesti]
     if extra and conferma and not conferma(extra):
         return []
@@ -101,6 +109,8 @@ def installa(slugs, demo=False, riavvia=False, conferma=None):
         scrivi_stato(attuali)
         _segna_errore(piano, info, str(e))
         raise
+    if licenza.obbligatoria() and attuali:               # non al primo avvio: li accende l'Admin, decidendo chi li usa
+        Modulo.objects.filter(slug__in=[s for s in piano if info[s].manifest.application]).update(disattivato=True)
     log.info("installati: %s", ", ".join(piano))
     _ricarica(riavvia)
     return piano
@@ -120,7 +130,20 @@ def aggiorna(slugs=None, tutti=False, riavvia=False):
         raise NienteDaAggiornare("nessun modulo da aggiornare")
     info = modules.scopri()
     piano = modules.ordina(piano, info)
+    # una versione nuova può dipendere da un modulo che non c'era (es. assistenza 1.2 dal portale): si installa prima
+    nuove = [s for s in modules.ordina(_chiusura(piano, info), info) if s not in attuali]
+    if fuori := [s for s in nuove if not licenza.ammesso(s)]:
+        raise NonLicenziato(f"le versioni nuove richiedono moduli non coperti dalla licenza: {', '.join(fuori)}")
     backup.esegui("pre-aggiorna-" + "-".join(piano))
+    if nuove:
+        scrivi_stato(modules.ordina(attuali + nuove, info))
+        try:
+            _applica("installa", nuove)
+        except ApplicaFallita as e:
+            scrivi_stato(attuali)
+            _segna_errore(nuove, info, str(e))
+            raise
+        log.info("installati per l'aggiornamento: %s", ", ".join(nuove))
     try:
         _applica("aggiorna", piano)
     except ApplicaFallita as e:

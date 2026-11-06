@@ -24,7 +24,7 @@
         {% else %}<button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Segui</button>{% endif %}
       </form>
     </div>
-    <div class="ui-chatter-follower">{% for u in chatter.follower %}<span class="ui-avatar" title="{{ u.get_full_name|default:u.username }}">{{ u.username|slice:":1"|upper }}</span>{% endfor %}</div>
+    <div class="ui-chatter-follower">{% for u in chatter.follower %}<span class="ui-avatar" data-presenza-utente="{{ u.pk }}" title="{{ u.get_full_name|default:u.username }}">{{ u.username|slice:":1"|upper }}</span>{% endfor %}</div>
   </div>
 
 

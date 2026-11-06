@@ -1,0 +1,34 @@
+{% load static %}<article class="mk-app is-{{ v.stato }}" data-categoria="{{ v.categoria }}">
+  <div class="mk-testa">
+    <span class="ui-app-icona mk-icona">{% if v.statica %}<img src="{% static v.statica %}" alt="">{% elif v.icona %}<img src="{{ v.icona }}" alt="">{% else %}<span class="mk-iniziale">{{ v.iniziale }}</span>{% endif %}</span>
+    <div><div class="mk-nome">{{ v.nome }}</div><div class="mk-categoria">{{ v.categoria }}</div></div>
+  </div>
+  <p class="mk-riassunto">{{ v.riassunto }}</p>
+  <div class="mk-piede">
+    <button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-mk-info="mk-info-{{ v.slug }}">Informazioni</button>
+    {% if v.stato != "disponibile" %}<span class="mk-stato">{{ v.etichetta }}</span>{% endif %}
+    {% if v.stato == "attiva" and perms.core.change_modulo %}
+      <a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'core:applicazione' v.slug %}">Chi può usarla</a>
+      <form method="post" action="{% url 'core:applicazioni_attivazione' %}" onsubmit="return confirm('Disattivare «{{ v.nome|escapejs }}»? Sparisce per tutti, i dati restano.')">{% csrf_token %}<input type="hidden" name="slug" value="{{ v.slug }}"><input type="hidden" name="attivo" value="0"><button type="submit" class="ui-btn ui-btn-ghost ui-btn-sm">Disattiva</button></form>
+    {% elif v.stato == "non_attiva" and perms.core.change_modulo %}
+      <form method="post" action="{% url 'core:applicazioni_attivazione' %}">{% csrf_token %}<input type="hidden" name="slug" value="{{ v.slug }}"><input type="hidden" name="attivo" value="1"><button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">Attiva</button></form>
+    {% elif v.stato == "disponibile" or v.stato == "richiesta" %}
+      {% if v.url_demo %}<a class="ui-btn ui-btn-secondary ui-btn-sm" href="{{ v.url_demo }}" target="_blank" rel="noopener">Guarda la demo</a>{% endif %}
+      {% if v.demo_chiesta %}<span class="mk-stato">Demo richiesta</span>{% else %}<form method="post" action="{% url 'core:applicazioni_richiedi' %}">{% csrf_token %}<input type="hidden" name="slug" value="{{ v.slug }}"><input type="hidden" name="tipo" value="demo"><button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Richiedi una demo</button></form>{% endif %}
+      {% if v.stato == "disponibile" %}<details class="mk-richiedi"><summary class="ui-btn ui-btn-primary ui-btn-sm">Richiedi l'installazione</summary>
+        <form method="post" action="{% url 'core:applicazioni_richiedi' %}" class="mk-richiedi-form">{% csrf_token %}
+          <input type="hidden" name="slug" value="{{ v.slug }}"><input type="hidden" name="tipo" value="installazione">
+          <textarea class="ui-input" name="nota" rows="2" maxlength="2000" placeholder="Una nota per noi (facoltativa)" aria-label="Nota per la richiesta di {{ v.nome }}"></textarea>
+          <button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">Invia la richiesta</button>
+        </form></details>{% endif %}
+    {% endif %}
+  </div>
+  <dialog class="mk-info" id="mk-info-{{ v.slug }}" aria-labelledby="mk-info-titolo-{{ v.slug }}">
+    <div class="mk-info-testa"><div class="mk-testa"><span class="ui-app-icona mk-icona">{% if v.statica %}<img src="{% static v.statica %}" alt="">{% elif v.icona %}<img src="{{ v.icona }}" alt="">{% else %}<span class="mk-iniziale">{{ v.iniziale }}</span>{% endif %}</span>
+      <div><h2 class="mk-nome" id="mk-info-titolo-{{ v.slug }}">{{ v.nome }}</h2><div class="mk-categoria">{{ v.categoria }}</div></div></div>
+      <button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-mk-chiudi aria-label="Chiudi">×</button></div>
+    <p class="mk-info-testo">{{ v.descrizione|default:v.riassunto }}</p>
+    {% if v.funzioni %}<h3 class="mk-info-h3">Che cosa offre</h3><ul class="mk-info-funzioni">{% for f in v.funzioni %}<li><svg><use href="#icon-check"/></svg>{{ f }}</li>{% endfor %}</ul>{% endif %}
+    {% if v.url_demo %}<div class="mk-info-azioni"><a class="ui-btn ui-btn-primary ui-btn-sm" href="{{ v.url_demo }}" target="_blank" rel="noopener">Guarda la demo</a></div>{% endif %}
+  </dialog>
+</article>

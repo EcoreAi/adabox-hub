@@ -14,7 +14,12 @@ def _messaggi(messaggi):
     risultato = []
     for m in messaggi:
         if m["ruolo"] == "utente":
-            risultato.append({"role": "user", "content": m["testo"]})
+            if m.get("immagini_dati"):
+                risultato.append({"role": "user", "content": [
+                    *({"type": "image", "source": {"type": "base64", "media_type": i["mime"], "data": i["dati"]}} for i in m["immagini_dati"]),
+                    {"type": "text", "text": m["testo"]}]})
+            else:
+                risultato.append({"role": "user", "content": m["testo"]})
         elif m["ruolo"] == "assistente":
             nativo = m.get("nativo") or {}
             if nativo.get("provider") == "anthropic":

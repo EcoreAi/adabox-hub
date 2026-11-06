@@ -1,11 +1,12 @@
 {
     "name": "To-Do",
     "summary": "Attività personali e di squadra con scadenze",
-    "version": "1.3.1",
+    "version": "1.3.3",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
     "min_core": "1.0",
+    "riepilogo": "todo.riepilogo.voci",
     "dashboard": "todo.dashboard.kpi",
     "application": True,
     "icon": "todo/icon.svg",

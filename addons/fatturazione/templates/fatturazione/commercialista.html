@@ -1,0 +1,21 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Per il commercialista · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Per il commercialista</h1><div class="sub">Un unico file con documenti e registri del periodo</div></div></div>
+<div class="ui-card is-revealed">
+  <form class="ui-filtri" method="post">{% csrf_token %}
+    <select class="ui-input" name="anno" aria-label="Anno">{% for a in anni %}<option value="{{ a }}"{% if a == anno %} selected{% endif %}>{{ a }}</option>{% endfor %}</select>
+    <select class="ui-input" name="mese" aria-label="Mese"><option value="">Tutto l'anno</option>{% for n, nome in mesi %}<option value="{{ n }}"{% if n == mese %} selected{% endif %}>{{ nome }}</option>{% endfor %}</select>
+    <button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">Scarica il pacchetto</button>
+  </form>
+  <div class="ui-card-body">
+    <p>Il file contiene ciò che puoi vedere, per l'azienda corrente:</p>
+    <ul>
+      <li>registro IVA delle vendite, fatture emesse in XML, incassi del periodo e crediti aperti a oggi;</li>
+      <li>con lo SDI: registro degli acquisti, file originali delle fatture ricevute e debiti aperti a oggi;</li>
+      <li>con la Banca: movimenti del periodo;</li>
+      <li>un file LEGGIMI con ciò che è da controllare, per esempio le fatture ricevute ancora da verificare.</li>
+    </ul>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends 'core/base_app.html' %}
+{% block title %}{{ regola.nome }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>{{ regola.nome }}</h1><div class="sub"><a class="ui-link" href="{% url 'automazioni:regole' %}">Automazioni</a> · <span class="ui-pill {% if regola.attiva %}ui-pill-ok{% else %}ui-pill-neutral{% endif %}">{% if regola.attiva %}Accesa{% else %}Spenta{% endif %}</span></div></div>
+  {% if puo_cambiare %}<div class="au-azioni-testa"><a class="ui-btn ui-btn-secondary" href="{% url 'automazioni:regola_modifica' regola.pk %}"><svg><use href="#icon-edit"/></svg> Modifica</a>
+    <form method="post" action="{% url 'automazioni:regola_elimina' regola.pk %}" onsubmit="return confirm('Eliminare questa regola e il suo storico?')">{% csrf_token %}<button class="ui-btn ui-btn-secondary" type="submit"><svg><use href="#icon-trash"/></svg> Elimina</button></form></div>{% endif %}</div>
+{% if not disponibile %}<div class="au-avviso"><svg><use href="#icon-alert-triangle"/></svg> Questa regola usa un modulo non più attivo: non scatta.</div>{% endif %}
+<div class="au-flusso{% if regola.attiva %} is-attiva{% endif %}">
+  <div class="au-passo"><span class="au-passo-tag">Quando</span><p>{{ quando }}</p></div>
+  <div class="au-passo"><span class="au-passo-tag">Se</span>{% if se %}<ul>{% for c in se %}<li>{{ c }}</li>{% endfor %}</ul>{% else %}<p class="au-tenue">Sempre</p>{% endif %}</div>
+  <div class="au-passo"><span class="au-passo-tag">Allora</span><ul class="au-regola-azioni">{% for a in allora %}<li><svg><use href="#icon-{{ a.icona }}"/></svg>{{ a.testo }}</li>{% endfor %}</ul></div>
+</div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Prova senza conseguenze</div></div><div class="ui-card-body">
+  <p class="au-sotto">Mostra che cosa farebbe la regola su un record vero. Non parte nessuna email e non si scrive nulla.</p>
+  <button class="ui-btn ui-btn-secondary ui-btn-sm" type="button" hx-get="{% url 'automazioni:regola_prova' regola.pk %}" hx-target="#au-prova"><svg><use href="#icon-eye"/></svg> Prova</button><div id="au-prova"></div></div></section>
+{% if puo_cambiare and disponibile %}<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+{% if regola.attiva %}<form method="post" action="{% url 'automazioni:regola_disattiva' regola.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-secondary" type="submit">Spegni la regola</button></form>
+{% else %}<form method="post" action="{% url 'automazioni:regola_attiva' regola.pk %}">{% csrf_token %}
+  {% if numero_attese %}<div class="au-avviso"><svg><use href="#icon-alert-triangle"/></svg> In questo momento la regola riguarda già <strong>{{ numero_attese }}</strong> record.</div>
+  <ul class="au-attese">{% for a in attese %}<li>{% if a.url %}<a class="ui-link" href="{{ a.url }}">{{ a.record }}</a>{% else %}{{ a.record }}{% endif %}</li>{% endfor %}{% if numero_attese > 20 %}<li class="au-tenue">e altri {{ numero_attese|add:"-20" }}</li>{% endif %}</ul>
+  <label class="au-scelta"><input type="radio" name="esistenti" value="no" checked> <span><strong>Solo da ora in poi</strong> · questi record restano fuori</span></label>
+  <label class="au-scelta"><input type="radio" name="esistenti" value="si"> <span><strong>Anche su questi</strong> · partono al prossimo controllo, entro un'ora (non prima delle 8, salvo gli SLA), al massimo 100 per volta</span></label>{% endif %}
+  <button class="ui-btn ui-btn-primary" type="submit"><svg><use href="#icon-zap"/></svg> Accendi la regola</button></form>{% endif %}
+</div></section>{% endif %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Ultime esecuzioni</div></div>
+  {% include 'automazioni/_esecuzioni.html' with voci=esecuzioni con_regola=False %}</section>
+{% endblock %}

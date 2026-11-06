@@ -1,0 +1,6 @@
+{% load fido %}{% fido_dell_ordine obj as f %}{% if f %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Fido</div><span class="ui-pill ui-pill-warn">{% if f.blocca %}Conferma bloccata{% else %}Da valutare{% endif %}</span></div>
+  <div class="ui-card-body">{{ f.testo }}{% if f.blocca %} Per confermare, va prima ridotta l'esposizione o aumentato il fido sul contatto.{% endif %}</div>
+</section>
+{% endif %}

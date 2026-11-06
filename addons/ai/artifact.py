@@ -8,6 +8,7 @@ import io
 from django.utils import timezone
 
 from core import svg
+from core.viste.interroga import serie
 
 from .models import Artifact
 from .strumenti import Contesto, ErroreStrumento, Strumento, registra, richiesta
@@ -20,13 +21,7 @@ MAX_RIGHE_TABELLA = 200
 
 def _serie(gruppi, per):
     """[(etichetta, valore)]: oltre MAX_CATEGORIE le prime per valore più «Altro» (per le date: le ultime)."""
-    coppie = [(g["gruppo"], g["valore"]) for g in gruppi]
-    if len(coppie) <= MAX_CATEGORIE:
-        return coppie
-    if ":" in per:
-        return coppie[-MAX_CATEGORIE:]
-    ordinate = sorted(coppie, key=lambda c: c[1], reverse=True)
-    return ordinate[:MAX_CATEGORIE - 1] + [("Altro", round(sum(v for _, v in ordinate[MAX_CATEGORIE - 1:]), 2))]
+    return serie(gruppi, per, MAX_CATEGORIE)
 
 
 def _cella(v):
@@ -70,6 +65,22 @@ def svg_di(artifact, dati=None):
     if not serie:
         return ""
     return svg.DISEGNI[artifact.spec.get("grafico", "barre")](serie, artifact.titolo)
+
+
+def pdf_di(artifact, dati):
+    """Il grafico in PDF per l'archivio: titolo, disegno vettoriale, valori e data dei dati (un SVG da solo non si
+    archivia: i file .svg possono contenere script e il kernel li rifiuta)."""
+    from html import escape
+
+    from core import report
+    HTML = report.weasyprint().HTML                       # ReportNonDisponibile senza Pango
+    disegno = svg_di(artifact, dati).replace('font-family="inherit"', 'font-family="Helvetica, Arial, sans-serif"')
+    righe = "".join(f"<tr><td>{escape(str(e))}</td><td class='n'>{escape(str(v))}</td></tr>" for e, v in dati.get("serie", []))
+    pagina = (f"<html><head><meta charset='utf-8'><style>@page {{ size: A4 landscape; margin: 18mm; }} body {{ font-family: Helvetica, Arial, sans-serif; color: #1d1d1f; }}"
+              f" h1 {{ font-size: 18pt; margin: 0 0 4mm; }} p {{ color: #6e6e73; font-size: 9pt; margin: 0 0 6mm; }} svg {{ width: 100%; height: auto; }}"
+              f" table {{ border-collapse: collapse; margin-top: 8mm; font-size: 9pt; }} td {{ border-bottom: 1px solid #e5e5ea; padding: 2mm 6mm 2mm 0; }} .n {{ text-align: right; }}</style></head>"
+              f"<body><h1>{escape(artifact.titolo)}</h1><p>Dati del {timezone.localtime():%d/%m/%Y %H:%M}</p>{disegno}<table>{righe}</table></body></html>")
+    return HTML(string=pagina).write_pdf()
 
 
 def csv_di(artifact, dati):

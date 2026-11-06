@@ -1,0 +1,3 @@
+<div class="au-prova">{% if record %}<p>Su <strong>{{ record }}</strong> farebbe:</p>
+<ul>{% for p in passi %}<li class="au-storico-passo is-{{ p.esito }}">{{ p.testo }}{% if p.corpo %}<pre class="au-corpo">{{ p.corpo }}</pre>{% endif %}</li>{% endfor %}</ul>
+{% else %}<p class="au-tenue">Al momento non c'è nessun record su cui provarla.</p>{% endif %}</div>

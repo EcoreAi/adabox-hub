@@ -15,4 +15,6 @@ def kpi(request):
     in_arrivo = qs.filter(stato=OrdineAcquisto.CONFERMATO, consegna_prevista__gte=oggi)
     return {"kpi": [{"valore": f"{numero(mese.aggregate(t=Sum('totale'))['t'] or 0)} €", "etichetta": "ordinato nel mese"},
                     {"valore": aperti.count(), "etichetta": "richieste aperte"},
+                    {"valore": qs.filter(stato=OrdineAcquisto.DA_APPROVARE).count(), "etichetta": "da approvare",
+                     "url": "/acquisti/ordini/?f_stato=da_approvare"},
                     {"valore": in_arrivo.count(), "etichetta": "ordini in arrivo"}]}

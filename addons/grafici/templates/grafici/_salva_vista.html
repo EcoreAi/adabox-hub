@@ -1,0 +1,12 @@
+{% load analisi tema %}{% with nome=vista.modulo|add:"."|add:vista.slug %}{% destinazioni_analisi nome as scelte %}{# Nella vista Grafico di un modulo: il grafico con i filtri del momento diventa un widget di Analisi. #}
+<link rel="stylesheet" href="{% statico 'grafici/analisi.css' %}">
+<details class="an-salva">
+  <summary class="ui-btn ui-btn-secondary"><svg><use href="#icon-bar-chart"/></svg> Salva in Analisi</summary>
+  <form class="an-salva-pannello" method="post" action="{% url 'grafici:salva_da_vista' %}">{% csrf_token %}
+    <input type="hidden" name="vista" value="{{ nome }}"><input type="hidden" name="per" value="{{ per }}"><input type="hidden" name="misura" value="{{ misura }}"><input type="hidden" name="tipo" value="{{ tipo }}"><input type="hidden" name="filtri" value="{{ request.GET.urlencode }}">
+    <label class="ui-label">Titolo<input class="ui-input" name="titolo" value="{{ vista.verbose_name_plural|capfirst }}: {{ titolo|lower }}" maxlength="200"></label>
+    <label class="ui-label">Pagina<select class="ui-input" name="destinazione" onchange="this.form.querySelector('[name=titolo_nuova]').hidden = this.value !== 'nuova'">{% for v, e in scelte %}<option value="{{ v }}">{{ e }}</option>{% endfor %}<option value="">Solo in libreria</option></select></label>
+    <input class="ui-input" name="titolo_nuova" placeholder="Titolo della nuova pagina" maxlength="100" hidden>
+    <button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Salva</button>
+  </form>
+</details>{% endwith %}

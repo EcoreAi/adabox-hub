@@ -20,7 +20,7 @@ def definizioni(modello, azienda=None):
     """Campi del modello validi per l'azienda (quelli per tutte più quelli dell'azienda), in ordine."""
     if not accetta(modello):
         return []
-    azienda_id = getattr(azienda, "pk", None)       # request.azienda è lazy: può avvolgere None
+    azienda_id = getattr(azienda, "pk", None)
     filtro = Q(azienda__isnull=True) | Q(azienda_id=azienda_id) if azienda_id is not None else Q(azienda__isnull=True)
     return list(C.objects.filter(filtro, modello=ContentType.objects.get_for_model(modello)).order_by("ordine", "pk"))
 

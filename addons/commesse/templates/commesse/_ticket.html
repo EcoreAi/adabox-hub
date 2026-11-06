@@ -1,0 +1,18 @@
+{% load commesse timesheet %}{% ore_del_ticket obj as dati %}{% cronometro_attivo as crono %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Ore sul ticket</div>
+    <div class="ui-card-sub">{{ dati.totale|floatformat:"-2" }} h{% if dati.contratto and dati.contratto.ore_incluse %} · si scalano dal monte ore di {{ dati.contratto.nome }}{% endif %}</div></div></div>
+  <div class="ui-card-body">
+    {% for v in dati.voci %}<div class="ft-movimento"><span>{{ v.riga.data|date:"d/m/Y" }} · {{ v.riga.utente|default:"—" }} · {{ v.riga.descrizione }}</span><strong>{{ v.riga.ore|floatformat:"-2" }} h</strong></div>{% endfor %}
+    {% if dati.progetto %}
+    <form method="post" action="{% url 'commesse:ore_ticket' obj.pk %}" class="cm-riga-ore">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <div class="ui-form-group"><label class="ui-label" for="cm-ore">Ore</label><input class="ui-input" id="cm-ore" name="ore" inputmode="decimal" required style="width:90px" placeholder="1,5"></div>
+      <div class="ui-form-group" style="flex:1;min-width:200px"><label class="ui-label" for="cm-desc">Cosa hai fatto</label><input class="ui-input" id="cm-desc" name="descrizione" maxlength="250"></div>
+      <button class="ui-btn ui-btn-secondary" type="submit"><svg><use href="#icon-plus"/></svg> Registra</button>
+    </form>
+    {% if crono.ticket_id_origine != obj.pk %}<form method="post" action="{% url 'timesheet:cronometro_avvia' %}" style="margin-top:8px">{% csrf_token %}
+      <input type="hidden" name="progetto" value="{{ dati.progetto.pk }}"><input type="hidden" name="ticket" value="{{ obj.pk }}"><input type="hidden" name="descrizione" value="Ticket {{ obj.numero }}"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit">▶ Avvia il cronometro</button></form>{% endif %}
+    {% else %}<p class="ui-help">Collega il ticket a un progetto per registrare le ore.</p>{% endif %}
+  </div>
+</section>

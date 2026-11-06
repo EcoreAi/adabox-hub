@@ -1,0 +1,3 @@
+{% if s.ritardo %}<span class="ui-pill ui-pill-danger">⚠ {{ s.ritardo }} giorn{{ s.ritardo|pluralize:"o,i" }} di ritardo</span>
+{% elif s.margine is not None %}<span class="ui-pill ui-pill-ok">✓ In tempo, {{ s.margine }} giorn{{ s.margine|pluralize:"o,i" }} di margine</span>
+{% elif s.prevista %}<span class="ui-pill ui-pill-neutral">Nessuna data promessa</span>{% endif %}

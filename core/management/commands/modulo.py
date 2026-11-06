@@ -16,9 +16,25 @@ class Command(BaseCommand):
         p.add_argument("modulo", help="slug in addons/ o percorso della cartella")
         p.add_argument("--firma", help="file della chiave privata")
         p.add_argument("--uscita", default="dist", help="cartella dei pacchetti (default dist/)")
+        p = sub.add_parser("nuovo", help="crea un modulo funzionante in addons/, da cui partire (non lo installa)")
+        p.add_argument("slug")
+        p.add_argument("--nome", default="", help="nome nel menu, es. «Bolle»")
+        p.add_argument("--modello", default="", help="nome del primo modello, es. Bolla")
+        p.add_argument("--dipende", nargs="*", default=[], help="moduli da cui dipende")
+        p.add_argument("--standard", action="store_true", help="modulo da catalogo, per tutti i clienti; senza, è su misura e gli altri non lo vedono")
+        p = sub.add_parser("controlla", help="controlla le regole di un modulo leggendone il codice")
+        p.add_argument("modulo", nargs="?", help="slug in addons/ o percorso della cartella")
+        p.add_argument("--tutti", action="store_true", help="tutti i moduli in addons/")
+        p.add_argument("--solo-errori", action="store_true", help="senza gli avvisi")
         p = sub.add_parser("collauda", help="installazione vergine e test di moduli, in un'istanza usa e getta")
         p.add_argument("slugs", nargs="*")
         p.add_argument("--tutti", action="store_true", help="tutti i moduli in addons/")
+        p = sub.add_parser("compatibilita", help="prova il modulo accanto a ciascuno degli altri e a tutti insieme, in istanze usa e getta")
+        p.add_argument("slug")
+        p.add_argument("--con", nargs="*", default=None, help="solo accanto a questi moduli")
+        p.add_argument("--paralleli", type=int, default=4)
+        p = sub.add_parser("sonda", help="uso interno di compatibilita: solo in un'istanza usa e getta")
+        p.add_argument("slug")
         p = sub.add_parser("indice", help="crea il catalogo firmato (indice.json) dai pacchetti di una cartella")
         p.add_argument("cartella")
         p.add_argument("--firma", required=True, help="file della chiave privata")
@@ -111,6 +127,38 @@ class Command(BaseCommand):
             raise CommandError("manifest non valido:\n" + "\n".join(f"- {err}" for err in e.errori))
         self.stdout.write(f"OK {m.slug} {m.version}")
 
+    def _nuovo(self, slug, nome, modello, dipende, standard, **_):
+        from core.registry import nuovo
+        try:
+            cartella = nuovo.crea(slug, nome, modello, dipende, su_misura=not standard)
+        except nuovo.NomeNonValido as e:
+            raise CommandError(str(e))
+        self.stdout.write(f"Creato {cartella}. Per provarlo: modulo installa {slug}. Prima di consegnarlo: modulo controlla {slug}, "
+                          f"modulo collauda {slug}, modulo compatibilita {slug}. Guida: docs/guida-moduli.md")
+
+    def _controlla(self, modulo, tutti, solo_errori, **_):
+        from pathlib import Path
+
+        from django.conf import settings
+
+        from core.registry import controlli
+        if tutti == bool(modulo):
+            raise CommandError("indica un modulo oppure --tutti")
+        cartelle = ([i.cartella for i in modules.scopri().values() if i.manifest is not None] if tutti else
+                    [Path(modulo) if "/" in modulo else Path(settings.ADDONS_DIR) / modulo])
+        errori = avvisi = 0
+        for cartella in cartelle:
+            if not Path(cartella).is_dir():
+                raise CommandError(f"cartella {cartella} inesistente")
+            for r in controlli.controlla(cartella):
+                errori += r.livello == controlli.ERRORE
+                avvisi += r.livello == controlli.AVVISO
+                if r.livello == controlli.ERRORE or not solo_errori:
+                    self.stdout.write(f"{Path(cartella).name}: {r}")
+        self.stdout.write(f"Errori: {errori}, avvisi: {avvisi}.")
+        if errori:
+            raise CommandError("il controllo ha trovato errori da correggere")
+
     def _chiavi(self, uscita, **_):
         from pathlib import Path
 
@@ -159,6 +207,30 @@ class Command(BaseCommand):
         if falliti:
             raise CommandError(f"collaudo fallito: {', '.join(falliti)}")
         self.stdout.write(f"Collaudo riuscito: {', '.join(ordine)}")
+
+    def _compatibilita(self, slug, con, paralleli, **_):
+        from core.registry import collaudo
+        try:
+            esiti = collaudo.compatibilita(slug, con, paralleli)
+        except ValueError as e:
+            raise CommandError(str(e))
+        falliti = [nome for nome, errore in esiti if errore]
+        for nome, errore in esiti:
+            self.stdout.write(f"{slug} + {nome}: {'KO' if errore else 'OK'}")
+            if errore:
+                self.stdout.write(errore)
+        if falliti:
+            raise CommandError(f"non compatibile con: {', '.join(falliti)}")
+        self.stdout.write(f"Compatibile: {len(esiti)} combinazioni provate.")
+
+    def _sonda(self, slug, **_):
+        from django.conf import settings
+
+        from core.registry import collaudo
+        if "sqlite" not in str(settings.DATABASES["default"]["ENGINE"]) or not settings.DEBUG:
+            raise CommandError("la sonda crea un utente: si usa solo nelle istanze usa e getta")
+        if errori := collaudo.sonda(slug):
+            raise CommandError("\n".join(errori))
 
     def _indice(self, cartella, firma, url_base, **_):
         from core.registry import pacchetti

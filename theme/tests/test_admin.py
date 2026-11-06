@@ -17,7 +17,8 @@ def test_admin_index_ha_brand_e_css(client):
 
 
 @pytest.mark.django_db
-def test_admin_login_usa_il_tema(client):
+def test_admin_entra_dal_login_unico_e_usa_il_tema(client, superuser):
+    assert "theme/admin.css" in client.get(reverse("admin:index")).content.decode()
+    client.logout()
     r = client.get(reverse("admin:login"))
-    assert r.status_code == 200
-    assert "theme/admin.css" in r.content.decode()
+    assert r.status_code == 302 and r.url.startswith(reverse("login"))

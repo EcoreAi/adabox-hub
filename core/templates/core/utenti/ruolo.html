@@ -1,0 +1,20 @@
+{% extends 'core/base_app.html' %}
+{% block title %}{% if ruolo %}{{ ruolo }}{% else %}Nuovo ruolo{% endif %} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>{% if ruolo %}{{ ruolo }}{% else %}Nuovo ruolo{% endif %}</h1><div class="sub">{% if ruolo %}Lo hanno {{ utenti }} utent{{ utenti|pluralize:"e,i" }}: ogni modifica vale subito per loro{% else %}Un livello per tutti i moduli, e le differenze dove servono{% endif %}</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'core:ruoli' %}"><svg><use href="#icon-arrow-left"/></svg> Ruoli</a></div></div>
+<form method="post" class="ut-form">{% csrf_token %}
+  <section class="ui-card is-revealed ui-section"><div class="ui-card-body ut-griglia">
+    {% for campo in form %}{% if campo.name in "nome descrizione livello_base ordine" %}<div class="ui-form-group"><label class="ui-label" for="{{ campo.id_for_label }}">{{ campo.label|capfirst }}</label>{{ campo }}{% if campo.help_text %}<p class="ui-help">{{ campo.help_text }}</p>{% endif %}{% for e in campo.errors %}<p class="ui-error">{{ e }}</p>{% endfor %}</div>{% endif %}{% endfor %}
+    <div class="ui-form-group"><label class="ut-check">{{ form.amministra }} Amministra la piattaforma</label><p class="ui-help">{{ form.amministra.help_text }}</p></div>
+    {% if form.tecnico %}<div class="ui-form-group"><label class="ut-check">{{ form.tecnico }} Accesso tecnico completo (Global Admin)</label><p class="ui-help">{{ form.tecnico.help_text }}</p></div>{% endif %}
+    <div class="ui-form-group"><label class="ut-check">{{ form.predefinito }} Ai nuovi utenti</label><p class="ui-help">{{ form.predefinito.help_text }}</p></div>
+  </div></section>
+  <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div><div class="ui-card-title">Differenze per modulo</div><div class="ui-card-sub">Dove il ruolo non segue il livello base</div></div></div>
+    <div class="ui-table-wrap"><table class="ui-table ut-moduli"><thead><tr><th>Modulo</th><th>Livello</th></tr></thead><tbody>
+      {% for m in moduli %}<tr><td>{{ m.nome }}</td><td><select class="ui-input ui-input-sm" name="livello_{{ m.slug }}" aria-label="Livello in {{ m.nome }}"><option value="">Come il livello base</option>{% for codice, nome in livelli %}<option value="{{ codice }}"{% if m.livello == codice %} selected{% endif %}>{{ nome }}</option>{% endfor %}</select></td></tr>{% endfor %}
+    </tbody></table></div></section>
+  <div class="ut-salva"><button class="ui-btn ui-btn-primary" type="submit"><svg><use href="#icon-save"/></svg> Salva</button></div>
+</form>
+{% if ruolo and perms.core.delete_ruolo %}<form method="post" action="{% url 'core:ruolo_elimina' ruolo.pk %}" class="ut-elimina" onsubmit="return confirm('Eliminare il ruolo «{{ ruolo }}»?')">{% csrf_token %}<button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit"{% if utenti %} disabled title="Ha ancora degli utenti"{% endif %}><svg><use href="#icon-trash"/></svg> Elimina il ruolo</button></form>{% endif %}
+{% endblock %}

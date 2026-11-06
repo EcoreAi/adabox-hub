@@ -34,7 +34,7 @@ LOTTO = 64                            # testi per chiamata al servizio di embedd
 TIMEOUT = 60
 ESCLUSI = {"ai"}
 # viste tecniche del kernel: coda dei lavori, email grezze, profili e definizioni dei campi (rumore o riservate)
-MODELLI_ESCLUSI = {"core.lavoro", "core.emailricevuta", "core.profiloutente", "core.campopersonalizzato"}
+MODELLI_ESCLUSI = {"core.registromodifica", "core.lavoro", "core.emailricevuta", "core.profiloutente", "core.campopersonalizzato"}
 SENSIBILE = re.compile(r"password|chiave|token|segret|secret|cifrat|hash|iban", re.IGNORECASE)
 PAROLA = re.compile(r"\w{3,}", re.UNICODE)
 PAROLE_VUOTE = {"che", "per", "con", "del", "della", "delle", "dei", "degli", "dal", "dalla", "nel", "nella", "sul",
@@ -337,7 +337,13 @@ def indicizza_cron():
     return json.dumps(indicizza(), ensure_ascii=False)
 
 
+# chiedono gli embedding in rete: dentro una transazione terrebbero fermo il database per tutti, per tutto il tempo
+indicizza_cron.senza_transazione = True
+indicizza_documento.senza_transazione = True
+
+
 # ---------- ricerca ----------
+
 
 def parole(testo):
     return {p for p in (w.lower() for w in PAROLA.findall(testo or "")) if p not in PAROLE_VUOTE}

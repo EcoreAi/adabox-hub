@@ -1,4 +1,4 @@
-from core.viste import Inline, ModelView, register
+from core.viste import Inline, ModelView, register, schede
 
 from .models import Categoria, Listino, PrezzoListino, Prodotto, UnitaMisura
 
@@ -20,11 +20,21 @@ class ProdottoView(ModelView):
     list_group_by = ["tipo", "categoria", "aliquota_iva"]
     kanban_group = "categoria"
     kanban_fields = ["codice", "prezzo_vendita", "tipo"]
+    kanban_ricco = True
     graph = {"tipi": ["barre", "torta"], "misure": ["count"], "per": ["categoria", "tipo", "aliquota_iva"]}
     chatter = True
     tracked_fields = ["prezzo_vendita", "costo", "aliquota_iva", "attivo"]
     import_key = "codice"
     api = True
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("categoria")
+
+    def kanban_scheda(self, request, obj):
+        esito = (*schede.FATTO, "Attivo") if obj.attivo else (*schede.FERMO, "Non attivo")
+        return schede.scheda(esito, sottotitolo=obj.codice, valore=schede.euro(obj.prezzo_vendita),
+                             etichette=[(obj.get_tipo_display(), "azzurro" if obj.tipo == Prodotto.BENE else "viola")])
+
 
 
 @register

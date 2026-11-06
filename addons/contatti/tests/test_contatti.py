@@ -109,3 +109,82 @@ def test_post_install_numera_i_demo(prima):
     hooks.post_install(None)
     a.refresh_from_db()
     assert a.codice.startswith("C")
+
+
+def _contatto_form(**campi):
+    from contatti.models import Contatto
+    from core.models import Azienda
+    c = Contatto(azienda=Azienda.objects.get(pk=1), nome="Prova", **campi)
+    c.clean()
+    return c
+
+
+@pytest.mark.django_db
+def test_partita_iva_estera_valida_per_paese():
+    from django.core.exceptions import ValidationError
+    assert _contatto_form(nazione="DE", partita_iva="DE 811 907 980").partita_iva == "811907980"
+    assert _contatto_form(nazione="US", partita_iva="12-3456789").partita_iva == "123456789"
+    assert _contatto_form(nazione="GR", partita_iva="EL094259216").partita_iva == "094259216"
+    for nazione, piva in (("DE", "123"), ("IT", "12345678901"), ("US", "!")):
+        with pytest.raises(ValidationError):
+            _contatto_form(nazione=nazione, partita_iva=piva)
+
+
+@pytest.mark.django_db
+def test_codice_ufficio_pa():
+    from django.core.exceptions import ValidationError
+    assert _contatto_form(codice_sdi="uf1234", pubblica_amministrazione=True).codice_sdi == "UF1234"
+    with pytest.raises(ValidationError):
+        _contatto_form(codice_sdi="ABC1234", pubblica_amministrazione=True)
+    with pytest.raises(ValidationError):
+        _contatto_form(codice_sdi="UF1234")
+
+
+def test_bottone_vies(client, superuser, monkeypatch):
+    from contatti import vies
+    from contatti.models import Contatto
+    from core.models import Azienda
+    c = Contatto.objects.create(azienda=Azienda.objects.get(pk=1), nome="Müller", nazione="DE", partita_iva="811907980")
+    assert b"Verifica nel VIES" in client.get(f"/contatti/contatti/{c.pk}/").content
+    monkeypatch.setattr(vies, "controlla", lambda *a: {"valido": True, "nome": "MULLER GMBH", "indirizzo": ""})
+    r = client.post(f"/contatti/contatti/{c.pk}/bottone/verifica_vies/", follow=True)
+    c.refresh_from_db()
+    assert c.vies_valido is True and c.vies_il and "MULLER GMBH" in r.content.decode()
+    def giu(*a):
+        raise vies.ViesNonDisponibile
+    monkeypatch.setattr(vies, "controlla", giu)
+    assert "non risponde" in client.post(f"/contatti/contatti/{c.pk}/bottone/verifica_vies/", follow=True).content.decode()
+    c.refresh_from_db()
+    assert c.vies_valido is True
+
+
+def test_kanban_ricco_ruoli_categorie_e_riepilogo(client, utente_contatti):
+    from contatti.models import Categoria
+    azienda = Azienda.objects.get(pk=1)
+    verde = Categoria.objects.create(nome="VIP", colore="#16a34a")
+    strano = Categoria.objects.create(nome="Strano", colore='red;"><b>x')
+    c = Contatto.objects.create(azienda=azienda, nome="Cliente Srl", cliente=True, citta="Milano", email="c@example.com")
+    c.categorie.add(verde, strano)
+    Contatto.objects.create(azienda=azienda, nome="Fornitore Srl", fornitore=True)
+    Contatto.objects.create(azienda=azienda, nome="Entrambi Srl", cliente=True, fornitore=True)
+    Contatto.objects.create(azienda=azienda, nome="Spento Srl", cliente=True, attivo=False)
+    Contatto.objects.create(azienda=azienda, nome="Mario Neri", tipo=Contatto.PERSONA)
+    html = client.get("/contatti/contatti/kanban/").content.decode()
+    for testo in ("is-accento-verde", "is-accento-azzurro", "is-accento-viola", "is-accento-grigio", "Cliente e fornitore", "Non attivo",
+                  "Nessun ruolo", "ui-tinta-azzurro", "ui-tinta-viola", "3 clienti · 2 fornitori", "0 clienti · 0 fornitori", "c@example.com"):
+        assert testo in html
+    assert 'style="--ui-tinta:#16a34a"' in html
+    assert "<b>x" not in html and 'ui-tinta-grigio">Strano' in html       # il colore non valido non arriva allo stile
+
+
+def test_kanban_ricco_non_fa_una_query_per_scheda(client, utente_contatti, django_assert_max_num_queries):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    azienda = Azienda.objects.get(pk=1)
+    Contatto.objects.create(azienda=azienda, nome="Uno", responsabile=utente_contatti)
+    with CaptureQueriesContext(connection) as una:
+        client.get("/contatti/contatti/kanban/")
+    for i in range(6):
+        Contatto.objects.create(azienda=azienda, nome=f"Altro {i}", responsabile=utente_contatti)
+    with django_assert_max_num_queries(len(una)):
+        client.get("/contatti/contatti/kanban/")

@@ -1,41 +1,30 @@
 {% extends 'core/base_app.html' %}
-{% load static %}
+{% load static tema %}
 {% block title %}Dashboard · {{ theme.brand }}{% endblock %}
 {% block app_content %}
 <div class="ui-pagehead">
   <div><h1>Dashboard</h1><div class="sub">{% now "l j F Y" %}{% if azienda %} · {{ azienda }}{% endif %}</div></div>
-  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="{% url 'core:launcher' %}">Tutte le app</a></div>
+  <div class="ui-pagehead-actions wd-azioni">
+    <button type="button" class="ui-btn ui-btn-secondary" id="wd-aggiungi"><svg><use href="#icon-plus"/></svg> Aggiungi widget <span class="ui-gruppo-n" id="wd-nascosti-n">{{ nascosti|length }}</span></button>
+    <button type="button" class="ui-btn ui-btn-secondary" id="wd-modifica" aria-pressed="false"><svg><use href="#icon-edit"/></svg> Personalizza</button>
+    <form method="post" action="{% url 'core:dashboard_reset' %}" id="wd-ripristina"{% if not personalizzata %} hidden{% endif %}>{% csrf_token %}<button class="ui-btn ui-btn-ghost" type="submit" title="Torna all'ordine di partenza">Ripristina</button></form>
+    <a class="ui-btn ui-btn-ghost" href="{% url 'core:launcher' %}">Tutte le app</a>
+  </div>
 </div>
-{% if schede %}
-<div class="ui-dash">
-  {% for s in schede %}
-  <a class="ui-dash-card" href="{{ s.url }}" aria-label="{{ s.label }}: apri l'app">
-    <div class="ui-dash-testa">
-      <span class="ui-app-icona ui-dash-icona">{% if "/" in s.icon %}<img src="{% static s.icon %}" alt="">{% else %}<svg><use href="#icon-{{ s.icon|default:'zap' }}"/></svg>{% endif %}</span>
-      <span class="ui-dash-nome">{{ s.label }}</span>
-    </div>
-    {% with principale=s.kpi.0 %}
-    {% if principale %}<div class="ui-dash-valore">{{ principale.valore }}</div><div class="ui-dash-etichetta">{{ principale.etichetta }}</div>{% endif %}
-    {% endwith %}
-    {% if s.kpi|length > 1 %}
-    <ul class="ui-dash-altri">{% for k in s.kpi|slice:"1:" %}<li><strong>{{ k.valore }}</strong> {{ k.etichetta }}</li>{% endfor %}</ul>
-    {% endif %}
-  </a>
-  {% endfor %}
+{% for s in sezioni_dashboard %}{% include s.template with scheda_attiva="panoramica" %}{% endfor %}
+<p class="wd-aiuto" id="wd-aiuto" hidden>Trascina le card dove vuoi, o usa le frecce; ⤢ cambia la larghezza; × toglie il widget (lo ritrovi in «Aggiungi widget»). Le modifiche si salvano da sole.</p>
+<div class="wd-griglia" id="wd-griglia" data-salva="{% url 'core:dashboard_layout' %}">
+  {% for w in widget %}{% if w.template %}{% include w.template %}{% else %}{% include "core/_widget.html" %}{% endif %}{% endfor %}
 </div>
-{% else %}
+{% if not widget %}
 <div class="ui-card is-revealed"><div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg>
-  <p>Nessuna app con indicatori.{% if user.is_superuser %} <a class="ui-link" href="{% url 'core:moduli' %}">Installa un modulo</a>.{% endif %}</p></div></div></div>
+  <p>{% if nascosti %}Hai tolto tutti i widget: rimettine qualcuno da «Aggiungi widget».{% else %}Nessuna app con indicatori.{% if user.is_superuser %} <a class="ui-link" href="{% url 'core:moduli' %}">Installa un modulo</a>.{% endif %}{% endif %}</p></div></div></div>
 {% endif %}
-{% if grafici %}
-<div class="ui-dash-grafici">
-  {% for g in grafici %}
-  <section class="ui-card is-revealed">
-    <div class="ui-card-head"><div><div class="ui-card-title">{{ g.titolo }}</div><div class="ui-card-sub">{{ g.app }}</div></div>
-      <div class="spacer"></div><a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ g.url }}">Apri</a></div>
-    <div class="ui-card-body">{% if g.svg %}<div class="ui-grafico">{{ g.svg }}</div>{% else %}<p class="ui-help">Ancora nessun dato.</p>{% endif %}</div>
-  </section>
-  {% endfor %}
-</div>
-{% endif %}
+{% include "core/_cassetto.html" %}
+{{ contesto_ada|json_script:"ada-contesto" }}
+{% endblock %}
+{% block scripts %}
+<script src="{% statico 'theme/vendor/chart.umd.js' %}" defer></script>
+<script src="{% statico 'core/grafici.js' %}" defer></script>
+<script src="{% statico 'core/dashboard.js' %}" defer></script>
 {% endblock %}

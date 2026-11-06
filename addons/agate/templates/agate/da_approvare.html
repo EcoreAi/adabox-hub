@@ -1,0 +1,38 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Da approvare · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Da approvare</h1>
+  <div class="sub">{% if voci %}{{ voci|length }} cos{{ voci|length|pluralize:"a,e" }} aspett{{ voci|length|pluralize:"a,ano" }} una persona{% else %}Quello che gli agenti e l'assistente AI chiedono prima di farlo{% endif %}</div></div></div>
+
+{% if voci and semplice %}<p class="ui-help">Decidi tu, a tuo nome: resta nel registro con chi ha deciso. Per approvare quello che non si può annullare ti chiediamo la password.</p>{% endif %}
+
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+{% for x in voci %}
+  <div style="padding:12px 0;{% if not forloop.last %}border-bottom:1px solid var(--ui-border){% endif %}">
+    <div style="display:flex;gap:10px;align-items:flex-start">
+      <span class="ui-pill {% if x.tipo == 'assistente' %}ui-pill-info{% else %}ui-pill-warn{% endif %}" style="flex:none">{% if x.tipo == 'agente' %}agente{% elif x.tipo == 'assistente' %}assistente{% else %}contratto{% endif %}</span>
+      <div style="flex:1;min-width:0">
+        <div>{{ x.frase }}{% if x.password and x.tipo != 'contratto' %} <span class="ui-pill ui-pill-danger">non si può annullare</span>{% endif %}</div>
+        {% if x.dettaglio %}<div class="ui-help">{{ x.dettaglio }}</div>{% endif %}
+        <div class="ui-help">{{ x.quando|date:"d/m/Y H:i" }}{% if x.scade %} · scade il {{ x.scade|date:"d/m/Y H:i" }}{% endif %}</div>
+      </div>
+    </div>
+    {% if x.in_conferma %}<p class="ui-help" style="margin:8px 0 0">Approvata: abbiamo mandato un'email di conferma ai responsabili, parte appena confermano.</p>
+    {% elif x.tipo == 'contratto' %}<div class="ui-form-actions" style="margin:8px 0 0"><a class="ui-btn ui-btn-primary ui-btn-sm" href="{{ x.link }}">Rivedi e conferma</a></div>
+    {% elif semplice %}
+    <form method="post" class="ui-filtri" style="margin-top:8px;padding:0">{% csrf_token %}
+      <input type="hidden" name="tipo" value="{{ x.tipo }}"><input type="hidden" name="pk" value="{{ x.pk }}">
+      <input class="ui-input" name="motivo" maxlength="1000" placeholder="Motivo (facoltativo)" aria-label="Motivo" style="max-width:280px">
+      {% if x.password %}<input class="ui-input" name="password" type="password" autocomplete="current-password" placeholder="La tua password" aria-label="La tua password, per approvare" style="max-width:200px">{% endif %}
+      <button class="ui-btn ui-btn-primary ui-btn-sm" name="decisione" value="approva" type="submit">Approva</button>
+      <button class="ui-btn ui-btn-ghost ui-btn-sm" name="decisione" value="rifiuta" type="submit">Rifiuta</button>
+    </form>
+    {% elif x.link_agate %}<div class="ui-form-actions" style="margin:8px 0 0"><a class="ui-btn ui-btn-secondary ui-btn-sm" href="{{ x.link_agate }}" target="_blank" rel="noopener">Decidi in Agate</a></div>
+    {% endif %}
+  </div>
+{% empty %}
+  <div class="ui-empty"><svg><use href="#icon-check"/></svg><p>Niente da approvare: quando un agente o l'assistente AI chiede un ok, lo trovi qui.</p></div>
+{% endfor %}
+{% if voci and not semplice %}<p class="ui-help">Per decidere qui serve il Controllo AI collegato con un codice (Impostazioni); intanto si decide in Agate.</p>{% endif %}
+</div></section>
+{% endblock %}

@@ -1,7 +1,7 @@
 {
     "name": "Impostazioni fiscali",
     "summary": "Aliquote IVA con natura e termini di pagamento, comuni a vendite, acquisti e fatture",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Contabilità",
     "depends": [],

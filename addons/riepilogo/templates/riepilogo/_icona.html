@@ -1,0 +1,4 @@
+{% load tema %}<a class="rp-icona" id="rp-icona" href="{% url 'riepilogo:pagina' %}" title="Il mio riepilogo" aria-label="Il mio riepilogo"
+   hx-get="{% url 'riepilogo:pannello' %}" hx-target="#rp-pannello" hx-swap="innerHTML"><svg><use href="#icon-clipboard"/></svg></a>
+<div id="rp-pannello"{% if request.session.riepilogo_apri %} hx-get="{% url 'riepilogo:pannello' %}?apertura=login" hx-trigger="load" hx-swap="innerHTML"{% endif %}></div>
+<script src="{% statico 'riepilogo/riepilogo.js' %}" defer></script>
