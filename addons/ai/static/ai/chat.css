@@ -448,3 +448,39 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-conferma-immagini.is-richiamo { animation: ai-richiamo 420ms ease-in-out; }
 @keyframes ai-richiamo { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
 @media (prefers-reduced-motion: reduce) { .ai-conferma-immagini.is-richiamo { animation: none; } }
+
+/* progetti: pagina nella chat, colonna di sinistra, percorso, cronologia */
+.ai-progetto-testa { display: flex; flex-direction: column; gap: 10px; margin: 0 0 22px; }
+.ai-progetto-titolo { display: flex; align-items: center; gap: 12px; }
+.ai-progetto-titolo h1 { margin: 0; font-size: 26px; letter-spacing: -.01em; }
+.ai-progetto-simbolo { display: inline-flex; width: 40px; height: 40px; align-items: center; justify-content: center; border-radius: 12px; background: var(--ui-primary-tint); color: var(--ui-primary); }
+.ai-progetto-simbolo svg { width: 22px; height: 22px; }
+.ai-progetto-titolo .ui-btn svg { width: 14px; height: 14px; }
+.ai-progetto-istruzioni { border: 1px solid var(--ui-border); border-radius: 12px; padding: 10px 14px; font-size: 13px; color: var(--ui-text-2); }
+.ai-progetto-istruzioni summary { cursor: pointer; }
+.ai-progetto-istruzioni summary span { font-weight: 600; color: var(--ui-text); margin-right: 6px; }
+.ai-progetto-istruzioni-testo { margin-top: 10px; line-height: 1.5; color: var(--ui-text); }
+.ai-progetto-vuoto { margin: 0; font-size: 13px; color: var(--ui-text-3); }
+.ai-progetto-sezioni { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 22px; text-align: left; }
+.ai-progetto-sezione { padding: 14px 16px; border: 1px solid var(--ui-border); border-radius: 14px; background: var(--ui-surface); min-width: 0; }
+.ai-progetto-sezione h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 14px; }
+.ai-conta { font-size: 12px; font-weight: 500; color: var(--ui-text-3); }
+.ai-progetto-elenco { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; }
+.ai-progetto-elenco a { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 6px 8px; margin: 0 -8px; border-radius: 8px; color: var(--ui-text); text-decoration: none; font-size: 13.5px; }
+.ai-progetto-elenco a:hover { background: var(--ui-surface-2); }
+.ai-progetto-elenco .ai-elenco-titolo { display: inline-flex; align-items: center; gap: 7px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-progetto-elenco svg { width: 15px; height: 15px; flex: none; color: var(--ui-text-3); }
+.ai-progetto-elenco .ai-elenco-data { flex: none; font-size: 12px; color: var(--ui-text-3); }
+@media (max-width: 760px) { .ai-progetto-sezioni { grid-template-columns: 1fr; } }
+.ai-progetti .ai-progetto-icona { width: 15px; height: 15px; margin-right: 7px; vertical-align: -2px; color: var(--ui-text-3); }
+.ai-progetto-chat { list-style: none; margin: 0 0 4px 22px; padding: 0 0 0 8px; border-left: 1px solid var(--ui-border); }
+.ai-progetto-chat a { padding-top: 4px !important; padding-bottom: 4px !important; font-size: 12.5px; color: var(--ui-text-2); }
+.ai-percorso { display: flex; align-items: center; gap: 6px; margin: 0 0 2px; font-size: 13px; color: var(--ui-text-3); }
+.ai-percorso a { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-text-2); text-decoration: none; }
+.ai-percorso a:hover { color: var(--ui-primary); }
+.ai-percorso svg { width: 14px; height: 14px; }
+.ai-elenco-progetto { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--ui-text-3); }
+.ai-elenco-progetto svg { width: 12px; height: 12px; }
+.ai-chip-progetto { display: inline-flex; align-items: center; gap: 6px; }
+.ai-chip-progetto > svg { width: 14px; height: 14px; color: var(--ui-primary); }
+.ai-chip-progetto .ai-chip-x svg { width: 12px; height: 12px; }

@@ -29,7 +29,35 @@ PANNELLI_DESTRA = [("artifact", "Artifact salvati", "ai-artifact"), ("documenti"
 
 
 def _mie(request):
-    return Conversazione.objects.filter(utente=request.user, nascosta=False)
+    return Conversazione.objects.filter(utente=request.user, nascosta=False).select_related("progetto")
+
+
+RECENTI_PER_PROGETTO = 3
+
+
+def _progetti_con_recenti(request, azienda):
+    """I progetti dell'utente, ognuno con le sue ultime chat per la colonna di sinistra (una query in tutto)."""
+    progetti = list(ProgettoChat.objects.filter(utente=request.user, azienda=azienda)) if azienda else []
+    per_progetto = {p.pk: [] for p in progetti}
+    for c in Conversazione.objects.filter(utente=request.user, nascosta=False, progetto__in=progetti).order_by("-aggiornata").only(
+            "pk", "titolo", "progetto_id", "aggiornata"):
+        if len(per_progetto[c.progetto_id]) < RECENTI_PER_PROGETTO:
+            per_progetto[c.progetto_id].append(c)
+    for p in progetti:
+        p.recenti = per_progetto[p.pk]
+    return progetti
+
+
+def _contenuti_progetto(request, progetto):
+    """Ciò che è nato nelle chat del progetto, per tipo: compare da solo, senza salvarlo a mano."""
+    chat = _mie(request).filter(progetto=progetto).order_by("-aggiornata")
+    return {
+        "chat_progetto": chat[:100],
+        "documenti_progetto": DocumentoChat.objects.filter(utente=request.user, conversazione__progetto=progetto,
+                                                           conversazione__nascosta=False).order_by("-aggiornato")[:50],
+        "artifact_progetto": Artifact.objects.filter(utente=request.user, conversazione__progetto=progetto,
+                                                     conversazione__nascosta=False).order_by("-pk")[:50],
+    }
 
 
 def _fornitore_immagini(azienda):
@@ -77,11 +105,18 @@ def _avviso_spesa(request):
 
 @login_required
 @permission_required("ai.view_conversazione", raise_exception=True)
-def chat(request, pk=None):
+def chat(request, pk=None, progetto=None):
+    """La chat: una conversazione, una chat nuova, oppure la pagina di un progetto (le sue chat, documenti, grafici,
+    file e la casella per una chat nuova nel progetto)."""
     conversazione = get_object_or_404(_mie(request), pk=pk) if pk else None
     mie = _mie(request)
     azienda = getattr(request, "azienda", None)
-    progetti = list(ProgettoChat.objects.filter(utente=request.user, azienda=azienda)) if azienda else []
+    progetti = _progetti_con_recenti(request, azienda)
+    progetto_aperto = None
+    if progetto is not None:
+        progetto_aperto = _mio_progetto(request, progetto)
+        if progetto_aperto is None:
+            raise Http404
     app = app_selezionabili(request.user)
     ambito = next((a for a in app if conversazione and a["slug"] == conversazione.ambito), None)
     if conversazione is not None:
@@ -96,7 +131,9 @@ def chat(request, pk=None):
         "salvati": _salvati(request),
         "pannelli_sinistra": PANNELLI_SINISTRA, "pannelli_destra": PANNELLI_DESTRA,
         "app": app, "suggerimenti": suggerimenti.per(), "suggerimenti_per_app": suggerimenti.tutti(),
-        "progetti": progetti, "progetto_nuova": _mio_progetto(request, request.GET.get("progetto")) if conversazione is None else None,
+        "progetti": progetti, "progetto_aperto": progetto_aperto,
+        **(_contenuti_progetto(request, progetto_aperto) if progetto_aperto else {}),
+        "progetto_nuova": (progetto_aperto or _mio_progetto(request, request.GET.get("progetto"))) if conversazione is None else None,
         "livelli_modello": livelli_modello(azienda),
         "app_gruppi": barra.gruppi([{**a, "categoria": a.get("category", "")} for a in app]),
         "ricerca_disponibile": ricerca.disponibile(azienda),

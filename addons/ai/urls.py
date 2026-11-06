@@ -20,6 +20,7 @@ urlpatterns = [
     path("messaggio/<int:pk>/voto/", pagine.voto, name="voto"),
     path("allegato/<int:pk>/", pagine.allegato, name="allegato"),
     path("mcp/<int:pk>/strumenti/", pagine.strumenti_mcp, name="mcp_strumenti"),
+    path("progetto/<int:progetto>/", pagine.chat, name="progetto"),
     path("voce/trascrivi/", pagine.trascrivi_voce, name="trascrivi_voce"),
     path("scrivi/<slug:campo>/", pagine.scrivi_con_ada, name="scrivi_con_ada"),
     path("scrivi/esito/<int:pk>/", pagine.esito_scrittura, name="esito_scrittura"),

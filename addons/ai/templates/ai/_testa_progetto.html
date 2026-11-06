@@ -1,0 +1,15 @@
+{# Pagina del progetto: nome, istruzioni in breve, modifica. Sotto la casella arrivano le sue chat, documenti, grafici e file. #}
+<header class="ai-progetto-testa">
+  <div class="ai-progetto-titolo">
+    <span class="ai-progetto-simbolo" aria-hidden="true"><svg><use href="#ai-cartella"/></svg></span>
+    <h1>{{ progetto_aperto.nome }}</h1>
+    <span class="ai-spazio"></span>
+    <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'ai:progetti_modifica' progetto_aperto.pk %}"><svg><use href="#icon-edit"/></svg> Modifica</a>
+  </div>
+  {% if progetto_aperto.istruzioni.strip %}
+  <details class="ai-progetto-istruzioni"><summary><span>Istruzioni</span> {{ progetto_aperto.istruzioni|truncatechars:140 }}</summary>
+    <div class="ai-progetto-istruzioni-testo">{{ progetto_aperto.istruzioni|linebreaksbr }}</div></details>
+  {% else %}
+  <p class="ai-progetto-vuoto">Nessuna istruzione: <a class="ui-link" href="{% url 'ai:progetti_modifica' progetto_aperto.pk %}">aggiungile</a> per dare ad Ada il contesto di tutte le chat del progetto (c'è anche «Scrivi con Ada»).</p>
+  {% endif %}
+</header>

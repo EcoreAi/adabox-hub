@@ -38,7 +38,11 @@
     </section>
     <section data-contenuto="progetti" hidden>
       <header class="ai-pannello-testa"><h2>Progetti</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
-      <ul class="ai-elenco">{% for p in progetti %}<li><a href="{% url 'ai:chat' %}?progetto={{ p.pk }}"><span class="ai-elenco-titolo">{{ p.nome }}</span><span class="ai-elenco-data">Nuova chat</span></a></li>{% endfor %}</ul>
+      <ul class="ai-elenco ai-progetti">{% for p in progetti %}
+        <li class="ai-progetto-voce"><a href="{% url 'ai:progetto' p.pk %}"{% if progetto_aperto.pk == p.pk or conversazione.progetto_id == p.pk %} class="is-attiva" aria-current="page"{% endif %}>
+          <span class="ai-elenco-titolo"><svg class="ai-progetto-icona" aria-hidden="true"><use href="#ai-cartella"/></svg>{{ p.nome }}</span></a>
+          {% if p.recenti %}<ul class="ai-progetto-chat">{% for c in p.recenti %}<li><a href="{% url 'ai:conversazione' c.pk %}"{% if conversazione.pk == c.pk %} class="is-attiva" aria-current="page"{% endif %}><span class="ai-elenco-titolo">{{ c.titolo }}</span></a></li>{% endfor %}</ul>{% endif %}
+        </li>{% empty %}<li class="ai-vuoto"><p>Un progetto raccoglie chat, istruzioni e file su un argomento.</p></li>{% endfor %}</ul>
       <p class="ai-cerca-chat"><a class="ui-link" href="{% url 'ai:progetti_nuovo' %}">Nuovo progetto</a> · <a class="ui-link" href="{% url 'ai:progetti_lista' %}">Gestisci</a></p>
     </section>
   </aside>
@@ -53,6 +57,7 @@
       <div class="ai-colonna">
         {% if conversazione %}
         {# titolo e azioni della conversazione: una riga che scorre con i messaggi, non una seconda barra #}
+        {% if conversazione.progetto_id %}<nav class="ai-percorso" aria-label="Percorso"><a href="{% url 'ai:progetto' conversazione.progetto_id %}"><svg aria-hidden="true"><use href="#ai-cartella"/></svg>{{ conversazione.progetto.nome }}</a><span aria-hidden="true">›</span></nav>{% endif %}
         <div class="ai-titolo-chat">
           <h1 data-titolo>{{ conversazione.titolo }}</h1>
           <form class="ai-rinomina" method="post" action="{% url 'ai:rinomina' conversazione.pk %}" data-rinomina hidden>{% csrf_token %}<input class="ui-input" name="titolo" value="{{ conversazione.titolo }}" maxlength="120" aria-label="Titolo della chat" required><button type="submit" class="ui-btn ui-btn-sm ui-btn-primary">Salva</button></form>
@@ -69,7 +74,9 @@
           </form>
         </div>
         {% endif %}
-        {% if not messaggi %}
+        {% if progetto_aperto %}
+        {% include "ai/_testa_progetto.html" %}
+        {% elif not messaggi %}
         <div class="ai-saluto">
           <span class="ai-scintilla" aria-hidden="true"><svg><use href="#ai-scintilla"/></svg></span>
           <h1>Ciao, {{ user.first_name|default:user.username }}</h1>
@@ -90,7 +97,7 @@
           {% csrf_token %}
           <input type="hidden" name="ambito" value="{{ conversazione.ambito|default:'' }}" data-ambito>
           {% if documento %}<input type="hidden" name="documento" value="{{ documento.pk }}">{% endif %}
-          {% if progetto_nuova %}<input type="hidden" name="progetto" value="{{ progetto_nuova.pk }}"><p class="ai-progetto-nuova">Nuova chat nel progetto <strong>{{ progetto_nuova.nome }}</strong></p>{% endif %}
+          {% if progetto_nuova %}<input type="hidden" name="progetto" value="{{ progetto_nuova.pk }}"><p class="ai-progetto-nuova"><span class="ai-chip ai-chip-progetto"><svg aria-hidden="true"><use href="#ai-cartella"/></svg>Nuova chat nel progetto <strong>{{ progetto_nuova.nome }}</strong><a class="ai-chip-x" href="{% url 'ai:chat' %}" data-tip="Chat fuori dal progetto" aria-label="Esci dal progetto: chat nuova senza progetto"><svg><use href="#icon-x"/></svg></a></span></p>{% endif %}
           <ul class="ai-allegati" data-allegati hidden></ul>
           {% if conferma_immagini %}<input type="hidden" name="conferma_immagini" value="" data-conferma-campo>
           <div class="ai-conferma-immagini" data-conferma-box hidden>
@@ -169,7 +176,9 @@
           </div>
         </form>
 
-        {% if not conversazione %}
+        {% if progetto_aperto %}
+        {% include "ai/_pagina_progetto.html" %}
+        {% elif not conversazione %}
         <ul class="ai-suggerimenti" data-suggerimenti aria-label="Domande suggerite">
           {% for s in suggerimenti %}<li><button type="button" class="ai-sugg" data-sugg>{{ s }}</button></li>{% endfor %}
         </ul>

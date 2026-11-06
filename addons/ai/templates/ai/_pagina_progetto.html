@@ -1,0 +1,26 @@
+{% load ai %}{% ct_progetto as ct_p %}{# Ciò che è nato nel progetto, per tipo: compare da solo, senza salvarlo a mano. #}
+<div class="ai-progetto-sezioni">
+  <section class="ai-progetto-sezione" aria-labelledby="ai-p-chat">
+    <h2 id="ai-p-chat">Chat <span class="ai-conta">{{ chat_progetto|length }}</span></h2>
+    {% if chat_progetto %}<ul class="ai-progetto-elenco">{% for c in chat_progetto %}
+      <li><a href="{% url 'ai:conversazione' c.pk %}"><span class="ai-elenco-titolo">{% if c.preferita %}★ {% endif %}{{ c.titolo }}</span><span class="ai-elenco-data">{{ c.aggiornata|date:"d/m H:i" }}</span></a></li>{% endfor %}</ul>
+    {% else %}<p class="ai-progetto-vuoto">Ancora nessuna chat: scrivi qui sopra per iniziare la prima.</p>{% endif %}
+  </section>
+  <section class="ai-progetto-sezione" aria-labelledby="ai-p-doc">
+    <h2 id="ai-p-doc">Documenti <span class="ai-conta">{{ documenti_progetto|length }}</span></h2>
+    {% if documenti_progetto %}<ul class="ai-progetto-elenco">{% for d in documenti_progetto %}
+      <li><a href="{% url 'ai:conversazione' d.conversazione_id %}?documento={{ d.pk }}"><span class="ai-elenco-titolo"><svg aria-hidden="true"><use href="#ai-documento"/></svg>{{ d.titolo }}</span><span class="ai-elenco-data">v{{ d.versione }} · {{ d.aggiornato|date:"d/m H:i" }}</span></a></li>{% endfor %}</ul>
+    {% else %}<p class="ai-progetto-vuoto">I documenti che scrivi con Ada nelle chat del progetto compaiono qui.</p>{% endif %}
+  </section>
+  <section class="ai-progetto-sezione" aria-labelledby="ai-p-graf">
+    <h2 id="ai-p-graf">Grafici e tabelle <span class="ai-conta">{{ artifact_progetto|length }}</span></h2>
+    {% if artifact_progetto %}<ul class="ai-progetto-elenco">{% for a in artifact_progetto %}
+      <li><a href="{% url 'ai:artifact' a.pk %}" target="_blank" rel="noopener" data-tip="Si apre con i dati di oggi"><span class="ai-elenco-titolo"><svg aria-hidden="true"><use href="#{% if a.tipo == 'grafico' %}ai-grafico{% else %}ai-artifact{% endif %}"/></svg>{% if a.salvato %}★ {% endif %}{{ a.titolo }}</span><span class="ai-elenco-data">{{ a.get_tipo_display }} · {{ a.creato|date:"d/m" }}</span></a></li>{% endfor %}</ul>
+    {% else %}<p class="ai-progetto-vuoto">Grafici e tabelle chiesti nelle chat del progetto compaiono qui, e si riaprono con i dati di oggi.</p>{% endif %}
+  </section>
+  <section class="ai-progetto-sezione" aria-labelledby="ai-p-file">
+    <h2 id="ai-p-file">File</h2>
+    <p class="ai-progetto-vuoto">Ada li legge in tutte le chat del progetto.</p>
+    <div hx-get="{% url 'core:allegati_elenco' ct_p progetto_aperto.pk %}" hx-trigger="load"></div>
+  </section>
+</div>
