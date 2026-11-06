@@ -23,7 +23,7 @@ from . import allegati_chat, catalogo, documenti_chat, motore, ricerca, suggerim
 from .strumenti.registro import ErroreStrumento
 from .models import Artifact, Conversazione, DocumentoChat, VersioneDocumento, MessaggioChat, ProgettoChat, Proposta, Turno, ValutazioneRisposta
 
-PANNELLI_SINISTRA = [("storico", "Cronologia chat", "ai-storico"), ("preferite", "Chat preferite", "ai-stella"), ("progetti", "Progetti", "ai-documento")]
+PANNELLI_SINISTRA = [("storico", "Cronologia chat", "ai-storico"), ("preferite", "Chat preferite", "ai-stella"), ("progetti", "Progetti", "ai-cartella")]
 PANNELLI_DESTRA = [("artifact", "Artifact salvati", "ai-artifact"), ("documenti", "Documenti salvati", "ai-documento"),
                    ("grafici", "Grafici salvati", "ai-grafico")]
 
@@ -32,20 +32,12 @@ def _mie(request):
     return Conversazione.objects.filter(utente=request.user, nascosta=False).select_related("progetto")
 
 
-RECENTI_PER_PROGETTO = 3
+VOCI_PER_SOTTOCARTELLA = 8
 
 
 def _progetti_con_recenti(request, azienda):
-    """I progetti dell'utente, ognuno con le sue ultime chat per la colonna di sinistra (una query in tutto)."""
-    progetti = list(ProgettoChat.objects.filter(utente=request.user, azienda=azienda)) if azienda else []
-    per_progetto = {p.pk: [] for p in progetti}
-    for c in Conversazione.objects.filter(utente=request.user, nascosta=False, progetto__in=progetti).order_by("-aggiornata").only(
-            "pk", "titolo", "progetto_id", "aggiornata"):
-        if len(per_progetto[c.progetto_id]) < RECENTI_PER_PROGETTO:
-            per_progetto[c.progetto_id].append(c)
-    for p in progetti:
-        p.recenti = per_progetto[p.pk]
-    return progetti
+    """I progetti dell'utente per la colonna di sinistra: le sottocartelle si caricano quando se ne apre uno."""
+    return list(ProgettoChat.objects.filter(utente=request.user, azienda=azienda)) if azienda else []
 
 
 def _contenuti_progetto(request, progetto):
@@ -732,3 +724,29 @@ def salva_documenti(request, tipo, pk):
     versione = f" (versione {documento.versione})" if documento.versione > 1 else ""
     return JsonResponse({"messaggio": f"Salvato in «{documento.cartella.percorso()}» come «{documento.nome}»{versione}.",
                          "url": archivio.url_documento(documento)})
+
+
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+def albero_progetto(request, pk):
+    """Le sottocartelle di un progetto nella colonna di sinistra: chat, documenti, grafici e tabelle, file."""
+    from django.contrib.contenttypes.models import ContentType
+    progetto = _mio_progetto(request, pk)
+    if progetto is None:
+        raise Http404
+    contenuti = _contenuti_progetto(request, progetto)
+    allegati = list(Allegato.objects.filter(content_type=ContentType.objects.get_for_model(ProgettoChat), object_id=progetto.pk).order_by("-pk"))
+    file = [(d.nome, url, d.cartella.nome if d.cartella_id != contenuti["cartella_progetto"].pk else "") for d, url in contenuti["documenti_cartella"]]
+    file += [(a.nome, reverse("core:allegato_scarica", args=[a.pk]), "solo del progetto") for a in allegati]
+    corrente = int(request.GET["chat"]) if request.GET.get("chat", "").isdigit() else None
+    n = VOCI_PER_SOTTOCARTELLA
+    gruppi = [
+        ("chat", "Chat", len(contenuti["chat_progetto"]),
+         [(c.titolo, reverse("ai:conversazione", args=[c.pk]), "", c.pk == corrente) for c in contenuti["chat_progetto"][:n]]),
+        ("documenti", "Documenti", len(contenuti["documenti_progetto"]),
+         [(d.titolo, f"{reverse('ai:conversazione', args=[d.conversazione_id])}?documento={d.pk}", "", False) for d in contenuti["documenti_progetto"][:n]]),
+        ("artifact", "Grafici e tabelle", len(contenuti["artifact_progetto"]),
+         [(("★ " if a.salvato else "") + a.titolo, reverse("ai:artifact", args=[a.pk]), a.get_tipo_display(), False) for a in contenuti["artifact_progetto"][:n]]),
+        ("file", "File", contenuti["documenti_cartella_totale"] + len(allegati), [(nome, url, nota, False) for nome, url, nota in file[:n]]),
+    ]
+    return render(request, "ai/_albero_progetto.html", {"progetto": progetto, "gruppi": gruppi, "corrente": corrente})

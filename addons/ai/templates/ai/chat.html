@@ -14,7 +14,7 @@
 {% include 'theme/partials/_icons.html' %}
 {% include "ai/_icone.html" %}
 {% include 'theme/partials/_header.html' %}
-<div class="ai-chat{% if documento %} con-documento{% endif %}" data-ai-chat{% if lettura %} data-lettura{% endif %}>
+<div class="ai-chat{% if documento %} con-documento{% endif %}" data-ai-chat{% if lettura %} data-lettura{% endif %}{% if progetto_aperto or conversazione.progetto_id %} data-in-progetto{% endif %}>
 
   {# ---------- colonna sinistra: barra di icone ---------- #}
   <nav class="ai-rail" aria-label="Navigazione">
@@ -39,10 +39,11 @@
     <section data-contenuto="progetti" hidden>
       <header class="ai-pannello-testa"><h2>Progetti</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
       <ul class="ai-elenco ai-progetti">{% for p in progetti %}
-        <li class="ai-progetto-voce"><a href="{% url 'ai:progetto' p.pk %}"{% if progetto_aperto.pk == p.pk or conversazione.progetto_id == p.pk %} class="is-attiva" aria-current="page"{% endif %}>
-          <span class="ai-elenco-titolo"><svg class="ai-progetto-icona" aria-hidden="true"><use href="#ai-cartella"/></svg>{{ p.nome }}</span></a>
-          {% if p.recenti %}<ul class="ai-progetto-chat">{% for c in p.recenti %}<li><a href="{% url 'ai:conversazione' c.pk %}"{% if conversazione.pk == c.pk %} class="is-attiva" aria-current="page"{% endif %}><span class="ai-elenco-titolo">{{ c.titolo }}</span></a></li>{% endfor %}</ul>{% endif %}
-        </li>{% empty %}<li class="ai-vuoto"><p>Un progetto raccoglie chat, istruzioni e file su un argomento.</p></li>{% endfor %}</ul>
+        {% with aperto=conversazione.progetto_id|default_if_none:0 %}
+        <li class="ai-progetto-voce"><details data-albero="{% url 'ai:albero_progetto' p.pk %}{% if conversazione %}?chat={{ conversazione.pk }}{% endif %}"{% if aperto == p.pk or progetto_aperto.pk == p.pk %} open{% endif %}>
+          <summary><svg class="ai-albero-freccia" aria-hidden="true"><use href="#icon-chevron-down"/></svg><a href="{% url 'ai:progetto' p.pk %}"{% if progetto_aperto.pk == p.pk or aperto == p.pk %} class="is-attiva" aria-current="page"{% endif %}><svg class="ai-progetto-icona" aria-hidden="true"><use href="#ai-cartella"/></svg>{{ p.nome }}</a></summary>
+          <div class="ai-albero" data-albero-contenuto aria-live="polite"></div>
+        </details></li>{% endwith %}{% empty %}<li class="ai-vuoto"><p>Un progetto raccoglie chat, istruzioni e file su un argomento.</p></li>{% endfor %}</ul>
       <p class="ai-cerca-chat"><a class="ui-link" href="{% url 'ai:progetti_nuovo' %}">Nuovo progetto</a> · <a class="ui-link" href="{% url 'ai:progetti_lista' %}">Gestisci</a></p>
     </section>
   </aside>

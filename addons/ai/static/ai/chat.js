@@ -28,7 +28,7 @@
     chat.querySelectorAll(`[data-lato="${lato}"]`).forEach((b) => b.setAttribute('aria-expanded', 'false'));
     if (salva) ricorda(lato, '');
   };
-  const apri = (lato, chiave) => {
+  const apri = (lato, chiave, salva = true) => {
     const bottone = chat.querySelector(`[data-lato="${lato}"][data-pannello="${chiave}"]`);
     const sezione = chat.querySelector(`#ai-pannello-${lato} [data-contenuto="${chiave}"]`);
     if (!bottone || !sezione) return;
@@ -36,7 +36,7 @@
     chat.querySelector(`#ai-pannello-${lato}`).hidden = false;
     sezione.hidden = false;
     bottone.setAttribute('aria-expanded', 'true');
-    ricorda(lato, chiave);
+    if (salva) ricorda(lato, chiave);
   };
   chat.querySelectorAll('[data-pannello]').forEach((bottone) => {
     bottone.addEventListener('click', () => {
@@ -52,7 +52,9 @@
   });
   if (LARGO.matches) {                            // su schermi stretti i pannelli coprono la chat: chiusi
     const sinistra = ricordato('sinistra');
-    if (sinistra === null) apri('sinistra', 'storico'); else if (sinistra) apri('sinistra', sinistra);
+    // dentro un progetto (sua pagina o sua chat) si vede la sua cartella, se il pannello di sinistra è aperto
+    if (chat.hasAttribute('data-in-progetto') && sinistra !== '') apri('sinistra', 'progetti', false);
+    else if (sinistra === null) apri('sinistra', 'storico'); else if (sinistra) apri('sinistra', sinistra);
     const destra = ricordato('destra');
     if (destra) apri('destra', destra);
   }
@@ -429,6 +431,24 @@
     document.addEventListener('click', (e) => { if (!menu.contains(e.target)) chiudi(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !tendina.hidden) { chiudi(); bottone.focus(); } });
   });
+
+  // --- colonna di sinistra: le sottocartelle di un progetto si caricano quando lo si apre ---
+  const caricaAlbero = (dettagli) => {
+    const contenitore = dettagli.querySelector('[data-albero-contenuto]');
+    if (!contenitore || contenitore.dataset.caricato || !window.htmx) return;
+    contenitore.dataset.caricato = '1';
+    window.htmx.ajax('GET', dettagli.dataset.albero, { target: contenitore, swap: 'innerHTML' });
+  };
+  document.querySelectorAll('details[data-albero]').forEach((dettagli) => {
+    dettagli.addEventListener('toggle', () => { if (dettagli.open) caricaAlbero(dettagli); });
+    if (dettagli.open) caricaAlbero(dettagli);
+  });
+  // dopo una risposta (chat nuova, documento, grafico) l'albero aperto si aggiorna
+  document.addEventListener('ai:risposta-finita', () => setTimeout(() => {
+    document.querySelectorAll('details[data-albero][open] [data-albero-contenuto]').forEach((c) => {
+      delete c.dataset.caricato; caricaAlbero(c.closest('details'));
+    });
+  }, 400));
 
   // --- «Salva nei Documenti»: documenti scritti con Ada, grafici e tabelle nell'archivio, nella cartella scelta ---
   const salvaDoc = document.getElementById('ai-salva-doc');

@@ -498,3 +498,25 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-progetto-file-solo summary { cursor: pointer; color: var(--ui-text-2); }
 .ai-chat.con-documento .ai-composer-barra { gap: 4px; }
 .ai-chat.con-documento .ai-composer-barra .ai-tondo, .ai-chat.con-documento .ai-composer-barra .ai-invia { width: 31px; height: 31px; }
+
+/* colonna di sinistra: il progetto come cartella con le sue sottocartelle */
+.ai-progetti details > summary { list-style: none; display: flex; align-items: center; gap: 2px; cursor: pointer; }
+.ai-progetti details > summary::-webkit-details-marker { display: none; }
+.ai-progetti .ai-albero-freccia { width: 14px; height: 14px; flex: none; color: var(--ui-text-3); transform: rotate(-90deg); transition: transform 140ms var(--ease-out); }
+.ai-progetti details[open] > summary > .ai-albero-freccia { transform: none; }
+.ai-progetto-voce > details > summary > a { flex: 1; min-width: 0; }
+.ai-albero { margin: 0 0 6px 14px; padding-left: 6px; border-left: 1px solid var(--ui-border); }
+.ai-albero-gruppo > summary { padding: 4px 6px; border-radius: 8px; font-size: 12.5px; font-weight: 600; color: var(--ui-text-2); }
+.ai-albero-gruppo > summary:hover { background: var(--ui-surface-2); }
+.ai-albero-gruppo > summary .ai-conta { margin-left: auto; }
+.ai-albero-gruppo ul { list-style: none; margin: 0 0 4px 12px; padding: 0; }
+.ai-albero-gruppo li a { display: flex; align-items: baseline; gap: 6px; padding: 3px 8px !important; border-radius: 7px; font-size: 12.5px; color: var(--ui-text); text-decoration: none; }
+.ai-albero-gruppo li a:hover { background: var(--ui-surface-2); }
+.ai-albero-gruppo li a.is-attiva { background: var(--ui-primary-tint); color: var(--ui-primary); font-weight: 600; }
+.ai-albero-gruppo .ai-elenco-titolo { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-albero-nota { flex: none; font-size: 11px; color: var(--ui-text-3); }
+.ai-albero-tutti { color: var(--ui-primary) !important; font-weight: 600; }
+.ai-albero-vuoto { margin: 2px 0 6px 20px; font-size: 12px; color: var(--ui-text-3); }
+.ai-progetto-voce > details > summary > a { display: flex; flex-direction: row; align-items: center; gap: 0; padding-top: 7px; padding-bottom: 7px; }
+.ai-progetto-voce > details > summary > a .ai-progetto-icona { flex: none; }
+.ai-albero-gruppo li a { flex-direction: row; justify-content: space-between; }

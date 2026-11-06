@@ -1,0 +1,10 @@
+{# Le sottocartelle di un progetto nella colonna di sinistra; si carica quando si apre il progetto. #}
+{% for chiave, titolo, totale, voci in gruppi %}
+<details class="ai-albero-gruppo"{% if chiave == "chat" and corrente %} open{% endif %}>
+  <summary><svg class="ai-albero-freccia" aria-hidden="true"><use href="#icon-chevron-down"/></svg><span>{{ titolo }}</span><span class="ai-conta">{{ totale }}</span></summary>
+  {% if voci %}<ul>{% for nome, url, nota, attiva in voci %}
+    <li><a href="{{ url }}"{% if chiave == "artifact" %} target="_blank" rel="noopener"{% endif %}{% if attiva %} class="is-attiva" aria-current="page"{% endif %} title="{{ nome }}{% if nota %} · {{ nota }}{% endif %}"><span class="ai-elenco-titolo">{{ nome }}</span>{% if nota %}<span class="ai-albero-nota">{{ nota }}</span>{% endif %}</a></li>{% endfor %}
+    {% if totale > voci|length %}<li><a class="ai-albero-tutti" href="{% url 'ai:progetto' progetto.pk %}">Vedi tutti ({{ totale }})</a></li>{% endif %}
+  </ul>{% else %}<p class="ai-albero-vuoto">{% if chiave == "chat" %}Nessuna chat{% elif chiave == "file" %}Nessun file{% else %}Ancora niente{% endif %}</p>{% endif %}
+</details>
+{% endfor %}

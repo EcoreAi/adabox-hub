@@ -22,6 +22,7 @@ urlpatterns = [
     path("mcp/<int:pk>/strumenti/", pagine.strumenti_mcp, name="mcp_strumenti"),
     path("progetto/<int:progetto>/", pagine.chat, name="progetto"),
     path("progetto/<int:pk>/carica/", pagine.carica_archivio, name="carica_archivio"),
+    path("progetto/<int:pk>/albero/", pagine.albero_progetto, name="albero_progetto"),
     path("salva-documenti/<slug:tipo>/<int:pk>/", pagine.salva_documenti, name="salva_documenti"),
     path("voce/trascrivi/", pagine.trascrivi_voce, name="trascrivi_voce"),
     path("scrivi/<slug:campo>/", pagine.scrivi_con_ada, name="scrivi_con_ada"),
