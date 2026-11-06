@@ -1,8 +1,10 @@
+import re
+
 from django import forms
 
 from core import cifratura
 
-from .models import Assistente, ChiaveAzienda, Pianificata, Provider, ServerMCP
+from .models import Assistente, ChiaveAzienda, Pianificata, Provider, ServerMCP, ServizioVoce
 
 
 class ProviderForm(forms.ModelForm):
@@ -177,4 +179,31 @@ class ServerMCPForm(forms.ModelForm):
     def save(self, commit=True):
         if self.cleaned_data.get("nuovo_token"):
             self.instance.token_cifrato = cifratura.cifra(self.cleaned_data["nuovo_token"])
+        return super().save(commit)
+
+
+class ServizioVoceForm(forms.ModelForm):
+    """La chiave si scrive qui, si salva cifrata e non si rilegge."""
+    nuova_chiave = forms.CharField(label="chiave API", required=False, strip=True,
+                                   widget=forms.PasswordInput(render_value=False, attrs={"autocomplete": "new-password"}),
+                                   help_text="non serve per Kokoro; lascia vuoto per non cambiarla")
+
+    class Meta:
+        model = ServizioVoce
+        fields = ["nome", "tipo", "azienda", "regione", "modello", "voce_it", "voce_en", "attivo"]
+
+    def clean(self):
+        dati = super().clean()
+        tipo = dati.get("tipo")
+        if tipo == ServizioVoce.AZURE and not re.fullmatch(r"[a-z0-9]{2,30}", dati.get("regione") or ""):
+            self.add_error("regione", "Per Azure serve la regione, es. westeurope.")
+        if tipo == ServizioVoce.CARTESIA and not (dati.get("voce_it") and dati.get("voce_en")):
+            self.add_error("voce_it", "Per Cartesia scrivi l'ID delle due voci, dalla libreria voci di Cartesia.")
+        if tipo and tipo != ServizioVoce.KOKORO and not (dati.get("nuova_chiave") or self.instance.chiave_cifrata):
+            self.add_error("nuova_chiave", "Per un fornitore cloud serve la chiave API.")
+        return dati
+
+    def save(self, commit=True):
+        if self.cleaned_data.get("nuova_chiave"):
+            self.instance.chiave_cifrata = cifratura.cifra(self.cleaned_data["nuova_chiave"])
         return super().save(commit)

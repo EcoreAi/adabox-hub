@@ -39,9 +39,9 @@ def abilitata(azienda):
     return bool(url_servizio()) and bool(_parametro("ai.ricerca_web", azienda, False))
 
 
-def filtra(strumenti, azienda):
-    """Via gli strumenti del web dove l'azienda non li ha accesi."""
-    return strumenti if abilitata(azienda) else [s for s in strumenti if s.nome not in ("cerca_web", "leggi_pagina")]
+def filtra(strumenti, azienda, permessa=True):
+    """Via gli strumenti del web dove l'azienda non li ha accesi o dove l'utente non ha scelto la ricerca."""
+    return strumenti if permessa and abilitata(azienda) else [s for s in strumenti if s.nome not in ("cerca_web", "leggi_pagina")]
 
 
 def _dati_personali(contesto, query):

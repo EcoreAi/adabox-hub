@@ -359,6 +359,78 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-ricerca-scelta input { position: absolute; opacity: 0; pointer-events: none; }
 .ai-ricerca-scelta:has(input:checked) { color: var(--ui-primary, #2b4bb5); border-color: var(--ui-primary, #2b4bb5); background: color-mix(in srgb, var(--ui-primary, #2b4bb5) 8%, transparent); font-weight: 600; }
 .ai-ricerca-scelta:has(input:focus-visible) { outline: 2px solid var(--ui-primary, #2b4bb5); outline-offset: 2px; }
-.ai-chat.con-documento .ai-ricerca-scelta span { display: none; }
 .ai-ricerca-nota { font-size: .85rem; color: var(--ui-muted, #6b7280); margin: 0 0 6px; }
 .ai-ricerca-scelta { white-space: nowrap; flex: none; }
+
+/* voce */
+.ai-microfono.is-attivo { color: #fff; background: #d64545; border-color: #d64545; animation: ai-pulsa 1.4s ease-in-out infinite; }
+@keyframes ai-pulsa { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, #d64545 25%, transparent); } }
+.ai-voce-stato { font-size: .85rem; color: var(--ui-muted, #6b7280); margin: 0 0 6px; }
+/* barra del campo con molti bottoni: il suggerimento sui tasti si accorcia, il bottone d'invio resta dentro */
+.ai-suggerimento-tasti { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ai-composer-barra > .ai-invia, .ai-composer-barra > .ai-tondo { flex: none; }
+.ai-composer-barra > .ai-spazio { flex: 1 1 0; min-width: 0; }
+.ai-composer-barra { min-width: 0; flex-wrap: wrap; }
+.ai-invia, .ai-tondo { flex: none; }
+
+/* barra del campo: solo icone. Accese (ricerca sul web, modello scelto, risposta vocale) in colore */
+.ai-tondo:hover, .ai-tondo[aria-expanded="true"] { background: var(--ui-surface-2); color: var(--ui-text); }
+.ai-tondo:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+.ai-tondo svg { width: 17px; height: 17px; }
+.ai-tondo.is-attivo:not(.ai-microfono) { color: var(--ui-primary); border-color: color-mix(in srgb, var(--ui-primary) 45%, transparent); background: var(--ui-primary-tint); }
+@media (max-width: 1100px) { .ai-suggerimento-tasti { display: none; } }
+
+.ai-menu-icona { position: relative; }
+.ai-menu {
+  position: absolute; left: 0; bottom: calc(100% + 10px); z-index: 60; width: 300px; padding: 6px; border-radius: 14px;
+  background: var(--ui-surface); border: 1px solid var(--ui-border); box-shadow: 0 12px 36px rgba(0, 0, 0, .14); animation: ai-scheda 140ms var(--ease-out);
+}
+.ai-menu[hidden] { display: none; }
+.ai-corpo.is-vuota .ai-menu { bottom: auto; top: calc(100% + 10px); }
+.ai-menu-testa { padding: 6px 10px 6px; font-size: 12px; color: var(--ui-text-3); }
+.ai-menu [role=menuitemradio] {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 10px; background: transparent;
+  color: var(--ui-text); font: inherit; text-align: left; cursor: pointer;
+}
+.ai-menu [role=menuitemradio]:hover, .ai-menu [role=menuitemradio]:focus-visible { background: var(--ui-surface-2); outline: none; }
+.ai-menu [role=menuitemradio] > span { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.ai-menu strong { font-size: 14px; font-weight: 600; }
+.ai-menu small { font-size: 12px; color: var(--ui-text-3); line-height: 1.3; }
+.ai-menu-simbolo { width: 18px; height: 18px; flex: none; color: var(--ui-text-2); }
+.ai-menu-spunta { width: 16px; height: 16px; flex: none; color: var(--ui-primary); visibility: hidden; }
+.ai-menu [aria-checked="true"] .ai-menu-spunta { visibility: visible; }
+.ai-menu [aria-checked="true"] .ai-menu-simbolo { color: var(--ui-primary); }
+
+/* scheda delle app: larga come il menu della testata, colonne per categoria, chat sfocata dietro */
+.ai-app-scelta { position: static; }
+.ai-scheda-app {
+  position: fixed; z-index: 70; padding: 22px 28px 26px; overflow-y: auto; border-radius: 18px;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, .16);
+}
+.ai-scheda-app-testa { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 0 16px; margin-bottom: 18px;
+  border-bottom: 1px solid var(--ui-border); font-size: 13px; font-weight: 600; color: var(--ui-text-3); text-transform: none; letter-spacing: 0; }
+.ai-scheda-tutte {
+  display: inline-flex; align-items: center; gap: 8px; width: auto; padding: 6px 12px; border: 1px solid var(--ui-border); border-radius: 999px;
+  background: transparent; color: var(--ui-text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.ai-scheda-tutte svg { width: 16px; height: 16px; }
+.ai-scheda-tutte[aria-pressed="true"] { background: var(--ui-primary-tint); border-color: color-mix(in srgb, var(--ui-primary) 35%, transparent); color: var(--ui-primary); }
+.ai-scheda-colonne { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 22px 18px; }
+.ai-scheda-titolo { display: flex; align-items: flex-end; min-height: 2.6em; margin-bottom: 8px; font-size: 12px; line-height: 1.3; color: var(--ui-text-3); }
+.ai-scheda-colonna { display: flex; flex-direction: column; gap: 2px; }
+.ai-scheda-voce {
+  flex-direction: row; justify-content: flex-start; gap: 10px; padding: 5px 8px; margin: 0 -8px; border-radius: 9px;
+  font-size: 13px; font-weight: 600; text-align: left; letter-spacing: -.005em; line-height: 1.25;
+}
+.ai-scheda-voce:hover { background: var(--ui-surface-2); color: var(--ui-primary); }
+.ai-scheda-voce .ai-scheda-icona { width: 26px; height: 26px; border-radius: 8px; }
+.ai-scheda-voce .ai-scheda-icona img, .ai-scheda-voce .ai-scheda-icona svg { width: 16px; height: 16px; }
+.ai-chat.con-scheda .ai-messaggi, .ai-chat.con-scheda .ai-suggerimenti, .ai-chat.con-scheda .ai-ambiti, .ai-chat.con-scheda .ai-titolo-chat,
+.ai-chat.con-scheda .ai-saluto { filter: blur(3px); opacity: .5; transition: filter 180ms var(--ease-out), opacity 180ms var(--ease-out); }
+@media (prefers-reduced-motion: reduce) { .ai-chat.con-scheda * { filter: none !important; transition: none !important; } }
+@media (max-width: 520px) {
+  .ai-composer { padding: 12px 10px 8px 12px; }
+  .ai-composer-barra { gap: 4px; }
+  .ai-composer-barra .ai-tondo, .ai-composer-barra .ai-invia { width: 31px; height: 31px; }
+  .ai-scheda-colonne { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

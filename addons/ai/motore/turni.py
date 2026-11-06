@@ -98,7 +98,8 @@ def riparti(conversazione, messaggio, testo, utente, azienda=None):
         if messaggio.ruolo != MessaggioChat.UTENTE or posizione >= len(domande):
             raise NonSiPuoRipartire("Da questo messaggio non si può ripartire.")
         da_togliere = conversazione.eventi.filter(pk__gte=domande[posizione])
-        compito = getattr(Evento.objects.filter(pk=domande[posizione]).select_related("turno").first().turno, "compito", "chat")
+        originale = Evento.objects.filter(pk=domande[posizione]).select_related("turno").first().turno
+        compito, con_web = getattr(originale, "compito", "chat"), getattr(originale, "web", True)
         turni_tolti = set(da_togliere.exclude(turno=None).values_list("turno_id", flat=True))
         decise = Proposta.objects.filter(turno_id__in=turni_tolti)
         if decise.filter(stato=Proposta.ESEGUITA).exists():
@@ -114,10 +115,10 @@ def riparti(conversazione, messaggio, testo, utente, azienda=None):
     if compito == "ricerca":
         from .. import ricerca
         return avvia(conversazione, testo, utente, azienda, messaggio=messaggio, compito=compito, nota=ricerca.ISTRUZIONI)
-    return avvia(conversazione, testo, utente, azienda, messaggio=messaggio)
+    return avvia(conversazione, testo, utente, azienda, messaggio=messaggio, web=con_web)
 
 
-def avvia(conversazione, testo, utente, azienda=None, compito="chat", sincrono=False, nota="", file=(), messaggio=None):
+def avvia(conversazione, testo, utente, azienda=None, compito="chat", sincrono=False, nota="", file=(), messaggio=None, web=True):
     """Registra la domanda e avvia il turno: in un thread, oppure nel processo stesso con `sincrono` (worker delle
     pianificate) o AI_TURNI_SINCRONI (test). `nota` va al modello nel <contesto>, non nella chat. `file`: gli allegati
     del messaggio, già controllati. `messaggio`: quello esistente, quando si riparte da lì."""
@@ -126,7 +127,7 @@ def avvia(conversazione, testo, utente, azienda=None, compito="chat", sincrono=F
     if in_corso is not None:
         return in_corso
     with transaction.atomic():
-        turno = Turno.objects.create(conversazione=conversazione, utente=utente, azienda=azienda, compito=compito)
+        turno = Turno.objects.create(conversazione=conversazione, utente=utente, azienda=azienda, compito=compito, web=web)
         esiti = proposte.da_comunicare(conversazione)
         if messaggio is None:
             messaggio = MessaggioChat.objects.create(conversazione=conversazione, ruolo=MessaggioChat.UTENTE, testo=testo)
@@ -217,7 +218,7 @@ def esegui(turno_id):
         catena = catalogo.con_scelta(catalogo.catena(profilo, turno.azienda), conversazione.modello, turno.azienda)
         from ..strumenti import web
         ammessi = {s.nome: s for s in assistenti.filtra_strumenti(
-            web.filtra(strumenti.disponibili(utente, conversazione.ambito, turno.azienda), turno.azienda), assistente, esperto=turno.compito == "esperto")}
+            web.filtra(strumenti.disponibili(utente, conversazione.ambito, turno.azienda), turno.azienda, turno.web), assistente, esperto=turno.compito == "esperto")}
         _, con_immagine, nell_ultimo = allegati_chat.con_immagini(messaggi_del_modello(conversazione))
         senza_immagini = False
         if con_immagine:

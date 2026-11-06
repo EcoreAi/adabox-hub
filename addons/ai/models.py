@@ -221,6 +221,8 @@ class Turno(models.Model):
                                verbose_name="utente")
     azienda = models.ForeignKey("core.Azienda", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="azienda")
     compito = models.CharField("compito", max_length=20, default="chat")
+    web = models.BooleanField("ricerca sul web", default=True,
+                              help_text="in chat solo se l'utente l'ha scelta per quel messaggio; le attività pianificate la usano se l'azienda l'ha accesa")
     stato = models.CharField("stato", max_length=10, choices=STATI, default=IN_CORSO)
     modello = models.ForeignKey(Modello, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="modello")
     testo = models.TextField("testo della risposta", blank=True)
@@ -579,3 +581,48 @@ class VersioneDocumento(models.Model):
         verbose_name_plural = "versioni del documento"
         ordering = ["-numero"]
         constraints = [models.UniqueConstraint(fields=["documento", "numero"], name="ai_versione_documento_unica")]
+
+
+class ServizioVoce(models.Model):
+    """Un servizio che legge ad alta voce le risposte: Kokoro sui nostri server oppure un fornitore cloud con chiave."""
+    KOKORO, CARTESIA, MISTRAL, AZURE, GEMINI = "kokoro", "cartesia", "mistral", "azure", "gemini"
+    TIPI = [(KOKORO, "Kokoro (locale, sui nostri server)"), (CARTESIA, "Cartesia"), (MISTRAL, "Mistral (Voxtral)"),
+            (AZURE, "Azure AI Speech"), (GEMINI, "Google Gemini TTS")]
+    PREDEFINITI = {                                      # modello, voce italiana, voce inglese
+        KOKORO: ("speaches-ai/Kokoro-82M-v1.0-ONNX", "if_sara", "af_heart"),
+        CARTESIA: ("sonic-3.6", "", ""),
+        MISTRAL: ("voxtral-mini-tts-3-0", "voice_482", "gb_jane_neutral"),
+        AZURE: ("", "it-IT-IsabellaNeural", "en-US-JennyNeural"),
+        GEMINI: ("gemini-3.1-flash-tts-preview", "Kore", "Kore"),
+    }
+    nome = models.CharField("nome", max_length=80)
+    tipo = models.CharField("tipo", max_length=10, choices=TIPI)
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, related_name="+",
+                                verbose_name="azienda", help_text="vuota = per tutte le aziende")
+    chiave_cifrata = models.TextField(blank=True, editable=False)
+    regione = models.CharField("regione Azure", max_length=40, blank=True, help_text="solo Azure, es. westeurope")
+    modello = models.CharField("modello", max_length=100, blank=True, help_text="vuoto = quello consigliato")
+    voce_it = models.CharField("voce italiana", max_length=100, blank=True, help_text="vuota = quella consigliata")
+    voce_en = models.CharField("voce inglese", max_length=100, blank=True, help_text="vuota = quella consigliata")
+    attivo = models.BooleanField("attivo", default=True)
+
+    class Meta:
+        verbose_name = "servizio voce"
+        verbose_name_plural = "servizi voce"
+        ordering = ["nome", "pk"]
+
+    def __str__(self):
+        return self.nome
+
+    @property
+    def locale(self):
+        return self.tipo == self.KOKORO
+
+    def valore(self, campo):
+        """modello, voce_it o voce_en: quello scelto o quello consigliato per il tipo."""
+        indice = {"modello": 0, "voce_it": 1, "voce_en": 2}[campo]
+        return getattr(self, campo) or self.PREDEFINITI.get(self.tipo, ("", "", ""))[indice]
+
+    def chiave(self):
+        from core import cifratura
+        return cifratura.decifra(self.chiave_cifrata) if self.chiave_cifrata else ""

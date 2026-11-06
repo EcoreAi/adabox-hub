@@ -1,8 +1,8 @@
 from core import cifratura
 from core.viste import Inline, ModelView, register
 
-from .forms import AssistenteForm, ChiaveAziendaForm, PianificataForm, ProviderForm, ServerMCPForm
-from .models import (AnelloCatena, Assistente, ChiaveAzienda, Modello, Pianificata, Profilo, Proposta, Provider, MemoriaUtente, ProgettoChat, ServerMCP, ValutazioneRisposta,
+from .forms import AssistenteForm, ChiaveAziendaForm, PianificataForm, ProviderForm, ServerMCPForm, ServizioVoceForm
+from .models import (AnelloCatena, Assistente, ChiaveAzienda, Modello, Pianificata, Profilo, Proposta, Provider, MemoriaUtente, ProgettoChat, ServerMCP, ServizioVoce, ValutazioneRisposta,
                      Turno)
 
 
@@ -305,3 +305,41 @@ class ServerMCPView(ModelView):
         return f"Letti {len(voci)} strumenti. Quelli nuovi sono spenti: leggili e accendi solo quelli che servono."
     leggi_strumenti.short_description = "Leggi gli strumenti dal server"
     leggi_strumenti.ai = False
+
+
+@register
+class ServizioVoceView(ModelView):
+    """I servizi che leggono le risposte ad alta voce: Kokoro in locale o un fornitore cloud con la sua chiave."""
+    model = ServizioVoce
+    slug = "voce"
+    tra_aziende = True
+    list_display = ["nome", "tipo", "azienda", "chiave", "attivo"]
+    form_class = ServizioVoceForm
+    form_layout = [("Servizio", [("nome", "tipo"), ("azienda", "attivo"), "nuova_chiave", "regione"]),
+                   ("Voci (vuoto = quelle consigliate)", [("modello",), ("voce_it", "voce_en")])]
+    storico = False
+    personale = True
+    buttons = ["prova"]
+
+    def layout_dettaglio(self):
+        return [(t, [[c for c in riga if c != "nuova_chiave"] for riga in righe if riga != ["nuova_chiave"]]) for t, righe in super().layout_dettaglio()]
+
+    def col_chiave(self, obj):
+        if obj.locale:
+            return "—"
+        try:
+            return cifratura.mascherato(obj.chiave()) or "manca"
+        except cifratura.SegretoIlleggibile:
+            return "illeggibile"
+    col_chiave.short_description = "Chiave"
+
+    def prova(self, request, obj):
+        from . import voce
+        try:
+            for lingua, frase in (("it", "Buongiorno, sono Ada."), ("en", "Hello, I am Ada.")):
+                voce.sintetizza(obj, frase, lingua)
+        except voce.ErroreVoce as e:
+            return f"Prova non riuscita: {e}"
+        return "Prova riuscita: il servizio legge in italiano e in inglese."
+    prova.short_description = "Prova il servizio"
+    prova.ai = False

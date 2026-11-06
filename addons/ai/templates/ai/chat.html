@@ -14,7 +14,7 @@
 {% include 'theme/partials/_icons.html' %}
 {% include "ai/_icone.html" %}
 {% include 'theme/partials/_header.html' %}
-<div class="ai-chat{% if documento %} con-documento{% endif %}" data-ai-chat>
+<div class="ai-chat{% if documento %} con-documento{% endif %}" data-ai-chat{% if lettura %} data-lettura{% endif %}>
 
   {# ---------- colonna sinistra: barra di icone ---------- #}
   <nav class="ai-rail" aria-label="Navigazione">
@@ -92,35 +92,70 @@
           {% if documento %}<input type="hidden" name="documento" value="{{ documento.pk }}">{% endif %}
           {% if progetto_nuova %}<input type="hidden" name="progetto" value="{{ progetto_nuova.pk }}"><p class="ai-progetto-nuova">Nuova chat nel progetto <strong>{{ progetto_nuova.nome }}</strong></p>{% endif %}
           <ul class="ai-allegati" data-allegati hidden></ul>
+          <p class="ai-voce-stato" data-voce-stato role="status" hidden></p>
           <textarea name="testo" rows="3" class="ai-input" placeholder="{% if conversazione %}Rispondi…{% else %}Come posso aiutarti oggi?{% endif %}" aria-label="Messaggio" required></textarea>
           <div class="ai-composer-barra">
             <input type="file" name="allegati" multiple hidden data-file accept=".pdf,.docx,.xlsx,.xlsm,.csv,.tsv,.txt,.md,.json,.xml,.html,.htm,.eml,.png,.jpg,.jpeg,.webp,.gif">
             <button type="button" class="ai-tondo" data-allega data-tip="Allega PDF, Word, Excel, CSV, testo o immagini (fino a 5 file)" aria-label="Allega dei file"><svg><use href="#ai-piu"/></svg></button>
+            {% if ricerca_disponibile %}
+            <div class="ai-menu-icona" data-menu-icona data-reimposta>
+              <input type="hidden" name="ricerca" value="" data-valore>
+              <button type="button" class="ai-tondo" data-apri-menu aria-haspopup="menu" aria-expanded="false" data-tip="Ricerca sul web: nessuna" aria-label="Ricerca sul web: nessuna"><svg><use href="#ai-globo-no"/></svg></button>
+              <div class="ai-menu" role="menu" aria-label="Ricerca sul web" hidden>
+                <div class="ai-menu-testa">Ricerca sul web</div>
+                <button type="button" role="menuitemradio" aria-checked="true" data-opzione="" data-icona="ai-globo-no" data-etichetta="Ricerca sul web: nessuna">
+                  <svg class="ai-menu-simbolo"><use href="#ai-globo-no"/></svg><span><strong>Nessuna</strong><small>Ada usa i dati del gestionale e gli allegati</small></span><svg class="ai-menu-spunta"><use href="#icon-check"/></svg></button>
+                <button type="button" role="menuitemradio" aria-checked="false" data-opzione="web" data-icona="ai-globo" data-etichetta="Ricerca sul web">
+                  <svg class="ai-menu-simbolo"><use href="#ai-globo"/></svg><span><strong>Ricerca sul web</strong><small>se serve, Ada cerca sul web e cita le fonti</small></span><svg class="ai-menu-spunta"><use href="#icon-check"/></svg></button>
+                <button type="button" role="menuitemradio" aria-checked="false" data-opzione="approfondita" data-icona="ai-approfondita" data-etichetta="Ricerca approfondita">
+                  <svg class="ai-menu-simbolo"><use href="#ai-approfondita"/></svg><span><strong>Ricerca approfondita</strong><small>più fonti e un rapporto con i link, in qualche minuto</small></span><svg class="ai-menu-spunta"><use href="#icon-check"/></svg></button>
+              </div>
+            </div>
+            {% endif %}
             {% if app %}
             <div class="ai-app-scelta">
-              <button type="button" class="ai-app-btn" data-apri-app aria-haspopup="true" aria-expanded="false" aria-controls="ai-scheda-app">
-                <svg><use href="#ai-app"/></svg><span>App</span></button>
+              <button type="button" class="ai-tondo" data-apri-app aria-haspopup="true" aria-expanded="false" aria-controls="ai-scheda-app" data-tip="Limita la chat a un'app" aria-label="Limita la chat a un'app"><svg><use href="#ai-app"/></svg></button>
               <div class="ai-scheda-app" id="ai-scheda-app" role="dialog" aria-label="Limita la chat a un'app" hidden>
-                <div class="ai-scheda-app-testa">Limita la chat a un'app</div>
-                <button type="button" class="ai-scheda-voce ai-scheda-tutte" data-ambito-app="" aria-pressed="{% if conversazione.ambito %}false{% else %}true{% endif %}">
-                  <span class="ai-scheda-icona"><svg><use href="#ai-dashboard"/></svg></span><span>Tutte le app</span></button>
-                <div class="ai-scheda-griglia">
-                  {% for a in app %}
-                  <button type="button" class="ai-scheda-voce" data-ambito-app="{{ a.slug }}" data-nome="{{ a.label }}"
-                          data-icona="{% if '/' in a.icon %}{% static a.icon %}{% endif %}" aria-pressed="false">
-                    <span class="ai-scheda-icona">{% if "/" in a.icon %}<img src="{% static a.icon %}" alt="">{% else %}<svg><use href="#icon-{{ a.icon|default:'zap' }}"/></svg>{% endif %}</span>
-                    <span>{{ a.label }}</span></button>
+                <div class="ai-scheda-app-testa">
+                  <span>Limita la chat a un'app</span>
+                  <button type="button" class="ai-scheda-tutte" data-ambito-app="" aria-pressed="{% if conversazione.ambito %}false{% else %}true{% endif %}"><svg><use href="#ai-dashboard"/></svg>Tutte le app</button>
+                </div>
+                <div class="ai-scheda-colonne">
+                  {% for gruppo in app_gruppi %}
+                  <div class="ai-scheda-colonna"><div class="ai-scheda-titolo">{{ gruppo.titolo }}</div>
+                    {% for a in gruppo.voci %}
+                    <button type="button" class="ai-scheda-voce" data-ambito-app="{{ a.slug }}" data-nome="{{ a.label }}"
+                            data-icona="{% if '/' in a.icon %}{% static a.icon %}{% endif %}" aria-pressed="false">
+                      <span class="ai-scheda-icona">{% if "/" in a.icon %}<img src="{% static a.icon %}" alt="">{% else %}<svg><use href="#icon-{{ a.icon|default:'zap' }}"/></svg>{% endif %}</span>
+                      <span>{{ a.label }}</span></button>
+                    {% endfor %}
+                  </div>
                   {% endfor %}
                 </div>
               </div>
             </div>
             {% endif %}
+            {% if livelli_modello %}
+            <div class="ai-menu-icona" data-menu-icona>
+              <input type="hidden" name="modello" value="{% for livello, m in livelli_modello %}{% if conversazione.modello_id == m.pk %}{{ m.pk }}{% endif %}{% endfor %}" data-valore>
+              <button type="button" class="ai-tondo" data-apri-menu aria-haspopup="menu" aria-expanded="false" data-tip="Modello: automatico" aria-label="Modello: automatico"><svg><use href="#ai-auto"/></svg></button>
+              <div class="ai-menu" role="menu" aria-label="Modello" hidden>
+                <div class="ai-menu-testa">Modello per questa chat</div>
+                <button type="button" role="menuitemradio" aria-checked="true" data-opzione="" data-icona="ai-auto" data-etichetta="Modello: automatico">
+                  <svg class="ai-menu-simbolo"><use href="#ai-auto"/></svg><span><strong>Automatico</strong><small>quello scelto dagli amministratori per ogni richiesta</small></span><svg class="ai-menu-spunta"><use href="#icon-check"/></svg></button>
+                {% for livello, m in livelli_modello %}
+                <button type="button" role="menuitemradio" aria-checked="false" data-opzione="{{ m.pk }}" data-icona="{% if livello == 'max' %}ai-gemma{% else %}ai-fulmine{% endif %}" data-etichetta="Modello: {% if livello == 'max' %}Max{% else %}Standard{% endif %} ({{ m.etichetta }})">
+                  <svg class="ai-menu-simbolo"><use href="#{% if livello == 'max' %}ai-gemma{% else %}ai-fulmine{% endif %}"/></svg><span><strong>{% if livello == 'max' %}Max{% else %}Standard{% endif %}</strong><small>{{ m.etichetta }} · {% if livello == 'max' %}il più capace, costa di più{% else %}veloce ed economico{% endif %}</small></span><svg class="ai-menu-spunta"><use href="#icon-check"/></svg></button>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
             <span class="ai-chip ai-chip-ambito" data-chip-ambito hidden><img alt=""><span data-chip-nome></span>
               <button type="button" class="ai-chip-x" data-togli-ambito aria-label="Usa tutte le app"><svg><use href="#icon-x"/></svg></button></span>
-            {% if ricerca_disponibile %}<label class="ai-ricerca-scelta" data-tip="Ada cerca e legge più fonti sul web e ti consegna un rapporto con le fonti: richiede qualche minuto"><input type="checkbox" name="ricerca" value="1" data-ricerca><svg><use href="#icon-search"/></svg><span>Ricerca approfondita</span></label>{% endif %}
-            {% if modelli_sceglibili %}<select class="ui-input ai-modello" name="modello" aria-label="Modello" data-tip="Il modello per questa chat"><option value="">Automatico</option>{% for m in modelli_sceglibili %}<option value="{{ m.pk }}"{% if conversazione.modello_id == m.pk %} selected{% endif %}>{{ m.etichetta }}</option>{% endfor %}</select>{% endif %}
             <span class="ai-spazio"></span>
             <span class="ai-suggerimento-tasti">Invio per inviare · Maiusc+Invio per andare a capo</span>
+            {% if lettura %}<button type="button" class="ai-tondo" data-voce-automatica aria-pressed="false" data-tip="Risposta vocale: leggi ad alta voce ogni nuova risposta" aria-label="Risposta vocale"><svg><use href="#ai-altoparlante"/></svg></button>{% endif %}
+            {% if dettatura %}<button type="button" class="ai-tondo ai-microfono" data-microfono data-url="{% url 'ai:trascrivi_voce' %}" data-tip="Detta il messaggio: il testo arriva qui, da rileggere prima di inviare" aria-label="Detta il messaggio" aria-pressed="false"><svg><use href="#ai-microfono"/></svg></button>{% endif %}
             <button type="submit" class="ai-invia" aria-label="Invia"><svg><use href="#ai-freccia"/></svg></button>
           </div>
         </form>

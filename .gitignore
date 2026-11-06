@@ -18,3 +18,4 @@ dist/
 # collegamenti locali del server (es. ai servizi di adabox): vedi deploy/compose.servizi-adabox.yml
 docker-compose.override.yml
 addons/dati_demo.json
+/volumes/

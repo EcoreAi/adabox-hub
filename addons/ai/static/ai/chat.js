@@ -131,15 +131,33 @@
     if (!scheda || scheda.hidden) return;
     scheda.hidden = true;
     apriApp.setAttribute('aria-expanded', 'false');
+    chat.classList.remove('con-scheda');
+  };
+  // larga come il menu della testata: si apre sotto il campo (chat nuova) o sopra (conversazione), dentro lo schermo
+  const posiziona = () => {
+    const campo = form.getBoundingClientRect();
+    const larghezza = Math.min(1040, window.innerWidth - 32);
+    const sinistra = Math.max(16, Math.min(campo.left + campo.width / 2 - larghezza / 2, window.innerWidth - larghezza - 16));
+    Object.assign(scheda.style, { width: `${larghezza}px`, left: `${sinistra}px` });
+    const testata = document.querySelector('.ui-header');
+    const cima = testata ? testata.getBoundingClientRect().bottom : 0;      // mai sotto la testata della pagina
+    const sotto = window.innerHeight - campo.bottom > campo.top - cima;
+    scheda.style.top = sotto ? `${campo.bottom + 10}px` : 'auto';
+    scheda.style.bottom = sotto ? 'auto' : `${window.innerHeight - campo.top + 10}px`;
+    scheda.style.maxHeight = `${(sotto ? window.innerHeight - campo.bottom : campo.top - cima) - 26}px`;
   };
   if (apriApp && scheda) {
     apriApp.addEventListener('click', (e) => {
       e.stopPropagation();
       const aperta = !scheda.hidden;
-      scheda.hidden = aperta;
-      apriApp.setAttribute('aria-expanded', String(!aperta));
-      if (!aperta) (scheda.querySelector('[aria-pressed="true"]') || scheda.querySelector('button')).focus();
+      if (aperta) { chiudiScheda(); return; }
+      posiziona();
+      scheda.hidden = false;
+      chat.classList.add('con-scheda');
+      apriApp.setAttribute('aria-expanded', 'true');
+      (scheda.querySelector('[aria-pressed="true"]') || scheda.querySelector('button')).focus();
     });
+    window.addEventListener('resize', () => { if (!scheda.hidden) posiziona(); });
     scheda.querySelectorAll('[data-ambito-app]').forEach((b) => b.addEventListener('click', () => {
       scegli(b.dataset.ambitoApp);
       chiudiScheda();
@@ -323,8 +341,7 @@
     if (e.detail.target !== messaggi) return;
     input.value = '';
     if (campoFile) { campoFile.value = ''; mostraFile(); }
-    const sceltaRicerca = form.querySelector('[data-ricerca]');
-    if (sceltaRicerca) sceltaRicerca.checked = false;
+    form.querySelectorAll('[data-menu-icona][data-reimposta]').forEach((m) => m.scegli && m.scegli(''));
     decora();
     aggiorna();
     inFondo();
@@ -335,6 +352,44 @@
   });
   document.body.addEventListener('htmx:afterRequest', (e) => {
     if (e.detail.elt === form && !messaggi.querySelector('[data-flusso]')) { aggiorna(); input.focus(); }
+  });
+
+  // --- menu a icona (ricerca sul web, modello): l'icona mostra la scelta, il menu le opzioni ---
+  document.querySelectorAll('[data-menu-icona]').forEach((menu) => {
+    const bottone = menu.querySelector('[data-apri-menu]');
+    const tendina = menu.querySelector('[role=menu]');
+    const valore = menu.querySelector('[data-valore]');
+    const opzioni = [...tendina.querySelectorAll('[data-opzione]')];
+    const chiudi = () => { tendina.hidden = true; bottone.setAttribute('aria-expanded', 'false'); };
+    menu.scegli = (v) => {
+      const scelta = opzioni.find((o) => o.dataset.opzione === v) || opzioni[0];
+      valore.value = scelta.dataset.opzione;
+      opzioni.forEach((o) => o.setAttribute('aria-checked', String(o === scelta)));
+      bottone.querySelector('use').setAttribute('href', `#${scelta.dataset.icona}`);
+      bottone.dataset.tip = scelta.dataset.etichetta;
+      bottone.setAttribute('aria-label', scelta.dataset.etichetta);
+      bottone.classList.toggle('is-attivo', scelta.dataset.opzione !== '');
+    };
+    menu.scegli(valore.value);
+    bottone.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const aperta = !tendina.hidden;
+      document.querySelectorAll('[data-menu-icona] [role=menu]').forEach((t) => { t.hidden = true; });
+      if (aperta) { chiudi(); return; }
+      tendina.hidden = false;
+      bottone.setAttribute('aria-expanded', 'true');
+      (opzioni.find((o) => o.getAttribute('aria-checked') === 'true') || opzioni[0]).focus();
+    });
+    opzioni.forEach((o) => o.addEventListener('click', () => { menu.scegli(o.dataset.opzione); chiudi(); bottone.focus(); }));
+    tendina.addEventListener('keydown', (e) => {
+      const i = opzioni.indexOf(document.activeElement);
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        opzioni[(i + (e.key === 'ArrowDown' ? 1 : opzioni.length - 1)) % opzioni.length].focus();
+      }
+    });
+    document.addEventListener('click', (e) => { if (!menu.contains(e.target)) chiudi(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !tendina.hidden) { chiudi(); bottone.focus(); } });
   });
 
   // --- documento accanto alla chat: leggi o modifica, niente modifiche perse ---
@@ -378,6 +433,112 @@
     window.htmx.ajax('GET', t.dataset.url, { target: '#ai-tela', swap: 'outerHTML' });
   });
   window.addEventListener('beforeunload', (e) => { if (modificato) { e.preventDefault(); e.returnValue = ''; } });
+
+  // --- voce: dettatura (Whisper sul server) e lettura delle risposte ---
+  const statoVoce = document.querySelector('[data-voce-stato]');
+  const dici = (testo) => { if (!statoVoce) return; statoVoce.textContent = testo || ''; statoVoce.hidden = !testo; };
+  const microfono = document.querySelector('[data-microfono]');
+  if (microfono) {
+    let registratore = null; let pezzi = []; let timer = null; let secondi = 0;
+    const ferma = () => { if (registratore && registratore.state === 'recording') registratore.stop(); };
+    microfono.addEventListener('click', async () => {
+      if (registratore && registratore.state === 'recording') { ferma(); return; }
+      if (!navigator.mediaDevices || !window.MediaRecorder) { dici('Il browser non permette di usare il microfono su questa pagina (serve https).'); return; }
+      let flusso;
+      try { flusso = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch (err) { dici('Microfono non disponibile o non permesso.'); return; }
+      pezzi = []; secondi = 0;
+      registratore = new MediaRecorder(flusso);
+      registratore.addEventListener('dataavailable', (e) => { if (e.data.size) pezzi.push(e.data); });
+      registratore.addEventListener('stop', async () => {
+        clearInterval(timer); flusso.getTracks().forEach((t) => t.stop());
+        microfono.classList.remove('is-attivo'); microfono.setAttribute('aria-pressed', 'false');
+        const audio = new Blob(pezzi, { type: registratore.mimeType || 'audio/webm' });
+        if (!audio.size) { dici(''); return; }
+        dici('Trascrivo…');
+        const dati = new FormData();
+        dati.append('audio', audio, 'voce.' + ((audio.type.split('/')[1] || 'webm').split(';')[0]));
+        try {
+          const r = await fetch(microfono.dataset.url, { method: 'POST', body: dati, headers: { 'X-CSRFToken': csrf } });
+          const j = await r.json();
+          if (!r.ok) throw new Error(j.errore || 'Trascrizione non riuscita.');
+          input.value = (input.value ? input.value.replace(/\s*$/, ' ') : '') + j.testo;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.focus(); dici('');
+        } catch (err) { dici(err.message); }
+      });
+      registratore.start();
+      microfono.classList.add('is-attivo'); microfono.setAttribute('aria-pressed', 'true');
+      dici('Ti ascolto… 0:00 · tocca di nuovo il microfono per finire');
+      timer = setInterval(() => {
+        secondi += 1;
+        dici(`Ti ascolto… ${Math.floor(secondi / 60)}:${String(secondi % 60).padStart(2, '0')} · tocca di nuovo il microfono per finire`);
+        if (secondi >= 120) ferma();
+      }, 1000);
+    });
+  }
+
+  let lettura = null;                                   // {bottone, audio, fermo}
+  const fermaLettura = () => {
+    if (!lettura) return;
+    lettura.fermo = true; lettura.audio.pause();
+    lettura.bottone.setAttribute('aria-pressed', 'false'); lettura.bottone.textContent = 'Ascolta';
+    lettura = null;
+  };
+  const leggi = async (bottone) => {
+    fermaLettura();
+    const corrente = { bottone, audio: new Audio(), fermo: false };
+    lettura = corrente;
+    bottone.setAttribute('aria-pressed', 'true'); bottone.textContent = 'Ferma';
+    try {
+      const r = await fetch(bottone.dataset.ascolta);
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.errore || 'Lettura non disponibile.');
+      const indirizzo = (i) => bottone.dataset.audio.replace(/0\/$/, `${i}/`);
+      for (let i = 0; i < j.parti && !corrente.fermo; i += 1) {
+        if (i + 1 < j.parti) fetch(indirizzo(i + 1));       // il pezzo dopo si prepara mentre si ascolta questo
+        corrente.audio.src = indirizzo(i);
+        await new Promise((fatto, errore) => {
+          corrente.audio.onended = fatto; corrente.audio.onerror = () => errore(new Error('Audio non disponibile.'));
+          corrente.audio.onpause = () => { if (corrente.fermo) fatto(); };
+          corrente.audio.play().catch(errore);
+        });
+      }
+    } catch (err) { dici(err.message); }
+    if (lettura === corrente) fermaLettura();
+  };
+  const mostraAscolta = () => {
+    if (!chat || !chat.hasAttribute('data-lettura')) return;
+    document.querySelectorAll('[data-ascolta][hidden]').forEach((b) => { b.hidden = false; });
+  };
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-ascolta]');
+    if (!b) return;
+    if (lettura && lettura.bottone === b) fermaLettura(); else leggi(b);
+  });
+  const automatica = document.querySelector('[data-voce-automatica]');
+  const attivaAutomatica = () => automatica && automatica.getAttribute('aria-pressed') === 'true';
+  if (automatica) {
+    const segna = (si) => {
+      automatica.setAttribute('aria-pressed', String(si));
+      automatica.classList.toggle('is-attivo', si);
+      automatica.dataset.tip = si ? 'Risposta vocale accesa: leggo ogni nuova risposta' : 'Risposta vocale: leggi ad alta voce ogni nuova risposta';
+    };
+    segna(localStorage.getItem('ai-voce-automatica') === '1');
+    automatica.addEventListener('click', () => {
+      const si = !attivaAutomatica();
+      segna(si);
+      localStorage.setItem('ai-voce-automatica', si ? '1' : '0');
+      if (!si) fermaLettura();
+    });
+  }
+  document.addEventListener('ai:risposta-finita', () => setTimeout(() => {
+    mostraAscolta();
+    if (!attivaAutomatica()) return;
+    const tutti = messaggi.querySelectorAll('.ai-msg-assistente [data-ascolta]');
+    if (tutti.length) leggi(tutti[tutti.length - 1]);
+  }, 60));
+  document.body.addEventListener('htmx:afterSwap', mostraAscolta);
+  mostraAscolta();
 
   decora();
   aggiorna();

@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -16,9 +16,10 @@ from django.views.decorators.http import require_POST
 from core import allegati as core_allegati
 from core.allegati import AllegatoNonValido
 from core.models import Allegato
+from core import barra
 from core.registry import modules
 
-from . import allegati_chat, catalogo, documenti_chat, motore, ricerca, suggerimenti
+from . import allegati_chat, catalogo, documenti_chat, motore, ricerca, suggerimenti, voce
 from .strumenti.registro import ErroreStrumento
 from .models import Artifact, Conversazione, DocumentoChat, VersioneDocumento, MessaggioChat, ProgettoChat, Proposta, Turno, ValutazioneRisposta
 
@@ -29,6 +30,15 @@ PANNELLI_DESTRA = [("artifact", "Artifact salvati", "ai-artifact"), ("documenti"
 
 def _mie(request):
     return Conversazione.objects.filter(utente=request.user, nascosta=False)
+
+
+def livelli_modello(azienda):
+    """[(livello, modello)] della scelta in chat: Standard il più economico dei modelli sceglibili, Max il più capace
+    (il più caro). Con Automatico vale la catena degli amministratori."""
+    modelli = sorted((m for m, _ in catalogo.sceglibili(azienda)), key=lambda m: (m.prezzo_output, m.prezzo_input, m.pk))
+    if not modelli:
+        return []
+    return [("standard", modelli[0])] + ([("max", modelli[-1])] if len(modelli) > 1 else [])
 
 
 def app_selezionabili(user):
@@ -78,8 +88,10 @@ def chat(request, pk=None):
         "pannelli_sinistra": PANNELLI_SINISTRA, "pannelli_destra": PANNELLI_DESTRA,
         "app": app, "suggerimenti": suggerimenti.per(), "suggerimenti_per_app": suggerimenti.tutti(),
         "progetti": progetti, "progetto_nuova": _mio_progetto(request, request.GET.get("progetto")) if conversazione is None else None,
-        "modelli_sceglibili": [m for m, _ in catalogo.sceglibili(azienda)],
+        "livelli_modello": livelli_modello(azienda),
+        "app_gruppi": barra.gruppi([{**a, "categoria": a.get("category", "")} for a in app]),
         "ricerca_disponibile": ricerca.disponibile(azienda),
+        "dettatura": voce.dettatura_disponibile(azienda), "lettura": voce.servizio_per(azienda) is not None,
     })
 
 
@@ -142,10 +154,15 @@ def invia(request, pk=None):
             conversazione.save(update_fields=["modello"])
     primo = conversazione.messaggi.order_by("-pk").values_list("pk", flat=True).first() or 0
     aperto = _mio_documento(request, request.POST.get("documento"), conversazione) if not nuova else None
-    approfondita = request.POST.get("ricerca") == "1" and ricerca.disponibile(getattr(request, "azienda", None))
+    # ricerca sul web scelta per questo messaggio: nessuna (predefinita), sul web, approfondita
+    scelta = request.POST.get("ricerca", "")
+    web_accesa = ricerca.disponibile(getattr(request, "azienda", None))
+    approfondita = scelta in ("approfondita", "1") and web_accesa
+    sul_web = scelta == "web" and web_accesa
+    nota_web = "Per questo messaggio l'utente ha acceso la ricerca sul web: usala se serve e cita i link delle fonti." if sul_web else ""
     turno = motore.avvia(conversazione, testo, request.user, getattr(request, "azienda", None), file=file,
-                         compito=ricerca.COMPITO if approfondita else "chat",
-                         nota="\n".join(n for n in (documenti_chat.nota(aperto), ricerca.ISTRUZIONI if approfondita else "") if n))
+                         compito=ricerca.COMPITO if approfondita else "chat", web=approfondita or sul_web,
+                         nota="\n".join(n for n in (documenti_chat.nota(aperto), ricerca.ISTRUZIONI if approfondita else "", nota_web) if n))
     conversazione.save(update_fields=["aggiornata"])
     url = reverse("ai:conversazione", args=[conversazione.pk])
     if request.headers.get("HX-Request"):
@@ -502,4 +519,53 @@ def scarica_documento(request, pk, formato):
     else:
         risposta = HttpResponse(documenti_chat.in_word(d), content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
     risposta["Content-Disposition"] = content_disposition_header(True, f"{nome}.{formato}")
+    return risposta
+
+
+@require_POST
+@login_required
+@permission_required("ai.add_conversazione", raise_exception=True)
+def trascrivi_voce(request):
+    """L'audio del microfono in testo, con Whisper sui nostri server: il testo torna nel campo, da rileggere."""
+    azienda = getattr(request, "azienda", None)
+    file = request.FILES.get("audio")
+    if not voce.dettatura_disponibile(azienda) or file is None:
+        return JsonResponse({"errore": "La dettatura non è attiva."}, status=400)
+    try:
+        return JsonResponse({"testo": voce.trascrivi(file, request.POST.get("lingua", ""))})
+    except voce.ErroreVoce as e:
+        return JsonResponse({"errore": str(e)}, status=502)
+
+
+def _messaggio_da_leggere(request, pk):
+    return get_object_or_404(MessaggioChat, pk=pk, ruolo=MessaggioChat.ASSISTENTE, conversazione__utente=request.user,
+                             conversazione__nascosta=False)
+
+
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+def parti_voce(request, pk):
+    m = _messaggio_da_leggere(request, pk)
+    if voce.servizio_per(getattr(request, "azienda", None)) is None:
+        return JsonResponse({"errore": "La lettura delle risposte non è attiva."}, status=400)
+    return JsonResponse({"parti": len(voce.parti(voce.da_leggere(m.testo)))})
+
+
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+def audio_voce(request, pk, parte):
+    m = _messaggio_da_leggere(request, pk)
+    servizio = voce.servizio_per(getattr(request, "azienda", None))
+    if servizio is None:
+        raise Http404
+    testo = voce.da_leggere(m.testo)
+    pezzi = voce.parti(testo)
+    if not 0 <= parte < len(pezzi):
+        raise Http404
+    try:
+        audio, tipo = voce.audio_di(servizio, pezzi[parte], voce.lingua_di(testo))
+    except voce.ErroreVoce as e:
+        return JsonResponse({"errore": str(e)}, status=502)
+    risposta = HttpResponse(audio, content_type=tipo)
+    risposta["Cache-Control"] = "private, max-age=3600"
     return risposta

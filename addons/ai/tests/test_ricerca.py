@@ -87,11 +87,11 @@ def test_scelta_nella_chat_solo_con_il_web_acceso(s, client, monkeypatch):
     monkeypatch.setattr(motore, "avvia", finto_avvia)
     c = Conversazione.objects.create(utente=s["u"], titolo="x")
     monkeypatch.setattr(ricerca, "disponibile", lambda azienda: False)
-    assert b"data-ricerca" not in client.get(reverse("ai:chat")).content
+    assert b'data-opzione="approfondita"' not in client.get(reverse("ai:chat")).content
     client.post(reverse("ai:invia_conversazione", args=[c.pk]), {"testo": "studia il mercato", "ricerca": "1"})
     assert visti["compito"] == "chat" and "RICERCA" not in visti["nota"]
     monkeypatch.setattr(ricerca, "disponibile", lambda azienda: True)
-    assert b"data-ricerca" in client.get(reverse("ai:chat")).content
+    assert b'data-opzione="approfondita"' in client.get(reverse("ai:chat")).content
     client.post(reverse("ai:invia_conversazione", args=[c.pk]), {"testo": "studia il mercato", "ricerca": "1"})
     assert visti["compito"] == "ricerca" and "RICERCA APPROFONDITA" in visti["nota"]
 

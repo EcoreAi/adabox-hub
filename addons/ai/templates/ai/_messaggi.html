@@ -19,6 +19,7 @@
       <button type="button" class="ai-azione-msg" data-copia data-tip="Copia" aria-label="Copia il messaggio">Copia</button>
       {% if m.ruolo == "utente" %}<button type="button" class="ai-azione-msg" data-apri-modifica data-tip="Modifica e invia di nuovo" aria-label="Modifica il messaggio">Modifica</button>
       {% else %}<form class="ai-rigenera" method="post" action="{% url 'ai:rigenera' m.conversazione_id %}" hidden data-solo-ultima>{% csrf_token %}<button type="submit" class="ai-azione-msg" data-tip="Risposta nuova alla stessa domanda" aria-label="Rigenera la risposta">Rigenera</button></form>
+      <button type="button" class="ai-azione-msg" data-ascolta="{% url 'ai:parti_voce' m.pk %}" data-audio="{% url 'ai:audio_voce' m.pk 0 %}" hidden data-tip="Leggi ad alta voce" aria-label="Leggi ad alta voce" aria-pressed="false">Ascolta</button>
       {% include "ai/_voto.html" with v=m|voto %}{% endif %}
     </div>
   </div>
