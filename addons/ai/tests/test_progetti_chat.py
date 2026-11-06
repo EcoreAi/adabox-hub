@@ -54,13 +54,14 @@ def test_sottocartelle_del_progetto(client, s):
     documenti_chat.crea(chat[0], s["u"], s["az"], "Note di rilascio", "testo")
     Artifact.objects.create(conversazione=chat[0], utente=s["u"], azienda=s["az"], tipo="grafico", titolo="Per stato", salvato=True)
     allegati.salva(p, SimpleUploadedFile("specifica.txt", b"testo"), s["u"])
-    html = client.get(f"{reverse('ai:albero_progetto', args=[p.pk])}?chat={chat[3].pk}").content.decode()
+    from html import unescape
+    html = unescape(client.get(f"{reverse('ai:albero_progetto', args=[p.pk])}?chat={chat[3].pk}").content.decode())
     gruppi = html.split('class="ai-albero-gruppo"')[1:]
     assert [g.split("<span>")[1].split("</span>")[0] for g in gruppi] == ["Chat", "Documenti", "Grafici e tabelle", "File"]
     assert ' open' in gruppi[0].split(">")[0] and gruppi[0].count("<li>") == 10                 # tutte, l'elenco scorre
     assert 'class="is-attiva"' in gruppi[0] and "data-corrente" in gruppi[0] and "Note di rilascio" in gruppi[1] and "★ Per stato" in gruppi[2]
-    assert "specifica.txt" in gruppi[3] and "solo del progetto" in gruppi[3]
-    assert all("data-elimina" in g for g in gruppi) and 'data-carica-albero="cartella"' in gruppi[3] and "i file del progetto" in gruppi[3]
+    assert "specifica.txt" in gruppi[3] and "solo dell'area" in gruppi[3]
+    assert all("data-elimina" in g for g in gruppi) and 'data-carica-albero="cartella"' in gruppi[3] and "i file dell'area" in gruppi[3]
     altro = User.objects.create_user("bruno", password="x")
     altro.user_permissions.set(Permission.objects.filter(content_type__app_label="ai"))
     client.force_login(altro)
@@ -93,6 +94,6 @@ def test_chip_del_progetto_con_la_x_e_prima_chat(client, s, settings):
     p = _progetto(s)
     pagina = client.get(f"{reverse('ai:chat')}?progetto={p.pk}").content.decode()
     chip = pagina.split('class="ai-chip ai-chip-progetto"')[1].split("</span>")[0]
-    assert "Sviluppo AdaV3" in chip and f'href="{reverse("ai:chat")}"' in chip and "Esci dal progetto" in chip
+    assert "Sviluppo AdaV3" in chip and f'href="{reverse("ai:chat")}"' in chip and "Esci dall'area di lavoro" in chip
     client.post(reverse("ai:invia"), {"testo": "prima domanda", "progetto": p.pk})
     assert Conversazione.objects.get(messaggi__testo="prima domanda").progetto == p

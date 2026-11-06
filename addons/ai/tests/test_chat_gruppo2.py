@@ -263,7 +263,7 @@ def test_pagina_progetto_e_nuova_chat(client, s):
     p = ProgettoChat.objects.create(utente=s["u"], azienda=s["az"], nome="Offerta")
     assert client.get(f"/ai/progetti/{p.pk}/").status_code == 200
     pagina = client.get(reverse("ai:chat"), {"progetto": p.pk}).content.decode()
-    assert "Nuova chat nel progetto" in pagina and "Offerta" in pagina
+    assert "Nuova chat nell'area" in pagina and "Offerta" in pagina
 
 
 def test_eliminando_un_progetto_se_ne_vanno_i_file_e_le_chat_restano(client, s):

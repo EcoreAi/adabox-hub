@@ -1,8 +1,14 @@
 {% load ai %}{% ct_progetto as ct_p %}<section class="ui-card is-revealed ui-section">
-  <div class="ui-card-head"><div class="ui-card-title">Chat del progetto</div><a class="ui-btn ui-btn-sm ui-btn-primary" href="{% url 'ai:progetto' obj.pk %}">Apri nella chat</a></div>
-  <div class="ui-card-body">{% for c in obj.chat.all %}<div><a class="ui-link" href="{% url 'ai:conversazione' c.pk %}">{{ c.titolo }}</a></div>{% empty %}Ancora nessuna chat.{% endfor %}</div>
+  <div class="ui-card-head"><div class="ui-card-title">Condivisione</div></div>
+  <div class="ui-card-body">{% with m=obj.membri.all %}{% if m %}Di {{ obj.utente.get_full_name|default:obj.utente.username }}, condivisa con
+    {% for x in m %}{{ x.utente.get_full_name|default:x.utente.username }}{% if not forloop.last %}, {% endif %}{% endfor %}.
+    Le chat di ognuno restano sue, salvo quelle condivise con l'area.{% else %}Non condivisa: la vedi solo tu.{% endif %}{% endwith %}</div>
 </section>
 <section class="ui-card is-revealed ui-section">
-  <div class="ui-card-head"><div class="ui-card-title">File del progetto</div></div>
+  <div class="ui-card-head"><div class="ui-card-title">Chat dell'area di lavoro</div><a class="ui-btn ui-btn-sm ui-btn-primary" href="{% url 'ai:progetto' obj.pk %}">Apri nella chat</a></div>
+  <div class="ui-card-body">{% chat_dell_area obj as chat_area %}{% for c in chat_area %}<div><a class="ui-link" href="{% url 'ai:conversazione' c.pk %}">{{ c.titolo }}</a>{% if c.utente_id != request.user.pk %} <span class="ui-help">di {{ c.utente.get_full_name|default:c.utente.username }}</span>{% endif %}</div>{% empty %}Ancora nessuna chat.{% endfor %}</div>
+</section>
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">File dell'area di lavoro</div></div>
   <div class="ui-card-body" data-ct-progetto hx-get="{% url 'core:allegati_elenco' ct_p obj.pk %}" hx-trigger="load"></div>
 </section>

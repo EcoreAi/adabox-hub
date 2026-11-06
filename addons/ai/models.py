@@ -52,7 +52,9 @@ class Conversazione(models.Model):
                                    verbose_name="assistente", help_text="fisso solo per gli esperti")
     modello = models.ForeignKey("Modello", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
                                 verbose_name="modello scelto", help_text="vuoto = quello deciso dagli amministratori")
-    progetto = models.ForeignKey("ProgettoChat", on_delete=models.SET_NULL, null=True, blank=True, related_name="chat", verbose_name="progetto")
+    progetto = models.ForeignKey("ProgettoChat", on_delete=models.SET_NULL, null=True, blank=True, related_name="chat", verbose_name="area di lavoro")
+    condivisa = models.BooleanField("condivisa con l'area", default=False,
+                                    help_text="gli altri membri dell'area di lavoro la leggono, senza poterci scrivere")
     nascosta = models.BooleanField("interna", default=False, help_text="conversazione di un esperto: non in cronologia")
     segnaposto = models.JSONField("segnaposto dei dati personali", default=dict, blank=True, editable=False,
                                   help_text="[FULLNAME_1] -> valore: stabili per conversazione (ai.protezione)")
@@ -386,7 +388,7 @@ class Pianificata(models.Model):
     conversazione = models.ForeignKey(Conversazione, on_delete=models.SET_NULL, null=True, blank=True,
                                       related_name="+", verbose_name="conversazione")
     progetto = models.ForeignKey("ProgettoChat", on_delete=models.SET_NULL, null=True, blank=True, related_name="pianificate",
-                                 verbose_name="progetto", help_text="la sua chat sta nel progetto: istruzioni, file e record collegati valgono anche qui")
+                                 verbose_name="area di lavoro", help_text="la sua chat sta nell'area di lavoro: istruzioni, file e record collegati valgono anche qui")
     creata = models.DateTimeField("creata il", auto_now_add=True)
 
     class Meta:
@@ -509,16 +511,16 @@ class ProgettoChat(models.Model):
     utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="progetti_ai", verbose_name="utente")
     azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, related_name="+", verbose_name="azienda")
     nome = models.CharField("nome", max_length=80)
-    istruzioni = models.TextField("istruzioni", blank=True, help_text="valgono per tutte le chat del progetto")
+    istruzioni = models.TextField("istruzioni", blank=True, help_text="valgono per tutte le chat dell'area di lavoro")
     # cartella dell'app Documenti (se installata): numero e non chiave esterna, perché ai non dipende da documenti
     cartella_documenti = models.PositiveIntegerField("cartella dei Documenti", null=True, blank=True)
     ambito = models.CharField("app predefinita", max_length=31, blank=True,
-                              help_text="le chat nuove del progetto partono limitate a questa app (si cambia dalla casella)")
+                              help_text="le chat nuove dell'area partono limitate a questa app (si cambia dalla casella)")
     creato = models.DateTimeField("creato il", auto_now_add=True)
 
     class Meta:
-        verbose_name = "progetto"
-        verbose_name_plural = "progetti"
+        verbose_name = "area di lavoro"
+        verbose_name_plural = "aree di lavoro"
         ordering = ["nome", "pk"]
 
     def __str__(self):
@@ -643,7 +645,22 @@ class CollegamentoProgetto(models.Model):
     creato = models.DateTimeField("collegato il", auto_now_add=True)
 
     class Meta:
-        verbose_name = "collegamento del progetto"
-        verbose_name_plural = "collegamenti del progetto"
+        verbose_name = "collegamento dell'area di lavoro"
+        verbose_name_plural = "collegamenti dell'area di lavoro"
         ordering = ["pk"]
         constraints = [models.UniqueConstraint(fields=["progetto", "content_type", "object_id"], name="ai_collegamento_unico")]
+
+
+
+class MembroArea(models.Model):
+    """Un collega con cui è condivisa un'area di lavoro: usa istruzioni, file, cartella e record collegati e apre chat
+    nell'area. Le sue chat restano sue, salvo quelle che condivide. Le impostazioni le cambia solo chi ha creato l'area."""
+    progetto = models.ForeignKey(ProgettoChat, on_delete=models.CASCADE, related_name="membri", verbose_name="area di lavoro")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="aree_condivise", verbose_name="utente")
+    aggiunto = models.DateTimeField("aggiunto il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "membro dell'area di lavoro"
+        verbose_name_plural = "membri dell'area di lavoro"
+        ordering = ["pk"]
+        constraints = [models.UniqueConstraint(fields=["progetto", "utente"], name="ai_membro_area_unico")]

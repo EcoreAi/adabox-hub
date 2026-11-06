@@ -19,11 +19,11 @@ from core.models import Allegato
 from core import barra
 from core.registry import modules
 
-from . import allegati_chat, catalogo, collegamenti, documenti_chat, motore, ricerca, suggerimenti, voce
+from . import allegati_chat, aree, catalogo, collegamenti, documenti_chat, motore, ricerca, suggerimenti, voce
 from .strumenti.registro import ErroreStrumento
 from .models import Artifact, CollegamentoProgetto, Conversazione, DocumentoChat, VersioneDocumento, MessaggioChat, ProgettoChat, Proposta, Turno, ValutazioneRisposta
 
-PANNELLI_SINISTRA = [("storico", "Cronologia chat", "ai-storico"), ("preferite", "Chat preferite", "ai-stella"), ("progetti", "Progetti", "ai-cartella")]
+PANNELLI_SINISTRA = [("storico", "Cronologia chat", "ai-storico"), ("preferite", "Chat preferite", "ai-stella"), ("progetti", "Aree di lavoro", "ai-cartella")]
 PANNELLI_DESTRA = [("artifact", "Artifact salvati", "ai-artifact"), ("documenti", "Documenti salvati", "ai-documento"),
                    ("grafici", "Grafici salvati", "ai-grafico")]
 
@@ -36,14 +36,16 @@ VOCI_PER_SOTTOCARTELLA = 8
 
 
 def _progetti_con_recenti(request, azienda):
-    """I progetti dell'utente per la colonna di sinistra: le sottocartelle si caricano quando se ne apre uno."""
-    return list(ProgettoChat.objects.filter(utente=request.user, azienda=azienda)) if azienda else []
+    """Le aree di lavoro che l'utente vede (sue e condivise con lui) per la colonna di sinistra: le sottocartelle si
+    caricano quando se ne apre una."""
+    from django.db.models import Count
+    return list(aree.visibili(request.user, azienda).select_related("utente").annotate(n_membri=Count("membri", distinct=True)).order_by("nome", "pk"))
 
 
 def _contenuti_progetto(request, progetto):
     """Ciò che è nato nelle chat del progetto, per tipo: compare da solo, senza salvarlo a mano."""
     from . import archivio
-    chat = _mie(request).filter(progetto=progetto).order_by("-aggiornata")
+    chat = aree.chat_visibili(request.user, progetto).order_by("-aggiornata")
     radice = archivio.cartella(request.user, progetto.azienda, progetto.cartella_documenti) if archivio.attivo() else None
     documenti = archivio.documenti_in(request.user, progetto.azienda, radice) if radice else []
     return {
@@ -52,10 +54,8 @@ def _contenuti_progetto(request, progetto):
         "documenti_cartella": [(d, archivio.url_documento(d)) for d in documenti[:60]], "documenti_cartella_totale": len(documenti),
         "cartella_scrivibile": bool(radice and archivio.cartella(request.user, progetto.azienda, radice.pk, scrittura=True)),
         "chat_progetto": chat[:100],
-        "documenti_progetto": DocumentoChat.objects.filter(utente=request.user, conversazione__progetto=progetto,
-                                                           conversazione__nascosta=False).order_by("-aggiornato")[:50],
-        "artifact_progetto": Artifact.objects.filter(utente=request.user, conversazione__progetto=progetto,
-                                                     conversazione__nascosta=False).order_by("-pk")[:50],
+        "documenti_progetto": DocumentoChat.objects.filter(conversazione__in=chat.values("pk")).select_related("utente").order_by("-aggiornato")[:50],
+        "artifact_progetto": Artifact.objects.filter(conversazione__in=chat.values("pk")).select_related("utente").order_by("-pk")[:50],
     }
 
 
@@ -107,9 +107,14 @@ def _avviso_spesa(request):
 def chat(request, pk=None, progetto=None):
     """La chat: una conversazione, una chat nuova, oppure la pagina di un progetto (le sue chat, documenti, grafici,
     file e la casella per una chat nuova nel progetto)."""
-    conversazione = get_object_or_404(_mie(request), pk=pk) if pk else None
-    mie = _mie(request)
     azienda = getattr(request, "azienda", None)
+    sola_lettura = False
+    conversazione = _mie(request).filter(pk=pk).first() if pk else None
+    if pk and conversazione is None:                 # una chat condivisa da un altro membro di un'area: si legge soltanto
+        conversazione = get_object_or_404(Conversazione.objects.filter(condivisa=True, nascosta=False, progetto__in=aree.visibili(request.user, azienda))
+                                          .select_related("progetto", "utente"), pk=pk)
+        sola_lettura = True
+    mie = _mie(request)
     progetti = _progetti_con_recenti(request, azienda)
     progetto_aperto = None
     if progetto is not None:
@@ -118,12 +123,14 @@ def chat(request, pk=None, progetto=None):
             raise Http404
     app = app_selezionabili(request.user)
     ambito = next((a for a in app if conversazione and a["slug"] == conversazione.ambito), None)
-    if conversazione is not None:
+    if conversazione is not None and not sola_lettura:
         motore.segna_interrotti(conversazione)
-    in_corso = motore.in_corso_di(conversazione) if conversazione else None
-    aperto = _mio_documento(request, request.GET.get("documento"), conversazione) if conversazione else None
+    in_corso = motore.in_corso_di(conversazione) if conversazione and not sola_lettura else None
+    aperto = _mio_documento(request, request.GET.get("documento"), conversazione) if conversazione and not sola_lettura else None
     progetto_nuova = (progetto_aperto or _mio_progetto(request, request.GET.get("progetto"))) if conversazione is None else None
     return render(request, "ai/chat.html", {
+        "sola_lettura": sola_lettura, "autore_chat": aree.nome(conversazione.utente) if sola_lettura else "",
+        "puo_condividere": bool(conversazione and not sola_lettura and conversazione.progetto_id),
         "documento": aperto, "versioni": aperto.versioni.all()[:20] if aperto else [],
         "conversazione": conversazione, "ambito": ambito, "turno": in_corso, "avviso_spesa": _avviso_spesa(request),
         "messaggi": conversazione.messaggi.all() if conversazione else [],
@@ -132,6 +139,8 @@ def chat(request, pk=None, progetto=None):
         "pannelli_sinistra": PANNELLI_SINISTRA, "pannelli_destra": PANNELLI_DESTRA,
         "app": app, "suggerimenti": suggerimenti.per(), "suggerimenti_per_app": suggerimenti.tutti(),
         "progetti": progetti, "progetto_aperto": progetto_aperto,
+        "gestisco_area": bool(progetto_aperto and progetto_aperto.utente_id == request.user.pk),
+        "membri_area": [aree.nome(m.utente) for m in progetto_aperto.membri.select_related("utente")] if progetto_aperto else [],
         "collegamenti_progetto": collegamenti.del_progetto(request, progetto_aperto) if progetto_aperto else [],
         **(_lavoro_del_progetto(request, progetto_aperto) if progetto_aperto else {}),
         "progetto_nuova": progetto_nuova,
@@ -160,7 +169,7 @@ def _lavoro_del_progetto(request, progetto):
         if nuovo:
             indirizzo = request.build_absolute_uri(reverse("ai:progetto", args=[progetto.pk]))
             voci["url_sessione"] = nuovo + "?" + urlencode({"titolo": f"Lavoro su «{progetto.nome}»",
-                                                             "descrizione": f"Progetto di Ada: {indirizzo}"})
+                                                             "descrizione": f"Area di lavoro di Ada: {indirizzo}"})
     return voci
 
 
@@ -183,11 +192,13 @@ def _salvati(request):
 
 
 def _mio_progetto(request, pk):
-    """Un progetto dell'utente nell'azienda corrente, o None."""
-    azienda = getattr(request, "azienda", None)
-    if azienda is None or not str(pk or "").isdigit():
-        return None
-    return ProgettoChat.objects.filter(pk=pk, utente=request.user, azienda=azienda).first()
+    """Un'area di lavoro che l'utente vede (sua o condivisa con lui) nell'azienda corrente, o None."""
+    return aree.visibile(request.user, getattr(request, "azienda", None), pk)
+
+
+def _area_gestita(request, pk):
+    """Un'area di lavoro creata dall'utente (solo lui ne cambia le impostazioni), o None."""
+    return aree.gestita(request.user, getattr(request, "azienda", None), pk)
 
 
 def _errore_invio(request, testo, pk):
@@ -695,11 +706,11 @@ def carica_archivio(request, pk):
     if progetto.cartella_documenti and archivio.attivo():
         radice = archivio.cartella(request.user, progetto.azienda, progetto.cartella_documenti, scrittura=True)
         if radice is None:
-            return JsonResponse({"errore": "Non puoi caricare file nella cartella dei Documenti di questo progetto."}, status=403)
+            return JsonResponse({"errore": "Non puoi caricare file nella cartella dei Documenti di quest'area di lavoro."}, status=403)
         caricati, errori = archivio.carica_cartella(request.user, progetto.azienda, radice, file, percorsi)
         return JsonResponse({"caricati": len(caricati), "errori": errori[:10]}, status=400 if errori and not caricati else 200)
     if not request.user.has_perm("ai.change_progettochat"):
-        return JsonResponse({"errore": "Non puoi aggiungere file a questo progetto."}, status=403)
+        return JsonResponse({"errore": "Non puoi aggiungere file a quest'area di lavoro."}, status=403)
     caricati, errori = 0, []
     for f in file[:archivio.MASSIMI_FILE_CARICAMENTO]:
         try:
@@ -770,27 +781,37 @@ def albero_progetto(request, pk):
     radice = contenuti["cartella_progetto"]
     allegati = list(Allegato.objects.filter(content_type=ContentType.objects.get_for_model(ProgettoChat), object_id=progetto.pk).order_by("-pk"))
     corrente = int(request.GET["chat"]) if request.GET.get("chat", "").isdigit() else None
+    io = request.user.pk
     puo_eliminare_chat = request.user.has_perm("ai.delete_conversazione")
-    puo_modificare = request.user.has_perm("ai.change_progettochat")
+    # i file solo dell'area li elimina chi la gestisce; caricarli possono tutti i membri
+    puo_modificare = request.user.has_perm("ai.change_progettochat") and progetto.utente_id == io
 
     def voce(nome, url, nota="", attiva=False, elimina="", conferma=""):
         return {"nome": nome, "url": url, "nota": nota, "attiva": attiva, "elimina": elimina, "conferma": conferma}
-    chat = [voce(c.titolo, reverse("ai:conversazione", args=[c.pk]), attiva=c.pk == corrente,
-                 elimina=reverse("ai:elimina", args=[c.pk]) if puo_eliminare_chat else "",
+
+    def di_altri(oggetto):                               # di un altro membro, da una chat che ha condiviso: si legge e basta
+        return oggetto.utente_id != io
+    chat = [voce(c.titolo, reverse("ai:conversazione", args=[c.pk]), aree.nome(c.utente) if di_altri(c) else ("condivisa" if c.condivisa else ""),
+                 attiva=c.pk == corrente,
+                 elimina=reverse("ai:elimina", args=[c.pk]) if puo_eliminare_chat and not di_altri(c) else "",
                  conferma=f"Eliminare la chat «{c.titolo}»?") for c in contenuti["chat_progetto"]]
-    documenti = [voce(d.titolo, f"{reverse('ai:conversazione', args=[d.conversazione_id])}?documento={d.pk}",
-                      elimina=reverse("ai:elimina_elemento", args=["documento", d.pk]),
+    documenti = [voce(d.titolo, reverse("ai:conversazione", args=[d.conversazione_id]) + ("" if di_altri(d) else f"?documento={d.pk}"),
+                      aree.nome(d.utente) if di_altri(d) else "",
+                      elimina="" if di_altri(d) else reverse("ai:elimina_elemento", args=["documento", d.pk]),
                       conferma=f"Eliminare il documento «{d.titolo}» con tutte le sue versioni?") for d in contenuti["documenti_progetto"]]
-    grafici = [voce(("★ " if a.salvato else "") + a.titolo, reverse("ai:artifact", args=[a.pk]), a.get_tipo_display(),
-                    elimina=reverse("ai:elimina_elemento", args=["artifact", a.pk]), conferma=f"Eliminare «{a.titolo}»?")
+    grafici = [voce(("★ " if a.salvato and not di_altri(a) else "") + a.titolo,
+                    reverse("ai:conversazione", args=[a.conversazione_id]) if di_altri(a) else reverse("ai:artifact", args=[a.pk]),
+                    aree.nome(a.utente) if di_altri(a) else a.get_tipo_display(),
+                    elimina="" if di_altri(a) else reverse("ai:elimina_elemento", args=["artifact", a.pk]), conferma=f"Eliminare «{a.titolo}»?")
                for a in contenuti["artifact_progetto"]]
     file = [voce(d.nome, url, d.cartella.nome if d.cartella_id != radice.pk else "",
                  elimina=reverse("ai:elimina_elemento", args=["archivio", d.pk]) if contenuti["cartella_scrivibile"] else "",
                  conferma=f"Spostare «{d.nome}» nel cestino dei Documenti? Si può recuperare.") for d, url in contenuti["documenti_cartella"]]
-    file += [voce(a.nome, reverse("core:allegato_scarica", args=[a.pk]), "solo del progetto",
+    file += [voce(a.nome, reverse("core:allegato_scarica", args=[a.pk]), "solo dell'area",
                   elimina=reverse("core:allegato_elimina", args=[a.pk]) if puo_modificare else "",
                   conferma=f"Eliminare definitivamente «{a.nome}»?") for a in allegati]
-    destinazione = (radice.percorso() if contenuti["cartella_scrivibile"] else "") if radice else ("i file del progetto" if puo_modificare else "")
+    destinazione = (radice.percorso() if contenuti["cartella_scrivibile"] else "") if radice else (
+        "i file dell'area" if request.user.has_perm("ai.change_progettochat") else "")
     gruppi = [
         ("chat", "Chat", len(contenuti["chat_progetto"]), chat),
         ("documenti", "Documenti", len(contenuti["documenti_progetto"]), documenti),
@@ -834,7 +855,7 @@ def elimina_elemento(request, tipo, pk):
 @permission_required("ai.change_progettochat", raise_exception=True)
 def cerca_collegamento(request, pk):
     """I record che l'utente vede, da collegare al progetto (come «Cerca ovunque»)."""
-    progetto = _mio_progetto(request, pk)
+    progetto = _area_gestita(request, pk)
     if progetto is None:
         raise Http404
     testo = request.GET.get("q", "").strip()[:100]
@@ -847,7 +868,7 @@ def cerca_collegamento(request, pk):
 @permission_required("ai.change_progettochat", raise_exception=True)
 def collega(request, pk):
     """Collega un record al progetto, se l'utente lo vede. Da dove si è partiti (progetto o record) si torna lì."""
-    progetto = _mio_progetto(request, pk)
+    progetto = _area_gestita(request, pk)
     if progetto is None:
         raise Http404
     ct, record = request.POST.get("ct", ""), request.POST.get("record", "")
@@ -856,7 +877,7 @@ def collega(request, pk):
         messages.error(request, "Record non trovato o non visibile.")
     else:
         CollegamentoProgetto.objects.get_or_create(progetto=progetto, content_type_id=int(ct), object_id=int(record))
-        messages.success(request, f"«{trovato[1]}» collegato al progetto «{progetto.nome}».")
+        messages.success(request, f"«{trovato[1]}» collegato all'area di lavoro «{progetto.nome}».")
     indietro = request.POST.get("indietro", "")
     return redirect(indietro if indietro.startswith("/") and not indietro.startswith("//") else reverse("ai:progetto", args=[progetto.pk]))
 
@@ -865,9 +886,21 @@ def collega(request, pk):
 @login_required
 @permission_required("ai.change_progettochat", raise_exception=True)
 def scollega(request, pk, collegamento):
-    progetto = _mio_progetto(request, pk)
+    progetto = _area_gestita(request, pk)
     if progetto is None:
         raise Http404
     CollegamentoProgetto.objects.filter(pk=collegamento, progetto=progetto).delete()
     indietro = request.POST.get("indietro", "")
     return redirect(indietro if indietro.startswith("/") and not indietro.startswith("//") else reverse("ai:progetto", args=[progetto.pk]))
+
+
+@require_POST
+@login_required
+@permission_required("ai.change_conversazione", raise_exception=True)
+def condividi_chat(request, pk):
+    """Una propria chat di un'area di lavoro: condivisa con gli altri membri (in sola lettura) o di nuovo privata."""
+    c = get_object_or_404(_mie(request), pk=pk, progetto__isnull=False)
+    c.condivisa = not c.condivisa
+    c.save(update_fields=["condivisa"])
+    messages.success(request, "Chat condivisa con l'area di lavoro: gli altri membri la leggono." if c.condivisa else "Chat di nuovo privata.")
+    return redirect("ai:conversazione", pk=c.pk)

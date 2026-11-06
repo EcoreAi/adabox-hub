@@ -22,11 +22,11 @@ def nota_progetto(conversazione):
     progetto = conversazione.progetto
     if progetto is None:
         return ""
-    righe = [f"Questa chat è nel progetto «{progetto.nome}»."]
+    righe = [f"Questa chat è nell'area di lavoro «{progetto.nome}»."]
     if progetto.istruzioni.strip():
-        righe.append(f"Istruzioni dell'utente per il progetto:\n{progetto.istruzioni.strip()}")
+        righe.append(f"Istruzioni per l'area di lavoro:\n{progetto.istruzioni.strip()}")
     if file := allegati_chat.di_progetto(progetto):
-        righe.append("File del progetto, da leggere con leggi_allegato se servono: " + ", ".join(f"«{a.nome}» (allegato n. {a.pk})" for a in file))
+        righe.append("File dell'area di lavoro, da leggere con leggi_allegato se servono: " + ", ".join(f"«{a.nome}» (allegato n. {a.pk})" for a in file))
     righe += _nota_cartella(conversazione, progetto)
     from . import collegamenti
     if collegati := collegamenti.nota(conversazione.utente, progetto):
@@ -44,8 +44,8 @@ def _nota_cartella(conversazione, progetto):
         return []
     documenti = archivio.documenti_in(conversazione.utente, progetto.azienda, radice)
     if not documenti:
-        return [f"La cartella dei Documenti del progetto è «{radice.percorso()}»: per ora è vuota."]
+        return [f"La cartella dei Documenti dell'area di lavoro è «{radice.percorso()}»: per ora è vuota."]
     elenco = ", ".join(f"«{d.nome}» (documento n. {d.pk}{', in ' + d.cartella.nome if d.cartella_id != radice.pk else ''})"
                        for d in documenti[:archivio.MASSIMO_ELENCO])
     altri = f" e altri {len(documenti) - archivio.MASSIMO_ELENCO}" if len(documenti) > archivio.MASSIMO_ELENCO else ""
-    return [f"Documenti della cartella del progetto «{radice.percorso()}» (app Documenti), da leggere con leggi_documento se servono: {elenco}{altri}."]
+    return [f"Documenti della cartella dell'area di lavoro «{radice.percorso()}» (app Documenti), da leggere con leggi_documento se servono: {elenco}{altri}."]

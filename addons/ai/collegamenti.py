@@ -71,13 +71,14 @@ def nota(utente, progetto):
     if not voci:
         return ""
     elenco = "; ".join(f"{v['tipo']} «{v['titolo']}» (vista {v['id_vista']}, id {v['obj'].pk})" for v in voci)
-    return (f"Il progetto è collegato a questi record del gestionale: {elenco}. Quando la domanda li riguarda (stato, scadenze, "
+    return (f"L'area di lavoro è collegata a questi record del gestionale: {elenco}. Quando la domanda li riguarda (stato, scadenze, "
             "attività, persone), leggili con leggi_record invece di chiedere all'utente di cosa si parla.")
 
 
 def progetti_del_record(utente, azienda, obj):
-    """I progetti dell'utente (nell'azienda corrente) collegati a questo record."""
+    """Le aree di lavoro che l'utente vede (sue o condivise con lui) collegate a questo record."""
+    from . import aree
     if azienda is None:
         return []
     ct = ContentType.objects.get_for_model(type(obj))
-    return list(ProgettoChat.objects.filter(utente=utente, azienda=azienda, collegamenti__content_type=ct, collegamenti__object_id=obj.pk).distinct())
+    return list(aree.visibili(utente, azienda).filter(collegamenti__content_type=ct, collegamenti__object_id=obj.pk).distinct())

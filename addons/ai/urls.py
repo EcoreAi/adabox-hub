@@ -27,6 +27,7 @@ urlpatterns = [
     path("progetto/<int:pk>/collega/", pagine.collega, name="collega"),
     path("progetto/<int:pk>/scollega/<int:collegamento>/", pagine.scollega, name="scollega"),
     path("elimina/<slug:tipo>/<int:pk>/", pagine.elimina_elemento, name="elimina_elemento"),
+    path("chat/<int:pk>/condividi/", pagine.condividi_chat, name="condividi_chat"),
     path("salva-documenti/<slug:tipo>/<int:pk>/", pagine.salva_documenti, name="salva_documenti"),
     path("voce/trascrivi/", pagine.trascrivi_voce, name="trascrivi_voce"),
     path("scrivi/<slug:campo>/", pagine.scrivi_con_ada, name="scrivi_con_ada"),

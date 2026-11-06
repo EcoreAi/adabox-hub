@@ -15,8 +15,8 @@ ESCLUSI = {"scrivi_documento", "modifica_documento", "grafico", "tabella", "cerc
 CAMPI = {
     "progetto": {
         "permesso": "ai.add_progettochat",
-        "cosa": "le istruzioni di un progetto della chat: valgono per ogni chat del progetto e arrivano ad Ada a ogni messaggio",
-        "domande": ["Su cosa lavori in questo progetto?", "Chi lo usa e per fare cosa?",
+        "cosa": "le istruzioni di un'area di lavoro della chat: valgono per ogni chat dell'area e arrivano ad Ada a ogni messaggio",
+        "domande": ["Su cosa lavori in quest'area di lavoro?", "Chi lo usa e per fare cosa?",
                     "Come vuoi le risposte? (tono, lunghezza, formato)", "Quali dati del gestionale o documenti servono? (facoltativo)",
                     "Cose da evitare (facoltativo)"],
         "struttura": "una riga sull'obiettivo; «Contesto» con i fatti stabili; «Come rispondere»; «Dati del gestionale» con i nomi "

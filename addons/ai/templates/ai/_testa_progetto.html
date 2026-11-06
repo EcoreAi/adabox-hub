@@ -4,23 +4,29 @@
     <span class="ai-progetto-simbolo" aria-hidden="true"><svg><use href="#ai-cartella"/></svg></span>
     <h1>{{ progetto_aperto.nome }}</h1>
     <span class="ai-spazio"></span>
-    {% if ambito_nuova %}<span class="ai-progetto-vuoto" data-tip="Le chat nuove del progetto partono limitate a questa app">App predefinita: {% for a in app %}{% if a.slug == ambito_nuova %}<strong>{{ a.label }}</strong>{% endif %}{% endfor %}</span>{% endif %}
-    <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'ai:progetti_modifica' progetto_aperto.pk %}"><svg><use href="#icon-edit"/></svg> Modifica</a>
+    {% if ambito_nuova %}<span class="ai-progetto-vuoto" data-tip="Le chat nuove dell'area partono limitate a questa app">App predefinita: {% for a in app %}{% if a.slug == ambito_nuova %}<strong>{{ a.label }}</strong>{% endif %}{% endfor %}</span>{% endif %}
+    {% if gestisco_area %}<a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'ai:progetti_modifica' progetto_aperto.pk %}"><svg><use href="#icon-edit"/></svg> Modifica</a>{% endif %}
+  </div>
+  <div class="ai-collegamenti" aria-label="Condivisione">
+    <span class="ai-collegamenti-etichetta"><svg class="ai-area-condivisa" aria-hidden="true"><use href="#ai-persone"/></svg></span>
+    {% if not gestisco_area %}<span>Area di <strong>{{ progetto_aperto.utente.get_full_name|default:progetto_aperto.utente.username }}</strong>, condivisa con te{% if membri_area|length > 1 %} e altri {{ membri_area|length|add:"-1" }}{% endif %}. Le tue chat restano tue, salvo quelle che condividi.</span>
+    {% elif membri_area %}<span>Condivisa con {{ membri_area|join:", " }}. Ognuno vede le sue chat e quelle condivise.</span>
+    {% else %}<span class="ai-progetto-vuoto">Solo tua{% if perms.ai.change_progettochat %}: <a class="ui-link" href="{% url 'ai:progetti_modifica' progetto_aperto.pk %}">condividila</a> con i colleghi per lavorarci insieme{% endif %}.</span>{% endif %}
   </div>
   <div class="ai-collegamenti" aria-label="Record collegati">
     <span class="ai-collegamenti-etichetta">Collegato a</span>
     {% for c in collegamenti_progetto %}<span class="ai-chip ai-chip-collegamento"><span class="ai-collega-tipo">{{ c.tipo }}</span>{% if c.url %}<a href="{{ c.url }}">{{ c.titolo }}</a>{% else %}{{ c.titolo }}{% endif %}
-      {% if perms.ai.change_progettochat %}<form method="post" action="{% url 'ai:scollega' progetto_aperto.pk c.collegamento.pk %}">{% csrf_token %}<button type="submit" class="ai-chip-x" aria-label="Scollega {{ c.titolo }}" data-tip="Scollega"><svg><use href="#icon-x"/></svg></button></form>{% endif %}</span>
-    {% empty %}<span class="ai-progetto-vuoto">nessun record: collega una commessa, un cliente, un'opportunità… e Ada li conoscerà in tutte le chat del progetto.</span>{% endfor %}
-    {% if perms.ai.change_progettochat %}<details class="ai-collega"><summary class="ui-btn ui-btn-ghost ui-btn-sm">+ Collega</summary>
+      {% if gestisco_area %}<form method="post" action="{% url 'ai:scollega' progetto_aperto.pk c.collegamento.pk %}">{% csrf_token %}<button type="submit" class="ai-chip-x" aria-label="Scollega {{ c.titolo }}" data-tip="Scollega"><svg><use href="#icon-x"/></svg></button></form>{% endif %}</span>
+    {% empty %}<span class="ai-progetto-vuoto">nessun record: collega una commessa, un cliente, un'opportunità… e Ada li conoscerà in tutte le chat dell'area.</span>{% endfor %}
+    {% if gestisco_area %}<details class="ai-collega"><summary class="ui-btn ui-btn-ghost ui-btn-sm">+ Collega</summary>
       <div class="ai-collega-pannello"><input class="ui-input" type="search" name="q" placeholder="Cerca un record da collegare…" aria-label="Cerca un record da collegare" autocomplete="off"
         hx-get="{% url 'ai:cerca_collegamento' progetto_aperto.pk %}" hx-trigger="input changed delay:350ms, search" hx-target="next .ai-collega-esiti">
         <div class="ai-collega-esiti"></div></div></details>{% endif %}
   </div>
-  <div class="ai-collegamenti" aria-label="Attività del progetto">
+  <div class="ai-collegamenti" aria-label="Attività dell'area di lavoro">
     <span class="ai-collegamenti-etichetta">Attività</span>
     {% for p in pianificate_progetto %}<a class="ai-chip ai-chip-collegamento{% if not p.attiva %} is-spenta{% endif %}" href="{% url 'ai:pianificate_dettaglio' p.pk %}"><span class="ai-collega-tipo">{{ p.frequenza }}</span>{{ p.nome }}</a>
-    {% empty %}<span class="ai-progetto-vuoto">Ada può lavorare da sola sul progetto, per esempio ogni lunedì scrivere lo stato della commessa.</span>{% endfor %}
+    {% empty %}<span class="ai-progetto-vuoto">Ada può lavorare da sola nell'area, per esempio ogni lunedì scrivere lo stato della commessa.</span>{% endfor %}
     {% if perms.ai.add_pianificata %}<a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'ai:pianificate_nuovo' %}?progetto={{ progetto_aperto.pk }}">+ Attività pianificata</a>{% endif %}
     {% if url_sessione %}<a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ url_sessione }}"><svg><use href="#ai-sveglia"/></svg> Sessione in calendario</a>{% endif %}
   </div>
@@ -28,6 +34,6 @@
   <details class="ai-progetto-istruzioni"><summary><span>Istruzioni</span> {{ progetto_aperto.istruzioni|truncatechars:140 }}</summary>
     <div class="ai-progetto-istruzioni-testo">{{ progetto_aperto.istruzioni|linebreaksbr }}</div></details>
   {% else %}
-  <p class="ai-progetto-vuoto">Nessuna istruzione: <a class="ui-link" href="{% url 'ai:progetti_modifica' progetto_aperto.pk %}">aggiungile</a> per dare ad Ada il contesto di tutte le chat del progetto (c'è anche «Scrivi con Ada»).</p>
+  <p class="ai-progetto-vuoto">Nessuna istruzione: <a class="ui-link" href="{% url 'ai:progetti_modifica' progetto_aperto.pk %}">aggiungile</a> per dare ad Ada il contesto di tutte le chat dell'area (c'è anche «Scrivi con Ada»).</p>
   {% endif %}
 </header>

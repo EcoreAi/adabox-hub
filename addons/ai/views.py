@@ -122,7 +122,8 @@ class PianificataView(ModelView):
         base = super().get_form_class(request)
         if request is None:
             return base
-        progetti = ProgettoChat.objects.filter(utente=request.user, azienda=getattr(request, "azienda", None))
+        from . import aree
+        progetti = aree.visibili(request.user, getattr(request, "azienda", None))
         return type("PianificataFormUtente", (base,), {"progetti_utente": progetti})
 
     def get_queryset(self, request):
@@ -275,21 +276,51 @@ class ProgettoChatView(_SoloMie):
     model = ProgettoChat
     slug = "progetti"
     form_class = ProgettoChatForm
-    form_layout = [("Progetto", ["nome", "istruzioni", ("ambito", "cartella_documenti")])]
+    form_layout = [("Area di lavoro", ["nome", "istruzioni", ("ambito", "cartella_documenti")]), ("Condivisione", ["membri"])]
 
     def get_form_class(self, request=None):
         base = super().get_form_class(request)
         if request is None:
             return base
         from . import archivio
+        from . import aree
         from .pagine import app_selezionabili
-        return type("ProgettoChatFormUtente", (base,), {"cartelle": archivio.cartelle(request.user, getattr(request, "azienda", None)),
-                                                        "app": [(a["slug"], a["label"]) for a in app_selezionabili(request.user)]})
+        azienda = getattr(request, "azienda", None)
+        return type("ProgettoChatFormUtente", (base,), {"cartelle": archivio.cartelle(request.user, azienda),
+                                                        "app": [(a["slug"], a["label"]) for a in app_selezionabili(request.user)],
+                                                        "candidati": aree.candidati(azienda, request.user) if azienda else None})
 
-    def layout_dettaglio(self):                      # la cartella si vede nella pagina del progetto, con nome e documenti
-        return [(t, [[c for c in riga if c != "cartella_documenti"] for riga in righe if riga != ["cartella_documenti"]])
-                for t, righe in super().layout_dettaglio()]
-    list_display = ["nome", "creato"]
+    # condivisa: i membri la vedono (dettaglio, file), ma solo chi l'ha creata la modifica o la elimina
+    def get_queryset(self, request):
+        from . import aree
+        return ModelView.get_queryset(self, request).filter(pk__in=aree.visibili(request.user, getattr(request, "azienda", None)).values("pk"))
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and (obj is None or obj.utente_id == request.user.pk)
+
+    def has_delete_permission(self, request, obj=None):
+        return super().has_delete_permission(request, obj) and (obj is None or obj.utente_id == request.user.pk)
+
+    def save_model(self, request, obj, form, change):
+        from . import aree
+        super().save_model(request, obj, form, change)
+        if "membri" in form.cleaned_data:
+            aree.imposta_membri(obj, form.cleaned_data["membri"])
+
+    def col_condivisa(self, obj):
+        n = obj.membri.count()
+        return f"con {n} {'persona' if n == 1 else 'persone'}" if n else "no"
+    col_condivisa.short_description = "Condivisa"
+
+    def col_di(self, obj):
+        return obj.utente.get_full_name() or obj.utente.username
+    col_di.short_description = "Di"
+
+    def layout_dettaglio(self):                      # cartella e membri si vedono nella sezione dell'area, con nomi veri
+        via = {"cartella_documenti", "membri"}
+        sezioni = [(t, [[c for c in riga if c not in via] for riga in righe]) for t, righe in super().layout_dettaglio()]
+        return [(t, [r for r in righe if r]) for t, righe in sezioni if any(righe)]
+    list_display = ["nome", "di", "condivisa", "creato"]
     search_fields = ["nome", "istruzioni"]
     readonly_fields = ["creato"]
 

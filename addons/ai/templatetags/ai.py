@@ -102,7 +102,17 @@ def progetti_del_record(context, obj, vista=None):
     from ai.models import ProgettoChat
     azienda = getattr(request, "azienda", None)
     collegati = collegamenti.progetti_del_record(request.user, azienda, obj)
-    tutti = list(ProgettoChat.objects.filter(utente=request.user, azienda=azienda)) if azienda else []
-    if not tutti:
+    gestite = list(ProgettoChat.objects.filter(utente=request.user, azienda=azienda)) if azienda else []   # collega solo chi gestisce
+    if not gestite and not collegati:
         return None
-    return {"collegati": collegati, "liberi": [p for p in tutti if p not in collegati], "ct": ContentType.objects.get_for_model(type(obj)).pk}
+    return {"collegati": collegati, "liberi": [p for p in gestite if p not in collegati], "ct": ContentType.objects.get_for_model(type(obj)).pk}
+
+
+@register.simple_tag(takes_context=True)
+def chat_dell_area(context, area):
+    """Le chat dell'area che chi guarda può vedere: le sue e quelle condivise dagli altri membri (mai le private altrui)."""
+    request = context.get("request")
+    if request is None:
+        return []
+    from ai import aree
+    return aree.chat_visibili(request.user, area).order_by("-aggiornata")[:100]

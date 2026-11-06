@@ -559,3 +559,12 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-collega-piu { font-size: 12px; font-weight: 600; color: var(--ui-primary); }
 .ai-chip-collegamento.is-spenta { opacity: .55; text-decoration: line-through; }
 .ai-collegamenti .ui-btn svg { width: 14px; height: 14px; }
+
+/* aree di lavoro condivise */
+.ai-area-nome { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-area-di { flex: none; margin-left: 6px; font-size: 11px; color: var(--ui-text-3); }
+.ai-area-condivisa { width: 14px; height: 14px; flex: none; margin-left: 6px; color: var(--ui-text-3); }
+.ai-sola-lettura { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: var(--ui-surface-2); font-size: 13px; color: var(--ui-text-2); }
+.ai-sola-lettura svg { width: 16px; height: 16px; flex: none; }
+.ai-chat[data-sola-lettura] [data-apri-modifica], .ai-chat[data-sola-lettura] .ai-rigenera, .ai-chat[data-sola-lettura] .ai-voto,
+.ai-chat[data-sola-lettura] .ai-proposta-azioni, .ai-chat[data-sola-lettura] [data-salva-documenti] { display: none !important; }

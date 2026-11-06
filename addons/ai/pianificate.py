@@ -84,7 +84,9 @@ def esegui_scadute():
 
 def _conversazione(p):
     """La chat dell'attività; con un progetto sta nel progetto (istruzioni, file, cartella e record collegati)."""
-    progetto = p.progetto if p.progetto_id and p.progetto.utente_id == p.utente_id else None
+    from . import aree                                   # l'area deve essere sua o condivisa con lui, nella sua azienda
+    progetto = (p.progetto if p.progetto_id and p.progetto.azienda_id == p.azienda_id and aree.puo_vedere(p.utente, p.progetto)
+                else None)
     if p.conversazione_id is None or not Conversazione.objects.filter(pk=p.conversazione_id).exists():
         p.conversazione = Conversazione.objects.create(utente=p.utente, ambito=p.ambito, progetto=progetto,
                                                        titolo=f"Pianificata: {p.nome}"[:120], titolo_generato=True)

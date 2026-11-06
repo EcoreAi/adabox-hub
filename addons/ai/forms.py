@@ -214,20 +214,29 @@ class ServizioVoceForm(forms.ModelForm):
 class ProgettoChatForm(forms.ModelForm):
     """La cartella dei Documenti si sceglie tra quelle che l'utente vede (vedi ProgettoChatView.get_form_class)."""
     cartella_documenti = forms.TypedChoiceField(label="cartella dei Documenti", required=False, coerce=int, empty_value=None,
-                                                help_text="Ada legge i file di questa cartella (e delle sottocartelle) in tutte le chat del "
-                                                          "progetto, con i permessi di chi scrive; lì si salvano documenti, grafici e tabelle")
+                                                help_text="Ada legge i file di questa cartella (e delle sottocartelle) in tutte le chat dell'area "
+                                                          "di lavoro, con i permessi di chi scrive; lì si salvano documenti, grafici e tabelle")
     ambito = forms.ChoiceField(label="app predefinita", required=False,
-                               help_text="le chat nuove del progetto partono limitate a questa app; dalla casella si toglie o si cambia")
+                               help_text="le chat nuove dell'area partono limitate a questa app; dalla casella si toglie o si cambia")
+    membri = forms.ModelMultipleChoiceField(label="condivisa con", required=False, queryset=None, widget=forms.CheckboxSelectMultiple,
+                                            help_text="colleghi della stessa azienda: usano istruzioni, file, cartella e record collegati e "
+                                                      "aprono chat nell'area; le loro chat restano loro, salvo quelle che condividono")
     cartelle = []
     app = []                                             # [(slug, nome)] delle app che l'utente vede: le mette la vista
+    candidati = None                                     # gli utenti con cui si può condividere: li mette la vista
 
     class Meta:
         model = ProgettoChat
-        fields = ["nome", "istruzioni", "ambito", "cartella_documenti"]
+        fields = ["nome", "istruzioni", "ambito", "cartella_documenti", "membri"]
         widgets = {"istruzioni": forms.Textarea(attrs={"rows": 10, "data-scrivi-con-ada": "progetto"})}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        from django.contrib.auth import get_user_model
+        self.fields["membri"].queryset = self.candidati if self.candidati is not None else get_user_model().objects.none()
+        self.fields["membri"].label_from_instance = lambda u: u.get_full_name() or u.username
+        if self.instance.pk:
+            self.initial["membri"] = list(self.instance.membri.values_list("utente_id", flat=True))
         app = [("", "Tutte le app")] + list(self.app)
         if self.instance.ambito and self.instance.ambito not in {s for s, _ in self.app}:
             app.append((self.instance.ambito, f"{self.instance.ambito} (non più disponibile)"))
