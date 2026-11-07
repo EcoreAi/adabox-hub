@@ -60,7 +60,8 @@ def test_livelli_del_modello(client, s):
     assert pagine.livelli_modello(s["az"]) == [("standard", economico), ("max", capace)]
     c = Conversazione.objects.create(utente=s["u"], titolo="x", modello=capace)
     pagina = client.get(reverse("ai:conversazione", args=[c.pk])).content.decode()
-    assert "Standard" in pagina and "Economico" in pagina and "Max" in pagina and "Capace" in pagina and "Medio" not in pagina
+    assert "Veloce" in pagina and "Avanzato" in pagina and "budget" in pagina
+    assert "Economico" not in pagina and "Capace" not in pagina and "Medio" not in pagina           # il nome del modello non si vede
     assert f'name="modello" value="{capace.pk}"' in pagina
 
 

@@ -163,10 +163,10 @@
               <div class="ai-menu" role="menu" aria-label="Modello" hidden>
                 <div class="ai-menu-testa">Modello per questa chat</div>
                 <button type="button" role="menuitemradio" aria-checked="true" data-opzione="" data-icona="ai-auto" data-etichetta="Modello: automatico">
-                  <svg class="ai-menu-simbolo"><use href="#ai-auto"/></svg><span><strong>Automatico</strong><small>quello scelto dagli amministratori per ogni richiesta</small></span><svg class="ai-menu-spunta"><use href="#icon-check"/></svg></button>
+                  <svg class="ai-menu-simbolo"><use href="#ai-auto"/></svg><span><strong>Automatico</strong><small>la scelta giusta per la maggior parte delle richieste</small></span><svg class="ai-menu-spunta"><use href="#icon-check"/></svg></button>
                 {% for livello, m in livelli_modello %}
-                <button type="button" role="menuitemradio" aria-checked="false" data-opzione="{{ m.pk }}" data-icona="{% if livello == 'max' %}ai-gemma{% else %}ai-fulmine{% endif %}" data-etichetta="Modello: {% if livello == 'max' %}Max{% else %}Standard{% endif %} ({{ m.etichetta }})">
-                  <svg class="ai-menu-simbolo"><use href="#{% if livello == 'max' %}ai-gemma{% else %}ai-fulmine{% endif %}"/></svg><span><strong>{% if livello == 'max' %}Max{% else %}Standard{% endif %}</strong><small>{{ m.etichetta }} · {% if livello == 'max' %}il più capace, costa di più{% else %}veloce ed economico{% endif %}</small></span><svg class="ai-menu-spunta"><use href="#icon-check"/></svg></button>
+                <button type="button" role="menuitemradio" aria-checked="false" data-opzione="{{ m.pk }}" data-icona="{% if livello == 'max' %}ai-gemma{% else %}ai-fulmine{% endif %}" data-etichetta="Modello: {% if livello == 'max' %}avanzato{% else %}veloce{% endif %}">
+                  <svg class="ai-menu-simbolo"><use href="#{% if livello == 'max' %}ai-gemma{% else %}ai-fulmine{% endif %}"/></svg><span><strong>{% if livello == 'max' %}Avanzato{% else %}Veloce{% endif %}</strong><small>{% if livello == 'max' %}ragiona di più su domande complesse e documenti lunghi; più lento, consuma più budget del mese{% else %}risposte rapide per le domande di tutti i giorni{% endif %}</small></span><svg class="ai-menu-spunta"><use href="#icon-check"/></svg></button>
                 {% endfor %}
               </div>
             </div>
