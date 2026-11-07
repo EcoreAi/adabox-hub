@@ -18,6 +18,13 @@ from . import motore
 from .models import Grafico
 from .pagine import _metti
 
+
+def _area_scelta(request, destinazione):
+    """L'area di lavoro se si arriva dal «Nuovo grafico» della sua dashboard, così resta tra le scelte."""
+    if not str(destinazione or "").startswith("area:"):
+        return None
+    return motore.area_visibile(request.user, getattr(request, "azienda", None), destinazione[5:])
+
 TIPI = [(Grafico.BARRE, "Barre"), (Grafico.BARRE_ORIZZONTALI, "Barre orizzontali"), (Grafico.LINEE, "Linee"),
         (Grafico.AREA, "Area"), (Grafico.TORTA, "Torta"), (Grafico.KPI, "KPI")]
 PERIODI = [("giorno", "Giorno"), ("settimana", "Settimana"), ("mese", "Mese"), ("anno", "Anno")]
@@ -133,7 +140,8 @@ def _contesto(request, grafico=None):
     return {"p": p, "vista": vista, "viste": _viste_per_app(request), "opzioni": opzioni, "tipi": tipi_disponibili(),
             "periodi": PERIODI, "periodi_previsione": PERIODI_PREVISIONE, "orizzonti": ORIZZONTI, "massimi": MASSIMI,
             "aggiornamenti": motore.AGGIORNAMENTI, "filtri": filtri_lista.specifiche(vista, request) if vista else [],
-            "w": _anteprima(request, p, vista), "destinazioni": motore.destinazioni(request, p.get("vista", "")),
+            "w": _anteprima(request, p, vista),
+            "destinazioni": motore.destinazioni(request, p.get("vista", ""), area=_area_scelta(request, p.get("destinazione", ""))),
             "grafico": grafico, "ai": motore._ai_disponibile(),
             "scheda_attiva": ""}
 

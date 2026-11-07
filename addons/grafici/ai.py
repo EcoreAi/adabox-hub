@@ -16,7 +16,7 @@ TIPI = [t for t, _ in Grafico.TIPI]
 
 
 def _url(p):
-    return reverse("grafici:pagina_app", args=[p.app]) if p.app else reverse("grafici:pagina", args=[p.pk])
+    return motore.url_pagina(p)
 
 
 def _mie_e_condivise(contesto):
@@ -28,7 +28,10 @@ def _trova(contesto, pagina):
     """Una pagina per id o titolo, tra quelle che l'utente vede."""
     testo = str(pagina or "").strip()
     qs = _mie_e_condivise(contesto)
-    p = qs.filter(pk=int(testo)).first() if testo.isdigit() else qs.filter(titolo__iexact=testo).first()
+    if testo.startswith("area:"):
+        p = motore.pagina_area(contesto.utente, contesto.azienda, testo[5:])[0]
+    else:
+        p = qs.filter(pk=int(testo)).first() if testo.isdigit() else qs.filter(titolo__iexact=testo).first()
     if p is None:
         raise ErroreStrumento(f"Nessuna pagina «{pagina}»: usa analisi_pagine per l'elenco.")
     return p
@@ -53,9 +56,11 @@ def _specifica(contesto, titolo, vista, tipo, misura, per, data, periodo, orizzo
     """(tipo, spec, titolo) da controllare: dall'artifact già in chat oppure dai campi."""
     if artifact:
         from ai.models import Artifact
-        a = Artifact.objects.filter(pk=artifact, utente=contesto.utente, tipo=Artifact.GRAFICO).first()
+        a = Artifact.objects.filter(pk=artifact, utente=contesto.utente).first()
         if a is None:
-            raise ErroreStrumento(f"Nessun grafico n. {artifact} in questa chat.")
+            raise ErroreStrumento(f"Nessun grafico o tabella n. {artifact} in questa chat.")
+        if a.tipo == Artifact.TABELLA:
+            return Grafico.TABELLA, {k: v for k, v in a.spec.items() if k != "tipo"}, titolo or a.titolo
         tipo_a = a.spec.get("grafico", Grafico.BARRE)
         return (tipo_a if tipo_a in TIPI else Grafico.BARRE,
                 {k: v for k, v in a.spec.items() if k not in ("tipo", "grafico")}, titolo or a.titolo)
@@ -103,6 +108,11 @@ def _dove(contesto, pagina):
         return "libreria (nessuna pagina)"
     if testo.startswith("app:"):
         return f"scheda dell'app «{testo[4:]}»"
+    if testo.startswith("area:"):
+        area = motore.area_visibile(contesto.utente, contesto.azienda, testo[5:])
+        if area is None:
+            raise ErroreStrumento("Area di lavoro inesistente o non tua.")
+        return f"dashboard dell'area «{area.nome}»"
     if Pagina.objects.filter(utente=contesto.utente).filter(Q(titolo__iexact=testo) | (Q(pk=int(testo)) if testo.isdigit() else Q())).exists():
         return f"pagina «{testo}»"
     return f"pagina nuova «{testo}»"
@@ -126,8 +136,10 @@ def salva_grafico(contesto, titolo="", vista="", tipo="barre", misura="count", p
     vista_obj, dati = _controlla(contesto, tipo, spec)
     testo_pagina = str(pagina or "").strip()
     try:
-        p = motore.destinazione(contesto.utente, testo_pagina)
+        p = motore.destinazione(contesto.utente, testo_pagina, azienda=contesto.azienda)
     except ValueError:
+        if testo_pagina.startswith("area:"):
+            raise ErroreStrumento("Area di lavoro inesistente o non tua.")
         p = motore.nuova_pagina(contesto.utente, testo_pagina) if not testo_pagina.startswith("app:") else None
         if p is None:
             raise ErroreStrumento(f"Nessuna scheda dell'app «{testo_pagina[4:]}».")
@@ -167,7 +179,7 @@ registra(Strumento(
 registra(Strumento(
     "analisi_leggi_pagina", "I numeri di una pagina di Analisi adesso: KPI, grafici salvati con la loro query e i "
                             "dati, previsioni. Per commentare o riassumere una pagina, anche nelle attività pianificate.",
-    {"type": "object", "properties": {"pagina": {"type": "string", "description": "titolo o id della pagina"}},
+    {"type": "object", "properties": {"pagina": {"type": "string", "description": "titolo o id della pagina, oppure area:id per la dashboard di un'area di lavoro"}},
      "required": ["pagina"]}, analisi_leggi_pagina, permesso="grafici.view_pagina"))
 registra(Strumento(
     "analisi_salva_grafico", "Salva in una pagina di Analisi un grafico, un KPI o una previsione che si ricalcolano "
@@ -184,8 +196,9 @@ registra(Strumento(
         "orizzonte": {"type": "integer", "description": "periodi da prevedere (1-24, default 3)"},
         "filtri": FILTRI, "testo": TESTO,
         "pagina": {"type": "string", "description": "titolo di una pagina dell'utente (se non esiste viene creata), oppure "
-                                                    "app:slug per la scheda di un'app; vuoto = libreria"},
-        "artifact": {"type": "integer", "description": "id del grafico già disegnato in chat: ne copia la query"},
+                                                    "app:slug per la scheda di un'app, area:id per la dashboard dell'area di "
+                                                    "lavoro (quella della chat, se è in un'area); vuoto = libreria"},
+        "artifact": {"type": "integer", "description": "id del grafico o della tabella già mostrati in chat: ne copia la query"},
         "obiettivo": {"type": "number", "description": "valore obiettivo: una linea sul grafico, la barra di avanzamento sul KPI"}},
      "required": []}, salva_grafico, rischio="scrittura", concorrente=False, anteprima=anteprima_salva,
     permesso="grafici.add_grafico"))

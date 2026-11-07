@@ -1,4 +1,5 @@
 {# Le sottocartelle di un progetto nella colonna di sinistra, con i comandi per caricare ed eliminare. #}
+{% if url_dashboard %}<a class="ai-albero-dashboard" href="{{ url_dashboard }}"><svg aria-hidden="true"><use href="#icon-bar-chart"/></svg><span>Dashboard</span></a>{% endif %}
 {% for chiave, titolo, totale, voci in gruppi %}
 <details class="ai-albero-gruppo" data-gruppo="{{ chiave }}"{% if chiave == "chat" and corrente %} open{% endif %}>
   <summary><svg class="ai-albero-freccia" aria-hidden="true"><use href="#icon-chevron-down"/></svg><span>{{ titolo }}</span><span class="ai-conta">{{ totale }}</span>

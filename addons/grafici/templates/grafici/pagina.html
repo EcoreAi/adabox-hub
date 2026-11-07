@@ -4,16 +4,16 @@
 {% block app_content %}
 <div class="ui-pagehead">
   <div><h1>{{ pagina.titolo }}</h1>
-    <div class="sub">{% if pagina.app %}Scheda dell'app {{ info_app.label }} · {% endif %}{% if mio %}{{ widget|length }} widget{% if pagina.condivisa %} · condivisa con l'azienda{% endif %}{% else %}condivisa da {{ pagina.utente.get_full_name|default:pagina.utente.username }} · vedi i dati che i tuoi permessi ti consentono{% endif %}</div></div>
+    <div class="sub">{% if area %}Dashboard dell'area di lavoro <a class="ui-link" href="{% url 'ai:progetto' area.pk %}">{{ area.nome }}</a> · la vedono e la dispongono i suoi membri, ognuno con i dati che i suoi permessi consentono{% else %}{% if pagina.app %}Scheda dell'app {{ info_app.label }} · {% endif %}{% if mio %}{{ widget|length }} widget{% if pagina.condivisa %} · condivisa con l'azienda{% endif %}{% else %}condivisa da {{ pagina.utente.get_full_name|default:pagina.utente.username }} · vedi i dati che i tuoi permessi ti consentono{% endif %}{% endif %}</div></div>
   <div class="ui-pagehead-actions wd-azioni">
-    {% if mio and perms.grafici.add_grafico %}<a class="ui-btn ui-btn-primary" href="{% url 'grafici:costruttore' %}?destinazione={% if pagina.app %}app:{{ pagina.app }}{% else %}{{ pagina.pk }}{% endif %}"><svg><use href="#icon-plus"/></svg> Nuovo grafico</a>{% endif %}
+    {% if mio and perms.grafici.add_grafico %}<a class="ui-btn ui-btn-primary" href="{% url 'grafici:costruttore' %}?destinazione={% if area %}area:{{ area.pk }}{% elif pagina.app %}app:{{ pagina.app }}{% else %}{{ pagina.pk }}{% endif %}"><svg><use href="#icon-plus"/></svg> Nuovo grafico</a>{% endif %}
     {% if mio %}
     <button type="button" class="ui-btn ui-btn-secondary" id="wd-aggiungi"><svg><use href="#icon-plus"/></svg> Aggiungi widget <span class="ui-gruppo-n" id="wd-nascosti-n">{{ nascosti|length }}</span></button>
     <button type="button" class="ui-btn ui-btn-secondary" id="wd-modifica" aria-pressed="false"><svg><use href="#icon-edit"/></svg> Personalizza</button>
-    <form method="post" action="{% url 'grafici:ripristina' pagina.pk %}" id="wd-ripristina"{% if not personalizzata %} hidden{% endif %}>{% csrf_token %}<button class="ui-btn ui-btn-ghost" type="submit" title="Torna all'ordine di partenza">Ripristina</button></form>
+    {% if not area %}<form method="post" action="{% url 'grafici:ripristina' pagina.pk %}" id="wd-ripristina"{% if not personalizzata %} hidden{% endif %}>{% csrf_token %}<button class="ui-btn ui-btn-ghost" type="submit" title="Torna all'ordine di partenza">Ripristina</button></form>{% endif %}
     {% endif %}
     <form method="post" action="{% url 'grafici:aggiorna_pagina' pagina.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-ghost" type="submit" title="Ricalcola tutti i grafici adesso"><svg><use href="#icon-refresh"/></svg> Aggiorna</button></form>
-    {% if mio %}
+    {% if mio and not area %}
     <details class="an-menu"><summary class="ui-btn ui-btn-ghost" aria-label="Altre azioni sulla pagina"><svg><use href="#icon-more"/></svg></summary>
       <div class="an-menu-pannello an-menu-largo">
         <div class="an-menu-titolo">Pagina</div>
@@ -36,7 +36,8 @@
     {% endif %}
   </div>
 </div>
-{% include "grafici/_schede.html" %}
+{% if area %}<link rel="stylesheet" href="{% statico 'grafici/analisi.css' %}"><script src="{% statico 'grafici/analisi.js' %}" defer></script>
+{% else %}{% include "grafici/_schede.html" %}{% endif %}
 <p class="wd-aiuto" id="wd-aiuto" hidden>Trascina le card dove vuoi, o usa le frecce; ⤢ cambia la larghezza; × lo toglie da questa pagina (resta in libreria, e nelle altre pagine). Le modifiche si salvano da sole.</p>
 <div class="wd-griglia"{% if mio %} id="wd-griglia"{% endif %} data-salva="{{ url_layout }}">
   {% for w in widget %}{% if w.template %}{% include w.template %}{% else %}{% include "core/_widget.html" %}{% endif %}{% endfor %}

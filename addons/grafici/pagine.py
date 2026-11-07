@@ -28,14 +28,22 @@ VISTA, MODIFICA, CONDIVIDI = "grafici.view_pagina", "grafici.change_pagina", "gr
 # ---------- pagine ----------
 
 def _mia(request, pk):
-    return get_object_or_404(Pagina, pk=pk, utente=request.user)
+    return get_object_or_404(Pagina, pk=pk, utente=request.user, area__isnull=True)
 
 
 def _visibile(request, pk):
-    p = get_object_or_404(Pagina.objects.select_related("utente"), pk=pk)
+    p = get_object_or_404(Pagina.objects.select_related("utente"), pk=pk, area__isnull=True)
     if p.utente_id != request.user.id and not motore.condivise(request.azienda).filter(pk=p.pk).exists():
         raise Http404
     return p
+
+
+def _di_area(request, area):
+    """La dashboard dell'area di lavoro, se l'utente vede l'area: la dispongono tutti i suoi membri."""
+    p, info = motore.pagina_area(request.user, getattr(request, "azienda", None), area)
+    if p is None:
+        raise Http404
+    return p, info
 
 
 def _app(request, app):
@@ -50,21 +58,28 @@ def _torna(request, p):
     return redirect("grafici:pagina_app", app=p.app) if p.app else redirect("grafici:pagina", pk=p.pk)
 
 
-def _rendi(request, p, info=None):
+def _rendi(request, p, info=None, area=None):
     visibili, nascosti = motore.catalogo(p, request)
-    mio = p.utente_id == request.user.id
+    mio = p.utente_id == request.user.id or area is not None           # l'area la dispongono tutti i membri
+    if area is not None:
+        url_layout = reverse("grafici:layout_area", args=[area.pk])
+    else:
+        url_layout = reverse("grafici:layout_app", args=[p.app]) if p.app else reverse("grafici:layout", args=[p.pk])
     return render(request, "grafici/pagina.html", {
-        "pagina": p, "info_app": info, "widget": visibili, "nascosti": nascosti, "mio": mio,
-        "personalizzata": bool(p.layout), "icone": motore.ICONE,
-        "url_layout": reverse("grafici:layout_app", args=[p.app]) if p.app else reverse("grafici:layout", args=[p.pk]),
+        "pagina": p, "info_app": info, "area": area, "widget": visibili, "nascosti": nascosti, "mio": mio,
+        "personalizzata": bool(p.layout), "icone": motore.ICONE, "url_layout": url_layout,
         "contesto_ada": motore.contesto_ada(p, visibili), "scheda_attiva": p.chiave,
-        "sorelle": [x for x in Pagina.objects.filter(utente=request.user, app="") if x.pk != p.pk] if mio and not p.app else [],
+        "sorelle": [x for x in Pagina.objects.filter(utente=request.user, app="", area__isnull=True) if x.pk != p.pk]
+        if mio and not p.app and area is None else [],
         "ai": motore._ai_disponibile()})
 
 
 @login_required
 @permission_required(VISTA)
 def pagina(request, pk):
+    area = Pagina.objects.filter(pk=pk, area__isnull=False).values_list("area", flat=True).first()
+    if area:
+        return redirect("grafici:pagina_area", area=area)
     return _rendi(request, _visibile(request, pk))
 
 
@@ -77,9 +92,16 @@ def pagina_app(request, app):
 
 @login_required
 @permission_required(VISTA)
+def pagina_area(request, area):
+    p, a = _di_area(request, area)
+    return _rendi(request, p, area=a)
+
+
+@login_required
+@permission_required(VISTA)
 def pagine(request):
     """Gestione: le pagine dell'utente, quelle condivise con lui, le schede delle app nascoste e i grafici in libreria."""
-    mie = list(Pagina.objects.filter(utente=request.user))
+    mie = list(Pagina.objects.filter(utente=request.user, area__isnull=True))
     nascoste = {p.app for p in mie if p.app and p.nascosta}
     return render(request, "grafici/pagine.html", {
         "libere": [p for p in mie if not p.app], "app_pagine": [p for p in mie if p.app],
@@ -102,6 +124,13 @@ def _layout(request, p):
 @require_POST
 def layout(request, pk):
     return _layout(request, _mia(request, pk))
+
+
+@login_required
+@permission_required(MODIFICA)
+@require_POST
+def layout_area(request, area):
+    return _layout(request, _di_area(request, area)[0])
 
 
 @login_required
@@ -195,7 +224,8 @@ def ripristina(request, pk):
 @permission_required(VISTA)
 @require_POST
 def aggiorna_pagina(request, pk):
-    p = _visibile(request, pk)
+    area = Pagina.objects.filter(pk=pk, area__isnull=False).values_list("area", flat=True).first()
+    p = _di_area(request, area)[0] if area else _visibile(request, pk)
     errori = 0
     for g in Grafico.objects.filter(utente=request.user, pk__in=[int(i[2:]) for i in p.id_widget if i.startswith("g:") and i[2:].isdigit()]):
         errori += bool(motore.aggiorna(g, request, forza=True)[1])
@@ -321,7 +351,7 @@ def grafico_tipo(request, pk):
 def _metti(request, grafico, valore, titolo_nuova=""):
     """(titolo, indirizzo) del posto in cui il form ha messo il grafico; (None, None) se resta solo in libreria."""
     try:
-        return motore.metti_in(request.user, valore, grafico, titolo_nuova)
+        return motore.metti_in(request.user, valore, grafico, titolo_nuova, getattr(request, "azienda", None))
     except ValueError:
         raise Http404
 
@@ -382,12 +412,16 @@ def salva_da_artifact(request):
     if not motore._ai_disponibile():
         raise Http404
     Artifact = apps.get_model("ai", "Artifact")
-    a = get_object_or_404(Artifact, pk=request.POST.get("artifact"), utente=request.user, tipo="grafico")
-    tipo = a.spec.get("grafico", Grafico.BARRE)
+    a = get_object_or_404(Artifact, pk=request.POST.get("artifact"), utente=request.user, tipo__in=("grafico", "tabella"))
+    if a.tipo == "tabella":
+        tipo = Grafico.TABELLA
+    else:
+        tipo = a.spec.get("grafico", Grafico.BARRE)
+        tipo = tipo if tipo in dict(Grafico.TIPI) and tipo != Grafico.TABELLA else Grafico.BARRE
     spec = {k: v for k, v in a.spec.items() if k not in ("tipo", "grafico")}
     g = Grafico.objects.create(
         utente=request.user,
-        titolo=a.titolo, tipo=tipo if tipo in dict(Grafico.TIPI) else Grafico.BARRE, spec=spec, dati=a.dati,
+        titolo=a.titolo, tipo=tipo, spec=spec, dati=a.dati,
         aggiornato=a.aggiornato or a.creato, origine=Grafico.CHAT,
         origine_url=reverse("ai:conversazione", args=[a.conversazione_id]) if a.conversazione_id else "")
     titolo, url = _metti(request, g, request.POST.get("destinazione"), request.POST.get("titolo_nuova"))

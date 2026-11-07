@@ -63,11 +63,25 @@ def _previsione(spec, request):
     return calcola_previsione(spec, Contesto(utente=request.user, azienda=getattr(request, "azienda", None)))
 
 
+def _tabella(spec, request):
+    """Le righe di una tabella salvata dalla chat, ricalcolate con lo stesso codice dell'assistente (colonne, link)."""
+    if not _ai_disponibile():
+        raise ErroreInterrogazione("Le tabelle salvate dalla chat richiedono il modulo Assistente AI.")
+    from ai.artifact import calcola
+    from ai.strumenti import Contesto, ErroreStrumento
+    try:
+        return calcola({**spec, "tipo": "tabella"}, Contesto(utente=request.user, azienda=getattr(request, "azienda", None)))
+    except ErroreStrumento as e:
+        raise ErroreInterrogazione(str(e)) from e
+
+
 def dati_di(tipo, spec, request):
     """I dati di una specifica per l'utente della richiesta: {"serie", "chiavi", "totale"}, per i KPI {"valore",
     "precedente", "delta", "storico"}, per le previsioni {"storico", "futuro", "totale", "modello"}."""
     if tipo == Grafico.PREVISIONE:
         return _previsione(spec, request)
+    if tipo == Grafico.TABELLA:
+        return _tabella(spec, request)
     if tipo == Grafico.KPI:
         return interroga.kpi(spec, request)
     return interroga.calcola(spec, request)
@@ -141,6 +155,10 @@ def serie_di(grafico, dati, vista=None):
         return {"tipo": "previsione", "titolo": grafico.titolo, "storico": storico, "futuro": futuro,
                 "righe": [(e, v) for e, v in storico], "vuoto": not storico, "totale": dati.get("totale"),
                 "modello": dati.get("modello", "")}
+    if grafico.tipo == Grafico.TABELLA:
+        righe = dati.get("righe", [])
+        return {"tipo": "tabella", "titolo": grafico.titolo, "colonne": dati.get("colonne", []), "righe": righe,
+                "link": dati.get("link", []), "totale": dati.get("totale"), "vuoto": not righe}
     if grafico.tipo == Grafico.KPI:
         storico = [tuple(c) for c in dati.get("storico", [])]
         delta = dati.get("delta")
@@ -241,10 +259,45 @@ def condivise(azienda):
 
 
 def puo_vedere(grafico, utente, azienda):
-    """Il proprietario, chi lo ha ricevuto, e chi vede una pagina condivisa del proprietario che lo contiene."""
+    """Il proprietario, chi lo ha ricevuto, chi vede una pagina condivisa del proprietario che lo contiene e i membri
+    di un'area di lavoro la cui dashboard lo contiene."""
     if grafico.utente_id == utente.id or grafico.condiviso_con.filter(pk=utente.pk).exists():
         return True
-    return any(grafico.id_widget in p.id_widget for p in condivise(azienda).filter(utente_id=grafico.utente_id))
+    if any(grafico.id_widget in p.id_widget for p in condivise(azienda).filter(utente_id=grafico.utente_id)):
+        return True
+    return any(grafico.id_widget in p.id_widget and area_visibile(utente, azienda, p.area)
+               for p in Pagina.objects.filter(area__isnull=False))
+
+
+# ---------- dashboard delle aree di lavoro dell'assistente ----------
+
+def _aree_disponibili():
+    return _ai_disponibile()
+
+
+def area_visibile(utente, azienda, area_pk):
+    """L'area di lavoro dell'assistente se l'utente la vede (sua o di cui è membro), altrimenti None."""
+    if not _aree_disponibili() or not area_pk:
+        return None
+    from ai import aree
+    return aree.visibile(utente, azienda, area_pk)
+
+
+def pagina_area(utente, azienda, area_pk):
+    """(Pagina, area) della dashboard dell'area, creata al primo accesso a nome di chi ha creato l'area;
+    (None, None) se l'utente non vede l'area."""
+    area = area_visibile(utente, azienda, area_pk)
+    if area is None:
+        return None, None
+    p, _ = Pagina.objects.get_or_create(area=area.pk, defaults={
+        "utente_id": area.utente_id, "titolo": f"Dashboard · {area.nome}"[:100], "icona": "bar-chart"})
+    return p, area
+
+
+def url_pagina(p):
+    if p.area:
+        return reverse("grafici:pagina_area", args=[p.area])
+    return reverse("grafici:pagina_app", args=[p.app]) if p.app else reverse("grafici:pagina", args=[p.pk])
 
 
 def pagine_con(grafico, utente):
@@ -293,16 +346,16 @@ def imposta_panoramica(grafico, utente, dentro):
     DashboardUtente.objects.update_or_create(utente=utente, defaults={"layout": layout})
 
 
-def metti_in(utente, valore, grafico, titolo_nuova=""):
+def metti_in(utente, valore, grafico, titolo_nuova="", azienda=None):
     """Mette il grafico dove indica un form o Ada; (titolo, indirizzo) del posto, o (None, None) se resta solo in libreria."""
     if (valore or "").strip() == PANORAMICA:
         imposta_panoramica(grafico, utente, True)
         return "Panoramica", reverse("core:dashboard")
-    p = destinazione(utente, valore, titolo_nuova)
+    p = destinazione(utente, valore, titolo_nuova, azienda)
     if p is None:
         return None, None
     metti_in_pagina(p, grafico)
-    return p.titolo, reverse("grafici:pagina_app", args=[p.app]) if p.app else reverse("grafici:pagina", args=[p.pk])
+    return p.titolo, url_pagina(p)
 
 
 def csv_di(grafico, dati):
@@ -329,6 +382,10 @@ def _voci_pagina(pagina, request):
     voci = []
     for w in dash.catalogo(request, extra=False)[0]:
         voci.append({**w, "su_richiesta": w["id"].split(":", 1)[0] != pagina.app})
+    if pagina.area:                                       # dashboard di un'area: i grafici di tutti i membri che ci sono,
+        presenti = [int(i[2:]) for i in pagina.id_widget if i.startswith("g:") and i[2:].isdigit()]   # più i propri
+        grafici = Grafico.objects.filter(Q(pk__in=presenti) | Q(utente=request.user) | Q(condiviso_con=request.user))
+        return voci + [widget_leggero(g, request) for g in grafici.select_related("utente").distinct()]
     if pagina.utente_id == request.user.id:
         voci += [widget_leggero(g, request) for g in libreria_di(request.user)]
     else:                                                 # pagina condivisa: i grafici del proprietario, non quelli di chi guarda
@@ -339,7 +396,7 @@ def _voci_pagina(pagina, request):
 def catalogo(pagina, request):
     """(in vista, in libreria): i widget della pagina, già con i dati, e quelli che si possono aggiungere."""
     visibili, nascosti = dash.disponi(pagina.layout, _voci_pagina(pagina, request))
-    return dash.carica(visibili), nascosti if pagina.utente_id == request.user.id else []
+    return dash.carica(visibili), nascosti if pagina.utente_id == request.user.id or pagina.area else []
 
 
 def salva_layout(pagina, dati, request):
@@ -388,7 +445,8 @@ def schede(request, attiva=""):
     con lui, le app che ha personalizzato (con un limite) e quella aperta. Tutto il resto sta nel menu «Altre schede»,
     per area: {"visibili": [...], "pagine": [...], "gruppi": [{"titolo", "voci"}]}."""
     utente = request.user
-    pagine = list((Pagina.objects.filter(utente=utente) | condivise(request.azienda)).distinct().select_related("utente"))
+    pagine = list((Pagina.objects.filter(utente=utente) | condivise(request.azienda)).filter(area__isnull=True)
+                  .distinct().select_related("utente"))
     libere = []
     for p in sorted([p for p in pagine if not p.app], key=lambda p: (p.utente_id != utente.id, p.ordine, p.pk)):
         libere.append({"chiave": p.chiave, "titolo": p.titolo, "icona": p.icona, "immagine": "", "app": False,
@@ -435,36 +493,46 @@ def nuova_pagina(utente, titolo, icona="bar-chart"):
                                  icona=icona if icona in dict(ICONE) else "bar-chart")
 
 
-def destinazione(utente, valore, titolo_nuova=""):
-    """La pagina scelta in un form o da Ada: l'id di una pagina propria, «app:slug», «nuova», il titolo di una pagina
-    propria, oppure vuoto (libreria). ValueError se non c'è."""
+def destinazione(utente, valore, titolo_nuova="", azienda=None):
+    """La pagina scelta in un form o da Ada: l'id di una pagina propria, «app:slug», «area:id» (la dashboard di
+    un'area di lavoro dell'assistente), «nuova», il titolo di una pagina propria, oppure vuoto (libreria).
+    ValueError se non c'è."""
     valore = (valore or "").strip()
     if not valore:
         return None
     if valore == "nuova":
         return nuova_pagina(utente, titolo_nuova)
+    if valore.startswith("area:"):
+        p, _ = pagina_area(utente, azienda, valore[5:])
+        if p is None:
+            raise ValueError("Area di lavoro inesistente o non tua.")
+        return p
     if valore.startswith("app:"):
         p, _ = pagina_app(utente, valore[4:])
         if p is None:
             raise ValueError(f"Nessuna scheda dell'app «{valore[4:]}».")
         return p
     if valore.isdigit():
-        p = Pagina.objects.filter(pk=int(valore), utente=utente).first()
+        p = Pagina.objects.filter(pk=int(valore), utente=utente, area__isnull=True).first()
     else:
-        p = Pagina.objects.filter(utente=utente, titolo__iexact=valore).first()
+        p = Pagina.objects.filter(utente=utente, titolo__iexact=valore, area__isnull=True).first()
     if p is None:
         raise ValueError(f"Nessuna pagina «{valore}».")
     return p
 
 
-def destinazioni(request, vista=""):
-    """[(valore, etichetta)] delle pagine in cui si può salvare un grafico: prima la scheda dell'app della vista,
-    poi le pagine libere dell'utente, le altre app e «Nuova pagina»."""
+def destinazioni(request, vista="", area=None):
+    """[(valore, etichetta)] delle pagine in cui si può salvare un grafico: prima la dashboard dell'area di lavoro
+    (se il grafico nasce in una sua chat), la scheda dell'app della vista, le pagine libere dell'utente, le altre app e
+    «Nuova pagina»."""
     app_vista = (vista or "").split(".", 1)[0]
     apps = app_con_indicatori(request.user)
-    scelte = [(f"app:{a['slug']}", f"Scheda {a['label']}") for a in apps if a["slug"] == app_vista]
+    scelte = []
+    if area is not None and area_visibile(request.user, getattr(request, "azienda", None), area.pk):
+        scelte.append((f"area:{area.pk}", f"Dashboard dell'area «{area.nome}»"))
+    scelte += [(f"app:{a['slug']}", f"Scheda {a['label']}") for a in apps if a["slug"] == app_vista]
     scelte.append((PANORAMICA, "Panoramica"))
-    scelte += [(str(p.pk), p.titolo) for p in Pagina.objects.filter(utente=request.user, app="")]
+    scelte += [(str(p.pk), p.titolo) for p in Pagina.objects.filter(utente=request.user, app="", area__isnull=True)]
     scelte += [(f"app:{a['slug']}", f"Scheda {a['label']}") for a in apps if a["slug"] != app_vista]
     scelte.append(("nuova", "Nuova pagina…"))
     return scelte

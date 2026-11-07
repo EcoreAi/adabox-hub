@@ -101,3 +101,7 @@
 .an-lato { display: flex; flex-direction: column; gap: 16px; } .an-colonna { display: flex; flex-direction: column; gap: 14px; }
 .an-spunte { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; font-size: 13.5px; } .an-spunte label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .an-lato .ui-card-sub { white-space: normal; }
+
+/* tabella salvata dalla chat: scorre dentro la card */
+.an-tabella-salvata { max-height: 360px; overflow: auto; }
+.an-tabella-salvata th { position: sticky; top: 0; background: var(--ui-surface, #fff); }

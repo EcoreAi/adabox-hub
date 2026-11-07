@@ -9,7 +9,7 @@
   </div>
   <div class="ui-card wd-card">
     <div class="ui-card-head"><div><div class="ui-card-title">{{ w.titolo }}</div><div class="ui-card-sub" title="{{ w.sotto }}">{{ w.sotto }}</div></div><div class="spacer"></div>
-      {% if not w.serie.vuoto and w.serie.tipo != "kpi" %}<button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-tabella aria-pressed="false" aria-controls="{{ w.dom }}-tab">Tabella</button>{% endif %}
+      {% if not w.serie.vuoto and w.serie.tipo != "kpi" and w.serie.tipo != "tabella" %}<button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-tabella aria-pressed="false" aria-controls="{{ w.dom }}-tab">Tabella</button>{% endif %}
       <details class="an-menu"><summary class="ui-btn ui-btn-ghost ui-btn-sm" aria-label="Azioni su {{ w.titolo }}"><svg><use href="#icon-more"/></svg></summary>
         <div class="an-menu-pannello">
           <form method="post" action="{% url 'grafici:grafico_aggiorna' w.grafico.pk %}" hx-post="{% url 'grafici:grafico_aggiorna' w.grafico.pk %}" hx-target="#an-widget-{{ w.grafico.pk }}" hx-swap="outerHTML">{% csrf_token %}<button type="submit"><svg><use href="#icon-refresh"/></svg> Aggiorna ora</button></form>
@@ -31,6 +31,10 @@
       {% if w.errore %}<p class="ui-help an-errore">{{ w.errore }}</p>{% endif %}
       {% if w.serie.tipo == "kpi" %}{% if not w.serie.vuoto %}{% include "grafici/_kpi.html" %}{% endif %}
       {% elif w.serie.vuoto %}{% if not w.errore %}<p class="ui-help">Ancora nessun dato.</p>{% endif %}
+      {% elif w.serie.tipo == "tabella" %}
+      <div class="ui-table-wrap an-tabella-salvata"><table class="ui-table">
+        <thead><tr>{% for c in w.serie.colonne %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+        <tbody>{% for r in w.serie.righe %}<tr>{% for v in r %}<td>{% if forloop.first and w.serie.link %}{% with url=w.serie.link|slice:forloop.parentloop.counter|last %}<a href="{{ url }}">{{ v }}</a>{% endwith %}{% else %}{{ v }}{% endif %}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
       {% else %}
       <div class="wd-canvas"><canvas data-grafico="{{ w.dom }}" role="img" aria-label="{{ w.titolo }}"></canvas></div>
       {{ w.serie|json_script:w.dom }}
@@ -41,7 +45,7 @@
         {% else %}<thead><tr><th>Categoria</th><th class="num">Valore</th></tr></thead>
         <tbody>{% for e, v in w.serie.righe %}<tr><td>{{ e }}</td><td class="num">{{ v|floatformat:"-2" }}</td></tr>{% endfor %}</tbody>{% endif %}</table></div>
       {% endif %}
-      <div class="an-piede"><span>{% if w.serie.futuro %}modello {{ w.serie.modello|default:"locale" }}{% elif w.serie.link %}clic su una categoria: lista filtrata{% elif w.serie.totale is not None and not w.serie.vuoto and w.serie.tipo != "kpi" %}totale {{ w.serie.totale|floatformat:"-2" }}{% endif %}</span><span>{% if w.aggiornato %}dati di {{ w.aggiornato|date:"d/m H:i" }}{% endif %}</span></div>
+      <div class="an-piede"><span>{% if w.serie.futuro %}modello {{ w.serie.modello|default:"locale" }}{% elif w.serie.link %}clic su una categoria: lista filtrata{% elif w.serie.tipo == "tabella" %}{{ w.serie.righe|length }} di {{ w.serie.totale }} righe{% elif w.serie.totale is not None and not w.serie.vuoto and w.serie.tipo != "kpi" %}totale {{ w.serie.totale|floatformat:"-2" }}{% endif %}</span><span>{% if w.aggiornato %}dati di {{ w.aggiornato|date:"d/m H:i" }}{% endif %}</span></div>
     </div>
   </div>
 </section>

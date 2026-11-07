@@ -57,7 +57,7 @@ def nota_progetto(conversazione):
     progetto = conversazione.progetto
     if progetto is None:
         return ""
-    righe = [f"Questa chat è nell'area di lavoro «{progetto.nome}»."]
+    righe = [f"Questa chat è nell'area di lavoro «{progetto.nome}» (area n. {progetto.pk})."]
     if progetto.istruzioni.strip():
         righe.append(f"Istruzioni per l'area di lavoro:\n{progetto.istruzioni.strip()}")
     if file := allegati_chat.di_progetto(progetto):

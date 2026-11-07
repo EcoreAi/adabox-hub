@@ -5,6 +5,7 @@
     <h1>{{ progetto_aperto.nome }}</h1>
     <span class="ai-spazio"></span>
     {% if ambito_nuova %}<span class="ai-progetto-vuoto" data-tip="Le chat nuove dell'area partono limitate a questa app">App predefinita: {% for a in app %}{% if a.slug == ambito_nuova %}<strong>{{ a.label }}</strong>{% endif %}{% endfor %}</span>{% endif %}
+    {% if url_dashboard_area %}<a class="ui-btn ui-btn-secondary ui-btn-sm" href="{{ url_dashboard_area }}"><svg><use href="#icon-bar-chart"/></svg> Dashboard</a>{% endif %}
     {% if gestisco_area %}<a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'ai:progetti_modifica' progetto_aperto.pk %}"><svg><use href="#icon-edit"/></svg> Modifica</a>{% endif %}
   </div>
   <div class="ai-collegamenti" aria-label="Condivisione">

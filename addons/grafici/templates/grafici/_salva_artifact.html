@@ -1,7 +1,7 @@
-{% load analisi tema %}{% if a.tipo == "grafico" %}{% destinazioni_analisi a.spec.vista as scelte %}{# Sotto un grafico dell'assistente: salvalo in una pagina di Analisi. #}
+{% load analisi tema %}{% destinazioni_analisi a.spec.vista a.conversazione.progetto as scelte %}{# Sotto un grafico o una tabella dell'assistente: salvalo in una pagina di Analisi, prima di tutto nella dashboard della sua area di lavoro. #}
 <link rel="stylesheet" href="{% statico 'grafici/analisi.css' %}">
 <details class="an-salva">
-  <summary class="ai-azione" data-tip="Salva in Analisi" aria-label="Salva in Analisi"><svg><use href="#icon-bar-chart"/></svg></summary>
+  <summary class="ai-azione" data-tip="{% if a.conversazione.progetto_id %}Aggiungi alla dashboard dell'area{% else %}Salva in Analisi{% endif %}" aria-label="Salva in Analisi"><svg><use href="#icon-bar-chart"/></svg></summary>
   <form class="an-salva-pannello" method="post" action="{% url 'grafici:salva_da_artifact' %}" hx-post="{% url 'grafici:salva_da_artifact' %}" hx-target="closest .an-salva" hx-swap="outerHTML">{% csrf_token %}
     <input type="hidden" name="artifact" value="{{ a.pk }}">
     <strong>Salva in Analisi</strong>
@@ -9,4 +9,4 @@
     <input class="ui-input" name="titolo_nuova" placeholder="Titolo della nuova pagina" maxlength="100" hidden>
     <button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Salva</button>
   </form>
-</details>{% endif %}
+</details>

@@ -14,6 +14,9 @@ class Pagina(models.Model):
     ordine = models.PositiveSmallIntegerField("ordine", default=0)
     condivisa = models.BooleanField("condivisa con l'azienda", default=False)
     nascosta = models.BooleanField("nascosta", default=False, help_text="la scheda dell'app non compare tra le schede")
+    # l'area di lavoro dell'assistente di cui è la dashboard: numero e non chiave esterna, Analisi non dipende da ai
+    area = models.PositiveIntegerField("area di lavoro", null=True, blank=True, unique=True,
+                                       help_text="la dashboard dell'area: la vedono e la dispongono i suoi membri")
     layout = models.JSONField("disposizione", default=dict, blank=True,
                               help_text='{"widget": [{"id": "g:12", "w": 2}, …], "nascosti": ["crm:g0", …]}')
     creata = models.DateTimeField("creata il", auto_now_add=True)
@@ -45,10 +48,10 @@ class Pagina(models.Model):
 class Grafico(models.Model):
     """Un grafico salvato: la specifica della query (vista, raggruppamento, misura, filtri), il tipo con cui si disegna
     e l'ultima istantanea dei dati. Si ricalcola quando serve, sempre con i permessi di chi guarda."""
-    BARRE, BARRE_ORIZZONTALI, LINEE, AREA, TORTA, KPI, PREVISIONE = (
-        "barre", "barre_orizzontali", "linee", "area", "torta", "kpi", "previsione")
+    BARRE, BARRE_ORIZZONTALI, LINEE, AREA, TORTA, KPI, PREVISIONE, TABELLA = (
+        "barre", "barre_orizzontali", "linee", "area", "torta", "kpi", "previsione", "tabella")
     TIPI = [(BARRE, "Barre"), (BARRE_ORIZZONTALI, "Barre orizzontali"), (LINEE, "Linee"), (AREA, "Area"),
-            (TORTA, "Torta"), (KPI, "KPI"), (PREVISIONE, "Previsione")]
+            (TORTA, "Torta"), (KPI, "KPI"), (PREVISIONE, "Previsione"), (TABELLA, "Tabella")]
     INTERCAMBIABILI = (BARRE, BARRE_ORIZZONTALI, LINEE, AREA, TORTA)       # stessa serie, disegno diverso
     CHAT, VISTA, COSTRUTTORE = "chat", "vista", "costruttore"
     ORIGINI = [(CHAT, "Chiesto ad Ada"), (VISTA, "Dalla vista Grafico"), (COSTRUTTORE, "Costruttore")]

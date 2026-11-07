@@ -15,9 +15,9 @@ def schede_analisi(context, attiva=""):
 
 
 @register.simple_tag(takes_context=True)
-def destinazioni_analisi(context, vista=""):
-    """[(valore, etichetta)] delle pagine in cui salvare un grafico."""
-    return motore.destinazioni(context["request"], vista or "")
+def destinazioni_analisi(context, vista="", area=None):
+    """[(valore, etichetta)] delle pagine in cui salvare un grafico; prima la dashboard dell'area, se c'è."""
+    return motore.destinazioni(context["request"], vista or "", area=area)
 
 
 @register.filter

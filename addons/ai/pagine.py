@@ -145,6 +145,7 @@ def chat(request, pk=None, progetto=None):
         "app": app, "suggerimenti": suggerimenti.per(), "suggerimenti_per_app": suggerimenti.tutti(),
         "progetti": progetti, "progetto_aperto": progetto_aperto,
         "gestisco_area": bool(progetto_aperto and progetto_aperto.utente_id == request.user.pk),
+        "url_dashboard_area": _url_dashboard(request, progetto_aperto),
         "membri_area": [aree.nome(m.utente) for m in progetto_aperto.membri.select_related("utente")] if progetto_aperto else [],
         "collegamenti_progetto": collegamenti.del_progetto(request, progetto_aperto) if progetto_aperto else [],
         **(_lavoro_del_progetto(request, progetto_aperto) if progetto_aperto else {}),
@@ -186,6 +187,14 @@ def _salva_nei_documenti(request, azienda, conversazione, progetto_aperto):
         return {}
     progetto = progetto_aperto or (conversazione.progetto if conversazione and conversazione.progetto_id else None)
     return {"cartelle_scrivibili": scrivibili, "cartella_predefinita": getattr(progetto, "cartella_documenti", None)}
+
+
+def _url_dashboard(request, area):
+    """La dashboard dell'area in Analisi, se il modulo c'è e l'utente lo usa (ai non dipende da Analisi)."""
+    from django.apps import apps as django_apps
+    if area is None or not django_apps.is_installed("grafici") or not request.user.has_perm("grafici.view_pagina"):
+        return ""
+    return reverse("grafici:pagina_area", args=[area.pk])
 
 
 def _salvati(request):
@@ -828,7 +837,7 @@ def albero_progetto(request, pk):
         ("file", "File", contenuti["documenti_cartella_totale"] + len(allegati), file[:archivio.MASSIMO_ELENCO * 3]),
     ]
     return render(request, "ai/_albero_progetto.html", {"progetto": progetto, "gruppi": gruppi, "corrente": corrente,
-                                                        "carica_in": destinazione})
+                                                        "carica_in": destinazione, "url_dashboard": _url_dashboard(request, progetto)})
 
 
 @require_POST
