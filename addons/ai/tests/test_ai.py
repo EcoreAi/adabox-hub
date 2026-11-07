@@ -20,18 +20,21 @@ def utente(db, client):
 
 def test_pagina_vuota_a_tre_colonne(client, utente):
     html = client.get("/ai/chat/").content.decode()
-    assert "Ciao, Chiara" in html and 'id="ai-pannello-sinistra" hidden' in html and 'id="ai-pannello-destra" hidden' in html
-    for etichetta in ("Nuova chat", "Cronologia chat", "Artifact salvati", "Documenti salvati"):
+    assert "Ciao, Chiara" in html and 'id="ai-pannello-sinistra" hidden' in html
+    assert "ai-pannello-destra" not in html and "ai-rail-destra" not in html               # una sola colonna di icone
+    for etichetta in ("Nuova chat", "Cronologia chat", "Preferiti: chat, documenti, grafici e tabelle", "Aree di lavoro"):
         assert etichetta in html
+    assert "Artifact" not in html
     assert html.count('class="ui-header"') == 1 and 'id="profile-menu"' in html  # header del tema, come nelle app
     assert 'ai-menu-app' not in html and 'ai-menu-utente' not in html                 # niente doppioni nella chat
     assert "data-sugg" in html and "ai-suggerimenti-app" in html
 
 
-def test_link_alle_attivita_pianificate_nella_colonna_destra(client, utente):
+def test_memoria_e_attivita_pianificate_in_fondo_alla_colonna(client, utente):
     html = client.get("/ai/chat/").content.decode()
-    destra = html.split('class="ai-rail ai-rail-destra"', 1)[1].split("</nav>", 1)[0]
-    assert 'href="/ai/pianificate/"' in destra and 'data-tip="Attività pianificate"' in destra
+    colonna = html.split('class="ai-rail"', 1)[1].split("</nav>", 1)[0].split("ai-rail-spazio", 1)[1]
+    assert 'href="/ai/pianificate/"' in colonna and 'data-tip="Attività pianificate"' in colonna
+    assert 'href="/ai/memoria/"' in colonna
     utente.groups.clear()
     utente.user_permissions.add(*Permission.objects.filter(codename="view_conversazione"))
     html = client.get("/ai/chat/").content.decode()

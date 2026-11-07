@@ -119,7 +119,8 @@ def test_scheda_sotto_la_risposta_stella_e_pannello(s, client):
     pagina = client.get(reverse("ai:conversazione", args=[s["c"].pk])).content.decode()
     assert f"?documento={d.pk}" in pagina and "Procedura resi" in pagina
     client.post(reverse("ai:stella_documento", args=[d.pk]), HTTP_HX_REQUEST="true")
-    assert "Procedura resi" in client.get(reverse("ai:chat")).content.decode().split('data-contenuto="documenti"')[1]
+    preferiti = client.get(reverse("ai:chat")).content.decode().split('data-contenuto="preferite"')[1].split("</section>")[0]
+    assert "Procedura resi" in preferiti.split("Documenti", 1)[1]                       # nel gruppo Documenti dei Preferiti
 
 
 def test_la_nota_dice_ad_ada_quale_documento_e_aperto(s, client, monkeypatch):

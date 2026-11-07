@@ -3,9 +3,9 @@
   {% for a in voci %}
   <li><a href="{% url 'ai:artifact' a.pk %}" target="_blank" rel="noopener">
     <span class="ai-elenco-titolo">{{ a.titolo }}</span>
-    <span class="ai-elenco-data">{{ a.creato|date:"d/m H:i" }}</span></a></li>
+    <span class="ai-elenco-data">{{ a.get_tipo_display }} · {{ a.creato|date:"d/m H:i" }}</span></a></li>
   {% endfor %}
 </ul>
 {% else %}
-<div class="ai-vuoto"><svg><use href="#{{ icona }}"/></svg><p>Nessun elemento salvato.<br>Salvalo con la stella sotto una risposta.</p></div>
+<p class="ai-preferiti-vuoto">Salva con la stella un grafico o una tabella sotto una risposta.</p>
 {% endif %}

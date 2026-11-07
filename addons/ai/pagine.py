@@ -23,9 +23,8 @@ from . import allegati_chat, aree, catalogo, collegamenti, documenti_chat, motor
 from .strumenti.registro import ErroreStrumento
 from .models import Artifact, CollegamentoProgetto, Conversazione, DocumentoChat, VersioneDocumento, MessaggioChat, ProgettoChat, Proposta, Turno, ValutazioneRisposta
 
-PANNELLI_SINISTRA = [("storico", "Cronologia chat", "ai-storico"), ("preferite", "Chat preferite", "ai-stella"), ("progetti", "Aree di lavoro", "ai-cartella")]
-PANNELLI_DESTRA = [("artifact", "Artifact salvati", "ai-artifact"), ("documenti", "Documenti salvati", "ai-documento"),
-                   ("grafici", "Grafici salvati", "ai-grafico")]
+PANNELLI_SINISTRA = [("storico", "Cronologia chat", "ai-storico"), ("preferite", "Preferiti: chat, documenti, grafici e tabelle", "ai-stella"),
+                     ("progetti", "Aree di lavoro", "ai-cartella")]
 
 
 def _mie(request):
@@ -142,7 +141,7 @@ def chat(request, pk=None, progetto=None):
         "messaggi": conversazione.messaggi.all() if conversazione else [],
         "storico": mie[:50], "preferite": mie.filter(preferita=True)[:50],
         "salvati": _salvati(request),
-        "pannelli_sinistra": PANNELLI_SINISTRA, "pannelli_destra": PANNELLI_DESTRA,
+        "pannelli_sinistra": PANNELLI_SINISTRA,
         "app": app, "suggerimenti": suggerimenti.per(), "suggerimenti_per_app": suggerimenti.tutti(),
         "progetti": progetti, "progetto_aperto": progetto_aperto,
         "gestisco_area": bool(progetto_aperto and progetto_aperto.utente_id == request.user.pk),
@@ -190,10 +189,8 @@ def _salva_nei_documenti(request, azienda, conversazione, progetto_aperto):
 
 
 def _salvati(request):
-    """Artifact salvati per pannello: grafici nel loro, tabelle in «Artifact salvati»."""
-    salvati = Artifact.objects.filter(utente=request.user, salvato=True).order_by("-pk")[:100]
-    return {"grafici": [a for a in salvati if a.tipo == Artifact.GRAFICO],
-            "artifact": [a for a in salvati if a.tipo == Artifact.TABELLA],
+    """I preferiti oltre alle chat: documenti e grafici e tabelle con la stella, di tutte le chat."""
+    return {"grafici_tabelle": Artifact.objects.filter(utente=request.user, salvato=True).order_by("-pk")[:100],
             "documenti": DocumentoChat.objects.filter(utente=request.user, salvato=True, conversazione__nascosta=False).order_by("-pk")[:100]}
 
 

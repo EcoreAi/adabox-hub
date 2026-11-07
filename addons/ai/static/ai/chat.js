@@ -23,6 +23,7 @@
   };
   const chiudi = (lato, salva = true) => {
     const pannello = chat.querySelector(`#ai-pannello-${lato}`);
+    if (!pannello) return;
     pannello.hidden = true;
     pannello.querySelectorAll('section').forEach((s) => { s.hidden = true; });
     chat.querySelectorAll(`[data-lato="${lato}"]`).forEach((b) => b.setAttribute('aria-expanded', 'false'));
@@ -48,15 +49,13 @@
     chiudi(x.closest('.ai-pannello').id.replace('ai-pannello-', ''));
   }));
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { chiudi('sinistra'); chiudi('destra'); }
+    if (e.key === 'Escape') chiudi('sinistra');
   });
   if (LARGO.matches) {                            // su schermi stretti i pannelli coprono la chat: chiusi
     const sinistra = ricordato('sinistra');
     // dentro un progetto (sua pagina o sua chat) si vede la sua cartella, se il pannello di sinistra è aperto
     if (chat.hasAttribute('data-in-progetto') && sinistra !== '') apri('sinistra', 'progetti', false);
     else if (sinistra === null) apri('sinistra', 'storico'); else if (sinistra) apri('sinistra', sinistra);
-    const destra = ricordato('destra');
-    if (destra) apri('destra', destra);
   }
 
   // --- composer: cresce con il testo; Invio invia, Maiusc+Invio va a capo ---

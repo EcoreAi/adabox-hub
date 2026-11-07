@@ -24,6 +24,8 @@
             aria-controls="ai-pannello-sinistra" data-tip="{{ etichetta }}" aria-label="{{ etichetta }}"><svg><use href="#{{ icona }}"/></svg></button>
     {% endfor %}
     <span class="ai-rail-spazio"></span>
+    {% if perms.ai.view_memoriautente %}<a class="ai-rail-btn" href="{% url 'ai:memoria_lista' %}" data-tip="Memoria: ciò che Ada ricorda di te" aria-label="Memoria"><svg><use href="#ai-scintilla"/></svg></a>{% endif %}
+    {% if perms.ai.view_pianificata %}<a class="ai-rail-btn" href="{% url 'ai:pianificate_lista' %}" data-tip="Attività pianificate" aria-label="Attività pianificate"><svg><use href="#ai-sveglia"/></svg></a>{% endif %}
     {% if perms.ai.change_provider %}<a class="ai-rail-btn" href="{% url 'ai:provider_lista' %}" data-tip="Impostazioni dell'assistente: provider, chiavi API, modelli, profili" aria-label="Impostazioni dell'assistente"><svg><use href="#icon-tool"/></svg></a>{% endif %}
   </nav>
   <aside class="ai-pannello" id="ai-pannello-sinistra" hidden>
@@ -33,8 +35,15 @@
       <div id="ai-elenco-storico">{% include "ai/_elenco_chat.html" with chat=storico vuoto="Nessuna conversazione ancora." %}</div>
     </section>
     <section data-contenuto="preferite" hidden>
-      <header class="ai-pannello-testa"><h2>Preferite</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
-      {% include "ai/_elenco_chat.html" with chat=preferite vuoto="Segna una chat con la stella per ritrovarla qui." %}
+      <header class="ai-pannello-testa"><h2>Preferiti</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
+      {# quello che hai segnato con la stella, in tutte le chat; ciò che nasce in un'area di lavoro è anche nella sua cartella #}
+      <details class="ai-preferiti-gruppo" open><summary>Chat <span class="ai-conta">{{ preferite|length }}</span></summary>
+        {% include "ai/_elenco_chat.html" with chat=preferite vuoto="Segna una chat con la stella per ritrovarla qui." %}</details>
+      <details class="ai-preferiti-gruppo" open><summary>Documenti <span class="ai-conta">{{ salvati.documenti|length }}</span></summary>
+        {% if salvati.documenti %}<ul class="ai-elenco">{% for d in salvati.documenti %}<li><a href="{% url 'ai:conversazione' d.conversazione_id %}?documento={{ d.pk }}"><span class="ai-elenco-titolo">{{ d.titolo }}</span><span class="ai-elenco-data">{{ d.aggiornato|date:"d/m H:i" }}</span></a></li>{% endfor %}</ul>
+        {% else %}<p class="ai-preferiti-vuoto">Salva con la stella un documento scritto con Ada.</p>{% endif %}</details>
+      <details class="ai-preferiti-gruppo" open><summary>Grafici e tabelle <span class="ai-conta">{{ salvati.grafici_tabelle|length }}</span></summary>
+        {% include "ai/_elenco_artifact.html" with voci=salvati.grafici_tabelle %}</details>
     </section>
     <section data-contenuto="progetti" hidden>
       <header class="ai-pannello-testa"><h2>Aree di lavoro</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
@@ -209,7 +218,7 @@
     </div>
   </main>
 
-  {# ---------- colonna destra: pannello e barra di icone ---------- #}
+  {# ---------- a destra: il documento aperto accanto alla chat ---------- #}
   {% if documento %}{% include "ai/_tela.html" %}{% endif %}
   {% if cartelle_scrivibili %}
   <dialog class="ai-salva-doc" id="ai-salva-doc" aria-labelledby="ai-salva-doc-titolo">
@@ -226,28 +235,6 @@
     </form>
   </dialog>
   {% endif %}
-  <aside class="ai-pannello ai-pannello-destra" id="ai-pannello-destra" hidden>
-    {% for chiave, etichetta, icona in pannelli_destra %}
-    <section data-contenuto="{{ chiave }}" hidden>
-      <header class="ai-pannello-testa"><h2>{{ etichetta }}</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
-      {% if chiave == "grafici" %}{% include "ai/_elenco_artifact.html" with voci=salvati.grafici icona=icona %}
-      {% elif chiave == "artifact" %}{% include "ai/_elenco_artifact.html" with voci=salvati.artifact icona=icona %}
-      {% elif salvati.documenti %}<ul class="ai-elenco">{% for d in salvati.documenti %}<li><a href="{% url 'ai:conversazione' d.conversazione_id %}?documento={{ d.pk }}"><span class="ai-elenco-titolo">{{ d.titolo }}</span><span class="ai-elenco-data">{{ d.aggiornato|date:"d/m H:i" }}</span></a></li>{% endfor %}</ul>
-      {% else %}<div class="ai-vuoto"><svg><use href="#{{ icona }}"/></svg><p>Nessun documento salvato.<br>Chiedi ad Ada di scriverne uno e salvalo con la stella.</p></div>{% endif %}
-    </section>
-    {% endfor %}
-  </aside>
-  <nav class="ai-rail ai-rail-destra" aria-label="Elementi salvati">
-    {% for chiave, etichetta, icona in pannelli_destra %}
-    <button type="button" class="ai-rail-btn" data-pannello="{{ chiave }}" data-lato="destra" aria-expanded="false"
-            aria-controls="ai-pannello-destra" data-tip="{{ etichetta }}" aria-label="{{ etichetta }}"><svg><use href="#{{ icona }}"/></svg></button>
-    {% endfor %}
-    {% if perms.ai.view_memoriautente %}<a class="ai-rail-btn" href="{% url 'ai:memoria_lista' %}" data-tip="Memoria: ciò che Ada ricorda di te" aria-label="Memoria"><svg><use href="#ai-scintilla"/></svg></a>{% endif %}
-    {% if perms.ai.view_pianificata %}
-    <hr class="ai-rail-sep">
-    <a class="ai-rail-btn" href="{% url 'ai:pianificate_lista' %}" data-tip="Attività pianificate" aria-label="Attività pianificate"><svg><use href="#ai-sveglia"/></svg></a>
-    {% endif %}
-  </nav>
 </div>
 <script src="{% statico 'theme/vendor/htmx.min.js' %}" defer></script>
 <script src="{% statico 'theme/ui.js' %}"></script>

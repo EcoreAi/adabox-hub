@@ -572,3 +572,10 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-sola-lettura svg { width: 16px; height: 16px; flex: none; }
 .ai-chat[data-sola-lettura] [data-apri-modifica], .ai-chat[data-sola-lettura] .ai-rigenera, .ai-chat[data-sola-lettura] .ai-voto,
 .ai-chat[data-sola-lettura] .ai-proposta-azioni, .ai-chat[data-sola-lettura] [data-salva-documenti] { display: none !important; }
+
+/* preferiti: chat, documenti, grafici e tabelle con la stella */
+.ai-preferiti-gruppo { margin: 0 0 6px; }
+.ai-preferiti-gruppo > summary { display: flex; align-items: center; gap: 6px; padding: 8px 10px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--ui-text-3); cursor: pointer; list-style: none; }
+.ai-preferiti-gruppo > summary::-webkit-details-marker { display: none; }
+.ai-preferiti-gruppo > summary .ai-conta { margin-left: auto; text-transform: none; }
+.ai-preferiti-vuoto { margin: 0 10px 8px; font-size: 13px; color: var(--ui-text-3); }

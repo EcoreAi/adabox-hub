@@ -359,8 +359,8 @@ class Artifact(models.Model):
     aggiornato = models.DateTimeField("ricalcolato il", null=True, blank=True)
 
     class Meta:
-        verbose_name = "artifact"
-        verbose_name_plural = "artifact"
+        verbose_name = "grafico o tabella"
+        verbose_name_plural = "grafici e tabelle"
         ordering = ["pk"]
 
     def __str__(self):
