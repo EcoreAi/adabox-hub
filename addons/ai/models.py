@@ -355,6 +355,8 @@ class Artifact(models.Model):
     spec = models.JSONField("specifica", default=dict)
     dati = models.JSONField("dati (istantanea)", default=dict)
     salvato = models.BooleanField("salvato", default=False)
+    condiviso_con = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="artifact_ai_condivisi",
+                                           verbose_name="condiviso con", help_text="lo vedono con i dati che i loro permessi consentono")
     creato = models.DateTimeField("creato il", auto_now_add=True)
     aggiornato = models.DateTimeField("ricalcolato il", null=True, blank=True)
 
@@ -576,6 +578,8 @@ class DocumentoChat(models.Model):
     testo = models.TextField("testo", blank=True)
     versione = models.PositiveIntegerField("versione", default=1)
     salvato = models.BooleanField("salvato", default=False)
+    condiviso_con = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="documenti_ai_condivisi",
+                                           verbose_name="condiviso con", help_text="lo leggono e lo scaricano, non lo modificano")
     creato = models.DateTimeField("creato il", auto_now_add=True)
     aggiornato = models.DateTimeField("modificato il", auto_now=True)
 

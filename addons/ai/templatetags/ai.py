@@ -116,3 +116,10 @@ def chat_dell_area(context, area):
         return []
     from ai import aree
     return aree.chat_visibili(request.user, area).order_by("-aggiornata")[:100]
+
+
+@register.simple_tag(takes_context=True)
+def colleghi_per(context, oggetto):
+    """Con chi si può condividere un documento, un grafico o una tabella (e con chi lo è già)."""
+    from ..condivisione import colleghi
+    return colleghi(context["request"], oggetto)

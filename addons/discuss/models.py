@@ -134,9 +134,11 @@ class Messaggio(models.Model):
 
 class Notifica(models.Model):
     """Voce della posta in arrivo: una menzione, un messaggio diretto, un messaggio su un record seguito."""
-    MENZIONE, DIRETTO, CANALE, RECORD, RISPOSTA, ATTIVITA = "menzione", "diretto", "canale", "record", "risposta", "attivita"
+    MENZIONE, DIRETTO, CANALE, RECORD, RISPOSTA, ATTIVITA, CONDIVISO = (
+        "menzione", "diretto", "canale", "record", "risposta", "attivita", "condiviso")
     TIPI = [(MENZIONE, "Menzione"), (DIRETTO, "Messaggio diretto"), (CANALE, "Messaggio nel canale"),
-            (RECORD, "Messaggio su un record seguito"), (RISPOSTA, "Risposta a un tuo messaggio"), (ATTIVITA, "Attività assegnata")]
+            (RECORD, "Messaggio su un record seguito"), (RISPOSTA, "Risposta a un tuo messaggio"), (ATTIVITA, "Attività assegnata"),
+            (CONDIVISO, "Condiviso con te")]
     utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifiche_discuss")
     tipo = models.CharField("tipo", max_length=10, choices=TIPI)
     autore = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,

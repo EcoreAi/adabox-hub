@@ -44,6 +44,11 @@
         {% else %}<p class="ai-preferiti-vuoto">Salva con la stella un documento scritto con Ada.</p>{% endif %}</details>
       <details class="ai-preferiti-gruppo" open><summary>Grafici e tabelle <span class="ai-conta">{{ salvati.grafici_tabelle|length }}</span></summary>
         {% include "ai/_elenco_artifact.html" with voci=salvati.grafici_tabelle %}</details>
+      {% if ricevuti.totale %}
+      <details class="ai-preferiti-gruppo" open><summary>Condivisi con me <span class="ai-conta">{{ ricevuti.totale }}</span></summary>
+        <ul class="ai-elenco">{% for d in ricevuti.documenti %}<li><a href="{% url 'ai:documento_condiviso' d.pk %}"><span class="ai-elenco-titolo">{{ d.titolo }}</span><span class="ai-elenco-data">Documento · da {{ d.utente.first_name|default:d.utente.username }}</span></a></li>{% endfor %}
+        {% for a in ricevuti.artifact %}<li><a href="{% url 'ai:artifact' a.pk %}" target="_blank" rel="noopener"><span class="ai-elenco-titolo">{{ a.titolo }}</span><span class="ai-elenco-data">{{ a.get_tipo_display }} · da {{ a.utente.first_name|default:a.utente.username }}</span></a></li>{% endfor %}</ul></details>
+      {% endif %}
     </section>
     <section data-contenuto="progetti" hidden>
       <header class="ai-pannello-testa"><h2>Aree di lavoro</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>

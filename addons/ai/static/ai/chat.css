@@ -590,3 +590,18 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-albero-altre > summary::-webkit-details-marker { display: none; }
 .ai-albero-altre > summary:hover { background: var(--ui-surface-2); }
 .ai-albero-altre[open] > summary { display: none; }
+
+/* condividere un documento, un grafico o una tabella con i colleghi */
+.ai-condividi { position: relative; display: inline-flex; }
+.ai-condividi > summary { list-style: none; cursor: pointer; }
+.ai-condividi > summary::-webkit-details-marker { display: none; }
+.ai-condividi > summary.is-condiviso { color: var(--ui-primary); }
+.ai-condividi[open] > summary::after { display: none; }
+.ai-condividi-pannello { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; width: 270px; display: flex; flex-direction: column; gap: 8px;
+  padding: 12px; background: var(--ui-surface, #fff); border: 1px solid var(--ui-border); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.12); font-size: 13px; text-align: left; }
+.ai-condividi-nota { margin: 0; font-size: 12px; color: var(--ui-text-3); }
+.ai-condividi-elenco { display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto; }
+.ai-condividi-elenco label { display: flex; align-items: center; gap: 8px; padding: 3px 2px; cursor: pointer; }
+.ai-condividi-esito { margin: 0; font-size: 12px; color: var(--ui-success, #1a7f37); }
+.ai-condividi-pagina .ai-azione { width: 36px; height: 36px; border: 1px solid var(--ui-border); border-radius: 10px; }
+.ai-documento-letto { max-width: 780px; line-height: 1.65; }

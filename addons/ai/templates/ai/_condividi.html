@@ -1,0 +1,12 @@
+{% load ai %}{% colleghi_per oggetto as persone %}{# Con chi condividere un documento, un grafico o una tabella: lo leggono e lo scaricano, non lo modificano. #}
+<details class="ai-condividi"{% if aperto %} open{% endif %}>
+  <summary class="ai-azione{% if oggetto.condiviso_con.exists %} is-condiviso{% endif %}" data-tip="Condividi con i colleghi" aria-label="Condividi con i colleghi"><svg><use href="#icon-share"/></svg></summary>
+  <form class="ai-condividi-pannello" method="post" action="{% url 'ai:condividi' tipo oggetto.pk %}" hx-post="{% url 'ai:condividi' tipo oggetto.pk %}" hx-target="closest .ai-condividi" hx-swap="outerHTML">{% csrf_token %}
+    <strong>Condividi</strong>
+    <p class="ai-condividi-nota">{% if tipo == "documento" %}Lo leggono e lo scaricano, non lo modificano.{% else %}Lo vedono con i dati che i loro permessi consentono.{% endif %} Lo trovano in Preferiti → Condivisi con me.</p>
+    {% if persone %}<div class="ai-condividi-elenco">{% for p in persone %}<label><input type="checkbox" name="persone" value="{{ p.pk }}"{% if p.dentro %} checked{% endif %}> {{ p.nome }}</label>{% endfor %}</div>
+    <button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Salva</button>
+    {% else %}<p class="ai-condividi-nota">Non ci sono altri colleghi in questa azienda.</p>{% endif %}
+    {% if esito %}<p class="ai-condividi-esito" role="status">{{ esito }}</p>{% endif %}
+  </form>
+</details>

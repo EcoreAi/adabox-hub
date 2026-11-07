@@ -141,7 +141,7 @@ def chat(request, pk=None, progetto=None):
         "conversazione": conversazione, "ambito": ambito, "turno": in_corso, "avviso_spesa": _avviso_spesa(request),
         "messaggi": conversazione.messaggi.all() if conversazione else [],
         "storico": mie[:50], "preferite": mie.filter(preferita=True)[:50],
-        "salvati": _salvati(request),
+        "salvati": _salvati(request), "ricevuti": _ricevuti(request),
         "pannelli_sinistra": PANNELLI_SINISTRA,
         "app": app, "suggerimenti": suggerimenti.per(), "suggerimenti_per_app": suggerimenti.tutti(),
         "progetti": progetti, "progetto_aperto": progetto_aperto,
@@ -188,6 +188,13 @@ def _salva_nei_documenti(request, azienda, conversazione, progetto_aperto):
         return {}
     progetto = progetto_aperto or (conversazione.progetto if conversazione and conversazione.progetto_id else None)
     return {"cartelle_scrivibili": scrivibili, "cartella_predefinita": getattr(progetto, "cartella_documenti", None)}
+
+
+def _ricevuti(request):
+    from . import condivisione
+    documenti, artifact = condivisione.ricevuti(request.user)
+    documenti, artifact = list(documenti), list(artifact)
+    return {"documenti": documenti, "artifact": artifact, "totale": len(documenti) + len(artifact)}
 
 
 def _url_dashboard(request, area):
@@ -484,15 +491,34 @@ def pagina_artifact(request, pk):
 
     from . import artifact
     from .strumenti import ErroreStrumento
-    a = _mio_artifact(request, pk)
+    a = _artifact_leggibile(request, pk)
     dati, errore = {}, ""
     try:
-        dati = artifact.ricalcola(a)
+        dati = _dati_di_oggi(request, a)
     except ErroreStrumento as e:
         errore = f"Non si può ricalcolare: {e}"
     disegno = mark_safe(artifact.svg_di(a, dati)) if dati and a.tipo == Artifact.GRAFICO else ""
-    return render(request, "ai/artifact.html", {"a": a, "dati": dati, "disegno": disegno, "errore": errore,
+    mio = a.utente_id == request.user.pk
+    return render(request, "ai/artifact.html", {"a": a, "dati": dati, "disegno": disegno, "errore": errore, "mio": mio,
                                                 "adesso": timezone.localtime()})
+
+
+def _artifact_leggibile(request, pk):
+    """Il grafico o la tabella se è dell'utente o condiviso con lui."""
+    from . import condivisione
+    a = condivisione.leggibile(Artifact, request.user, pk)
+    if a is None:
+        raise Http404
+    return a
+
+
+def _dati_di_oggi(request, a):
+    """I dati di oggi: del proprietario con i suoi permessi; di chi l'ha ricevuto con i permessi di chi guarda."""
+    from . import artifact
+    from .strumenti import Contesto
+    if a.utente_id == request.user.pk:
+        return artifact.ricalcola(a)
+    return artifact.calcola(a.spec, Contesto(utente=request.user, azienda=getattr(request, "azienda", None)))
 
 
 @login_required
@@ -502,16 +528,45 @@ def csv_artifact(request, pk):
 
     from . import artifact
     from .strumenti import ErroreStrumento
-    a = _mio_artifact(request, pk)
-    dati = a.dati
-    if request.GET.get("oggi"):
+    a = _artifact_leggibile(request, pk)
+    dati = a.dati if a.utente_id == request.user.pk else None        # l'istantanea è del proprietario: agli altri i loro dati
+    if request.GET.get("oggi") or dati is None:
         try:
-            dati = artifact.ricalcola(a)
+            dati = _dati_di_oggi(request, a)
         except ErroreStrumento as e:
             return HttpResponse(str(e), status=409, content_type="text/plain; charset=utf-8")
     risposta = HttpResponse(artifact.csv_di(a, dati), content_type="text/csv; charset=utf-8")
     risposta["Content-Disposition"] = f'attachment; filename="{slugify(a.titolo) or "artifact"}.csv"'
     return risposta
+
+
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+def documento_condiviso(request, pk):
+    """Un documento scritto con Ada, da leggere e scaricare: per chi l'ha ricevuto (e per chi l'ha scritto)."""
+    from . import condivisione
+    d = condivisione.leggibile(DocumentoChat, request.user, pk)
+    if d is None:
+        raise Http404
+    return render(request, "ai/documento_condiviso.html", {"d": d, "mio": d.utente_id == request.user.pk})
+
+
+@require_POST
+@login_required
+def condividi(request, tipo, pk):
+    """Con chi è condiviso un mio documento, grafico o tabella; risponde con il riquadro aggiornato."""
+    from . import condivisione
+    modello = condivisione.TIPI.get(tipo)
+    if modello is None:
+        raise Http404
+    filtro = {"conversazione__nascosta": False} if modello is DocumentoChat else {}
+    oggetto = get_object_or_404(modello, pk=pk, utente=request.user, **filtro)
+    quanti, _ = condivisione.condividi(request, oggetto, request.POST.getlist("persone"))
+    esito = (f"Condiviso con {quanti} person{'a' if quanti == 1 else 'e'}." if quanti else "Non è più condiviso.")
+    if not request.headers.get("HX-Request"):
+        messages.success(request, esito)
+        return redirect(request.META.get("HTTP_REFERER") or condivisione.url_di(oggetto))
+    return render(request, "ai/_condividi.html", {"oggetto": oggetto, "tipo": tipo, "esito": esito, "aperto": True})
 
 
 @require_POST
@@ -615,7 +670,8 @@ def stella_documento(request, pk):
 @login_required
 @permission_required("ai.view_conversazione", raise_exception=True)
 def scarica_documento(request, pk, formato):
-    d = _mio_documento(request, pk)
+    from . import condivisione
+    d = condivisione.leggibile(DocumentoChat, request.user, pk)
     if d is None or formato not in ("md", "docx", "pdf"):
         raise Http404
     nome = get_valid_filename(d.titolo) or "documento"

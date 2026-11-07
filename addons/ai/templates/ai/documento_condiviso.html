@@ -1,0 +1,15 @@
+{% extends 'core/base_app.html' %}{% load ai tema %}
+{% block title %}{{ d.titolo }} · {{ theme.brand }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{% statico 'ai/chat.css' %}">{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>{{ d.titolo }}</h1>
+  <div class="sub">{% if mio %}Il tuo documento · versione {{ d.versione }} · <a href="{% url 'ai:conversazione' d.conversazione_id %}?documento={{ d.pk }}">aprilo nella chat per modificarlo</a>{% else %}Condiviso da {{ d.utente.get_full_name|default:d.utente.username }} · versione {{ d.versione }} del {{ d.aggiornato|date:"d/m/Y H:i" }} · in sola lettura{% endif %}</div></div>
+  <div class="ui-pagehead-actions">
+    {% if mio %}<div class="ai-condividi-pagina">{% include "ai/_condividi.html" with oggetto=d tipo="documento" %}</div>{% endif %}
+    <a class="ui-btn ui-btn-secondary" href="{% url 'ai:scarica_documento' d.pk 'pdf' %}">PDF</a>
+    <a class="ui-btn ui-btn-secondary" href="{% url 'ai:scarica_documento' d.pk 'docx' %}">Word</a>
+    <a class="ui-btn ui-btn-ghost" href="{% url 'ai:scarica_documento' d.pk 'md' %}">Markdown</a>
+  </div>
+</div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body ai-md ai-documento-letto">{{ d.testo|markdown_ai }}</div></section>
+{% endblock %}

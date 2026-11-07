@@ -126,6 +126,16 @@ def da_attivita(sender, instance, created, raw=False, **kwargs):
     eventi.emetti("notifica", utente=n.utente, tipo_notifica=n.tipo, titolo=n.titolo, testo=n.testo, url=n.url)
 
 
+def condivisione(utente, autore, titolo, url, testo=""):
+    """Un collega ti ha condiviso qualcosa (un documento, un grafico…): lo trovi nella posta in arrivo."""
+    if "discuss" in modules.disattivati():
+        return None
+    n = Notifica.objects.create(utente=utente, tipo=Notifica.CONDIVISO, autore=autore, titolo=titolo[:200], url=url,
+                                testo=_anteprima(testo))
+    eventi.emetti("notifica", utente=n.utente, tipo_notifica=n.tipo, titolo=n.titolo, testo=n.testo, url=n.url)
+    return n
+
+
 def non_lette(utente):
     return Notifica.objects.filter(utente=utente, letta=False).count()
 
