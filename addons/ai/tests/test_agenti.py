@@ -6,6 +6,7 @@ from ai import assistenti, motore, valutazione
 from ai.gateway import finto
 from ai.models import (AnelloCatena, Assistente, Conversazione, Evento, Modello, Profilo, Proposta, Provider, Turno)
 from ai.motore import compattazione
+from core import cifratura
 from core.models import Azienda
 
 
@@ -136,3 +137,15 @@ def test_con_i_copioni_mai_il_modello_vero(scena):
     r, = valutazione.valuta([{"domanda": "Che giorno è?", "contiene": ["{oggi_giorno}"],
                               "copione": [["Oggi è {oggi_giorno}."]]}], scena["capo"], copioni=True)
     assert r["ok"] and r["costo"] == 0 and Turno.objects.filter(modello__id_api="finto-valutazione").exists()
+
+
+def test_con_i_copioni_mai_il_modello_vero_neanche_con_i_livelli(scena, monkeypatch):
+    """Con Veloce e Avanzato assegnati Automatico non passa dal profilo: --copioni usa comunque il finto."""
+    from ai.gateway import esecuzione
+    provati = []
+    monkeypatch.setitem(esecuzione.ADATTATORI, "anthropic", lambda modello, *a, **k: provati.append(modello.id_api) or iter(()))
+    vero = Provider.objects.create(nome="Vero", tipo="anthropic", chiave_cifrata=cifratura.cifra("k"))
+    Modello.objects.create(provider=vero, id_api="vero-veloce", etichetta="Vero veloce", livello_chat=Modello.VELOCE)
+    r, = valutazione.valuta([{"domanda": "Che giorno è?", "contiene": ["{oggi_giorno}"],
+                              "copione": [["Oggi è {oggi_giorno}."]]}], scena["capo"], copioni=True)
+    assert r["ok"] and r["costo"] == 0 and provati == []                     # il vero non è mai stato chiamato

@@ -66,12 +66,12 @@ def _modello_finto():
         "tipo": Provider.FINTO, "locale": True, "attivo": False})
     modello, _ = Modello.objects.get_or_create(provider=provider, id_api="finto-valutazione",
                                                defaults={"etichetta": "Finto (valutazione)", "attivo": False})
-    originale = catalogo.catena
-    catalogo.catena = lambda profilo, azienda=None: [(modello, "")]
+    originali = catalogo.catena, catalogo.automatico          # anche Automatico: con i livelli non passa dal profilo
+    catalogo.catena = catalogo.automatico = lambda profilo, azienda=None: [(modello, "")]
     try:
         yield
     finally:
-        catalogo.catena = originale
+        catalogo.catena, catalogo.automatico = originali
 
 
 def valuta(domande, utente, azienda=None, assistente=None, copioni=False):
