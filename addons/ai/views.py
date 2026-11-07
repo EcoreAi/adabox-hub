@@ -14,6 +14,12 @@ class ProviderView(ModelView):
     form_class = ProviderForm
     form_layout = [("Provider", [("nome", "tipo"), "base_url", ("nuova_chiave", "togli_chiave"), ("locale", "attivo")])]
 
+    def layout_dettaglio(self):
+        """Nella scheda niente campi del form per la chiave: la chiave mascherata e i modelli stanno nella sezione sotto."""
+        via = {"nuova_chiave", "togli_chiave"}
+        return [(t, [r for r in ([c for c in riga if c not in via] if isinstance(riga, (list, tuple)) else ([] if riga in via else [riga])
+                                 for riga in righe) if r]) for t, righe in super().layout_dettaglio()]
+
     def col_chiave(self, obj):
         try:
             return cifratura.mascherato(cifratura.decifra(obj.chiave_cifrata)) or "—"

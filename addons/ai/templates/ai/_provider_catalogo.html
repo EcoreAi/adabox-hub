@@ -1,6 +1,22 @@
-{% if obj.tipo == 'mistral' or obj.tipo == 'openai_compat' %}
+{% load ai_provider %}{% provider_scheda obj as ps %}
 <section class="ui-card is-revealed ui-section">
-  <div class="ui-card-head"><div class="ui-card-title">Modelli del provider</div><div class="spacer"></div>
-    <div class="head-actions"><a class="ui-btn ui-btn-primary ui-btn-sm" href="{% url 'ai:catalogo_provider' obj.pk %}">Scegli dal catalogo</a></div></div>
-  <div class="ui-card-body"><p class="sub">{{ obj.modelli.count }} modelli in uso. «Scegli dal catalogo» legge l'elenco dei modelli disponibili con la tua chiave e aggiunge quelli che spunti, con contesto e capacità.{% if obj.tipo == 'mistral' %} I prezzi Mistral non arrivano dall'API: scrivili nella scheda del modello.{% endif %}</p></div>
-</section>{% endif %}
+  <div class="ui-card-head"><div class="ui-card-title">Modelli di {{ obj.nome }} ({{ ps.modelli|length }})</div><div class="spacer"></div>
+    <div class="head-actions">
+      {% if obj.tipo == 'mistral' or obj.tipo == 'openai_compat' %}<a class="ui-btn ui-btn-primary ui-btn-sm" href="{% url 'ai:catalogo_provider' obj.pk %}">Scegli dal catalogo</a>{% endif %}
+      <a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'ai:modelli_nuovo' %}?provider={{ obj.pk }}">Nuovo modello</a>
+    </div></div>
+  <div class="ui-card-body"><p class="sub">Chiave API: {{ ps.chiave }}. I prezzi si scrivono nella scheda di ogni modello (dollari per milione di token): «Modifica» qui sotto.{% if obj.tipo == 'mistral' %} Mistral non li dà dall'API.{% endif %}</p></div>
+  {% if ps.modelli %}<div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Modello</th><th>ID</th><th class="ui-num">Input $/M</th><th class="ui-num">Output $/M</th><th class="ui-num">Contesto</th><th>Stato</th><th></th></tr></thead>
+    <tbody>{% for m in ps.modelli %}<tr>
+      <td><a class="ui-link" href="{% url 'ai:modelli_dettaglio' m.pk %}">{{ m.etichetta }}</a></td><td><code>{{ m.id_api }}</code></td>
+      <td class="ui-num">{% if m.prezzo_input is None %}<span class="ui-pill ui-pill-warning">manca</span>{% else %}{{ m.prezzo_input|floatformat:"-4" }}{% endif %}</td>
+      <td class="ui-num">{% if m.prezzo_output is None %}<span class="ui-pill ui-pill-warning">manca</span>{% else %}{{ m.prezzo_output|floatformat:"-4" }}{% endif %}</td>
+      <td class="ui-num">{{ m.contesto|floatformat:"0g" }}</td>
+      <td>{% if m.attivo %}attivo{% else %}<span class="sub">spento</span>{% endif %}{% if m.sceglibile %} · <span class="sub">sceglibile</span>{% endif %}</td>
+      <td>{% if perms.ai.change_modello %}<a class="ui-link" href="{% url 'ai:modelli_modifica' m.pk %}">Modifica</a>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% if ps.senza_prezzo %}<div class="ui-card-body"><p class="sub">Senza prezzo un modello conta zero nei consumi e nel tetto di spesa mensile.</p></div>{% endif %}
+  {% endif %}
+</section>

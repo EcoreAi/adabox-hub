@@ -113,3 +113,15 @@ def test_pagina_del_catalogo(client, superuser, mistral):
     assert "Mistral Large" in pagina and "mistral-large-latest" in pagina and "Mistral Embed" not in pagina
     client.post(reverse("ai:catalogo_provider", args=[provider.pk]), {"scelti": ["mistral-small-2603"]})
     assert list(Modello.objects.values_list("id_api", flat=True)) == ["mistral-small-2603"]
+
+
+def test_scheda_del_provider_con_modelli_e_prezzi(client, superuser, db):
+    provider = Provider.objects.create(nome="Anthropic", tipo=Provider.ANTHROPIC, chiave_cifrata=cifratura.cifra("sk-ant-abcdefgh1234"))
+    con = Modello.objects.create(provider=provider, id_api="claude-haiku-5-5", etichetta="Claude Haiku 5.5",
+                                 prezzo_input=Decimal("0.1"), prezzo_output=Decimal("0.5"))
+    senza = Modello.objects.create(provider=provider, id_api="claude-x", etichetta="Claude X")
+    pagina = client.get(reverse("ai:provider_dettaglio", args=[provider.pk])).content.decode()
+    assert "Modelli di Anthropic (2)" in pagina and "Claude Haiku 5.5" in pagina and "manca" in pagina
+    assert reverse("ai:modelli_modifica", args=[senza.pk]) in pagina and "1234" in pagina and "sk-ant-abcdefgh1234" not in pagina
+    assert "Nuova chiave" not in pagina and "Scegli dal catalogo" not in pagina                   # Anthropic: niente catalogo
+    assert reverse("ai:modelli_modifica", args=[con.pk]) in pagina
