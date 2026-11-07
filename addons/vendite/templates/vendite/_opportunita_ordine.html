@@ -1,0 +1,4 @@
+{% load vendite_crm %}{% opportunita_ordine obj as opp %}{% if opp %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-body"><p>Nasce dall'opportunità <a class="ui-link" href="{% url 'crm:opportunita_dettaglio' opp.pk %}">{{ opp }}</a> · {{ opp.fase }}{% if opp.stato == 'vinta' %} <span class="ui-pill ui-pill-success">vinta</span>{% endif %}</p></div>
+</section>{% endif %}

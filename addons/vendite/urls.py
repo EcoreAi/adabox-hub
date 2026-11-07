@@ -8,6 +8,9 @@ urlpatterns = [
 
 from django.apps import apps  # noqa: E402
 
+if apps.is_installed("crm"):
+    urlpatterns += [path("da-opportunita/<int:pk>/", pagine.da_opportunita, name="da_opportunita")]
+
 if apps.is_installed("portale"):
     from . import portale
 

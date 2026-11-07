@@ -40,6 +40,8 @@ class OrdineVendita(AziendaMixin, ProprietaMixin):
     risposta_ip = models.GenericIPAddressField("indirizzo IP", null=True, blank=True, editable=False)
     risposta_motivo = models.TextField("motivo del rifiuto", blank=True, editable=False)
     risposta_impronta = models.CharField("impronta del documento accettato", max_length=32, blank=True, editable=False)
+    opportunita_id = models.PositiveBigIntegerField("opportunità di origine", null=True, blank=True, editable=False, db_index=True,
+                                                    help_text="l'opportunità del CRM da cui nasce il preventivo")
 
     class Meta(AziendaMixin.Meta):
         verbose_name = "preventivo / ordine"

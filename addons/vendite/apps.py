@@ -13,6 +13,14 @@ class VenditeConfig(AppConfig):
         hooks.sezione_dettaglio("contatti.Contatto", "vendite/_fido_contatto.html", order=25,
                                 permission="vendite.view_ordinevendita")
         from django.apps import apps
+        if apps.is_installed("crm"):                       # preventivi dalle opportunità, vinta alla conferma
+            from . import opportunita
+            from .segnali import ordine_confermato
+            ordine_confermato.connect(opportunita.vinci, dispatch_uid="vendite.opportunita_vinta")
+            hooks.sezione_dettaglio("crm.Opportunita", "vendite/_opportunita_vendite.html", order=10,
+                                    permission="vendite.view_ordinevendita")
+            hooks.sezione_dettaglio("vendite.OrdineVendita", "vendite/_opportunita_ordine.html", order=1,
+                                    permission="crm.view_opportunita")
         if apps.is_installed("portale"):                   # preventivi e ordini nel portale clienti
             from portale import sezioni
             hooks.percorso_portale("/vendite/portale/")

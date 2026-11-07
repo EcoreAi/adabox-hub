@@ -1,0 +1,10 @@
+{% load vendite_crm %}{% ordini_opportunita obj as ordini %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Preventivi e ordini</div><div class="spacer"></div>
+    {% if perms.vendite.add_ordinevendita and obj.stato != 'persa' %}<div class="head-actions"><form method="post" action="{% url 'vendite:da_opportunita' obj.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Crea preventivo</button></form></div>{% endif %}</div>
+  {% if ordini %}<div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Documento</th><th>Data</th><th>Stato</th><th class="ui-num">Totale</th></tr></thead>
+    <tbody>{% for o in ordini %}<tr><td><a class="ui-link" href="{% url 'vendite:ordini_dettaglio' o.pk %}">{{ o }}</a></td><td>{{ o.data|date:"d/m/Y" }}</td><td>{{ o.get_stato_display }}</td><td class="ui-num">{{ o.totale|floatformat:"2g" }} €</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<div class="ui-card-body"><p class="sub">{% if obj.contatto %}Nessun preventivo: con «Crea preventivo» ne parte uno per {{ obj.contatto }}, collegato a questa opportunità. Confermando l'ordine l'opportunità diventa vinta.{% else %}Collega un contatto all'opportunità per fare un preventivo.{% endif %}</p></div>{% endif %}
+</section>

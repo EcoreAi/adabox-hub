@@ -1,4 +1,5 @@
 """Il preventivo online: la pagina pubblica dal link nell'email, senza accesso."""
+from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_ipv46_address
 from django.shortcuts import render
@@ -38,3 +39,27 @@ def preventivo_online(request, token):
         except ValidationError:
             contesto.update(ordine=type(ordine).objects.get(pk=ordine.pk), stato="chiuso")
     return render(request, "vendite/online.html", contesto)
+
+
+@login_required
+@permission_required("vendite.add_ordinevendita", raise_exception=True)
+def da_opportunita(request, pk):
+    """«Crea preventivo» dalla scheda dell'opportunità."""
+    from django.contrib import messages
+    from django.core.exceptions import ValidationError
+    from django.shortcuts import get_object_or_404, redirect
+
+    from core.dashboard import queryset
+    from crm.models import Opportunita
+
+    from . import opportunita
+    opp = get_object_or_404(queryset(request, Opportunita), pk=pk)
+    if request.method != "POST":
+        return redirect("crm:opportunita_dettaglio", opp.pk)
+    try:
+        ordine = opportunita.crea_preventivo(opp, request.user)
+    except ValidationError as e:
+        messages.error(request, " ".join(e.messages))
+        return redirect("crm:opportunita_dettaglio", opp.pk)
+    messages.success(request, "Preventivo creato dall'opportunità: aggiungi le righe.")
+    return redirect("vendite:ordini_modifica", ordine.pk)
