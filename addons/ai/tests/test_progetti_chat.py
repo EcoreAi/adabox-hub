@@ -97,3 +97,15 @@ def test_chip_del_progetto_con_la_x_e_prima_chat(client, s, settings):
     assert "Sviluppo AdaV3" in chip and f'href="{reverse("ai:chat")}"' in chip and "Esci dall'area di lavoro" in chip
     client.post(reverse("ai:invia"), {"testo": "prima domanda", "progetto": p.pk})
     assert Conversazione.objects.get(messaggi__testo="prima domanda").progetto == p
+
+
+def test_albero_con_molte_chat_senza_barre(client, s):
+    """Oltre 8 voci per gruppo le altre stanno dietro «Mostra altre N», aperto se la chat corrente è tra quelle."""
+    p = ProgettoChat.objects.create(utente=s["u"], azienda=s["az"], nome="Grande")
+    chat = [Conversazione.objects.create(utente=s["u"], titolo=f"Chat {i:02d}", progetto=p) for i in range(11)]
+    html = client.get(reverse("ai:albero_progetto", args=[p.pk])).content.decode()
+    gruppo = html.split('data-gruppo="chat"')[1].split("</details>\n")[0]
+    assert "Mostra altre 3" in gruppo and gruppo.count("<li>") == 11 and 'class="ai-albero-altre" open' not in gruppo
+    vecchia = min(chat, key=lambda c: c.aggiornata)                                  # in fondo all'elenco
+    html = client.get(f"{reverse('ai:albero_progetto', args=[p.pk])}?chat={vecchia.pk}").content.decode()
+    assert 'class="ai-albero-altre" open' in html

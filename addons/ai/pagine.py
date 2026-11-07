@@ -23,6 +23,7 @@ from . import allegati_chat, aree, catalogo, collegamenti, documenti_chat, motor
 from .strumenti.registro import ErroreStrumento
 from .models import Artifact, CollegamentoProgetto, Conversazione, DocumentoChat, VersioneDocumento, MessaggioChat, ProgettoChat, Proposta, Turno, ValutazioneRisposta
 
+IN_VISTA_ALBERO = 8
 PANNELLI_SINISTRA = [("storico", "Cronologia chat", "ai-storico"), ("preferite", "Preferiti: chat, documenti, grafici e tabelle", "ai-stella"),
                      ("progetti", "Aree di lavoro", "ai-cartella")]
 
@@ -836,6 +837,9 @@ def albero_progetto(request, pk):
         ("artifact", "Grafici e tabelle", len(contenuti["artifact_progetto"]), grafici),
         ("file", "File", contenuti["documenti_cartella_totale"] + len(allegati), file[:archivio.MASSIMO_ELENCO * 3]),
     ]
+    # i primi in vista, gli altri dietro «Mostra altre N» (aperto se c'è la chat corrente): niente barre dentro l'albero
+    gruppi = [(chiave, titolo, totale, voci[:IN_VISTA_ALBERO], voci[IN_VISTA_ALBERO:], any(v["attiva"] for v in voci[IN_VISTA_ALBERO:]))
+              for chiave, titolo, totale, voci in gruppi]
     return render(request, "ai/_albero_progetto.html", {"progetto": progetto, "gruppi": gruppi, "corrente": corrente,
                                                         "carica_in": destinazione, "url_dashboard": _url_dashboard(request, progetto)})
 

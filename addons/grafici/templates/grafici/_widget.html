@@ -45,7 +45,7 @@
         {% else %}<thead><tr><th>Categoria</th><th class="num">Valore</th></tr></thead>
         <tbody>{% for e, v in w.serie.righe %}<tr><td>{{ e }}</td><td class="num">{{ v|floatformat:"-2" }}</td></tr>{% endfor %}</tbody>{% endif %}</table></div>
       {% endif %}
-      <div class="an-piede"><span>{% if w.serie.futuro %}modello {{ w.serie.modello|default:"locale" }}{% elif w.serie.link %}clic su una categoria: lista filtrata{% elif w.serie.tipo == "tabella" %}{{ w.serie.righe|length }} di {{ w.serie.totale }} righe{% elif w.serie.totale is not None and not w.serie.vuoto and w.serie.tipo != "kpi" %}totale {{ w.serie.totale|floatformat:"-2" }}{% endif %}</span><span>{% if w.aggiornato %}dati di {{ w.aggiornato|date:"d/m H:i" }}{% endif %}</span></div>
+      <div class="an-piede"><span>{% if w.serie.futuro %}modello {{ w.serie.modello|default:"locale" }}{% elif w.serie.tipo == "tabella" %}{{ w.serie.righe|length }} di {{ w.serie.totale }} righe{% elif w.serie.link %}clic su una categoria: lista filtrata{% elif w.serie.totale is not None and not w.serie.vuoto and w.serie.tipo != "kpi" %}totale {{ w.serie.totale|floatformat:"-2" }}{% endif %}</span><span>{% if w.aggiornato %}dati di {{ w.aggiornato|date:"d/m H:i" }}{% endif %}</span></div>
     </div>
   </div>
 </section>
