@@ -125,3 +125,12 @@ def test_scheda_del_provider_con_modelli_e_prezzi(client, superuser, db):
     assert reverse("ai:modelli_modifica", args=[senza.pk]) in pagina and "1234" in pagina and "sk-ant-abcdefgh1234" not in pagina
     assert "Nuova chiave" not in pagina and "Scegli dal catalogo" not in pagina                   # Anthropic: niente catalogo
     assert reverse("ai:modelli_modifica", args=[con.pk]) in pagina
+
+
+def test_livelli_con_un_modello_senza_prezzo(db):
+    from ai.pagine import livelli_modello
+    provider = Provider.objects.create(nome="Mistral", tipo=Provider.MISTRAL, chiave_cifrata=cifratura.cifra("k"))
+    caro = Modello.objects.create(provider=provider, id_api="large", etichetta="Large", sceglibile=True,
+                                  prezzo_input=Decimal("2"), prezzo_output=Decimal("6"))
+    gratis = Modello.objects.create(provider=provider, id_api="small", etichetta="Small", sceglibile=True)
+    assert livelli_modello(None) == [("standard", gratis), ("max", caro)]
