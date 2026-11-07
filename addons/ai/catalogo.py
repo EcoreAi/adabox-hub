@@ -45,6 +45,21 @@ def sceglibili(azienda=None):
     return risultato
 
 
+def automatico(profilo, azienda=None):
+    """La catena di «Automatico» in chat: se ai modelli sono assegnati i livelli, prima Veloce e poi Avanzato, e la
+    catena del profilo resta come riserva (es. se il provider dei livelli non risponde); senza livelli, il profilo."""
+    livelli = {m.livello_chat: (m, c) for m, c in sceglibili(azienda) if m.livello_chat}
+    davanti = [livelli[n] for n in ("veloce", "avanzato") if n in livelli]
+    if not davanti:
+        return catena(profilo, azienda)
+    try:
+        riserva = catena(profilo, azienda)
+    except NessunModello:
+        riserva = []
+    presi = {m.pk for m, _ in davanti}
+    return davanti + [a for a in riserva if a[0].pk not in presi]
+
+
 def con_scelta(anelli, modello_scelto, azienda=None):
     """La catena con il modello scelto davanti; se non è più sceglibile vale quella degli amministratori."""
     if modello_scelto is None:

@@ -222,10 +222,12 @@ def esegui(turno_id):
         from .. import assistenti
         assistente = assistenti.risolvi(conversazione, utente)
         if assistente is not None and assistente.profilo_id and assistente.profilo.attivo:
-            profilo = assistente.profilo
+            profilo, anelli = assistente.profilo, catalogo.catena(assistente.profilo, turno.azienda)
         else:
             profilo = catalogo.profilo_per(turno.compito, turno.azienda, conversazione.ambito)
-        catena = catalogo.con_scelta(catalogo.catena(profilo, turno.azienda), conversazione.modello, turno.azienda)
+            anelli = (catalogo.automatico(profilo, turno.azienda) if profilo.compito == "chat"
+                      else catalogo.catena(profilo, turno.azienda))
+        catena = catalogo.con_scelta(anelli, conversazione.modello, turno.azienda)
         from ..strumenti import web
         ammessi = {s.nome: s for s in assistenti.filtra_strumenti(
             web.filtra(strumenti.disponibili(utente, conversazione.ambito, turno.azienda), turno.azienda, turno.web), assistente, esperto=turno.compito == "esperto")}

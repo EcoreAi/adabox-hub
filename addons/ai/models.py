@@ -154,7 +154,8 @@ class Modello(models.Model):
     VELOCE, AVANZATO = "veloce", "avanzato"
     livello_chat = models.CharField("livello in chat", max_length=8, blank=True,
                                     choices=[("", "Nessuno"), (VELOCE, "Veloce"), (AVANZATO, "Avanzato")],
-                                    help_text="il modello che usa la chat quando l'utente sceglie «Veloce» o «Avanzato»; uno per livello")
+                                    help_text="il modello che usa la chat quando l'utente sceglie «Veloce» o «Avanzato»; uno per livello. "
+                                              "Con «Automatico» la chat usa Veloce, poi Avanzato, poi la catena del profilo «Chat» come riserva")
     ragionamento = models.BooleanField("ragiona (effort)", default=False)
     residenza_ue = models.BooleanField("dati in UE", default=False)
     attivo = models.BooleanField("attivo", default=True)

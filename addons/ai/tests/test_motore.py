@@ -195,3 +195,26 @@ def test_contesto_con_giorno_e_prossimi_giorni():
         testo = con_contesto("ciao", User(username="anna"))
     assert "Data e ora: sabato 07/11/2026 20:23" in testo
     assert "Prossimi giorni: domenica 08/11, lunedì 09/11, martedì 10/11" in testo and "sabato 14/11" in testo
+
+
+def test_automatico_usa_veloce_poi_avanzato_poi_il_profilo(scena):
+    """Con i livelli assegnati, «Automatico» risponde con Veloce; la catena del profilo resta come riserva. Un
+    assistente con il suo profilo e i compiti diversi dalla chat non cambiano."""
+    from ai import catalogo
+    provider = scena["modello"].provider
+    veloce = Modello.objects.create(provider=provider, id_api="finto-veloce", etichetta="Veloce", livello_chat=Modello.VELOCE)
+    avanzato = Modello.objects.create(provider=provider, id_api="finto-avanzato", etichetta="Avanzato",
+                                      livello_chat=Modello.AVANZATO)
+    profilo = Profilo.objects.get(compito="chat")
+    assert [m for m, _ in catalogo.automatico(profilo)] == [veloce, avanzato, scena["modello"]]
+    with finto.con_copione([["Ciao!"]]):
+        turno = _avvia(scena, "Ciao")
+    turno.refresh_from_db()
+    assert turno.stato == "completato" and turno.modello == veloce
+    AnelloCatena.objects.all().delete()                              # profilo senza modelli: bastano i livelli
+    assert [m for m, _ in catalogo.automatico(profilo)] == [veloce, avanzato]
+    veloce.livello_chat = avanzato.livello_chat = ""
+    veloce.save()
+    avanzato.save()
+    with pytest.raises(catalogo.NessunModello):                      # senza livelli vale solo il profilo
+        catalogo.automatico(profilo)

@@ -62,7 +62,7 @@ def _contenuti_progetto(request, progetto):
 def _fornitore_immagini(azienda):
     """Il nome del modello cloud che riceverebbe un'immagine, per il riquadro di conferma."""
     try:
-        catena = catalogo.catena(catalogo.profilo_per("chat", azienda), azienda)
+        catena = catalogo.automatico(catalogo.profilo_per("chat", azienda), azienda)
     except catalogo.NessunModello:
         return "un modello cloud"
     return next((m.etichetta for m, _ in catena if m.visione and not m.provider.locale), "un modello cloud")
@@ -71,7 +71,7 @@ def _fornitore_immagini(azienda):
 def livelli_modello(azienda):
     """[(livello, modello)] della scelta in chat: «standard» è Veloce, «max» è Avanzato. Valgono i modelli con il
     livello assegnato; se nessuno ne ha uno, Veloce è il più economico dei sceglibili e Avanzato il più caro.
-    Con Automatico vale la catena degli amministratori."""
+    Con Automatico: Veloce, poi Avanzato, poi la catena del profilo della chat (catalogo.automatico)."""
     disponibili = [m for m, _ in catalogo.sceglibili(azienda)]
     assegnati = {m.livello_chat: m for m in disponibili if m.livello_chat}
     if assegnati:
