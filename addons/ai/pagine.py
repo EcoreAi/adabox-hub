@@ -69,8 +69,13 @@ def _fornitore_immagini(azienda):
 
 
 def livelli_modello(azienda):
-    """[(livello, modello)] della scelta in chat: Standard il più economico dei modelli sceglibili, Max il più capace
-    (il più caro). Con Automatico vale la catena degli amministratori."""
+    """[(livello, modello)] della scelta in chat: «standard» è Veloce, «max» è Avanzato. Valgono i modelli con il
+    livello assegnato; se nessuno ne ha uno, Veloce è il più economico dei sceglibili e Avanzato il più caro.
+    Con Automatico vale la catena degli amministratori."""
+    disponibili = [m for m, _ in catalogo.sceglibili(azienda)]
+    assegnati = {m.livello_chat: m for m in disponibili if m.livello_chat}
+    if assegnati:
+        return [(livello, assegnati[nome]) for livello, nome in (("standard", "veloce"), ("max", "avanzato")) if nome in assegnati]
     modelli = sorted((m for m, _ in catalogo.sceglibili(azienda)),
                      key=lambda m: (m.prezzo_output or 0, m.prezzo_input or 0, m.pk))   # senza prezzo conta come gratuito
     if not modelli:

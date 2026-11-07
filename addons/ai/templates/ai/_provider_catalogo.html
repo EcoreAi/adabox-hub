@@ -13,7 +13,7 @@
       <td class="ui-num">{% if m.prezzo_input is None %}<span class="ui-pill ui-pill-warning">manca</span>{% else %}{{ m.prezzo_input|floatformat:"-4" }}{% endif %}</td>
       <td class="ui-num">{% if m.prezzo_output is None %}<span class="ui-pill ui-pill-warning">manca</span>{% else %}{{ m.prezzo_output|floatformat:"-4" }}{% endif %}</td>
       <td class="ui-num">{{ m.contesto|floatformat:"0g" }}</td>
-      <td>{% if m.attivo %}attivo{% else %}<span class="sub">spento</span>{% endif %}{% if m.sceglibile %} · <span class="sub">sceglibile</span>{% endif %}</td>
+      <td>{% if m.attivo %}attivo{% else %}<span class="sub">spento</span>{% endif %}{% if m.livello_chat %} · <strong>{{ m.get_livello_chat_display }}</strong> in chat{% elif m.sceglibile %} · <span class="sub">sceglibile</span>{% endif %}</td>
       <td>{% if perms.ai.change_modello %}<a class="ui-link" href="{% url 'ai:modelli_modifica' m.pk %}">Modifica</a>{% endif %}</td>
     </tr>{% endfor %}</tbody>
   </table></div>

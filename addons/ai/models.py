@@ -151,6 +151,10 @@ class Modello(models.Model):
     strumenti = models.BooleanField("usa strumenti", default=True)
     visione = models.BooleanField("legge immagini", default=False)
     sceglibile = models.BooleanField("sceglibile dagli utenti", default=False, help_text="compare nella scelta del modello in chat; i tetti di spesa restano gli stessi")
+    VELOCE, AVANZATO = "veloce", "avanzato"
+    livello_chat = models.CharField("livello in chat", max_length=8, blank=True,
+                                    choices=[("", "Nessuno"), (VELOCE, "Veloce"), (AVANZATO, "Avanzato")],
+                                    help_text="il modello che usa la chat quando l'utente sceglie «Veloce» o «Avanzato»; uno per livello")
     ragionamento = models.BooleanField("ragiona (effort)", default=False)
     residenza_ue = models.BooleanField("dati in UE", default=False)
     attivo = models.BooleanField("attivo", default=True)
@@ -163,6 +167,13 @@ class Modello(models.Model):
 
     def __str__(self):
         return f"{self.etichetta} ({self.provider})"
+
+    def save(self, *args, **kwargs):
+        if self.livello_chat:
+            self.sceglibile = True                     # un modello con un livello si può scegliere
+        super().save(*args, **kwargs)
+        if self.livello_chat:                          # un solo modello per livello
+            Modello.objects.filter(livello_chat=self.livello_chat).exclude(pk=self.pk).update(livello_chat="")
 
     def costo(self, uso):
         """Costo in dollari di un uso {input, output, cache_scrittura, cache_lettura} (token)."""

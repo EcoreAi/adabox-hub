@@ -49,13 +49,14 @@ class ChiaveAziendaView(ModelView):
 class ModelloView(ModelView):
     model = Modello
     slug = "modelli"
-    list_display = ["etichetta", "provider", "id_api", "contesto", "prezzo_input", "prezzo_output", "attivo"]
+    list_display = ["etichetta", "provider", "id_api", "contesto", "prezzo_input", "prezzo_output", "livello_chat", "attivo"]
     list_filter = ["provider", "attivo", "residenza_ue"]
     search_fields = ["etichetta", "id_api"]
     form_layout = [("Modello", [("provider", "id_api"), "etichetta", ("contesto", "max_output")]),
                    ("Prezzi in dollari per milione di token", [("prezzo_input", "prezzo_output"),
                                                                ("prezzo_cache_scrittura", "prezzo_cache_lettura")]),
-                   ("Capacità", [("strumenti", "visione", "ragionamento"), ("residenza_ue", "attivo")])]
+                   ("Capacità", [("strumenti", "visione", "ragionamento"), ("residenza_ue", "attivo")]),
+                   ("Nella chat", [("livello_chat", "sceglibile")])]
 
 
 @register

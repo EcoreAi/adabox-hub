@@ -134,3 +134,19 @@ def test_livelli_con_un_modello_senza_prezzo(db):
                                   prezzo_input=Decimal("2"), prezzo_output=Decimal("6"))
     gratis = Modello.objects.create(provider=provider, id_api="small", etichetta="Small", sceglibile=True)
     assert livelli_modello(None) == [("standard", gratis), ("max", caro)]
+
+
+def test_livelli_assegnati_a_mano(db):
+    from ai.pagine import livelli_modello
+    provider = Provider.objects.create(nome="Mistral", tipo=Provider.MISTRAL, chiave_cifrata=cifratura.cifra("k"))
+    large = Modello.objects.create(provider=provider, id_api="large", etichetta="Large", prezzo_output=Decimal("6"))
+    medium = Modello.objects.create(provider=provider, id_api="medium", etichetta="Medium", prezzo_output=Decimal("2"),
+                                    livello_chat=Modello.AVANZATO)
+    assert medium.sceglibile and livelli_modello(None) == [("max", medium)]          # Avanzato anche se non è il più caro
+    large.livello_chat = Modello.AVANZATO
+    large.save()
+    medium.refresh_from_db()
+    assert medium.livello_chat == "" and livelli_modello(None)[0] == ("max", large)  # uno solo per livello
+    medium.livello_chat = Modello.VELOCE
+    medium.save()
+    assert livelli_modello(None) == [("standard", medium), ("max", large)]
