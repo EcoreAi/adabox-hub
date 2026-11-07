@@ -1,0 +1,22 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Merce per ubicazione · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Merce per ubicazione</h1><div class="sub">{{ scelto|default:"Nessun magazzino" }} · {{ righe|length }} righe</div></div>
+  <div class="ui-pagehead-actions">{% if perms.magazzino.add_movimento %}<a class="ui-btn ui-btn-secondary" href="{% url 'magazzino:trasferisci' %}">Trasferisci</a>{% endif %}<a class="ui-btn ui-btn-secondary" href="{% url 'magazzino:ubicazioni_lista' %}">Ubicazioni</a></div>
+</div>
+<div class="ui-card is-revealed">
+  {% if magazzini|length > 1 %}<form class="ui-filtri" method="get"><select class="ui-input" name="magazzino" aria-label="Magazzino" onchange="this.form.submit()">{% for m in magazzini %}<option value="{{ m.pk }}"{% if m == scelto %} selected{% endif %}>{{ m }}</option>{% endfor %}</select></form>{% endif %}
+  {% if righe %}
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Ubicazione</th><th>Prodotto</th><th class="ui-num">Quantità</th><th></th></tr></thead>
+    <tbody>{% for r in righe %}<tr>
+      <td>{% if r.ubicazione %}<a class="ui-link" href="{% url 'magazzino:ubicazioni_dettaglio' r.ubicazione.pk %}">{{ r.ubicazione.percorso }}</a>{% if r.ubicazione.nome %} <span class="sub">{{ r.ubicazione.nome }}</span>{% endif %}{% else %}<span class="sub">senza ubicazione</span>{% endif %}</td>
+      <td>{{ r.prodotto }}</td><td class="ui-num">{% if r.quantita < 0 %}<span class="ui-pill ui-pill-danger">{{ r.quantita|floatformat:"-3g" }}</span>{% else %}{{ r.quantita|floatformat:"-3g" }}{% endif %}{% if r.prodotto.unita %} {{ r.prodotto.unita }}{% endif %}</td>
+      <td>{% if perms.magazzino.add_movimento %}<a class="ui-link" href="{% url 'magazzino:trasferisci' %}?prodotto={{ r.prodotto.pk }}&da={% if r.ubicazione %}u{{ r.ubicazione.pk }}{% else %}m{{ scelto.pk }}{% endif %}">Sposta</a>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessuna merce in questo magazzino.</p></div></div>{% endif %}
+</div>
+<p class="sub ui-section">La merce «senza ubicazione» è quella entrata prima delle ubicazioni o senza un'ubicazione predefinita: spostala con «Sposta». I carichi senza ubicazione vanno in quella predefinita del magazzino; le uscite partono da dove ce n'è di più.</p>
+{% endblock %}

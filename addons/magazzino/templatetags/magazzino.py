@@ -27,3 +27,32 @@ def costo_prodotto(prodotto):
     return {"quantita": stato.quantita, "costo": stato.costo_corrente, "valore": costi.q2(stato.valore),
             "metodo": dict(costi.METODI)[stato.metodo], "scelta": scelta.metodo if scelta else "",
             "metodo_azienda": dict(costi.METODI)[costi.metodo_azienda(prodotto.azienda)]}
+
+
+@register.simple_tag
+def contenuto_ubicazione(ubicazione):
+    from magazzino.pagine import contenuto
+    return contenuto(ubicazione.magazzino, ubicazione)
+
+
+@register.simple_tag
+def tracciabilita(lotto):
+    """Saldo per magazzino e movimenti del lotto con il documento: a monte i ricevimenti, a valle le consegne."""
+    from django.db.models import Sum
+
+    from magazzino.models import Movimento
+    movimenti = list(Movimento.objects.filter(lotto=lotto).select_related("magazzino", "ubicazione", "content_type").order_by("data", "pk"))
+    for m in movimenti:
+        documento = m.documento
+        m.chi = getattr(documento, "fornitore", None) or getattr(documento, "cliente", None)
+        m.doc = documento
+    saldi = (Movimento.objects.filter(lotto=lotto).values("magazzino__nome").annotate(t=Sum("quantita")).exclude(t=0))
+    return {"movimenti": movimenti, "saldi": list(saldi),
+            "fornitori": sorted({str(m.chi) for m in movimenti if m.quantita > 0 and m.chi}),
+            "clienti": sorted({str(m.chi) for m in movimenti if m.quantita < 0 and m.chi and m.tipo == "scarico"})}
+
+
+@register.simple_tag
+def tracciamento_prodotto(prodotto):
+    t = getattr(prodotto, "tracciamento", None)
+    return {"tipo": t.tipo if t else "", "scadenza": t.scadenza if t else False}

@@ -15,6 +15,8 @@ class MagazzinoConfig(AppConfig):
         from . import collegamenti
         from .models import Movimento
         post_save.connect(_movimento_creato, sender=Movimento, dispatch_uid="magazzino.costi")
+        hooks.sezione_dettaglio("magazzino.Ubicazione", "magazzino/_contenuto_ubicazione.html", order=5)
+        hooks.sezione_dettaglio("magazzino.Lotto", "magazzino/_tracciabilita.html", order=5)
         hooks.sezione_dettaglio("prodotti.Prodotto", "magazzino/_costo_prodotto.html", order=30,
                                 permission="magazzino.view_movimento")
         if apps.is_installed("fatturazione"):

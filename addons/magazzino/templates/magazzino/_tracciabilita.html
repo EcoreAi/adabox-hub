@@ -1,0 +1,17 @@
+{% load magazzino %}{% tracciabilita obj as t %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Tracciabilità</div></div>
+  <div class="ui-card-body">
+    <p><strong>Arrivato da:</strong> {{ t.fornitori|join:", "|default:"—" }} · <strong>Consegnato a:</strong> {{ t.clienti|join:", "|default:"—" }}</p>
+    <p>{% for s in t.saldi %}{{ s.magazzino__nome }}: <strong>{{ s.t|floatformat:"-3g" }}</strong>{% if not forloop.last %} · {% endif %}{% empty %}Nessuna giacenza.{% endfor %}{% if obj.scadenza %} · scade il {{ obj.scadenza|date:"d/m/Y" }}{% endif %}</p>
+  </div>
+  {% if t.movimenti %}<div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Data</th><th>Movimento</th><th>Documento</th><th>Fornitore o cliente</th><th>Dove</th><th class="ui-num">Quantità</th></tr></thead>
+    <tbody>{% for m in t.movimenti %}<tr>
+      <td>{{ m.data|date:"d/m/Y" }}</td><td>{{ m.get_tipo_display }}</td>
+      <td>{% if m.doc %}{% if m.doc.fornitore %}<a class="ui-link" href="{% url 'magazzino:ricevimenti_dettaglio' m.doc.pk %}">{{ m.doc }}</a>{% elif m.doc.cliente %}<a class="ui-link" href="{% url 'magazzino:consegne_dettaglio' m.doc.pk %}">{{ m.doc }}</a>{% else %}{{ m.doc }}{% endif %}{% else %}<span class="sub">{{ m.causale|default:"—" }}</span>{% endif %}</td>
+      <td>{{ m.chi|default:"—" }}</td><td>{{ m.magazzino }}{% if m.ubicazione %} · {{ m.ubicazione.codice }}{% endif %}</td>
+      <td class="ui-num">{{ m.quantita|floatformat:"-3g" }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>{% endif %}
+</section>

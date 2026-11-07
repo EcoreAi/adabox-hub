@@ -125,7 +125,9 @@ def ripercorri(prodotto, fino_a=None, movimenti=None):
     stato = Stato(metodo(prodotto), q4(prodotto.costo or 0))
     costi = []
     for m in movimenti:
-        if m.quantita > 0:
+        if m.tipo == "trasferimento":                     # da un posto all'altro dell'azienda: il costo non cambia
+            costi.append((m, stato.costo_corrente))
+        elif m.quantita > 0:
             costi.append((m, stato.entra(m.quantita, m.costo_unitario if m.costo_fissato else None)))
         else:
             costi.append((m, stato.esce(-m.quantita)))

@@ -4,7 +4,8 @@ from django.core.exceptions import ValidationError
 from core.viste import Inline, ModelView, register, schede
 
 from . import operazioni
-from .models import Consegna, Magazzino, Movimento, Ricevimento, RigaConsegna, RigaRicevimento
+from .models import Consegna, Magazzino, Movimento, Ricevimento, RigaConsegna, RigaRicevimento, Ubicazione
+from .models import Lotto
 
 
 @register
@@ -17,14 +18,47 @@ class MagazzinoView(ModelView):
 
 
 @register
+class UbicazioneView(ModelView):
+    """Zone, scaffali e celle dei magazzini, una dentro l'altra."""
+    model = Ubicazione
+    slug = "ubicazioni"
+    list_display = ["codice", "nome", "magazzino", "padre", "predefinita", "attiva"]
+    list_filter = ["magazzino", "attiva"]
+    search_fields = ["codice", "nome"]
+    form_layout = [("Ubicazione", [("magazzino", "padre"), ("codice", "nome"), ("predefinita", "attiva")])]
+    company_field = "azienda"
+    list_group_by = ["magazzino"]
+    ai_descrizione = "Le ubicazioni dei magazzini (zone, scaffali, celle), ad albero, con la merce che contengono."
+
+
+@register
+class LottoView(ModelView):
+    """Lotti e numeri di serie: nascono dai ricevimenti; la scheda mostra da chi è arrivato e a chi è andato."""
+    model = Lotto
+    slug = "lotti"
+    list_display = ["codice", "prodotto", "scadenza", "giacenza", "seriale"]
+    list_filter = ["prodotto", "seriale", "scadenza"]
+    search_fields = ["codice", "prodotto__nome", "prodotto__codice", "note"]
+    form_layout = [("Lotto", [("prodotto", "codice"), "scadenza", "note"])]
+    company_field = "azienda"
+    list_group_by = ["prodotto", "scadenza:mese"]
+    ai_descrizione = "Lotti e numeri di serie dei beni, con scadenza, giacenza e tracciabilità verso fornitori e clienti."
+
+    def col_giacenza(self, obj):
+        from .lotti import saldo
+        return f"{saldo(obj):g}"
+    col_giacenza.short_description = "Giacenza"
+
+
+@register
 class MovimentoView(ModelView):
     """Movimenti: nascono da consegne e ricevimenti; a mano solo le rettifiche (inventario, scarti)."""
     model = Movimento
     slug = "movimenti"
-    list_display = ["data", "prodotto", "magazzino", "tipo", "quantita", "costo_unitario", "valore_movimento", "causale"]
-    list_filter = ["tipo", "magazzino", "prodotto", "data"]
-    search_fields = ["prodotto__nome", "prodotto__codice", "causale"]
-    form_layout = [("Rettifica", [("prodotto", "magazzino"), ("quantita", "costo_unitario"), "causale"])]
+    list_display = ["data", "prodotto", "lotto", "magazzino", "ubicazione", "tipo", "quantita", "costo_unitario", "valore_movimento", "causale"]
+    list_filter = ["tipo", "magazzino", "ubicazione", "prodotto", "lotto", "data"]
+    search_fields = ["prodotto__nome", "prodotto__codice", "causale", "lotto__codice"]
+    form_layout = [("Rettifica", [("prodotto", "magazzino"), ("ubicazione", "lotto"), ("quantita", "costo_unitario"), "causale"])]
     company_field = "azienda"
     list_group_by = ["prodotto", "tipo", "magazzino", "data:mese"]
     list_sum = ["quantita", "valore"]
@@ -64,7 +98,7 @@ class ConsegnaView(ModelView):
                                  ("vettore", "colli"), ("peso", "aspetto_beni"), "note"])]
     readonly_fields = ["numero", "stato"]
     company_field = "azienda"
-    inlines = [Inline(RigaConsegna, "consegna", ["prodotto", "descrizione", "quantita"], titolo="Merce")]
+    inlines = [Inline(RigaConsegna, "consegna", ["prodotto", "descrizione", "quantita", "ubicazione", "lotti"], titolo="Merce")]
     kanban_group = "stato"
     kanban_fields = ["cliente", "data", "riferimento"]
     kanban_ricco = True
@@ -136,7 +170,7 @@ class RicevimentoView(ModelView):
     form_layout = [("Ricevimento", [("fornitore", "magazzino"), ("data", "ddt_fornitore"), "riferimento", "note"])]
     readonly_fields = ["stato"]
     company_field = "azienda"
-    inlines = [Inline(RigaRicevimento, "ricevimento", ["prodotto", "quantita", "costo"], titolo="Merce")]
+    inlines = [Inline(RigaRicevimento, "ricevimento", ["prodotto", "quantita", "costo", "ubicazione", "lotti"], titolo="Merce")]
     kanban_group = "stato"
     kanban_fields = ["fornitore", "data"]
     kanban_ricco = True

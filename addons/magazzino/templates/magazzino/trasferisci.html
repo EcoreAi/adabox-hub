@@ -1,0 +1,19 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Trasferisci merce · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Trasferisci merce</h1><div class="sub">Tra magazzini o tra ubicazioni: il costo di magazzino non cambia</div></div></div>
+<form method="post" class="ui-card is-revealed">{% csrf_token %}
+  <div class="ui-card-body">
+    <div class="ui-form-group"><label class="ui-label" for="tr-prodotto">Prodotto *</label>
+      <select class="ui-input" id="tr-prodotto" name="prodotto" required><option value="">—</option>{% for p in prodotti %}<option value="{{ p.pk }}"{% if dati.prodotto == p.pk|stringformat:"s" %} selected{% endif %}>{{ p }}</option>{% endfor %}</select></div>
+    <div class="ui-form-group"><label class="ui-label" for="tr-quantita">Quantità *</label><input class="ui-input" id="tr-quantita" name="quantita" inputmode="decimal" required value="{{ dati.quantita|default:'' }}"></div>
+    <div class="ui-form-group"><label class="ui-label" for="tr-lotto">Lotto o seriale</label><input class="ui-input" id="tr-lotto" name="lotto" maxlength="60" value="{{ dati.lotto|default:'' }}"><small class="ui-help">solo per i prodotti tracciati</small></div>
+    <div class="ui-form-group"><label class="ui-label" for="tr-da">Da *</label>
+      <select class="ui-input" id="tr-da" name="da" required>{% for v, nome in posti %}<option value="{{ v }}"{% if dati.da == v %} selected{% endif %}>{{ nome }}</option>{% endfor %}</select></div>
+    <div class="ui-form-group"><label class="ui-label" for="tr-a">A *</label>
+      <select class="ui-input" id="tr-a" name="a" required>{% for v, nome in posti %}<option value="{{ v }}"{% if dati.a == v %} selected{% endif %}>{{ nome }}</option>{% endfor %}</select></div>
+    <div class="ui-form-group"><label class="ui-label" for="tr-causale">Causale</label><input class="ui-input" id="tr-causale" name="causale" maxlength="200" value="{{ dati.causale|default:'' }}"></div>
+    <button class="ui-btn ui-btn-primary" type="submit">Trasferisci</button>
+  </div>
+</form>
+{% endblock %}

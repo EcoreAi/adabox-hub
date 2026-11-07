@@ -1,0 +1,7 @@
+{% load magazzino %}{% contenuto_ubicazione obj as righe %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Merce in {{ obj.percorso }}</div><div class="spacer"></div>{% if perms.magazzino.add_movimento %}<a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'magazzino:trasferisci' %}?da=u{{ obj.pk }}">Sposta da qui</a>{% endif %}</div>
+  {% if righe %}<div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Prodotto</th><th class="ui-num">Quantità</th></tr></thead>
+    <tbody>{% for r in righe %}<tr><td><a class="ui-link" href="{% url 'prodotti:prodotti_dettaglio' r.prodotto.pk %}">{{ r.prodotto }}</a></td><td class="ui-num">{{ r.quantita|floatformat:"-3g" }}{% if r.prodotto.unita %} {{ r.prodotto.unita }}{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<div class="ui-card-body"><p class="sub">Vuota.</p></div>{% endif %}
+</section>

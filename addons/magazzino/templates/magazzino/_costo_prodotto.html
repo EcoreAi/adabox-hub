@@ -14,5 +14,18 @@
       </select>
       <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Salva</button>
     </form>{% endif %}
+    {% tracciamento_prodotto obj as tr %}
+    {% if perms.magazzino.change_lotto %}
+    <form class="ui-filtri" method="post" action="{% url 'magazzino:tracciamento_prodotto' obj.pk %}">{% csrf_token %}
+      <label class="sub" for="tracciamento">Tracciamento</label>
+      <select class="ui-input" id="tracciamento" name="tipo">
+        <option value=""{% if not tr.tipo %} selected{% endif %}>Nessuno</option>
+        <option value="lotto"{% if tr.tipo == 'lotto' %} selected{% endif %}>Per lotto</option>
+        <option value="seriale"{% if tr.tipo == 'seriale' %} selected{% endif %}>Per numero di serie</option>
+      </select>
+      <label class="ui-checkbox-row"><input type="checkbox" name="scadenza" value="1"{% if tr.scadenza %} checked{% endif %}> con scadenza</label>
+      <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Salva</button>
+      {% if tr.tipo %}<a class="ui-link" href="{% url 'magazzino:lotti_lista' %}?f_prodotto={{ obj.pk }}">Lotti e seriali</a>{% endif %}
+    </form>{% elif tr.tipo %}<p class="sub">Tracciato {% if tr.tipo == 'lotto' %}per lotto{% else %}per numero di serie{% endif %}.</p>{% endif %}
   </div>
 </section>{% endif %}
