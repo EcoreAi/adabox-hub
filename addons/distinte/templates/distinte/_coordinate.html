@@ -1,0 +1,16 @@
+{% load tema %}<link rel="stylesheet" href="{% statico 'distinte/distinte.css' %}">
+{% load distinte %}{% coordinate_contatto obj as co %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Coordinate bancarie</div>{% if co.mandati %}<span class="sub">{{ co.mandati|length }} mandat{{ co.mandati|length|pluralize:"o,i" }} SDD attiv{{ co.mandati|length|pluralize:"o,i" }}</span>{% endif %}</div>
+  <div class="ui-card-body">
+    {% if perms.distinte.change_coordinatebancarie %}
+    <form class="ui-filtri" method="post" action="{% url 'distinte:coordinate' obj.pk %}">{% csrf_token %}
+      <input class="ui-input ds-iban-input" name="iban" value="{{ co.coordinate.iban|default:'' }}" placeholder="IBAN" aria-label="IBAN">
+      <input class="ui-input" name="bic" value="{{ co.coordinate.bic|default:'' }}" placeholder="BIC (facoltativo)" aria-label="BIC" maxlength="11">
+      <input class="ui-input" name="banca" value="{{ co.coordinate.banca|default:'' }}" placeholder="Banca e filiale" aria-label="Banca">
+      <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Salva</button>
+    </form>
+    <p class="sub">Per i bonifici al fornitore (se la fattura non porta l'IBAN) e per la banca delle RiBa del cliente. Lascia vuoto l'IBAN per toglierle.</p>
+    {% elif co.coordinate %}<p>{{ co.coordinate.iban }}{% if co.coordinate.banca %} · {{ co.coordinate.banca }}{% endif %}</p>{% else %}<p class="sub">Nessuna coordinata bancaria.</p>{% endif %}
+  </div>
+</section>

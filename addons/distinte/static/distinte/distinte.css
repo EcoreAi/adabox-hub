@@ -1,0 +1,7 @@
+.ds-testa { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0 1rem; align-items: end; }
+.ds-piede, .ds-azioni { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+.ds-iban { font-family: var(--ui-font-mono, monospace); font-size: .85em; white-space: nowrap; }
+.ds-bloccata td { color: var(--ui-text-muted, #888); }
+.ds-esito { display: flex; gap: .25rem; align-items: center; justify-content: flex-end; }
+.ds-motivo { max-width: 8rem; padding: .2rem .4rem; font-size: .85em; }
+.ds-iban-input { min-width: 18rem; }

@@ -1,0 +1,23 @@
+{% load tema %}<link rel="stylesheet" href="{% statico 'distinte/distinte.css' %}">
+{% with voci=obj.voci.all %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">{{ voci|length }} voci · {{ obj.totale|floatformat:"2g" }} €</div>
+    <div class="spacer"></div><div class="head-actions"><a class="ui-btn ui-btn-primary ui-btn-sm" href="{% url 'distinte:file' obj.pk %}">Scarica il file per la banca</a>
+    {% if perms.distinte.change_distinta and obj.stato == 'bozza' %}<form method="post" action="{% url 'distinte:presenta' obj.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Segna come presentata</button></form>{% endif %}
+    {% if perms.distinte.change_distinta and obj.stato == 'presentata' %}<form method="post" action="{% url 'distinte:esiti' obj.pk %}">{% csrf_token %}<input type="hidden" name="azione" value="tutte"><button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">{% if obj.attiva %}Tutte incassate{% else %}Tutti eseguiti{% endif %}</button></form>{% endif %}</div>
+  </div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Scadenza</th><th>Nome</th><th>Fattura</th><th>IBAN</th><th class="ui-num">Importo</th><th>Esito</th><th></th></tr></thead>
+    <tbody>{% for v in voci %}<tr>
+      <td>{{ v.data|date:"d/m/Y" }}</td><td>{{ v.nome }}{% if v.mandato %}<div class="sub">mandato {{ v.mandato.riferimento }}</div>{% endif %}</td>
+      <td>{% if v.scadenza %}<a class="ui-link" href="{% url 'fatturazione:fatture_dettaglio' v.scadenza.fattura_id %}">{{ v.scadenza.fattura.numero }}</a>{% elif v.scadenza_passiva %}<a class="ui-link" href="{% url 'sdi:passive_dettaglio' v.scadenza_passiva.fattura_id %}">{{ v.scadenza_passiva.fattura.numero }}</a>{% endif %}</td>
+      <td class="ds-iban">{{ v.iban }}</td><td class="ui-num">{{ v.importo|floatformat:"2g" }}</td>
+      <td>{% if v.esito == 'pagata' %}<span class="ui-pill ui-pill-success">{% if obj.attiva %}incassata{% else %}eseguito{% endif %} il {{ v.esito_il|date:"d/m/Y" }}</span>{% elif v.esito == 'insoluta' %}<span class="ui-pill ui-pill-danger">{% if obj.attiva %}insoluta{% else %}respinto{% endif %}</span>{% if v.motivo %}<div class="sub">{{ v.motivo }}</div>{% endif %}{% else %}<span class="ui-pill">in attesa</span>{% endif %}</td>
+      <td>{% if perms.distinte.change_distinta and obj.stato != 'bozza' %}<form class="ds-esito" method="post" action="{% url 'distinte:esiti' obj.pk %}">{% csrf_token %}<input type="hidden" name="voce" value="{{ v.pk }}">
+        {% if v.esito != 'pagata' %}<button class="ui-btn ui-btn-ghost ui-btn-sm" name="azione" value="pagata" type="submit">{% if obj.attiva %}Incassata{% else %}Eseguito{% endif %}</button>{% endif %}
+        {% if v.esito != 'insoluta' %}<input class="ui-input ds-motivo" name="motivo" placeholder="motivo" aria-label="Motivo"><button class="ui-btn ui-btn-ghost ui-btn-sm" name="azione" value="insoluta" type="submit">{% if obj.attiva %}Insoluta{% else %}Respinto{% endif %}</button>{% endif %}
+      </form>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  <div class="ui-card-body"><p class="sub">{% if obj.stato == 'bozza' %}Scarica il file, caricalo nell'home banking (o nel corporate banking) e segna la distinta come presentata. {% endif %}{% if obj.attiva %}«Incassata» registra l'incasso sulla fattura; «Insoluta» lo annulla e riapre la scadenza.{% else %}«Eseguito» segna pagata la scadenza del fornitore; «Respinto» la riapre.{% endif %}</p></div>
+</section>{% endwith %}

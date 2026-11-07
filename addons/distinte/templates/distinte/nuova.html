@@ -1,0 +1,29 @@
+{% extends 'core/base_app.html' %}{% load tema %}
+{% block head_extra %}<link rel="stylesheet" href="{% statico 'distinte/distinte.css' %}">{% endblock %}
+{% block title %}Nuova distinta · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Nuova distinta</h1><div class="sub">Dalle scadenze aperte: bonifici ai fornitori, addebiti SDD o RiBa ai clienti</div></div></div>
+{% if senza_conti %}<div class="ui-alert ui-alert-warning">Aggiungi prima il conto dell'azienda in Banca → Conti.</div>{% endif %}
+<form method="{% if candidati %}post{% else %}get{% endif %}" class="ui-card is-revealed">{% if candidati %}{% csrf_token %}{% endif %}
+  <div class="ui-card-body ds-testa">
+    {% for campo in form %}{% include "core/vista/_campo.html" %}{% endfor %}
+    {% if not candidati %}<div class="ui-form-group"><button class="ui-btn ui-btn-primary" type="submit">Mostra le scadenze</button></div>{% endif %}
+  </div>
+  {% if form.is_bound and form.is_valid %}
+    {% if candidati %}
+    <div class="ui-table-wrap"><table class="ui-table is-revealed">
+      <thead><tr><th><input type="checkbox" aria-label="Tutte" data-ds-tutte></th><th>Scadenza</th><th>{% if form.cleaned_data.tipo == 'bonifici' %}Fornitore{% else %}Cliente{% endif %}</th><th>Fattura</th><th>IBAN</th><th class="ui-num">Importo</th><th></th></tr></thead>
+      <tbody>{% for c in candidati %}<tr{% if c.problema %} class="ds-bloccata"{% endif %}>
+        <td><input type="checkbox" name="scelte" value="{{ c.chiave }}" aria-label="Scegli"{% if c.problema %} disabled{% elif scelte %}{% if c.chiave in scelte %} checked{% endif %}{% elif c.modalita_giusta %} checked{% endif %}></td>
+        <td>{{ c.data|date:"d/m/Y" }}</td><td>{{ c.nome }}</td><td>{{ c.fattura.numero }}</td><td class="ds-iban">{{ c.iban|default:"—" }}</td>
+        <td class="ui-num">{{ c.importo|floatformat:"2g" }}</td>
+        <td class="sub">{% if c.problema %}{{ c.problema }}{% elif not c.modalita_giusta %}pagamento previsto con un'altra modalità{% elif c.mandato %}mandato {{ c.mandato.riferimento }}{% endif %}</td>
+      </tr>{% endfor %}</tbody>
+    </table></div>
+    <div class="ui-card-body ds-piede"><button class="ui-btn ui-btn-primary" type="submit">Crea la distinta</button><a class="ui-btn ui-btn-secondary" href="?">Cambia tipo</a>
+      <span class="sub">Spuntate di base le scadenze con la modalità di pagamento giusta (bonifico, SDD o RiBa).</span></div>
+    {% else %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessuna scadenza aperta per questo tipo di distinta.</p></div></div>{% endif %}
+  {% endif %}
+</form>
+<script>document.querySelector("[data-ds-tutte]")?.addEventListener("change", e => document.querySelectorAll("input[name=scelte]:not(:disabled)").forEach(c => c.checked = e.target.checked));</script>
+{% endblock %}

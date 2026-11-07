@@ -1,0 +1,14 @@
+{% load tema %}<link rel="stylesheet" href="{% statico 'distinte/distinte.css' %}">
+{% load distinte %}{% config_distinte obj as cfg %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Distinte di pagamento</div></div>
+  <div class="ui-card-body">
+    {% if perms.distinte.change_configconto %}
+    <form method="post" action="{% url 'distinte:config_conto' obj.pk %}">{% csrf_token %}
+      <div class="ds-testa">{% for campo in cfg.form %}{% include "core/vista/_campo.html" %}{% endfor %}</div>
+      <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Salva</button>
+    </form>
+    {% else %}<p>Codice SIA {{ cfg.config.codice_sia|default:"—" }} · identificativo creditore {{ cfg.config.id_creditore|default:"—" }} · {{ cfg.config.get_versione_sepa_display }}</p>{% endif %}
+    {% if not obj.bic %}<p class="sub">Senza BIC nei file SEPA la banca è indicata come «NOTPROVIDED»: va bene per i conti nell'area SEPA.</p>{% endif %}
+  </div>
+</section>
