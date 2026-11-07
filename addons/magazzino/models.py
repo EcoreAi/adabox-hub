@@ -44,6 +44,11 @@ class Movimento(AziendaMixin):
     documento = GenericForeignKey("content_type", "object_id")
     utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
                                related_name="+", editable=False)
+    costo_unitario = models.DecimalField("costo unitario (€)", max_digits=14, decimal_places=4, null=True, blank=True,
+                                         help_text="per un carico a mano; vuoto = il costo attuale del prodotto")
+    valore = models.DecimalField("valore (€)", max_digits=14, decimal_places=2, null=True, blank=True, editable=False)
+    costo_fissato = models.BooleanField("costo dato all'entrata", default=False, editable=False,
+                                        help_text="il costo viene dall'acquisto o da chi ha fatto il carico: il ricalcolo non lo cambia")
 
     class Meta(AziendaMixin.Meta):
         verbose_name = "movimento"
@@ -59,6 +64,15 @@ class Movimento(AziendaMixin):
             raise ValidationError({"quantita": "La quantità non può essere zero."})
         if self.prodotto_id and self.prodotto.tipo != "bene":
             raise ValidationError({"prodotto": "I servizi non si movimentano a magazzino."})
+        if self.costo_unitario is not None and self.costo_unitario < 0:
+            raise ValidationError({"costo_unitario": "Il costo non può essere negativo."})
+        if self.costo_unitario is not None and self.quantita is not None and self.quantita < 0:
+            raise ValidationError({"costo_unitario": "Il costo si indica solo per i carichi: le uscite prendono il costo di magazzino."})
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and self.costo_unitario is not None and self.quantita > 0:
+            self.costo_fissato = True                  # costo dell'acquisto o di chi carica: il ricalcolo lo tiene
+        super().save(*args, **kwargs)
 
 
 def giacenza(prodotto, magazzino=None):
@@ -149,8 +163,26 @@ class RigaRicevimento(models.Model):
                                     verbose_name="ricevimento")
     prodotto = models.ForeignKey("prodotti.Prodotto", on_delete=models.PROTECT, verbose_name="prodotto")
     quantita = models.DecimalField("quantità", max_digits=12, decimal_places=3, default=1)
+    costo = models.DecimalField("costo unitario (€)", max_digits=14, decimal_places=4, null=True, blank=True,
+                                help_text="vuoto = prezzo dell'ordine d'acquisto, al netto dello sconto")
 
     class Meta:
         verbose_name = "riga"
         verbose_name_plural = "righe"
         ordering = ["pk"]
+
+
+class MetodoCosto(models.Model):
+    """Il metodo di costo di un prodotto, se diverso da quello dell'azienda."""
+    prodotto = models.OneToOneField("prodotti.Prodotto", on_delete=models.CASCADE, related_name="metodo_costo",
+                                    verbose_name="prodotto")
+    metodo = models.CharField("metodo di costo", max_length=10, blank=True,
+                              choices=[("", "Come l'azienda"), ("medio", "Costo medio ponderato"),
+                                       ("fifo", "FIFO (primo entrato, primo uscito)"), ("standard", "Costo standard del prodotto")])
+
+    class Meta:
+        verbose_name = "metodo di costo"
+        verbose_name_plural = "metodi di costo"
+
+    def __str__(self):
+        return f"{self.prodotto}: {self.get_metodo_display()}"

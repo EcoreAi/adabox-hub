@@ -1,0 +1,18 @@
+{% load magazzino %}{% costo_prodotto obj as c %}{% if c %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Costo di magazzino</div><div class="spacer"></div><a class="ui-link" href="{% url 'magazzino:movimenti_lista' %}?f_prodotto={{ obj.pk }}">Movimenti</a></div>
+  <div class="ui-card-body">
+    <p>Giacenza <strong>{{ c.quantita|floatformat:"-3g" }}</strong> · costo unitario <strong>{{ c.costo|floatformat:"2g" }} €</strong> · valore <strong>{{ c.valore|floatformat:"2g" }} €</strong> <span class="sub">({{ c.metodo }})</span></p>
+    {% if perms.magazzino.add_movimento %}
+    <form class="ui-filtri" method="post" action="{% url 'magazzino:metodo_prodotto' obj.pk %}">{% csrf_token %}
+      <label class="sub" for="metodo-costo">Metodo di costo</label>
+      <select class="ui-input" id="metodo-costo" name="metodo">
+        <option value=""{% if not c.scelta %} selected{% endif %}>Come l'azienda ({{ c.metodo_azienda }})</option>
+        <option value="medio"{% if c.scelta == 'medio' %} selected{% endif %}>Costo medio ponderato</option>
+        <option value="fifo"{% if c.scelta == 'fifo' %} selected{% endif %}>FIFO (primo entrato, primo uscito)</option>
+        <option value="standard"{% if c.scelta == 'standard' %} selected{% endif %}>Costo standard (il costo del prodotto)</option>
+      </select>
+      <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Salva</button>
+    </form>{% endif %}
+  </div>
+</section>{% endif %}

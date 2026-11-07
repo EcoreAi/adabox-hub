@@ -28,4 +28,4 @@ def demo(modulo):
     for i, p in enumerate(Prodotto.objects.filter(azienda=azienda, tipo=Prodotto.BENE, attivo=True)):
         quantita = (p.scorta_minima or Decimal(5)) * (Decimal(3) if i % 2 == 0 else Decimal("0.5"))
         Movimento.objects.create(azienda=azienda, prodotto=p, magazzino=magazzino, quantita=quantita,
-                                 tipo=Movimento.RETTIFICA, causale="Inventario iniziale")
+                                 tipo=Movimento.RETTIFICA, causale="Inventario iniziale", costo_unitario=p.costo or 0)

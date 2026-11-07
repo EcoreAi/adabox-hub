@@ -7,6 +7,7 @@ from django.db import transaction
 
 from core import parametri, sequenze
 
+from . import costi
 from .models import Consegna, Movimento, Ricevimento, giacenza
 
 
@@ -48,10 +49,29 @@ def ricevi(ricevimento, utente=None):
     if not righe:
         raise ValidationError("Il ricevimento non ha righe.")
     ct = ContentType.objects.get_for_model(Ricevimento)
+    dall_ordine = costi_ordine(ricevimento)
     for r in righe:
+        costo = r.costo if r.costo is not None else dall_ordine.get(r.prodotto_id)
         Movimento.objects.create(azienda=ricevimento.azienda, prodotto=r.prodotto, magazzino=ricevimento.magazzino,
                                  quantita=Decimal(r.quantita), tipo=Movimento.CARICO, utente=utente,
                                  causale=f"Ricevimento da {ricevimento.fornitore}", content_type=ct,
-                                 object_id=ricevimento.pk)
+                                 object_id=ricevimento.pk, costo_unitario=costo)
     ricevimento.stato = Ricevimento.FATTO
     ricevimento.save(update_fields=["stato"])
+
+
+def costi_ordine(ricevimento):
+    """{prodotto: costo unitario} dalle righe dell'ordine d'acquisto da cui nasce il ricevimento, al netto dello sconto
+    (media pesata se il prodotto compare in più righe). Vuoto se il ricevimento non viene da un ordine d'acquisto."""
+    ordine = ricevimento.origine
+    if ordine is None or not hasattr(ordine, "fornitore") or not hasattr(ordine, "righe"):
+        return {}
+    somme = {}
+    for r in ordine.righe.all():
+        if not r.prodotto_id or r.prezzo is None or not r.quantita:
+            continue
+        netto = Decimal(r.prezzo) * (Decimal(100) - Decimal(getattr(r, "sconto", 0) or 0)) / Decimal(100)
+        quantita, valore = somme.get(r.prodotto_id, (Decimal(0), Decimal(0)))
+        somme[r.prodotto_id] = (quantita + r.quantita, valore + r.quantita * netto)
+    return {pk: costi.q4(valore / quantita) for pk, (quantita, valore) in somme.items() if quantita}
+

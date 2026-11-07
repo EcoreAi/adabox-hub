@@ -1,0 +1,31 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Valore di magazzino · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Valore di magazzino</h1><div class="sub">Al {{ giorno|date:"d/m/Y" }} · {{ righe|length }} prodotti · metodo dell'azienda: {{ metodo }}</div></div>
+  <div class="ui-pagehead-actions">
+    {% if csv %}<a class="ui-btn ui-btn-secondary" href="?data={{ giorno|date:'Y-m-d' }}&formato=csv">Esporta CSV</a>{% endif %}
+    {% if perms.magazzino.add_movimento %}<form method="post" action="{% url 'magazzino:ricalcola' %}">{% csrf_token %}<button class="ui-btn ui-btn-secondary" type="submit" title="Riallinea i costi salvati sui movimenti, dopo un cambio di metodo o un movimento con data passata">Ricalcola i costi</button></form>{% endif %}
+  </div>
+</div>
+{% if negative %}<div class="ui-alert ui-alert-warning">{{ negative|length }} prodott{{ negative|length|pluralize:"o,i" }} con giacenza negativa: il valore non è affidabile finché non si rettifica.</div>{% endif %}
+<div class="ui-card is-revealed">
+  <form class="ui-filtri" method="get">
+    <label class="sub" for="data-valore">Alla data</label><input class="ui-input" id="data-valore" type="date" name="data" value="{{ giorno|date:'Y-m-d' }}">
+    <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Mostra</button>
+  </form>
+  {% if righe %}
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Codice</th><th>Prodotto</th><th>Metodo</th><th class="ui-num">Quantità</th><th class="ui-num">Costo unitario</th><th class="ui-num">Valore</th></tr></thead>
+    <tbody>{% for r in righe %}<tr>
+      <td>{{ r.prodotto.codice }}</td><td><a class="ui-link" href="{% url 'prodotti:prodotti_dettaglio' r.prodotto.pk %}">{{ r.prodotto.nome }}</a></td>
+      <td class="sub">{{ r.nome_metodo }}</td>
+      <td class="ui-num">{{ r.quantita|floatformat:"-3g" }}{% if r.prodotto.unita %} {{ r.prodotto.unita }}{% endif %}</td>
+      <td class="ui-num">{{ r.costo|floatformat:"2g" }}</td><td class="ui-num">{{ r.valore|floatformat:"2g" }}</td>
+    </tr>{% endfor %}
+    <tr><td></td><td><strong>Totale</strong></td><td></td><td></td><td></td><td class="ui-num"><strong>{{ totale|floatformat:"2g" }}</strong></td></tr></tbody>
+  </table></div>
+  {% else %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessuna merce in giacenza a questa data.</p></div></div>{% endif %}
+</div>
+<p class="sub ui-section">I carichi dai ricevimenti hanno il prezzo dell'ordine d'acquisto, al netto dello sconto; le rettifiche il costo indicato o quello attuale. Le uscite prendono il costo col metodo del prodotto. Nessuna scrittura contabile: il CSV è per lo studio.</p>
+{% endblock %}

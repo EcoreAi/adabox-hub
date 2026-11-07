@@ -21,13 +21,13 @@ class MovimentoView(ModelView):
     """Movimenti: nascono da consegne e ricevimenti; a mano solo le rettifiche (inventario, scarti)."""
     model = Movimento
     slug = "movimenti"
-    list_display = ["data", "prodotto", "magazzino", "tipo", "quantita", "causale"]
+    list_display = ["data", "prodotto", "magazzino", "tipo", "quantita", "costo_unitario", "valore_movimento", "causale"]
     list_filter = ["tipo", "magazzino", "prodotto", "data"]
     search_fields = ["prodotto__nome", "prodotto__codice", "causale"]
-    form_layout = [("Rettifica", [("prodotto", "magazzino"), "quantita", "causale"])]
+    form_layout = [("Rettifica", [("prodotto", "magazzino"), ("quantita", "costo_unitario"), "causale"])]
     company_field = "azienda"
     list_group_by = ["prodotto", "tipo", "magazzino", "data:mese"]
-    list_sum = ["quantita"]
+    list_sum = ["quantita", "valore"]
     api = True
 
     def has_change_permission(self, request, obj=None):
@@ -35,6 +35,10 @@ class MovimentoView(ModelView):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+    def col_valore_movimento(self, obj):
+        return "—" if obj.valore is None else f"{obj.valore:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    col_valore_movimento.short_description = "Valore (€)"
 
     def save_model(self, request, obj, form, change):
         obj.tipo, obj.utente = Movimento.RETTIFICA, request.user
@@ -132,7 +136,7 @@ class RicevimentoView(ModelView):
     form_layout = [("Ricevimento", [("fornitore", "magazzino"), ("data", "ddt_fornitore"), "riferimento", "note"])]
     readonly_fields = ["stato"]
     company_field = "azienda"
-    inlines = [Inline(RigaRicevimento, "ricevimento", ["prodotto", "quantita"], titolo="Merce")]
+    inlines = [Inline(RigaRicevimento, "ricevimento", ["prodotto", "quantita", "costo"], titolo="Merce")]
     kanban_group = "stato"
     kanban_fields = ["fornitore", "data"]
     kanban_ricco = True

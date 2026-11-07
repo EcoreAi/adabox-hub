@@ -1,7 +1,7 @@
 {
     "name": "Magazzino",
     "summary": "Giacenze, movimenti, consegne con DDT, ricevimenti e scorte minime",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Magazzino",
     "depends": ["prodotti", "contatti"],
@@ -15,6 +15,7 @@
         {"label": "Consegne", "url_name": "magazzino:consegne_lista", "permission": "magazzino.view_consegna"},
         {"label": "Ricevimenti", "url_name": "magazzino:ricevimenti_lista", "permission": "magazzino.view_ricevimento"},
         {"label": "Movimenti", "url_name": "magazzino:movimenti_lista", "permission": "magazzino.view_movimento"},
+        {"label": "Valore di magazzino", "url_name": "magazzino:valore", "permission": "magazzino.view_movimento"},
         {"label": "Magazzini", "url_name": "magazzino:magazzini_lista", "permission": "magazzino.change_magazzino"},
     ],
     "groups": {
@@ -33,5 +34,10 @@
     "settings": [
         {"chiave": "giacenza_negativa", "label": "Consenti giacenze negative", "tipo": "booleano", "default": True,
          "per_azienda": True, "help": "Se no, una consegna senza merce sufficiente non si spedisce"},
+        {"chiave": "metodo_costo", "label": "Metodo di costo del magazzino", "tipo": "scelta", "default": "medio",
+         "per_azienda": True,
+         "scelte": [["medio", "Costo medio ponderato"], ["fifo", "FIFO (primo entrato, primo uscito)"],
+                    ["standard", "Costo standard del prodotto"]],
+         "help": "Si può cambiare sul singolo prodotto. Dopo un cambio usa «Ricalcola i costi» nel valore di magazzino"},
     ],
 }
