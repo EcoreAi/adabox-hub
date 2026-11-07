@@ -150,3 +150,51 @@ def test_livelli_assegnati_a_mano(db):
     medium.livello_chat = Modello.VELOCE
     medium.save()
     assert livelli_modello(None) == [("standard", medium), ("max", large)]
+
+
+def test_risposta_a_pezzi_dei_modelli_che_ragionano(db):
+    """DeepSeek e Magistral su Mistral mandano il contenuto come lista: si tiene il testo, il ragionamento no."""
+    provider = Provider.objects.create(nome="Mistral", tipo=Provider.MISTRAL)
+    modello = Modello.objects.create(provider=provider, id_api="deepseek-v4-1-flash", etichetta="DeepSeek", ragionamento=True)
+    pensiero = {"type": "thinking", "thinking": [{"type": "text", "text": "devo salutare"}]}
+    righe = [{"choices": [{"delta": {"content": [pensiero]}}]},
+             {"choices": [{"delta": {"content": [{"type": "text", "text": "Buon"}]}}]},
+             {"choices": [{"delta": {"content": "giorno"}, "finish_reason": "stop"}]},
+             {"choices": [], "usage": {"prompt_tokens": 3, "completion_tokens": 2}}]
+    corpo = "".join(f"data: {json.dumps(r)}\n\n" for r in righe) + "data: [DONE]\n\n"
+    trasporto = httpx2.MockTransport(lambda r: httpx2.Response(200, text=corpo, headers={"content-type": "text/event-stream"}))
+    pezzi = list(openai_compat.flusso(modello, "k", sistema="s", messaggi=[{"ruolo": "utente", "testo": "ciao"}],
+                                      http_client=httpx2.Client(transport=trasporto)))
+    testi = [p.testo for p in pezzi if hasattr(p, "testo")]
+    assert testi == ["Buon", "giorno"] and pezzi[-1].blocchi[0]["testo"] == "Buongiorno"
+
+
+def test_livello_di_ragionamento_rifiutato_si_riprova_senza(db):
+    provider = Provider.objects.create(nome="Compatibile", tipo=Provider.OPENAI_COMPAT, base_url="https://esempio.it/v1")
+    modello = Modello.objects.create(provider=provider, id_api="x", etichetta="X", ragionamento=True)
+    corpi = []
+
+    def risposta(r):
+        corpi.append(json.loads(r.content))
+        if "reasoning_effort" in corpi[-1]:
+            return httpx2.Response(400, json={"message": "reasoning_effort 'low' is not supported for this model"})
+        testo = 'data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'
+        return httpx2.Response(200, text=testo, headers={"content-type": "text/event-stream"})
+    pezzi = list(openai_compat.flusso(modello, "k", sistema="s", messaggi=[{"ruolo": "utente", "testo": "ciao"}], effort="low",
+                                      http_client=httpx2.Client(transport=httpx2.MockTransport(risposta))))
+    assert len(corpi) == 2 and "reasoning_effort" not in corpi[1] and pezzi[-1].blocchi[0]["testo"] == "ok"
+
+
+def test_livelli_di_ragionamento_per_mistral(db):
+    provider = Provider.objects.create(nome="Mistral", tipo=Provider.MISTRAL)
+    modello = Modello.objects.create(provider=provider, id_api="deepseek", etichetta="D", ragionamento=True)
+    inviati = []
+
+    def risposta(r):
+        inviati.append(json.loads(r.content).get("reasoning_effort"))
+        testo = 'data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'
+        return httpx2.Response(200, text=testo, headers={"content-type": "text/event-stream"})
+    for effort in ("low", "medium", "high", "xhigh", "max"):
+        list(openai_compat.flusso(modello, "k", sistema="s", messaggi=[{"ruolo": "utente", "testo": "c"}], effort=effort,
+                                  http_client=httpx2.Client(transport=httpx2.MockTransport(risposta))))
+    assert inviati == ["low", "high", "high", "xhigh", "max"]

@@ -1,11 +1,13 @@
 """Adattatore per gli endpoint compatibili OpenAI (/chat/completions): OpenAI, OpenRouter, Ollama, vLLM, Gemini.
 Il protocollo è stabile: HTTP diretto con httpx2 e Server-Sent Events."""
 import json
+import logging
 
 import httpx2
 
 from .tipi import ChiamataStrumento, ErroreModello, Fine, Testo, Uso
 
+log = logging.getLogger(__name__)
 URL_PREDEFINITO = "https://api.openai.com/v1"
 URL_PER_TIPO = {"mistral": "https://api.mistral.ai/v1"}
 
@@ -37,6 +39,16 @@ def _messaggi(sistema, messaggi):
     return risultato
 
 
+def _testo(contenuto):
+    """Il testo di un delta. Alcuni modelli che ragionano (es. DeepSeek e Magistral su Mistral) mandano una lista di
+    pezzi: [{"type": "thinking", ...}, {"type": "text", "text": "..."}]. Il ragionamento non va nella risposta."""
+    if isinstance(contenuto, str):
+        return contenuto
+    if isinstance(contenuto, list):
+        return "".join(p.get("text") or "" for p in contenuto if isinstance(p, dict) and p.get("type") == "text")
+    return ""
+
+
 def _errore_http(risposta):
     codice = risposta.status_code
     testo = risposta.text[:500]
@@ -61,7 +73,10 @@ def flusso(modello, chiave, *, sistema, messaggi, strumenti=(), max_token=16000,
     if effort == "none" and modello.provider.locale:                # Ollama: niente ragionamento, risposta subito
         corpo["reasoning_effort"] = "none"
     elif effort and modello.ragionamento:
-        corpo["reasoning_effort"] = "high" if effort in ("high", "xhigh", "max") else effort
+        if modello.provider.tipo == "mistral":                      # Mistral: none, low, high, xhigh, max (niente medium)
+            corpo["reasoning_effort"] = {"medium": "high"}.get(effort, effort)
+        else:
+            corpo["reasoning_effort"] = "high" if effort in ("high", "xhigh", "max") else effort
     intestazioni = {"Content-Type": "application/json"}
     if chiave:
         intestazioni["Authorization"] = f"Bearer {chiave}"
@@ -69,35 +84,43 @@ def flusso(modello, chiave, *, sistema, messaggi, strumenti=(), max_token=16000,
     http = http_client or httpx2.Client(timeout=httpx2.Timeout(600.0, connect=10.0))
     testo, chiamate, uso, motivo = [], {}, Uso(), "altro"
     try:
-        with http.stream("POST", url, json=corpo, headers=intestazioni) as risposta:
-            if risposta.status_code >= 400:
-                risposta.read()
-                raise _errore_http(risposta)
-            for riga in risposta.iter_lines():
-                if not riga.startswith("data:"):
-                    continue
-                dati = riga[5:].strip()
-                if dati == "[DONE]":
-                    break
-                pezzo = json.loads(dati)
-                if pezzo.get("usage"):
-                    u = pezzo["usage"]
-                    letti = (u.get("prompt_tokens_details") or {}).get("cached_tokens") or 0
-                    uso = Uso(input=(u.get("prompt_tokens") or 0) - letti, output=u.get("completion_tokens") or 0,
-                              cache_lettura=letti)
-                for scelta in pezzo.get("choices") or []:
-                    delta = scelta.get("delta") or {}
-                    if delta.get("content"):
-                        testo.append(delta["content"])
-                        yield Testo(delta["content"])
-                    for c in delta.get("tool_calls") or []:
-                        voce = chiamate.setdefault(c.get("index", 0), {"id": "", "nome": "", "argomenti": ""})
-                        voce["id"] = c.get("id") or voce["id"]
-                        funzione = c.get("function") or {}
-                        voce["nome"] += funzione.get("name") or ""
-                        voce["argomenti"] += funzione.get("arguments") or ""
-                    if scelta.get("finish_reason"):
-                        motivo = MOTIVI.get(scelta["finish_reason"], "altro")
+        for tentativo in range(2):
+            with http.stream("POST", url, json=corpo, headers=intestazioni) as risposta:
+                if risposta.status_code >= 400:
+                    risposta.read()
+                    if (tentativo == 0 and risposta.status_code == 400 and "reasoning_effort" in corpo
+                            and "reasoning_effort" in risposta.text):
+                        corpo.pop("reasoning_effort")                # livello non accettato dal modello: senza
+                        log.info("%s: reasoning_effort rifiutato, riprovo senza", modello.id_api)
+                        continue
+                    raise _errore_http(risposta)
+                for riga in risposta.iter_lines():
+                    if not riga.startswith("data:"):
+                        continue
+                    dati = riga[5:].strip()
+                    if dati == "[DONE]":
+                        break
+                    pezzo = json.loads(dati)
+                    if pezzo.get("usage"):
+                        u = pezzo["usage"]
+                        letti = (u.get("prompt_tokens_details") or {}).get("cached_tokens") or 0
+                        uso = Uso(input=(u.get("prompt_tokens") or 0) - letti, output=u.get("completion_tokens") or 0,
+                                  cache_lettura=letti)
+                    for scelta in pezzo.get("choices") or []:
+                        delta = scelta.get("delta") or {}
+                        pezzo_testo = _testo(delta.get("content"))
+                        if pezzo_testo:
+                            testo.append(pezzo_testo)
+                            yield Testo(pezzo_testo)
+                        for c in delta.get("tool_calls") or []:
+                            voce = chiamate.setdefault(c.get("index", 0), {"id": "", "nome": "", "argomenti": ""})
+                            voce["id"] = c.get("id") or voce["id"]
+                            funzione = c.get("function") or {}
+                            voce["nome"] += funzione.get("name") or ""
+                            voce["argomenti"] += funzione.get("arguments") or ""
+                        if scelta.get("finish_reason"):
+                            motivo = MOTIVI.get(scelta["finish_reason"], "altro")
+            break
     except httpx2.TimeoutException as e:
         raise ErroreModello("TIMEOUT", str(e)) from e
     except httpx2.TransportError as e:
