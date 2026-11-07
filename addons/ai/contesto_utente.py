@@ -1,8 +1,43 @@
 """Ciò che accompagna ogni messaggio oltre al testo: la memoria dell'utente e le istruzioni del progetto."""
+from itertools import takewhile
+
 from .models import MemoriaUtente
 
 MASSIMO_VOCI = 30
 MASSIMO_CARATTERI = 3000
+
+
+INTESTAZIONE = "L'utente ti ha chiesto di ricordare:"
+CANCELLATI = "L'utente ha cancellato tutti i ricordi: non usare quelli dei messaggi precedenti."
+
+
+def nota_memoria_per(conversazione, utente, azienda):
+    """La memoria nel contesto solo quando serve: al primo messaggio, quando cambia, o quando il messaggio che la
+    conteneva è finito in un riassunto (il modello non la vede più). Ripeterla a ogni messaggio allunga la storia."""
+    attuale = nota_memoria(utente, azienda)
+    precedente = _ultima_memoria_vista(conversazione)
+    if attuale:
+        return "" if attuale == precedente else attuale
+    return CANCELLATI if precedente and precedente != CANCELLATI else ""
+
+
+def _ultima_memoria_vista(conversazione):
+    """Il blocco della memoria nell'ultimo messaggio dell'utente che il modello vede ancora (dopo l'ultimo riassunto)."""
+    if conversazione is None or conversazione.pk is None:
+        return ""
+    from .models import Evento
+    eventi = conversazione.eventi.filter(tipo=Evento.UTENTE)
+    riassunto = conversazione.eventi.filter(tipo=Evento.RIASSUNTO).order_by("-pk").first()
+    if riassunto is not None:
+        eventi = eventi.filter(pk__gt=riassunto.dati["fino_a"])
+    for dati in eventi.order_by("-pk").values_list("dati", flat=True)[:200]:
+        contesto = (dati or {}).get("testo", "").split("</contesto>", 1)[0]
+        if CANCELLATI in contesto:
+            return CANCELLATI
+        if INTESTAZIONE in contesto:
+            blocco = contesto[contesto.index(INTESTAZIONE):].split("\n")
+            return "\n".join([blocco[0], *takewhile(lambda r: r.startswith("- "), blocco[1:])])
+    return ""
 
 
 def nota_memoria(utente, azienda):
@@ -14,7 +49,7 @@ def nota_memoria(utente, azienda):
         if totale > MASSIMO_CARATTERI:
             break
         righe.append(f"- {testo}")
-    return "L'utente ti ha chiesto di ricordare:\n" + "\n".join(righe) if righe else ""
+    return INTESTAZIONE + "\n" + "\n".join(righe) if righe else ""
 
 
 def nota_progetto(conversazione):

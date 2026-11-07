@@ -137,7 +137,7 @@ def avvia(conversazione, testo, utente, azienda=None, compito="chat", sincrono=F
             messaggio = MessaggioChat.objects.create(conversazione=conversazione, ruolo=MessaggioChat.UTENTE, testo=testo)
         for f in file:
             core_allegati.salva(messaggio, f, utente)
-        nota = "\n".join(n for n in (contesto_utente.nota_memoria(utente, azienda), contesto_utente.nota_progetto(conversazione),
+        nota = "\n".join(n for n in (contesto_utente.nota_memoria_per(conversazione, utente, azienda), contesto_utente.nota_progetto(conversazione),
                                      nota, allegati_chat.nota(messaggio)) if n)
         immagini = [a.pk for a in allegati_chat.immagini_di(messaggio)]
         # chi ha confermato l'invio delle immagini verso il cloud, e quando: resta nella storia della chat

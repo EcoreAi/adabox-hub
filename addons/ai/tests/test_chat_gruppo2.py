@@ -192,6 +192,30 @@ def test_memoria_arriva_al_modello_solo_nella_sua_azienda_e_per_chi_l_ha_detta(s
     assert "Mia in A" in c.eventi.filter(tipo=Evento.UTENTE).get().dati["testo"]
 
 
+def test_memoria_solo_quando_serve(s):
+    """Al primo messaggio sì, poi solo se cambia, se è stata cancellata o se il messaggio che la conteneva è riassunto."""
+    from ai.motore import compattazione
+    MemoriaUtente.objects.create(utente=s["u"], azienda=s["az"], testo="Preferisco le risposte brevi")
+    c = _chat(s)
+
+    def contesto_dell_ultimo(testo):
+        motore.avvia(c, testo, s["u"], s["az"], sincrono=True)
+        return c.eventi.filter(tipo=Evento.UTENTE).order_by("-pk").first().dati["testo"].split("</contesto>")[0]
+
+    assert "risposte brevi" in contesto_dell_ultimo("uno")
+    assert "ricordare" not in contesto_dell_ultimo("due")                                  # uguale: non si ripete
+    MemoriaUtente.objects.create(utente=s["u"], azienda=s["az"], testo="Firmo io i preventivi")
+    nuovo = contesto_dell_ultimo("tre")
+    assert "Firmo io" in nuovo and "risposte brevi" in nuovo                                # cambiata: tutta
+    ultimo = c.eventi.order_by("-pk").first()
+    Evento.objects.create(conversazione=c, tipo=Evento.RIASSUNTO, dati={"ruolo": "riassunto", "testo": "…", "fino_a": ultimo.pk})
+    assert "Firmo io" in contesto_dell_ultimo("quattro")                                   # riassunta: di nuovo
+    assert compattazione.messaggi(c)[0]["testo"].count("Firmo io") == 1
+    MemoriaUtente.objects.all().delete()
+    assert contesto_utente.CANCELLATI in contesto_dell_ultimo("cinque")
+    assert "ricord" not in contesto_dell_ultimo("sei")
+
+
 def test_memoria_ha_un_tetto(s):
     for i in range(40):
         MemoriaUtente.objects.create(utente=s["u"], azienda=s["az"], testo="x" * 200)
