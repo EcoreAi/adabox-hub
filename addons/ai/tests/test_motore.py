@@ -181,3 +181,17 @@ def test_pagina_chat_usa_il_motore(client, scena):
         r = client.post(f"/ai/chat/{c.pk}/invia/", {"testo": "Domanda"}, HTTP_HX_REQUEST="true")
     html = r.content.decode()
     assert "Domanda" in html and "Risposta vera" in html
+
+
+def test_contesto_con_giorno_e_prossimi_giorni():
+    """«martedi» senza accento: il modello ha nel contesto il giorno di oggi e le date dei prossimi sette giorni."""
+    from datetime import datetime
+    from unittest import mock
+    from zoneinfo import ZoneInfo
+
+    from ai.motore.prompt import con_contesto
+    sabato = datetime(2026, 11, 7, 20, 23, tzinfo=ZoneInfo("Europe/Rome"))
+    with mock.patch("django.utils.timezone.localtime", return_value=sabato):
+        testo = con_contesto("ciao", User(username="anna"))
+    assert "Data e ora: sabato 07/11/2026 20:23" in testo
+    assert "Prossimi giorni: domenica 08/11, lunedì 09/11, martedì 10/11" in testo and "sabato 14/11" in testo

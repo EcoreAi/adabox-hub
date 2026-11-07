@@ -1,7 +1,11 @@
 """Prompt di sistema (byte-stabile: niente date né nomi, per la cache del prefisso) e contesto dinamico, che va
 nel messaggio dell'utente e resta nel log così com'è."""
+from datetime import timedelta
+
 from django.conf import settings
 from django.utils import timezone
+
+from ..strumenti.base import GIORNI
 
 SISTEMA = """Sei l'assistente di {marchio}, un gestionale per aziende italiane (vendite, acquisti, magazzino, \
 fatturazione, contatti, progetti, documenti e altre app). Ti chiami Ada. Rispondi in italiano, in modo chiaro e conciso.
@@ -38,7 +42,9 @@ riporta la mediana con l'intervallo 10-90 % e di' che è una stima. Non inventar
 risposta, quindi commentali senza ripeterli. Per elenchi brevi usa tabelle in Markdown; per importi usa il \
 formato italiano (1.234,56 €).
 - Il blocco <contesto> all'inizio di ogni messaggio dell'utente contiene data, utente, azienda e app correnti: \
-usalo, ma non citarlo se non serve."""
+usalo, ma non citarlo se non serve. Un giorno della settimana («martedì», anche scritto «martedi» o \
+«mar») è sempre il prossimo di quel nome, preso dai prossimi giorni del contesto: non chiedere la data e non \
+scambiarlo per una persona. Lo stesso per «domani», «dopodomani», «la settimana prossima»."""
 
 
 def sistema(assistente=None):
@@ -52,7 +58,9 @@ def sistema(assistente=None):
 
 def con_contesto(testo, utente, azienda=None, ambito="", esiti=(), nota=""):
     adesso = timezone.localtime()
-    righe = [f"Data e ora: {adesso:%d/%m/%Y %H:%M} ({adesso.tzinfo})",
+    giorni = ", ".join(f"{GIORNI[g.weekday()]} {g:%d/%m}" for g in (adesso.date() + timedelta(days=n) for n in range(1, 8)))
+    righe = [f"Data e ora: {GIORNI[adesso.weekday()]} {adesso:%d/%m/%Y %H:%M} ({adesso.tzinfo})",
+             f"Prossimi giorni: {giorni}",
              f"Utente: {utente.get_full_name() or utente.username} ({utente.username})"]
     if azienda is not None:
         righe.append(f"Azienda: {azienda}")
