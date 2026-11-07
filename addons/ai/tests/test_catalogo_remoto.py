@@ -198,3 +198,9 @@ def test_livelli_di_ragionamento_per_mistral(db):
         list(openai_compat.flusso(modello, "k", sistema="s", messaggi=[{"ruolo": "utente", "testo": "c"}], effort=effort,
                                   http_client=httpx2.Client(transport=httpx2.MockTransport(risposta))))
     assert inviati == ["low", "high", "high", "xhigh", "max"]
+
+
+def test_identita_nel_prompt():
+    from ai.motore.prompt import SISTEMA
+    testo = SISTEMA.format(marchio="Adabox")
+    assert "Ti chiami Ada" in testo and "Non dire di essere un modello di una società" in testo

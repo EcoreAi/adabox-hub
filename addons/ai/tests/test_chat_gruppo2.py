@@ -365,7 +365,8 @@ def test_si_sceglie_solo_tra_i_modelli_abilitati(client, s):
     altro = Modello.objects.create(provider=s["provider"], id_api="finto-2", etichetta="Secondo", sceglibile=True)
     vietato = Modello.objects.create(provider=s["provider"], id_api="finto-3", etichetta="Vietato")
     pagina = client.get(reverse("ai:chat")).content.decode()
-    assert "Secondo" in pagina and "Vietato" not in pagina
+    assert f'data-opzione="{altro.pk}"' in pagina and f'data-opzione="{vietato.pk}"' not in pagina
+    assert "Secondo" not in pagina                                              # il nome del modello non si mostra
     client.post(reverse("ai:invia"), {"testo": "uno", "modello": altro.pk})
     c = Conversazione.objects.get()
     assert c.modello == altro and c.turni.filter(compito="chat").first().modello == altro
