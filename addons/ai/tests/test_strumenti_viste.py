@@ -167,3 +167,9 @@ def test_link_interni_nelle_risposte():
     html = rendi("Vedi [l'ordine](/vendite/ordini/3/) e [fuori](//evil.example/x) e [js](javascript:alert(1))")
     assert '<a href="/vendite/ordini/3/" target="_blank"' in html
     assert 'href="//evil' not in html and 'href="javascript' not in html
+
+
+def test_operatore_di_testo_su_un_collegamento(capo, aziende):
+    """«utente__icontains» su un collegamento: un messaggio che dice come correggere il filtro, non un'eccezione."""
+    with pytest.raises(strumenti.ErroreStrumento, match="collegamento a un altro record.*utente__id"):
+        viste.cerca_record(_contesto(capo, aziende), "core.profili", filtri={"utente__icontains": "rossi"})

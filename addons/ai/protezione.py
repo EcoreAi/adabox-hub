@@ -26,6 +26,7 @@ ISTRUZIONE = (
     "valore: usalo così com'è nelle risposte e negli argomenti degli strumenti (l'utente vedrà il valore vero) e non "
     "chiedere di rivelarlo. Nei link Markdown lascia il segnaposto con le parentesi: [testo]([URL_1]).")
 SEGNAPOSTO = re.compile(r"\[\s*([A-Za-z]+(?:_[A-Za-z]+)*)[\s_]+(\d+)\s*\]")
+SEGNAPOSTO_COME_LINK = re.compile(r"\[\s*([A-Za-z]+(?:_[A-Za-z]+)*)[\s_]+(\d+)\s*\](?=\()")   # [ORG_1](/url)
 LINK_SENZA_QUADRE = re.compile(r"\]\(\s*([A-Z]+(?:_[A-Z]+)*)_(\d+)\s*\)")
 CHIAVE_JSON = re.compile(r'^"\s*:')
 PAROLE = frozenset({"FULLNAME", "USERNAME", "ORG", "CITY", "PROVINCE"})
@@ -170,6 +171,7 @@ class Vault:
             sconosciuti += 1
             return originale
         testo = LINK_SENZA_QUADRE.sub(lambda m: "](" + valore(m.group(1), m.group(2), m.group(0)[2:-1]) + ")", testo)
+        testo = SEGNAPOSTO_COME_LINK.sub(lambda m: "[" + valore(m.group(1), m.group(2), m.group(0)[1:-1]) + "]", testo)
         testo = SEGNAPOSTO.sub(lambda m: valore(m.group(1), m.group(2), m.group(0)), testo)
         return testo, sconosciuti
 
@@ -301,6 +303,9 @@ class Protezione:
                     trattieni = aperta
                 link = buffer.rfind("](")
                 if link >= 0 and ")" not in buffer[link:] and len(buffer) - link <= 40:
+                    testo_link = buffer.rfind("[", 0, link)           # anche il testo del link: [[ORG_1]](url)
+                    if testo_link >= 0 and link - testo_link <= 40:
+                        link = testo_link
                     trattieni = link if trattieni is None else min(trattieni, link)
                 pronto, buffer = (buffer[:trattieni], buffer[trattieni:]) if trattieni is not None else (buffer, "")
                 if pronto:

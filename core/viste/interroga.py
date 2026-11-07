@@ -14,7 +14,7 @@ import json
 import re
 from decimal import Decimal
 
-from django.core.exceptions import FieldDoesNotExist, ValidationError
+from django.core.exceptions import FieldDoesNotExist, FieldError, ValidationError
 from django.db import models
 from django.db.models import Avg, Count, F, Max, Min, Q, Sum
 from django.db.models.functions import TruncDay, TruncMonth, TruncWeek, TruncYear
@@ -169,6 +169,11 @@ def filtra(vista, request, qs, testo="", filtri=None, lista=None):
             qs = qs.filter(**{f"{lookup}__{operatore}" if operatore else lookup: valore})
         except (ValueError, TypeError, ValidationError) as e:
             raise ErroreInterrogazione(f"Valore non valido per «{chiave}»: {e}")
+        except FieldError:
+            raise ErroreInterrogazione(
+                f"L'operatore «{operatore}» non vale per «{chiave}»"
+                + (f": è un collegamento a un altro record, filtra per id o per un suo campo (es. «{lookup}__id» o «{lookup}__<campo>__icontains»)."
+                   if f.is_relation else "."))
         distinti = distinti or f.many_to_many or "__" in lookup
     if lista:
         from .filtri import applica

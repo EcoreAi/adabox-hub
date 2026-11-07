@@ -188,3 +188,18 @@ def test_durate_non_sono_numeri_da_verificare():
     testo = "Nelle prossime 13 settimane (3 mesi) circa 1.250,00 €, in 48 ore e 2 anni."
     assert [t for t, _ in provenienza.numeri(testo, durate=False)] == ["1.250,00"]
     assert "13" in [t for t, _ in provenienza.numeri(testo)]                   # nelle fonti restano
+
+
+def test_segnaposto_come_testo_di_un_link_in_streaming():
+    """«[ORG_1](/contatti/24/)» a pezzi: il segnaposto non esce spezzato prima del link e il link resta un link."""
+    from types import SimpleNamespace
+
+    from ai.gateway.tipi import Fine, Testo
+    p = protezione.Protezione(SimpleNamespace(segnaposto={"[ORG_1]": "Rizzo Stampa Snc"}), url="http://pii")
+    pezzi = [Testo("| 1 | ["), Testo("ORG_1"), Testo("](/contatti/"), Testo("24/) | 146.470 € |"),
+             Fine("fine", [{"tipo": "testo", "testo": "| 1 | [ORG_1](/contatti/24/) |"}])]
+    usciti = list(p.flusso(pezzi))
+    testo = "".join(x.testo for x in usciti if isinstance(x, Testo))
+    assert testo == "| 1 | [Rizzo Stampa Snc](/contatti/24/) | 146.470 € |" and p.sconosciuti == 0
+    assert usciti[-1].blocchi[0]["testo"] == "| 1 | [Rizzo Stampa Snc](/contatti/24/) |"
+    assert protezione.Vault({"[ORG_1]": "Rizzo"}).smaschera("[[ORG_1]](/c/1/) e [ORG_1]") == ("[Rizzo](/c/1/) e Rizzo", 0)
