@@ -7,6 +7,7 @@ from . import flusso, pagine
 urlpatterns = [
     path("", RedirectView.as_view(pattern_name="ai:chat"), name="indice"),
     path("chat/", pagine.chat, name="chat"),
+    path("provider/<int:pk>/catalogo/", pagine.catalogo_provider, name="catalogo_provider"),
     path("chat/<int:pk>/", pagine.chat, name="conversazione"),
     path("chat/invia/", pagine.invia, name="invia"),
     path("chat/<int:pk>/invia/", pagine.invia, name="invia_conversazione"),

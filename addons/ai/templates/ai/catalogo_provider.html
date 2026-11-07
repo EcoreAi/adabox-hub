@@ -1,0 +1,25 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Catalogo di {{ provider }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Catalogo di {{ provider }}</h1><div class="sub">{{ voci|length }} modelli di chat disponibili con questa chiave</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="{% url 'ai:provider_dettaglio' provider.pk %}">Torna al provider</a></div></div>
+<form method="post" class="ui-card is-revealed">{% csrf_token %}
+  {% if voci %}
+  <div class="ui-filtri"><input class="ui-input" type="search" placeholder="Filtra, es. large, small, codestral" aria-label="Filtra" data-filtra></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th></th><th>Modello</th><th>ID</th><th class="ui-num">Contesto</th><th>Capacità</th><th class="ui-num">$/M in · out</th></tr></thead>
+    <tbody>{% for v in voci %}<tr data-testo="{{ v.nome|lower }} {{ v.id_api|lower }} {{ v.alias|join:' '|lower }}">
+      <td><input type="checkbox" name="scelti" value="{{ v.id_api }}" aria-label="Aggiungi {{ v.nome }}"{% if v.presente %} checked{% endif %}></td>
+      <td><strong>{{ v.nome }}</strong>{% if v.presente %} <span class="ui-pill">già in uso</span>{% endif %}{% if v.descrizione %}<div class="sub">{{ v.descrizione|truncatechars:140 }}</div>{% endif %}</td>
+      <td><code>{{ v.id_api }}</code>{% if v.alias %}<div class="sub">anche: {{ v.alias|join:", " }}</div>{% endif %}</td>
+      <td class="ui-num">{% if v.contesto %}{{ v.contesto|floatformat:"0g" }}{% else %}—{% endif %}</td>
+      <td class="sub">{% if v.strumenti %}strumenti{% endif %}{% if v.visione %}{% if v.strumenti %} · {% endif %}immagini{% endif %}</td>
+      <td class="ui-num">{% if v.prezzo_input is not None %}{{ v.prezzo_input|floatformat:"-4" }} · {{ v.prezzo_output|floatformat:"-4" }}{% else %}—{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  <div class="ui-card-body"><button class="ui-btn ui-btn-primary" type="submit">Aggiungi i modelli spuntati</button>
+    <p class="sub">I modelli già in uso restano: spuntati si aggiornano contesto e capacità, i prezzi scritti non si toccano. Per usarli in chat mettili nella catena di un profilo (Profili → «Chat e agente») o rendili «sceglibili dagli utenti».</p></div>
+  {% else %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Il provider non ha restituito modelli di chat.</p></div></div>{% endif %}
+</form>
+<script>document.querySelector("[data-filtra]")?.addEventListener("input", e => { const q = e.target.value.toLowerCase().trim(); document.querySelectorAll("tr[data-testo]").forEach(r => r.hidden = q && !r.dataset.testo.includes(q)); });</script>
+{% endblock %}

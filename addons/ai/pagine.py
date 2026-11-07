@@ -904,3 +904,23 @@ def condividi_chat(request, pk):
     c.save(update_fields=["condivisa"])
     messages.success(request, "Chat condivisa con l'area di lavoro: gli altri membri la leggono." if c.condivisa else "Chat di nuovo privata.")
     return redirect("ai:conversazione", pk=c.pk)
+
+
+@login_required
+@permission_required("ai.add_modello", raise_exception=True)
+def catalogo_provider(request, pk):
+    """Il catalogo dei modelli del provider: si spuntano quelli da aggiungere (gli altri restano fuori)."""
+    from . import catalogo_remoto
+    from .models import Provider
+    provider = get_object_or_404(Provider, pk=pk)
+    try:
+        voci = catalogo_remoto.leggi(provider)
+    except catalogo_remoto.CatalogoNonDisponibile as e:
+        messages.error(request, str(e))
+        return redirect("ai:provider_dettaglio", provider.pk)
+    if request.method == "POST":
+        nuovi, aggiornati = catalogo_remoto.importa(provider, voci, set(request.POST.getlist("scelti")))
+        messages.success(request, f"Modelli aggiunti: {nuovi}" + (f", aggiornati: {aggiornati}" if aggiornati else "")
+                         + ". Controlla i prezzi e mettili nella catena di un profilo per usarli in chat.")
+        return redirect(f"{reverse('ai:modelli_lista')}?f_provider={provider.pk}")
+    return render(request, "ai/catalogo_provider.html", {"provider": provider, "voci": voci})

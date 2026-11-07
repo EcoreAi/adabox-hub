@@ -18,6 +18,7 @@ class AiConfig(AppConfig):
         hooks.voce_testata("ai/_scrivi_con_ada.html", order=200, permission="ai.add_conversazione")
         hooks.sezione_dettaglio("*", "ai/_progetti_record.html", order=950, permission="ai.view_progettochat")
         hooks.sezione_dettaglio("ai.ServerMCP", "ai/_server_mcp.html", order=5, permission="ai.change_servermcp")
+        hooks.sezione_dettaglio("ai.Provider", "ai/_provider_catalogo.html", order=5, permission="ai.add_modello")
         post_delete.connect(allegati_chat.togli_file, sender=MessaggioChat, dispatch_uid="ai.togli_allegati")
         post_delete.connect(allegati_chat.togli_file, sender=ProgettoChat, dispatch_uid="ai.togli_file_progetto")
         if apps.is_installed("documenti"):

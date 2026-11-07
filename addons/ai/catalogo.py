@@ -27,7 +27,7 @@ def catena(profilo, azienda=None):
                                               modello__provider__attivo=True).select_related("modello__provider"):
         provider = anello.modello.provider
         chiave = provider.chiave_per(azienda)
-        if provider.tipo == Provider.ANTHROPIC and not chiave:
+        if provider.tipo in Provider.CON_CHIAVE and not chiave:
             continue
         risultato.append((anello.modello, chiave))
     if not risultato:
@@ -40,7 +40,7 @@ def sceglibili(azienda=None):
     risultato = []
     for modello in Modello.objects.filter(sceglibile=True, attivo=True, provider__attivo=True).select_related("provider").order_by("etichetta"):
         chiave = modello.provider.chiave_per(azienda)
-        if modello.provider.tipo != Provider.ANTHROPIC or chiave:
+        if modello.provider.tipo not in Provider.CON_CHIAVE or chiave:
             risultato.append((modello, chiave))
     return risultato
 

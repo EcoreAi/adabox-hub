@@ -92,9 +92,10 @@ class MessaggioChat(models.Model):
 class Provider(models.Model):
     """Un fornitore di modelli: API Anthropic, endpoint compatibile OpenAI (OpenAI, OpenRouter, Ollama, vLLM,
     Gemini) o il modello finto per test e demo. La chiave API è cifrata; le aziende possono avere la propria."""
-    ANTHROPIC, OPENAI_COMPAT, FINTO = "anthropic", "openai_compat", "finto"
-    TIPI = [(ANTHROPIC, "Anthropic (Claude)"), (OPENAI_COMPAT, "Compatibile OpenAI (OpenAI, OpenRouter, Ollama...)"),
-            (FINTO, "Finto (test e demo)")]
+    ANTHROPIC, OPENAI_COMPAT, MISTRAL, FINTO = "anthropic", "openai_compat", "mistral", "finto"
+    TIPI = [(ANTHROPIC, "Anthropic (Claude)"), (MISTRAL, "Mistral AI (La Plateforme)"),
+            (OPENAI_COMPAT, "Compatibile OpenAI (OpenAI, OpenRouter, Ollama...)"), (FINTO, "Finto (test e demo)")]
+    CON_CHIAVE = {ANTHROPIC, MISTRAL}                     # senza chiave non rispondono: si saltano nella catena
     nome = models.CharField("nome", max_length=80, unique=True)
     tipo = models.CharField("tipo", max_length=15, choices=TIPI)
     base_url = models.URLField("URL dell'API", blank=True, help_text="vuoto = quello predefinito del tipo")

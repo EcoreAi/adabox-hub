@@ -17,7 +17,7 @@ class ProviderForm(forms.ModelForm):
     togli_chiave = forms.BooleanField(label="togli la chiave", required=False)
     base_url = forms.URLField(label="URL dell'API", required=False, assume_scheme="https",
                               widget=forms.URLInput(attrs={"autocomplete": "off"}),
-                              help_text="per Anthropic lascia vuoto; per Ollama/OpenRouter l'indirizzo dell'API")
+                              help_text="per Anthropic e Mistral lascia vuoto; per Ollama/OpenRouter l'indirizzo dell'API")
 
     class Meta:
         model = Provider

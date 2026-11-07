@@ -7,6 +7,11 @@ import httpx2
 from .tipi import ChiamataStrumento, ErroreModello, Fine, Testo, Uso
 
 URL_PREDEFINITO = "https://api.openai.com/v1"
+URL_PER_TIPO = {"mistral": "https://api.mistral.ai/v1"}
+
+
+def url_base(provider):
+    return (provider.base_url or URL_PER_TIPO.get(provider.tipo, URL_PREDEFINITO)).rstrip("/")
 MOTIVI = {"stop": "fine", "tool_calls": "strumenti", "length": "limite", "content_filter": "rifiuto"}
 
 
@@ -60,7 +65,7 @@ def flusso(modello, chiave, *, sistema, messaggi, strumenti=(), max_token=16000,
     intestazioni = {"Content-Type": "application/json"}
     if chiave:
         intestazioni["Authorization"] = f"Bearer {chiave}"
-    url = (modello.provider.base_url or URL_PREDEFINITO).rstrip("/") + "/chat/completions"
+    url = url_base(modello.provider) + "/chat/completions"
     http = http_client or httpx2.Client(timeout=httpx2.Timeout(600.0, connect=10.0))
     testo, chiamate, uso, motivo = [], {}, Uso(), "altro"
     try:

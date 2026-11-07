@@ -1,0 +1,6 @@
+{% if obj.tipo == 'mistral' or obj.tipo == 'openai_compat' %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Modelli del provider</div><div class="spacer"></div>
+    <div class="head-actions"><a class="ui-btn ui-btn-primary ui-btn-sm" href="{% url 'ai:catalogo_provider' obj.pk %}">Scegli dal catalogo</a></div></div>
+  <div class="ui-card-body"><p class="sub">{{ obj.modelli.count }} modelli in uso. «Scegli dal catalogo» legge l'elenco dei modelli disponibili con la tua chiave e aggiunge quelli che spunti, con contesto e capacità.{% if obj.tipo == 'mistral' %} I prezzi Mistral non arrivano dall'API: scrivili nella scheda del modello.{% endif %}</p></div>
+</section>{% endif %}
