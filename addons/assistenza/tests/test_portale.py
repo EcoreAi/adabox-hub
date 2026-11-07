@@ -112,3 +112,23 @@ def test_nuova_segnalazione_dal_portale(client, scena):
 def test_interni_fuori_dal_portale(client, scena):
     client.force_login(scena["sara"])
     assert client.get("/assistenza/portale/").status_code == 403
+
+
+def test_pagina_del_progetto_nel_portale(client, scena):
+    import progetti
+    from progetti.models import Compito, FaseCompito, Milestone, Rilascio
+    call_command("loaddata", str(Path(progetti.__file__).parent / "data" / "fasi.json"), verbosity=0)
+    p = scena["progetto"]
+    tappa = Milestone.objects.create(azienda=p.azienda, progetto=p, nome="Prima consegna")
+    chiusa = FaseCompito.objects.filter(chiusa=True).first()
+    Compito.objects.create(azienda=p.azienda, progetto=p, titolo="Analisi dei requisiti", milestone=tappa, fase=chiusa,
+                           visibile_cliente=True)
+    Compito.objects.create(azienda=p.azienda, progetto=p, titolo="Refactoring interno segreto", milestone=tappa)
+    Rilascio.objects.create(azienda=p.azienda, progetto=p, versione="1.0.0")
+    _entra(client, scena)
+    assert f"/assistenza/portale/progetti/{p.pk}/" in client.get("/assistenza/portale/progetti/").content.decode()
+    html = client.get(f"/assistenza/portale/progetti/{p.pk}/").content.decode()
+    assert "Gestionale Rossi" in html and "50%" in html and "Prima consegna" in html and "Versione 1.0.0" in html
+    assert "Analisi dei requisiti" in html and "segreto" not in html                 # solo i compiti visibili
+    altro = Progetto.objects.create(azienda=scena["azienda"], nome="Di Bianchi", cliente=scena["bianchi"])
+    assert client.get(f"/assistenza/portale/progetti/{altro.pk}/").status_code == 404

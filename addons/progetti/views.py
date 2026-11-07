@@ -81,7 +81,7 @@ class CompitoView(ModelView):
     search_fields = ["titolo", "descrizione", "progetto__nome"]
     form_layout = [
         ("Compito", ["titolo", ("progetto", "tipo"), ("fase", "priorita"), ("scadenza", "ore_previste"),
-                     "assegnatari", "descrizione", "@proprieta"]),
+                     "assegnatari", "descrizione", "visibile_cliente", "@proprieta"]),
         ("Pianificazione", [("sprint", "punti"), ("milestone", "rilascio"), ("padre", "bloccato_da")]),
     ]
     readonly_fields = ["creato", "completato_il"]

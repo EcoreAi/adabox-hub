@@ -245,6 +245,8 @@ class Compito(AziendaMixin, ProprietaMixin):
     bloccato_da = models.ManyToManyField("self", symmetrical=False, blank=True, related_name="blocca",
                                          verbose_name="bloccato da",
                                          help_text="compiti da completare prima di questo")
+    visibile_cliente = models.BooleanField("visibile al cliente", default=False,
+                                           help_text="compare nella pagina del progetto nel portale clienti")
     completato_il = models.DateTimeField("completato il", null=True, blank=True, editable=False)
     creato = models.DateTimeField("creato il", auto_now_add=True)
 

@@ -17,6 +17,7 @@ if apps.is_installed("portale"):                          # le pagine del portal
         path("portale/", portale.home, name="portale"),
         path("portale/nuovo/", portale.nuovo, name="portale_nuovo"),
         path("portale/progetti/", portale.progetti, name="portale_progetti"),
+        path("portale/progetti/<int:pk>/", portale.progetto, name="portale_progetto"),
         path("portale/guida/", portale.guida, name="portale_guida"),
         path("portale/guida/cerca/", portale.guida_cerca, name="portale_guida_cerca"),
         path("portale/guida/<int:pk>/", portale.articolo, name="portale_articolo"),

@@ -1,7 +1,7 @@
 {
     "name": "Progetti",
     "summary": "Commesse e compiti con fasi, scadenze e avanzamento",
-    "version": "1.1.1",
+    "version": "1.2.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Servizi",
     "depends": ["contatti"],

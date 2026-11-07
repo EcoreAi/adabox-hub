@@ -1,0 +1,36 @@
+{% extends "portale/base.html" %}
+{% block title %}{{ p.nome }}{% endblock %}
+{% block contenuto %}
+<div class="ui-pagehead"><div><h1>{{ p.nome }}</h1>
+  <div class="sub">{{ p.get_stato_display }}{% if p.inizio %} · dal {{ p.inizio|date:"d/m/Y" }}{% endif %}{% if p.fine %} · fine prevista {{ p.fine|date:"d/m/Y" }}{% endif %}</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="{% url 'assistenza:portale_progetti' %}">Tutti i progetti</a></div>
+</div>
+<section class="ui-card is-revealed">
+  <div class="ui-card-head"><div class="ui-card-title">Avanzamento</div></div>
+  <div class="ui-card-body">
+    {% if totale %}<p><strong>{{ percentuale }}%</strong> · {{ completati }} attività completate su {{ totale }}</p>
+    <div style="height:8px;border-radius:4px;background:var(--ui-surface-2,#eee);overflow:hidden" role="progressbar" aria-valuenow="{{ percentuale }}" aria-valuemin="0" aria-valuemax="100"><div style="height:100%;width:{{ percentuale }}%;background:var(--ui-accent,#2f4fbf)"></div></div>
+    {% else %}<p class="sub">Le attività non sono ancora pianificate.</p>{% endif %}
+  </div>
+</section>
+{% if milestone %}<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Tappe</div></div>
+  <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>Tappa</th><th>Scadenza</th><th class="ui-num">Avanzamento</th></tr></thead>
+    <tbody>{% for m, perc in milestone %}<tr><td>{{ m.nome }}</td><td>{{ m.scadenza|date:"d/m/Y"|default:"—" }}</td><td class="ui-num">{% if m.totale %}{{ perc }}%{% else %}—{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+</section>{% endif %}
+{% if rilasci %}<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Rilasci</div></div>
+  <div class="ui-card-body">{% for r in rilasci %}<div class="ui-section"><strong>Versione {{ r.versione }}</strong> · {% if r.stato == 'rilasciato' %}rilasciata il {{ r.rilasciato_il|date:"d/m/Y" }}{% else %}prevista{% if r.data_prevista %} per il {{ r.data_prevista|date:"d/m/Y" }}{% endif %}{% endif %}
+    {% if r.stato == 'rilasciato' and r.note %}<div class="sub">{{ r.note|linebreaksbr }}</div>{% endif %}</div>{% endfor %}</div>
+</section>{% endif %}
+{% if compiti %}<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Attività</div></div>
+  <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>Attività</th><th>Stato</th><th>Scadenza</th></tr></thead>
+    <tbody>{% for c in compiti %}<tr><td>{{ c.titolo }}{% if c.milestone %} <span class="sub">· {{ c.milestone.nome }}</span>{% endif %}</td><td>{{ c.fase.nome }}</td><td>{{ c.scadenza|date:"d/m/Y"|default:"—" }}</td></tr>{% endfor %}</tbody></table></div>
+</section>{% endif %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Le tue richieste su questo progetto</div><div class="spacer"></div><a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'assistenza:portale_nuovo' %}">Nuova richiesta</a></div>
+  {% if richieste %}<div class="ui-table-wrap"><table class="ui-table"><tbody>{% for t in richieste %}<tr><td><a class="ui-link" href="{% url 'assistenza:portale_ticket' t.pk %}">{{ t.numero }} · {{ t.oggetto }}</a></td><td>{{ t.fase.nome }}</td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<div class="ui-card-body"><p class="sub">Nessuna richiesta.</p></div>{% endif %}
+</section>
+{% endblock %}

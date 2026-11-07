@@ -171,6 +171,25 @@ def progetti(request):
 
 
 @portale
+def progetto(request, pk):
+    """La pagina del progetto per il cliente: avanzamento, milestone, rilasci e i soli compiti segnati come visibili."""
+    from django.db.models import Count, Q
+
+    from progetti.models import Compito
+    p = get_object_or_404(_progetti(request.accesso), pk=pk)
+    totale, completati, percentuale, _ = p.riepilogo_compiti()
+    milestone = (p.milestone.annotate(totale=Count("compiti"), fatti=Count("compiti", filter=Q(compiti__fase__chiusa=True)))
+                 .order_by("scadenza", "pk"))
+    compiti = (Compito.objects.filter(progetto=p, visibile_cliente=True).select_related("fase", "milestone")
+               .order_by("fase__chiusa", "scadenza", "pk"))
+    richieste = Ticket.objects.filter(assistenza__progetto=p, contatto__in=request.accesso.contatti()).select_related("fase").order_by("fase__chiusa", "-creato")[:10]
+    return render(request, "assistenza/portale/progetto.html", _contesto(
+        request, p=p, totale=totale, completati=completati, percentuale=percentuale, compiti=compiti, richieste=richieste,
+        milestone=[(m, round(100 * m.fatti / m.totale) if m.totale else 0) for m in milestone],
+        rilasci=p.rilasci.order_by("-data_prevista", "-pk")))
+
+
+@portale
 def scarica(request, pk, allegato):
     """Un allegato di un ticket visibile, solo se è in un messaggio pubblico o l'ha caricato il cliente."""
     ticket = get_object_or_404(_ticket(request.accesso), pk=pk)
@@ -192,4 +211,4 @@ def riepilogo_richieste(accesso):
 
 def riepilogo_progetti(accesso):
     progetti = list(_progetti(accesso)[:4])
-    return {"conta": _progetti(accesso).count(), "voci": [(p.nome, reverse("assistenza:portale_progetti"), "") for p in progetti]}
+    return {"conta": _progetti(accesso).count(), "voci": [(p.nome, reverse("assistenza:portale_progetto", args=[p.pk]), p.get_stato_display()) for p in progetti]}
