@@ -2,6 +2,7 @@
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 
+from contatti.models import IndirizzoContatto
 from core import chatter
 
 from .models import Consegna, Magazzino, Ricevimento, RigaConsegna, RigaRicevimento
@@ -14,6 +15,7 @@ def consegna_da_ordine(sender, ordine, utente=None, **kwargs):
         return None
     consegna = Consegna.objects.create(
         azienda=ordine.azienda, magazzino=Magazzino.predefinito_per(ordine.azienda), cliente=ordine.cliente,
+        destinazione=getattr(ordine, "indirizzo_consegna", None) or IndirizzoContatto.predefinito_per(ordine.cliente, "consegna"),
         riferimento=ordine.numero_ordine, origine_tipo=ContentType.objects.get_for_model(ordine), origine_id=ordine.pk)
     for r in righe:
         RigaConsegna.objects.create(consegna=consegna, prodotto=r.prodotto, descrizione=r.descrizione,

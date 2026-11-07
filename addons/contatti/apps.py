@@ -9,3 +9,4 @@ class ContattiConfig(AppConfig):
     def ready(self):
         from core.registry import hooks
         hooks.sezione_dettaglio("contatti.Contatto", "contatti/_persone.html", order=10)
+        hooks.sezione_dettaglio("contatti.Contatto", "contatti/_indirizzi.html", order=12)

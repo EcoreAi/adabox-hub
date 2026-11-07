@@ -6,7 +6,7 @@ from core.viste import ModelView, register
 
 from . import validatori, vies
 
-from .models import Categoria, Contatto
+from .models import Categoria, Contatto, IndirizzoContatto
 
 COLORI_TIPO = {Contatto.AZIENDA: "azzurro", Contatto.PERSONA: "viola"}
 
@@ -110,3 +110,17 @@ class CategoriaView(ModelView):
     list_display = ["nome", "colore"]
     search_fields = ["nome"]
     api = True
+
+
+@register
+class IndirizzoView(ModelView):
+    """Indirizzi in più dei contatti: consegna, fatturazione, sedi operative. Si aggiungono dalla scheda del contatto."""
+    model = IndirizzoContatto
+    slug = "indirizzi"
+    list_display = ["contatto", "tipo", "nome", "indirizzo", "citta", "predefinito"]
+    list_filter = ["tipo", "contatto"]
+    search_fields = ["contatto__nome", "nome", "indirizzo", "citta"]
+    form_layout = [("Indirizzo", [("contatto", "tipo"), ("nome", "presso"), "indirizzo", ("cap", "citta"), ("provincia", "nazione"),
+                                  "predefinito"])]
+    company_field = "azienda"
+    ai_descrizione = "Gli indirizzi di consegna, fatturazione e delle sedi operative dei contatti."

@@ -1,7 +1,7 @@
 {
     "name": "Contatti",
     "summary": "Anagrafica di aziende e persone: clienti, fornitori, recapiti e dati fiscali",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Anagrafiche",
     "depends": [],
@@ -15,7 +15,8 @@
     ],
     "groups": {
         "Contatti / Utente": ["contatti.view_contatto", "contatti.add_contatto", "contatti.change_contatto",
-                              "contatti.view_categoria"],
+                              "contatti.view_categoria", "contatti.view_indirizzocontatto", "contatti.add_indirizzocontatto",
+                              "contatti.change_indirizzocontatto", "contatti.delete_indirizzocontatto"],
         "Contatti / Responsabile": ["contatti.*"],
     },
     "data": ["data/categorie.json"],

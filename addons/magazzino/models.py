@@ -238,6 +238,9 @@ class Consegna(DocumentoMagazzino):
     cliente = models.ForeignKey("contatti.Contatto", on_delete=models.PROTECT, related_name="consegne",
                                 verbose_name="destinatario")
     causale_trasporto = models.CharField("causale del trasporto", max_length=20, choices=CAUSALI, default="vendita")
+    destinazione = models.ForeignKey("contatti.IndirizzoContatto", on_delete=models.SET_NULL, null=True, blank=True,
+                                     related_name="+", verbose_name="luogo di destinazione",
+                                     help_text="vuoto = la sede del destinatario")
     trasporto_a_cura = models.CharField("trasporto a cura del", max_length=12, default="mittente",
                                         choices=[("mittente", "Mittente"), ("destinatario", "Destinatario"),
                                                  ("vettore", "Vettore")])
@@ -253,6 +256,10 @@ class Consegna(DocumentoMagazzino):
 
     def __str__(self):
         return self.numero or f"Consegna da spedire {self.pk}"
+
+    def clean(self):
+        if self.destinazione_id and self.cliente_id and self.destinazione.contatto_id != self.cliente_id:
+            raise ValidationError({"destinazione": "L'indirizzo è di un altro contatto."})
 
 
 class RigaConsegna(models.Model):

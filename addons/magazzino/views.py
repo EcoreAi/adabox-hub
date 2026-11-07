@@ -94,7 +94,7 @@ class ConsegnaView(ModelView):
     list_display = ["documento", "cliente", "data", "riferimento", "stato"]
     list_filter = ["stato", "cliente", "magazzino", "data"]
     search_fields = ["numero", "riferimento", "cliente__nome"]
-    form_layout = [("Consegna", [("cliente", "magazzino"), ("data", "riferimento"), ("causale_trasporto", "trasporto_a_cura"),
+    form_layout = [("Consegna", [("cliente", "magazzino"), "destinazione", ("data", "riferimento"), ("causale_trasporto", "trasporto_a_cura"),
                                  ("vettore", "colli"), ("peso", "aspetto_beni"), "note"])]
     readonly_fields = ["numero", "stato"]
     company_field = "azienda"

@@ -40,6 +40,9 @@ class OrdineVendita(AziendaMixin, ProprietaMixin):
     risposta_ip = models.GenericIPAddressField("indirizzo IP", null=True, blank=True, editable=False)
     risposta_motivo = models.TextField("motivo del rifiuto", blank=True, editable=False)
     risposta_impronta = models.CharField("impronta del documento accettato", max_length=32, blank=True, editable=False)
+    indirizzo_consegna = models.ForeignKey("contatti.IndirizzoContatto", on_delete=models.SET_NULL, null=True, blank=True,
+                                           related_name="+", verbose_name="indirizzo di consegna",
+                                           help_text="vuoto = la sede del cliente, o il suo indirizzo di consegna predefinito")
     opportunita_id = models.PositiveBigIntegerField("opportunità di origine", null=True, blank=True, editable=False, db_index=True,
                                                     help_text="l'opportunità del CRM da cui nasce il preventivo")
 
@@ -70,6 +73,8 @@ class OrdineVendita(AziendaMixin, ProprietaMixin):
     def clean(self):
         if self.validita and self.data and self.validita < self.data:
             raise ValidationError({"validita": "La validità non può precedere la data del preventivo."})
+        if self.indirizzo_consegna_id and self.cliente_id and self.indirizzo_consegna.contatto_id != self.cliente_id:
+            raise ValidationError({"indirizzo_consegna": "L'indirizzo è di un altro contatto."})
 
 
 class RigaVendita(models.Model):

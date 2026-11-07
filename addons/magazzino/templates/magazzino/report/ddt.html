@@ -11,6 +11,7 @@
 <div style="font-size:9pt;color:#6e6e73;">del {{ obj.data|date:"d/m/Y" }}{% if obj.riferimento %} · rif. {{ obj.riferimento }}{% endif %}</div>
 <div class="parti">
   <div><h3>Destinatario</h3><strong>{{ obj.cliente.nome }}</strong><br>{{ obj.cliente.indirizzo }} {{ obj.cliente.cap }} {{ obj.cliente.citta }} {{ obj.cliente.provincia }}{% if obj.cliente.partita_iva %}<br>P.IVA {{ obj.cliente.partita_iva }}{% endif %}</div>
+  <div><h3>Luogo di destinazione</h3>{% if obj.destinazione %}<strong>{{ obj.cliente.nome }}</strong>{% for r in obj.destinazione.righe %}<br>{{ r }}{% endfor %}{% else %}Come destinatario{% endif %}</div>
   <div><h3>Trasporto</h3>Causale: {{ obj.get_causale_trasporto_display }}<br>A cura del {{ obj.get_trasporto_a_cura_display|lower }}{% if obj.vettore %} ({{ obj.vettore }}){% endif %}<br>Colli: {{ obj.colli }}{% if obj.peso %} · peso {{ obj.peso }} kg{% endif %} · {{ obj.aspetto_beni }}</div>
 </div>
 <table class="righe"><thead><tr><th>Codice</th><th>Descrizione</th><th class="num">Quantità</th><th>U.M.</th></tr></thead>

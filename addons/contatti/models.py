@@ -27,7 +27,8 @@ class Contatto(AziendaMixin, ProprietaMixin):
     tipo = models.CharField("tipo", max_length=10, choices=TIPI, default=AZIENDA)
     nome = models.CharField("nome", max_length=200, help_text="ragione sociale, oppure nome e cognome")
     societa = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="persone",
-                                limit_choices_to={"tipo": AZIENDA}, verbose_name="società")
+                                limit_choices_to={"tipo": AZIENDA}, verbose_name="società",
+                                help_text="per una persona l'azienda in cui lavora; per un'azienda la società madre")
     ruolo = models.CharField("ruolo", max_length=100, blank=True)
     email = models.EmailField("email", blank=True)
     pec = models.EmailField("PEC", blank=True)
@@ -77,8 +78,13 @@ class Contatto(AziendaMixin, ProprietaMixin):
         self.partita_iva = validatori.normalizza_partita_iva(self.partita_iva, self.nazione)
         if self.societa_id and self.societa_id == self.pk:
             errori["societa"] = "Un contatto non può essere la società di se stesso."
-        if self.tipo == self.AZIENDA and self.societa_id:
-            errori["societa"] = "Solo le persone appartengono a una società."
+        nodo, visti = self.societa, set()
+        while nodo is not None and self.pk and nodo.pk not in visti:          # niente giri: A madre di B madre di A
+            if nodo.societa_id == self.pk:
+                errori["societa"] = "Questa società appartiene già, direttamente o no, a questo contatto."
+                break
+            visti.add(nodo.pk)
+            nodo = nodo.societa
         if errore := validatori.errore_partita_iva(self.partita_iva, self.nazione):
             errori["partita_iva"] = errore
         if self.pubblica_amministrazione and len(self.codice_sdi) != 6:
@@ -91,3 +97,53 @@ class Contatto(AziendaMixin, ProprietaMixin):
             errori["partita_iva"] = "Esiste già un contatto con questa partita IVA."
         if errori:
             raise ValidationError(errori)
+
+
+class IndirizzoContatto(AziendaMixin):
+    """Un indirizzo in più del contatto: consegna, fatturazione, sede operativa. Quello in anagrafica resta la sede legale."""
+    CONSEGNA, FATTURAZIONE, SEDE, ALTRO = "consegna", "fatturazione", "sede", "altro"
+    TIPI = [(CONSEGNA, "Consegna"), (FATTURAZIONE, "Fatturazione"), (SEDE, "Sede operativa"), (ALTRO, "Altro")]
+    contatto = models.ForeignKey(Contatto, on_delete=models.CASCADE, related_name="indirizzi", verbose_name="contatto")
+    tipo = models.CharField("tipo", max_length=12, choices=TIPI, default=CONSEGNA)
+    nome = models.CharField("descrizione", max_length=100, blank=True, help_text="es. Magazzino di Bari")
+    presso = models.CharField("presso", max_length=100, blank=True, help_text="c/o, reparto o persona")
+    indirizzo = models.CharField("indirizzo", max_length=200)
+    cap = models.CharField("CAP", max_length=10, blank=True)
+    citta = models.CharField("città", max_length=100)
+    provincia = models.CharField("provincia", max_length=2, blank=True)
+    nazione = models.CharField("nazione", max_length=2, default="IT")
+    predefinito = models.BooleanField("predefinito", default=False, help_text="proposto per primo per questo tipo")
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "indirizzo"
+        verbose_name_plural = "indirizzi"
+        ordering = ["tipo", "-predefinito", "nome", "pk"]
+
+    def __str__(self):
+        etichetta = self.nome or self.get_tipo_display()
+        return f"{etichetta}: {self.indirizzo}, {self.cap} {self.citta}".replace(" ,", ",").strip()
+
+    @property
+    def righe(self):
+        """Le righe da stampare su DDT e documenti."""
+        return [r for r in (self.nome, f"c/o {self.presso}" if self.presso else "", self.indirizzo,
+                            " ".join(x for x in (self.cap, self.citta, f"({self.provincia})" if self.provincia else "") if x),
+                            self.nazione if self.nazione != "IT" else "") if r]
+
+    def clean(self):
+        self.provincia = self.provincia.upper()
+        self.nazione = (self.nazione or "IT").upper()
+
+    def save(self, *args, **kwargs):
+        if self.contatto_id and not self.azienda_id:
+            self.azienda_id = self.contatto.azienda_id
+        self.clean()
+        super().save(*args, **kwargs)
+        if self.predefinito:
+            IndirizzoContatto.objects.filter(contatto=self.contatto, tipo=self.tipo, predefinito=True).exclude(pk=self.pk).update(predefinito=False)
+
+    @classmethod
+    def predefinito_per(cls, contatto, tipo):
+        if contatto is None:
+            return None
+        return cls.objects.filter(contatto=contatto, tipo=tipo).order_by("-predefinito", "pk").first()

@@ -1,0 +1,12 @@
+{% with indirizzi=obj.indirizzi.all %}{% if indirizzi or perms.contatti.add_indirizzocontatto %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Altri indirizzi{% if indirizzi %} ({{ indirizzi|length }}){% endif %}</div><div class="spacer"></div>
+    {% if perms.contatti.add_indirizzocontatto %}<div class="head-actions"><a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'contatti:indirizzi_nuovo' %}?contatto={{ obj.pk }}">Aggiungi indirizzo</a></div>{% endif %}</div>
+  {% if indirizzi %}<div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Tipo</th><th>Indirizzo</th><th></th></tr></thead>
+    <tbody>{% for i in indirizzi %}<tr><td>{{ i.get_tipo_display }}{% if i.predefinito %} <span class="ui-pill">predefinito</span>{% endif %}</td>
+      <td><a class="ui-link" href="{% url 'contatti:indirizzi_dettaglio' i.pk %}">{{ i.righe|join:" · " }}</a></td>
+      <td>{% if perms.contatti.change_indirizzocontatto %}<a class="ui-link" href="{% url 'contatti:indirizzi_modifica' i.pk %}">Modifica</a>{% endif %}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<div class="ui-card-body"><p class="sub">Solo la sede in anagrafica. Aggiungi un indirizzo di consegna, di fatturazione o una sede operativa: l'indirizzo di consegna si sceglie su ordini e consegne e va sul DDT.</p></div>{% endif %}
+</section>{% endif %}{% endwith %}

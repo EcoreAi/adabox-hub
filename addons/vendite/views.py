@@ -25,7 +25,7 @@ class OrdineView(ModelView):
     search_fields = ["numero", "numero_ordine", "cliente__nome", "riferimento_cliente"]
     form_layout = [
         ("Documento", [("cliente", "commerciale"), ("data", "validita"), ("listino", "termine_pagamento"),
-                       "riferimento_cliente"]),
+                       ("riferimento_cliente", "indirizzo_consegna")]),
         ("Note", ["note", "@proprieta"]),
     ]
     readonly_fields = ["numero", "numero_ordine", "stato", "confermato_il"]

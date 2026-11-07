@@ -57,10 +57,13 @@ def test_clean(prima):
     assert "partita_iva" in e.value.message_dict
     zeta = Azienda.objects.create(nome="Zeta")
     Contatto(azienda=zeta, nome="Acme in Zeta", partita_iva="06363391001").full_clean()     # altra azienda: ammesso
-    errata = Contatto(azienda=prima, nome="Società", tipo="azienda", societa=acme, codice_fiscale="rssmra85t10a562s")
+    controllata = Contatto(azienda=prima, nome="Società", tipo="azienda", societa=acme, codice_fiscale="rssmra85t10a562s")
+    controllata.full_clean()                                       # un'azienda può avere la società madre
+    assert controllata.codice_fiscale == "RSSMRA85T10A562S"
+    se_stessa = Contatto(azienda=prima, nome="Acme", societa=acme, pk=acme.pk)
     with pytest.raises(ValidationError) as e:
-        errata.full_clean()
-    assert "societa" in e.value.message_dict and errata.codice_fiscale == "RSSMRA85T10A562S"
+        se_stessa.full_clean(exclude=["partita_iva"])
+    assert "societa" in e.value.message_dict
 
 
 def test_crea_dalla_vista_con_codice_e_chatter(client, utente_contatti, prima):
