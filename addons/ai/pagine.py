@@ -609,11 +609,17 @@ def stella_documento(request, pk):
 @permission_required("ai.view_conversazione", raise_exception=True)
 def scarica_documento(request, pk, formato):
     d = _mio_documento(request, pk)
-    if d is None or formato not in ("md", "docx"):
+    if d is None or formato not in ("md", "docx", "pdf"):
         raise Http404
     nome = get_valid_filename(d.titolo) or "documento"
     if formato == "md":
         risposta = HttpResponse(f"# {d.titolo}\n\n{d.testo}", content_type="text/markdown; charset=utf-8")
+    elif formato == "pdf":
+        from core import report
+        try:
+            risposta = HttpResponse(documenti_chat.in_pdf(d), content_type="application/pdf")
+        except report.ReportNonDisponibile as e:
+            return HttpResponse(str(e), status=503, content_type="text/plain; charset=utf-8")
     else:
         risposta = HttpResponse(documenti_chat.in_word(d), content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
     risposta["Content-Disposition"] = content_disposition_header(True, f"{nome}.{formato}")

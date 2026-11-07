@@ -9,6 +9,7 @@ from ai import documenti_chat, provenienza
 from ai.models import Conversazione, DocumentoChat, Evento, MessaggioChat, Turno
 from ai.strumenti import Contesto, disponibili
 from ai.strumenti.registro import ErroreStrumento
+from core import report
 from core.models import Azienda
 
 
@@ -83,7 +84,22 @@ def test_scarica_md_e_word(s, client):
     r = client.get(reverse("ai:scarica_documento", args=[d.pk, "docx"]))
     testi = [p.text for p in Document(io.BytesIO(r.content)).paragraphs]
     assert testi == ["Verbale", "Presenti", "Anna Rossi", "Primo punto", "Testo"]
-    assert client.get(reverse("ai:scarica_documento", args=[d.pk, "pdf"])).status_code == 404
+    assert client.get(reverse("ai:scarica_documento", args=[d.pk, "odt"])).status_code == 404
+
+
+@pytest.mark.pdf
+@pytest.mark.skipif(not report.disponibile(), reason="WeasyPrint senza Pango: deploy/test-pdf.sh")
+def test_scarica_in_pdf(s, client):
+    """Il PDF dallo stesso Markdown: titolo, tabella, testo; Ada ha il link da dare quando l'utente chiede il file."""
+    from pypdf import PdfReader
+    d = documenti_chat.crea(s["c"], s["u"], s["az"], "Offerta Rossi",
+                            "## Prezzi\n\n| Voce | Importo |\n|---|---|\n| Licenza | 1.200,00 € |\n\nValida **30 giorni**.")
+    r = client.get(reverse("ai:scarica_documento", args=[d.pk, "pdf"]))
+    assert r.status_code == 200 and r["Content-Type"] == "application/pdf" and "Offerta_Rossi.pdf" in r["Content-Disposition"]
+    testo = PdfReader(io.BytesIO(r.content)).pages[0].extract_text()
+    assert all(t in testo for t in ("Offerta Rossi", "Prezzi", "Licenza", "1.200,00 €", "Valida 30 giorni", "1 / 1"))
+    letto = _strumento("leggi_documento_chat", s["u"]).funzione(s["ctx"], documento=d.pk)
+    assert letto["scarica"]["pdf"] == reverse("ai:scarica_documento", args=[d.pk, "pdf"])
 
 
 def test_di_un_altro_utente_no(s, client):

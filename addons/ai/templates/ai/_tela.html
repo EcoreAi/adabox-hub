@@ -10,6 +10,7 @@
               data-tip="{% if documento.salvato %}Togli dai salvati{% else %}Salva tra i documenti{% endif %}" aria-label="{% if documento.salvato %}Togli dai salvati{% else %}Salva tra i documenti{% endif %}"><svg><use href="#ai-stella"/></svg></button>
     </form>
     <button type="button" class="ai-azione" data-salva-documenti="{% url 'ai:salva_documenti' 'documento' documento.pk %}" data-cosa="il documento «{{ documento.titolo }}» (Word)" hidden data-tip="Salva nei Documenti" aria-label="Salva nei Documenti"><svg><use href="#ai-cartella"/></svg></button>
+    <a class="ai-azione ai-azione-testo" href="{% url 'ai:scarica_documento' documento.pk 'pdf' %}" data-tip="Scarica in PDF" aria-label="Scarica in PDF">PDF</a>
     <a class="ai-azione" href="{% url 'ai:scarica_documento' documento.pk 'docx' %}" data-tip="Scarica in Word" aria-label="Scarica in Word"><svg><use href="#icon-download"/></svg></a>
     <a class="ai-azione ai-azione-testo" href="{% url 'ai:scarica_documento' documento.pk 'md' %}" data-tip="Scarica in Markdown" aria-label="Scarica in Markdown">.md</a>
     <a class="ai-azione" href="{% url 'ai:conversazione' documento.conversazione_id %}" data-tip="Chiudi il documento" aria-label="Chiudi il documento"><svg><use href="#icon-x"/></svg></a>

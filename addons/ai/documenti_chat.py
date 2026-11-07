@@ -51,6 +51,12 @@ def nota(documento):
             "Se chiede modifiche si riferisce a questo: leggilo con leggi_documento_chat e cambialo con modifica_documento.")
 
 
+def scaricamenti(documento):
+    """I link per scaricare il documento, da dare all'utente quando chiede il file."""
+    from django.urls import reverse
+    return {formato: reverse("ai:scarica_documento", args=[documento.pk, formato]) for formato in ("pdf", "docx", "md")}
+
+
 # ---------- strumenti di Ada ----------
 
 def _della_chat(contesto, documento):
@@ -68,16 +74,16 @@ def scrivi_documento(contesto, titolo, testo):
     if len(testo) > MASSIMO_TESTO:
         raise ErroreStrumento(f"Il documento supera {MASSIMO_TESTO} caratteri.")
     d = crea(contesto.conversazione, contesto.utente, contesto.azienda, titolo, testo, contesto.turno)
-    return {"documento": d.pk, "versione": 1,
+    return {"documento": d.pk, "versione": 1, "scarica": scaricamenti(d),
             "nota": "Il documento è aperto accanto alla chat, dove l'utente lo legge e lo modifica: nella risposta non ricopiarlo, "
-                    "di' in breve che cosa contiene."}
+                    "di' in breve che cosa contiene. Se chiede un PDF o un file Word dagli il link di «scarica»."}
 
 
 def leggi_documento_chat(contesto, documento):
     d = _della_chat(contesto, documento)
     ultima = d.versioni.first()
     return {"documento": d.pk, "titolo": d.titolo, "versione": d.versione,
-            "ultima_modifica_di": ultima.get_autore_display() if ultima else "", "testo": d.testo}
+            "ultima_modifica_di": ultima.get_autore_display() if ultima else "", "scarica": scaricamenti(d), "testo": d.testo}
 
 
 def modifica_documento(contesto, documento, modifiche=None, testo=None, titolo=""):
@@ -95,13 +101,14 @@ def modifica_documento(contesto, documento, modifiche=None, testo=None, titolo="
     if titolo.strip():
         DocumentoChat.objects.filter(pk=d.pk).update(titolo=titolo.strip()[:200])
     d = nuova_versione(d, nuovo, VersioneDocumento.ADA, turno=contesto.turno)
-    return {"documento": d.pk, "versione": d.versione, "nota": "Modifica salvata e visibile accanto alla chat: non ricopiare il documento."}
+    return {"documento": d.pk, "versione": d.versione, "scarica": scaricamenti(d),
+            "nota": "Modifica salvata e visibile accanto alla chat: non ricopiare il documento."}
 
 
 DOCUMENTO = {"type": "integer", "description": "numero del documento"}
 registra(Strumento(
     "scrivi_documento", "Crea un documento lungo (lettera, relazione, procedura, offerta, verbale...) che si apre accanto alla chat: "
-                        "l'utente lo legge, lo modifica e lo scarica in Word o Markdown. Usalo per testi da conservare o rifinire, "
+                        "l'utente lo legge, lo modifica e lo scarica in PDF, Word o Markdown. Usalo per testi da conservare o rifinire, "
                         "non per le risposte brevi. Testo in Markdown.",
     {"type": "object", "properties": {"titolo": {"type": "string"}, "testo": {"type": "string", "description": "il testo in Markdown"}},
      "required": ["titolo", "testo"]}, scrivi_documento, concorrente=False))
@@ -159,3 +166,33 @@ def in_word(documento):
     doc.save(uscita)
     return uscita.getvalue()
 
+
+
+STILE_PDF = """@page { size: A4; margin: 22mm 20mm 20mm; @bottom-right { content: counter(page) " / " counter(pages); font-size: 8pt; color: #86868b; } }
+body { font-family: Helvetica, Arial, sans-serif; font-size: 10.5pt; line-height: 1.5; color: #1d1d1f; }
+h1.titolo { font-size: 20pt; margin: 0 0 2mm; } p.sotto { color: #6e6e73; font-size: 9pt; margin: 0 0 8mm; }
+h1 { font-size: 16pt; } h2 { font-size: 13.5pt; } h3 { font-size: 12pt; } h4 { font-size: 11pt; }
+h1, h2, h3, h4 { margin: 6mm 0 2mm; page-break-after: avoid; }
+table { border-collapse: collapse; width: 100%; margin: 3mm 0; font-size: 9.5pt; page-break-inside: auto; }
+th, td { border: 1px solid #d2d2d7; padding: 1.5mm 2.5mm; text-align: left; vertical-align: top; } th { background: #f5f5f7; }
+tr { page-break-inside: avoid; } pre { background: #f5f5f7; padding: 3mm; font-size: 8.5pt; white-space: pre-wrap; }
+code { font-family: Menlo, Consolas, monospace; } blockquote { border-left: 3px solid #d2d2d7; margin: 3mm 0; padding-left: 4mm; color: #424245; }
+a { color: inherit; text-decoration: none; }"""
+
+
+def in_pdf(documento):
+    """Il documento in PDF (A4, numeri di pagina), dallo stesso Markdown che si vede accanto alla chat."""
+    from html import escape
+
+    from django.utils import timezone
+
+    from core import report
+
+    from .markdown import rendi
+    HTML = report.weasyprint().HTML                       # ReportNonDisponibile senza Pango
+    sotto = " · ".join(x for x in (str(documento.azienda or ""), f"{timezone.localtime(documento.aggiornato):%d/%m/%Y}"
+                                   if getattr(documento, "aggiornato", None) else "") if x)
+    pagina = (f"<html><head><meta charset='utf-8'><title>{escape(documento.titolo)}</title><style>{STILE_PDF}</style></head>"
+              f"<body><h1 class='titolo'>{escape(documento.titolo)}</h1>{f'<p class=sotto>{escape(sotto)}</p>' if sotto else ''}"
+              f"{rendi(documento.testo)}</body></html>")
+    return HTML(string=pagina).write_pdf()

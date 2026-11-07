@@ -332,9 +332,13 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-doc-testi { display: flex; flex-direction: column; min-width: 0; }
 .ai-doc-titolo { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ai-doc-meta { font-size: .8rem; color: var(--ui-muted, #6b7280); }
-.ai-tela { width: min(48vw, 780px); flex: none; display: flex; flex-direction: column; gap: 10px; padding: 16px 20px; border-left: 1px solid var(--ui-border); overflow-y: auto; background: var(--ui-surface, #fff); }
-.ai-tela-testa { display: flex; align-items: center; gap: 6px; }
-.ai-tela-titolo { font-size: 1.05rem; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-tela { width: min(48vw, 780px); flex: none; display: flex; flex-direction: column; gap: 10px; padding: 16px 20px; border-left: 1px solid var(--ui-border); overflow-y: auto; overflow-x: hidden; background: var(--ui-surface, #fff); }
+.ai-tela-testa { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ai-tela-testa > :not(.ai-tela-titolo):not(.ai-spazio) { flex: none; }
+/* i suggerimenti delle azioni sotto il bottone, allineati a destra: a lato uscirebbero dal pannello (barra orizzontale) */
+.ai-tela-testa [data-tip]::after { left: auto; right: 0; top: calc(100% + 6px); transform: none; }
+.ai-tela-letto { min-width: 0; overflow-wrap: anywhere; }
+.ai-tela-titolo { font-size: 1.05rem; margin: 0; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ai-azione-testo { font-size: .75rem; font-weight: 600; width: auto; padding: 0 6px; }
 .ai-tela-schede { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--ui-border); }
 .ai-tela-scheda { border: 0; background: none; padding: 6px 10px; cursor: pointer; color: var(--ui-muted, #6b7280); border-bottom: 2px solid transparent; }
