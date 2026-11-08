@@ -93,10 +93,14 @@ def _sensibile(campo):
     return bool(SENSIBILE.search(campo.name))
 
 
-def campi_leggibili(vista):
-    """I campi del modello che si possono leggere e interrogare: concreti e M2M, tranne quelli sensibili e quelli
-    interni (non modificabili e non mostrati dalla vista)."""
+def campi_leggibili(vista, request=None):
+    """I campi del modello che si possono leggere e interrogare: concreti e M2M, tranne quelli sensibili, quelli
+    interni (non modificabili e non mostrati dalla vista) e quelli nascosti per il ruolo di chi chiede."""
     mostrati = set(vista.readonly_fields) | set(vista.list_display)
+    nascosti = set()
+    if request is not None:
+        from core import regole
+        nascosti = regole.nascosti(vista, request)
     campi = []
     for f in vista.opts.get_fields():
         if f.auto_created and not f.concrete:
@@ -104,6 +108,8 @@ def campi_leggibili(vista):
         if not (f.concrete or f.many_to_many) or _sensibile(f) or f.name == "proprieta":
             continue
         if not f.primary_key and not getattr(f, "editable", True) and f.name not in mostrati:
+            continue
+        if f.name in nascosti:
             continue
         campi.append(f)
     return campi
@@ -146,6 +152,20 @@ def _decodifica(valore, nome):
     return valore or {}
 
 
+def controlla_nascosti(vista, request, *nomi):
+    """Un campo nascosto per il ruolo di chi chiede non si filtra, non si raggruppa e non si somma: altrimenti lo si
+    ricostruirebbe dai risultati."""
+    from core import regole
+    via = regole.nascosti(vista, request)
+    for nome in nomi:
+        testo = str(nome or "")
+        if ":" in testo and testo.split(":", 1)[0] in AGGREGATI:      # sum:totale → totale
+            testo = testo.split(":", 1)[1]
+        radice = testo.split(":", 1)[0].split("__", 1)[0]               # data:mese → data, cliente__nome → cliente
+        if radice and radice in via:
+            raise ErroreInterrogazione(f"Il campo «{radice}» non è disponibile per il tuo ruolo.")
+
+
 def filtra(vista, request, qs, testo="", filtri=None, lista=None):
     """Ricerca libera sui search_fields della vista, filtri {campo[__operatore]: valore} e, se ci sono, i parametri
     della lista (q, f_*) come li manda il browser."""
@@ -159,6 +179,7 @@ def filtra(vista, request, qs, testo="", filtri=None, lista=None):
         qs = qs.filter(q)
     distinti = False
     for chiave, valore in _decodifica(filtri, "filtri").items():
+        controlla_nascosti(vista, request, chiave)
         lookup, f, operatore = _percorso(vista, chiave)
         if operatore == "in" and not isinstance(valore, list):
             raise ErroreInterrogazione(f"Il filtro «{chiave}» vuole una lista di valori.")
@@ -332,6 +353,7 @@ def aggrega(vista, request, per="", misura="count", filtri=None, testo="", lista
     """{"misura", "per", "gruppi": [{"gruppo", "valore"[, "chiave"]}], "totale"} con i dati aggregati nel database;
     con `con_chiavi` ogni gruppo porta anche il valore grezzo, per aprire la lista filtrata su quel gruppo.
     Con `aziende` (vedi aziende_di) il consolidato di più aziende."""
+    controlla_nascosti(vista, request, per, misura)
     if aziende:
         return _aggrega_aziende(vista, request, aziende, per, misura, filtri, testo, lista, con_chiavi)
     espressione, f_misura = _misura(vista, misura or "count")

@@ -613,3 +613,45 @@ class RegistroModifica(models.Model):
 
     def __str__(self):
         return f"{self.oggetto}: {self.get_azione_display().lower()}"
+
+
+class PermessoCampo(models.Model):
+    """Un campo di una vista nascosto o in sola lettura per chi ha un ruolo: vale in form, dettaglio, lista, export, API
+    e per l'assistente (core.regole). Il superuser vede e modifica tutto."""
+    NASCOSTO, SOLA_LETTURA = "nascosto", "lettura"
+    LIVELLI = [(NASCOSTO, "Nascosto"), (SOLA_LETTURA, "Sola lettura")]
+    vista = models.CharField("vista", max_length=80, help_text="modulo.slug, es. crm.opportunita")
+    campo = models.CharField("campo", max_length=80)
+    ruolo = models.ForeignKey(Ruolo, on_delete=models.CASCADE, related_name="permessi_campo", verbose_name="ruolo")
+    livello = models.CharField("livello", max_length=10, choices=LIVELLI, default=NASCOSTO)
+
+    class Meta:
+        verbose_name = "permesso su un campo"
+        verbose_name_plural = "permessi sui campi"
+        ordering = ["vista", "campo"]
+        constraints = [models.UniqueConstraint(fields=["vista", "campo", "ruolo"], name="permesso_campo_unico")]
+
+    def __str__(self):
+        return f"{self.vista}.{self.campo}: {self.get_livello_display().lower()} per {self.ruolo}"
+
+
+class RegolaRiga(models.Model):
+    """Quali record di una vista vede chi ha un ruolo (es. «solo le opportunità di cui è commerciale»): un filtro
+    applicato al queryset della vista, quindi anche a liste, API, export e assistente. Più regole: valgono tutte."""
+    OPERATORI = [("utente", "è l'utente che guarda"), ("uguale", "è uguale a"), ("diverso", "è diverso da"),
+                 ("in", "è uno tra (separati da virgola)"), ("vuoto", "è vuoto"), ("pieno", "non è vuoto"),
+                 ("contiene", "contiene"), ("min", "è almeno"), ("max", "è al massimo")]
+    vista = models.CharField("vista", max_length=80, help_text="modulo.slug, es. crm.opportunita")
+    ruolo = models.ForeignKey(Ruolo, on_delete=models.CASCADE, related_name="regole_righe", verbose_name="ruolo")
+    campo = models.CharField("campo", max_length=120, help_text="anche attraverso le relazioni, es. progetto__responsabile")
+    operatore = models.CharField("condizione", max_length=10, choices=OPERATORI, default="utente")
+    valore = models.CharField("valore", max_length=200, blank=True)
+    attiva = models.BooleanField("attiva", default=True)
+
+    class Meta:
+        verbose_name = "regola sulle righe"
+        verbose_name_plural = "regole sulle righe"
+        ordering = ["vista", "ruolo__nome"]
+
+    def __str__(self):
+        return f"{self.vista}: {self.campo} {self.get_operatore_display()} {self.valore}".strip()

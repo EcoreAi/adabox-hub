@@ -89,8 +89,8 @@ def scelte(campi):
     return {f.name: {str(k): str(v) for k, v in f.flatchoices} for f in campi if f.choices}
 
 
-def _campi_elenco(vista, richiesti):
-    leggibili = {f.name: f for f in campi_leggibili(vista)}
+def _campi_elenco(vista, richiesti, request=None):
+    leggibili = {f.name: f for f in campi_leggibili(vista, request)}
     if richiesti:
         mancanti = [c for c in richiesti if c not in leggibili]
         if mancanti:
@@ -158,7 +158,7 @@ def descrivi(vista, request):
     modificabili = set(form_class.base_fields)
     risultato = {
         "vista": id_vista(vista), "nome": str(vista.verbose_name_plural), "app": vista.modulo,
-        "campi": [_descrivi_campo(f, modificabili) for f in campi_leggibili(vista)],
+        "campi": [_descrivi_campo(f, modificabili) for f in campi_leggibili(vista, request)],
         "ricerca_libera_su": list(vista.search_fields),
         "raggruppamenti_suggeriti": list(vista.list_group_by),
         "campi_sommabili": list(vista.list_sum),
@@ -191,7 +191,7 @@ def cerca(vista, request, testo="", filtri=None, ordina="", limite=20, pagina=1,
         limite, pagina = max(1, min(int(limite), LIMITE_MASSIMO)), max(1, int(pagina))
     except (TypeError, ValueError):
         raise ErroreStrumento("«limite» e «pagina» devono essere numeri interi.")
-    scelti = _campi_elenco(vista, campi)
+    scelti = _campi_elenco(vista, campi, request)
     qs = _ordina(vista, filtra(vista, request, vista.get_queryset(request), testo, filtri), ordina)
     totale = qs.count()
     righe = _ottimizza(qs, scelti)[(pagina - 1) * limite:pagina * limite]
@@ -219,7 +219,7 @@ def oggetto(vista, request, pk):
 def leggi_record(contesto, vista, id):
     v, request = vista_per(contesto, vista), richiesta.per(contesto)
     obj = oggetto(v, request, id)
-    campi = campi_leggibili(v)
+    campi = campi_leggibili(v, request)
     risultato = record(v, obj, campi)
     if s := scelte(campi):
         risultato["scelte"] = s

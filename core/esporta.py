@@ -20,11 +20,11 @@ FORMATI = {"csv": ("text/csv; charset=utf-8", "csv"),
            "xlsx": ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx")}
 
 
-def campi(vista):
+def campi(vista, nascosti=()):
     if vista.export_fields:
-        return list(vista.export_fields)
+        return [c for c in vista.export_fields if c not in nascosti]
     nomi = {f.name for f in vista.opts.get_fields() if getattr(f, "concrete", False) or f.many_to_many}
-    return ["id"] + [c for c in vista.list_display if c in nomi and c != "id"]
+    return ["id"] + [c for c in vista.list_display if c in nomi and c != "id" and c not in nascosti]
 
 
 def valore(obj, campo):
@@ -48,8 +48,8 @@ def valore(obj, campo):
     return v
 
 
-def tabella(vista, qs):
-    nomi = campi(vista)
+def tabella(vista, qs, nascosti=()):
+    nomi = campi(vista, nascosti)
     return [vista.etichetta(c) for c in nomi], ([valore(obj, c) for c in nomi] for obj in qs)
 
 
@@ -100,8 +100,8 @@ def xlsx_bytes(intestazioni, righe, titolo="Dati"):
     return uscita.getvalue()
 
 
-def contenuto(vista, qs, formato):
-    intestazioni, righe = tabella(vista, qs)
+def contenuto(vista, qs, formato, nascosti=()):
+    intestazioni, righe = tabella(vista, qs, nascosti)
     if formato == "xlsx":
         return xlsx_bytes(intestazioni, righe, str(vista.verbose_name_plural))
     return csv_bytes(intestazioni, righe)
@@ -125,7 +125,8 @@ def in_background(modulo, slug, utente_id, azienda_id, parametri, formato, pks):
     utente = get_user_model().objects.get(pk=utente_id)
     richiesta = SimpleNamespace(user=utente, azienda=Azienda.objects.filter(pk=azienda_id).first(),
                                 GET=QueryDict(parametri))
-    dati = contenuto(vista, queryset(vista, richiesta, pks), formato)
+    from core import regole
+    dati = contenuto(vista, queryset(vista, richiesta, pks), formato, regole.nascosti(vista, richiesta))
     allegato = allegati.salva(utente, ContentFile(dati, name=nome_file(vista, formato)), utente)
     link = settings.SITO_URL + reverse("core:allegato_scarica", args=[allegato.pk])
     if utente.email:

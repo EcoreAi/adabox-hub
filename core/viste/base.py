@@ -314,6 +314,12 @@ class ModelView:
                     trovati.append(valore)
         return trovati[:5]
 
+    def colonne(self, request):
+        """Le colonne della lista per chi guarda: list_display senza i campi nascosti per il suo ruolo (core.regole)."""
+        from core import regole
+        via = regole.nascosti(self, request)
+        return [c for c in self.list_display if c not in via] if via else list(self.list_display)
+
     def proprieta(self, request):
         """Definizioni dei campi personalizzati per l'azienda della richiesta ([] se il modello non li accetta)."""
         from core import proprieta

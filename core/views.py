@@ -1,3 +1,4 @@
+from django import forms
 from django.conf import settings
 from django.contrib import messages
 from functools import wraps
@@ -22,7 +23,7 @@ from django.db.models import Q
 
 from .models import LicenzaIstanza, RichiestaModulo
 from .models import (Azienda, CampoPersonalizzato, EmailRicevuta, Lavoro, Modulo, Parametro, ProfiloUtente, RegistroModifica,
-                     Ruolo, TokenApi)
+                     PermessoCampo, RegolaRiga, Ruolo, TokenApi)
 from .registry import modules, pacchetti, sincronia
 from .signals import crea_profilo
 from .viste import ModelView, register
@@ -634,3 +635,96 @@ class RegistroModificaView(ModelView):
 
     def _perm(self, request, azione):
         return azione == "view" and super()._perm(request, azione)
+
+
+def _viste_scelte():
+    from core.viste import registry
+    return sorted(((f"{v.modulo}.{v.slug}", f"{v.modulo} · {str(v.verbose_name_plural).capitalize()}")
+                   for vv in registry._viste.values() for v in vv), key=lambda x: x[1])
+
+
+def _vista_da(chiave):
+    from core.viste import registry
+    modulo, _, slug = (chiave or "").partition(".")
+    return next((v for v in registry.viste_di(modulo) if v.slug == slug), None)
+
+
+class PermessoCampoForm(forms.ModelForm):
+    class Meta:
+        model = PermessoCampo
+        fields = ["vista", "campo", "ruolo", "livello"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["vista"] = forms.ChoiceField(label="vista", choices=_viste_scelte())
+
+    def clean(self):
+        dati = super().clean()
+        vista = _vista_da(dati.get("vista"))
+        if vista is None:
+            return dati
+        try:
+            f = vista.opts.get_field(dati.get("campo") or "")
+        except Exception:                                  # noqa: BLE001
+            self.add_error("campo", f"{vista.verbose_name_plural} non ha il campo «{dati.get('campo')}».")
+            return dati
+        if (getattr(f, "concrete", False) and not f.blank and not f.has_default() and not f.null
+                and dati.get("livello") == PermessoCampo.NASCOSTO and f.name in vista.campi_form()):
+            self.add_error("livello", "È un campo obbligatorio del form: nascosto, chi ha il ruolo non potrebbe più creare record. "
+                                      "Usa «Sola lettura».")
+        return dati
+
+
+class RegolaRigaForm(forms.ModelForm):
+    class Meta:
+        model = RegolaRiga
+        fields = ["vista", "ruolo", "campo", "operatore", "valore", "attiva"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["vista"] = forms.ChoiceField(label="vista", choices=_viste_scelte())
+
+    def clean(self):
+        from django.contrib.auth import get_user_model
+
+        from core import regole
+        dati = super().clean()
+        vista = _vista_da(dati.get("vista"))
+        if vista is None:
+            return dati
+        try:
+            f = regole.campo_del_percorso(vista.model, dati.get("campo") or "")
+        except Exception:                                  # noqa: BLE001
+            self.add_error("campo", f"«{dati.get('campo')}» non è un campo (o un percorso) di {vista.verbose_name_plural}.")
+            return dati
+        if dati.get("operatore") == "utente" and not (f.is_relation and f.related_model is get_user_model()):
+            self.add_error("operatore", "«è l'utente che guarda» vale per un campo che indica un utente (es. commerciale, responsabile).")
+        if dati.get("operatore") in ("uguale", "diverso", "in", "contiene", "min", "max") and not dati.get("valore"):
+            self.add_error("valore", "Indica il valore.")
+        return dati
+
+
+@register
+class PermessoCampoView(ModelView):
+    """Campi nascosti o in sola lettura per ruolo: in form, dettaglio, lista, export, API e per l'assistente."""
+    model = PermessoCampo
+    slug = "permessi_campo"
+    list_display = ["vista", "campo", "ruolo", "livello"]
+    list_filter = ["ruolo", "livello", "vista"]
+    search_fields = ["vista", "campo"]
+    form_class = PermessoCampoForm
+    form_layout = [("Permesso", [("vista", "campo"), ("ruolo", "livello")])]
+    api = False
+
+
+@register
+class RegolaRigaView(ModelView):
+    """Quali record vede chi ha un ruolo: filtri sul queryset delle viste (liste, dettagli, API, export, assistente)."""
+    model = RegolaRiga
+    slug = "regole_righe"
+    list_display = ["vista", "ruolo", "campo", "operatore", "valore", "attiva"]
+    list_filter = ["ruolo", "vista", "attiva"]
+    search_fields = ["vista", "campo", "valore"]
+    form_class = RegolaRigaForm
+    form_layout = [("Regola", [("vista", "ruolo"), ("campo", "operatore"), "valore", "attiva"])]
+    api = False

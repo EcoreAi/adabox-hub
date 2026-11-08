@@ -18,8 +18,14 @@ MAX_PER_PAGE = 200
 SEGRETI = re.compile(r"cifrat|segret|secret|token|password|hash|impronta|^chiave$", re.I)
 
 
-def campi_api(vista):
-    """I campi del form e quelli in sola lettura che sono campi veri del modello; mai quelli che sembrano segreti."""
+def campi_api(vista, request=None):
+    """I campi del form e quelli in sola lettura che sono campi veri del modello; mai quelli che sembrano segreti né
+    quelli nascosti per il ruolo di chi chiama (core.regole)."""
+    if request is not None:
+        from core import regole
+        via = regole.nascosti(vista, request)
+        if via:
+            return [c for c in campi_api(vista) if c not in via]
     if vista.api_fields:
         return list(vista.api_fields)
     campi = vista.campi_form() + [c for c in vista.readonly_fields if c not in vista.campi_form()]
@@ -79,13 +85,13 @@ def _json(schema):
     return {"content": {"application/json": {"schema": schema}}}
 
 
-def serializza(vista, obj):
+def serializza(vista, obj, request=None):
     """dict: id, campi di api_fields; FK come id più <fk>_display; M2M come lista di id; date ISO;
     `proprieta` con i campi personalizzati se il modello li accetta."""
     dati = {"id": obj.pk}
     if hasattr(obj, "proprieta"):
         dati["proprieta"] = dict(obj.proprieta or {})
-    for nome in campi_api(vista):
+    for nome in campi_api(vista, request):
         f = vista.opts.get_field(nome)
         if f.many_to_many:
             dati[nome] = [o.pk for o in getattr(obj, nome).all()]
@@ -150,7 +156,7 @@ def _router_per(vista):
     def salva(request, form, change):
         obj = form.save(commit=False)
         vista.save_model(request, obj, form, change=change)
-        return serializza(vista, obj)
+        return serializza(vista, obj, request)
 
     @router.get("/", operation_id=f"{op}_lista", summary=f"Elenco di {vista.verbose_name_plural}", openapi_extra=doc_lista)
     def lista(request, q: str = "", o: str = "", p: int = 1, per_page: int = 50):
@@ -164,7 +170,7 @@ def _router_per(vista):
         totale = qs.count()
         righe = qs[(p - 1) * per_page:p * per_page]
         return {"count": totale, "page": p, "per_page": per_page,
-                "results": [serializza(vista, obj) for obj in righe]}
+                "results": [serializza(vista, obj, request) for obj in righe]}
 
     @router.post("/", operation_id=f"{op}_crea", summary=f"Crea {vista.verbose_name}", openapi_extra=doc_crea)
     def crea(request):
@@ -179,7 +185,7 @@ def _router_per(vista):
 
     @router.get("/{int:pk}/", operation_id=f"{op}_leggi", summary=f"Un record di {vista.verbose_name_plural}", openapi_extra=doc_record)
     def leggi(request, pk: int):
-        return serializza(vista, oggetto(request, pk, vista.has_view_permission, scrittura=False))
+        return serializza(vista, oggetto(request, pk, vista.has_view_permission, scrittura=False), request)
 
     @router.patch("/{int:pk}/", operation_id=f"{op}_modifica", summary=f"Modifica {vista.verbose_name}", openapi_extra=doc_modifica)
     def modifica(request, pk: int):
@@ -202,7 +208,7 @@ def _router_per(vista):
         esito = getattr(vista, nome)(request, obj)
         if isinstance(esito, HttpResponseBase):            # una stampa, un file
             return esito
-        return {"esito": str(esito) if esito else "", "dati": serializza(vista, vista.get_object(request, pk))}
+        return {"esito": str(esito) if esito else "", "dati": serializza(vista, vista.get_object(request, pk), request)}
 
     @router.delete("/{int:pk}/", operation_id=f"{op}_elimina", summary=f"Elimina {vista.verbose_name}")
     def elimina(request, pk: int):

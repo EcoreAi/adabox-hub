@@ -50,7 +50,7 @@ def calcola(spec, contesto):
         return {"serie": _serie(r.get("gruppi", []), spec["per"]), "totale": r["totale"]}
     r = cerca(v, request, spec.get("testo", ""), spec.get("filtri"), spec.get("ordina", ""), spec.get("limite", 50),
               1, spec.get("campi") or None)
-    campi = _campi_elenco(v, spec.get("campi") or None)
+    campi = _campi_elenco(v, spec.get("campi") or None, request)
     scelte = r.get("scelte", {})
     colonne = [v.etichetta("__str__")] + [v.etichetta(f.name) for f in campi if f.name != "id"]
     righe = [[x["nome"]] + [_cella(scelte.get(f.name, {}).get(str(x[f.name]), x[f.name])) for f in campi

@@ -61,7 +61,8 @@ class ListaView(VistaBase):
         ordinabili = filtri.ordinabili(vista)
         colonne = []
         etichette_prop = {f"prop_{d.nome}": d.label for d in vista.proprieta(request)}
-        for c in vista.list_display:
+        visibili = vista.colonne(request)
+        for c in visibili:
             direzione = "asc" if ordine == c else "desc" if ordine == f"-{c}" else ""
             colonne.append({"campo": c, "label": vista.etichette.get(c) or etichette_prop.get(c) or vista.etichetta(c),
                             "ordinabile": c in ordinabili,
@@ -69,17 +70,17 @@ class ListaView(VistaBase):
         azioni = [(nome, etichetta, vista.url("azione", nome=nome)) for nome, etichetta in vista.get_actions(request)]
         stampe = [(r["nome"], vista.url("stampa_massa", indice=i)) for i, r in enumerate(vista.reports)]
         extra = [d for d in vista.proprieta(request)                     # campi personalizzati in lista
-                 if d.in_lista and f"prop_{d.nome}" not in vista.list_display]
+                 if d.in_lista and f"prop_{d.nome}" not in visibili]
         for d in extra:
             colonne.append({"campo": f"prop_{d.nome}", "label": d.label, "ordinabile": False, "direzione": "", "prossimo": ""})
-        righe = [(obj, [vista.col_valore(request, obj, c) for c in vista.list_display]
+        righe = [(obj, [vista.col_valore(request, obj, c) for c in visibili]
                   + [proprieta.testo(d, obj) for d in extra]) for obj in page_obj]
         somme = gruppi.somme_ammesse(vista)
         tot = gruppi.totali(vista, qs)
         ctx = {
             "vista": vista, "urls": urls_di(vista), "colonne": colonne, "righe": righe,
-            "blocchi": _blocchi(vista, righe, info_gruppi, len(extra)),
-            "totali": [tot.get(c, "") for c in vista.list_display] + [""] * len(extra) if tot else None,
+            "blocchi": _blocchi(vista, righe, info_gruppi, len(extra), visibili),
+            "totali": [tot.get(c, "") for c in visibili] + [""] * len(extra) if tot else None,
             "raggruppabili": raggruppabili, "gruppo": chiave, "con_somme": bool(somme), "stampe": stampe,
             "selezione": bool(azioni or stampe),
             **contesto_testata(request, vista, "lista"),
@@ -90,7 +91,7 @@ class ListaView(VistaBase):
         return render(request, vista.template_tabella if parziale(request) else vista.template_lista, ctx)
 
 
-def _blocchi(vista, righe, info, colonne_extra=0):
+def _blocchi(vista, righe, info, colonne_extra=0, visibili=None):
     """Le righe della pagina divise per gruppo: [{etichetta, n, somme (per colonna), righe}]; un solo blocco
     senza intestazione se non si raggruppa."""
     if info is None:
@@ -100,7 +101,7 @@ def _blocchi(vista, righe, info, colonne_extra=0):
         if not blocchi or blocchi[-1]["valore"] != obj._gruppo:
             g = info.get(obj._gruppo, {"etichetta": "—", "n": 0, "somme": {}})
             blocchi.append({"valore": obj._gruppo, "etichetta": g["etichetta"], "n": g["n"],
-                            "somme": [g["somme"].get(c, "") for c in vista.list_display] + [""] * colonne_extra,
+                            "somme": [g["somme"].get(c, "") for c in (visibili if visibili is not None else vista.list_display)] + [""] * colonne_extra,
                             "righe": []})
         blocchi[-1]["righe"].append((obj, celle))
     return blocchi

@@ -21,6 +21,8 @@ class DettaglioView(VistaBase):
         def dato(c):
             return {"campo": c, "label": vista.etichette.get(c) or etichette_prop.get(c) or vista.etichetta(c),
                     "valore": vista.col_valore(request, obj, c)}
+        from core import regole
+        via = regole.nascosti(vista, request)
         singoli = {c for _, righe in vista.layout_dettaglio() for riga in righe for c in riga}
         proprieta = [{"campo": proprieta_srv.nome_campo(d), "label": d.label, "valore": proprieta_srv.testo(d, obj)}
                      for d in definizioni if proprieta_srv.nome_campo(d) not in singoli]
@@ -32,7 +34,7 @@ class DettaglioView(VistaBase):
                     righe_dati.extend([p] for p in proprieta)
                     collocate = True
                 else:
-                    righe_dati.append([dato(c) for c in riga])
+                    righe_dati.append([dato(c) for c in riga if c not in via])
             sezioni.append((titolo, [r for r in righe_dati if r]))
         if proprieta and not collocate:
             sezioni.append(("Altre informazioni", [[p] for p in proprieta]))

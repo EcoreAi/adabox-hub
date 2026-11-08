@@ -44,4 +44,6 @@ def applica(vista, request):
     for attributo, valore in valori.items():
         setattr(copia, attributo, valore)
     copia.originale = getattr(vista, "originale", vista)
+    from .registry import _con_regole
+    _con_regole(copia)                        # le regole per ruolo sulla copia, con i suoi attributi personalizzati
     return copia

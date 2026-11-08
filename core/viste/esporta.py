@@ -34,6 +34,7 @@ class EsportaView(VistaBase):
             messages.info(request, "L'esportazione è grande: la prepariamo in background e ti arriva il link per email.")
             return redirect(vista.url("lista"))
         tipo, _ = esporta.FORMATI[formato]
-        risposta = HttpResponse(esporta.contenuto(vista, qs, formato), content_type=tipo)
+        from core import regole
+        risposta = HttpResponse(esporta.contenuto(vista, qs, formato, regole.nascosti(vista, request)), content_type=tipo)
         risposta["Content-Disposition"] = f'attachment; filename="{esporta.nome_file(vista, formato)}"'
         return risposta
