@@ -8,6 +8,7 @@ from .models import Istanza, ModuloVendibile, Pacchetto, Piano, Richiesta
 @register
 class IstanzeView(ModelView):
     model = Istanza
+    api = False                   # contiene segreti o credenziali: niente API
     slug = "istanze"
     list_display = ["cliente", "piano", "scadenza", "ultimo_contatto", "utenti_attivi", "ospitata", "attiva"]
     list_filter = ["piano", "ospitata", "attiva", "scadenza"]

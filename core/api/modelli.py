@@ -1,6 +1,7 @@
 """Endpoint generati per ogni ModelView con api=True: /api/v1/<modulo>/<slug>/."""
 import datetime
 import json
+import re
 
 from django.conf import settings
 from django.forms.models import model_to_dict
@@ -14,15 +15,68 @@ from . import api
 from .auth import azienda_per, controlla_token
 
 MAX_PER_PAGE = 200
+SEGRETI = re.compile(r"cifrat|segret|secret|token|password|hash|impronta|^chiave$", re.I)
 
 
 def campi_api(vista):
+    """I campi del form e quelli in sola lettura che sono campi veri del modello; mai quelli che sembrano segreti."""
     if vista.api_fields:
         return list(vista.api_fields)
     campi = vista.campi_form() + [c for c in vista.readonly_fields if c not in vista.campi_form()]
     if vista.company_field and vista.company_field not in campi:
         campi.append(vista.company_field)
-    return campi
+    veri = {f.name for f in vista.opts.get_fields()
+            if getattr(f, "concrete", False) or (f.many_to_many and not f.auto_created)}
+    return [c for c in campi if c in veri and not SEGRETI.search(c)]
+
+
+def _tipo(f):
+    """Lo schema JSON di un campo, com'è in serializza (le DecimalField escono come testo)."""
+    from django.db import models as m
+    if f.many_to_many:
+        return {"type": "array", "items": {"type": "integer"}}
+    if f.is_relation:
+        return {"type": ["integer", "null"], "description": f"id di {f.related_model._meta.verbose_name}"}
+    if f.choices:
+        return {"type": "string", "enum": [str(k) for k, _ in f.flatchoices]}
+    for classe, schema in ((m.BooleanField, {"type": "boolean"}), (m.DateTimeField, {"type": "string", "format": "date-time"}),
+                           (m.DateField, {"type": "string", "format": "date"}), (m.DecimalField, {"type": "string", "format": "decimal"}),
+                           (m.IntegerField, {"type": "integer"}), (m.FloatField, {"type": "number"}),
+                           (m.FileField, {"type": "string", "format": "uri"}), (m.JSONField, {})):
+        if isinstance(f, classe):
+            return dict(schema)
+    return {"type": "string"}
+
+
+def schema_record(vista, campi=None, in_uscita=True):
+    """Lo schema JSON di un record della vista: per le risposte (con id e <fk>_display) o per il corpo di crea/modifica."""
+    proprieta, obbligatori = ({"id": {"type": "integer", "readOnly": True}} if in_uscita else {}), []
+    for nome in campi if campi is not None else campi_api(vista):
+        try:
+            f = vista.opts.get_field(nome)
+        except Exception:                                  # noqa: BLE001 - non è un campo del modello
+            continue
+        if f.auto_created and not f.concrete:              # relazione inversa
+            continue
+        voce = _tipo(f)
+        voce["title"] = str(f.verbose_name)
+        if f.help_text:
+            voce["description"] = str(f.help_text)
+        proprieta[nome] = voce
+        if in_uscita and f.is_relation and not f.many_to_many:
+            proprieta[f"{nome}_display"] = {"type": "string", "readOnly": True}
+        if not in_uscita and not f.blank and not f.has_default() and not f.many_to_many:
+            obbligatori.append(nome)
+    if hasattr(vista.model, "proprieta"):
+        proprieta["proprieta"] = {"type": "object", "description": "campi personalizzati dell'azienda"}
+    schema = {"type": "object", "properties": proprieta}
+    if obbligatori:
+        schema["required"] = obbligatori
+    return schema
+
+
+def _json(schema):
+    return {"content": {"application/json": {"schema": schema}}}
 
 
 def serializza(vista, obj):
@@ -73,6 +127,17 @@ def _errori(request, form):
 def _router_per(vista):
     router = Router(tags=[f"{vista.modulo}.{vista.slug}"])
     op = f"{vista.modulo}_{vista.slug}"
+    record = schema_record(vista)
+    corpo = schema_record(vista, [c for c in vista.campi_form() if not SEGRETI.search(c)], in_uscita=False)
+    errori = _json({"type": "object", "properties": {"errori": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "string"}}}}})
+    doc_lista = {"responses": {200: {"description": "Una pagina di record", **_json({"type": "object", "properties": {
+        "count": {"type": "integer"}, "page": {"type": "integer"}, "per_page": {"type": "integer"},
+        "results": {"type": "array", "items": record}}})}}}
+    doc_record = {"responses": {200: {"description": "Il record", **_json(record)}}}
+    doc_crea = {"requestBody": {"required": True, **_json(corpo)},
+                "responses": {201: {"description": "Creato", **_json(record)}, 422: {"description": "Dati non validi", **errori}}}
+    doc_modifica = {"requestBody": {"required": True, **_json({**corpo, "required": []})},
+                    "responses": {200: {"description": "Modificato", **_json(record)}, 422: {"description": "Dati non validi", **errori}}}
 
     def oggetto(request, pk, permesso, scrittura=True):
         controlla_token(request, vista.modulo, scrittura)
@@ -87,7 +152,7 @@ def _router_per(vista):
         vista.save_model(request, obj, form, change=change)
         return serializza(vista, obj)
 
-    @router.get("/", operation_id=f"{op}_lista", summary=f"Elenco di {vista.verbose_name_plural}")
+    @router.get("/", operation_id=f"{op}_lista", summary=f"Elenco di {vista.verbose_name_plural}", openapi_extra=doc_lista)
     def lista(request, q: str = "", o: str = "", p: int = 1, per_page: int = 50):
         controlla_token(request, vista.modulo, False)
         azienda_per(request)
@@ -101,7 +166,7 @@ def _router_per(vista):
         return {"count": totale, "page": p, "per_page": per_page,
                 "results": [serializza(vista, obj) for obj in righe]}
 
-    @router.post("/", operation_id=f"{op}_crea", summary=f"Crea {vista.verbose_name}")
+    @router.post("/", operation_id=f"{op}_crea", summary=f"Crea {vista.verbose_name}", openapi_extra=doc_crea)
     def crea(request):
         controlla_token(request, vista.modulo, True)
         azienda_per(request)
@@ -112,11 +177,11 @@ def _router_per(vista):
             return _errori(request, form)
         return api.create_response(request, salva(request, form, change=False), status=201)
 
-    @router.get("/{int:pk}/", operation_id=f"{op}_leggi", summary=f"Un record di {vista.verbose_name_plural}")
+    @router.get("/{int:pk}/", operation_id=f"{op}_leggi", summary=f"Un record di {vista.verbose_name_plural}", openapi_extra=doc_record)
     def leggi(request, pk: int):
         return serializza(vista, oggetto(request, pk, vista.has_view_permission, scrittura=False))
 
-    @router.patch("/{int:pk}/", operation_id=f"{op}_modifica", summary=f"Modifica {vista.verbose_name}")
+    @router.patch("/{int:pk}/", operation_id=f"{op}_modifica", summary=f"Modifica {vista.verbose_name}", openapi_extra=doc_modifica)
     def modifica(request, pk: int):
         obj = oggetto(request, pk, vista.has_change_permission)
         form_class = vista.get_form_class(request)

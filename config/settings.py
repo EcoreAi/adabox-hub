@@ -99,6 +99,9 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES = {"default": env.db("DATABASE_URL", default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")}
 
+# richieste al minuto per token all API (core.api.LimitePerToken); vuoto = senza limite
+API_LIMITE = env("API_LIMITE", default="120/m")
+
 AUTHENTICATION_BACKENDS = [
     "axes.backends.AxesStandaloneBackend",
     "django.contrib.auth.backends.ModelBackend",

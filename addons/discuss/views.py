@@ -48,6 +48,7 @@ class VoceConoscenzaView(ModelView):
 class ConnessioneView(ModelView):
     """I numeri WhatsApp e i bot Telegram. I segreti si scrivono nel modulo e non si mostrano più."""
     model = Connessione
+    api = False                   # contiene segreti o credenziali: niente API
     slug = "connessioni"
     list_display = ["nome", "tipo", "sportello", "sandbox", "attiva", "ultimo_evento"]
     list_filter = ["tipo", "sandbox", "attiva"]

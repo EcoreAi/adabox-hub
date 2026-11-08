@@ -17,6 +17,7 @@ NOMI_DI_PROVA = ["Giulia Ferrari", "Marco Galli", "Sara Conti", "Luca Moretti", 
 @register
 class WebhookView(ModelView):
     model = Webhook
+    api = False                   # contiene segreti o credenziali: niente API
     slug = "webhook"
     list_display = ["nome", "url", "attivo", "fallimenti_di_fila", "disattivato_il"]
     list_filter = ["attivo"]
@@ -44,6 +45,7 @@ class WebhookView(ModelView):
 @register
 class ConsegnaView(ModelView):
     model = ConsegnaWebhook
+    api = False                   # contiene segreti o credenziali: niente API
     storico = False
     slug = "consegne"
     list_display = ["evento", "webhook", "stato", "tentativi", "risposta", "errore", "creata", "consegnata_il"]

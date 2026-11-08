@@ -443,6 +443,7 @@ class SoloSuperuserView(ModelView):
 @register
 class LavoroView(SoloSuperuserView):
     model = Lavoro
+    api = False                   # contiene segreti o credenziali: niente API
     storico = False
     list_display = ["funzione", "stato", "tentativi", "esegui_dopo", "finito"]
     list_filter = ["stato"]

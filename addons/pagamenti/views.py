@@ -9,6 +9,7 @@ from .models import FornitorePagamento, Pagamento
 class FornitoreView(ModelView):
     """Il conto online dell'azienda. Si usa il primo fornitore attivo."""
     model = FornitorePagamento
+    api = False                   # contiene segreti o credenziali: niente API
     slug = "fornitori"
     company_field = "azienda"
     list_display = ["nome", "tipo", "chiave", "attivo"]

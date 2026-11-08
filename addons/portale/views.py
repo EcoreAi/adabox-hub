@@ -37,6 +37,7 @@ class AccessoPortaleView(ModelView):
 class ProviderAccessoView(ModelView):
     """Google e Microsoft per i clienti del portale: nella scheda l'indirizzo di ritorno da registrare nel servizio."""
     model = ProviderAccesso
+    api = False                   # contiene segreti o credenziali: niente API
     slug = "provider"
     list_display = ["tipo", "client_id", "attivo"]
     form_class = ProviderAccessoForm
@@ -47,6 +48,7 @@ class ProviderAccessoView(ModelView):
 class IdentitaEsternaView(ModelView):
     """Gli account Google o Microsoft collegati: toglierne uno obbliga a ricollegarlo al prossimo accesso."""
     model = IdentitaEsterna
+    api = False                   # contiene segreti o credenziali: niente API
     slug = "account_collegati"
     list_display = ["utente", "tipo", "email", "collegata_il", "ultimo_accesso"]
     list_filter = ["tipo"]

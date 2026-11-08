@@ -9,6 +9,7 @@ from .models import (AnelloCatena, Assistente, ChiaveAzienda, Modello, Pianifica
 @register
 class ProviderView(ModelView):
     model = Provider
+    api = False                   # contiene segreti o credenziali: niente API
     slug = "provider"
     list_display = ["nome", "tipo", "chiave", "locale", "attivo"]
     form_class = ProviderForm
@@ -31,6 +32,7 @@ class ProviderView(ModelView):
 @register
 class ChiaveAziendaView(ModelView):
     model = ChiaveAzienda
+    api = False                   # contiene segreti o credenziali: niente API
     tra_aziende = True
     slug = "chiavi"
     list_display = ["provider", "azienda", "chiave"]
@@ -336,6 +338,7 @@ class ProgettoChatView(_SoloMie):
 class ServerMCPView(ModelView):
     """I sistemi esterni di cui Ada usa gli strumenti. Gli strumenti si accendono uno per uno, dopo averli letti."""
     model = ServerMCP
+    api = False                   # contiene segreti o credenziali: niente API
     slug = "mcp"
     list_display = ["nome", "url", "token", "attivo", "aggiornato", "ultimo_errore"]
     form_class = ServerMCPForm
@@ -370,6 +373,7 @@ class ServerMCPView(ModelView):
 class ServizioVoceView(ModelView):
     """I servizi che leggono le risposte ad alta voce: Kokoro in locale o un fornitore cloud con la sua chiave."""
     model = ServizioVoce
+    api = False                   # contiene segreti o credenziali: niente API
     slug = "voce"
     tra_aziende = True
     list_display = ["nome", "tipo", "azienda", "chiave", "attivo"]

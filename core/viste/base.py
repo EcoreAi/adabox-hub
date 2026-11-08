@@ -74,7 +74,7 @@ class ModelView:
     tracked_fields = ()           # campi le cui modifiche finiscono nel chatter
     actions = ()                  # nomi di metodi (self, request, queryset) -> str|None
     buttons = ()                  # nomi di metodi (self, request, obj) -> HttpResponse|str|None
-    api = False
+    api = True                    # /api/v1/<modulo>/<slug>/: accesa di default; False per le viste con segreti
     api_fields = None
     export_fields = None          # colonne dell'export (default: id + campi di list_display)
     import_key = None             # campo con cui l'import riconosce i record da aggiornare
