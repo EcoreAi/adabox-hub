@@ -1,4 +1,5 @@
 from django import forms
+from django.apps import apps
 from django.conf import settings
 from django.contrib import messages
 from functools import wraps
@@ -1124,6 +1125,8 @@ def tasca(request):
     voce("Le mie attività", "core:attivita", "check", conta=da_fare or None, sotto="da fare oggi" if da_fare else "")
     n = len(approvazioni.da_decidere(request.user))
     voce("Da approvare", "core:da_approvare", "shield", conta=n or None)
+    if apps.is_installed("personale") and getattr(request.user, "dipendente", None) is not None:
+        voce("Timbra", "personale:timbra_io", "check", sotto="entrata e uscita")
     voce("Nuova nota spese", "spese:note_nuovo", "plus", "spese.add_notaspese", sotto="con la foto dello scontrino")
     voce("Giacenze", "magazzino:giacenze", "search", "magazzino.view_movimento")
     voce("Reception", "reception:chiosco", "users", "reception.add_visita")

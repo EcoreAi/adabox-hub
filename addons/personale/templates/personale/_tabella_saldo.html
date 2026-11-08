@@ -1,6 +1,7 @@
 <div class="ui-table-wrap"><table class="ui-table is-revealed">
-  <thead><tr><th></th><th class="ui-num">Spettanti</th><th class="ui-num">Godute</th><th class="ui-num">Da approvare</th><th class="ui-num">Residue</th></tr></thead>
+  <thead><tr><th></th><th class="ui-num">Dall'anno prima</th><th class="ui-num">Spettanti</th><th class="ui-num" title="Ratei mensili maturati fino a questo mese">Maturate a oggi</th><th class="ui-num">Godute</th><th class="ui-num">Da approvare</th><th class="ui-num">Residue</th></tr></thead>
   <tbody>
-    <tr><td>Ferie (giorni)</td><td class="ui-num">{{ s.ferie.spettanti|floatformat:"-2" }}</td><td class="ui-num">{{ s.ferie.godute|floatformat:"-2" }}</td><td class="ui-num">{{ s.ferie.richieste|floatformat:"-2" }}</td><td class="ui-num"><strong>{{ s.ferie.residue|floatformat:"-2" }}</strong></td></tr>
-    <tr><td>Permessi (ore)</td><td class="ui-num">{{ s.permessi.spettanti|floatformat:"-2" }}</td><td class="ui-num">{{ s.permessi.godute|floatformat:"-2" }}</td><td class="ui-num">{{ s.permessi.richieste|floatformat:"-2" }}</td><td class="ui-num"><strong>{{ s.permessi.residue|floatformat:"-2" }}</strong></td></tr>
+    {% for nome, v in s.items %}<tr><td>{% if nome == "ferie" %}Ferie (giorni){% else %}Permessi (ore){% endif %}</td>
+      <td class="ui-num">{{ v.riporto|floatformat:"-2" }}</td><td class="ui-num">{{ v.spettanti|floatformat:"-2" }}</td><td class="ui-num">{{ v.maturate|floatformat:"-2" }}</td>
+      <td class="ui-num">{{ v.godute|floatformat:"-2" }}</td><td class="ui-num">{{ v.richieste|floatformat:"-2" }}</td><td class="ui-num"><strong>{{ v.residue|floatformat:"-2" }}</strong></td></tr>{% endfor %}
   </tbody></table></div>

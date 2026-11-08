@@ -74,6 +74,8 @@ class Dipendente(AziendaMixin, ProprietaMixin):
     ore_permesso_annue = models.DecimalField("permessi annui (ore)", max_digits=6, decimal_places=2,
                                              default=Decimal(72))
     attivo = models.BooleanField("attivo", default=True)
+    badge = models.CharField("badge", max_length=40, blank=True, help_text="il codice letto dal lettore del chiosco")
+    pin_impronta = models.CharField("PIN", max_length=64, blank=True, editable=False)
 
     class Meta(AziendaMixin.Meta):
         verbose_name = "dipendente"
@@ -179,3 +181,26 @@ class Assenza(AziendaMixin):
                 errori["dal"] = "C'è già un'assenza in questo periodo."
         if errori:
             raise ValidationError(errori)
+
+
+class Timbratura(AziendaMixin):
+    """Un'entrata o un'uscita: dal chiosco, dal web o corretta a mano da un responsabile."""
+    ENTRATA, USCITA = "entrata", "uscita"
+    VERSI = [(ENTRATA, "Entrata"), (USCITA, "Uscita")]
+    FONTI = [("chiosco", "Chiosco"), ("web", "Web o telefono"), ("manuale", "Inserita a mano")]
+    dipendente = models.ForeignKey(Dipendente, on_delete=models.CASCADE, related_name="timbrature", verbose_name="dipendente")
+    verso = models.CharField("verso", max_length=8, choices=VERSI)
+    il = models.DateTimeField("il", default=timezone.now)
+    fonte = models.CharField("da", max_length=8, choices=FONTI, default="chiosco")
+    nota = models.CharField("nota", max_length=200, blank=True, help_text="obbligatoria se inserita a mano")
+    inserita_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name="+", verbose_name="inserita da")
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "timbratura"
+        verbose_name_plural = "timbrature"
+        ordering = ["-il"]
+        indexes = [models.Index(fields=["dipendente", "il"])]
+
+    def __str__(self):
+        return f"{self.dipendente} · {self.get_verso_display()} {timezone.localtime(self.il):%d/%m %H:%M}"

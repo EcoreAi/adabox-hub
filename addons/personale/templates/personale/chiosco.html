@@ -1,0 +1,28 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Timbra · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="pc-chiosco">
+  <section class="ui-card is-revealed"><div class="ui-card-body">
+  {% if not dipendente %}
+    <h1>Timbra</h1>
+    <p class="ui-help">Passa il badge sul lettore o scrivi il tuo PIN.</p>
+    <form method="post" autocomplete="off">{% csrf_token %}
+      <input class="ui-input pc-codice" name="codice" type="password" inputmode="numeric" autofocus aria-label="Badge o PIN" placeholder="Badge o PIN">
+      <button class="ui-btn ui-btn-primary pc-grande" type="submit">Avanti</button>
+    </form>
+  {% else %}
+    <h1>Ciao {{ dipendente.nome }}</h1>
+    <p class="ui-help">Che cosa registri?</p>
+    <form method="post" class="pc-versi">{% csrf_token %}<input type="hidden" name="codice" value="{{ codice }}">
+      <button class="ui-btn {% if proposto == 'entrata' %}ui-btn-primary{% else %}ui-btn-secondary{% endif %} pc-grande" name="verso" value="entrata" type="submit">Entrata</button>
+      <button class="ui-btn {% if proposto == 'uscita' %}ui-btn-primary{% else %}ui-btn-secondary{% endif %} pc-grande" name="verso" value="uscita" type="submit">Uscita</button>
+    </form>
+    <p><a class="ui-link" href="{% url 'personale:chiosco' %}">Non sono io</a></p>
+  {% endif %}
+  </div></section>
+</div>
+<style>.pc-chiosco{max-width:520px;margin:0 auto}.pc-chiosco h1{font-size:30px;margin:0 0 4px}
+.pc-codice{min-height:56px;font-size:24px;letter-spacing:.3em;text-align:center;margin:12px 0}
+.pc-grande{min-height:60px;font-size:20px;width:100%;justify-content:center}.pc-versi{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}</style>
+<script>setTimeout(function(){ var c=document.querySelector('.pc-versi'); if(c) location.href='{% url "personale:chiosco" %}'; }, 30000);</script>
+{% endblock %}

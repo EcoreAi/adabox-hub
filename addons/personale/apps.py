@@ -9,3 +9,4 @@ class PersonaleConfig(AppConfig):
     def ready(self):
         from core.registry import hooks
         hooks.sezione_dettaglio("personale.Dipendente", "personale/_saldo.html", order=10)
+        hooks.sezione_dettaglio("personale.Dipendente", "personale/_chiosco_dipendente.html", order=12)

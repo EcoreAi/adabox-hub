@@ -1,0 +1,33 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Presenze · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Presenze di {{ mese|date:"F Y" }}</h1><div class="sub">Ore dalle timbrature, previste dal calendario, assenze approvate e anomalie</div></div>
+  <div class="ui-pagehead-actions">
+    <a class="ui-btn ui-btn-ghost" href="?mese={{ prima }}">← Mese prima</a><a class="ui-btn ui-btn-ghost" href="?mese={{ dopo }}">Mese dopo →</a>
+    <a class="ui-btn ui-btn-primary" href="?mese={{ valore_mese }}&formato=xlsx"><svg><use href="#icon-download"/></svg> Excel per il consulente</a></div></div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <div class="ui-table-wrap"><table class="ui-table">
+    <thead><tr><th>Dipendente</th><th class="num">Lavorate</th><th class="num">Previste</th><th class="num">Differenza</th><th class="num">Giorni di assenza</th><th class="num">Anomalie</th></tr></thead>
+    <tbody>{% for r in righe %}<tr>
+      <td><a class="ui-link" href="?mese={{ valore_mese }}&dipendente={{ r.dipendente.pk }}">{{ r.dipendente }}</a></td>
+      <td class="num">{{ r.lavorate|floatformat:"-2" }}</td><td class="num">{{ r.previste|floatformat:"-2" }}</td>
+      <td class="num">{{ r.differenza|floatformat:"-2" }}</td><td class="num">{{ r.giorni_assenza }}</td>
+      <td class="num">{% if r.anomalie %}<span class="ui-pill ui-pill-warn">{{ r.anomalie }}</span>{% else %}—{% endif %}</td></tr>
+    {% empty %}<tr><td colspan="6" class="ui-help">Nessun dipendente attivo.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</div></section>
+{% if scelto %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">{{ scelto.dipendente }}</div></div><div class="ui-card-body">
+  <div class="ui-table-wrap"><table class="ui-table">
+    <thead><tr><th>Giorno</th><th>Timbrature</th><th class="num">Lavorate</th><th class="num">Previste</th><th>Assenza</th><th>Anomalie</th></tr></thead>
+    <tbody>{% for g in scelto.giorni %}<tr{% if not g.lavorativo %} class="pc-festivo"{% endif %}>
+      <td>{{ g.giorno|date:"D d" }}</td>
+      <td>{% for t in g.timbrature %}{{ t.get_verso_display|slice:":1" }} {{ t.il|time:"H:i" }}{% if not forloop.last %} · {% endif %}{% endfor %}</td>
+      <td class="num">{{ g.lavorate|floatformat:"-2" }}</td><td class="num">{{ g.previste|floatformat:"-2" }}</td>
+      <td>{{ g.assenza }}</td><td>{% if g.anomalia %}<span class="ui-pill ui-pill-warn">{{ g.anomalia }}</span>{% endif %}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% if perms.personale.add_timbratura %}<p><a class="ui-link" href="{% url 'personale:timbrature_nuovo' %}">Aggiungi una timbratura a mano</a></p>{% endif %}
+</div></section>
+{% endif %}
+<style>.pc-festivo td{color:var(--ui-text-3)}</style>
+{% endblock %}

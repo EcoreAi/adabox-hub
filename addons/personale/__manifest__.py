@@ -1,7 +1,7 @@
 {
     "name": "Personale",
     "summary": "Dipendenti e reparti, richieste di ferie e permessi con approvazione, saldi e calendario delle assenze",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Risorse umane",
     "depends": [],
@@ -15,6 +15,9 @@
         {"label": "Assenze", "url_name": "personale:assenze_lista", "permission": "personale.view_assenza"},
         {"label": "Calendario", "url_name": "personale:assenze_calendario", "permission": "personale.view_assenza"},
         {"label": "Dipendenti", "url_name": "personale:dipendenti_lista", "permission": "personale.view_dipendente"},
+        {"label": "Presenze", "url_name": "personale:presenze", "permission": "personale.view_timbratura"},
+        {"label": "Timbrature", "url_name": "personale:timbrature_lista", "permission": "personale.change_timbratura"},
+        {"label": "Chiosco", "url_name": "personale:chiosco", "permission": "personale.add_timbratura"},
         {"label": "Organigramma", "url_name": "personale:organigramma", "permission": "personale.view_dipendente"},
         {"label": "Posizioni", "url_name": "personale:posizioni_lista", "permission": "personale.view_posizione"},
         {"label": "Reparti", "url_name": "personale:reparti_lista", "permission": "personale.change_reparto"},
@@ -23,7 +26,12 @@
     "groups": {
         "Personale / Dipendente": ["personale.view_assenza", "personale.add_assenza", "personale.view_tipoassenza"],
         "Personale / Responsabile": ["personale.*"],
+        "Personale / Chiosco": ["personale.add_timbratura"],
     },
     "data": ["data/tipi.json"],
     "hooks": "personale.hooks",
+    "settings": [
+        {"chiave": "riporto_dal", "label": "Riporto del residuo dall'anno", "tipo": "intero", "default": 0, "per_azienda": True,
+         "help": "Da quest'anno il residuo di ferie e permessi passa all'anno dopo (0 = mai). Mettilo all'anno da cui le assenze sono tutte registrate qui"},
+    ],
 }

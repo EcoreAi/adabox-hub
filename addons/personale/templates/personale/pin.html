@@ -1,0 +1,14 @@
+{% extends 'core/base_app.html' %}
+{% block title %}PIN di {{ dipendente }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>PIN di {{ dipendente }}</h1><div class="sub">Per timbrare al chiosco senza badge</div></div></div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <form method="post" class="ui-form" autocomplete="off">{% csrf_token %}
+    <div class="ui-field"><label class="ui-label" for="pin">Nuovo PIN (4–8 cifre)</label>
+      <input class="ui-input" id="pin" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" required></div>
+    <p class="ui-help">Ogni PIN è unico in azienda e si conserva solo come impronta: chi lo dimentica ne riceve uno nuovo.</p>
+    <button class="ui-btn ui-btn-primary" type="submit">Imposta il PIN</button>
+    <a class="ui-btn ui-btn-ghost" href="{{ url_dettaglio }}">Annulla</a>
+  </form>
+</div></section>
+{% endblock %}

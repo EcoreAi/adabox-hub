@@ -75,8 +75,9 @@ def test_saldo(scena):
     Assenza.objects.create(azienda=mario.azienda, dipendente=mario, tipo=ferie, dal=datetime.date(ANNO, 9, 7),
                            al=datetime.date(ANNO, 9, 7), stato="rifiutata")
     s = saldi.saldo(mario, ANNO)
-    assert s["ferie"] == {"unita": "giorni", "spettanti": Decimal("26.00"), "godute": Decimal("5.00"),
-                          "richieste": Decimal("0.00"), "residue": Decimal("21.00")}
+    assert {k: v for k, v in s["ferie"].items() if k != "maturate"} == {
+        "unita": "giorni", "spettanti": Decimal("26.00"), "riporto": Decimal("0.00"), "godute": Decimal("5.00"),
+        "richieste": Decimal("0.00"), "residue": Decimal("21.00")}
     assert s["permessi"]["richieste"] == Decimal("4.00") and s["permessi"]["residue"] == Decimal("68.00")
     mario.data_assunzione = datetime.date(ANNO, 7, 1)                                            # metà anno
     assert saldi.saldo(mario, ANNO)["ferie"]["spettanti"] == Decimal("13.11")

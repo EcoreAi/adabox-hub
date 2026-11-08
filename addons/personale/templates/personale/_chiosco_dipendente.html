@@ -1,0 +1,3 @@
+{% if perms.personale.change_dipendente %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Chiosco</div>
+  <div class="ui-card-actions"><a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'personale:imposta_pin' obj.pk %}">{% if obj.pin_impronta %}Cambia il PIN{% else %}Imposta il PIN{% endif %}</a></div></div>
+  <div class="ui-card-body"><p class="ui-help">{% if obj.badge %}Badge {{ obj.badge }}{% else %}Nessun badge{% endif %} · {% if obj.pin_impronta %}PIN impostato{% else %}nessun PIN{% endif %} · <a class="ui-link" href="{% url 'personale:presenze' %}?dipendente={{ obj.pk }}">presenze del mese</a></p></div></section>{% endif %}

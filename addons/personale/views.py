@@ -7,7 +7,7 @@ from core.colori import sicuro
 from core.viste import ModelView, register, schede
 
 from . import flusso
-from .models import Assenza, Dipendente, Posizione, Reparto, TipoAssenza
+from .models import Assenza, Dipendente, Posizione, Reparto, Timbratura, TipoAssenza
 
 
 @register
@@ -45,6 +45,36 @@ class PosizioneView(ModelView):
 
 
 @register
+class TimbraturaView(ModelView):
+    """Le timbrature: chi corregge a mano lascia nome e motivo."""
+    model = Timbratura
+    slug = "timbrature"
+    list_display = ["il", "dipendente", "verso", "fonte", "inserita_da", "nota"]
+    list_filter = ["dipendente", "verso", "fonte", "il"]
+    search_fields = ["dipendente__nome", "dipendente__cognome", "nota"]
+    form_layout = [("Timbratura", [("dipendente", "verso"), "il", "nota"])]
+    readonly_fields = ["fonte", "inserita_da"]
+    company_field = "azienda"
+    list_group_by = ["dipendente", "il:giorno"]
+    ai_descrizione = "Le timbrature di entrata e uscita dei dipendenti, dal chiosco, dal web o corrette a mano."
+
+    def get_form_class(self, request=None):
+        base = super().get_form_class(request)
+
+        class Form(base):
+            def clean(self):
+                dati = super().clean()
+                if not (dati.get("nota") or "").strip():
+                    self.add_error("nota", "Scrivi il motivo della correzione.")
+                return dati
+        return Form
+
+    def save_model(self, request, obj, form, change):
+        obj.fonte, obj.inserita_da = "manuale", request.user
+        super().save_model(request, obj, form, change)
+
+
+@register
 class TipoAssenzaView(ModelView):
     model = TipoAssenza
     slug = "tipi"
@@ -61,6 +91,7 @@ class DipendenteView(ModelView):
     search_fields = ["nome", "cognome", "codice_fiscale", "email", "ruolo"]
     form_layout = [
         ("Anagrafica", [("nome", "cognome"), ("codice_fiscale", "utente"), ("email", "telefono")]),
+        ("Chiosco", ["badge"]),
         ("Lavoro", [("reparto", "posizione"), ("ruolo", "responsabile"), ("tipo_contratto", "ore_settimanali"),
                     ("data_assunzione", "data_cessazione"), ("giorni_ferie_annui", "ore_permesso_annue"), "attivo"]),
         ("Altro", ["@proprieta"]),

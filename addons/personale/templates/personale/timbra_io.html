@@ -1,0 +1,16 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Timbra · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Timbra</h1><div class="sub">{{ dipendente }} · {% now "l j F" %}</div></div></div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <form method="post" class="pc-versi">{% csrf_token %}
+    <button class="ui-btn {% if proposto == 'entrata' %}ui-btn-primary{% else %}ui-btn-secondary{% endif %} pc-grande" name="verso" value="entrata" type="submit">Entrata</button>
+    <button class="ui-btn {% if proposto == 'uscita' %}ui-btn-primary{% else %}ui-btn-secondary{% endif %} pc-grande" name="verso" value="uscita" type="submit">Uscita</button>
+  </form>
+  <h2 class="ui-card-title">Oggi</h2>
+  {% for t in oggi.timbrature %}<div class="ui-allegato"><span>{{ t.get_verso_display }}</span><span class="ui-allegato-info">{{ t.il|time:"H:i" }} · {{ t.get_fonte_display|lower }}</span></div>
+  {% empty %}<p class="ui-help">Nessuna timbratura oggi.</p>{% endfor %}
+  <p class="ui-help">Ore lavorate finora: {{ oggi.lavorate|floatformat:"-2" }} su {{ oggi.previste|floatformat:"-2" }} previste{% if oggi.assenza %} · {{ oggi.assenza }}{% endif %}.</p>
+</div></section>
+<style>.pc-grande{min-height:60px;font-size:20px;width:100%;justify-content:center}.pc-versi{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 16px}</style>
+{% endblock %}
