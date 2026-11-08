@@ -32,10 +32,11 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
   content: attr(data-tip); position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
   padding: 5px 9px; border-radius: 7px; background: #1d1d1f; color: #fff; font-size: 12px; white-space: nowrap;
   opacity: 0; pointer-events: none; transition: opacity 120ms var(--ease-out); z-index: 50;
+  display: none;            /* esiste solo al passaggio: invisibile occuperebbe spazio e creerebbe barre orizzontali */
 }
 .ai-rail-destra [data-tip]::after { left: auto; right: calc(100% + 10px); }
 .ai-composer [data-tip]::after { left: 50%; top: auto; bottom: calc(100% + 8px); transform: translateX(-50%); }
-[data-tip]:hover::after, [data-tip]:focus-visible::after { opacity: 1; }
+[data-tip]:hover::after, [data-tip]:focus-visible::after { display: block; opacity: 1; }
 
 /* ---------- pannelli laterali (chiusi di default) ---------- */
 .ai-pannello {
@@ -333,12 +334,12 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-doc-titolo { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ai-doc-meta { font-size: .8rem; color: var(--ui-muted, #6b7280); }
 .ai-tela { width: min(48vw, 780px); flex: none; display: flex; flex-direction: column; gap: 10px; padding: 16px 20px; border-left: 1px solid var(--ui-border); overflow-y: auto; overflow-x: hidden; background: var(--ui-surface, #fff); }
-.ai-tela-testa { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ai-tela-testa { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap; row-gap: 4px; }
 .ai-tela-testa > :not(.ai-tela-titolo):not(.ai-spazio) { flex: none; }
 /* i suggerimenti delle azioni sotto il bottone, allineati a destra: a lato uscirebbero dal pannello (barra orizzontale) */
 .ai-tela-testa [data-tip]::after { left: auto; right: 0; top: calc(100% + 6px); transform: none; }
 .ai-tela-letto { min-width: 0; overflow-wrap: anywhere; }
-.ai-tela-titolo { font-size: 1.05rem; margin: 0; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-tela-titolo { font-size: 1.05rem; margin: 0; flex: 1 1 220px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ai-azione-testo { font-size: .75rem; font-weight: 600; width: auto; padding: 0 6px; }
 .ai-tela-schede { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--ui-border); }
 .ai-tela-scheda { border: 0; background: none; padding: 6px 10px; cursor: pointer; color: var(--ui-muted, #6b7280); border-bottom: 2px solid transparent; }
@@ -617,3 +618,7 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-barra-area-scelta:hover, .ai-barra-area-scelta:focus-visible { background: var(--ui-surface-2); }
 .ai-barra-area-apri { color: var(--ui-text-3); text-decoration: none; padding: 0 4px; }
 .ai-barra-area-apri:hover { color: var(--ui-primary); }
+
+/* nella colonna della chat le barre orizzontali non servono mai: i suggerimenti sono già contenuti, questo è il paracadute */
+.ai-scorri { overflow-x: hidden; }
+.ai-barra-area .ai-barra-area-apri[data-tip]::after { left: 0; top: calc(100% + 4px); transform: none; }

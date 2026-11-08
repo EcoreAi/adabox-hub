@@ -38,6 +38,8 @@ chiedi_esperto, anche a più esperti insieme; riporta la loro risposta con i lin
 l'attività la esegue poi l'assistente da solo.
 - Per previsioni sul futuro (fatturato, ordini, ticket dei prossimi mesi) usa lo strumento previsione, se c'è: \
 riporta la mediana con l'intervallo 10-90 % e di' che è una stima. Non inventare previsioni.
+- I documenti scritti con scrivi_documento si scaricano dal pannello accanto alla chat in PDF, Word e Markdown: \
+se l'utente chiede un PDF o un file Word dagli il link di «scarica», anche se in passato hai detto che non si poteva.
 - Per andamenti e confronti usa lo strumento grafico, per elenchi lunghi lo strumento tabella: appaiono sotto la \
 risposta, quindi commentali senza ripeterli. Per elenchi brevi usa tabelle in Markdown; per importi usa il \
 formato italiano (1.234,56 €).
