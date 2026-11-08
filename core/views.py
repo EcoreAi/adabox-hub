@@ -23,10 +23,12 @@ from django.db.models import Q
 
 from .models import LicenzaIstanza, RichiestaModulo
 from .models import (Azienda, CampoPersonalizzato, EmailRicevuta, Lavoro, Modulo, Parametro, ProfiloUtente, RegistroModifica,
-                     ModelloStampa, PermessoCampo, RegolaRiga, Ruolo, TokenApi)
+                     ModelloStampa, PermessoCampo, RegolaRiga, Ruolo, TokenApi,
+                     CatenaApprovazione, DecisioneApprovazione, Delega, PassoApprovazione, RichiestaApprovazione)
 from .registry import modules, pacchetti, sincronia
 from .signals import crea_profilo
-from .viste import ModelView, register
+from .viste import Inline, ModelView, register
+from .viste import registry as registry_viste
 
 
 def voci_kernel(user):
@@ -58,6 +60,11 @@ def voci_kernel(user):
     if user.has_perm("core.view_campopersonalizzato"):
         voci.append({"label": "Campi personalizzati", "url": reverse("core:campi_lista"), "icon": "edit",
                      "sub": "Campi aggiunti ai modelli senza programmare"})
+    voci.append({"label": "Da approvare", "url": reverse("core:da_approvare"), "icon": "check",
+                 "sub": "Le approvazioni che aspettano la tua decisione"})
+    if user.has_perm("core.view_catenaapprovazione"):
+        voci.append({"label": "Catene di approvazione", "url": reverse("core:catene_approvazione_lista"), "icon": "shield",
+                     "sub": "Chi approva quali documenti, oltre quali soglie"})
     if user.has_perm("core.view_modellostampa"):
         voci.append({"label": "Modelli di stampa", "url": reverse("core:stampe_lista"), "icon": "edit",
                      "sub": "Intestazione, testi e colonne di preventivi, fatture, DDT e ordini"})
@@ -827,3 +834,149 @@ def anteprima_stampa(request, pk):
     except report.ReportNonDisponibile as e:
         return HttpResponse(str(e), status=503, content_type="text/plain; charset=utf-8")
     return HttpResponse(dati, content_type="application/pdf")
+
+
+class CatenaApprovazioneForm(forms.ModelForm):
+    class Meta:
+        model = CatenaApprovazione
+        fields = ["nome", "vista", "bottone", "campo", "soglia", "azienda", "attiva"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        scelte = [(k, e) for k, e in _viste_scelte() if (_vista_da(k) and _vista_da(k).buttons)]
+        self.fields["vista"] = forms.ChoiceField(label="documento", choices=scelte)
+
+    def clean(self):
+        dati = super().clean()
+        vista = _vista_da(dati.get("vista"))
+        if vista is None:
+            return dati
+        if dati.get("bottone") not in vista.buttons:
+            self.add_error("bottone", "Bottoni di questo documento: " + ", ".join(vista.buttons))
+        campo = dati.get("campo") or ""
+        if campo:
+            from django.db import models as m
+
+            from core import regole
+            try:
+                f = regole.campo_del_percorso(vista.model, campo)
+                if not isinstance(f, (m.IntegerField, m.DecimalField, m.FloatField)):
+                    self.add_error("campo", "Serve un campo numerico (es. totale, imponibile, righe__sconto).")
+            except Exception:                              # noqa: BLE001
+                self.add_error("campo", f"«{campo}» non è un campo di {vista.verbose_name_plural}.")
+        return dati
+
+
+@register
+class CatenaApprovazioneView(ModelView):
+    """Le catene di approvazione dei documenti: chi deve approvare, in che ordine, oltre quale soglia."""
+    model = CatenaApprovazione
+    slug = "catene_approvazione"
+    list_display = ["nome", "vista", "bottone", "campo", "soglia", "azienda", "attiva"]
+    list_filter = ["vista", "attiva"]
+    form_class = CatenaApprovazioneForm
+    form_layout = [("Quando", [("nome", "attiva"), ("vista", "bottone"), ("campo", "soglia"), "azienda"])]
+    inlines = [Inline(PassoApprovazione, "catena", ["ordine", "ruolo", "utente", "giorni"], titolo="Passi", extra=2)]
+    api = False
+
+
+@register
+class RichiestaApprovazioneView(ModelView):
+    """Lo storico delle richieste di approvazione, con le decisioni."""
+    model = RichiestaApprovazione
+    slug = "richieste_approvazione"
+    list_display = ["creata", "descrizione", "catena", "stato", "passo", "richiesta_da", "chiusa_il"]
+    list_filter = ["stato", "catena"]
+    search_fields = ["descrizione"]
+    readonly_fields = ["catena", "descrizione", "valore", "stato", "passo", "scadenza", "richiesta_da", "creata", "chiusa_il"]
+    form_layout = [("Richiesta", [("descrizione", "catena"), ("stato", "passo"), ("valore", "scadenza"), ("richiesta_da", "creata"), "chiusa_il"])]
+    inlines = [Inline(DecisioneApprovazione, "richiesta", ["passo", "utente", "per_conto_di", "approvata", "nota", "il"], titolo="Decisioni", extra=0)]
+    api = False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+class DelegaForm(forms.ModelForm):
+    class Meta:
+        model = Delega
+        fields = ["da", "a", "dal", "al"]
+        widgets = {"dal": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"), "al": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")}
+
+    def clean(self):
+        dati = super().clean()
+        if dati.get("dal") and dati.get("al") and dati["al"] < dati["dal"]:
+            self.add_error("al", "La fine viene dopo l'inizio.")
+        if dati.get("da") and dati.get("da") == dati.get("a"):
+            self.add_error("a", "Una persona non si delega da sola.")
+        return dati
+
+
+@register
+class DelegaView(ModelView):
+    """Le deleghe nelle approvazioni: ognuno vede quelle che ha dato o ricevuto; chi gestisce le catene, tutte."""
+    model = Delega
+    slug = "deleghe"
+    list_display = ["da", "a", "dal", "al"]
+    form_class = DelegaForm
+    form_layout = [("Delega", [("da", "a"), ("dal", "al")])]
+    api = False
+    per_assistente = False
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.has_perm("core.change_catenaapprovazione"):
+            return qs
+        return qs.filter(Q(da=request.user) | Q(a=request.user))
+
+    def get_form_class(self, request=None):
+        base = super().get_form_class(request)
+        if request is None or request.user.has_perm("core.change_catenaapprovazione"):
+            return base
+
+        class Form(base):                                  # gli altri delegano solo per sé
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.fields["da"].queryset = self.fields["da"].queryset.filter(pk=request.user.pk)
+                self.fields["da"].initial = request.user.pk
+        return Form
+
+    def has_add_permission(self, request):
+        return request.user.is_authenticated
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.is_authenticated
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.has_perm("core.change_catenaapprovazione") or (obj is not None and obj.da_id == request.user.pk)
+
+    def has_delete_permission(self, request, obj=None):
+        return self.has_change_permission(request, obj)
+
+
+@login_required
+def da_approvare(request):
+    from core import approvazioni
+    voci = []
+    for r in approvazioni.da_decidere(request.user):
+        obj = r.record
+        vista = registry_viste.per_modello(type(obj)) if obj is not None else None
+        voci.append({"r": r, "url": vista.url("dettaglio", pk=obj.pk) if vista else ""})
+    return render(request, "core/approvazioni.html", {"voci": voci})
+
+
+@login_required
+@require_POST
+def decidi_approvazione(request, pk):
+    from core import approvazioni
+    richiesta = get_object_or_404(RichiestaApprovazione, pk=pk)
+    try:
+        approvazioni.decidi(richiesta, request.user, request.POST.get("esito") == "approva", request.POST.get("nota", "").strip())
+    except PermissionError as e:
+        raise PermissionDenied(str(e))
+    messages.success(request, "Decisione registrata.")
+    prossimo = request.POST.get("da", "")
+    return redirect(prossimo if prossimo and url_has_allowed_host_and_scheme(prossimo, {request.get_host()}) else "core:da_approvare")

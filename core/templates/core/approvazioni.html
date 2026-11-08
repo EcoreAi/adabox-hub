@@ -1,0 +1,12 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Da approvare · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Da approvare</h1><div class="sub">Le richieste su cui tocca a te decidere, anche per delega</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'core:deleghe_lista' %}">Le mie deleghe</a></div></div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+{% for v in voci %}{% with r=v.r %}
+  <div class="ui-allegato"><a class="ui-link" href="{{ v.url }}">{{ r.descrizione }}</a>
+    <span class="ui-allegato-info">{{ r.catena.nome }} · passo {{ r.passo }} · chiesta da {{ r.richiesta_da.get_full_name|default:r.richiesta_da.username|default:"—" }}{% if r.scadenza %} · entro il {{ r.scadenza|date:"d/m/Y" }}{% endif %}</span></div>
+{% endwith %}{% empty %}<div class="ui-empty"><p>Niente da approvare.</p></div>{% endfor %}
+</div></section>
+{% endblock %}

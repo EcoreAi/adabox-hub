@@ -1,0 +1,17 @@
+{% load approvazioni %}{% approvazioni_record obj as voci %}{% if voci %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Approvazioni</div></div>
+  <div class="ui-card-body">{% for v in voci %}{% with r=v.r %}
+    <div class="ap-voce">
+      <div><strong>{{ r.catena.nome }}</strong> <span class="ui-pill {% if r.stato == 'approvata' %}ui-pill-success{% elif r.stato == 'rifiutata' %}ui-pill-danger{% else %}ui-pill-warn{% endif %}">{{ r.get_stato_display|lower }}{% if r.stato == 'attesa' %} · passo {{ r.passo }} di {{ v.passi }}{% endif %}</span>
+        <div class="ui-help">chiesta da {{ r.richiesta_da.get_full_name|default:r.richiesta_da.username|default:"—" }} il {{ r.creata|date:"d/m/Y H:i" }}{% if r.valore is not None %} · valore {{ r.valore }}{% endif %}{% if r.stato == 'attesa' and r.scadenza %} · decidere entro il {{ r.scadenza|date:"d/m/Y" }}{% endif %}</div>
+        {% for d in r.decisioni.all %}<div class="ui-help">{{ d.il|date:"d/m H:i" }} · {{ d.utente.get_full_name|default:d.utente.username }}{% if d.per_conto_di %} per {{ d.per_conto_di }}{% endif %}: {% if d.approvata %}approvato{% else %}rifiutato{% endif %}{% if d.nota %} — {{ d.nota }}{% endif %}</div>{% endfor %}
+      </div>
+      {% if v.puo %}<form method="post" action="{% url 'core:decidi_approvazione' r.pk %}" class="ap-decidi">{% csrf_token %}
+        <input type="hidden" name="da" value="{{ request.path }}">
+        <input class="ui-input" name="nota" placeholder="Nota (facoltativa)" maxlength="250" aria-label="Nota">
+        <button class="ui-btn ui-btn-primary ui-btn-sm" name="esito" value="approva" type="submit">Approva{% if v.per_conto %} per {{ v.per_conto }}{% endif %}</button>
+        <button class="ui-btn ui-btn-ghost ui-btn-sm" name="esito" value="rifiuta" type="submit">Rifiuta</button></form>{% endif %}
+    </div>{% endwith %}{% endfor %}</div></section>
+<style>.ap-voce{display:grid;gap:8px;padding:8px 0;border-bottom:1px solid var(--ui-border)}.ap-voce:last-child{border-bottom:0}
+.ap-decidi{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.ap-decidi .ui-input{flex:1 1 200px;height:32px}</style>
+{% endif %}

@@ -683,3 +683,103 @@ class ModelloStampa(models.Model):
     def __str__(self):
         from core import stampe
         return f"{stampe.etichetta(self.report)} · {self.azienda or 'tutte le aziende'}"
+
+
+class CatenaApprovazione(models.Model):
+    """Prima di un bottone di un documento (es. «conferma» dei preventivi) serve l'approvazione di qualcuno, se la
+    condizione vale (es. totale da 5.000 €, sconto di riga da 15 %): passi in ordine, per ruolo o per persona."""
+    nome = models.CharField("nome", max_length=120)
+    vista = models.CharField("documento", max_length=80, help_text="modulo.slug, es. vendite.ordini")
+    bottone = models.CharField("bottone da bloccare", max_length=60, help_text="es. conferma")
+    campo = models.CharField("campo della condizione", max_length=120, blank=True,
+                             help_text="vuoto = sempre; un campo numerico (totale) o delle righe (righe__sconto: il più alto)")
+    soglia = models.DecimalField("da", max_digits=14, decimal_places=2, default=0, help_text="vale se il campo è almeno questo")
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, related_name="catene_approvazione",
+                                verbose_name="azienda", help_text="vuoto = tutte")
+    attiva = models.BooleanField("attiva", default=True)
+
+    class Meta:
+        verbose_name = "catena di approvazione"
+        verbose_name_plural = "catene di approvazione"
+        ordering = ["vista", "bottone", "-soglia"]
+
+    def __str__(self):
+        return self.nome
+
+
+class PassoApprovazione(models.Model):
+    catena = models.ForeignKey(CatenaApprovazione, on_delete=models.CASCADE, related_name="passi", verbose_name="catena")
+    ordine = models.PositiveSmallIntegerField("ordine", default=1)
+    ruolo = models.ForeignKey(Ruolo, on_delete=models.PROTECT, null=True, blank=True, related_name="+", verbose_name="chi ha il ruolo")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+",
+                               verbose_name="oppure la persona")
+    giorni = models.PositiveSmallIntegerField("giorni per decidere", default=2)
+
+    class Meta:
+        verbose_name = "passo"
+        verbose_name_plural = "passi"
+        ordering = ["catena", "ordine", "pk"]
+
+    def __str__(self):
+        return f"{self.ordine}. {self.utente or self.ruolo or '—'}"
+
+
+class RichiestaApprovazione(models.Model):
+    """Una richiesta su un documento: passa per i passi della catena; approvata, il bottone si può usare."""
+    IN_ATTESA, APPROVATA, RIFIUTATA, ANNULLATA = "attesa", "approvata", "rifiutata", "annullata"
+    STATI = [(IN_ATTESA, "In attesa"), (APPROVATA, "Approvata"), (RIFIUTATA, "Rifiutata"), (ANNULLATA, "Annullata")]
+    catena = models.ForeignKey(CatenaApprovazione, on_delete=models.CASCADE, related_name="richieste", verbose_name="catena")
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveBigIntegerField()
+    record = GenericForeignKey("content_type", "object_id")
+    descrizione = models.CharField("documento", max_length=200)
+    valore = models.DecimalField("valore approvato", max_digits=14, decimal_places=2, null=True, blank=True,
+                                 help_text="se poi il campo sale, serve una nuova approvazione")
+    stato = models.CharField("stato", max_length=10, choices=STATI, default=IN_ATTESA, db_index=True)
+    passo = models.PositiveSmallIntegerField("passo corrente", default=1)
+    scadenza = models.DateTimeField("scadenza del passo", null=True, blank=True)
+    richiesta_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                     related_name="+", verbose_name="richiesta da")
+    creata = models.DateTimeField("creata il", auto_now_add=True)
+    chiusa_il = models.DateTimeField("chiusa il", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "richiesta di approvazione"
+        verbose_name_plural = "richieste di approvazione"
+        ordering = ["-creata"]
+        indexes = [models.Index(fields=["content_type", "object_id"])]
+
+    def __str__(self):
+        return f"{self.descrizione} · {self.get_stato_display()}"
+
+
+class DecisioneApprovazione(models.Model):
+    richiesta = models.ForeignKey(RichiestaApprovazione, on_delete=models.CASCADE, related_name="decisioni", verbose_name="richiesta")
+    passo = models.PositiveSmallIntegerField("passo")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+", verbose_name="chi")
+    per_conto_di = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                                     verbose_name="per delega di")
+    approvata = models.BooleanField("approvata")
+    nota = models.CharField("nota", max_length=250, blank=True)
+    il = models.DateTimeField("il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "decisione"
+        verbose_name_plural = "decisioni"
+        ordering = ["il"]
+
+
+class Delega(models.Model):
+    """Chi decide al posto di un altro nelle approvazioni, per un periodo (ferie, assenza)."""
+    da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="deleghe_date", verbose_name="chi delega")
+    a = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="deleghe_ricevute", verbose_name="a chi")
+    dal = models.DateField("dal", default=timezone.localdate)
+    al = models.DateField("al")
+
+    class Meta:
+        verbose_name = "delega"
+        verbose_name_plural = "deleghe"
+        ordering = ["-dal"]
+
+    def __str__(self):
+        return f"{self.da} → {self.a} ({self.dal:%d/%m} – {self.al:%d/%m})"

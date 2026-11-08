@@ -18,3 +18,4 @@ class CoreConfig(AppConfig):
         registro.collega()
         from .registry import hooks
         hooks.sezione_dettaglio("core.ModelloStampa", "core/_anteprima_stampa.html", order=5)
+        hooks.sezione_dettaglio("*", "core/_approvazioni_record.html", order=3)

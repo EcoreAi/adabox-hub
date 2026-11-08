@@ -60,7 +60,7 @@ def viste_accessibili(request, modulo="", escluse=ESCLUSE):
             continue
         for v in registry.viste_di(m):
             v = v.personalizzata(request)
-            if v.has_view_permission(request):
+            if getattr(v, "per_assistente", True) and v.has_view_permission(request):
                 risultato.append(v)
     return risultato
 

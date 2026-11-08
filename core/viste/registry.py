@@ -20,6 +20,8 @@ def _con_regole(vista):
         classe = form(request)
         return regole.adatta_form(classe, vista, request) if request is not None else classe
     vista.get_queryset, vista.get_form_class = get_queryset, get_form_class
+    from core import approvazioni
+    approvazioni.avvolgi(vista)               # i bottoni dei documenti passano dalle catene di approvazione
 
 
 def register(cls):

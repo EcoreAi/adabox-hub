@@ -74,6 +74,7 @@ class ModelView:
     tracked_fields = ()           # campi le cui modifiche finiscono nel chatter
     actions = ()                  # nomi di metodi (self, request, queryset) -> str|None
     buttons = ()                  # nomi di metodi (self, request, obj) -> HttpResponse|str|None
+    per_assistente = True         # False: la vista non compare tra quelle che l'assistente legge
     api = True                    # /api/v1/<modulo>/<slug>/: accesa di default; False per le viste con segreti
     api_fields = None
     export_fields = None          # colonne dell'export (default: id + campi di list_display)
