@@ -1721,3 +1721,7 @@ body:has(.ui-nav-altre.is-open .ui-menucol) main { filter: blur(3px); opacity: .
 
 .ui-codice { margin: 0; padding: 12px 14px; border-radius: 8px; background: var(--ui-surface-2); font-size: 12.5px; line-height: 1.5;
   white-space: pre-wrap; overflow-wrap: anywhere; user-select: all; }
+
+/* Istanza di prova (SANDBOX) */
+.ui-sandbox { background: repeating-linear-gradient(-45deg, #fff4d6, #fff4d6 12px, #ffeab3 12px, #ffeab3 24px); color: #7a4b00;
+  text-align: center; font-size: 13px; font-weight: 600; padding: 6px 16px; border-bottom: 1px solid #f0d080; }

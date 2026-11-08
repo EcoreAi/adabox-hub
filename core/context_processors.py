@@ -6,9 +6,11 @@ from .registry import hooks, modules
 
 def piattaforma(request):
     """theme.nav dalle app installate, app corrente con il suo menu, aziende dell'utente."""
+    from django.conf import settings
     base = _theme(request)["theme"]
+    sandbox = getattr(settings, "SANDBOX", False)
     if not getattr(request, "user", None) or not request.user.is_authenticated:
-        return {"theme": base}
+        return {"theme": base, "sandbox": sandbox}
     apps = modules.app_visibili(request.user)
     corrente = modules.app_corrente(request, apps)
     voci_app = [{"label": a["nav_label"], "url_name": a["url_name"], "slug": a["slug"], "categoria": a["category"]} for a in apps]
@@ -27,4 +29,5 @@ def piattaforma(request):
         "aziende": azienda.consentite(request.user), "azienda": getattr(request, "azienda", None),
         "voci_testata": hooks.voci_testata(request), "voci_profilo": modules.voci_profilo(request.user),
         "avviso_licenza": licenza.avviso() if request.user.has_perm("core.view_modulo") else "",
+        "sandbox": sandbox,
     }

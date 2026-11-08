@@ -70,4 +70,7 @@ CANALI = {c.nome: c for c in (Manuale, Pec, Prova)}
 
 
 def per_azienda(azienda):
+    from django.conf import settings
+    if getattr(settings, "SANDBOX", False):              # istanza di prova: mai verso lo SDI vero
+        return Prova()
     return CANALI.get(parametri.leggi("sdi.canale", azienda), Manuale)()

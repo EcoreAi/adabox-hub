@@ -243,6 +243,11 @@ ADMINS = [tuple(p.split(":", 1)) for p in env.list("ADMINS", default=[]) if ":" 
 EMAIL_CONFIG = env.email_url("EMAIL_URL", default="consolemail://")
 EMAIL_BACKEND = EMAIL_CONFIG["EMAIL_BACKEND"]
 EMAIL_HOST = EMAIL_CONFIG.get("EMAIL_HOST", "localhost")
+# Istanza di prova per chi integra (core.sandbox): dati dimostrativi, banner su ogni pagina, le email restano nel log e
+# lo SDI passa dal simulatore. I webhook partono davvero: servono a chi integra per provare i suoi endpoint.
+SANDBOX = env.bool("SANDBOX", default=False)
+if SANDBOX:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 EMAIL_PORT = EMAIL_CONFIG.get("EMAIL_PORT", 25)
 EMAIL_HOST_USER = EMAIL_CONFIG.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = EMAIL_CONFIG.get("EMAIL_HOST_PASSWORD", "")
