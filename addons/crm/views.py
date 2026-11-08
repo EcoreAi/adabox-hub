@@ -8,7 +8,7 @@ from contatti.models import Contatto
 from core.colori import iniziali, tinta_persona
 from core.viste import ModelView, register
 
-from .models import EtichettaCrm, FaseCrm, MotivoPerdita, Opportunita
+from .models import EtichettaCrm, FaseCrm, ModuloWeb, MotivoPerdita, Opportunita
 
 GIORNI_URGENZA = 7
 
@@ -45,10 +45,10 @@ class OpportunitaView(ModelView):
         ("Opportunità", ["titolo", ("contatto", "commerciale"), ("valore_atteso", "probabilita"),
                          ("chiusura_prevista", "priorita"), ("fase", "stato"), "etichette"]),
         ("Lead", [("nome_contatto", "email", "telefono")]),
-        ("Altro", ["note", "motivo_perdita", "@proprieta"]),
+        ("Altro", ["note", "origine", "motivo_perdita", "@proprieta"]),
     ]
     company_field = "azienda"
-    list_group_by = ["fase", "commerciale", "stato", "chiusura_prevista:mese"]
+    list_group_by = ["fase", "commerciale", "stato", "origine", "chiusura_prevista:mese"]
     list_sum = ["valore_atteso"]
     kanban_group = "fase"
     kanban_fields = ["valore_atteso", "contatto", "nome_contatto", "commerciale"]
@@ -163,3 +163,16 @@ class MotivoPerditaView(ModelView):
     model = MotivoPerdita
     slug = "motivi"
     list_display = ["nome"]
+
+
+@register
+class ModuloWebView(ModelView):
+    """I moduli «contattaci» da mettere sul sito: nel dettaglio il codice da incollare nella pagina."""
+    model = ModuloWeb
+    slug = "moduli"
+    list_display = ["nome", "commerciale", "etichetta", "attivo"]
+    search_fields = ["nome", "domini"]
+    form_layout = [("Modulo", [("nome", "attivo"), "domini", ("chiedi_telefono", "chiedi_azienda")]),
+                   ("Chi lo riceve", [("commerciale", "etichetta")]),
+                   ("Testi", ["grazie", "privacy_url"])]
+    company_field = "azienda"

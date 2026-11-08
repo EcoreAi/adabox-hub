@@ -225,6 +225,12 @@ def iniziali(vista, request, messaggio):
         if campo_testo not in valori:
             link = settings.SITO_URL + reverse("discuss:canale", args=[messaggio.canale_id]) + f"?a={messaggio.pk}"
             valori[campo_testo] = f"{messaggio.corpo}\n\nDa una conversazione: {link}"
+    esterna = getattr(messaggio.canale, "esterna", None) if hasattr(messaggio.canale, "esterna") else None
+    if esterna is not None:                              # chat del sito: chi ha scritto è già noto
+        campi = set(vista.campi_form())
+        for campo, valore in (("nome_contatto", esterna.nome), ("email", esterna.email)):
+            if campo in campi and valore and campo not in valori:
+                valori[campo] = valore
     return valori
 
 

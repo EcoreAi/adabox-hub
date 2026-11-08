@@ -1718,3 +1718,6 @@ body:has(.ui-nav-altre.is-open .ui-menucol) main { filter: blur(3px); opacity: .
 }
 .wd-ruolo-pannello .ui-help { margin: 0; }
 .wd-ruolo-bottoni { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.ui-codice { margin: 0; padding: 12px 14px; border-radius: 8px; background: var(--ui-surface-2); font-size: 12.5px; line-height: 1.5;
+  white-space: pre-wrap; overflow-wrap: anywhere; user-select: all; }

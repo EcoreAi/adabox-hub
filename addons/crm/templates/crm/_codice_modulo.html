@@ -1,0 +1,10 @@
+{% load static %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Da incollare nel sito</div></div>
+  <div class="ui-card-body">
+    {% if not obj.elenco_domini %}<div class="ui-alert ui-alert-warning">Indica almeno un sito ammesso: finché è vuoto il modulo è spento.</div>{% endif %}
+    <p class="ui-help">Metti queste righe nella pagina, dove vuoi il modulo. Funziona solo dai siti ammessi; chi lo compila diventa un'opportunità{% if obj.commerciale %} di {{ obj.commerciale.get_full_name|default:obj.commerciale.username }}, con un'attività per ricontattarlo{% endif %}.</p>
+    <pre class="ui-codice"><code>&lt;div data-adabox-lead="{{ request.scheme }}://{{ request.get_host }}{% url 'crm:modulo_web' obj.chiave %}"{% if obj.chiedi_telefono %} data-telefono{% endif %}{% if obj.chiedi_azienda %} data-azienda{% endif %}{% if obj.privacy_url %} data-privacy="{{ obj.privacy_url }}"{% endif %}&gt;&lt;/div&gt;
+&lt;script src="{{ request.scheme }}://{{ request.get_host }}{% static 'crm/modulo-web.js' %}" defer&gt;&lt;/script&gt;</code></pre>
+  </div>
+</section>

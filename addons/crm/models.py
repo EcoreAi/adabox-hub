@@ -1,3 +1,5 @@
+import secrets
+
 from django.conf import settings
 from django.core.validators import MaxValueValidator
 from django.db import models
@@ -85,6 +87,7 @@ class Opportunita(AziendaMixin, ProprietaMixin):
     motivo_perdita = models.ForeignKey(MotivoPerdita, on_delete=models.SET_NULL, null=True, blank=True,
                                        verbose_name="motivo di perdita")
     note = models.TextField("note", blank=True)
+    origine = models.CharField("origine", max_length=100, blank=True, help_text="da dove è arrivata, es. «Modulo del sito: Contatti»")
 
     class Meta(AziendaMixin.Meta):
         verbose_name = "opportunità"
@@ -129,3 +132,37 @@ def _probabilita_dalla_fase(azienda_id):
 
 pre_save.connect(conserva_colore, sender=FaseCrm, dispatch_uid="crm.colore_fase")
 pre_save.connect(conserva_colore, sender=EtichettaCrm, dispatch_uid="crm.colore_etichetta")
+
+
+def _chiave():
+    return secrets.token_urlsafe(18)
+
+
+class ModuloWeb(AziendaMixin):
+    """Un modulo «contattaci» da mettere sul sito: chi lo compila diventa un'opportunità, con l'origine e
+    un'attività al commerciale. Funziona solo dai siti ammessi."""
+    nome = models.CharField("nome", max_length=80, help_text="per riconoscerlo, es. «Contatti del sito»")
+    chiave = models.CharField("chiave", max_length=40, unique=True, default=_chiave, editable=False)
+    domini = models.TextField("siti ammessi", blank=True,
+                              help_text="uno per riga, es. https://www.miosito.it; vuoto = modulo spento")
+    chiedi_telefono = models.BooleanField("chiede il telefono", default=True)
+    chiedi_azienda = models.BooleanField("chiede l'azienda", default=True)
+    commerciale = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name="+", verbose_name="commerciale",
+                                    help_text="riceve l'opportunità e l'attività per ricontattare")
+    etichetta = models.ForeignKey(EtichettaCrm, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="etichetta")
+    grazie = models.CharField("messaggio di ringraziamento", max_length=250,
+                              default="Grazie, abbiamo ricevuto la richiesta: ti ricontattiamo presto.")
+    privacy_url = models.URLField("informativa privacy", blank=True, help_text="il link mostrato sotto il modulo")
+    attivo = models.BooleanField("attivo", default=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "modulo web"
+        verbose_name_plural = "moduli web"
+        ordering = ["nome"]
+
+    def __str__(self):
+        return self.nome
+
+    def elenco_domini(self):
+        return [d.strip().rstrip("/").lower() for d in self.domini.splitlines() if d.strip()]

@@ -11,7 +11,7 @@ Confronto con la checklist di `docs/features-gap` (Odoo, ERPNext, NetSuite, Busi
 - **Acquisti è stata l'app scelta per l'intervento:** passa da 0 a 8 voci complete su 14 (sezione E).
 - **Fatti il 2026-11-05:** scadenziario a fasce, fido dei clienti e pacchetto per il commercialista (FIN-06, FIN-07, FIN-01).
 - **Fatti il 2026-11-05 anche:** ricerche salvate, ricerca in tutte le app, Pivot, registro delle modifiche, scadenza e limiti dei token API (RPT-03, RPT-02, PLT-04, parte di PLT-17 e PLT-14).
-- **Fatto il 2026-11-08:** chatter completo, con messaggi fissati, menzioni senza Discuss e invio a indirizzi esterni scelti al momento (PLT-10), e tolleranza alla perdita di connessione: avviso offline, «Riprova» sugli errori, bozze dei form (PLT-19), posizioni e organigramma (HR-01), dashboard per ruolo e pagine di Analisi condivise con ruoli e gruppi (RPT-01), riaddebito delle spese ai clienti e rimborso abbinato alla banca (FIN-24).
+- **Fatto il 2026-11-08:** chatter completo, con messaggi fissati, menzioni senza Discuss e invio a indirizzi esterni scelti al momento (PLT-10), e tolleranza alla perdita di connessione: avviso offline, «Riprova» sugli errori, bozze dei form (PLT-19), posizioni e organigramma (HR-01), dashboard per ruolo e pagine di Analisi condivise con ruoli e gruppi (RPT-01), riaddebito delle spese ai clienti e rimborso abbinato alla banca (FIN-24), modulo web-to-lead per il sito (CRM-19).
 - **Integrazioni, iniziate il 2026-11-05 nel modulo Connettori:** webhook firmati in uscita, identificativi esterni sui record, bottoni via API, chat collegata al contatto e primo connettore HubSpot sui contatti delle persone, provato solo contro un sistema simulato. Mancano aziende e opportunità e gli altri sistemi. Zucchetti e TeamSystem Enterprise/Lynfa non hanno documentazione pubblica trovata: servono partner o contatto commerciale.
 
 ## Da dove partire
@@ -199,12 +199,11 @@ Ogni voce aperta è assegnata all'app dove andrebbe costruita. Ordine dentro ogn
 
 ### crm
 
-4 voci aperte: 1 Core, 3 Adv, 0 Edge.
+3 voci aperte: 1 Core, 2 Adv, 0 Edge.
 
 | ID | Tier | Stato | Effort | Cosa costruire |
 |---|---|---|---|---|
 | CRM-07 | Core | PARTIAL | M | Modelli TeamVendita e ObiettivoVendita per persona, team e periodo, riassegnazione per team; report consuntivo su obiettivo, tasso di vittoria, durata media e motivi di perdita. |
-| CRM-19 | Adv | PARTIAL | S | Modulo incorporabile (campi, domini ammessi, limiti ed esca come nel widget) che crea un'Opportunita con origine e attività al commerciale, più creazione del lead dalla chat con nome ed email già compilati. |
 | CRM-14 | Adv | MISSING | M | Punteggio salvato sull'opportunità con ricalcolo periodico nel worker da storico vinte/perse, attività e dati del contatto, spiegazione dei fattori e ordinamento in kanban. |
 | CRM-15 | Adv | PARTIAL | M | Piani provvigionali per venditore e prodotto maturati su ordine o incasso con estratto; quote legate agli obiettivi; vista previsione per periodo da pipeline ponderata con rettifica manuale. |
 
@@ -697,7 +696,7 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | CRM-16 | Firma elettronica su preventivi e contratti | Adv | PARTIAL | addons/vendite/operazioni.py (accetta, impronta); addons/vendite/models.py (risposta_nome, risposta_il, risposta_ip, risposta_impronta); addons/vendite/templates/vendite/online.html (nome più spunta) | Accettazione tracciata con nome, data, IP e impronta del contenuto, solo sui preventivi. Mancano tratto di firma, verifica del firmatario (OTP), PDF firmato con attestato conservato, sigillo o provider qualificato. Contratti (ricorrenti.Canone, assistenza.Contratto) e altri documenti non si firmano. |
 | CRM-17 | Abbonamenti, noleggio, fedeltà, promozioni, gift card, coupon | Adv | PARTIAL | addons/ricorrenti/models.py (Canone, FatturaCanone, Adeguamento); addons/ricorrenti/operazioni.py (giro, disdici, _chiudi_o_rinnova, adegua); addons/ricorrenti/pagine.py (cruscotto MRR) | Gli abbonamenti sono completi: fatturazione periodica, rinnovo, disdetta, ISTAT, cruscotto. Non esiste nulla per noleggio, fedeltà, promozioni, gift card e coupon (nessuna occorrenza nel codice). |
 | CRM-18 | Configuratore di prodotto / CPQ | Adv | MISSING | addons/prodotti/models.py (nessun attributo o variante); spec fase 5, Fuori scope: varianti di prodotto; nessuna occorrenza di configurator o variante | Nessun attributo, regola di compatibilità o prezzo configurato. L'esclusione esplicita riguarda le varianti, non il CPQ, quindi resta MISSING. |
-| CRM-19 | Chat sul sito e moduli web-to-lead | Adv | PARTIAL | addons/discuss/livechat.py (widget, finestra, avvia, scrivi); addons/discuss/assistente_sito.py; addons/discuss/assegnazioni.py; addons/discuss/connettori.py (WhatsApp, Telegram); addons/discuss/pagine.py (crea_da); addons/discuss/schede.py (vista_creabile); addons/assistenza/widget.py (segnala: crea ticket) | La chat è completa, con AI, operatori a turno e canali WhatsApp e Telegram; dal messaggio l'operatore crea a mano un record, anche un'opportunità. Manca il modulo web pubblico che crea un lead: il widget di assistenza produce solo ticket e l'API richiede un token. La chat non crea lead da sola. |
+| CRM-19 | Chat sul sito e moduli web-to-lead | Adv | HAVE | addons/crm/models.py ModuloWeb, Opportunita.origine; addons/crm/modulo_web.py invia, crea_lead; addons/crm/static/crm/modulo-web.js; addons/discuss/schede.py iniziali; addons/crm/tests/test_modulo_web.py | Fatto il 2026-11-08: modulo «contattaci» da incorporare con due righe, solo dai siti ammessi, con esca e limite per indirizzo; crea l'opportunità con origine, etichetta, contatto già in anagrafica, pagina e UTM, e un'attività al commerciale. Dalla chat del sito l'opportunità creata a mano parte con nome ed email del visitatore. La chat non crea ancora lead da sola |
 | CRM-20 | Agente che prepara ordini dalle email dei clienti | Edge | PARTIAL | core/chatter/entrata.py (registra_gestore, usato solo da helpdesk); addons/ai/strumenti/scritture.py (crea_record con righe, proposta da confermare); addons/ai/strumenti/specialisti.py (classifica); addons/awf/eventi.py (record.assigned verso agenti) | I blocchi ci sono: email in entrata, Ada che propone un preventivo con righe e conferma umana. Manca il flusso: nessun gestore riconosce una richiesta d'ordine, individua cliente e prodotti, legge l'allegato e crea la bozza. |
 
 ### Acquisti (PUR)
@@ -1170,7 +1169,6 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | CRM-15 | Provvigioni, quote e previsione delle vendite | Piani provvigionali per venditore e prodotto maturati su ordine o incasso con estratto; quote legate agli obiettivi; vista previsione per periodo da pipeline ponderata con rettifica manuale. | CRM-07 | M |
 | CRM-16 | Firma elettronica su preventivi e contratti | Servizio di firma riusabile sui documenti: richiesta con OTP via email o SMS, PDF con pagina di attestazione e hash conservato, opzione verso provider qualificato; applicato a preventivi e contratti. | PLT-24 | M |
 | CRM-17 | Abbonamenti, noleggio, fedeltà, promozioni, gift card, coupon | Regole promozionali e coupon applicati alle righe di vendita, carte regalo e punti come saldo del contatto con registro movimenti; il noleggio segue COM-11. | COM-07, COM-11 | L |
-| CRM-19 | Chat sul sito e moduli web-to-lead | Modulo incorporabile (campi, domini ammessi, limiti ed esca come nel widget) che crea un'Opportunita con origine e attività al commerciale, più creazione del lead dalla chat con nome ed email già compilati. | - | S |
 
 **Acquisti**
 
