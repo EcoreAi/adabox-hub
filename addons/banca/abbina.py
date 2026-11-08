@@ -209,12 +209,48 @@ def annulla(abbinamento):
     """Toglie anche l'incasso o riapre la scadenza: come se non fosse mai stato abbinato."""
     if abbinamento.incasso_id:
         fatture.annulla_incasso(abbinamento.incasso)        # l'abbinamento se ne va con lui, e il segnale aggiorna il movimento
+    elif abbinamento.id_documento:                          # un altro documento (es. un rimborso): resta com'è
+        abbinamento.delete()
     else:
         scadenza = abbinamento.scadenza_passiva
         scadenza.pagata, scadenza.pagata_il = False, None
         scadenza.save(update_fields=["pagata", "pagata_il"])
         _passiva_cambiata(scadenza.fattura)
         abbinamento.delete()
+
+
+def candidati_uscita(azienda, importo, data=None, giorni=45):
+    """I movimenti in uscita dell'azienda che potrebbero pagare `importo`: non ignorati, con almeno quel residuo, entro
+    `giorni` dalla data; prima quelli dell'importo esatto e più vicini alla data."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+    data = data or timezone.localdate()
+    movimenti = (MovimentoBanca.objects.filter(azienda=azienda, importo__lt=0, data__range=(data - timedelta(days=giorni), data + timedelta(days=giorni)))
+                 .exclude(stato__in=(MovimentoBanca.IGNORATO, MovimentoBanca.ABBINATO)).select_related("conto"))
+    adatti = [m for m in movimenti if m.da_coprire >= importo]
+    return sorted(adatti, key=lambda m: (abs(m.importo) != importo, abs((m.data - data).days)))[:10]
+
+
+@transaction.atomic
+def abbina_documento(movimento, documento, importo, utente=None):
+    """Il movimento salda `importo` di un documento di un altro modulo (es. il rimborso di una nota spese)."""
+    from django.contrib.contenttypes.models import ContentType
+    movimento = MovimentoBanca.objects.select_for_update().get(pk=movimento.pk)
+    if movimento.stato == MovimentoBanca.IGNORATO:
+        raise ValidationError("Questo movimento è ignorato: ripristinalo prima di abbinarlo.")
+    if importo <= 0 or movimento.da_coprire < importo:
+        raise ValidationError(f"Il movimento non copre {importo} €.")
+    a = Abbinamento.objects.create(movimento=movimento, importo=importo, utente=utente,
+                                   tipo_documento=ContentType.objects.get_for_model(documento), id_documento=documento.pk)
+    _aggiorna_stato(movimento)
+    return a
+
+
+def abbinamenti_di(documento):
+    """Gli abbinamenti che saldano un documento di un altro modulo."""
+    from django.contrib.contenttypes.models import ContentType
+    return Abbinamento.objects.filter(tipo_documento=ContentType.objects.get_for_model(documento), id_documento=documento.pk).select_related("movimento__conto")
 
 
 def abbinamento_tolto(sender, instance, **kwargs):

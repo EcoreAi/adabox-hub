@@ -11,7 +11,7 @@ Confronto con la checklist di `docs/features-gap` (Odoo, ERPNext, NetSuite, Busi
 - **Acquisti è stata l'app scelta per l'intervento:** passa da 0 a 8 voci complete su 14 (sezione E).
 - **Fatti il 2026-11-05:** scadenziario a fasce, fido dei clienti e pacchetto per il commercialista (FIN-06, FIN-07, FIN-01).
 - **Fatti il 2026-11-05 anche:** ricerche salvate, ricerca in tutte le app, Pivot, registro delle modifiche, scadenza e limiti dei token API (RPT-03, RPT-02, PLT-04, parte di PLT-17 e PLT-14).
-- **Fatto il 2026-11-08:** chatter completo, con messaggi fissati, menzioni senza Discuss e invio a indirizzi esterni scelti al momento (PLT-10), e tolleranza alla perdita di connessione: avviso offline, «Riprova» sugli errori, bozze dei form (PLT-19), posizioni e organigramma (HR-01), dashboard per ruolo e pagine di Analisi condivise con ruoli e gruppi (RPT-01).
+- **Fatto il 2026-11-08:** chatter completo, con messaggi fissati, menzioni senza Discuss e invio a indirizzi esterni scelti al momento (PLT-10), e tolleranza alla perdita di connessione: avviso offline, «Riprova» sugli errori, bozze dei form (PLT-19), posizioni e organigramma (HR-01), dashboard per ruolo e pagine di Analisi condivise con ruoli e gruppi (RPT-01), riaddebito delle spese ai clienti e rimborso abbinato alla banca (FIN-24).
 - **Integrazioni, iniziate il 2026-11-05 nel modulo Connettori:** webhook firmati in uscita, identificativi esterni sui record, bottoni via API, chat collegata al contatto e primo connettore HubSpot sui contatti delle persone, provato solo contro un sistema simulato. Mancano aziende e opportunità e gli altri sistemi. Zucchetti e TeamSystem Enterprise/Lynfa non hanno documentazione pubblica trovata: servono partner o contatto commerciale.
 
 ## Da dove partire
@@ -255,11 +255,10 @@ Ogni voce aperta è assegnata all'app dove andrebbe costruita. Ordine dentro ogn
 
 ### spese
 
-2 voci aperte: 1 Core, 0 Adv, 1 Edge.
+1 voce aperta: 0 Core, 0 Adv, 1 Edge.
 
 | ID | Tier | Stato | Effort | Cosa costruire |
 |---|---|---|---|---|
-| FIN-24 | Core | PARTIAL | S | Cliente e progetto sulla riga con azione che genera le righe di fattura, cattura da fotocamera nel form, rimborso collegabile a un pagamento bancario. |
 | HR-16 | Edge | MISSING | M | Lavoro in background che legge la ricevuta col modulo ai, propone data, importo e categoria, e segnala all'approvatore duplicati e incoerenze con la policy. |
 
 ### contatti
@@ -660,7 +659,7 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | FIN-21 | Bilancio, conto economico, flussi, bilancio di verifica | Core | N/A | Nessun mastro | Decisione utente 2026-11-03. Le scadenze aperte sono in FIN-06; l'esportazione per lo studio è quella di FIN-01 |
 | FIN-22 | Valorizzazione del magazzino contabilizzata | Core | N/A | magazzino.Movimento senza costo (addons/magazzino/models.py); prodotti.Prodotto.costo unico (addons/prodotti/models.py) | La contabilizzazione dipende dal mastro, decisione utente 2026-11-03. Servirebbe però un'esportazione delle rimanenze valorizzate a una data, che oggi manca: i movimenti non registrano il costo, quindi niente FIFO né costo medio |
 | FIN-23 | Scritture di assestamento e storni automatici | Core | N/A | Nessun mastro | Decisione utente 2026-11-03. Le fatture da ricevere si potrebbero aggiungere all'esportazione di FIN-01 confrontando ricevimenti e fatture passive, dopo FIN-05 |
-| FIN-24 | Note spese: invio, ricevute da mobile, approvazione, rimborso, riaddebito | Core | PARTIAL | addons/spese/models.py NotaSpese, RigaSpesa, CategoriaSpesa; addons/spese/flusso.py invia, decidi, rimborsa; addons/spese/views.py NotaView | Flusso completo con limiti, chilometri e approvatori. Il rimborso è solo un flag di stato. Mancano riaddebito al cliente (RigaSpesa senza cliente o progetto), cattura dedicata da telefono (solo file upload da browser, nessuna app) e lettura automatica |
+| FIN-24 | Note spese: invio, ricevute da mobile, approvazione, rimborso, riaddebito | Core | HAVE | addons/spese/riaddebito.py da_riaddebitare, fattura, movimenti_per; addons/spese/pagine.py riaddebiti, rimborso; addons/banca/abbina.py abbina_documento, candidati_uscita; addons/spese/tests/test_riaddebito.py | Fatto il 2026-11-08: cliente sulla riga di spesa e pagina «Da riaddebitare» che crea la fattura in bozza (le spese tornano libere se la fattura si annulla, si storna o si elimina); dal telefono il campo della ricevuta apre la fotocamera; il rimborso si abbina al movimento bancario in uscita che lo paga, proposto per importo e data. Non ci sono il progetto sulla riga (le note spese non dipendono da Progetti) né la lettura automatica degli scontrini (OCR in attesa) |
 | FIN-25 | Link di pagamento e pagamento online delle fatture | Core | HAVE | Nessun provider nel codice (ricerca stripe, paypal, nexi, pagamento online senza risultati); addons/assistenza/portale.py non mostra fatture; MP23 PagoPA è solo un codice | Nulla di presente Fatto il 2026-11-06: modulo «pagamenti», «Paga ora» nel portale e da un link firmato per le email, Stripe Checkout, conferma al ritorno e con webhook firmato, incasso con incassa_fattura una volta sola. Manca il link inserito in automatico nelle email di invio e sollecito. |
 | FIN-26 | Blocco periodi e chiusura d'esercizio | Core | N/A | Nessun mastro; in addons/fatturazione/operazioni.py controlla impone solo l'ordine di date nella numerazione | Decisione utente 2026-11-03 per la chiusura. Resta utile, senza mastro, un blocco dei registri IVA per periodo già comunicato allo studio, oggi assente |
 | FIN-27 | Riconoscimento ricavi (IFRS 15, ASC 606) | Adv | N/A | Nessun mastro | Dipende dal mastro, decisione utente 2026-11-03. Non serve esportazione oltre a quella di FIN-18 |
@@ -970,7 +969,6 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | FIN-16 | Report IVA di periodo con export per l'Agenzia | Pagina di liquidazione IVA mensile o trimestrale dai due registri, con credito riportato e detraibilità, ed export dati per lo studio; il file ufficiale è LOC-02. | FIN-15 | M |
 | FIN-19 | Budget con confronto budget e consuntivo | Budget economico per commessa e periodo, a voci, con consuntivo da ore, fatture passive e note spese imputate. | FIN-20 | M |
 | FIN-20 | Contabilità analitica a dimensioni | Dimensioni analitiche configurabili (commessa, centro di costo) sulle righe di documento, con ripartizioni percentuali, modifica massiva e report per asse. | - | M |
-| FIN-24 | Note spese: invio, ricevute da mobile, approvazione, rimborso, riaddebito | Cliente e progetto sulla riga con azione che genera le righe di fattura, cattura da fotocamera nel form, rimborso collegabile a un pagamento bancario. | FIN-36 | S |
 
 **Vendite, CRM e marketing**
 

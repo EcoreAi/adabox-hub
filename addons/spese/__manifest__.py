@@ -1,10 +1,10 @@
 {
     "name": "Note spese",
     "summary": "Note spese dei dipendenti con ricevute, rimborsi chilometrici, approvazione e rimborso",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Risorse umane",
-    "depends": ["personale"],
+    "depends": ["personale", "contatti"],
     "min_core": "1.0",
     "riepilogo": "spese.riepilogo.voci",
     "application": True,
@@ -12,6 +12,7 @@
     "dashboard": "spese.dashboard.kpi",
     "menu": [
         {"label": "Note spese", "url_name": "spese:note_lista", "permission": "spese.view_notaspese"},
+        {"label": "Da riaddebitare", "url_name": "spese:riaddebiti", "permission": "fatturazione.add_fattura"},
         {"label": "Categorie", "url_name": "spese:categorie_lista", "permission": "spese.change_categoriaspesa"},
     ],
     "groups": {

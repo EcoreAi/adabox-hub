@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericForeignKey
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Sum
@@ -102,6 +103,11 @@ class Abbinamento(models.Model):
     incasso = models.OneToOneField("fatturazione.Incasso", on_delete=models.CASCADE, null=True, blank=True, related_name="da_banca", verbose_name="incasso")
     scadenza_passiva = models.ForeignKey("sdi.ScadenzaPassiva", on_delete=models.CASCADE, null=True, blank=True, related_name="da_banca", verbose_name="scadenza da pagare")
     importo = models.DecimalField("importo", max_digits=14, decimal_places=2)
+    # un altro documento che il movimento salda (il rimborso di una nota spese…): la banca non dipende dai moduli
+    tipo_documento = models.ForeignKey("contenttypes.ContentType", on_delete=models.CASCADE, null=True, blank=True,
+                                       related_name="+", verbose_name="tipo di documento")
+    id_documento = models.PositiveBigIntegerField("documento", null=True, blank=True)
+    documento = GenericForeignKey("tipo_documento", "id_documento")
     utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="abbinato da")
     creato = models.DateTimeField("abbinato il", auto_now_add=True)
 

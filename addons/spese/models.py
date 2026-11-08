@@ -76,6 +76,11 @@ class RigaSpesa(models.Model):
     km = models.DecimalField("km", max_digits=8, decimal_places=1, null=True, blank=True)
     importo = models.DecimalField("importo (€)", max_digits=10, decimal_places=2, null=True, blank=True)
     ricevuta = models.FileField("ricevuta", upload_to=_percorso, storage=StoragePrivato(), max_length=300, blank=True)
+    cliente = models.ForeignKey("contatti.Contatto", on_delete=models.SET_NULL, null=True, blank=True, related_name="spese_da_riaddebitare",
+                                verbose_name="riaddebita a", help_text="il cliente a cui rifatturare la spesa")
+    # la fattura (di Fatturazione) in cui è stata riaddebitata: numero e non chiave esterna, le note spese non dipendono
+    # da Fatturazione; se la fattura si annulla o si elimina, la spesa torna da riaddebitare
+    riaddebitata_in = models.PositiveIntegerField("riaddebitata nella fattura", null=True, blank=True, editable=False)
 
     class Meta:
         verbose_name = "spesa"

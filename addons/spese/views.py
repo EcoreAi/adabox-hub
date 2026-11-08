@@ -23,6 +23,16 @@ class CategoriaView(ModelView):
     form_layout = [("Categoria", ["nome", ("limite", "ricevuta_obbligatoria"), ("chilometrica", "tariffa_km"), "attiva"])]
 
 
+class RigheSpesa(Inline):
+    """Dal telefono il campo della ricevuta propone subito la fotocamera (o una foto già fatta, o un PDF)."""
+
+    def formset_class(self, documento, azienda_id=None):
+        formset = super().formset_class(documento, azienda_id)
+        formset.form.base_fields["ricevuta"].widget.attrs.update(accept="image/*,application/pdf")
+        formset.form.base_fields["cliente"].help_text = "se la spesa va rifatturata"
+        return formset
+
+
 @register
 class NotaView(ModelView):
     model = NotaSpese
@@ -34,8 +44,8 @@ class NotaView(ModelView):
     readonly_fields = ["numero", "stato", "totale", "inviata_il", "decisa_da", "nota_decisione", "rimborsata_il"]
     company_field = "azienda"
     sequence_field = ("numero", "spese.nota")
-    inlines = [Inline(RigaSpesa, "nota", ["data", "categoria", "descrizione", "km", "importo", "ricevuta"],
-                      titolo="Spese", extra=2)]
+    inlines = [RigheSpesa(RigaSpesa, "nota", ["data", "categoria", "descrizione", "km", "importo", "ricevuta", "cliente"],
+                          titolo="Spese", extra=2)]
     list_group_by = ["stato", "dipendente", "inviata_il:mese"]
     list_sum = ["totale"]
     kanban_group = "stato"
@@ -155,6 +165,9 @@ class NotaView(ModelView):
     riapri.permission = "view"
 
     def rimborsa(self, request, obj):
+        from . import riaddebito
+        if riaddebito.banca_disponibile() and request.user.has_perm("banca.view_movimentobanca"):
+            return redirect("spese:rimborso", pk=obj.pk)          # con la data e il movimento bancario che l'ha pagata
         return self._esegui(request, obj, flusso.rimborsa) or f"{obj} rimborsata."
     rimborsa.short_description = "Segna rimborsata"
     rimborsa.permission = "view"

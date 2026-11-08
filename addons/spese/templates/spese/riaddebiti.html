@@ -1,0 +1,26 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Spese da riaddebitare · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Spese da riaddebitare</h1>
+  <div class="sub">Spese approvate con un cliente indicato, non ancora fatturate{% if gruppi %} · {{ totale|floatformat:2 }} € in tutto{% endif %}</div></div></div>
+{% for g in gruppi %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">{{ g.cliente }}</div><span class="ui-help">{{ g.totale|floatformat:2 }} €</span></div>
+  <div class="ui-card-body">
+    <form method="post">{% csrf_token %}<input type="hidden" name="cliente" value="{{ g.cliente.pk }}">
+      <div class="ui-table-wrap"><table class="ui-table">
+        <thead><tr><th></th><th>Data</th><th>Spesa</th><th>Nota</th><th class="num">Importo</th></tr></thead>
+        <tbody>{% for r in g.righe %}<tr>
+          <td><input type="checkbox" name="riga" value="{{ r.pk }}" checked aria-label="Riaddebita {{ r.descrizione }}"></td>
+          <td>{{ r.data|date:"d/m/Y" }}</td><td>{{ r.descrizione }} <span class="ui-help">{{ r.categoria }}</span></td>
+          <td><a class="ui-link" href="{% url 'spese:note_dettaglio' r.nota_id %}">{{ r.nota.numero|default:r.nota.titolo }}</a> · {{ r.nota.dipendente }}</td>
+          <td class="num">{{ r.importo|floatformat:2 }} €</td></tr>{% endfor %}</tbody>
+      </table></div>
+      <button class="ui-btn ui-btn-primary" type="submit">Crea la fattura in bozza</button>
+    </form>
+  </div>
+</section>
+{% empty %}
+<div class="ui-card is-revealed"><div class="ui-card-body"><div class="ui-empty"><p>Nessuna spesa da riaddebitare. Per rifatturare una spesa, indica il cliente nella riga della nota spese.</p></div></div></div>
+{% endfor %}
+{% endblock %}
