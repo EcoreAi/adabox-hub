@@ -1,0 +1,16 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Dipartimenti · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Dipartimenti</h1><div class="sub">Il ruolo dice quanto può fare una persona, il dipartimento in quali app</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'core:utenti' %}"><svg><use href="#icon-arrow-left"/></svg> Utenti</a><a class="ui-btn ui-btn-primary" href="{% url 'core:dipartimento_nuovo' %}"><svg><use href="#icon-plus"/></svg> Nuovo dipartimento</a></div></div>
+<section class="ui-card is-revealed"><div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Dipartimento</th><th>App</th><th>Persone</th></tr></thead><tbody>
+  {% for r in righe %}<tr><td><a class="ui-link" href="{% url 'core:dipartimento' r.d.pk %}"><strong>{{ r.d }}</strong></a>{% if r.d.suite %} <span class="ui-pill ui-pill-ok" title="Nato da una suite comprata: le app della suite lo seguono">Suite</span>{% endif %}<div class="sub">{{ r.d.descrizione }}</div></td>
+    <td class="sub">{{ r.app }}</td>
+    <td>{% for u in r.persone %}{% firstof u.get_full_name u.username %}{% if not forloop.last %}, {% endif %}{% empty %}<span class="sub">Nessuno</span>{% endfor %}{% if r.posti %}<div class="sub">{{ r.posti.occupati }} su {{ r.posti.utenti }} posti della suite</div>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="3"><div class="ui-empty"><p>Nessun dipartimento: ognuno vede le app che il suo ruolo consente.</p></div></td></tr>{% endfor %}</tbody></table></div></section>
+<div class="dp-note">
+  <p><strong>Comuni a tutti:</strong> {{ comuni|join:", "|default:"nessuna" }}. Si decide dalla scheda di ogni applicazione.</p>
+  <p><strong>Senza dipartimento:</strong> {{ senza }} person{{ senza|pluralize:"a,e" }}. Vedono tutte le app che il loro ruolo consente.</p>
+  <p>Chi è in più dipartimenti vede le app di tutti. Un'app porta con sé quelle da cui dipende: Vendite apre anche Contatti e Prodotti. Un'eccezione per persona, dalla sua scheda, apre un'app anche fuori dai suoi dipartimenti.</p>
+</div>
+{% endblock %}

@@ -89,10 +89,16 @@ def sincronizza() -> list[Modulo]:
     info = scopri()
     stato = installati()
     righe = {r.slug: r for r in Modulo.objects.all()}
+    nuove_comuni = None
     for slug in set(info) | set(stato):
         i = info.get(slug)
         m = i.manifest if i else None
-        riga = righe.get(slug) or Modulo(slug=slug, nome=m.name if m else slug)
+        riga = righe.get(slug)
+        if riga is None:
+            if nuove_comuni is None:
+                from core import dipartimenti
+                nuove_comuni = dipartimenti.comuni_predefinite()
+            riga = Modulo(slug=slug, nome=m.name if m else slug, comune=slug in nuove_comuni)
         if m:
             riga.nome, riga.versione_disponibile, riga.application = m.name, m.version, m.application
         if slug in stato:
@@ -202,16 +208,17 @@ def _voce_visibile(user, voce):
 
 
 def app_visibili(user):
-    """App installate (application=True) con almeno una voce di menu permessa all'utente.
+    """App installate (application=True), ammesse dai dipartimenti dell'utente, con almeno una voce di menu permessa.
     [{slug, label, summary, icon, url_name, url, menu: [{label, url_name, url}], settings_url}]"""
     from django.urls import NoReverseMatch, reverse
     if not user.is_authenticated:
         return []
+    from core import dipartimenti
     apps = []
     spenti = disattivati()
     nomi = etichette()
     for slug, m in manifests_attivi().items():
-        if not m.application or slug in spenti:
+        if not m.application or slug in spenti or not dipartimenti.ammessa(user, slug):
             continue
         menu = []
         for voce in m.menu:
@@ -257,10 +264,11 @@ def voci_profilo(user):
     from django.urls import NoReverseMatch, reverse
     if not user.is_authenticated:
         return []
+    from core import dipartimenti
     voci = []
     spenti = disattivati()
     for slug, m in manifests_attivi().items():
-        if slug in spenti:
+        if slug in spenti or not dipartimenti.ammessa(user, slug):
             continue
         for voce in m.menu_profilo:
             if not _voce_visibile(user, voce):

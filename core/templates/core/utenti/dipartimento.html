@@ -1,0 +1,21 @@
+{% extends 'core/base_app.html' %}
+{% block title %}{% if dipartimento %}{{ dipartimento }}{% else %}Nuovo dipartimento{% endif %} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>{% if dipartimento %}{{ dipartimento }}{% else %}Nuovo dipartimento{% endif %}</h1><div class="sub">{% if dipartimento.suite %}Nato dalla suite comprata: le app che entrano o escono dalla suite lo seguono{% else %}Le app che usa e le persone che ne fanno parte{% endif %}{% if posti %} · {{ posti.occupati }} su {{ posti.utenti }} posti della suite occupati{% endif %}</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'core:dipartimenti' %}"><svg><use href="#icon-arrow-left"/></svg> Dipartimenti</a></div></div>
+<form method="post" class="ut-form">{% csrf_token %}
+  {% if form.non_field_errors %}<div class="ui-alert ui-alert-danger">{% for e in form.non_field_errors %}<p>{{ e }}</p>{% endfor %}</div>{% endif %}
+  <section class="ui-card is-revealed ui-section"><div class="ui-card-body ut-griglia">
+    {% for campo in form %}{% if campo.name in "nome descrizione responsabile ordine" %}<div class="ui-form-group"><label class="ui-label" for="{{ campo.id_for_label }}">{{ campo.label|capfirst }}</label>{{ campo }}{% if campo.help_text %}<p class="ui-help">{{ campo.help_text }}</p>{% endif %}{% for e in campo.errors %}<p class="ui-error">{{ e }}</p>{% endfor %}</div>{% endif %}{% endfor %}
+    <div class="ui-form-group"><label class="ut-check">{{ form.tutte }} Tutte le app</label><p class="ui-help">{{ form.tutte.help_text|capfirst }}: chi ne fa parte non ha limiti.</p></div>
+  </div></section>
+  <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div><div class="ui-card-title">App</div><div class="ui-card-sub">Quelle segnate «comune» le vede già chiunque{% if portate %} · porta con sé anche {{ portate|join:", " }}{% endif %}</div></div></div>
+    <div class="ui-card-body dp-colonne">{% for c in colonne %}<fieldset class="dp-colonna"><legend>{{ c.titolo }}</legend>
+      {% for a in c.voci %}<label class="ut-check"><input type="checkbox" name="app" value="{{ a.slug }}"{% if a.scelta %} checked{% endif %}> {{ a.label }}{% if a.comune %} <span class="ui-pill ui-pill-neutral">comune</span>{% endif %}</label>{% endfor %}
+    </fieldset>{% endfor %}</div></section>
+  <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div><div class="ui-card-title">Persone</div><div class="ui-card-sub">Il ruolo di ognuno decide che cosa può fare in queste app</div></div></div>
+    <div class="ui-card-body dp-persone">{% for p in persone %}<label class="ut-check"><input type="checkbox" name="membri" value="{{ p.u.pk }}"{% if p.scelta %} checked{% endif %}> {% firstof p.u.get_full_name p.u.username %}</label>{% empty %}<p class="sub">Nessun utente attivo.</p>{% endfor %}</div></section>
+  <div class="ut-salva"><button class="ui-btn ui-btn-primary" type="submit"><svg><use href="#icon-save"/></svg> Salva</button></div>
+</form>
+{% if dipartimento and perms.core.delete_dipartimento %}<form method="post" action="{% url 'core:dipartimento_elimina' dipartimento.pk %}" class="ut-elimina" onsubmit="return confirm('Eliminare il dipartimento «{{ dipartimento|escapejs }}»? Le persone restano, con i loro altri dipartimenti o il solo ruolo.')">{% csrf_token %}<button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit"><svg><use href="#icon-trash"/></svg> Elimina il dipartimento</button></form>{% endif %}
+{% endblock %}

@@ -1,0 +1,4 @@
+{% extends 'theme/base.html' %}
+{% block title %}Fuori dai tuoi dipartimenti · {{ theme.brand }}{% endblock %}
+{% block content %}{% include 'theme/partials/_scheda_errore.html' with codice='403' titolo='Fuori dai tuoi dipartimenti' testo="Questa applicazione non è tra quelle dei dipartimenti di cui fai parte. Se ti serve, chiedi all'amministratore di aggiungerti al dipartimento giusto." %}{% endblock %}
+{% block public_content %}<main class="ui-shell"><div class="ui-container ui-content">{% include 'theme/partials/_scheda_errore.html' with codice='403' titolo='Fuori dai tuoi dipartimenti' testo="Questa applicazione non è tra quelle dei tuoi dipartimenti." %}</div></main>{% endblock %}

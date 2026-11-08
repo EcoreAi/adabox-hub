@@ -33,6 +33,8 @@ class Stato:
     emessa: str = ""
     scadenza: datetime.date | None = None
     grazia_giorni: int = GRAZIA_PREDEFINITA
+    suite: tuple = ()                                    # ({slug, nome, moduli: frozenset, utenti}, ...) comprate dall'istanza
+    comuni: frozenset = field(default_factory=frozenset)  # le app del piano base: di tutti i dipartimenti
 
     @property
     def scaduta(self):
@@ -77,9 +79,21 @@ def _leggi(testo, chiavi):
         return Stato(True, cliente=str(contenuto.get("cliente", "")), istanza=str(contenuto.get("istanza", "")),
                      piano=str(contenuto.get("piano", "")), moduli=frozenset(contenuto.get("moduli") or []),
                      utenti=int(contenuto.get("utenti") or 0), emessa=str(contenuto.get("emessa", "")), scadenza=scadenza,
-                     grazia_giorni=int(contenuto.get("grazia_giorni", GRAZIA_PREDEFINITA)))
+                     grazia_giorni=int(contenuto.get("grazia_giorni", GRAZIA_PREDEFINITA)),
+                     suite=_suite(contenuto.get("suite")), comuni=frozenset(contenuto.get("comuni") or []))
     except (KeyError, ValueError, TypeError):
         return Stato(False, "La licenza non ha dati validi.")
+
+
+def _suite(voci):
+    """Le suite della licenza, solo quelle scritte bene: una voce strana non invalida la licenza."""
+    risultato = []
+    for v in voci if isinstance(voci, list) else []:
+        if isinstance(v, dict) and isinstance(v.get("slug"), str) and v["slug"]:
+            risultato.append({"slug": v["slug"], "nome": str(v.get("nome") or v["slug"]),
+                              "moduli": frozenset(m for m in v.get("moduli") or [] if isinstance(m, str)),
+                              "utenti": v["utenti"] if isinstance(v.get("utenti"), int) and v["utenti"] > 0 else 0})
+    return tuple(risultato)
 
 
 def leggi(testo):
@@ -170,4 +184,7 @@ def avviso():
         return f"La licenza è scaduta il {stato.scadenza:%d/%m/%Y}: l'istanza è in sola lettura. Contatta ICHNOBYTE per rinnovarla."
     if stato.scadenza and (stato.scadenza - timezone.localdate()).days <= 30:
         return f"La licenza scade il {stato.scadenza:%d/%m/%Y}."
+    if stato.suite:
+        from . import dipartimenti
+        return dipartimenti.avviso_posti()
     return ""

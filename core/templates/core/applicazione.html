@@ -13,7 +13,17 @@
     {% if v.nome != v.nome_originale %}<span class="ui-help">Il nome del modulo è «{{ v.nome_originale }}»: lascia vuoto per tornare a quello.</span>{% endif %}
   </form></div>
 </section>
-{% if not con_permessi %}<div class="ui-card is-revealed"><div class="ui-card-body"><p class="ui-help" style="margin:0">Quest'app non ha permessi propri: accesa, è disponibile per tutti.</p></div></div>
+{% if applicazione %}<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Dipartimenti</div><div class="ui-card-sub">Chi è in un dipartimento vede solo le sue app e quelle comuni; chi non ne ha vede tutto quello che il ruolo consente</div></div></div>
+  <div class="ui-card-body">{% if perms.core.change_dipartimento %}<form method="post" action="{% url 'core:applicazione_dipartimenti' v.slug %}" class="dp-app">{% csrf_token %}
+    <label class="ut-check"><input type="radio" name="comune" value="1"{% if comune %} checked{% endif %}> Comune a tutti i dipartimenti</label>
+    <label class="ut-check"><input type="radio" name="comune" value="0"{% if not comune %} checked{% endif %}> Solo per questi dipartimenti:</label>
+    <div class="dp-persone dp-rientro">{% for x in dipartimenti %}<label class="ut-check"><input type="checkbox" name="dipartimenti" value="{{ x.d.pk }}"{% if x.scelto %} checked{% endif %}{% if x.tutte %} disabled title="Ha tutte le app"{% endif %}> {{ x.d.nome }}</label>{% empty %}<p class="sub" style="margin:0">Nessun dipartimento: <a class="ui-link" href="{% url 'core:dipartimento_nuovo' %}">creane uno</a>.</p>{% endfor %}</div>
+    {% if portata_da %}<p class="ui-help">La usano anche {{ portata_da|join:", " }}, perché serve a un'altra delle loro app.</p>{% endif %}
+    <div><button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Salva</button></div>
+  </form>{% else %}<p class="ui-help" style="margin:0">{% if comune %}Comune a tutti i dipartimenti.{% else %}{% for x in dipartimenti %}{% if x.scelto %}{{ x.d.nome }} {% endif %}{% endfor %}{% endif %}</p>{% endif %}</div>
+</section>{% endif %}
+{% if not con_permessi %}<div class="ui-card is-revealed"><div class="ui-card-body"><p class="ui-help" style="margin:0">Quest'app non ha permessi propri: accesa, la usano tutti quelli che i dipartimenti ammettono.</p></div></div>
 {% else %}
 <div class="mk-legenda">{% for nome, testo in spiegazioni %}<div><strong>{{ nome }}</strong>{{ testo }}</div>{% endfor %}</div>
 <section class="ui-card is-revealed ui-section">

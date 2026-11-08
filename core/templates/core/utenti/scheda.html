@@ -17,10 +17,12 @@
     <div class="ui-card-body">
       <div class="ui-form-group" style="max-width:420px"><label class="ui-label" for="{{ form.ruolo.id_for_label }}">Ruolo</label>{{ form.ruolo }}{% for e in form.ruolo.errors %}<p class="ui-error">{{ e }}</p>{% endfor %}</div>
       {% if moduli %}<div class="ui-table-wrap"><table class="ui-table ut-moduli"><thead><tr><th>Modulo</th><th>Dal ruolo</th><th>Per questa persona</th></tr></thead><tbody>
-        {% for m in moduli %}<tr><td>{{ m.nome }}</td><td class="ut-dal-ruolo" data-slug="{{ m.slug }}">{{ m.del_ruolo_testo }}</td>
+        {% for m in moduli %}<tr><td>{{ m.nome }}</td><td class="ut-dal-ruolo" data-slug="{{ m.slug }}">{{ m.del_ruolo_testo }}{% if m.fuori %} <span class="ui-pill ui-pill-neutral" title="Fuori dai suoi dipartimenti: vale «Nessun accesso», salvo un'eccezione qui a destra">fuori dai dipartimenti</span>{% endif %}</td>
           <td><select class="ui-input ui-input-sm" name="livello_{{ m.slug }}" aria-label="Livello in {{ m.nome }}"><option value="">Come il ruolo</option>{% for codice, nome in livelli %}<option value="{{ codice }}"{% if m.eccezione == codice %} selected{% endif %}>{{ nome }}</option>{% endfor %}</select></td></tr>{% endfor %}
       </tbody></table></div>{% endif %}
     </div></section>
+  <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div><div class="ui-card-title">Dipartimenti</div><div class="ui-card-sub">{{ form.dipartimenti.help_text }}</div></div></div>
+    <div class="ui-card-body ut-aziende">{% if form.dipartimenti.field.queryset.exists %}{{ form.dipartimenti }}{% else %}<p class="sub" style="margin:0">Nessun dipartimento ancora{% if perms.core.change_dipartimento %}: <a class="ui-link" href="{% url 'core:dipartimenti' %}">creane uno</a>{% endif %}.</p>{% endif %}{% for e in form.dipartimenti.errors %}<p class="ui-error">{{ e }}</p>{% endfor %}</div></section>
   <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Aziende</div></div>
     <div class="ui-card-body ut-aziende">{{ form.aziende }}{% for e in form.aziende.errors %}<p class="ui-error">{{ e }}</p>{% endfor %}</div></section>
   <div class="ut-salva"><button class="ui-btn ui-btn-primary" type="submit"><svg><use href="#icon-save"/></svg> Salva</button></div>

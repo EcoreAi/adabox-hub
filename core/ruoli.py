@@ -4,11 +4,14 @@ Un ruolo ha un livello di partenza (nessuno, lettura, lavoro, responsabile) e pu
 persona ha un ruolo e, se serve, le sue eccezioni. Un ruolo «tecnico» rende superutente (Global Admin), uno che
 «amministra» dà dal front utenti, ruoli, applicazioni e impostazioni (Admin). Da questi si ricavano i gruppi: «lavoro» sono i gruppi di base del
 modulo (Utente, Operatore, Venditore…), «responsabile» tutti i suoi gruppi, «lettura» un gruppo con i soli permessi di
-vista che il kernel crea per lui. Chi non ha un ruolo resta com'era: i suoi gruppi non si toccano."""
+vista che il kernel crea per lui. Chi non ha un ruolo resta com'era: i suoi gruppi non si toccano.
+I dipartimenti restringono: in un'app fuori dai dipartimenti della persona il livello diventa «nessuno», salvo
+un'eccezione per lei (vedi core.dipartimenti)."""
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.db.models import Q
 
+from . import dipartimenti
 from .models import Ruolo
 from .registry import groups, modules
 
@@ -78,6 +81,15 @@ def livello_di(profilo, slug):
     return profilo.ruolo.livelli.get(slug, profilo.ruolo.livello_base)
 
 
+def livello_effettivo(profilo, slug, consentite=dipartimenti.NESSUN_LIMITE):
+    """(livello, fuori): il livello con i dipartimenti, e vero se è «nessuno» solo perché l'app è fuori dai suoi
+    dipartimenti. `consentite` le app dei suoi dipartimenti (dipartimenti.del_profilo). None senza ruolo."""
+    livello = livello_di(profilo, slug)
+    if livello is None or livello == NESSUNO or dipartimenti.dentro(slug, consentite, profilo.eccezioni):
+        return livello, False
+    return NESSUNO, True
+
+
 def livello_dai_gruppi(nomi, manifest):
     """Per chi non ha un ruolo: il livello che i suoi gruppi fanno pensare (serve alla matrice)."""
     tutti = set(manifest.groups)
@@ -104,8 +116,9 @@ def applica(utente):
     if profilo.ruolo_id is None and not profilo.eccezioni:
         return False
     gestiti, voluti = set(), set()
+    consentite = dipartimenti.del_profilo(profilo)
     for slug, m in moduli_gestibili(anche_spenti=True):
-        livello = livello_di(profilo, slug)
+        livello, _ = livello_effettivo(profilo, slug, consentite)
         if livello is None:
             continue                                 # senza ruolo si toccano solo i moduli con un'eccezione
         gestiti |= set(m.groups) | {nome_lettura(m)}

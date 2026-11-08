@@ -1,8 +1,8 @@
 from django.conf import settings
-from django.db.models.signals import post_save
+from django.db.models.signals import m2m_changed, post_delete, post_save, pre_delete
 from django.dispatch import receiver
 
-from .models import Azienda, ProfiloUtente, Ruolo
+from .models import Azienda, Dipartimento, ProfiloUtente, Ruolo
 
 
 def crea_profilo(utente):
@@ -45,3 +45,42 @@ def gruppi_dal_ruolo(sender, instance, raw=False, **kwargs):
     if not raw:
         from . import ruoli
         ruoli.applica_al_ruolo(instance)
+
+
+@receiver(post_save, sender=Dipartimento)
+def gruppi_dal_dipartimento(sender, instance, raw=False, **kwargs):
+    """App del dipartimento cambiate: valgono subito per chi ne fa parte."""
+    if not raw:
+        from . import dipartimenti
+        dipartimenti.riapplica(instance.profili.values_list("utente_id", flat=True))
+
+
+@receiver(pre_delete, sender=Dipartimento)
+def membri_prima_di_eliminare(sender, instance, **kwargs):
+    instance._membri = list(instance.profili.values_list("utente_id", flat=True))
+
+
+@receiver(post_delete, sender=Dipartimento)
+def gruppi_dopo_eliminazione(sender, instance, **kwargs):
+    from . import dipartimenti
+    dipartimenti.riapplica(getattr(instance, "_membri", []))
+
+
+@receiver(m2m_changed, sender=ProfiloUtente.dipartimenti.through)
+def gruppi_dai_membri(sender, instance, action, reverse, pk_set, **kwargs):
+    """Persona aggiunta o tolta da un dipartimento, da una parte o dall'altra della relazione."""
+    if action not in ("post_add", "post_remove", "post_clear", "pre_clear"):
+        return
+    from . import dipartimenti
+    if not reverse:                                          # profilo.dipartimenti.add(...)
+        if action != "pre_clear":
+            dipartimenti.riapplica([instance.utente_id])
+        return
+    if action == "pre_clear":                                # dipartimento.profili.clear(): chi c'era
+        instance._membri_prima = list(instance.profili.values_list("utente_id", flat=True))
+        return
+    if action == "post_clear":
+        utenti = getattr(instance, "_membri_prima", [])
+    else:
+        utenti = ProfiloUtente.objects.filter(pk__in=pk_set or []).values_list("utente_id", flat=True)
+    dipartimenti.riapplica(utenti)

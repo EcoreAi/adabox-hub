@@ -77,12 +77,38 @@ class Ruolo(models.Model):
         return self.nome
 
 
+class Dipartimento(models.Model):
+    """Dove lavora una persona: le app che il dipartimento usa. Il ruolo dice quanto si può fare, il dipartimento dove.
+    Chi non è in nessun dipartimento vede tutto quello che il ruolo consente (vedi core.dipartimenti)."""
+    nome = models.CharField("nome", max_length=80, unique=True)
+    descrizione = models.CharField("descrizione", max_length=200, blank=True)
+    app = models.JSONField("app", default=list, blank=True, help_text="gli slug delle app che il dipartimento usa")
+    tutte = models.BooleanField("tutte le app", default=False, help_text="per chi deve vedere tutto, es. la direzione")
+    responsabile = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                                     verbose_name="responsabile")
+    suite = models.SlugField("dalla suite", max_length=31, blank=True, editable=False,
+                             help_text="la suite comprata da cui è nato: le app che entrano o escono dalla suite lo seguono")
+    app_suite = models.JSONField("app della suite", default=list, blank=True, editable=False,
+                                 help_text="le app della suite all'ultimo allineamento, per capire che cosa è cambiato")
+    ordine = models.PositiveSmallIntegerField("ordine", default=10)
+
+    class Meta:
+        verbose_name = "dipartimento"
+        verbose_name_plural = "dipartimenti"
+        ordering = ["ordine", "nome"]
+
+    def __str__(self):
+        return self.nome
+
+
 class ProfiloUtente(models.Model):
     utente = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profilo")
     ruolo = models.ForeignKey(Ruolo, on_delete=models.SET_NULL, null=True, blank=True, related_name="profili", verbose_name="ruolo",
                               help_text="vuoto: i gruppi si gestiscono a mano, come prima dei ruoli")
     eccezioni = models.JSONField("eccezioni per modulo", default=dict, blank=True, help_text="{slug del modulo: livello} che vince sul ruolo")
     aziende = models.ManyToManyField(Azienda, verbose_name="aziende consentite", blank=True)
+    dipartimenti = models.ManyToManyField(Dipartimento, verbose_name="dipartimenti", blank=True, related_name="profili",
+                                          help_text="vuoto: nessun limite, vede le app che il ruolo consente")
     azienda_predefinita = models.ForeignKey(Azienda, on_delete=models.SET_NULL, null=True, blank=True,
                                             related_name="+", verbose_name="azienda predefinita")
     esterno = models.BooleanField("utente esterno", default=False,
@@ -193,6 +219,8 @@ class Modulo(models.Model):
     gruppi_creati = models.JSONField("gruppi creati", default=list, blank=True)
     ultimo_errore = models.TextField("ultimo errore", blank=True)
     etichetta = models.CharField("nome nel menu", max_length=40, blank=True, help_text="scelto dall'Admin; vuoto = quello del modulo")
+    comune = models.BooleanField("comune a tutti i dipartimenti", default=False,
+                                 help_text="la vedono anche le persone dei dipartimenti che non la elencano (es. chat, calendario)")
     disattivato = models.BooleanField("disattivato", default=False,
                                       help_text="installato ma spento per tutti: menu, pagine, API e pianificazioni")
 

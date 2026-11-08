@@ -1540,6 +1540,10 @@ tr.is-spento td { color: var(--ui-text-3); }
 .ut-cella { padding: 4px 6px; } .ut-cella.is-nessuno { background: var(--ui-surface-2); } .ut-cella.is-lettura { background: color-mix(in srgb, #0369a1 12%, var(--ui-surface)); }
 .ut-cella.is-lavoro { background: color-mix(in srgb, #15803d 14%, var(--ui-surface)); } .ut-cella.is-responsabile { background: color-mix(in srgb, #7c3aed 14%, var(--ui-surface)); }
 .ut-cella.is-eccezione { box-shadow: inset 0 0 0 2px var(--ui-primary); }
+.ut-cella.is-fuori { background: repeating-linear-gradient(135deg, var(--ui-surface-2) 0 6px, var(--ui-surface) 6px 12px); }
+.dp-colonne { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px 20px; } .dp-colonna { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.dp-colonna legend { font-size: 12px; font-weight: 600; color: var(--ui-text-2); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 4px; }
+.dp-persone { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 18px; } .dp-app { display: flex; flex-direction: column; gap: 8px; } .dp-rientro { margin-left: 26px; } .dp-note { margin-top: 14px; color: var(--ui-text-2); font-size: 13px; } .dp-note p { margin: 0 0 6px; }
 .ut-select { width: 100%; min-width: 120px; padding: 4px 6px; border: 1px solid transparent; border-radius: 8px; background: transparent; font: inherit; font-size: 12px; color: var(--ui-text); } .ut-select:hover { border-color: var(--ui-border); background: var(--ui-surface); }
 .ut-legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; } .ut-campione { display: inline-block; width: 14px; height: 14px; margin-left: 10px; border-radius: 4px; }
 .ut-campione.is-nessuno { background: var(--ui-surface-2); border: 1px solid var(--ui-border); } .ut-campione.is-lettura { background: color-mix(in srgb, #0369a1 25%, var(--ui-surface)); } .ut-campione.is-lavoro { background: color-mix(in srgb, #15803d 28%, var(--ui-surface)); } .ut-campione.is-responsabile { background: color-mix(in srgb, #7c3aed 28%, var(--ui-surface)); }

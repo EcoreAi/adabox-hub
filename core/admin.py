@@ -1,6 +1,6 @@
 from django.contrib import admin, messages
 
-from .models import Azienda, DueFattori, ModelloEmail, Modulo, Parametro, Pianificazione, ProfiloUtente, Ruolo, Sequenza, TokenApi
+from .models import Azienda, Dipartimento, DueFattori, ModelloEmail, Modulo, Parametro, Pianificazione, ProfiloUtente, Ruolo, Sequenza, TokenApi
 
 
 @admin.register(Azienda)
@@ -25,7 +25,13 @@ class DueFattoriAdmin(admin.ModelAdmin):
 class ProfiloUtenteAdmin(admin.ModelAdmin):
     list_display = ("utente", "ruolo", "azienda_predefinita", "esterno")
     list_filter = ("ruolo", "esterno")
-    filter_horizontal = ("aziende",)
+    filter_horizontal = ("aziende", "dipartimenti")
+
+
+@admin.register(Dipartimento)
+class DipartimentoAdmin(admin.ModelAdmin):
+    """I dipartimenti si curano da «Utenti e ruoli → Dipartimenti» nell'app; qui restano per le emergenze."""
+    list_display = ("nome", "tutte", "suite", "ordine")
 
 
 @admin.register(Ruolo)

@@ -1,4 +1,5 @@
-"""Utenti e ruoli: chi entra, con quale ruolo e che cosa può fare in ogni modulo, senza passare dall'admin di Django."""
+"""Utenti, ruoli e dipartimenti: chi entra, con quale ruolo, in quali app lavora e che cosa può fare in ogni modulo, senza
+passare dall'admin di Django."""
 from django import forms
 from django.conf import settings
 from django.contrib import messages
@@ -15,13 +16,14 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from django.views.decorators.http import require_POST
 
-from . import licenza, ruoli
-from .models import Azienda, DueFattori, Ruolo
+from . import dipartimenti, licenza, ruoli
+from .models import Azienda, Dipartimento, DueFattori, Ruolo
 from .signals import crea_profilo
 
 User = get_user_model()
 GESTIONE = "auth.change_user"
 GESTIONE_RUOLI = "core.change_ruolo"
+GESTIONE_DIPARTIMENTI = "core.change_dipartimento"
 
 
 def _utenti(request):
@@ -44,6 +46,8 @@ def _classi(form):
 class UtenteForm(forms.ModelForm):
     ruolo = forms.ModelChoiceField(Ruolo.objects.all(), required=False, label="Ruolo", empty_label="Nessun ruolo: gruppi gestiti a mano")
     aziende = forms.ModelMultipleChoiceField(Azienda.objects.filter(attiva=True), required=False, label="Aziende", widget=forms.CheckboxSelectMultiple)
+    dipartimenti = forms.ModelMultipleChoiceField(Dipartimento.objects.all(), required=False, label="Dipartimenti", widget=forms.CheckboxSelectMultiple,
+                                                  help_text="Vede solo le app dei suoi dipartimenti e quelle comuni. Nessuno: tutte quelle che il ruolo consente.")
     invito = forms.BooleanField(required=False, initial=True, label="Mandagli l'email per scegliere la password")
 
     class Meta:
@@ -66,6 +70,14 @@ class UtenteForm(forms.ModelForm):
         if nuovo_attivo and licenza.posti_finiti():
             raise forms.ValidationError(f"La licenza copre {licenza.attuale().utenti} utenti attivi e sono già tutti occupati.")
         return attivo
+
+    def clean(self):
+        dati = super().clean()
+        if "dipartimenti" in dati and not self.errors:
+            attivo = bool(dati.get("is_active")) and not (self.instance.pk and self.instance.is_superuser)
+            for errore in dipartimenti.oltre_il_tetto(utente_modificato=(self.instance.pk, [d.pk for d in dati["dipartimenti"]], attivo)):
+                self.add_error("dipartimenti", errore)
+        return dati
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
@@ -118,21 +130,24 @@ def invia_invito(utente):
 @login_required
 @permission_required(GESTIONE, raise_exception=True)
 def lista(request):
-    utenti = _utenti(request).prefetch_related("profilo__aziende")
+    utenti = _utenti(request).prefetch_related("profilo__aziende", "profilo__dipartimenti")
     if request.GET.get("stato") != "tutti":
         utenti = utenti.filter(is_active=True)
     con_2fa = set(DueFattori.objects.filter(attiva_dal__isnull=False).values_list("utente_id", flat=True))
     righe = [{"u": u, "profilo": getattr(u, "profilo", None), "due_fattori": u.pk in con_2fa} for u in utenti]
     return render(request, "core/utenti/lista.html", {"righe": righe, "tutti": request.GET.get("stato") == "tutti",
-                                                       "ruoli": Ruolo.objects.all(), "puo_ruoli": request.user.has_perm(GESTIONE_RUOLI)})
+                                                       "ruoli": Ruolo.objects.all(), "puo_ruoli": request.user.has_perm(GESTIONE_RUOLI),
+                                                       "puo_dipartimenti": request.user.has_perm(GESTIONE_DIPARTIMENTI)})
 
 
 def _righe_moduli(profilo, ruolo):
     righe = []
+    consentite = dipartimenti.del_profilo(profilo)
     for slug, m in ruoli.moduli_gestibili():
         del_ruolo = (ruolo.livelli.get(slug, ruolo.livello_base) if ruolo else None)
         righe.append({"slug": slug, "nome": m.name, "del_ruolo": del_ruolo, "del_ruolo_testo": ruoli.ETICHETTE.get(del_ruolo, "—"),
-                      "eccezione": (profilo.eccezioni if profilo else {}).get(slug, "")})
+                      "eccezione": (profilo.eccezioni if profilo else {}).get(slug, ""),
+                      "fuori": not dipartimenti.dentro(slug, consentite)})
     return righe
 
 
@@ -159,6 +174,7 @@ def scheda(request, pk=None):
                 profilo.eccezioni = _livelli_dal_post(request)
                 aziende = list(form.cleaned_data["aziende"])
                 profilo.aziende.set(aziende)
+                profilo.dipartimenti.set(form.cleaned_data["dipartimenti"])
                 if profilo.azienda_predefinita not in aziende:
                     profilo.azienda_predefinita = aziende[0] if aziende else None
                 profilo.save()                                 # il segnale riallinea i gruppi
@@ -173,7 +189,8 @@ def scheda(request, pk=None):
             return redirect("core:utente", pk=utente.pk)
     else:
         iniziali = {"ruolo": profilo.ruolo_id if profilo else (ruoli.predefinito() or Ruolo.objects.filter(nome="Collaboratore").first()),
-                    "aziende": list(profilo.aziende.all()) if profilo else list(Azienda.objects.filter(attiva=True))}
+                    "aziende": list(profilo.aziende.all()) if profilo else list(Azienda.objects.filter(attiva=True)),
+                    "dipartimenti": list(profilo.dipartimenti.all()) if profilo else []}
         form = UtenteForm(instance=utente, initial=iniziali, tecnico_ammesso=request.user.is_superuser)
     ruolo_scelto = profilo.ruolo if profilo else form.initial.get("ruolo")
     if isinstance(ruolo_scelto, int):
@@ -232,12 +249,17 @@ def livello(request, pk):
     return render(request, "core/utenti/_cella.html", {"u": utente, "cella": _cella(utente, profilo, slug, moduli[slug])})
 
 
-def _cella(utente, profilo, slug, manifest):
-    liv = ruoli.livello_di(profilo, slug)
+def _cella(utente, profilo, slug, manifest, consentite=dipartimenti.NESSUN_LIMITE, calcola=True):
+    """Il livello nella matrice. `consentite` le app dei suoi dipartimenti; con calcola=True si leggono qui."""
+    if calcola:
+        consentite = dipartimenti.del_profilo(profilo)
+    liv, fuori = ruoli.livello_effettivo(profilo, slug, consentite)
     if liv is None:
         liv = ruoli.livello_dai_gruppi(set(utente.groups.values_list("name", flat=True)), manifest)
+        if liv != ruoli.NESSUNO and not dipartimenti.dentro(slug, consentite, profilo.eccezioni):
+            liv, fuori = ruoli.NESSUNO, True
     return {"slug": slug, "livello": liv, "testo": ruoli.ETICHETTE[liv], "eccezione": slug in profilo.eccezioni,
-            "con_ruolo": profilo.ruolo_id is not None, "livelli": ruoli.LIVELLI}
+            "con_ruolo": profilo.ruolo_id is not None, "livelli": ruoli.LIVELLI, "fuori": fuori}
 
 
 @login_required
@@ -248,7 +270,8 @@ def matrice(request):
     righe = []
     for u in utenti:
         profilo = crea_profilo(u)
-        righe.append({"u": u, "profilo": profilo, "celle": [_cella(u, profilo, slug, m) for slug, m in moduli]})
+        consentite = dipartimenti.del_profilo(profilo)
+        righe.append({"u": u, "profilo": profilo, "celle": [_cella(u, profilo, slug, m, consentite, calcola=False) for slug, m in moduli]})
     return render(request, "core/utenti/matrice.html", {"moduli": moduli, "righe": righe})
 
 
@@ -299,3 +322,94 @@ def ruolo_elimina(request, pk):
     r.delete()
     messages.success(request, f"Ruolo «{r}» eliminato.")
     return redirect("core:ruoli")
+
+
+# ---------- dipartimenti
+
+class DipartimentoForm(forms.ModelForm):
+    class Meta:
+        model = Dipartimento
+        fields = ["nome", "descrizione", "responsabile", "tutte", "ordine"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["responsabile"].queryset = User.objects.filter(is_active=True).exclude(profilo__esterno=True).order_by("first_name", "last_name", "username")
+        self.fields["responsabile"].empty_label = "Nessuno"
+        _classi(self)
+
+
+def _app_per_colonna(scelte):
+    """Le app attive divise come nel menu «Altre», con la spunta su quelle scelte e il segno su quelle comuni."""
+    from . import barra
+    comuni = dipartimenti.comuni()
+    voci = [{"slug": s, "label": m.nav_label or m.name, "categoria": m.category, "scelta": s in scelte, "comune": s in comuni}
+            for s, m in dipartimenti.applicazioni().items()]
+    return barra.gruppi(voci)
+
+
+def _nomi_app(slugs):
+    app = dipartimenti.applicazioni()
+    return sorted((app[s].nav_label or app[s].name) for s in slugs if s in app)
+
+
+@login_required
+@permission_required(GESTIONE_DIPARTIMENTI, raise_exception=True)
+def dipartimenti_lista(request):
+    comuni = dipartimenti.comuni()
+    posti = {r["slug"]: r for r in dipartimenti.posti_suite()}
+    righe = []
+    for d in Dipartimento.objects.prefetch_related("profili__utente"):
+        righe.append({"d": d, "app": "Tutte" if d.tutte else ", ".join(_nomi_app(set(d.app) - comuni)) or "Solo le comuni",
+                      "persone": [p.utente for p in d.profili.all() if p.utente.is_active], "posti": posti.get(d.suite)})
+    return render(request, "core/utenti/dipartimenti.html", {
+        "righe": righe, "comuni": _nomi_app(comuni),
+        "senza": _utenti(request).filter(is_active=True, profilo__dipartimenti__isnull=True).exclude(profilo__esterno=True).count()})
+
+
+@login_required
+@permission_required(GESTIONE_DIPARTIMENTI, raise_exception=True)
+def dipartimento(request, pk=None):
+    istanza = get_object_or_404(Dipartimento, pk=pk) if pk else None
+    persone = list(_utenti(request).filter(is_active=True).exclude(profilo__esterno=True))
+    if request.method == "POST":
+        form = DipartimentoForm(request.POST, instance=istanza)
+        attive = dipartimenti.applicazioni()
+        app = sorted(s for s in request.POST.getlist("app") if s in attive)
+        membri = {u.pk for u in persone if str(u.pk) in request.POST.getlist("membri")}
+        if form.is_valid():
+            tutte = form.cleaned_data["tutte"]
+            errori = dipartimenti.oltre_il_tetto(dip_modificato=(istanza.pk if istanza else None, app, tutte), membri_modificati=membri)
+            for e in errori:
+                form.add_error(None, e)
+        if form.is_valid():
+            with transaction.atomic():
+                d = form.save(commit=False)
+                fuori = set(d.app) - set(attive)                      # le app spente o non ancora arrivate restano
+                d.app = sorted(set(app) | fuori)
+                d.save()
+                visibili = {u.pk for u in persone}
+                restano = [p for p in d.profili.all() if p.utente_id not in visibili]   # i superutenti, per chi non li vede
+                d.profili.set(restano + [crea_profilo(u) for u in persone if u.pk in membri])
+            messages.success(request, f"Dipartimento «{d}» salvato: vale già per chi ne fa parte.")
+            return redirect("core:dipartimento", pk=d.pk)
+        scelte, membri_scelti = set(app), membri
+    else:
+        form = DipartimentoForm(instance=istanza)
+        scelte = set(istanza.app) if istanza else set()
+        membri_scelti = set(istanza.profili.values_list("utente_id", flat=True)) if istanza else set()
+    portate = sorted(dipartimenti.con_dipendenze(scelte) - scelte - dipartimenti.comuni())
+    posti = next((r for r in dipartimenti.posti_suite() if istanza and r["slug"] == istanza.suite), None)
+    return render(request, "core/utenti/dipartimento.html", {
+        "form": form, "dipartimento": istanza, "colonne": _app_per_colonna(scelte), "portate": _nomi_app(portate),
+        "persone": [{"u": u, "scelta": u.pk in membri_scelti} for u in persone], "posti": posti})
+
+
+@login_required
+@permission_required("core.delete_dipartimento", raise_exception=True)
+@require_POST
+def dipartimento_elimina(request, pk):
+    d = get_object_or_404(Dipartimento, pk=pk)
+    nome = str(d)
+    d.delete()                                        # il segnale riallinea chi ne faceva parte
+    messages.success(request, f"Dipartimento «{nome}» eliminato: chi ne faceva parte segue gli altri suoi dipartimenti, o il solo ruolo.")
+    return redirect("core:dipartimenti")

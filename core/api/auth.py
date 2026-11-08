@@ -1,7 +1,7 @@
 from ninja.errors import HttpError
 from ninja.security import HttpBearer
 
-from core import azienda, registro
+from core import azienda, dipartimenti, registro
 from core.models import Azienda, TokenApi
 
 
@@ -19,6 +19,8 @@ class TokenAuth(HttpBearer):
 def controlla_token(request, modulo, scrittura):
     """Se la chiamata arriva con un token, deve permettere questo modulo e questa operazione."""
     token = getattr(request, "token_api", None)
+    if token is not None and not dipartimenti.ammessa(request.user, modulo):      # il middleware vedeva ancora l'anonimo
+        raise HttpError(403, f"il modulo {modulo} è fuori dai dipartimenti di chi ha creato il token")
     if token is not None and not token.permette(modulo, scrittura):
         raise HttpError(403, "questo token è in sola lettura" if scrittura and token.sola_lettura else f"questo token non vale per il modulo {modulo}")
 

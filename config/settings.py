@@ -70,6 +70,7 @@ MIDDLEWARE = [
     "core.middleware.ModuloDisattivatoMiddleware",
     "core.middleware.LicenzaScadutaMiddleware",
     "core.middleware.UtenteEsternoMiddleware",
+    "core.middleware.DipartimentoMiddleware",
     "core.middleware.DueFattoriObbligoMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -164,6 +165,10 @@ SITO_URL = env("SITO_URL", default="http://localhost:8000").rstrip("/")
 NAV_APP_VISIBILI = env.int("NAV_APP_VISIBILI", default=4)
 # app sempre per prime nella barra in alto (se installate e visibili), fuori dal conteggio e dal menu "Altre"
 NAV_APP_IN_TESTA = env.list("NAV_APP_IN_TESTA", default=["ai"])
+# app comuni a tutti i dipartimenti quando arrivano sull'istanza (poi le decide l'Admin dalla scheda dell'app); con una
+# licenza a suite contano invece le app del piano base
+DIPARTIMENTI_APP_COMUNI = env.list("DIPARTIMENTI_APP_COMUNI", default=[
+    "ai", "askada", "calendario", "discuss", "documenti", "todo", "riepilogo", "contatti"])
 # Posta in entrata del chatter: casella delle risposte (con indirizzi +token) e accesso IMAP
 EMAIL_RISPOSTE = env("EMAIL_RISPOSTE", default="")
 IMAP_URL = env("IMAP_URL", default="")

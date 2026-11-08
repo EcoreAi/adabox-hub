@@ -58,6 +58,10 @@ urlpatterns = [
     path("utenti/ruoli/nuovo/", utenti.ruolo, name="ruolo_nuovo"),
     path("utenti/ruoli/<int:pk>/", utenti.ruolo, name="ruolo"),
     path("utenti/ruoli/<int:pk>/elimina/", utenti.ruolo_elimina, name="ruolo_elimina"),
+    path("utenti/dipartimenti/", utenti.dipartimenti_lista, name="dipartimenti"),
+    path("utenti/dipartimenti/nuovo/", utenti.dipartimento, name="dipartimento_nuovo"),
+    path("utenti/dipartimenti/<int:pk>/", utenti.dipartimento, name="dipartimento"),
+    path("utenti/dipartimenti/<int:pk>/elimina/", utenti.dipartimento_elimina, name="dipartimento_elimina"),
     path("utenti/<int:pk>/", utenti.scheda, name="utente"),
     path("utenti/<int:pk>/invito/", utenti.invito, name="utente_invito"),
     path("utenti/<int:pk>/due-fattori/", utenti.due_fattori_azzera, name="utente_due_fattori"),
@@ -76,6 +80,7 @@ urlpatterns = [
     path("applicazioni/<slug:slug>/", applicazioni.scheda, name="applicazione"),
     path("applicazioni/<slug:slug>/ruolo/", applicazioni.ruolo, name="applicazione_ruolo"),
     path("applicazioni/<slug:slug>/nome/", applicazioni.nome, name="applicazione_nome"),
+    path("applicazioni/<slug:slug>/dipartimenti/", applicazioni.dipartimenti_app, name="applicazione_dipartimenti"),
 ]
 # viste generate dalle ModelView del kernel, sotto /core/ come i moduli sotto /<slug>/
 urlpatterns += [path("core/", include(registry.urlpatterns("core")))]

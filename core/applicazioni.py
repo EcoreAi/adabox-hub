@@ -11,13 +11,14 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
+from django.db import transaction
 from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from . import lavori, licenza, ruoli
-from .models import LicenzaIstanza, Modulo, RichiestaModulo, Ruolo
+from . import dipartimenti, lavori, licenza, ruoli
+from .models import Dipartimento, LicenzaIstanza, Modulo, RichiestaModulo, Ruolo
 from .registry import modules, sincronia
 from .signals import crea_profilo
 
@@ -156,7 +157,10 @@ def scheda(request, slug):
     for u in get_user_model().objects.filter(is_active=True).exclude(profilo__esterno=True).select_related("profilo", "profilo__ruolo").prefetch_related("groups"):
         persone.append({"u": u, "ruolo": getattr(crea_profilo(u).ruolo, "nome", ""), "cella": _cella(u, crea_profilo(u), slug, manifest)})
     return render(request, "core/applicazione.html", {
-        "v": voce, "con_permessi": bool(manifest.groups), "righe_ruoli": righe_ruoli, "persone": persone, "livelli": ruoli.LIVELLI, "spiegazioni": SPIEGAZIONI})
+        "v": voce, "con_permessi": bool(manifest.groups), "righe_ruoli": righe_ruoli, "persone": persone, "livelli": ruoli.LIVELLI, "spiegazioni": SPIEGAZIONI,
+        "comune": Modulo.objects.filter(slug=slug, comune=True).exists(), "applicazione": manifest.application,
+        "dipartimenti": [{"d": d, "scelto": d.tutte or slug in d.app, "tutte": d.tutte} for d in Dipartimento.objects.all()],
+        "portata_da": [d for d in Dipartimento.objects.all() if not d.tutte and slug not in d.app and slug in dipartimenti.con_dipendenze(d.app)]})
 
 
 @login_required
@@ -191,3 +195,31 @@ def nome(request, slug):
     messages.success(request, f"Nel menu ora si chiama «{nuovo}»." if nuovo else f"Nel menu torna a chiamarsi «{voce['nome_originale']}».")
     return redirect("core:applicazione", slug=slug)
 
+
+
+@login_required
+@permission_required("core.change_dipartimento", raise_exception=True)
+@require_POST
+def dipartimenti_app(request, slug):
+    """Comune a tutti, o solo per i dipartimenti spuntati: il segnale dei dipartimenti lo applica a chi ne fa parte."""
+    voce, _ = _gestibile(slug)
+    comune = request.POST.get("comune") == "1"
+    scelti = set(request.POST.getlist("dipartimenti"))
+    with transaction.atomic():
+        prima = Modulo.objects.filter(slug=slug, comune=True).exists()
+        if prima != comune:
+            if not Modulo.objects.filter(slug=slug).exists():
+                modules.sincronizza()
+            Modulo.objects.filter(slug=slug).update(comune=comune)
+        for d in Dipartimento.objects.filter(tutte=False):
+            dentro = str(d.pk) in scelti
+            if dentro != (slug in d.app):
+                d.app = sorted(set(d.app) | {slug}) if dentro else [s for s in d.app if s != slug]
+                d.save()
+        if prima != comune:
+            dipartimenti.riapplica_tutti()
+    if comune:
+        messages.success(request, f"«{voce['nome']}» è comune: la vedono tutti, in qualunque dipartimento.")
+    else:
+        messages.success(request, f"«{voce['nome']}»: la vedono i dipartimenti scelti e chi non ha dipartimenti.")
+    return redirect("core:applicazione", slug=slug)

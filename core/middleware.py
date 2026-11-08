@@ -72,6 +72,26 @@ class ModuloDisattivatoMiddleware:
         return self.get_response(request)
 
 
+class DipartimentoMiddleware:
+    """Le pagine e le API di un'app fuori dai dipartimenti dell'utente rispondono 403 con un avviso: vale anche per le
+    app senza permessi propri, che i gruppi non possono chiudere. Le dipendenze delle sue app restano aperte."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        user = getattr(request, "user", None)
+        if user is not None and user.is_authenticated and not user.is_superuser:
+            from django.conf import settings
+            modulo = modulo_di(request.path_info)
+            if modulo in settings.ADDONS_ATTIVI:
+                from . import dipartimenti
+                if not dipartimenti.ammessa(user, modulo):
+                    from django.shortcuts import render
+                    return render(request, "core/fuori_dipartimento.html", status=403)
+        return self.get_response(request)
+
+
 class LicenzaScadutaMiddleware:
     """Licenza assente, non valida o scaduta oltre la grazia: i dati si leggono ma non si scrivono. Restano aperti
     l'accesso e le pagine da cui si rimette a posto la licenza."""
