@@ -22,6 +22,17 @@ class AiConfig(AppConfig):
         hooks.sezione_dettaglio("ai.Provider", "ai/_provider_catalogo.html", order=5, permission="ai.view_modello")
         post_delete.connect(allegati_chat.togli_file, sender=MessaggioChat, dispatch_uid="ai.togli_allegati")
         post_delete.connect(allegati_chat.togli_file, sender=ProgettoChat, dispatch_uid="ai.togli_file_progetto")
+        from django.db.models.signals import pre_delete
+        pre_delete.connect(_chat_all_area_personale, sender=ProgettoChat, dispatch_uid="ai.chat_area_personale")
         if apps.is_installed("documenti"):
             from . import segnali
             segnali.collega_documenti()
+
+
+def _chat_all_area_personale(sender, instance, **kwargs):
+    """Un'area condivisa che si elimina: le sue chat tornano nell'area personale di chi le ha scritte."""
+    if instance.personale:
+        return
+    from .aree import riaccogli
+    from .models import Conversazione
+    riaccogli(Conversazione.objects.filter(progetto=instance))

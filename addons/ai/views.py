@@ -308,7 +308,7 @@ class ProgettoChatView(_SoloMie):
         return super().has_change_permission(request, obj) and (obj is None or obj.utente_id == request.user.pk)
 
     def has_delete_permission(self, request, obj=None):
-        return super().has_delete_permission(request, obj) and (obj is None or obj.utente_id == request.user.pk)
+        return super().has_delete_permission(request, obj) and (obj is None or (obj.utente_id == request.user.pk and not obj.personale))
 
     def save_model(self, request, obj, form, change):
         from . import aree

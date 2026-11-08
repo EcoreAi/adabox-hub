@@ -1,0 +1,20 @@
+{# L'area di lavoro della chat: la tendina sposta la chat aperta, o cambia l'area corrente per la chat nuova. #}
+{% with area=conversazione.progetto|default:progetto_nuova|default:area_corrente %}{% if area %}
+<div class="ai-barra-area">
+  <svg aria-hidden="true"><use href="#ai-cartella"/></svg>
+  {% if sola_lettura %}
+  <a class="ai-barra-area-nome" href="{% url 'ai:progetto' area.pk %}">{{ area.nome }}</a>
+  {% else %}
+  <form method="post" action="{% if conversazione %}{% url 'ai:sposta' conversazione.pk %}{% else %}{% url 'ai:area_corrente' %}{% endif %}">{% csrf_token %}
+    <input type="hidden" name="da" value="{{ request.get_full_path }}">
+    <label class="ai-barra-area-etichetta" for="ai-area-scelta">Area</label>
+    <select id="ai-area-scelta" class="ai-barra-area-scelta" name="{% if conversazione %}progetto{% else %}area{% endif %}" data-prima="{{ area.pk }}"
+            aria-label="Area di lavoro della chat"
+            onchange="var o=this.selectedOptions[0]; if({% if conversazione %}o.dataset.condivisa{% else %}false{% endif %} && !confirm('Sposti la chat in un\'area condivisa: i membri potranno vederla se la condividi. Continuare?')){this.value=this.dataset.prima;return;} this.form.submit()">
+      {% for p in progetti %}<option value="{{ p.pk }}"{% if p.pk == area.pk %} selected{% endif %}{% if p.n_membri or p.utente_id != request.user.pk %} data-condivisa="1"{% endif %}>{{ p.nome }}{% if p.personale %} · personale{% elif p.n_membri or p.utente_id != request.user.pk %} · condivisa{% endif %}</option>{% endfor %}
+    </select>
+  </form>
+  <a class="ai-barra-area-apri" href="{% url 'ai:progetto' area.pk %}" data-tip="Apri l'area" aria-label="Apri l'area {{ area.nome }}">↗</a>
+  {% endif %}
+</div>
+{% endif %}{% endwith %}

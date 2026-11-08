@@ -275,11 +275,11 @@ def test_progetto_di_un_altro_o_di_un_altra_azienda_non_si_usa(client, s):
     for p in (altrui, altra_az):
         client.post(reverse("ai:invia"), {"testo": "ciao", "progetto": p.pk})
     for c in Conversazione.objects.all():
-        assert c.progetto is None and "SEGRETA" not in str(c.eventi.first().dati)
+        assert c.progetto.personale and "SEGRETA" not in str(c.eventi.first().dati)
     c = Conversazione.objects.first()
     client.post(reverse("ai:sposta", args=[c.pk]), {"progetto": altrui.pk})
     c.refresh_from_db()
-    assert c.progetto is None
+    assert c.progetto.personale                                         # mai l'area di un altro: la propria personale
     assert client.get(f"/ai/progetti/{altrui.pk}/").status_code == 404
 
 
@@ -287,7 +287,7 @@ def test_pagina_progetto_e_nuova_chat(client, s):
     p = ProgettoChat.objects.create(utente=s["u"], azienda=s["az"], nome="Offerta")
     assert client.get(f"/ai/progetti/{p.pk}/").status_code == 200
     pagina = client.get(reverse("ai:chat"), {"progetto": p.pk}).content.decode()
-    assert "Nuova chat nell'area" in pagina and "Offerta" in pagina
+    assert "ai-barra-area" in pagina and "Offerta" in pagina
 
 
 def test_eliminando_un_progetto_se_ne_vanno_i_file_e_le_chat_restano(client, s):
@@ -297,7 +297,7 @@ def test_eliminando_un_progetto_se_ne_vanno_i_file_e_le_chat_restano(client, s):
     c = _chat(s, progetto=p)
     assert client.post(f"/ai/progetti/{p.pk}/elimina/").status_code == 302
     c.refresh_from_db()
-    assert c.progetto is None and not Allegato.objects.exists() and not percorso.exists()
+    assert c.progetto.personale and not Allegato.objects.exists() and not percorso.exists()
 
 
 # --- immagini ---

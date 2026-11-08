@@ -40,7 +40,8 @@ def test_colonna_di_sinistra_percorso_e_cronologia(client, s):
     voce = pannello.split(f'{reverse("ai:albero_progetto", args=[p.pk])}?chat={chat[0].pk}"')[1].split(">")[0]
     assert "open" in voce                                                           # il progetto della chat è aperto
     assert " open" not in pannello.split(reverse("ai:albero_progetto", args=[altro.pk]))[1].split(">")[0]
-    assert 'class="ai-percorso"' in pagina and pagina.split('class="ai-percorso"')[1].split("</nav>")[0].count("Sviluppo AdaV3") == 1
+    barra = pagina.split('class="ai-barra-area"')[1].split("</div>")[0]
+    assert f'value="{p.pk}" selected' in barra and "Sviluppo AdaV3" in barra
     storico = pagina.split('id="ai-elenco-storico"')[1].split("</ul>")[0]
     assert "ai-elenco-progetto" in storico and "Sviluppo AdaV3" in storico
     assert "data-in-progetto" not in client.get(reverse("ai:chat")).content.decode()
@@ -93,8 +94,8 @@ def test_chip_del_progetto_con_la_x_e_prima_chat(client, s, settings):
     settings.AI_TURNI_SINCRONI = True
     p = _progetto(s)
     pagina = client.get(f"{reverse('ai:chat')}?progetto={p.pk}").content.decode()
-    chip = pagina.split('class="ai-chip ai-chip-progetto"')[1].split("</span>")[0]
-    assert "Sviluppo AdaV3" in chip and f'href="{reverse("ai:chat")}"' in chip and "Esci dall'area di lavoro" in chip
+    barra = pagina.split('class="ai-barra-area"')[1].split("</div>")[0]
+    assert f'value="{p.pk}" selected' in barra and f'name="progetto" value="{p.pk}"' in pagina   # la chat nuova nasce lì
     client.post(reverse("ai:invia"), {"testo": "prima domanda", "progetto": p.pk})
     assert Conversazione.objects.get(messaggi__testo="prima domanda").progetto == p
 

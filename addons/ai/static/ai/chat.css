@@ -605,3 +605,15 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-condividi-esito { margin: 0; font-size: 12px; color: var(--ui-success, #1a7f37); }
 .ai-condividi-pagina .ai-azione { width: 36px; height: 36px; border: 1px solid var(--ui-border); border-radius: 10px; }
 .ai-documento-letto { max-width: 780px; line-height: 1.65; }
+
+/* L'area di lavoro della chat: una riga sopra il titolo, con la tendina per cambiarla */
+.ai-barra-area { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font-size: 13px; color: var(--ui-text-2);
+  position: sticky; top: 0; z-index: 5; background: var(--ui-surface); padding: 6px 0; }
+.ai-barra-area > svg { width: 15px; height: 15px; flex: none; }
+.ai-barra-area form { display: flex; align-items: center; gap: 6px; margin: 0; min-width: 0; }
+.ai-barra-area-etichetta { color: var(--ui-text-3); }
+.ai-barra-area-scelta { border: 0; background: transparent; font: inherit; font-weight: 600; color: var(--ui-text); padding: 2px 18px 2px 2px;
+  max-width: 280px; text-overflow: ellipsis; cursor: pointer; border-radius: 6px; }
+.ai-barra-area-scelta:hover, .ai-barra-area-scelta:focus-visible { background: var(--ui-surface-2); }
+.ai-barra-area-apri { color: var(--ui-text-3); text-decoration: none; padding: 0 4px; }
+.ai-barra-area-apri:hover { color: var(--ui-primary); }

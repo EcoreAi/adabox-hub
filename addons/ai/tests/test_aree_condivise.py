@@ -83,7 +83,7 @@ def test_chi_esce_perde_l_accesso(client, a):
     aree.imposta_membri(a["area"], [])
     chat.refresh_from_db()
     attivita.refresh_from_db()
-    assert chat.progetto is None and not chat.condivisa and attivita.progetto is None
+    assert chat.progetto.personale and chat.progetto.utente == a["bruno"] and not chat.condivisa and attivita.progetto is None
     client.force_login(a["bruno"])
     assert client.get(reverse("ai:progetto", args=[a["area"].pk])).status_code == 404
     assert client.get(reverse("ai:albero_progetto", args=[a["area"].pk])).status_code == 404

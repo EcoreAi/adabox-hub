@@ -39,7 +39,10 @@ def _progetti_con_recenti(request, azienda):
     """Le aree di lavoro che l'utente vede (sue e condivise con lui) per la colonna di sinistra: le sottocartelle si
     caricano quando se ne apre una."""
     from django.db.models import Count
-    return list(aree.visibili(request.user, azienda).select_related("utente").annotate(n_membri=Count("membri", distinct=True)).order_by("nome", "pk"))
+    if azienda is not None:
+        aree.personale(request.user, azienda)                   # ognuno ha sempre almeno la sua area
+    return list(aree.visibili(request.user, azienda).select_related("utente").annotate(n_membri=Count("membri", distinct=True))
+                .order_by("-personale", "nome", "pk"))
 
 
 def _contenuti_progetto(request, progetto):
@@ -127,13 +130,15 @@ def chat(request, pk=None, progetto=None):
         progetto_aperto = _mio_progetto(request, progetto)
         if progetto_aperto is None:
             raise Http404
+        aree.imposta_corrente(request.user, progetto_aperto)       # aprire un'area è lavorarci
+    area_corrente = conversazione.progetto if conversazione is not None and conversazione.progetto_id else aree.corrente(request.user, azienda)
     app = app_selezionabili(request.user)
     ambito = next((a for a in app if conversazione and a["slug"] == conversazione.ambito), None)
     if conversazione is not None and not sola_lettura:
         motore.segna_interrotti(conversazione)
     in_corso = motore.in_corso_di(conversazione) if conversazione and not sola_lettura else None
     aperto = _mio_documento(request, request.GET.get("documento"), conversazione) if conversazione and not sola_lettura else None
-    progetto_nuova = (progetto_aperto or _mio_progetto(request, request.GET.get("progetto"))) if conversazione is None else None
+    progetto_nuova = (progetto_aperto or _mio_progetto(request, request.GET.get("progetto")) or area_corrente) if conversazione is None else None
     return render(request, "ai/chat.html", {
         "sola_lettura": sola_lettura, "autore_chat": aree.nome(conversazione.utente) if sola_lettura else "",
         "puo_condividere": bool(conversazione and not sola_lettura and conversazione.progetto_id),
@@ -144,7 +149,7 @@ def chat(request, pk=None, progetto=None):
         "salvati": _salvati(request), "ricevuti": _ricevuti(request),
         "pannelli_sinistra": PANNELLI_SINISTRA,
         "app": app, "suggerimenti": suggerimenti.per(), "suggerimenti_per_app": suggerimenti.tutti(),
-        "progetti": progetti, "progetto_aperto": progetto_aperto,
+        "progetti": progetti, "progetto_aperto": progetto_aperto, "area_corrente": area_corrente,
         "gestisco_area": bool(progetto_aperto and progetto_aperto.utente_id == request.user.pk),
         "url_dashboard_area": _url_dashboard(request, progetto_aperto),
         "membri_area": [aree.nome(m.utente) for m in progetto_aperto.membri.select_related("utente")] if progetto_aperto else [],
@@ -252,7 +257,8 @@ def invia(request, pk=None):
     ambito = ambito if ambito in ammessi else ""
     if nuova:
         titolo = " ".join(testo.split())
-        conversazione = Conversazione.objects.create(utente=request.user, ambito=ambito, progetto=_mio_progetto(request, request.POST.get("progetto")),
+        area = _mio_progetto(request, request.POST.get("progetto")) or aree.corrente(request.user, getattr(request, "azienda", None))
+        conversazione = Conversazione.objects.create(utente=request.user, ambito=ambito, progetto=area,
                                                      titolo=titolo[:60] + ("…" if len(titolo) > 60 else ""))
     elif "ambito" in request.POST and ambito != conversazione.ambito:     # app cambiata dal bottone «App»
         conversazione.ambito = ambito
@@ -325,9 +331,23 @@ def modifica_messaggio(request, pk):
 def sposta(request, pk):
     """In un progetto o fuori. Vale dal messaggio successivo."""
     c = get_object_or_404(_mie(request), pk=pk)
-    c.progetto = _mio_progetto(request, request.POST.get("progetto"))
-    c.save(update_fields=["progetto"])
+    area = _mio_progetto(request, request.POST.get("progetto")) or aree.personale(request.user, getattr(request, "azienda", None))
+    if area is not None and area.pk != c.progetto_id:
+        c.progetto, c.condivisa = area, c.condivisa and not area.personale
+        c.save(update_fields=["progetto", "condivisa"])
+        aree.imposta_corrente(request.user, area)
     return redirect("ai:conversazione", pk=c.pk)
+
+
+@require_POST
+@login_required
+def area_corrente(request):
+    """Cambia l'area su cui si lavora (dalla tendina sopra la chat nuova o dalla colonna di sinistra)."""
+    area = _mio_progetto(request, request.POST.get("area"))
+    if area is not None:
+        aree.imposta_corrente(request.user, area)
+    prossimo = request.POST.get("da", "")
+    return redirect(prossimo if prossimo.startswith("/") and not prossimo.startswith("//") else "ai:chat")
 
 
 @require_POST

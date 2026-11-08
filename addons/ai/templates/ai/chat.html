@@ -72,7 +72,7 @@
       <div class="ai-colonna">
         {% if conversazione %}
         {# titolo e azioni della conversazione: una riga che scorre con i messaggi, non una seconda barra #}
-        {% if conversazione.progetto_id %}<nav class="ai-percorso" aria-label="Percorso"><a href="{% url 'ai:progetto' conversazione.progetto_id %}"><svg aria-hidden="true"><use href="#ai-cartella"/></svg>{{ conversazione.progetto.nome }}</a><span aria-hidden="true">›</span></nav>{% endif %}
+        {% include "ai/_barra_area.html" %}
         {% if sola_lettura %}<p class="ai-sola-lettura" role="note"><svg aria-hidden="true"><use href="#ai-persone"/></svg><span>Chat di <strong>{{ autore_chat }}</strong>, condivisa con l'area di lavoro: la leggi, ma non ci scrivi. Per continuare apri una tua chat nell'area.</span></p>{% endif %}
         <div class="ai-titolo-chat">
           <h1 data-titolo>{{ conversazione.titolo }}</h1>
@@ -80,7 +80,6 @@
           <span class="ai-spazio"></span>
           {% if not sola_lettura %}
           {% if puo_condividere %}<form method="post" action="{% url 'ai:condividi_chat' conversazione.pk %}">{% csrf_token %}<button type="submit" class="ai-azione{% if conversazione.condivisa %} is-preferita{% endif %}" aria-pressed="{{ conversazione.condivisa|yesno:'true,false' }}" data-tip="{% if conversazione.condivisa %}Condivisa con l'area: torna privata{% else %}Condividi con l'area di lavoro (gli altri membri la leggono){% endif %}" aria-label="Condividi con l'area di lavoro"><svg><use href="#ai-persone"/></svg></button></form>{% endif %}
-          {% if progetti %}<form method="post" action="{% url 'ai:sposta' conversazione.pk %}">{% csrf_token %}<select class="ui-input ai-modello" name="progetto" aria-label="Area di lavoro della chat" onchange="this.form.submit()"><option value="">Nessuna area di lavoro</option>{% for p in progetti %}<option value="{{ p.pk }}"{% if conversazione.progetto_id == p.pk %} selected{% endif %}>{{ p.nome }}</option>{% endfor %}</select></form>{% endif %}
           <button type="button" class="ai-azione" data-apri-rinomina data-tip="Rinomina" aria-label="Rinomina la chat"><svg><use href="#icon-edit"/></svg></button>
           <a class="ai-azione" href="{% url 'ai:esporta' conversazione.pk %}" data-tip="Esporta in Markdown" aria-label="Esporta la chat"><svg><use href="#icon-download"/></svg></a>
           <form method="post" action="{% url 'ai:preferita' conversazione.pk %}">{% csrf_token %}
@@ -96,6 +95,7 @@
         {% if progetto_aperto %}
         {% include "ai/_testa_progetto.html" %}
         {% elif not messaggi %}
+        {% include "ai/_barra_area.html" %}
         <div class="ai-saluto">
           <span class="ai-scintilla" aria-hidden="true"><svg><use href="#ai-scintilla"/></svg></span>
           <h1>Ciao, {{ user.first_name|default:user.username }}</h1>
@@ -116,7 +116,7 @@
           {% csrf_token %}
           <input type="hidden" name="ambito" value="{% if conversazione %}{{ conversazione.ambito }}{% else %}{{ ambito_nuova }}{% endif %}" data-ambito>
           {% if documento %}<input type="hidden" name="documento" value="{{ documento.pk }}">{% endif %}
-          {% if progetto_nuova %}<input type="hidden" name="progetto" value="{{ progetto_nuova.pk }}"><p class="ai-progetto-nuova"><span class="ai-chip ai-chip-progetto"><svg aria-hidden="true"><use href="#ai-cartella"/></svg>Nuova chat nell'area <strong>{{ progetto_nuova.nome }}</strong><a class="ai-chip-x" href="{% url 'ai:chat' %}" data-tip="Chat fuori dall'area" aria-label="Esci dall'area di lavoro: chat nuova senza area"><svg><use href="#icon-x"/></svg></a></span></p>{% endif %}
+          {% if progetto_nuova %}<input type="hidden" name="progetto" value="{{ progetto_nuova.pk }}">{% endif %}
           <ul class="ai-allegati" data-allegati hidden></ul>
           {% if conferma_immagini %}<input type="hidden" name="conferma_immagini" value="" data-conferma-campo>
           <div class="ai-conferma-immagini" data-conferma-box hidden>

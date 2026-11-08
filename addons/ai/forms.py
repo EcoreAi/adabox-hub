@@ -247,3 +247,5 @@ class ProgettoChatForm(forms.ModelForm):
         self.fields["cartella_documenti"].choices = scelte
         if not self.cartelle and not self.instance.cartella_documenti:
             del self.fields["cartella_documenti"]
+        if self.instance.personale:                          # l'area personale resta privata: per condividere se ne crea un'altra
+            del self.fields["membri"]

@@ -531,6 +531,8 @@ class ProgettoChat(models.Model):
     cartella_documenti = models.PositiveIntegerField("cartella dei Documenti", null=True, blank=True)
     ambito = models.CharField("app predefinita", max_length=31, blank=True,
                               help_text="le chat nuove dell'area partono limitate a questa app (si cambia dalla casella)")
+    personale = models.BooleanField("area personale", default=False, editable=False,
+                                    help_text="l'area di ognuno: privata, non si elimina; il nome si cambia")
     creato = models.DateTimeField("creato il", auto_now_add=True)
 
     class Meta:
@@ -681,3 +683,16 @@ class MembroArea(models.Model):
         verbose_name_plural = "membri dell'area di lavoro"
         ordering = ["pk"]
         constraints = [models.UniqueConstraint(fields=["progetto", "utente"], name="ai_membro_area_unico")]
+
+
+class AreaCorrente(models.Model):
+    """L'area di lavoro su cui l'utente sta lavorando in un'azienda: le chat nuove nascono lì."""
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+", verbose_name="utente")
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, related_name="+", verbose_name="azienda")
+    area = models.ForeignKey(ProgettoChat, on_delete=models.CASCADE, related_name="+", verbose_name="area")
+    aggiornata = models.DateTimeField("aggiornata il", auto_now=True)
+
+    class Meta:
+        verbose_name = "area corrente"
+        verbose_name_plural = "aree correnti"
+        constraints = [models.UniqueConstraint(fields=["utente", "azienda"], name="ai_area_corrente_unica")]
