@@ -1,0 +1,21 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Presenti ora · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Visitatori presenti</h1>
+  <div class="sub">{{ presenti|length }} persone alle {{ ora|date:"H:i" }} del {{ ora|date:"d/m/Y" }}</div></div>
+  <div class="ui-pagehead-actions"><button class="ui-btn ui-btn-secondary" type="button" onclick="window.print()">Stampa per l'evacuazione</button></div></div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+{% if presenti %}
+  <div class="ui-table-wrap"><table class="ui-table">
+    <thead><tr><th>Visitatore</th><th>Azienda</th><th>Chi lo riceve</th><th>Entrato alle</th><th>Badge</th></tr></thead>
+    <tbody>{% for v in presenti %}<tr><td><a class="ui-link" href="{% url 'reception:visite_dettaglio' v.pk %}">{{ v.nome }}</a></td><td>{{ v.societa|default:"—" }}</td>
+      <td>{{ v.ospite.get_full_name|default:v.ospite.username|default:"—" }}</td><td>{{ v.entrata|date:"H:i" }}</td><td>{{ v.badge|default:"—" }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+{% else %}<div class="ui-empty"><p>Nessun visitatore presente.</p></div>{% endif %}
+</div></section>
+{% if attese %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Attesi oggi</div></div><div class="ui-card-body">
+  {% for v in attese %}<div class="ui-allegato"><a class="ui-link" href="{% url 'reception:visite_dettaglio' v.pk %}">{{ v }}</a><span class="ui-allegato-info">{{ v.prevista_il|date:"H:i" }}{% if v.ospite %} · da {{ v.ospite.get_full_name|default:v.ospite.username }}{% endif %}</span></div>{% endfor %}
+</div></section>
+{% endif %}
+{% endblock %}

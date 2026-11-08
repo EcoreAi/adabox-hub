@@ -11,7 +11,7 @@ Confronto con la checklist di `docs/features-gap` (Odoo, ERPNext, NetSuite, Busi
 - **Acquisti è stata l'app scelta per l'intervento:** passa da 0 a 8 voci complete su 14 (sezione E).
 - **Fatti il 2026-11-05:** scadenziario a fasce, fido dei clienti e pacchetto per il commercialista (FIN-06, FIN-07, FIN-01).
 - **Fatti il 2026-11-05 anche:** ricerche salvate, ricerca in tutte le app, Pivot, registro delle modifiche, scadenza e limiti dei token API (RPT-03, RPT-02, PLT-04, parte di PLT-17 e PLT-14).
-- **Fatto il 2026-11-08:** chatter completo, con messaggi fissati, menzioni senza Discuss e invio a indirizzi esterni scelti al momento (PLT-10), e tolleranza alla perdita di connessione: avviso offline, «Riprova» sugli errori, bozze dei form (PLT-19), posizioni e organigramma (HR-01), dashboard per ruolo e pagine di Analisi condivise con ruoli e gruppi (RPT-01), riaddebito delle spese ai clienti e rimborso abbinato alla banca (FIN-24), modulo web-to-lead per il sito (CRM-19).
+- **Fatto il 2026-11-08:** chatter completo, con messaggi fissati, menzioni senza Discuss e invio a indirizzi esterni scelti al momento (PLT-10), e tolleranza alla perdita di connessione: avviso offline, «Riprova» sugli errori, bozze dei form (PLT-19), posizioni e organigramma (HR-01), dashboard per ruolo e pagine di Analisi condivise con ruoli e gruppi (RPT-01), riaddebito delle spese ai clienti e rimborso abbinato alla banca (FIN-24), modulo web-to-lead per il sito (CRM-19), nuovo modulo Reception per i visitatori (HR-14).
 - **Integrazioni, iniziate il 2026-11-05 nel modulo Connettori:** webhook firmati in uscita, identificativi esterni sui record, bottoni via API, chat collegata al contatto e primo connettore HubSpot sui contatti delle persone, provato solo contro un sistema simulato. Mancano aziende e opportunità e gli altri sistemi. Zucchetti e TeamSystem Enterprise/Lynfa non hanno documentazione pubblica trovata: servono partner o contatto commerciale.
 
 ## Da dove partire
@@ -480,11 +480,11 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 
 ### reception
 
-1 voci aperte: 0 Core, 1 Adv, 0 Edge.
+0 voci aperte.
 
 | ID | Tier | Stato | Effort | Cosa costruire |
 |---|---|---|---|---|
-| HR-14 | Adv | MISSING | S | Registro visite con pagina tablet per entrata e uscita, avviso alla persona ospitante via Discuss o email, informativa privacy. |
+| HR-14 | Adv | HAVE | S | **Fatto il 2026-11-08** nel nuovo modulo `reception`: vedi la sezione B. |
 
 ### connettori
 
@@ -784,7 +784,7 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | HR-11 | Obiettivi e riconoscimenti | Adv | MISSING | Nessun modello; progetti.Sprint.obiettivo è solo un testo dello sprint | Nulla per le persone: nessun obiettivo misurabile né riconoscimento. |
 | HR-12 | Parco auto (veicoli, contratti, costi) | Adv | MISSING | Nessun modello; addons/spese/models.py (CategoriaSpesa.tariffa_km) copre solo il rimborso chilometrico | Nessuna anagrafica veicoli, assegnazione, contratti, scadenze o costi. |
 | HR-13 | Pianificazione dei turni | Adv | MISSING | Nessun modello; addons/capacita/models.py (Capacita) dà solo ore al giorno e sabato o domenica lavorati | Nessun turno, modello di turno, copertura per reparto né pubblicazione. capacita calcola date dei compiti, non chi lavora quando. |
-| HR-14 | Reception e gestione visitatori | Adv | MISSING | Nessun modello; il visitatore in addons/discuss/livechat.py è chi usa la chat del sito | Nessun registro di ingressi, badge o avviso all'ospitante. |
+| HR-14 | Reception e gestione visitatori | Adv | HAVE | addons/reception (models.py Visita; servizi.py entra, esce, cancella_vecchie; pagine.py chiosco, presenti; tests/test_reception.py) | Fatto il 2026-11-08: chiosco per il tablet all'ingresso (nome, azienda, chi si incontra, informativa da accettare; uscita toccando il proprio nome, che mostra solo nome e iniziale), visite attese registrabili in anticipo, avviso a chi riceve per email e nella posta di Discuss tramite il chatter, lista dei presenti da stampare per l'evacuazione, cancellazione automatica dopo i giorni di conservazione. Niente stampa di badge né firma sul tablet |
 | HR-15 | Programmi di segnalazione candidati | Adv | N/A | Nessun modello | Esclusa il 2026-11-05 insieme alla selezione, su cui si appoggia. |
 | HR-16 | Agente note spese (codifica automatica e controlli sulle ricevute) | Edge | MISSING | Controlli solo deterministici in addons/spese/models.py (RigaSpesa.clean) e addons/spese/flusso.py (controlla); nessun riferimento a NotaSpese o ricevute in addons/ai; il manifest di spese non ha la chiave ai (esempio in addons/calendario/ai.py) | La ricevuta non viene letta: niente estrazione di importo e data, categoria proposta, né controlli di policy sul contenuto. Il modulo addons/ai offre i mattoni (gateway, strumenti, compiti). |
 
@@ -1093,7 +1093,6 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | HR-11 | Obiettivi e riconoscimenti | Obiettivi per dipendente o reparto con misura, avanzamento; riconoscimenti pubblicati in Discuss. | - | M |
 | HR-12 | Parco auto (veicoli, contratti, costi) | Veicoli assegnati ai dipendenti, contratti di leasing e assicurazione, scadenze (revisione, bollo), costi e chilometri, con avvisi. | HR-01 | M |
 | HR-13 | Pianificazione dei turni | Modelli di turno, griglia settimanale per reparto con trascinamento, controllo su assenze e sovrapposizioni, pubblicazione e scambio; le ore pianificate alimentano capacita. | HR-01, HR-03 | M |
-| HR-14 | Reception e gestione visitatori | Registro visite con pagina tablet per entrata e uscita, avviso alla persona ospitante via Discuss o email, informativa privacy. | HR-01 | S |
 
 **Progetti, servizio e assistenza**
 

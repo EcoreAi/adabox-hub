@@ -1,0 +1,46 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Benvenuto · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="rc-chiosco">
+  <section class="ui-card is-revealed rc-entra">
+    <div class="ui-card-body">
+      <h1>Benvenuto</h1>
+      <p class="ui-help">Registrati qui: avvisiamo chi stai per incontrare.</p>
+      <form method="post" novalidate>{% csrf_token %}
+        {% if form.errors %}<div class="ui-alert ui-alert-error">Controlla i campi evidenziati.</div>{% endif %}
+        {% for campo in form %}{% if campo.name != "privacy" %}
+        <div class="ui-field"><label class="ui-label" for="{{ campo.id_for_label }}">{{ campo.label }}</label>{{ campo }}
+          {% for e in campo.errors %}<div class="ui-field-error">{{ e }}</div>{% endfor %}</div>
+        {% endif %}{% endfor %}
+        <details class="rc-informativa"><summary>Informativa sulla privacy</summary><p>{{ informativa|linebreaksbr }}</p></details>
+        <label class="rc-privacy">{{ form.privacy }} {{ form.privacy.label }}</label>
+        {% for e in form.privacy.errors %}<div class="ui-field-error">Per entrare serve accettare l'informativa.</div>{% endfor %}
+        <button class="ui-btn ui-btn-primary rc-grande" type="submit">Sono arrivato</button>
+      </form>
+    </div>
+  </section>
+  <section class="ui-card is-revealed rc-esce">
+    <div class="ui-card-body">
+      <h2>Stai uscendo?</h2>
+      <p class="ui-help">Tocca il tuo nome.</p>
+      <div class="rc-nomi">
+      {% for v in presenti %}
+        <form method="post" action="{% url 'reception:chiosco_uscita' v.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-secondary rc-grande" type="submit">{{ v.nome_breve }}</button></form>
+      {% empty %}<p class="ui-help">Nessun visitatore registrato in questo momento.</p>{% endfor %}
+      </div>
+    </div>
+  </section>
+</div>
+<style>
+.rc-chiosco { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 20px; align-items: start; }
+@media (max-width: 800px) { .rc-chiosco { grid-template-columns: 1fr; } }
+.rc-chiosco h1 { margin: 0 0 4px; font-size: 32px; }
+.rc-chiosco .ui-input { min-height: 48px; font-size: 18px; }
+.rc-chiosco .ui-field { margin-bottom: 14px; }
+.rc-grande { min-height: 52px; font-size: 18px; padding: 0 22px; }
+.rc-privacy { display: flex; gap: 10px; align-items: center; margin: 8px 0 16px; font-size: 16px; }
+.rc-privacy input { width: 24px; height: 24px; }
+.rc-informativa { margin-top: 8px; font-size: 14px; color: var(--ui-text-2); }
+.rc-nomi { display: flex; flex-wrap: wrap; gap: 10px; }
+</style>
+{% endblock %}
