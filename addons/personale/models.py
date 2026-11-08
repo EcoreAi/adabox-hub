@@ -24,6 +24,28 @@ class Reparto(AziendaMixin):
         return self.nome
 
 
+class Posizione(AziendaMixin):
+    """Un ruolo dell'organico (es. «Commerciale senior»): in quale reparto e quante persone servono."""
+    nome = models.CharField("nome", max_length=100)
+    reparto = models.ForeignKey(Reparto, on_delete=models.SET_NULL, null=True, blank=True, related_name="posizioni",
+                                verbose_name="reparto")
+    organico = models.PositiveSmallIntegerField("organico previsto", default=1,
+                                                help_text="quante persone servono in questa posizione")
+    descrizione = models.TextField("descrizione", blank=True, help_text="compiti e requisiti")
+    attiva = models.BooleanField("attiva", default=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "posizione"
+        verbose_name_plural = "posizioni"
+        ordering = ["reparto__nome", "nome"]
+
+    def __str__(self):
+        return self.nome
+
+    def occupati(self):
+        return self.dipendenti.filter(attivo=True).count()
+
+
 class Dipendente(AziendaMixin, ProprietaMixin):
     CONTRATTI = [("indeterminato", "Tempo indeterminato"), ("determinato", "Tempo determinato"),
                  ("apprendistato", "Apprendistato"), ("collaborazione", "Collaborazione"), ("stage", "Stage")]
@@ -37,7 +59,9 @@ class Dipendente(AziendaMixin, ProprietaMixin):
     telefono = models.CharField("telefono", max_length=40, blank=True)
     reparto = models.ForeignKey(Reparto, on_delete=models.SET_NULL, null=True, blank=True, related_name="dipendenti",
                                 verbose_name="reparto")
-    ruolo = models.CharField("ruolo", max_length=100, blank=True)
+    posizione = models.ForeignKey(Posizione, on_delete=models.SET_NULL, null=True, blank=True,
+                                  related_name="dipendenti", verbose_name="posizione")
+    ruolo = models.CharField("ruolo", max_length=100, blank=True, help_text="se vuoto, il nome della posizione")
     responsabile = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True,
                                      related_name="collaboratori", verbose_name="responsabile",
                                      help_text="approva le sue richieste")
@@ -59,6 +83,20 @@ class Dipendente(AziendaMixin, ProprietaMixin):
 
     def __str__(self):
         return f"{self.cognome} {self.nome}"
+
+    def clean(self):
+        super().clean()
+        capo, visti = self.responsabile, {self.pk}
+        while capo is not None and self.pk:                     # niente giri nella catena dei responsabili
+            if capo.pk in visti:
+                raise ValidationError({"responsabile": "Così la catena dei responsabili gira in tondo."})
+            visti.add(capo.pk)
+            capo = capo.responsabile
+
+    def save(self, *args, **kwargs):
+        if not self.ruolo and self.posizione_id:
+            self.ruolo = self.posizione.nome[:100]
+        super().save(*args, **kwargs)
 
     @property
     def ore_al_giorno(self):

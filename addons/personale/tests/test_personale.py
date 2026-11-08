@@ -159,3 +159,56 @@ def test_dashboard(rf, scena):
     richiesta.user, richiesta.azienda = scena["capo_u"], scena["azienda"]
     valori = {k["etichetta"]: k["valore"] for k in kpi(richiesta)["kpi"]}
     assert valori["richieste da approvare"] == 1 and valori["tue ferie residue"] == "26"
+
+
+def _organigramma_scena(azienda):
+    from personale.models import Posizione, Reparto
+    vendite = Reparto.objects.create(azienda=azienda, nome="Vendite")
+    comm = Posizione.objects.create(azienda=azienda, nome="Commerciale", reparto=vendite, organico=3)
+    ad = Dipendente.objects.create(azienda=azienda, nome="Anna", cognome="Direttrice")
+    capo = Dipendente.objects.create(azienda=azienda, nome="Bruno", cognome="Capovendite", responsabile=ad, reparto=vendite)
+    c1 = Dipendente.objects.create(azienda=azienda, nome="Carla", cognome="Uno", responsabile=capo, reparto=vendite, posizione=comm)
+    Dipendente.objects.create(azienda=azienda, nome="Dario", cognome="Ex", responsabile=capo, posizione=comm, attivo=False)
+    return {"vendite": vendite, "comm": comm, "ad": ad, "capo": capo, "c1": c1}
+
+
+def test_organigramma_dalla_catena_dei_responsabili(client, superuser):
+    from personale import organigramma
+    azienda = Azienda.objects.get(pk=1)
+    s = _organigramma_scena(azienda)
+    assert s["c1"].ruolo == "Commerciale"                              # il ruolo viene dalla posizione
+    (radice,) = organigramma.albero(Dipendente.objects.filter(attivo=True))
+    assert radice.dipendente == s["ad"] and radice.sotto == 2 and radice.figli[0].figli[0].dipendente == s["c1"]
+    assert [(p.nome, occ, manca) for p, occ, manca in organigramma.scoperte(azienda)] == [("Commerciale", 1, 2)]
+    html = client.get("/personale/organigramma/").content.decode()
+    assert "Anna Direttrice" in html and "Carla Uno" in html and "Dario" not in html and "manca" in html
+    html = client.get(f"/personale/organigramma/?reparto={s['vendite'].pk}").content.decode()
+    assert "Bruno Capovendite" in html and "Anna Direttrice" not in html     # nel reparto la cima è il suo capo
+    assert "In servizio" in client.get("/personale/posizioni/").content.decode()
+
+
+def test_giri_nella_catena(db):
+    from personale import organigramma
+    azienda = Azienda.objects.get(pk=1)
+    a = Dipendente.objects.create(azienda=azienda, nome="A", cognome="A")
+    b = Dipendente.objects.create(azienda=azienda, nome="B", cognome="B", responsabile=a)
+    a.responsabile = b
+    with pytest.raises(ValidationError):
+        a.full_clean()
+    Dipendente.objects.filter(pk=a.pk).update(responsabile=b)          # dati vecchi con un giro: la pagina regge
+    radici = organigramma.albero(Dipendente.objects.all())
+    assert len(radici) == 1 and radici[0].sotto == 1
+
+
+def test_posizioni_dai_ruoli_della_migrazione(db):
+    import importlib
+    from django.apps import apps as registro
+    from personale.models import Posizione
+    mig = importlib.import_module("personale.migrations." + next(
+        p.stem for p in (Path(personale.__file__).parent / "migrations").glob("*_posizioni.py")))
+    azienda = Azienda.objects.get(pk=1)
+    for n in ("X", "Y"):
+        Dipendente.objects.create(azienda=azienda, nome=n, cognome=n, ruolo="Magazziniere")
+    mig.posizioni_dai_ruoli(registro, None)
+    p = Posizione.objects.get(nome="Magazziniere")
+    assert p.organico == 2 and p.dipendenti.count() == 2

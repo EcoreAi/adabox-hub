@@ -1,0 +1,12 @@
+{% with d=n.dipendente %}
+<li>
+  <a class="og-carta" href="{{ n.url }}">
+    <span class="ui-avatar"{% if d.utente_id %} data-presenza-utente="{{ d.utente_id }}"{% endif %}>{{ d.nome|slice:":1"|upper }}{{ d.cognome|slice:":1"|upper }}</span>
+    <span class="og-testo"><strong>{{ d.nome }} {{ d.cognome }}</strong>
+      <span class="og-ruolo">{{ d.ruolo|default:"—" }}</span>
+      {% if d.reparto and not reparto %}<span class="og-reparto">{{ d.reparto }}</span>{% endif %}</span>
+    {% if n.figli %}<span class="ui-pill" title="Persone sotto, a tutti i livelli">{{ n.sotto }}</span>{% endif %}
+  </a>
+  {% if n.figli %}<ul>{% for n in n.figli %}{% include "personale/_nodo.html" %}{% endfor %}</ul>{% endif %}
+</li>
+{% endwith %}

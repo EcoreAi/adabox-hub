@@ -1,0 +1,22 @@
+/* Organigramma: albero orizzontale a rientri, leggibile anche su telefono. */
+.og-pagina { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
+@media (max-width: 900px) { .og-pagina { grid-template-columns: 1fr; } }
+.og-albero-card .ui-card-body { overflow-x: auto; }
+.og-albero, .og-albero ul { list-style: none; margin: 0; padding: 0; }
+.og-albero ul { margin-left: 22px; padding-left: 18px; border-left: 1px solid var(--ui-border, #e5e5ea); }
+.og-albero li { position: relative; padding: 6px 0; }
+.og-albero ul > li::before {
+  content: ""; position: absolute; left: -18px; top: 28px; width: 16px; border-top: 1px solid var(--ui-border, #e5e5ea);
+}
+.og-carta {
+  display: inline-flex; align-items: center; gap: 10px; min-width: 240px; max-width: 100%;
+  padding: 8px 12px; border: 1px solid var(--ui-border, #e5e5ea); border-radius: 10px;
+  background: var(--ui-surface, #fff); color: var(--ui-text); text-decoration: none;
+}
+.og-carta:hover { border-color: var(--ui-primary); text-decoration: none; }
+.og-testo { display: grid; flex: 1; min-width: 0; }
+.og-ruolo, .og-reparto { font-size: 12px; color: var(--ui-text-2); }
+.og-reparto { color: var(--ui-text-3); }
+.og-scoperta { padding: 6px 0; border-bottom: 1px solid var(--ui-border, #e5e5ea); }
+.og-scoperta:last-of-type { border-bottom: 0; margin-bottom: 8px; }
+@media (max-width: 600px) { .og-carta { min-width: 0; } .og-albero ul { margin-left: 10px; padding-left: 12px; } .og-albero ul > li::before { left: -12px; width: 10px; } }

@@ -2,11 +2,13 @@
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from . import flusso, saldi
-from .models import Assenza, Dipendente, TipoAssenza
+from core.viste import registry
+
+from . import flusso, organigramma as org, saldi
+from .models import Assenza, Dipendente, Reparto, TipoAssenza
 
 
 class RichiestaForm(forms.ModelForm):
@@ -42,3 +44,28 @@ def mie(request):
         "dipendente": dipendente, "form": form, "saldo": saldi.saldo(dipendente, anno), "anno": anno,
         "assenze": dipendente.assenze.select_related("tipo")[:30],
         "da_approvare": Assenza.objects.filter(stato=Assenza.RICHIESTA, dipendente__responsabile=dipendente).count()})
+
+
+@login_required
+@permission_required("personale.view_dipendente", raise_exception=True)
+def organigramma(request):
+    """L'organigramma dell'azienda corrente (o di un reparto), dai responsabili; a lato le posizioni scoperte."""
+    vista = registry.per_modello(Dipendente)
+    persone = (vista.get_queryset(request).filter(attivo=True)
+               .select_related("posizione", "reparto", "utente"))
+    reparti = Reparto.objects.filter(azienda=request.azienda).order_by("nome") if request.azienda else Reparto.objects.none()
+    reparto = None
+    if request.GET.get("reparto", "").isdigit():
+        reparto = get_object_or_404(reparti, pk=request.GET["reparto"])
+        persone = persone.filter(reparto=reparto)
+    persone = list(persone)
+    radici = org.albero(persone)
+
+    def link(nodi):
+        for n in nodi:
+            n.url = vista.url("dettaglio", pk=n.dipendente.pk)
+            link(n.figli)
+    link(radici)
+    return render(request, "personale/organigramma.html", {
+        "radici": radici, "totale": len(persone), "reparti": reparti, "reparto": reparto,
+        "scoperte": org.scoperte(request.azienda, reparto) if request.azienda else []})

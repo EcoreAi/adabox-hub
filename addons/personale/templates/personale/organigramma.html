@@ -1,0 +1,41 @@
+{% extends 'core/base_app.html' %}
+{% load tema %}
+{% block title %}Organigramma · {{ theme.brand }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{% statico 'personale/organigramma.css' %}">{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Organigramma</h1>
+  <div class="sub">{{ totale }} person{{ totale|pluralize:"a,e" }} in servizio{% if reparto %} · {{ reparto }}{% endif %} · disegnato dai responsabili indicati nelle schede</div></div>
+  <div class="ui-pagehead-actions">
+    <form method="get" class="og-filtro">
+      <select class="ui-input" name="reparto" aria-label="Reparto" onchange="this.form.submit()">
+        <option value="">Tutti i reparti</option>
+        {% for r in reparti %}<option value="{{ r.pk }}"{% if reparto and reparto.pk == r.pk %} selected{% endif %}>{{ r }}</option>{% endfor %}
+      </select>
+      <noscript><button class="ui-btn ui-btn-secondary" type="submit">Mostra</button></noscript>
+    </form>
+  </div>
+</div>
+<div class="og-pagina">
+  <section class="ui-card is-revealed og-albero-card">
+    <div class="ui-card-body">
+    {% if radici %}
+      <ul class="og-albero">{% for n in radici %}{% include "personale/_nodo.html" %}{% endfor %}</ul>
+    {% else %}
+      <div class="ui-empty"><p>Nessun dipendente in servizio{% if reparto %} in questo reparto{% endif %}.</p></div>
+    {% endif %}
+    </div>
+  </section>
+  <aside class="ui-card is-revealed og-scoperte">
+    <div class="ui-card-head"><div class="ui-card-title">Posizioni da coprire</div></div>
+    <div class="ui-card-body">
+    {% for p, occupati, mancano in scoperte %}
+      <div class="og-scoperta"><strong>{{ p.nome }}</strong>{% if p.reparto and not reparto %} · {{ p.reparto }}{% endif %}
+        <div class="ui-help">{{ occupati }} su {{ p.organico }} · manca{{ mancano|pluralize:"no" }} {{ mancano }}</div></div>
+    {% empty %}
+      <p class="ui-help">Nessuna: l'organico previsto è coperto.</p>
+    {% endfor %}
+    {% if perms.personale.view_posizione %}<a class="ui-link" href="{% url 'personale:posizioni_lista' %}">Tutte le posizioni</a>{% endif %}
+    </div>
+  </aside>
+</div>
+{% endblock %}

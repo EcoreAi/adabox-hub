@@ -7,7 +7,7 @@ from core.colori import sicuro
 from core.viste import ModelView, register, schede
 
 from . import flusso
-from .models import Assenza, Dipendente, Reparto, TipoAssenza
+from .models import Assenza, Dipendente, Posizione, Reparto, TipoAssenza
 
 
 @register
@@ -18,6 +18,30 @@ class RepartoView(ModelView):
     search_fields = ["nome"]
     form_layout = [("Reparto", [("nome", "responsabile")])]
     company_field = "azienda"
+
+
+@register
+class PosizioneView(ModelView):
+    """L'anagrafica delle posizioni: quante persone servono in ogni ruolo e quante ce ne sono."""
+    model = Posizione
+    slug = "posizioni"
+    list_display = ["nome", "reparto", "organico", "occupati", "scoperti", "attiva"]
+    list_filter = ["reparto", "attiva"]
+    search_fields = ["nome", "descrizione"]
+    form_layout = [("Posizione", [("nome", "reparto"), ("organico", "attiva"), "descrizione"])]
+    company_field = "azienda"
+    list_group_by = ["reparto"]
+    api = True
+    ai_descrizione = "Le posizioni dell'organico (ruoli) per reparto, con le persone previste e quelle in servizio."
+
+    def col_occupati(self, obj):
+        return obj.occupati()
+    col_occupati.short_description = "In servizio"
+
+    def col_scoperti(self, obj):
+        mancano = obj.organico - obj.occupati()
+        return mancano if mancano > 0 else "—"
+    col_scoperti.short_description = "Da coprire"
 
 
 @register
@@ -37,7 +61,7 @@ class DipendenteView(ModelView):
     search_fields = ["nome", "cognome", "codice_fiscale", "email", "ruolo"]
     form_layout = [
         ("Anagrafica", [("nome", "cognome"), ("codice_fiscale", "utente"), ("email", "telefono")]),
-        ("Lavoro", [("reparto", "ruolo"), "responsabile", ("tipo_contratto", "ore_settimanali"),
+        ("Lavoro", [("reparto", "posizione"), ("ruolo", "responsabile"), ("tipo_contratto", "ore_settimanali"),
                     ("data_assunzione", "data_cessazione"), ("giorni_ferie_annui", "ore_permesso_annue"), "attivo"]),
         ("Altro", ["@proprieta"]),
     ]
@@ -47,7 +71,7 @@ class DipendenteView(ModelView):
     kanban_fields = ["ruolo", "responsabile"]
     kanban_ricco = True
     chatter = True
-    tracked_fields = ["reparto", "ruolo", "responsabile", "tipo_contratto", "data_cessazione"]
+    tracked_fields = ["reparto", "posizione", "ruolo", "responsabile", "tipo_contratto", "data_cessazione"]
     api = True
 
 

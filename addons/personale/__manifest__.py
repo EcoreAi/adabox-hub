@@ -1,7 +1,7 @@
 {
     "name": "Personale",
     "summary": "Dipendenti e reparti, richieste di ferie e permessi con approvazione, saldi e calendario delle assenze",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Risorse umane",
     "depends": [],
@@ -15,6 +15,8 @@
         {"label": "Assenze", "url_name": "personale:assenze_lista", "permission": "personale.view_assenza"},
         {"label": "Calendario", "url_name": "personale:assenze_calendario", "permission": "personale.view_assenza"},
         {"label": "Dipendenti", "url_name": "personale:dipendenti_lista", "permission": "personale.view_dipendente"},
+        {"label": "Organigramma", "url_name": "personale:organigramma", "permission": "personale.view_dipendente"},
+        {"label": "Posizioni", "url_name": "personale:posizioni_lista", "permission": "personale.view_posizione"},
         {"label": "Reparti", "url_name": "personale:reparti_lista", "permission": "personale.change_reparto"},
         {"label": "Tipi di assenza", "url_name": "personale:tipi_lista", "permission": "personale.change_tipoassenza"},
     ],

@@ -11,7 +11,7 @@ Confronto con la checklist di `docs/features-gap` (Odoo, ERPNext, NetSuite, Busi
 - **Acquisti è stata l'app scelta per l'intervento:** passa da 0 a 8 voci complete su 14 (sezione E).
 - **Fatti il 2026-11-05:** scadenziario a fasce, fido dei clienti e pacchetto per il commercialista (FIN-06, FIN-07, FIN-01).
 - **Fatti il 2026-11-05 anche:** ricerche salvate, ricerca in tutte le app, Pivot, registro delle modifiche, scadenza e limiti dei token API (RPT-03, RPT-02, PLT-04, parte di PLT-17 e PLT-14).
-- **Fatto il 2026-11-08:** chatter completo, con messaggi fissati, menzioni senza Discuss e invio a indirizzi esterni scelti al momento (PLT-10), e tolleranza alla perdita di connessione: avviso offline, «Riprova» sugli errori, bozze dei form (PLT-19).
+- **Fatto il 2026-11-08:** chatter completo, con messaggi fissati, menzioni senza Discuss e invio a indirizzi esterni scelti al momento (PLT-10), e tolleranza alla perdita di connessione: avviso offline, «Riprova» sugli errori, bozze dei form (PLT-19), posizioni e organigramma (HR-01).
 - **Integrazioni, iniziate il 2026-11-05 nel modulo Connettori:** webhook firmati in uscita, identificativi esterni sui record, bottoni via API, chat collegata al contatto e primo connettore HubSpot sui contatti delle persone, provato solo contro un sistema simulato. Mancano aziende e opportunità e gli altri sistemi. Zucchetti e TeamSystem Enterprise/Lynfa non hanno documentazione pubblica trovata: servono partner o contatto commerciale.
 
 ## Da dove partire
@@ -170,11 +170,10 @@ Ogni voce aperta è assegnata all'app dove andrebbe costruita. Ordine dentro ogn
 
 ### personale
 
-4 voci aperte: 4 Core, 0 Adv, 0 Edge.
+3 voci aperte: 3 Core, 0 Adv, 0 Edge.
 
 | ID | Tier | Stato | Effort | Cosa costruire |
 |---|---|---|---|---|
-| HR-01 | Core | PARTIAL | S | Modello Posizione collegato a Dipendente e Reparto; pagina organigramma disegnata dalla catena dei responsabili. |
 | HR-02 | Core | PARTIAL | M | Modello Contratto con validità, CCNL e livello, retribuzione e voci, storico per dipendente, avvisi di scadenza; spostare ore e ferie annue sul contratto in vigore. |
 | HR-03 | Core | PARTIAL | M | Modello Timbratura con entrata e uscita, pagina chiosco con PIN o badge, confronto con ore previste e assenze; esportazione mensile di presenze e assenze per il consulente del lavoro; ratei mensili e riporto del residuo tra anni. |
 | HR-08 | Core | PARTIAL | M | Pagina Il mio profilo che riunisce assenze, spese, ore, contratto, cedolini e documenti HR riservati, con richiesta di modifica dei dati anagrafici. |
@@ -775,7 +774,7 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 
 | ID | Funzione | Tier | Stato | Evidenza | Note sul gap |
 |---|---|---|---|---|---|
-| HR-01 | Anagrafica dipendenti, organigramma, reparti, posizioni | Core | PARTIAL | addons/personale/models.py (Reparto, Dipendente.responsabile), addons/personale/views.py (DipendenteView, RepartoView: lista, kanban per reparto, chatter, API) | Dipendenti e reparti con gerarchia completi. Manca una vista grafica dell'organigramma (nessuna occorrenza nel codice) e la posizione è il testo libero Dipendente.ruolo, senza anagrafica delle posizioni né organico previsto. |
+| HR-01 | Anagrafica dipendenti, organigramma, reparti, posizioni | Core | HAVE | addons/personale/models.py Posizione, Dipendente.posizione; addons/personale/organigramma.py albero, scoperte; addons/personale/pagine.py organigramma; addons/personale/tests/test_personale.py | Fatto il 2026-11-08: anagrafica delle posizioni con reparto e organico previsto (le posizioni nascono dai ruoli già scritti), pagina Organigramma disegnata dalla catena dei responsabili, filtrabile per reparto, con le posizioni da coprire; giri nella catena bloccati nel form e tollerati nella pagina |
 | HR-02 | Contratti con struttura retributiva e storico | Core | PARTIAL | addons/personale/models.py (Dipendente.tipo_contratto, ore_settimanali, data_assunzione, data_cessazione), addons/commesse/models.py (CostoOrario con validità dal) | Il contratto è solo un paio di campi sul dipendente: lo storico è il tracciamento nel chatter. Mancano modello Contratto con date e livello, retribuzione, elementi della paga, avvisi di scadenza e rinnovo. CostoOrario è un costo industriale per le commesse, legato all'utente e non al contratto. |
 | HR-03 | Presenze (timbratura, chiosco) e assenze con maturazione e approvazione | Core | PARTIAL | addons/personale/flusso.py (richiesta_inviata, decidi, annulla), addons/personale/saldi.py (saldo), addons/personale/pagine.py (mie), addons/personale/views.py (AssenzaView con calendario e kanban) | Assenze complete con approvazione del responsabile, saldi e calendario. Presenze del tutto assenti: nessuna timbratura né chiosco (docs/superpowers/specs/2026-10-28-adabox-hub-fase7-sdi-personale-spese-design.md le esclude solo da quella fase). La maturazione è una proporzione annua sul periodo lavorato, senza ratei mensili né riporto del residuo all'anno dopo (saldo legge un solo anno). |
 | HR-04 | Timesheet su progetti e compiti | Core | HAVE | addons/timesheet/models.py (RigaOre, Cronometro), addons/timesheet/pagine.py (settimana, cronometro_avvia, cronometro_ferma), addons/timesheet/views.py (RigaOreView: approva, riapri, analisi) | Griglia settimanale, cronometro con arrotondamento, approvazione, blocco delle ore fatturate, controllo delle 24 ore. |
@@ -1004,7 +1003,6 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 
 | ID | Funzione | Cosa costruire | Dipende da | Effort |
 |---|---|---|---|---|
-| HR-01 | Anagrafica dipendenti, organigramma, reparti, posizioni | Modello Posizione collegato a Dipendente e Reparto; pagina organigramma disegnata dalla catena dei responsabili. | - | S |
 | HR-02 | Contratti con struttura retributiva e storico | Modello Contratto con validità, CCNL e livello, retribuzione e voci, storico per dipendente, avvisi di scadenza; spostare ore e ferie annue sul contratto in vigore. | HR-01 | M |
 | HR-03 | Presenze (timbratura, chiosco) e assenze con maturazione e approvazione | Modello Timbratura con entrata e uscita, pagina chiosco con PIN o badge, confronto con ore previste e assenze; esportazione mensile di presenze e assenze per il consulente del lavoro; ratei mensili e riporto del residuo tra anni. | HR-01, HR-02 | M |
 | HR-08 | Portale self-service del dipendente (cedolini, assenze, spese, documenti) | Pagina Il mio profilo che riunisce assenze, spese, ore, contratto, cedolini e documenti HR riservati, con richiesta di modifica dei dati anagrafici. | HR-02, HR-09 | M |
