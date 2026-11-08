@@ -1,0 +1,28 @@
+{% load privacy %}{% stato_privacy obj as p %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Privacy</div>
+    <div class="ui-card-actions">
+      {% if perms.privacy.esporta_dati %}<a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'privacy:esporta' obj.pk %}"><svg><use href="#icon-download"/></svg> Esporta i dati</a>{% endif %}
+      {% if perms.privacy.anonimizza_contatto and not p.anonimizzato %}<a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'privacy:anonimizza' obj.pk %}">Anonimizza…</a>{% endif %}
+    </div></div>
+  <div class="ui-card-body">
+    {% if p.anonimizzato %}<div class="ui-alert ui-alert-info">Anonimizzato il {{ p.anonimizzato.il|date:"d/m/Y" }}{% if p.anonimizzato.parziale %}: restano solo i dati dei documenti da conservare per legge{% endif %}.</div>{% endif %}
+    {% for finalita, ultimo in p.consensi %}
+    <div class="pv-riga">
+      <div><strong>{{ finalita }}</strong>
+        <div class="ui-help">{% if ultimo %}{% if ultimo.dato %}Dato{% else %}Revocato{% endif %} il {{ ultimo.il|date:"d/m/Y" }} · {{ ultimo.get_fonte_display|lower }}{% if ultimo.registrato_da %} · {{ ultimo.registrato_da.get_full_name|default:ultimo.registrato_da.username }}{% endif %}{% endif %}</div></div>
+      <span class="ui-pill {% if ultimo.dato %}ui-pill-success{% elif ultimo %}ui-pill-danger{% endif %}">{% if ultimo.dato %}dato{% elif ultimo %}revocato{% else %}non chiesto{% endif %}</span>
+      {% if perms.privacy.add_consenso and not p.anonimizzato %}
+      <form method="post" action="{% url 'privacy:consenso' obj.pk %}" class="pv-form">{% csrf_token %}
+        <input type="hidden" name="finalita" value="{{ finalita.pk }}"><input type="hidden" name="dato" value="{% if ultimo.dato %}0{% else %}1{% endif %}">
+        <select class="ui-input" name="fonte" aria-label="Come">{% for v, e in p.fonti %}<option value="{{ v }}">{{ e }}</option>{% endfor %}</select>
+        <button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit">{% if ultimo.dato %}Revoca{% else %}Registra{% endif %}</button>
+      </form>
+      {% endif %}
+    </div>
+    {% empty %}<p class="ui-help">Nessuna finalità attiva.</p>{% endfor %}
+  </div>
+</section>
+<style>.pv-riga{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--ui-border)}
+.pv-riga>div:first-child{flex:1 1 220px;min-width:0}.pv-riga:last-child{border-bottom:0}
+.pv-form{display:flex;gap:6px;align-items:center}.pv-form .ui-input{width:auto;min-width:130px;height:32px;padding:0 28px 0 10px;font-size:13px}</style>

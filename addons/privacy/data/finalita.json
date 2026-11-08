@@ -1,0 +1,5 @@
+[
+  {"model": "privacy.finalita", "pk": 1, "fields": {"nome": "Comunicazioni commerciali e newsletter", "descrizione": "Ricevere per email offerte, novità e newsletter.", "base_giuridica": "consenso", "attiva": true}},
+  {"model": "privacy.finalita", "pk": 2, "fields": {"nome": "Profilazione", "descrizione": "Analisi delle preferenze per proposte personalizzate.", "base_giuridica": "consenso", "attiva": true}},
+  {"model": "privacy.finalita", "pk": 3, "fields": {"nome": "Comunicazione a partner", "descrizione": "Comunicazione dei dati a società partner per loro offerte.", "base_giuridica": "consenso", "attiva": true}}
+]

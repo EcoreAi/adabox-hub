@@ -1,0 +1,19 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Anonimizza {{ contatto }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Anonimizza {{ contatto }}</h1><div class="sub">Operazione irreversibile</div></div></div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  {% if documenti %}
+  <div class="ui-alert ui-alert-warning">Ci sono documenti da conservare per legge:
+    {% for nome, n in documenti.items %}{{ n }} {{ nome }}{% if not forloop.last %}, {% endif %}{% endfor %}.
+    Restano quindi ragione sociale, partita IVA, codice fiscale, indirizzo e codice SDI, che servono a quei documenti.</div>
+  {% endif %}
+  <p>Si tolgono {% if documenti %}gli altri dati personali{% else %}tutti i dati personali, nome compreso{% endif %}: email, telefoni, sito, note, campi personalizzati, categorie, indirizzi{% if documenti %} non di fatturazione{% endif %}, allegati e testo dei messaggi, valori precedenti nel registro delle modifiche, email e telefoni copiati in opportunità e ticket, l'eventuale accesso al portale. I consensi dati diventano revocati. Il contatto resta, disattivato, perché lo citano altri record.</p>
+  <form method="post" class="ui-form">{% csrf_token %}
+    <div class="ui-field"><label class="ui-label" for="conferma">Per procedere scrivi ANONIMIZZA</label>
+      <input class="ui-input" id="conferma" name="conferma" autocomplete="off" required></div>
+    <button class="ui-btn ui-btn-danger" type="submit">Anonimizza</button>
+    <a class="ui-btn ui-btn-ghost" href="{{ url_contatto }}">Annulla</a>
+  </form>
+</div></section>
+{% endblock %}

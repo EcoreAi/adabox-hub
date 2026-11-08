@@ -11,7 +11,7 @@ Confronto con la checklist di `docs/features-gap` (Odoo, ERPNext, NetSuite, Busi
 - **Acquisti è stata l'app scelta per l'intervento:** passa da 0 a 8 voci complete su 14 (sezione E).
 - **Fatti il 2026-11-05:** scadenziario a fasce, fido dei clienti e pacchetto per il commercialista (FIN-06, FIN-07, FIN-01).
 - **Fatti il 2026-11-05 anche:** ricerche salvate, ricerca in tutte le app, Pivot, registro delle modifiche, scadenza e limiti dei token API (RPT-03, RPT-02, PLT-04, parte di PLT-17 e PLT-14).
-- **Fatto il 2026-11-08:** chatter completo, con messaggi fissati, menzioni senza Discuss e invio a indirizzi esterni scelti al momento (PLT-10), e tolleranza alla perdita di connessione: avviso offline, «Riprova» sugli errori, bozze dei form (PLT-19), posizioni e organigramma (HR-01), dashboard per ruolo e pagine di Analisi condivise con ruoli e gruppi (RPT-01), riaddebito delle spese ai clienti e rimborso abbinato alla banca (FIN-24), modulo web-to-lead per il sito (CRM-19), nuovo modulo Reception per i visitatori (HR-14), accesso al portale con Google e Microsoft (COM-10), «Scrivi con Ada» in ogni campo e riassunto dei record (AI-08), riconciliazione bancaria che impara dagli abbinamenti (AI-03), API su tutte le viste con schemi e limiti, SDK Python e istanza di prova per chi integra (PLT-14, INT-08).
+- **Fatto il 2026-11-08:** chatter completo, con messaggi fissati, menzioni senza Discuss e invio a indirizzi esterni scelti al momento (PLT-10), e tolleranza alla perdita di connessione: avviso offline, «Riprova» sugli errori, bozze dei form (PLT-19), posizioni e organigramma (HR-01), dashboard per ruolo e pagine di Analisi condivise con ruoli e gruppi (RPT-01), riaddebito delle spese ai clienti e rimborso abbinato alla banca (FIN-24), modulo web-to-lead per il sito (CRM-19), nuovo modulo Reception per i visitatori (HR-14), accesso al portale con Google e Microsoft (COM-10), «Scrivi con Ada» in ogni campo e riassunto dei record (AI-08), riconciliazione bancaria che impara dagli abbinamenti (AI-03), API su tutte le viste con schemi e limiti, SDK Python e istanza di prova per chi integra (PLT-14, INT-08), modulo Privacy per il GDPR (LOC-07).
 - **Integrazioni, iniziate il 2026-11-05 nel modulo Connettori:** webhook firmati in uscita, identificativi esterni sui record, bottoni via API, chat collegata al contatto e primo connettore HubSpot sui contatti delle persone, provato solo contro un sistema simulato. Mancano aziende e opportunità e gli altri sistemi. Zucchetti e TeamSystem Enterprise/Lynfa non hanno documentazione pubblica trovata: servono partner o contatto commerciale.
 
 ## Da dove partire
@@ -70,11 +70,10 @@ Ogni voce aperta è assegnata all'app dove andrebbe costruita. Ordine dentro ogn
 
 ### core
 
-16 voci aperte: 11 Core, 5 Adv, 0 Edge.
+15 voci aperte: 10 Core, 5 Adv, 0 Edge.
 
 | ID | Tier | Stato | Effort | Cosa costruire |
 |---|---|---|---|---|
-| LOC-07 | Core | PARTIAL | M | Registro dei consensi per contatto, anonimizzazione che preserva i documenti fiscali, esportazione dei dati, regole di conservazione per modello eseguite dal cron. |
 | PLT-01 | Core | PARTIAL | M | Selettore multi-azienda nelle interrogazioni e nei grafici con totali consolidati, livello filiale opzionale. |
 | PLT-03 | Core | PARTIAL | M | Regole di riga dichiarabili da UI applicate in get_queryset e nell'API, e permessi per campo (nascosto o sola lettura per gruppo) applicati a form, dettaglio, lista, export e API. |
 | PLT-05 | Core | PARTIAL | M | Pagina front per le sequenze, modello Esercizio o Periodo per azienda con data di blocco controllata da un servizio del kernel in save, azioni e API di fatturazione, sdi, banca e magazzino. |
@@ -871,7 +870,7 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | LOC-04 | Localizzazione delle paghe | Adv | N/A | addons/personale gestisce ferie, permessi e saldi; spec fase 7 mette paghe e cedolini fuori scope per quella fase | Esclusa per scelta dell'utente il 2026-11-05: le paghe restano al consulente del lavoro. |
 | LOC-05 | IVA, Intrastat, elenchi UE, export di audit (SAF-T) | Adv | PARTIAL | Registri in addons/fatturazione/registro.py e addons/sdi/pagine.py; addons/contatti/vies.py controllo VIES; autofatture TD17-TD19 | Registri IVA e VIES ci sono. Mancano Intrastat (nessun codice nomenclatura né peso sui prodotti), elenchi delle operazioni UE e qualsiasi export di audit. SAF-T non è richiesto in Italia |
 | LOC-06 | Schemi di bilancio civilistici e IFRS | Adv | N/A | Nessun mastro | Dipende dal mastro, decisione utente 2026-11-03. Nessuna esportazione richiesta |
-| LOC-07 | GDPR: cancellazione, consensi, conservazione | Core | PARTIAL | addons/ai/protezione.py maschera i dati verso i modelli cloud; addons/discuss/models.py privacy_url dello sportello; discuss.livechat impronta_ip; pulizie cron in addons/discuss/__manifest__.py | Solo protezioni puntuali. Mancano cancellazione o anonimizzazione di un interessato (Contatto legato con PROTECT ai documenti), esportazione dei suoi dati, registro dei consensi e politiche di conservazione configurabili |
+| LOC-07 | GDPR: cancellazione, consensi, conservazione | Core | HAVE | addons/privacy (models.py Consenso, Finalita, RichiestaInteressato, Anonimizzazione, RegolaConservazione; servizi.py registra, esporta, anonimizza, applica_conservazione; conservazione.py; tests/test_privacy.py) | Fatto il 2026-11-08 nel nuovo modulo Privacy: registro dei consensi per finalità con storico e fonte; richieste degli interessati con scadenza a 30 giorni; esportazione in JSON di tutti i dati di un contatto in ogni app; anonimizzazione irreversibile che, se ci sono documenti da conservare (record legati con PROTECT), lascia solo i dati fiscali e toglie anche email e nomi copiati in opportunità e ticket, allegati, testo dei messaggi e valori precedenti nel registro delle modifiche; regole di conservazione, solo sui dati dichiarati dai moduli, eseguite ogni notte dal cron |
 | LOC-08 | Predisposizione a SOC 2 e ISO 27001, residenza dati, cifratura a riposo | Adv | PARTIAL | core/cifratura.py Fernet per i segreti; core/due_fattori.py; axes e cookie sicuri in config/settings.py; core/storage.py StoragePrivato; deploy/compose.cliente.yml | Segreti cifrati, 2FA, blocco accessi e installazione presso il cliente che risolve la residenza. Mancano cifratura di database, file e backup (core/backup.py scrive in chiaro), audit log generale e qualsiasi documentazione di controlli |
 
 ### Pacchetti di settore (IND)
@@ -1030,7 +1029,6 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | ID | Funzione | Cosa costruire | Dipende da | Effort |
 |---|---|---|---|---|
 | LOC-01 | Pacchetti di localizzazione fiscale per paese | Separare le regole italiane in un pacchetto caricabile per paese (aliquote, tipi documento, formato elettronico). Da fare solo se si vende all'estero. | FIN-15 | L |
-| LOC-07 | GDPR: cancellazione, consensi, conservazione | Registro dei consensi per contatto, anonimizzazione che preserva i documenti fiscali, esportazione dei dati, regole di conservazione per modello eseguite dal cron. | - | M |
 
 ### 3. Adv MISSING (40)
 
