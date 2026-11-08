@@ -84,6 +84,31 @@ def voci():
     return sorted(trovate.values(), key=lambda v: (v["categoria"] == ALTRE, v["categoria"].lower(), v["nome"].lower()))
 
 
+def suite():
+    """Le suite del catalogo: pacchetti di app per dipartimento. [{slug, nome, descrizione, app, utenti, stato, posti}]
+    con stato «comprata», «richiesta», «rifiutata» o «disponibile»."""
+    riga = LicenzaIstanza.objects.first()
+    catalogo = riga.catalogo if riga else {}
+    stato = licenza.attuale()
+    comprate = {s["slug"] for s in stato.suite} if stato.valida else set()
+    aperte = RichiestaModulo.objects.filter(tipo=RichiestaModulo.SUITE)
+    chieste = set(aperte.filter(stato=RichiestaModulo.INVIATA).values_list("slug", flat=True))
+    no = set(aperte.filter(stato=RichiestaModulo.RIFIUTATA).values_list("slug", flat=True)) - chieste
+    posti = {r["slug"]: r for r in dipartimenti.posti_suite()} if comprate else {}
+    voci = []
+    for v in catalogo.get("suite") or []:
+        if not isinstance(v, dict) or not v.get("slug"):
+            continue
+        slug = str(v["slug"])
+        voce = {"slug": slug, "nome": str(v.get("nome") or slug), "descrizione": str(v.get("descrizione") or ""),
+                "app": [str(m.get("nome") or m.get("slug")) for m in v.get("moduli") or [] if isinstance(m, dict)],
+                "utenti": v.get("utenti") if isinstance(v.get("utenti"), int) else 0, "posti": posti.get(slug),
+                "dipartimento": Dipartimento.objects.filter(suite=slug).first()}
+        voce["stato"] = "comprata" if slug in comprate else "richiesta" if slug in chieste else "rifiutata" if slug in no else "disponibile"
+        voci.append(voce)
+    return sorted(voci, key=lambda v: (v["stato"] != "comprata", v["nome"].lower()))
+
+
 @login_required
 @permission_required(PERMESSO, raise_exception=True)
 def pagina(request):
@@ -91,7 +116,7 @@ def pagina(request):
     altre = [v for v in tutte if v["stato"] in (DISPONIBILE, RICHIESTA)]
     return render(request, "core/applicazioni.html", {
         "attive": [v for v in tutte if v["stato"] == ATTIVA], "ferme": [v for v in tutte if v["stato"] in (NON_ATTIVA, IN_ARRIVO)], "altre": altre,
-        "categorie": sorted({v["categoria"] for v in altre}), "licenza": licenza.attuale(), "obbligatoria": licenza.obbligatoria(),
+        "categorie": sorted({v["categoria"] for v in altre}), "licenza": licenza.attuale(), "obbligatoria": licenza.obbligatoria(), "suite": suite(),
         "utenti_attivi": licenza.utenti_attivi(), "portale": sincronia.configurata()})
 
 
@@ -101,6 +126,8 @@ def pagina(request):
 def richiedi(request):
     """Installazione o demo: la richiesta va al portale e, se impostata, per email a chi vende."""
     slug = request.POST.get("slug", "")
+    if request.POST.get("tipo") == RichiestaModulo.SUITE:
+        return _richiedi_suite(request, slug)
     tipo = RichiestaModulo.DEMO if request.POST.get("tipo") == RichiestaModulo.DEMO else RichiestaModulo.INSTALLAZIONE
     voce = next((v for v in voci() if v["slug"] == slug and v["stato"] in (DISPONIBILE, RICHIESTA)), None)
     if voce is None or RichiestaModulo.objects.filter(slug=slug, tipo=tipo, stato=RichiestaModulo.INVIATA).exists():
@@ -113,6 +140,21 @@ def richiedi(request):
         send_mail(f"Richiesta di {cosa}: {voce['nome']}", f"{request.user} ha chiesto {cosa} di «{voce['nome']}» ({slug}) su {request.get_host()}.\n\n{nota}",
                   None, [settings.LICENZA_EMAIL_RICHIESTE], fail_silently=True)
     messages.success(request, f"Richiesta inviata: ti ricontatteremo per {cosa} di «{voce['nome']}».")
+    return redirect("core:applicazioni")
+
+
+def _richiedi_suite(request, slug):
+    """Una suite intera con una sola richiesta: la decide ICHNOBYTE, poi arrivano le app e il dipartimento."""
+    voce = next((v for v in suite() if v["slug"] == slug and v["stato"] in ("disponibile", "rifiutata")), None)
+    if voce is None:
+        raise Http404
+    nota = request.POST.get("nota", "").strip()[:2000]
+    RichiestaModulo.objects.create(slug=slug, nome=voce["nome"], nota=nota, tipo=RichiestaModulo.SUITE, utente=request.user)
+    lavori.accoda("core.registry.sincronia.invia_richieste")
+    if settings.LICENZA_EMAIL_RICHIESTE:
+        send_mail(f"Richiesta della suite {voce['nome']}", f"{request.user} ha chiesto la suite «{voce['nome']}» ({slug}) su {request.get_host()}.\n\n{nota}",
+                  None, [settings.LICENZA_EMAIL_RICHIESTE], fail_silently=True)
+    messages.success(request, f"Richiesta inviata: ti ricontatteremo per la suite «{voce['nome']}».")
     return redirect("core:applicazioni")
 
 

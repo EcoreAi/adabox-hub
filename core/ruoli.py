@@ -58,6 +58,16 @@ def gruppo_piattaforma():
     return gruppo
 
 
+def aggiorna_piattaforma(**kwargs):
+    """Dopo un migrate: i permessi nuovi del kernel (es. quelli dei dipartimenti) arrivano subito agli Admin."""
+    from django.db import DatabaseError
+    try:
+        if Group.objects.filter(name=PIATTAFORMA).exists():
+            gruppo_piattaforma()
+    except DatabaseError:
+        pass
+
+
 def gruppi_per_livello(manifest, livello):
     nomi = list(manifest.groups)
     if livello == RESPONSABILE:

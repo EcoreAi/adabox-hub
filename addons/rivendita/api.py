@@ -40,7 +40,7 @@ def sincronizza(request):
     except servizi.ChiaveMancante as e:
         return JsonResponse({"errore": str(e)}, status=503)
     return JsonResponse({**file_licenza, "catalogo": catalogo, "firma_catalogo": firma_catalogo, "ricevute": ricevute,
-                         "rifiutate": servizi.rifiutate(istanza)})
+                         "rifiutate": servizi.rifiutate(istanza), "suite_rifiutate": servizi.rifiutate(istanza, servizi.Richiesta.SUITE)})
 
 
 @require_GET

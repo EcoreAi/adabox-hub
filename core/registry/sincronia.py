@@ -81,8 +81,12 @@ def _verifica(risposta):
 
 
 def _aggiorna_richieste(stato, risposta):
-    RichiestaModulo.objects.filter(stato=RichiestaModulo.INVIATA, slug__in=stato.moduli).update(stato=RichiestaModulo.EVASA)
-    RichiestaModulo.objects.filter(stato=RichiestaModulo.INVIATA, slug__in=risposta.get("rifiutate") or []).update(stato=RichiestaModulo.RIFIUTATA)
+    aperte = RichiestaModulo.objects.filter(stato=RichiestaModulo.INVIATA)
+    moduli, suite = aperte.exclude(tipo=RichiestaModulo.SUITE), aperte.filter(tipo=RichiestaModulo.SUITE)
+    moduli.filter(slug__in=stato.moduli).update(stato=RichiestaModulo.EVASA)
+    moduli.filter(slug__in=risposta.get("rifiutate") or []).update(stato=RichiestaModulo.RIFIUTATA)
+    suite.filter(slug__in=[s["slug"] for s in stato.suite]).update(stato=RichiestaModulo.EVASA)
+    suite.filter(slug__in=risposta.get("suite_rifiutate") or []).update(stato=RichiestaModulo.RIFIUTATA)
     RichiestaModulo.objects.filter(pk__in=risposta.get("ricevute") or []).update(consegnata=True)
 
 

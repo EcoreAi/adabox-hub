@@ -80,6 +80,27 @@ class Piano(models.Model):
         return self.nome
 
 
+class Suite(models.Model):
+    """Un pacchetto di app per dipartimento (Marketing, Vendite…), venduto accanto al piano base. Sull'istanza fa nascere
+    un dipartimento con le sue app, che lo segue; con un tetto, le persone che vedono le sue app non lo superano."""
+    nome = models.CharField("nome", max_length=80, unique=True)
+    slug = models.SlugField("slug", max_length=31, unique=True, help_text="il nome tecnico che va in licenza; non cambiarlo dopo la vendita")
+    descrizione = models.TextField("che cosa offre", blank=True, help_text="il testo del catalogo del cliente")
+    moduli = models.ManyToManyField(ModuloVendibile, blank=True, limit_choices_to={"su_misura": False}, related_name="suite", verbose_name="app incluse")
+    utenti = models.PositiveIntegerField("persone incluse", default=0, help_text="quante persone possono usarne le app; 0 = senza tetto")
+    prezzo_mese = models.DecimalField("prezzo al mese (€)", max_digits=9, decimal_places=2, default=0)
+    in_catalogo = models.BooleanField("visibile nel catalogo dei clienti", default=True)
+    ordine = models.PositiveSmallIntegerField("ordine", default=10)
+
+    class Meta:
+        verbose_name = "suite"
+        verbose_name_plural = "suite"
+        ordering = ["ordine", "nome"]
+
+    def __str__(self):
+        return self.nome
+
+
 def _impronta(token):
     return hashlib.sha256(token.encode()).hexdigest()
 
@@ -92,6 +113,7 @@ class Istanza(models.Model):
     token_hash = models.CharField("impronta del token", max_length=64, blank=True, editable=False, db_index=True)
     piano = models.ForeignKey(Piano, on_delete=models.PROTECT, related_name="istanze", verbose_name="piano")
     moduli_extra = models.ManyToManyField(ModuloVendibile, blank=True, related_name="istanze_extra", verbose_name="moduli in più")
+    suite = models.ManyToManyField(Suite, blank=True, related_name="istanze", verbose_name="suite comprate")
     utenti = models.PositiveIntegerField("utenti", null=True, blank=True, help_text="vuoto = quelli del piano; 0 = senza tetto")
     scadenza = models.DateField("scadenza della licenza")
     grazia_giorni = models.PositiveSmallIntegerField("giorni di grazia", default=30, help_text="dopo la scadenza, prima della sola lettura")
@@ -129,8 +151,8 @@ class Istanza(models.Model):
 class Richiesta(models.Model):
     """Un'app chiesta dall'amministratore di un cliente dal suo catalogo."""
     NUOVA, APPROVATA, RIFIUTATA = "nuova", "approvata", "rifiutata"
-    INSTALLAZIONE, DEMO = "installazione", "demo"
-    tipo = models.CharField("tipo", max_length=15, choices=[(INSTALLAZIONE, "Installazione"), (DEMO, "Demo")], default=INSTALLAZIONE)
+    INSTALLAZIONE, DEMO, SUITE = "installazione", "demo", "suite"
+    tipo = models.CharField("tipo", max_length=15, choices=[(INSTALLAZIONE, "Installazione"), (DEMO, "Demo"), (SUITE, "Suite")], default=INSTALLAZIONE)
     STATI = [(NUOVA, "Nuova"), (APPROVATA, "Approvata"), (RIFIUTATA, "Rifiutata")]
     istanza = models.ForeignKey(Istanza, on_delete=models.CASCADE, related_name="richieste", verbose_name="istanza")
     slug = models.SlugField("modulo", max_length=31)

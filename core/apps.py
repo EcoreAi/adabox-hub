@@ -12,6 +12,8 @@ class CoreConfig(AppConfig):
 
         from . import cron, signals  # noqa: F401
         post_migrate.connect(cron.sincronizza, sender=self, dispatch_uid="core.cron")
+        from . import ruoli
+        post_migrate.connect(ruoli.aggiorna_piattaforma, sender=self, dispatch_uid="core.piattaforma")
         from .viste import registry
         registry.autodiscover(["core", *settings.ADDONS_ATTIVI])
         from . import registro

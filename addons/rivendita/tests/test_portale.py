@@ -13,7 +13,7 @@ from core import licenza
 from core.registry import pacchetti, sincronia
 from core.tests.conftest_aiuti import crea_modulo
 from rivendita import servizi
-from rivendita.models import Istanza, ModuloVendibile, Pacchetto, Piano, Richiesta
+from rivendita.models import Istanza, ModuloVendibile, Pacchetto, Piano, Richiesta, Suite
 
 
 @pytest.fixture
@@ -205,3 +205,33 @@ def test_comando_pubblica_per_un_cliente(portale, addons_tmp, scena):
     call_command("rivendita_pubblica", "su_rossi", "--per", "Rossi Srl")
     modulo = ModuloVendibile.objects.get(slug="su_rossi")
     assert modulo.su_misura and modulo in rossi.moduli_extra.all() and "su_rossi" in servizi.moduli_di(rossi)
+
+
+@pytest.mark.django_db
+def test_suite_dal_catalogo_alla_licenza(client, superuser, scena):
+    istanza, token = scena
+    suite = Suite.objects.create(nome="Vendite", slug="vendite", utenti=3, descrizione="Per chi vende")
+    suite.moduli.add(ModuloVendibile.objects.get(slug="premium"))
+    Suite.objects.create(nome="Nascosta", slug="nascosta", in_catalogo=False)
+    dati = _post(client, token).json()
+    testo, catalogo = sincronia._verifica(dati)
+    stato = licenza.leggi(testo)
+    assert stato.suite == () and "suite" not in dati["licenza"]                       # senza suite la licenza resta com'era
+    assert [(s["slug"], s["comprata"], [m["slug"] for m in s["moduli"]]) for s in catalogo["suite"]] == [("vendite", False, ["premium"])]
+    r = _post(client, token, {"richieste": [{"id": 9, "slug": "vendite", "tipo": "suite", "nota": "per 3", "utente": "mario"},
+                                            {"id": 10, "slug": "nascosta", "tipo": "suite"}]})
+    assert r.json()["ricevute"] == [9, 10]
+    richiesta = Richiesta.objects.get()
+    assert richiesta.tipo == "suite" and richiesta.nome == "Vendite" and richiesta.nota == "per 3"
+    client.post(reverse("rivendita:richieste_bottone", args=[richiesta.pk, "approva"]))
+    assert list(istanza.suite.all()) == [suite]
+    testo, catalogo = sincronia._verifica(_post(client, token).json())
+    stato = licenza.leggi(testo)
+    assert "premium" in stato.moduli and stato.comuni == {"extra"}
+    assert [(s["slug"], s["nome"], s["moduli"], s["utenti"]) for s in stato.suite] == [("vendite", "Vendite", frozenset({"premium"}), 3)]
+    assert catalogo["suite"][0]["comprata"]
+    seconda = Richiesta.objects.create(istanza=istanza, slug="marketing", nome="Marketing", tipo=Richiesta.SUITE)
+    client.post(reverse("rivendita:richieste_bottone", args=[seconda.pk, "rifiuta"]))
+    risposta = _post(client, token).json()
+    assert risposta["suite_rifiutate"] == ["marketing"] and risposta["rifiutate"] == []
+    assert client.get(reverse("rivendita:suite_lista")).status_code == 200

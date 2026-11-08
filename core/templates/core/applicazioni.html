@@ -10,6 +10,24 @@
     {% if user.is_superuser %}<a class="ui-btn ui-btn-ghost" href="{% url 'core:moduli' %}">Gestione moduli</a>{% endif %}
   </div>
 </div>
+{% if suite %}<h2 class="ui-apps-titolo">Suite per dipartimento</h2>
+<p class="mk-sezione-sub">Le app che servono a un dipartimento, in un solo pacchetto. Una suite comprata crea il suo dipartimento: aggiungi le persone e lavorano.</p>
+<div class="mk-griglia">{% for s in suite %}<article class="mk-app is-{% if s.stato == 'comprata' %}attiva{% else %}disponibile{% endif %} mk-suite">
+  <div class="mk-testa"><span class="ui-app-icona mk-icona"><span class="mk-iniziale">{{ s.nome|slice:":1"|upper }}</span></span>
+    <div><div class="mk-nome">{{ s.nome }}</div><div class="mk-categoria">{{ s.app|length }} app{% if s.utenti %} · {{ s.utenti }} person{{ s.utenti|pluralize:"a,e" }}{% endif %}</div></div></div>
+  {% if s.descrizione %}<p class="mk-riassunto">{{ s.descrizione }}</p>{% endif %}
+  <p class="mk-riassunto sub">{{ s.app|join:", " }}</p>
+  <div class="mk-piede">
+    {% if s.stato == "comprata" %}<span class="mk-stato">Comprata{% if s.posti %} · {{ s.posti.occupati }} su {{ s.posti.utenti }} posti{% endif %}</span>
+      {% if s.dipartimento and perms.core.change_dipartimento %}<a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'core:dipartimento' s.dipartimento.pk %}">Il dipartimento</a>{% endif %}
+    {% elif s.stato == "richiesta" %}<span class="mk-stato">Richiesta inviata</span>
+    {% else %}{% if s.stato == "rifiutata" %}<span class="mk-stato">Non accolta</span>{% endif %}<details class="mk-richiedi"><summary class="ui-btn ui-btn-primary ui-btn-sm">Richiedi la suite</summary>
+      <form method="post" action="{% url 'core:applicazioni_richiedi' %}" class="mk-richiedi-form">{% csrf_token %}
+        <input type="hidden" name="slug" value="{{ s.slug }}"><input type="hidden" name="tipo" value="suite">
+        <textarea class="ui-input" name="nota" rows="2" maxlength="2000" placeholder="Una nota per noi, es. quante persone (facoltativa)" aria-label="Nota per la richiesta della suite {{ s.nome }}"></textarea>
+        <button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">Invia la richiesta</button>
+      </form></details>{% endif %}
+  </div></article>{% endfor %}</div>{% endif %}
 <h2 class="ui-apps-titolo">Attive</h2>
 <p class="mk-sezione-sub">Le usano le persone a cui le hai assegnate.</p>
 {% if attive %}<div class="mk-griglia">{% for v in attive %}{% include "core/_app_catalogo.html" %}{% endfor %}</div>

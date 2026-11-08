@@ -180,10 +180,10 @@ class LicenzaIstanza(models.Model):
 
 
 class RichiestaModulo(models.Model):
-    """Un'app del catalogo chiesta dall'amministratore del cliente: la decide ICHNOBYTE sul portale."""
+    """Un'app (o una suite di app per dipartimento) chiesta dall'amministratore del cliente: la decide ICHNOBYTE sul portale."""
     INVIATA, EVASA, RIFIUTATA = "inviata", "evasa", "rifiutata"
-    INSTALLAZIONE, DEMO = "installazione", "demo"
-    TIPI = [(INSTALLAZIONE, "Installazione"), (DEMO, "Demo")]
+    INSTALLAZIONE, DEMO, SUITE = "installazione", "demo", "suite"
+    TIPI = [(INSTALLAZIONE, "Installazione"), (DEMO, "Demo"), (SUITE, "Suite")]
     tipo = models.CharField("tipo", max_length=15, choices=TIPI, default=INSTALLAZIONE)
     STATI = [(INVIATA, "Inviata"), (EVASA, "Attivata"), (RIFIUTATA, "Non accolta")]
     slug = models.SlugField("modulo", max_length=31)

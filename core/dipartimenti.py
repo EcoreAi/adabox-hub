@@ -139,10 +139,15 @@ def riapplica_tutti():
 def allinea_alle_suite(stato):
     """Ogni suite della licenza ha il suo dipartimento: nasce con le app della suite (o si aggancia a uno con lo stesso
     nome) e poi le segue: un'app che entra nella suite entra nel dipartimento, una che esce ne esce. Le app aggiunte o
-    tolte a mano dall'Admin restano come le ha lasciate. Restituisce i dipartimenti creati o cambiati."""
-    from .models import Dipartimento
-    if not stato.valida:
+    tolte a mano dall'Admin restano come le ha lasciate. Alla prima licenza a suite le app del piano base diventano
+    comuni. Restituisce i dipartimenti creati o cambiati."""
+    from .models import Dipartimento, Modulo
+    if not stato.valida or not stato.suite:
         return []
+    if stato.comuni and not Dipartimento.objects.exclude(suite="").exists():
+        # la prima licenza a suite: le app del piano base diventano di tutti, poi le decide l'Admin
+        if Modulo.objects.filter(slug__in=stato.comuni, comune=False).update(comune=True):
+            riapplica_tutti()
     cambiati = []
     for s in stato.suite:
         app = sorted(s["moduli"])

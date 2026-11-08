@@ -2,7 +2,7 @@ from django.utils import timezone
 
 from core.viste import ModelView, register
 
-from .models import Istanza, ModuloVendibile, Pacchetto, Piano, Richiesta
+from .models import Istanza, ModuloVendibile, Pacchetto, Piano, Richiesta, Suite
 
 
 @register
@@ -14,7 +14,7 @@ class IstanzeView(ModelView):
     list_filter = ["piano", "ospitata", "attiva", "scadenza"]
     search_fields = ["cliente", "email", "url"]
     form_layout = [("Cliente", [("cliente", "email"), ("url", "ospitata")]),
-                   ("Licenza", [("piano", "scadenza"), ("utenti", "grazia_giorni"), "moduli_extra", "attiva"]),
+                   ("Licenza", [("piano", "scadenza"), ("utenti", "grazia_giorni"), "suite", "moduli_extra", "attiva"]),
                    ("Stato", [("ultimo_contatto", "utenti_attivi"), "codice"]), ("Note", ["note"])]
     readonly_fields = ["ultimo_contatto", "utenti_attivi", "codice"]
     list_group_by = ["piano", "ospitata", "scadenza:mese"]
@@ -63,6 +63,13 @@ class RichiesteView(ModelView):
     gestita.short_description = "Demo gestita"
 
     def approva(self, request, obj):
+        if obj.tipo == Richiesta.SUITE:
+            suite = Suite.objects.filter(slug=obj.slug).first()
+            if suite is None:
+                return f"La suite {obj.slug} non è più in vendita."
+            obj.istanza.suite.add(suite)
+            self._decidi(request, obj, Richiesta.APPROVATA)
+            return f"Suite {suite} aggiunta a {obj.istanza}: alla prossima sincronizzazione arrivano le sue app e il dipartimento."
         modulo = ModuloVendibile.objects.filter(slug=obj.slug).first()
         if modulo is None:
             return f"Il modulo {obj.slug} non è più in vendita."
@@ -85,6 +92,16 @@ class PianiView(ModelView):
     list_filter = ["attivo"]
     search_fields = ["nome"]
     form_layout = [("Piano", [("nome", "attivo"), ("prezzo_mese", "utenti"), "moduli", "descrizione"])]
+
+
+@register
+class SuiteView(ModelView):
+    model = Suite
+    slug = "suite"
+    list_display = ["nome", "slug", "prezzo_mese", "utenti", "in_catalogo", "ordine"]
+    list_filter = ["in_catalogo"]
+    search_fields = ["nome", "slug", "descrizione"]
+    form_layout = [("Suite", [("nome", "slug"), ("prezzo_mese", "utenti"), ("in_catalogo", "ordine"), "moduli", "descrizione"])]
 
 
 @register

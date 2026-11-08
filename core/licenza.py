@@ -134,6 +134,8 @@ def salva(testo, catalogo=None):
     if catalogo is not None:
         riga.catalogo = catalogo
     riga.save()
+    from . import dipartimenti
+    dipartimenti.allinea_alle_suite(stato)                 # ogni suite comprata ha il suo dipartimento
     return stato
 
 

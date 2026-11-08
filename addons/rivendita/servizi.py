@@ -17,7 +17,7 @@ from django.utils import timezone
 from core import licenza
 from core.registry import pacchetti
 
-from .models import Istanza, ModuloVendibile, Pacchetto, Richiesta
+from .models import Istanza, ModuloVendibile, Pacchetto, Richiesta, Suite
 from .schede import SCHEDE
 
 
@@ -84,8 +84,9 @@ def applica_scheda(modulo):
 
 
 def moduli_di(istanza):
-    """Gli slug che spettano all'istanza: piano, moduli in più e, a cascata, le dipendenze dei loro pacchetti."""
-    da_vedere = set(istanza.piano.moduli.filter(su_misura=False).values_list("slug", flat=True)) | set(istanza.moduli_extra.values_list("slug", flat=True))
+    """Gli slug che spettano all'istanza: piano, suite, moduli in più e, a cascata, le dipendenze dei loro pacchetti."""
+    da_vedere = (set(istanza.piano.moduli.filter(su_misura=False).values_list("slug", flat=True)) | set(istanza.moduli_extra.values_list("slug", flat=True))
+                 | set(ModuloVendibile.objects.filter(suite__istanze=istanza, su_misura=False).values_list("slug", flat=True)))
     visti = set()
     while da_vedere:
         slug = da_vedere.pop()
@@ -97,11 +98,27 @@ def moduli_di(istanza):
     return visti
 
 
+def suite_di(istanza):
+    """Le suite comprate, come vanno in licenza: le loro app (solo quelle che sono app) e il tetto di persone."""
+    return [{"slug": su.slug, "nome": su.nome, "utenti": su.utenti,
+             "moduli": sorted(su.moduli.filter(application=True, su_misura=False).values_list("slug", flat=True))}
+            for su in istanza.suite.order_by("ordine", "nome")]
+
+
+def comuni_di(istanza):
+    """Le app del piano base: sull'istanza sono comuni a tutti i dipartimenti."""
+    return sorted(istanza.piano.moduli.filter(application=True, su_misura=False).values_list("slug", flat=True))
+
+
 def licenza_di(istanza):
     utenti = istanza.utenti if istanza.utenti is not None else istanza.piano.utenti
-    return licenza.firma({"cliente": istanza.cliente, "istanza": str(istanza.codice), "piano": istanza.piano.nome, "utenti": utenti,
-                          "moduli": sorted(moduli_di(istanza)), "scadenza": istanza.scadenza.isoformat(), "grazia_giorni": istanza.grazia_giorni,
-                          "emessa": timezone.now().isoformat(timespec="seconds")}, chiave_privata())
+    dati = {"cliente": istanza.cliente, "istanza": str(istanza.codice), "piano": istanza.piano.nome, "utenti": utenti,
+            "moduli": sorted(moduli_di(istanza)), "scadenza": istanza.scadenza.isoformat(), "grazia_giorni": istanza.grazia_giorni,
+            "emessa": timezone.now().isoformat(timespec="seconds")}
+    suite = suite_di(istanza)
+    if suite:                                          # senza suite la licenza resta com'era: le istanze vecchie la leggono uguale
+        dati.update(suite=suite, comuni=comuni_di(istanza))
+    return licenza.firma(dati, chiave_privata())
 
 
 def catalogo_di(istanza, base_url):
@@ -118,7 +135,12 @@ def catalogo_di(istanza, base_url):
                          "url": base_url + reverse("rivendita:api_pacchetto", args=[m.slug, ultimo.versione]), "sha256": ultimo.sha256})
         elif m.slug not in spettanti and m.in_catalogo and not m.su_misura and m.application and ultimo:
             disponibili.append(descrizione)
-    dati = {"formato": 1, "istanza": str(istanza.codice), "creato": timezone.now().isoformat(timespec="seconds"), "moduli": voci, "disponibili": disponibili}
+    comprate = set(istanza.suite.values_list("pk", flat=True))
+    suite = [{"slug": su.slug, "nome": su.nome, "descrizione": su.descrizione, "utenti": su.utenti, "comprata": su.pk in comprate,
+              "moduli": [{"slug": m.slug, "nome": m.nome} for m in su.moduli.filter(application=True, su_misura=False).order_by("nome")]}
+             for su in Suite.objects.prefetch_related("moduli") if su.in_catalogo or su.pk in comprate]
+    dati = {"formato": 1, "istanza": str(istanza.codice), "creato": timezone.now().isoformat(timespec="seconds"), "moduli": voci, "disponibili": disponibili,
+            "suite": suite}
     return dati, pacchetti.firma(pacchetti.serializza(dati), chiave_privata()).decode()
 
 
@@ -128,6 +150,15 @@ def ricevi_richieste(istanza, voci):
     for v in voci or []:
         slug = str(v.get("slug", ""))[:31]
         if not slug:
+            continue
+        if v.get("tipo") == Richiesta.SUITE:
+            suite = Suite.objects.filter(slug=slug).first()
+            if suite is not None and (suite.in_catalogo or istanza.suite.filter(pk=suite.pk).exists()) \
+                    and not Richiesta.objects.filter(istanza=istanza, slug=slug, tipo=Richiesta.SUITE, stato=Richiesta.NUOVA).exists():
+                Richiesta.objects.create(istanza=istanza, slug=slug, nome=suite.nome, nota=str(v.get("nota") or "")[:2000], tipo=Richiesta.SUITE,
+                                         utente=str(v.get("utente") or "")[:150], id_remoto=v.get("id") if isinstance(v.get("id"), int) else None)
+            if isinstance(v.get("id"), int):
+                ricevute.append(v["id"])
             continue
         if ModuloVendibile.objects.filter(slug=slug, su_misura=True).exists():
             continue                                   # un modulo su misura non si chiede: non è in nessun catalogo
@@ -140,9 +171,9 @@ def ricevi_richieste(istanza, voci):
     return ricevute
 
 
-def rifiutate(istanza):
-    """I moduli la cui ultima richiesta è stata rifiutata: l'istanza lo mostra all'amministratore."""
-    installazioni = Richiesta.objects.filter(istanza=istanza, tipo=Richiesta.INSTALLAZIONE)
+def rifiutate(istanza, tipo=Richiesta.INSTALLAZIONE):
+    """I moduli (o le suite) la cui ultima richiesta è stata rifiutata: l'istanza lo mostra all'amministratore."""
+    installazioni = Richiesta.objects.filter(istanza=istanza, tipo=tipo)
     aperte = set(installazioni.filter(stato=Richiesta.NUOVA).values_list("slug", flat=True))
     return sorted(set(installazioni.filter(stato=Richiesta.RIFIUTATA).values_list("slug", flat=True)) - aperte)
 
