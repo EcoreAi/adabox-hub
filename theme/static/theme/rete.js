@@ -7,6 +7,11 @@
 (function () {
   'use strict';
 
+  // --- App installabile: il service worker (pagina offline, cache degli statici, notifiche push)
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => { /* http senza localhost: niente app */ });
+  }
+
   // --- Indicatore di connessione assente
   let barra = null;
   const offline = (motivo) => {

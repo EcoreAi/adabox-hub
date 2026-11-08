@@ -821,3 +821,21 @@ class ReportPianificato(models.Model):
     def elenco_destinatari(self):
         import re
         return [d for d in re.split(r"[\s,;]+", self.destinatari or "") if "@" in d]
+
+
+class IscrizionePush(models.Model):
+    """Un browser o un telefono che riceve le notifiche push dell'utente (Web Push)."""
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="iscrizioni_push", verbose_name="utente")
+    endpoint = models.URLField("indirizzo del servizio push", max_length=600, unique=True)
+    p256dh = models.CharField("chiave del browser", max_length=200)
+    auth = models.CharField("segreto del browser", max_length=60)
+    dispositivo = models.CharField("dispositivo", max_length=200, blank=True)
+    creata = models.DateTimeField("attivata il", auto_now_add=True)
+    ultimo_invio = models.DateTimeField("ultimo invio", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "notifiche sul dispositivo"
+        verbose_name_plural = "notifiche sui dispositivi"
+
+    def __str__(self):
+        return f"{self.utente} · {self.dispositivo or 'dispositivo'}"

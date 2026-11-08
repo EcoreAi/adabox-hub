@@ -42,6 +42,12 @@
 {% endif %}
 
 <div class="ui-card is-revealed" style="max-width:760px;">
+  <div class="ui-card-head"><div><div class="ui-card-title">Notifiche sul telefono e sul computer</div>
+    <div class="ui-card-sub">Installa l'app dal menu del browser («Installa» o «Aggiungi alla schermata Home») e attiva le notifiche: arrivano anche ad app chiusa.</div></div></div>
+  <div class="ui-card-body">{% include "core/_push.html" %}</div>
+</div>
+
+<div class="ui-card is-revealed" style="max-width:760px;">
   <div class="ui-card-head"><div><div class="ui-card-title">Token API</div>
     <div class="ui-card-sub">Per chiamare <a class="ui-link" href="/api/v1/docs">/api/v1/</a> con <code class="ui-code">Authorization: Bearer &lt;token&gt;</code> · <a class="ui-link" href="/api/v1/sdk/python/">Scarica il client Python</a></div></div></div>
   <div class="ui-card-body">

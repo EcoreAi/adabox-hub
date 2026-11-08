@@ -1,0 +1,23 @@
+{% extends 'core/base_app.html' %}
+{% block title %}In tasca · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Ciao {{ user.first_name|default:user.username }}</h1><div class="sub">{% now "l j F" %}{% if azienda %} · {{ azienda }}{% endif %}</div></div></div>
+<div class="tc-griglia">
+  {% for v in voci %}<a class="tc-voce" href="{{ v.url }}"><svg aria-hidden="true"><use href="#icon-{{ v.icona }}"/></svg>
+    <span class="tc-testo"><strong>{{ v.etichetta }}</strong>{% if v.sotto %}<small>{{ v.sotto }}</small>{% endif %}</span>
+    {% if v.conta %}<span class="tc-conta">{{ v.conta }}</span>{% endif %}</a>{% endfor %}
+</div>
+{% if not push %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Notifiche sul telefono</div></div>
+  <div class="ui-card-body">{% include "core/_push.html" %}</div></section>{% endif %}
+<style>
+.tc-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.tc-voce { position: relative; display: flex; flex-direction: column; gap: 10px; min-height: 112px; padding: 16px; border-radius: 14px;
+  background: var(--ui-surface); border: 1px solid var(--ui-border); color: var(--ui-text); text-decoration: none; }
+.tc-voce:hover { border-color: var(--ui-primary); text-decoration: none; }
+.tc-voce svg { width: 26px; height: 26px; color: var(--ui-primary); }
+.tc-testo { display: grid; gap: 2px; font-size: 15px; } .tc-testo small { color: var(--ui-text-2); font-size: 12px; }
+.tc-conta { position: absolute; top: 12px; right: 12px; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 12px;
+  background: #c4271f; color: #fff; font-size: 13px; font-weight: 600; display: grid; place-items: center; }
+@media (max-width: 420px) { .tc-griglia { grid-template-columns: 1fr 1fr; } }
+</style>
+{% endblock %}

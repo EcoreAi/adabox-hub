@@ -25,7 +25,7 @@ from .models import LicenzaIstanza, RichiestaModulo
 from .models import (Azienda, CampoPersonalizzato, EmailRicevuta, Lavoro, Modulo, Parametro, ProfiloUtente, RegistroModifica,
                      ModelloStampa, PermessoCampo, RegolaRiga, Ruolo, TokenApi,
                      CatenaApprovazione, DecisioneApprovazione, Delega, PassoApprovazione, ReportPianificato,
-                     RichiestaApprovazione)
+                     IscrizionePush, RichiestaApprovazione)
 from .registry import modules, pacchetti, sincronia
 from .signals import crea_profilo
 from .viste import Inline, ModelView, register
@@ -64,6 +64,8 @@ def voci_kernel(user):
     if user.has_perm("core.add_reportpianificato"):
         voci.append({"label": "Report pianificati", "url": reverse("core:report_pianificati_lista"), "icon": "inbox",
                      "sub": "Liste e pagine di Analisi per email, ogni giorno, settimana o mese"})
+    voci.append({"label": "In tasca", "url": reverse("core:tasca"), "icon": "phone",
+                 "sub": "La pagina per il telefono, con le notifiche sul dispositivo"})
     voci.append({"label": "Da approvare", "url": reverse("core:da_approvare"), "icon": "check",
                  "sub": "Le approvazioni che aspettano la tua decisione"})
     if user.has_perm("core.view_catenaapprovazione"):
@@ -1066,3 +1068,66 @@ class ReportPianificatoView(ModelView):
         return rp.esegui(obj, aggiorna=False) + " (invio di prova: la pianificazione non cambia)."
     invia_ora.short_description = "Invia ora"
     invia_ora.permission = "view"
+
+
+@login_required
+def chiave_push(request):
+    from core import push
+    return JsonResponse({"chiave": push.chiave_pubblica()})
+
+
+@login_required
+@require_POST
+def iscrivi_push(request):
+    """Il browser manda la sua iscrizione push (endpoint e chiavi): da ora le notifiche arrivano anche lì."""
+    import json as _json
+
+    from core import rete
+    try:
+        dati = _json.loads(request.body or b"{}")
+        endpoint, chiavi = dati["endpoint"], dati["keys"]
+        rete.controlla(endpoint, solo_https=True)
+    except (ValueError, KeyError, TypeError, rete.Rifiutato):
+        return JsonResponse({"errore": "iscrizione non valida"}, status=400)
+    if dati.get("disattiva"):
+        IscrizionePush.objects.filter(endpoint=endpoint, utente=request.user).delete()
+        return JsonResponse({"ok": True, "attiva": False})
+    IscrizionePush.objects.update_or_create(endpoint=endpoint[:600], defaults={
+        "utente": request.user, "p256dh": str(chiavi.get("p256dh", ""))[:200], "auth": str(chiavi.get("auth", ""))[:60],
+        "dispositivo": request.headers.get("User-Agent", "")[:200]})
+    return JsonResponse({"ok": True, "attiva": True})
+
+
+@login_required
+@require_POST
+def prova_push(request):
+    from core import push
+    n = push.invia(request.user.pk, "Notifiche attive", "Da ora le notifiche arrivano anche qui.", reverse("core:tasca"))
+    return JsonResponse({"inviate": n})
+
+
+@login_required
+def tasca(request):
+    """«In tasca»: la pagina per il telefono, con le cose da fare in giro (solo quelle che l'utente può usare)."""
+    from core import approvazioni
+    voci = []
+
+    def voce(etichetta, url_name, icona, permesso=None, conta=None, sotto=""):
+        if permesso and not request.user.has_perm(permesso):
+            return
+        try:
+            url = reverse(url_name)
+        except NoReverseMatch:
+            return
+        voci.append({"etichetta": etichetta, "url": url, "icona": icona, "conta": conta, "sotto": sotto})
+    da_fare = attivita_servizio.da_fare_oggi(request.user)
+    voce("Le mie attività", "core:attivita", "check", conta=da_fare or None, sotto="da fare oggi" if da_fare else "")
+    n = len(approvazioni.da_decidere(request.user))
+    voce("Da approvare", "core:da_approvare", "shield", conta=n or None)
+    voce("Nuova nota spese", "spese:note_nuovo", "plus", "spese.add_notaspese", sotto="con la foto dello scontrino")
+    voce("Giacenze", "magazzino:giacenze", "search", "magazzino.view_movimento")
+    voce("Reception", "reception:chiosco", "users", "reception.add_visita")
+    voce("Chat con Ada", "ai:chat", "zap", "ai.add_conversazione")
+    voce("Messaggi", "discuss:home", "inbox", "discuss.view_canale")
+    voce("Dashboard", "core:dashboard", "home")
+    return render(request, "core/tasca.html", {"voci": voci, "push": IscrizionePush.objects.filter(utente=request.user).count()})

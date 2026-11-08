@@ -27,7 +27,11 @@ GIORNI_DI_VITA = 1
 
 
 def emetti(tipo, canale=None, utente=None, **dati):
-    return Evento.objects.create(tipo=tipo, canale=canale, utente=utente, dati=dati)
+    evento = Evento.objects.create(tipo=tipo, canale=canale, utente=utente, dati=dati)
+    if tipo == "notifica" and utente is not None:          # anche sul telefono, se l'utente l'ha attivato
+        from core import push
+        push.accoda(utente, dati.get("titolo", ""), dati.get("testo", ""), dati.get("url", "/"))
+    return evento
 
 
 def ultimo_id():
