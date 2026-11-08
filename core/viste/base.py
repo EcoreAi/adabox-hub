@@ -1,4 +1,5 @@
 """ModelView: viste di un modello dichiarate in Python, sullo stile di ModelAdmin."""
+from django.contrib.auth import get_user_model
 from django.db import models, transaction
 from django.forms import modelform_factory
 from django.shortcuts import get_object_or_404
@@ -298,6 +299,20 @@ class ModelView:
         """Indirizzi email non utenti che ricevono i messaggi del chatter di `obj` e possono rispondere
         (es. il cliente di un ticket). Default nessuno."""
         return []
+
+    def indirizzi_suggeriti(self, obj):
+        """Indirizzi proposti nel campo «Anche a» del chatter: l'email del record e quelle dei record a cui punta
+        (il cliente di una fattura, il fornitore di un ordine…). Non partono da soli: li sceglie chi scrive."""
+        from core.models import Azienda          # l'azienda che lavora, non un destinatario
+        trovati = []
+        candidati = [obj] + [getattr(obj, f.name, None) for f in obj._meta.concrete_fields
+                             if f.many_to_one and f.related_model not in (get_user_model(), Azienda)]
+        for c in candidati:
+            for campo in ("email", "pec"):
+                valore = (getattr(c, campo, "") or "") if c is not None else ""
+                if isinstance(valore, str) and "@" in valore and valore not in trovati:
+                    trovati.append(valore)
+        return trovati[:5]
 
     def proprieta(self, request):
         """Definizioni dei campi personalizzati per l'azienda della richiesta ([] se il modello non li accetta)."""

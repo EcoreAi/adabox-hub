@@ -4,9 +4,10 @@ import datetime
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
+from django.core.validators import validate_email
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
@@ -15,6 +16,7 @@ from core.generici import ct_di, vista_e_oggetto
 from core.models import AttivitaPianificata, Messaggio, TipoAttivita
 
 PER_PAGINA = 20
+MAX_ESTERNI = 10
 
 
 def contesto_chatter(request, vista, obj, pagina=1):
@@ -22,6 +24,8 @@ def contesto_chatter(request, vista, obj, pagina=1):
     return {
         "ct": ct_di(obj).pk, "obj": obj, "messaggi": pagina_messaggi,
         "follower": chatter.follower_di(obj), "segue": chatter.segue(obj, request.user),
+        "fissati": list(chatter.fissati_di(obj)) if pagina in (1, "1") else [],
+        "suggeriti": vista.indirizzi_suggeriti(obj),
         "allegati": allegati.di(obj), "puo_modificare": vista.has_change_permission(request, obj),
         "attivita": [{"a": a, "stato": attivita.stato(a), "gestibile": attivita.puo_gestire(request, vista, a)}
                      for a in attivita.di(obj)],
@@ -55,13 +59,41 @@ def altri_messaggi(request, ct, pk):
                   {"chatter": contesto_chatter(request, vista, obj, request.GET.get("p", 1))})
 
 
+def indirizzi(testo):
+    """(validi, scartati) dagli indirizzi separati da virgola, punto e virgola o spazi; doppioni tolti."""
+    validi, scartati, visti = [], [], set()
+    for pezzo in testo.replace(";", ",").replace("\n", ",").replace(" ", ",").split(","):
+        indirizzo = pezzo.strip().strip("<>")
+        if not indirizzo or indirizzo.lower() in visti:
+            continue
+        try:
+            validate_email(indirizzo)
+        except ValidationError:
+            scartati.append(indirizzo)
+            continue
+        visti.add(indirizzo.lower())
+        validi.append(indirizzo)
+    return validi, scartati
+
+
 @require_POST
 @login_required
 def scrivi(request, ct, pk):
-    """Nota interna o messaggio ai follower, con allegati. Basta poter vedere il record."""
+    """Nota interna o messaggio ai follower, con allegati. Basta poter vedere il record; per scrivere anche a un
+    indirizzo esterno (campo «Anche a») serve poterlo modificare."""
     vista, obj = vista_e_oggetto(request, ct, pk, "view")
     corpo = request.POST.get("corpo", "").strip()
     tipo = Messaggio.NOTA if request.POST.get("tipo") == "nota" else Messaggio.MESSAGGIO
+    esterni = []
+    scelti = ",".join(request.POST.getlist("a")).strip(", ")
+    if tipo == Messaggio.MESSAGGIO and scelti:
+        if not vista.has_change_permission(request, obj):
+            raise PermissionDenied
+        esterni, scartati = indirizzi(scelti)
+        if scartati or len(esterni) > MAX_ESTERNI:
+            messages.error(request, f"Indirizzi non validi: {', '.join(scartati)}." if scartati
+                           else f"Al massimo {MAX_ESTERNI} indirizzi esterni per messaggio.")
+            return _risposta(request, vista, obj)
     file = []
     for f in request.FILES.getlist("file"):
         try:
@@ -69,9 +101,19 @@ def scrivi(request, ct, pk):
         except allegati.AllegatoNonValido as e:
             messages.error(request, str(e))
     if corpo or file:
-        chatter.scrivi(obj, request.user, corpo, tipo, allegati=file)
+        chatter.scrivi(obj, request.user, corpo, tipo, allegati=file, destinatari=esterni)
     else:
         messages.warning(request, "Scrivi un testo o allega un file.")
+    return _risposta(request, vista, obj)
+
+
+@require_POST
+@login_required
+def fissa(request, pk):
+    """Fissa in cima (o rimette al suo posto) un messaggio o una nota: serve poter modificare il record."""
+    m = get_object_or_404(Messaggio, pk=pk, tipo__in=(Messaggio.NOTA, Messaggio.MESSAGGIO))
+    vista, obj = vista_e_oggetto(request, m.content_type_id, m.object_id, "change")
+    chatter.fissa(m, request.POST.get("azione") != "togli")
     return _risposta(request, vista, obj)
 
 

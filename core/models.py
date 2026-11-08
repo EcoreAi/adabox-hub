@@ -389,6 +389,9 @@ class Messaggio(models.Model):
     modifiche = models.JSONField("modifiche", default=list, blank=True)
     allegati = models.ManyToManyField(Allegato, blank=True, related_name="messaggi", verbose_name="allegati")
     message_id = models.CharField("Message-ID", max_length=255, blank=True, db_index=True)
+    destinatari = models.JSONField("anche a", default=list, blank=True,
+                                   help_text="indirizzi esterni scelti da chi ha scritto, oltre ai follower")
+    fissato = models.BooleanField("fissato", default=False, help_text="resta in cima ai messaggi del record")
     creato = models.DateTimeField("creato il", default=timezone.now)
 
     class Meta:

@@ -6,7 +6,7 @@ from django.urls import reverse
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
-MENZIONE = re.compile(r"(?<![\w@])@([\w.+-]{2,150})")
+from core.chatter import MENZIONE  # noqa: E402,F401  (una sola definizione delle @menzioni)
 CANALE = re.compile(r"(?<![\w&#/])#([^\W\d][\w-]{1,79})")     # &#x27; è l'escape dell'apostrofo: non è un canale
 LINK = re.compile(r"\bhttps?://[^\s<]+[^\s<.,;:!?)\]'\"]")
 BLOCCO = re.compile(r"```\n?(.+?)```", re.S)

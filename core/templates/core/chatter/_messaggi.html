@@ -1,23 +1,6 @@
 <div class="ui-messaggi">
 {% for m in chatter.messaggi %}
-  <article class="ui-messaggio ui-messaggio-{{ m.tipo }}">
-    <header>
-      <span class="ui-avatar"{% if m.autore_id %} data-presenza-utente="{{ m.autore_id }}"{% endif %}>{% if m.autore %}{{ m.autore.username|slice:":1"|upper }}{% else %}·{% endif %}</span>
-      <strong>{% if m.autore %}{{ m.autore.get_full_name|default:m.autore.username }}{% elif m.autore_email %}{{ m.autore_email }}{% else %}Sistema{% endif %}</strong>
-      {% if m.autore_email and not m.autore %}<span class="ui-pill ui-pill-info">esterno</span>{% endif %}
-      {% if m.tipo == "nota" %}<span class="ui-pill ui-pill-warn">nota</span>{% endif %}
-      <time datetime="{{ m.creato|date:'c' }}">{{ m.creato|date:"d/m/Y H:i" }}</time>
-    </header>
-    {% if m.corpo %}<div class="ui-messaggio-corpo">{{ m.corpo|urlize|linebreaksbr }}</div>{% endif %}
-    {% if m.modifiche %}
-    <ul class="ui-messaggio-modifiche">
-      {% for c in m.modifiche %}<li>{{ c.label }}: <s>{{ c.prima }}</s> → <strong>{{ c.dopo }}</strong></li>{% endfor %}
-    </ul>
-    {% endif %}
-    {% if m.allegati.all %}
-    <div class="ui-messaggio-allegati">{% for a in m.allegati.all %}<a class="ui-link" href="{% url 'core:allegato_scarica' a.pk %}">{{ a.nome }}</a>{% endfor %}</div>
-    {% endif %}
-  </article>
+  {% include "core/chatter/_messaggio.html" %}
 {% empty %}
   <p class="ui-help">Ancora nessun messaggio.</p>
 {% endfor %}

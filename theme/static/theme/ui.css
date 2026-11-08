@@ -937,6 +937,17 @@ pre.ui-log {
 .ui-messaggi { display: flex; flex-direction: column; gap: 14px; }
 .ui-messaggio header { display: flex; align-items: center; gap: 8px; font-size: 13px; flex-wrap: wrap; }
 .ui-messaggio header time { color: var(--ui-text-3); font-size: 12px; margin-left: auto; }
+.ui-messaggio-fissa { display: inline; margin: 0; }
+.ui-messaggio-fissa .ui-icon-btn { width: 24px; height: 24px; opacity: .45; }
+.ui-messaggio:hover .ui-messaggio-fissa .ui-icon-btn, .ui-messaggio-fissa .ui-icon-btn:focus-visible,
+.ui-messaggio-fissa .ui-icon-btn[aria-pressed="true"] { opacity: 1; }
+.ui-messaggio-fissa .ui-icon-btn[aria-pressed="true"] { color: var(--ui-primary); }
+.ui-chatter-fissati .ui-messaggio-fissato { display: none; }
+.ui-chatter-fissati .ui-messaggio { background: var(--ui-surface-2); border-radius: 8px; padding: 8px 10px; }
+.ui-chatter-esterni { margin: 0 0 8px; font-size: 13px; }
+.ui-chatter-esterni summary { cursor: pointer; }
+.ui-chatter-esterni[open] { display: grid; gap: 6px; }
+.ui-chatter-suggerito { display: flex; gap: 6px; align-items: center; overflow-wrap: anywhere; }
 .ui-messaggio-corpo { margin: 6px 0 0 36px; font-size: 14px; overflow-wrap: anywhere; }
 .ui-messaggio-nota .ui-messaggio-corpo { background: var(--ui-warning-tint); border-radius: var(--radius-input); padding: 8px 10px; }
 .ui-messaggio-modifiche { margin: 6px 0 0 36px; padding-left: 16px; font-size: 13px; color: var(--ui-text-2); }

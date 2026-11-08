@@ -1,0 +1,27 @@
+{# Una voce del chatter: m = Messaggio, chatter = contesto del pannello. #}
+<article class="ui-messaggio ui-messaggio-{{ m.tipo }}">
+  <header>
+    <span class="ui-avatar"{% if m.autore_id %} data-presenza-utente="{{ m.autore_id }}"{% endif %}>{% if m.autore %}{{ m.autore.username|slice:":1"|upper }}{% else %}·{% endif %}</span>
+    <strong>{% if m.autore %}{{ m.autore.get_full_name|default:m.autore.username }}{% elif m.autore_email %}{{ m.autore_email }}{% else %}Sistema{% endif %}</strong>
+    {% if m.autore_email and not m.autore %}<span class="ui-pill ui-pill-info">esterno</span>{% endif %}
+    {% if m.tipo == "nota" %}<span class="ui-pill ui-pill-warn">nota</span>{% endif %}
+    {% if m.fissato %}<span class="ui-pill ui-messaggio-fissato">fissato</span>{% endif %}
+    {% if m.destinatari %}<span class="ui-help" title="Inviato anche a {{ m.destinatari|join:', ' }}">anche a {{ m.destinatari|join:", " }}</span>{% endif %}
+    <time datetime="{{ m.creato|date:'c' }}">{{ m.creato|date:"d/m/Y H:i" }}</time>
+    {% if chatter.puo_modificare and m.tipo == "nota" or chatter.puo_modificare and m.tipo == "messaggio" %}
+    <form method="post" action="{% url 'core:chatter_fissa' m.pk %}" hx-post="{% url 'core:chatter_fissa' m.pk %}" hx-target="#chatter" hx-swap="outerHTML" class="ui-messaggio-fissa">
+      {% csrf_token %}{% if m.fissato %}<input type="hidden" name="azione" value="togli">{% endif %}
+      <button type="submit" class="ui-icon-btn" aria-pressed="{{ m.fissato|yesno:'true,false' }}" title="{% if m.fissato %}Non tenere in cima{% else %}Fissa in cima{% endif %}" aria-label="{% if m.fissato %}Non tenere in cima{% else %}Fissa in cima{% endif %}"><svg><use href="#icon-pin"/></svg></button>
+    </form>
+    {% endif %}
+  </header>
+  {% if m.corpo %}<div class="ui-messaggio-corpo">{{ m.corpo|urlize|linebreaksbr }}</div>{% endif %}
+  {% if m.modifiche %}
+  <ul class="ui-messaggio-modifiche">
+    {% for c in m.modifiche %}<li>{{ c.label }}: <s>{{ c.prima }}</s> → <strong>{{ c.dopo }}</strong></li>{% endfor %}
+  </ul>
+  {% endif %}
+  {% if m.allegati.all %}
+  <div class="ui-messaggio-allegati">{% for a in m.allegati.all %}<a class="ui-link" href="{% url 'core:allegato_scarica' a.pk %}">{{ a.nome }}</a>{% endfor %}</div>
+  {% endif %}
+</article>

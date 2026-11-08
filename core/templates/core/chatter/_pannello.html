@@ -7,7 +7,15 @@
       <label><input type="radio" name="tipo" value="messaggio" checked> Messaggio</label>
       <label><input type="radio" name="tipo" value="nota"> Nota interna</label>
     </div>
-    <textarea class="ui-input" name="corpo" rows="3" placeholder="Scrivi ai follower o lascia una nota…" aria-label="Testo"></textarea>
+    <textarea class="ui-input" name="corpo" rows="3" placeholder="Scrivi ai follower o lascia una nota… (@nome per avvisare un collega)" aria-label="Testo"></textarea>
+    {% if chatter.puo_modificare %}
+    <details class="ui-chatter-esterni">
+      <summary class="ui-help">Anche a un indirizzo esterno</summary>
+      {% for e in chatter.suggeriti %}<label class="ui-chatter-suggerito"><input type="checkbox" name="a" value="{{ e }}"> {{ e }}</label>{% endfor %}
+      <input class="ui-input" type="text" name="a" inputmode="email" autocomplete="email" placeholder="cliente@esempio.it, altro@esempio.it" aria-label="Altri indirizzi email">
+      <p class="ui-help">Solo per i messaggi, non per le note: ricevono il testo e gli allegati e possono rispondere all'email.</p>
+    </details>
+    {% endif %}
     <div class="ui-chatter-azioni">
       <input type="file" name="file" multiple class="ui-file" aria-label="Allega file">
       <button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">Invia</button>
@@ -34,6 +42,13 @@
     <div class="ui-chatter-titolo">Allegati ({{ chatter.allegati|length }})</div>
     {% include "core/allegati/_elenco.html" with obj=chatter.obj ct=chatter.ct allegati=chatter.allegati puo_modificare=chatter.puo_modificare %}
   </div>
+
+  {% if chatter.fissati %}
+  <div class="ui-chatter-blocco ui-chatter-fissati">
+    <div class="ui-chatter-titolo">Fissati ({{ chatter.fissati|length }})</div>
+    <div class="ui-messaggi">{% for m in chatter.fissati %}{% include "core/chatter/_messaggio.html" %}{% endfor %}</div>
+  </div>
+  {% endif %}
 
   <div class="ui-chatter-blocco">
     <div class="ui-chatter-titolo">Attività recente</div>

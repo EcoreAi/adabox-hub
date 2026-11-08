@@ -35,6 +35,8 @@ class DistintaView(ModelView):
     readonly_fields = ["tipo", "conto", "data", "stato", "identificativo", "presentata_il", "utente", "creata"]
     form_layout = [("Distinta", [("tipo", "conto"), ("data", "stato"), ("identificativo", "presentata_il"), ("utente", "creata"), "note"])]
     ai_descrizione = "Le distinte di bonifici SEPA ai fornitori, addebiti SDD e RiBa ai clienti, con le voci e gli esiti."
+    chatter = True
+    tracked_fields = ["stato"]
 
     def has_add_permission(self, request):
         return False

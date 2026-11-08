@@ -65,7 +65,7 @@ def esterni(messaggio):
     visti, risultato = {messaggio.autore_email.lower(), ""}, []
     if messaggio.autore is not None and messaggio.autore.email:
         visti.add(messaggio.autore.email.lower())
-    for indirizzo in vista.destinatari_esterni(obj):
+    for indirizzo in [*vista.destinatari_esterni(obj), *(messaggio.destinatari or [])]:
         chiave = (indirizzo or "").strip().lower()
         if chiave not in visti and chiave not in utenti:
             visti.add(chiave)
@@ -77,6 +77,59 @@ def accoda_notifica(messaggio):
     if messaggio.record is not None and (destinatari(messaggio) or esterni(messaggio)):
         return lavori.accoda("core.chatter.email.notifica", messaggio_id=messaggio.pk)
     return None
+
+
+def accoda_menzioni(messaggio):
+    """Chi è menzionato con @username riceve un'email. Con Discuss attivo no: lì la menzione arriva nella posta in
+    arrivo, e per email solo se resta non letta (discuss.notifiche)."""
+    from django.apps import apps
+
+    from core.registry import modules
+
+    from . import menzionati
+    if apps.is_installed("discuss") and "discuss" not in modules.disattivati():
+        return None
+    if messaggio.record is not None and any(u.pk != messaggio.autore_id for u in menzionati(messaggio.corpo)):
+        return lavori.accoda("core.chatter.email.menzioni", messaggio_id=messaggio.pk)
+    return None
+
+
+def menzioni(messaggio_id):
+    """Lavoro: avvisa per email chi è menzionato nel messaggio o nella nota e può vedere il record."""
+    from . import menzionati, puo_vedere
+    m = Messaggio.objects.select_related("autore").get(pk=messaggio_id)
+    obj = m.record
+    if obj is None:
+        return 0
+    brand = settings.THEME.get("brand", "")
+    autore = (m.autore.get_full_name() or m.autore.username) if m.autore else (m.autore_email or "Qualcuno")
+    ctx = {"m": m, "obj": obj, "link": _link(obj), "brand": brand, "autore": autore, "menzione": True}
+    inviate = 0
+    with get_connection() as connessione:
+        for u in menzionati(m.corpo):
+            if u.pk == m.autore_id or not u.email or not puo_vedere(u, obj):
+                continue
+            email = EmailMultiAlternatives(
+                subject=f"[{brand}] {autore} ti ha menzionato su {obj}",
+                body=render_to_string("core/email/notifica.txt", {**ctx, "utente": u}), to=[u.email],
+                connection=connessione)
+            email.attach_alternative(render_to_string("core/email/notifica.html", {**ctx, "utente": u}), "text/html")
+            email.send()
+            inviate += 1
+    return inviate
+
+
+MAX_ALLEGATI = 15 * 1024 * 1024          # oltre, chi è esterno riceve solo i nomi dei file
+
+
+def _allega(email, messaggio):
+    """I file del messaggio vanno davvero a chi è esterno (non ha accesso all'applicazione), entro MAX_ALLEGATI."""
+    file = list(messaggio.allegati.all())
+    if not file or sum(a.dimensione for a in file) > MAX_ALLEGATI:
+        return
+    for a in file:
+        with a.file.open("rb") as f:
+            email.attach(a.nome, f.read())
 
 
 def _link(obj):
@@ -120,6 +173,7 @@ def notifica(messaggio_id):
                 subject=f"[{brand}] {obj}", body=render_to_string("core/email/notifica.txt", ctx_esterno),
                 to=[indirizzo], headers=intestazioni, reply_to=[risposta] if risposta else None, connection=connessione)
             email.attach_alternative(render_to_string("core/email/notifica.html", ctx_esterno), "text/html")
+            _allega(email, m)
             email.send()
             inviate += 1
     return inviate

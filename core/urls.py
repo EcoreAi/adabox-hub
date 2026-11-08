@@ -35,6 +35,7 @@ urlpatterns = [
     path("chatter/<int:ct>/<int:pk>/scrivi/", chatter_viste.scrivi, name="chatter_scrivi"),
     path("chatter/<int:ct>/<int:pk>/segui/", chatter_viste.segui, name="chatter_segui"),
     path("chatter/<int:ct>/<int:pk>/pianifica/", chatter_viste.pianifica, name="chatter_pianifica"),
+    path("chatter/messaggio/<int:pk>/fissa/", chatter_viste.fissa, name="chatter_fissa"),
     path("attivita/", views.attivita_mie, name="attivita"),
     path("attivita/<int:pk>/fatta/", chatter_viste.attivita_fatta, name="attivita_fatta"),
     path("attivita/<int:pk>/annulla/", chatter_viste.attivita_annulla, name="attivita_annulla"),

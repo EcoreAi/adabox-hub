@@ -43,6 +43,8 @@ class LottoView(ModelView):
     company_field = "azienda"
     list_group_by = ["prodotto", "scadenza:mese"]
     ai_descrizione = "Lotti e numeri di serie dei beni, con scadenza, giacenza e tracciabilità verso fornitori e clienti."
+    chatter = True                # richiami, non conformità e reclami restano sul lotto
+    tracked_fields = ["scadenza"]
 
     def col_giacenza(self, obj):
         from .lotti import saldo

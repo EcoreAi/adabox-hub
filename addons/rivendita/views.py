@@ -17,6 +17,8 @@ class IstanzeView(ModelView):
                    ("Stato", [("ultimo_contatto", "utenti_attivi"), "codice"]), ("Note", ["note"])]
     readonly_fields = ["ultimo_contatto", "utenti_attivi", "codice"]
     list_group_by = ["piano", "ospitata", "scadenza:mese"]
+    chatter = True
+    tracked_fields = ["piano", "scadenza", "utenti", "attiva"]
     buttons = ["genera_token"]
 
     def genera_token(self, request, obj):
@@ -38,6 +40,8 @@ class RichiesteView(ModelView):
     readonly_fields = ["istanza", "nome", "tipo", "utente", "creata", "nota", "stato", "decisa_il", "decisa_da"]
     list_group_by = ["stato", "istanza", "nome"]
     buttons = ["approva", "gestita", "rifiuta"]
+    chatter = True
+    tracked_fields = ["stato"]
 
     def has_add_permission(self, request):
         return False

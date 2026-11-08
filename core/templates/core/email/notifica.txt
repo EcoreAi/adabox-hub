@@ -1,4 +1,4 @@
-{% autoescape off %}{{ autore }} ha scritto su «{{ obj }}»:
+{% autoescape off %}{{ autore }} {% if menzione %}ti ha menzionato{% else %}ha scritto{% endif %} su «{{ obj }}»:
 
 {{ m.corpo }}
 {% if m.allegati.all %}
@@ -6,5 +6,5 @@ Allegati: {% for a in m.allegati.all %}{{ a.nome }}{% if not forloop.last %}, {%
 {% endif %}
 {% if link %}Apri: {{ link }}
 
-{% endif %}{% if esterno %}Puoi rispondere a questa email per continuare la conversazione.{% else %}Ricevi questa email perché segui «{{ obj }}» su {{ brand }}. Puoi rispondere a questa email: la risposta comparirà nei messaggi del record.{% endif %}
+{% endif %}{% if menzione %}Ricevi questa email perché ti hanno menzionato con @{{ utente.username }}.{% elif esterno %}Puoi rispondere a questa email per continuare la conversazione.{% else %}Ricevi questa email perché segui «{{ obj }}» su {{ brand }}. Puoi rispondere a questa email: la risposta comparirà nei messaggi del record.{% endif %}
 {% endautoescape %}

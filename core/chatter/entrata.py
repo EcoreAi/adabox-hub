@@ -8,7 +8,6 @@ import re
 import traceback
 from email import policy
 from email.utils import getaddresses, parseaddr
-from types import SimpleNamespace
 from urllib.parse import unquote, urlparse
 
 from django.conf import settings
@@ -18,12 +17,12 @@ from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils.html import strip_tags
 
-from core import allegati, azienda
+from core import allegati
 from core.models import EmailRicevuta, Messaggio
 from core.viste import registry
 
 from . import email as posta
-from . import scrivi
+from . import puo_vedere, scrivi
 
 log = logging.getLogger("core.chatter")
 _GESTORI = []          # funzioni (msg, mittente) -> record o None, per le email non abbinate
@@ -51,9 +50,16 @@ def svuota_gestori():
 
 
 def esterno_ammesso(obj, mittente):
+    """Il mittente esterno è tra i destinatari del record (ModelView.destinatari_esterni) o tra gli indirizzi a cui
+    qualcuno ha scritto dal chatter del record."""
     vista = registry.per_modello(type(obj))
     ammessi = {e.strip().lower() for e in (vista.destinatari_esterni(obj) if vista else []) if e}
-    return mittente.lower() in ammessi
+    if mittente.lower() in ammessi:
+        return True
+    scritti = (Messaggio.objects.filter(content_type=ContentType.objects.get_for_model(obj), object_id=obj.pk)
+               .exclude(destinatari=[]).values_list("destinatari", flat=True))
+    return any(mittente.lower() == (d or "").strip().lower() for lista in scritti for d in lista)
+
 CITAZIONE_RE = re.compile(r"(ha scritto|wrote)\s*:\s*$", re.I)
 SEPARATORI = ("-----original message-----", "-----messaggio originale-----", "________________________________")
 
@@ -107,13 +113,8 @@ def _autore(mittente, modello, pk):
     obj = modello._default_manager.filter(pk=pk).first() if vista else None
     if obj is None:
         return None, None
-    azienda_record = getattr(obj, vista.company_field) if vista.company_field else None
     for u in get_user_model().objects.filter(email__iexact=mittente, is_active=True):
-        consentite = azienda.consentite(u)
-        if azienda_record is not None and azienda_record not in consentite:
-            continue
-        richiesta = SimpleNamespace(user=u, azienda=azienda_record or (consentite[0] if consentite else None))
-        if vista.get_queryset(richiesta).filter(pk=pk).exists() and vista.has_view_permission(richiesta, obj):
+        if puo_vedere(u, obj):
             return u, obj
     return None, obj
 

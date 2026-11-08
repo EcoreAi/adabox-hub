@@ -157,6 +157,11 @@ class ScadenzaPassivaView(ModelView):
     list_group_by = ["pagata", "data:mese"]
     actions = ["paga_selezionate"]
     buttons = ["paga"]
+    chatter = True
+    tracked_fields = ["pagata"]
+
+    def indirizzi_suggeriti(self, obj):
+        return super().indirizzi_suggeriti(obj.fattura.fornitore) if obj.fattura_id and obj.fattura.fornitore_id else []
 
     def col_fornitore(self, obj):
         return obj.fattura.fornitore

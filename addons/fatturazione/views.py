@@ -187,6 +187,11 @@ class ScadenzaView(ModelView):
     list_sum = ["importo"]
     actions = ["incassa_selezionate"]
     buttons = ["incassa"]
+    chatter = True                # solleciti e accordi col cliente restano sulla scadenza
+    tracked_fields = ["data", "pagata"]
+
+    def indirizzi_suggeriti(self, obj):
+        return super().indirizzi_suggeriti(obj.fattura.cliente) if obj.fattura_id and obj.fattura.cliente_id else []
 
     def col_cliente(self, obj):
         return obj.fattura.cliente
