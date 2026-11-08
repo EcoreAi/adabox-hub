@@ -608,8 +608,7 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-documento-letto { max-width: 780px; line-height: 1.65; }
 
 /* L'area di lavoro della chat: una riga sopra il titolo, con la tendina per cambiarla */
-.ai-barra-area { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font-size: 13px; color: var(--ui-text-2);
-  position: sticky; top: 0; z-index: 5; background: var(--ui-surface); padding: 6px 0; }
+.ai-barra-area { display: flex; align-items: center; gap: 6px; margin: 0 0 6px 6px; font-size: 13px; color: var(--ui-text-2); }
 .ai-barra-area > svg { width: 15px; height: 15px; flex: none; }
 .ai-barra-area form { display: flex; align-items: center; gap: 6px; margin: 0; min-width: 0; }
 .ai-barra-area-etichetta { color: var(--ui-text-3); }
@@ -621,4 +620,5 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 
 /* nella colonna della chat le barre orizzontali non servono mai: i suggerimenti sono già contenuti, questo è il paracadute */
 .ai-scorri { overflow-x: hidden; }
-.ai-barra-area .ai-barra-area-apri[data-tip]::after { left: 0; top: calc(100% + 4px); transform: none; }
+.ai-barra-area .ai-barra-area-apri[data-tip]::after { left: 0; top: auto; bottom: calc(100% + 4px); transform: none; }
+.ai-collega-app { display: inline; margin: 0; } .ai-collega-app .ui-input { height: 30px; width: auto; font-size: 13px; padding: 0 26px 0 10px; }

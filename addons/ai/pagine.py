@@ -1093,8 +1093,9 @@ def _aree_dell_app(request, slug):
 
 
 def mostra_aree_nell_app(request, slug):
+    """La voce c'è per chi usa le aree di lavoro: da lì si collega anche la prima."""
     user = getattr(request, "user", None)
-    return bool(user and user.is_authenticated and user.has_perm("ai.view_progettochat") and _aree_dell_app(request, slug))
+    return bool(user and user.is_authenticated and user.has_perm("ai.view_progettochat"))
 
 
 @login_required
@@ -1109,5 +1110,28 @@ def aree_dell_app(request):
     dashboard = django_apps.is_installed("grafici") and request.user.has_perm("grafici.view_pagina")
     voci = [{"area": a, **collegamenti.contenuto(request.user, a), "dashboard": reverse("grafici:pagina_area", args=[a.pk]) if dashboard else ""}
             for a in _aree_dell_app(request, slug)]
-    return render(request, "ai/aree_app.html", {"voci": voci, "nome_app": manifest.name if manifest else slug,
+    gestite = [a for a in aree.visibili(request.user, getattr(request, "azienda", None)) if a.utente_id == request.user.pk]
+    return render(request, "ai/aree_app.html", {"voci": voci, "nome_app": manifest.name if manifest else slug, "slug": slug,
+                                                 "da_collegare": [a for a in gestite if slug not in (a.app_collegate or [])],
                                                  "puo_creare": request.user.has_perm("ai.add_progettochat")})
+
+
+@require_POST
+@login_required
+@permission_required("ai.change_progettochat", raise_exception=True)
+def collega_app(request, pk):
+    """Collega o scollega un'app a un'area (solo chi l'ha creata), dalla pagina «Aree di lavoro» dell'app o dall'area."""
+    from core.registry import modules
+    area = _area_gestita(request, pk)
+    slug = request.POST.get("app", "")
+    if area is None or slug not in modules.manifests_attivi() or slug == "ai":
+        raise Http404
+    app = list(area.app_collegate or [])
+    if request.POST.get("azione") == "scollega":
+        app = [s for s in app if s != slug]
+    elif slug not in app:
+        app.append(slug)
+    area.app_collegate = app
+    area.save(update_fields=["app_collegate"])
+    prossimo = request.POST.get("da", "")
+    return redirect(prossimo if prossimo.startswith("/") and not prossimo.startswith("//") else reverse("ai:progetto", args=[area.pk]))

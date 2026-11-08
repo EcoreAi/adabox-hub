@@ -51,11 +51,11 @@ def test_ada_riceve_i_record_collegati(c):
 def test_dal_record_al_progetto(client, c):
     url_record = reverse("contatti:contatti_dettaglio", args=[c["rossi"].pk])
     pagina = client.get(url_record).content.decode()
-    assert "Aree di lavoro collegate" in pagina and "Collega a quest'area di lavoro" in pagina
+    assert '<div class="ui-card-title">Aree di lavoro</div>' in pagina and "Collega un&#x27;area che esiste già" in pagina or "Collega un'area che esiste già" in pagina
     r = client.post(reverse("ai:collega", args=[c["progetto"].pk]), {"ct": c["ct"], "record": c["rossi"].pk, "indietro": url_record})
     assert r.url == url_record
     pagina = client.get(url_record).content.decode()
-    assert reverse("ai:progetto", args=[c["progetto"].pk]) in pagina.split("Aree di lavoro collegate")[1]
+    assert reverse("ai:progetto", args=[c["progetto"].pk]) in pagina.split('<div class="ui-card-title">Aree di lavoro</div>')[1]
     assert client.post(reverse("ai:collega", args=[c["progetto"].pk]), {"ct": c["ct"], "record": 1, "indietro": "//esterno.it/"}).url.startswith("/ai/")
 
 

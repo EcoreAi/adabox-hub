@@ -14,6 +14,14 @@
     {% elif membri_area %}<span>Condivisa con {{ membri_area|join:", " }}. Ognuno vede le sue chat e quelle condivise.</span>
     {% else %}<span class="ai-progetto-vuoto">Solo tua{% if perms.ai.change_progettochat %}: <a class="ui-link" href="{% url 'ai:progetti_modifica' progetto_aperto.pk %}">condividila</a> con i colleghi per lavorarci insieme{% endif %}.</span>{% endif %}
   </div>
+  <div class="ai-collegamenti" aria-label="App collegate">
+    <span class="ai-collegamenti-etichetta">App collegate</span>
+    {% for a in app %}{% if a.slug in progetto_aperto.app_collegate %}<span class="ai-chip ai-chip-collegamento"><a href="{% url a.slug|add:':aree_di_lavoro' %}">{{ a.label }}</a>
+      {% if gestisco_area %}<form method="post" action="{% url 'ai:collega_app' progetto_aperto.pk %}">{% csrf_token %}<input type="hidden" name="app" value="{{ a.slug }}"><input type="hidden" name="azione" value="scollega"><input type="hidden" name="da" value="{{ request.path }}"><button type="submit" class="ai-chip-x" aria-label="Scollega {{ a.label }}"><svg><use href="#icon-x"/></svg></button></form>{% endif %}</span>{% endif %}{% endfor %}
+    {% if not progetto_aperto.app_collegate %}<span class="ai-progetto-vuoto">nessuna: collegando un'app (es. CRM), l'area compare in quell'app alla voce «Aree di lavoro».</span>{% endif %}
+    {% if gestisco_area %}<form method="post" action="{% url 'ai:collega_app' progetto_aperto.pk %}" class="ai-collega-app">{% csrf_token %}<input type="hidden" name="da" value="{{ request.path }}">
+      <select class="ui-input" name="app" aria-label="App da collegare" onchange="if(this.value) this.form.submit()"><option value="">+ Collega un'app</option>{% for a in app %}{% if a.slug != "ai" and a.slug not in progetto_aperto.app_collegate %}<option value="{{ a.slug }}">{{ a.label }}</option>{% endif %}{% endfor %}</select></form>{% endif %}
+  </div>
   <div class="ai-collegamenti" aria-label="Record collegati">
     <span class="ai-collegamenti-etichetta">Collegato a</span>
     {% for c in collegamenti_progetto %}<span class="ai-chip ai-chip-collegamento"><span class="ai-collega-tipo">{{ c.tipo }}</span>{% if c.url %}<a href="{{ c.url }}">{{ c.titolo }}</a>{% else %}{{ c.titolo }}{% endif %}

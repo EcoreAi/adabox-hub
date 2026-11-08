@@ -45,7 +45,7 @@ def test_nel_record_quello_che_nasce_nell_area(client, s, p):
     Conversazione.objects.create(utente=p["bruno"], titolo="Appunti privati di Bruno", progetto=area)
     Conversazione.objects.create(utente=p["carla"], titolo="Grafica condivisa", progetto=area, condivisa=True)
     pagina = client.get(f"/progetti/progetti/{p['progetto'].pk}/").content.decode()
-    sezione = pagina.split("Aree di lavoro")[1]
+    sezione = pagina.split('<div class="ui-card-title">Aree di lavoro</div>')[1]
     assert "Piano del sito" in sezione and "Offerta tecnica" in sezione and "Ore per fase" in sezione
     assert "Grafica condivisa" in sezione and "Appunti privati di Bruno" not in sezione
     assert "condivisa con 2 colleghi" in sezione
@@ -60,4 +60,4 @@ def test_chi_non_e_nell_area_non_ne_vede_il_contenuto(client, s, p):
     estraneo.user_permissions.add(*Permission.objects.filter(content_type__app_label="progetti"))
     client.force_login(estraneo)
     pagina = client.get(f"/progetti/progetti/{p['progetto'].pk}/").content.decode()
-    assert "Riservata" not in pagina and "Sito Rossi</a>" not in pagina.split("Aree di lavoro")[-1]
+    assert "Riservata" not in pagina and "Sito Rossi</a>" not in pagina.split('<div class="ui-card-title">Aree di lavoro</div>')[-1]

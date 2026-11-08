@@ -3,9 +3,23 @@
 {% block app_content %}
 <div class="ui-pagehead"><div><h1>Aree di lavoro</h1><div class="sub">Le aree collegate a {{ nome_app }} di cui fai parte, con quello che ci nasce</div></div>
   {% if puo_creare %}<div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="{% url 'ai:progetti_nuovo' %}"><svg><use href="#icon-plus"/></svg> Nuova area di lavoro</a></div>{% endif %}</div>
+{% if da_collegare and perms.ai.change_progettochat %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <form method="post" class="ar-collega" onsubmit="this.action=this.action.replace('/0/', '/' + this.area.value + '/')" action="{% url 'ai:collega_app' 0 %}">{% csrf_token %}
+    <input type="hidden" name="app" value="{{ slug }}"><input type="hidden" name="da" value="{{ request.path }}">
+    <label class="ui-label" for="ar-area">Collega una tua area a {{ nome_app }}</label>
+    <select class="ui-input" id="ar-area" name="area">{% for a in da_collegare %}<option value="{{ a.pk }}">{{ a.nome }}{% if a.personale %} · personale{% endif %}</option>{% endfor %}</select>
+    <button class="ui-btn ui-btn-primary" type="submit">Collega</button>
+  </form>
+  <p class="ui-help">Quello che nasce nell'area (chat, documenti, grafici e tabelle) compare qui per i membri dell'area, e Ada nelle chat dell'area lavora di preferenza con {{ nome_app }}.</p>
+</div></section>
+{% endif %}
 <section class="ui-card is-revealed ui-section"><div class="ui-card-body">
   {% for c in voci %}{% include "ai/_area_riquadro.html" %}
-  {% empty %}<p class="ui-help">Nessuna area di lavoro collegata a {{ nome_app }}. Si collega dalle impostazioni dell'area, alla voce «App collegate».</p>{% endfor %}
+    {% if c.area.utente_id == request.user.pk %}<form method="post" action="{% url 'ai:collega_app' c.area.pk %}" class="ar-scollega">{% csrf_token %}<input type="hidden" name="app" value="{{ slug }}"><input type="hidden" name="azione" value="scollega"><input type="hidden" name="da" value="{{ request.path }}"><button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit">Scollega da {{ nome_app }}</button></form>{% endif %}
+  {% empty %}<p class="ui-help">Nessuna area di lavoro collegata a {{ nome_app }}{% if da_collegare %}: collegane una qui sopra{% endif %}.</p>{% endfor %}
 </div></section>
 {% include "ai/_area_stile.html" %}
+<style>.ar-collega{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.ar-collega .ui-label{width:100%;margin:0}.ar-collega .ui-input{max-width:320px}
+.ar-scollega{margin:-6px 0 8px}</style>
 {% endblock %}

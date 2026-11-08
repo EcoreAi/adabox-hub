@@ -72,7 +72,7 @@
       <div class="ai-colonna">
         {% if conversazione %}
         {# titolo e azioni della conversazione: una riga che scorre con i messaggi, non una seconda barra #}
-        {% include "ai/_barra_area.html" %}
+        {% if sola_lettura %}{% include "ai/_barra_area.html" %}{% endif %}
         {% if sola_lettura %}<p class="ai-sola-lettura" role="note"><svg aria-hidden="true"><use href="#ai-persone"/></svg><span>Chat di <strong>{{ autore_chat }}</strong>, condivisa con l'area di lavoro: la leggi, ma non ci scrivi. Per continuare apri una tua chat nell'area.</span></p>{% endif %}
         <div class="ai-titolo-chat">
           <h1 data-titolo>{{ conversazione.titolo }}</h1>
@@ -95,7 +95,6 @@
         {% if progetto_aperto %}
         {% include "ai/_testa_progetto.html" %}
         {% elif not messaggi %}
-        {% include "ai/_barra_area.html" %}
         <div class="ai-saluto">
           <span class="ai-scintilla" aria-hidden="true"><svg><use href="#ai-scintilla"/></svg></span>
           <h1>Ciao, {{ user.first_name|default:user.username }}</h1>
@@ -109,6 +108,7 @@
       <div class="ai-colonna">
         {% if avviso_spesa %}<p class="ai-avviso" role="status">{{ avviso_spesa }}</p>{% endif %}
         <p class="ai-avviso" role="alert" data-errore hidden></p>
+        {% include "ai/_barra_area.html" %}
         <form class="ai-composer" method="post" enctype="multipart/form-data" hx-encoding="multipart/form-data"
               action="{% if conversazione %}{% url 'ai:invia_conversazione' conversazione.pk %}{% else %}{% url 'ai:invia' %}{% endif %}"
               hx-post="{% if conversazione %}{% url 'ai:invia_conversazione' conversazione.pk %}{% else %}{% url 'ai:invia' %}{% endif %}"
