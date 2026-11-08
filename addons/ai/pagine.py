@@ -1063,3 +1063,24 @@ def catalogo_provider(request, pk):
                          + ". Controlla i prezzi e mettili nella catena di un profilo per usarli in chat.")
         return redirect(f"{reverse('ai:modelli_lista')}?f_provider={provider.pk}")
     return render(request, "ai/catalogo_provider.html", {"provider": provider, "voci": voci})
+
+
+@require_POST
+@login_required
+@permission_required("ai.add_progettochat", raise_exception=True)
+def area_da_record(request, ct, pk):
+    """Un'area di lavoro nuova per un record (un progetto, un cliente…): collegata al record, con i colleghi che il
+    record cita (responsabile, membri) già dentro; chi l'ha creata li cambia quando vuole."""
+    from core.generici import vista_e_oggetto
+    vista, obj = vista_e_oggetto(request, ct, pk, "view")
+    azienda = getattr(request, "azienda", None)
+    area = ProgettoChat.objects.create(utente=request.user, azienda=azienda, nome=str(obj)[:80])
+    CollegamentoProgetto.objects.create(progetto=area, content_type_id=ct, object_id=obj.pk)
+    candidati = set(aree.candidati(azienda, request.user).values_list("pk", flat=True))
+    persone = [u for u in collegamenti.persone_del_record(obj) if u.pk in candidati]
+    aree.imposta_membri(area, persone)
+    aree.imposta_corrente(request.user, area)
+    from django.contrib import messages
+    messages.success(request, f"Area di lavoro «{area.nome}» creata e collegata" + (
+        f", condivisa con {', '.join(aree.nome(u) for u in persone)}." if persone else ". Aggiungi i colleghi dalle impostazioni dell'area."))
+    return redirect(reverse("ai:progetto", args=[area.pk]))

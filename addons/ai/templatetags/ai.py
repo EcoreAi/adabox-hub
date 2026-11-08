@@ -100,12 +100,18 @@ def progetti_del_record(context, obj, vista=None):
 
     from ai import collegamenti
     from ai.models import ProgettoChat
+    from django.apps import apps as django_apps
+    from django.urls import reverse
     azienda = getattr(request, "azienda", None)
-    collegati = collegamenti.progetti_del_record(request.user, azienda, obj)
-    gestite = list(ProgettoChat.objects.filter(utente=request.user, azienda=azienda)) if azienda else []   # collega solo chi gestisce
-    if not gestite and not collegati:
+    if azienda is None or not request.user.has_perm("ai.view_progettochat"):
         return None
-    return {"collegati": collegati, "liberi": [p for p in gestite if p not in collegati], "ct": ContentType.objects.get_for_model(type(obj)).pk}
+    collegati = collegamenti.progetti_del_record(request.user, azienda, obj)
+    gestite = list(ProgettoChat.objects.filter(utente=request.user, azienda=azienda))      # collega solo chi gestisce
+    dashboard = django_apps.is_installed("grafici") and request.user.has_perm("grafici.view_pagina")
+    return {"collegati": [{"area": a, **collegamenti.contenuto(request.user, a),
+                           "dashboard": reverse("grafici:pagina_area", args=[a.pk]) if dashboard else ""} for a in collegati],
+            "liberi": [p for p in gestite if p not in collegati], "ct": ContentType.objects.get_for_model(type(obj)).pk,
+            "puo_creare": request.user.has_perm("ai.add_progettochat")}
 
 
 @register.simple_tag(takes_context=True)

@@ -82,3 +82,30 @@ def progetti_del_record(utente, azienda, obj):
         return []
     ct = ContentType.objects.get_for_model(type(obj))
     return list(aree.visibili(utente, azienda).filter(collegamenti__content_type=ct, collegamenti__object_id=obj.pk).distinct())
+
+
+def contenuto(utente, area, quanti=5):
+    """Che cosa è nato nell'area, per la sezione nel record collegato: le chat che l'utente vede, i documenti scritti con
+    Ada e i grafici e le tabelle di quelle chat (mai le chat private degli altri membri)."""
+    from . import aree
+    from .models import Artifact, DocumentoChat
+    chat = aree.chat_visibili(utente, area)
+    return {"chat": list(chat.order_by("-aggiornata")[:quanti]),
+            "documenti": list(DocumentoChat.objects.filter(conversazione__in=chat).order_by("-aggiornato")[:quanti]),
+            "grafici": list(Artifact.objects.filter(conversazione__in=chat).order_by("-pk")[:quanti]),
+            "n_membri": area.membri.count()}
+
+
+def persone_del_record(obj):
+    """Gli utenti citati dal record (responsabile, membri…): i colleghi da proporre per un'area nata da lì."""
+    from django.contrib.auth import get_user_model
+    Utente = get_user_model()
+    trovati = []
+    for f in obj._meta.get_fields():
+        if getattr(f, "related_model", None) is not Utente or f.auto_created:
+            continue
+        if f.many_to_many:
+            trovati += list(getattr(obj, f.name).filter(is_active=True))
+        elif f.many_to_one and getattr(obj, f.name, None) is not None and getattr(obj, f.name).is_active:
+            trovati.append(getattr(obj, f.name))
+    return list(dict.fromkeys(trovati))
