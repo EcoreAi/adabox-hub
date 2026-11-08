@@ -63,6 +63,8 @@ class Ruolo(models.Model):
     tecnico = models.BooleanField("accesso tecnico completo", default=False,
                                   help_text="superutente: anche moduli, lavori e tutto l'admin di Django; per chi gestisce la piattaforma")
     predefinito = models.BooleanField("ai nuovi utenti", default=False, help_text="il ruolo di chi viene creato senza sceglierne uno")
+    dashboard = models.JSONField("dashboard iniziale", default=dict, blank=True,
+                                 help_text="la disposizione da cui parte la dashboard di chi ha questo ruolo e non l'ha ancora personalizzata")
     ordine = models.PositiveSmallIntegerField("ordine", default=10)
 
     class Meta:

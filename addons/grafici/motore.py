@@ -17,6 +17,7 @@ from django.utils import timezone
 from core import barra
 from core import dashboard as dash
 from core import parametri
+from core.models import Ruolo
 from core.registry import modules
 from core.viste import interroga
 from core.viste.gruppi import numero
@@ -251,11 +252,29 @@ def widget_per_panoramica(request):
     return [widget_leggero(g, request) for g in libreria_di(request.user)]
 
 
-def condivise(azienda):
-    """Le pagine condivise con l'azienda: quelle dei suoi utenti. Senza un'azienda corrente, nessuna."""
+def condivise(azienda, utente=None):
+    """Le pagine che chi guarda riceve dai colleghi dell'azienda: quelle condivise con tutta l'azienda e, se si dà
+    `utente`, quelle condivise con il suo ruolo o con un suo gruppo. Senza un'azienda corrente, nessuna."""
     if azienda is None:
         return Pagina.objects.none()
-    return Pagina.objects.filter(condivisa=True, utente__profilo__aziende=azienda)
+    per_chi = Q(condivisa=True)
+    if utente is not None:
+        ruolo = Ruolo.objects.filter(profili__utente=utente).values_list("pk", flat=True).first()
+        if ruolo:
+            per_chi |= Q(ruoli=ruolo)
+        gruppi = list(utente.groups.values_list("pk", flat=True))
+        if gruppi:
+            per_chi |= Q(gruppi__in=gruppi)
+    pk = Pagina.objects.filter(per_chi, utente__profilo__aziende=azienda).values("pk")
+    return Pagina.objects.filter(pk__in=pk)
+
+
+def a_chi(pagina):
+    """Con chi è condivisa, in parole: «tutta l'azienda», «i ruoli Commerciale, Direzione», «» se con nessuno."""
+    if pagina.condivisa:
+        return "tutta l'azienda"
+    nomi = [*(f"ruolo {r}" for r in pagina.ruoli.all()), *(f"gruppo {g}" for g in pagina.gruppi.all())]
+    return ", ".join(nomi)
 
 
 def puo_vedere(grafico, utente, azienda):
@@ -263,7 +282,7 @@ def puo_vedere(grafico, utente, azienda):
     di un'area di lavoro la cui dashboard lo contiene."""
     if grafico.utente_id == utente.id or grafico.condiviso_con.filter(pk=utente.pk).exists():
         return True
-    if any(grafico.id_widget in p.id_widget for p in condivise(azienda).filter(utente_id=grafico.utente_id)):
+    if any(grafico.id_widget in p.id_widget for p in condivise(azienda, utente).filter(utente_id=grafico.utente_id)):
         return True
     return any(grafico.id_widget in p.id_widget and area_visibile(utente, azienda, p.area)
                for p in Pagina.objects.filter(area__isnull=False))
@@ -445,7 +464,7 @@ def schede(request, attiva=""):
     con lui, le app che ha personalizzato (con un limite) e quella aperta. Tutto il resto sta nel menu «Altre schede»,
     per area: {"visibili": [...], "pagine": [...], "gruppi": [{"titolo", "voci"}]}."""
     utente = request.user
-    pagine = list((Pagina.objects.filter(utente=utente) | condivise(request.azienda)).filter(area__isnull=True)
+    pagine = list((Pagina.objects.filter(utente=utente) | condivise(request.azienda, utente)).filter(area__isnull=True)
                   .distinct().select_related("utente"))
     libere = []
     for p in sorted([p for p in pagine if not p.app], key=lambda p: (p.utente_id != utente.id, p.ordine, p.pk)):

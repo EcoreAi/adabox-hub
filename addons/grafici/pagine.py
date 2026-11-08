@@ -33,7 +33,7 @@ def _mia(request, pk):
 
 def _visibile(request, pk):
     p = get_object_or_404(Pagina.objects.select_related("utente"), pk=pk, area__isnull=True)
-    if p.utente_id != request.user.id and not motore.condivise(request.azienda).filter(pk=p.pk).exists():
+    if p.utente_id != request.user.id and not motore.condivise(request.azienda, request.user).filter(pk=p.pk).exists():
         raise Http404
     return p
 
@@ -71,7 +71,19 @@ def _rendi(request, p, info=None, area=None):
         "contesto_ada": motore.contesto_ada(p, visibili), "scheda_attiva": p.chiave,
         "sorelle": [x for x in Pagina.objects.filter(utente=request.user, app="", area__isnull=True) if x.pk != p.pk]
         if mio and not p.app and area is None else [],
-        "ai": motore._ai_disponibile()})
+        "ai": motore._ai_disponibile(), "a_chi": motore.a_chi(p) if not p.app and area is None else "",
+        "condivisione": _scelte_condivisione(p) if mio and not p.app and area is None
+        and request.user.has_perm(CONDIVIDI) else None})
+
+
+def _scelte_condivisione(p):
+    from django.contrib.auth.models import Group
+
+    from core.models import Ruolo
+    scelti_r, scelti_g = set(p.ruoli.values_list("pk", flat=True)), set(p.gruppi.values_list("pk", flat=True))
+    return {"ruoli": [(r, r.pk in scelti_r) for r in Ruolo.objects.order_by("ordine", "nome")],
+            "gruppi": [(g, g.pk in scelti_g) for g in Group.objects.order_by("name")],
+            "modo": "azienda" if p.condivisa else ("scelti" if scelti_r or scelti_g else "nessuno")}
 
 
 @login_required
@@ -105,7 +117,7 @@ def pagine(request):
     nascoste = {p.app for p in mie if p.app and p.nascosta}
     return render(request, "grafici/pagine.html", {
         "libere": [p for p in mie if not p.app], "app_pagine": [p for p in mie if p.app],
-        "condivise": motore.condivise(request.azienda).exclude(utente=request.user).select_related("utente"),
+        "condivise": motore.condivise(request.azienda, request.user).exclude(utente=request.user).select_related("utente"),
         "app_nascoste": [a for a in motore.app_con_indicatori(request.user) if a["slug"] in nascoste],
         "libreria": motore.libreria_di(request.user),
         "destinazioni": motore.destinazioni(request), "icone": motore.ICONE})
@@ -183,10 +195,20 @@ def condividi(request, pk):
     p = _mia(request, pk)
     if p.app:
         raise PermissionDenied("La scheda di un'app è personale.")
-    p.condivisa = not p.condivisa
+    from django.contrib.auth.models import Group
+
+    from core.models import Ruolo
+    modo = request.POST.get("a") or ("nessuno" if p.condivisa else "azienda")     # senza scelta: alterna come prima
+    ids = lambda nome: [int(i) for i in request.POST.getlist(nome) if i.isdigit()]  # noqa: E731
+    ruoli = Ruolo.objects.filter(pk__in=ids("ruoli")) if modo == "scelti" else Ruolo.objects.none()
+    gruppi = Group.objects.filter(pk__in=ids("gruppi")) if modo == "scelti" else Group.objects.none()
+    p.condivisa = modo == "azienda"
     p.save(update_fields=["condivisa", "aggiornata"])
-    messages.success(request, "Pagina condivisa con tutta l'azienda: ognuno vede i dati che i suoi permessi gli consentono."
-                     if p.condivisa else "La pagina è di nuovo solo tua.")
+    p.ruoli.set(ruoli)
+    p.gruppi.set(gruppi)
+    chi = motore.a_chi(p)
+    messages.success(request, f"Pagina condivisa con {chi}: ognuno vede i dati che i suoi permessi gli consentono."
+                     if chi else "La pagina è di nuovo solo tua.")
     return _torna(request, p)
 
 

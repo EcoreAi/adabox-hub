@@ -7,8 +7,19 @@
   <div class="ui-pagehead-actions wd-azioni">
     <button type="button" class="ui-btn ui-btn-secondary" id="wd-aggiungi"><svg><use href="#icon-plus"/></svg> Aggiungi widget <span class="ui-gruppo-n" id="wd-nascosti-n">{{ nascosti|length }}</span></button>
     <button type="button" class="ui-btn ui-btn-secondary" id="wd-modifica" aria-pressed="false"><svg><use href="#icon-edit"/></svg> Personalizza</button>
-    <form method="post" action="{% url 'core:dashboard_reset' %}" id="wd-ripristina"{% if not personalizzata %} hidden{% endif %}>{% csrf_token %}<button class="ui-btn ui-btn-ghost" type="submit" title="Torna all'ordine di partenza">Ripristina</button></form>
+    <form method="post" action="{% url 'core:dashboard_reset' %}" id="wd-ripristina"{% if not personalizzata %} hidden{% endif %}>{% csrf_token %}<button class="ui-btn ui-btn-ghost" type="submit" title="Torna alla dashboard di partenza (quella del tuo ruolo, se l'amministratore l'ha impostata)">Ripristina</button></form>
     <a class="ui-btn ui-btn-ghost" href="{% url 'core:launcher' %}">Tutte le app</a>
+    {% if ruoli %}
+    <details class="wd-ruolo"><summary class="ui-btn ui-btn-ghost" aria-label="Dashboard di partenza per un ruolo"><svg><use href="#icon-users"/></svg></summary>
+      <form method="post" action="{% url 'core:dashboard_per_ruolo' %}" class="wd-ruolo-pannello">{% csrf_token %}
+        <strong>Dashboard di partenza per un ruolo</strong>
+        <p class="ui-help">Chi ha il ruolo e non ha ancora disposto la sua dashboard parte da questa, con i widget che i suoi permessi gli consentono.</p>
+        <select class="ui-input" name="ruolo" aria-label="Ruolo">{% for r in ruoli %}<option value="{{ r.pk }}">{{ r }}{% if r.dashboard %} · impostata{% endif %}</option>{% endfor %}</select>
+        <div class="wd-ruolo-bottoni"><button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Usa questa disposizione</button>
+          <button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit" name="azione" value="togli">Torna a quella standard</button></div>
+      </form>
+    </details>
+    {% endif %}
   </div>
 </div>
 {% for s in sezioni_dashboard %}{% include s.template with scheda_attiva="panoramica" %}{% endfor %}

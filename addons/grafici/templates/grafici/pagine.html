@@ -16,7 +16,7 @@
         <select class="ui-input" name="icona" aria-label="Icona">{% for v, e in icone %}<option value="{{ v }}">{{ e }}</option>{% endfor %}</select>
         <button class="ui-btn ui-btn-primary" type="submit"><svg><use href="#icon-plus"/></svg> Crea</button>
       </form>
-      {% if libere %}<ul class="an-elenco">{% for p in libere %}<li><a href="{% url 'grafici:pagina' p.pk %}"><svg><use href="#icon-{{ p.icona }}"/></svg><strong>{{ p.titolo }}</strong><small>{{ p.n_widget }} widget{% if p.condivisa %} · condivisa con l'azienda{% endif %}</small></a></li>{% endfor %}</ul>
+      {% if libere %}<ul class="an-elenco">{% for p in libere %}<li><a href="{% url 'grafici:pagina' p.pk %}"><svg><use href="#icon-{{ p.icona }}"/></svg><strong>{{ p.titolo }}</strong><small>{{ p.n_widget }} widget{% if p.condivisa %} · condivisa con l'azienda{% elif p.ruoli.exists or p.gruppi.exists %} · condivisa con alcuni ruoli o gruppi{% endif %}</small></a></li>{% endfor %}</ul>
       {% else %}<p class="ui-help">Nessuna pagina libera: creane una qui o con «Nuova pagina» tra le schede.</p>{% endif %}
       {% if app_pagine %}<h3 class="an-h3">Schede delle app</h3>
       <ul class="an-elenco">{% for p in app_pagine %}<li><a href="{% url 'grafici:pagina_app' p.app %}"><svg><use href="#icon-{{ p.icona|default:'zap' }}"/></svg><strong>{{ p.titolo }}</strong><small>{{ p.n_widget }} widget{% if p.nascosta %} · scheda nascosta{% endif %}</small></a>

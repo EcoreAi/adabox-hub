@@ -11,7 +11,7 @@ Confronto con la checklist di `docs/features-gap` (Odoo, ERPNext, NetSuite, Busi
 - **Acquisti è stata l'app scelta per l'intervento:** passa da 0 a 8 voci complete su 14 (sezione E).
 - **Fatti il 2026-11-05:** scadenziario a fasce, fido dei clienti e pacchetto per il commercialista (FIN-06, FIN-07, FIN-01).
 - **Fatti il 2026-11-05 anche:** ricerche salvate, ricerca in tutte le app, Pivot, registro delle modifiche, scadenza e limiti dei token API (RPT-03, RPT-02, PLT-04, parte di PLT-17 e PLT-14).
-- **Fatto il 2026-11-08:** chatter completo, con messaggi fissati, menzioni senza Discuss e invio a indirizzi esterni scelti al momento (PLT-10), e tolleranza alla perdita di connessione: avviso offline, «Riprova» sugli errori, bozze dei form (PLT-19), posizioni e organigramma (HR-01).
+- **Fatto il 2026-11-08:** chatter completo, con messaggi fissati, menzioni senza Discuss e invio a indirizzi esterni scelti al momento (PLT-10), e tolleranza alla perdita di connessione: avviso offline, «Riprova» sugli errori, bozze dei form (PLT-19), posizioni e organigramma (HR-01), dashboard per ruolo e pagine di Analisi condivise con ruoli e gruppi (RPT-01).
 - **Integrazioni, iniziate il 2026-11-05 nel modulo Connettori:** webhook firmati in uscita, identificativi esterni sui record, bottoni via API, chat collegata al contatto e primo connettore HubSpot sui contatti delle persone, provato solo contro un sistema simulato. Mancano aziende e opportunità e gli altri sistemi. Zucchetti e TeamSystem Enterprise/Lynfa non hanno documentazione pubblica trovata: servono partner o contatto commerciale.
 
 ## Da dove partire
@@ -210,11 +210,10 @@ Ogni voce aperta è assegnata all'app dove andrebbe costruita. Ordine dentro ogn
 
 ### grafici
 
-3 voci aperte: 1 Core, 2 Adv, 0 Edge.
+2 voci aperte: 0 Core, 2 Adv, 0 Edge.
 
 | ID | Tier | Stato | Effort | Cosa costruire |
 |---|---|---|---|---|
-| RPT-01 | Core | PARTIAL | S | Aggiungere a Pagina la condivisione con ruoli e gruppi e un layout iniziale per ruolo impostabile dall'amministratore. |
 | FIN-29 | Adv | PARTIAL | L | Modulo di pianificazione con versioni di budget e forecast per dimensione, driver semplici e confronto con il consuntivo. |
 | PLT-25 | Adv | PARTIAL | L | Foglio integrato con formule che leggono da interroga.py con i permessi dell'utente, oppure connettore live per Excel come OData. |
 
@@ -829,7 +828,7 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 
 | ID | Funzione | Tier | Stato | Evidenza | Note sul gap |
 |---|---|---|---|---|---|
-| RPT-01 | Dashboard con KPI per modulo e per ruolo | Core | PARTIAL | core/dashboard.py (schede, catalogo: KPI e grafici delle app visibili, 22 manifest con chiave dashboard); addons/grafici/models.py (Pagina, Grafico); addons/grafici/motore.py (schede, _voci_pagina); core/models.py (DashboardUtente) | Per modulo c'è, e i dati seguono i permessi di chi guarda. Manca la dashboard assegnata a un ruolo: Pagina.condivisa vale per tutti (motore.schede filtra Q(utente) o Q(condivisa=True)), non esiste condivisione con gruppi o Ruolo né layout predefinito per ruolo |
+| RPT-01 | Dashboard con KPI per modulo e per ruolo | Core | HAVE | core/dashboard.py layout_di, layout_del_ruolo; core/models.py Ruolo.dashboard; core/views.py dashboard_per_ruolo; addons/grafici/motore.py condivise, a_chi; addons/grafici/models.py Pagina.ruoli, Pagina.gruppi; addons/grafici/tests/test_condivisione_ruoli.py | Fatto il 2026-11-08: una pagina di Analisi si condivide con nessuno, con tutta l'azienda o con alcuni ruoli e gruppi; l'amministratore fa della sua dashboard quella di partenza di un ruolo, da cui parte chi ha quel ruolo e non l'ha ancora disposta (Ripristina ci torna). I dati seguono sempre i permessi di chi guarda |
 | RPT-02 | Viste pivot e grafico su ogni insieme di record, con raggruppamenti e misure | Core | HAVE | core/viste/pivot.py; core/viste/interroga.py opzioni_vista; core/viste/grafico.py; addons/grafici/costruttore.py | Fatto il 2026-11-05: Pivot generica con righe, colonne e fino a tre misure, sui filtri della lista, esportabile in Excel. Non si salva ancora come widget di Analisi e le celle non aprono i record. |
 | RPT-03 | Ricerche e filtri salvati e condivisi tra utenti | Core | HAVE | core/viste/salvate.py; core/models.py RicercaSalvata; core/tests/test_ricerche_pivot_registro.py | Fatto il 2026-11-05: ricerche salvate per lista, personali o condivise con l'azienda, con quella che si apre da sola. La condivisione è con tutta l'azienda, non per ruolo. |
 | RPT-04 | Bilanci e prospetti finanziari con drill-down alle registrazioni | Core | N/A | Decisione dell'utente del 2026-11-03 (memoria contabilita-al-commercialista); addons/rivendita/schede.py (Banca: senza contabilità) | Fuori perimetro per decisione dell'utente: niente libro mastro in adabox-hub, la contabilità resta al commercialista. Al massimo un'esportazione per lo studio |
@@ -1026,7 +1025,6 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 
 | ID | Funzione | Cosa costruire | Dipende da | Effort |
 |---|---|---|---|---|
-| RPT-01 | Dashboard con KPI per modulo e per ruolo | Aggiungere a Pagina la condivisione con ruoli e gruppi e un layout iniziale per ruolo impostabile dall'amministratore. | - | S |
 | RPT-06 | Report pianificati e inviati per email | Pianificazione deterministica di una lista filtrata, di una stampa o di una pagina di Analisi, con allegato PDF o Excel e più destinatari, eseguita nel worker con i permessi del proprietario. | RPT-03 | M |
 
 **Integrazioni ed estensibilità**

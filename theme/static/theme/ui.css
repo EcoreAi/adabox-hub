@@ -1706,3 +1706,15 @@ body:has(.ui-nav-altre.is-open .ui-menucol) main { filter: blur(3px); opacity: .
 .ui-errore-rete[hidden], .ui-offline[hidden] { display: none; }
 .ui-bozza { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .ui-bozza > span { flex: 1 1 260px; }
+
+/* Dashboard di partenza per un ruolo (solo per chi gestisce i ruoli) */
+.wd-ruolo { position: relative; }
+.wd-ruolo > summary { list-style: none; }
+.wd-ruolo > summary::-webkit-details-marker { display: none; }
+.wd-ruolo-pannello {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; width: min(320px, calc(100vw - 32px));
+  display: grid; gap: 8px; padding: 14px; border-radius: 12px; border: 1px solid var(--ui-border);
+  background: var(--ui-surface); box-shadow: 0 18px 50px rgba(15, 23, 42, .18); font-size: 14px;
+}
+.wd-ruolo-pannello .ui-help { margin: 0; }
+.wd-ruolo-bottoni { display: flex; flex-wrap: wrap; gap: 6px; }

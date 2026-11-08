@@ -1,7 +1,7 @@
 {
     "name": "Analisi",
     "summary": "Pagine di grafici e KPI, per utente e per app: ogni grafico è una query salvata che si aggiorna, cambia tipo e si spiega con Ada",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Direzione",
     "depends": [],

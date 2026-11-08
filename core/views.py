@@ -22,7 +22,7 @@ from django.db.models import Q
 
 from .models import LicenzaIstanza, RichiestaModulo
 from .models import (Azienda, CampoPersonalizzato, EmailRicevuta, Lavoro, Modulo, Parametro, ProfiloUtente, RegistroModifica,
-                     TokenApi)
+                     Ruolo, TokenApi)
 from .registry import modules, pacchetti, sincronia
 from .signals import crea_profilo
 from .viste import ModelView, register
@@ -91,7 +91,8 @@ def dashboard(request):
     visibili = dash.carica(visibili)
     from .registry import hooks
     return render(request, "core/dashboard.html", {
-        "widget": visibili, "nascosti": nascosti, "schede": schede, "personalizzata": bool(dash.layout_di(request.user)),
+        "widget": visibili, "nascosti": nascosti, "schede": schede, "personalizzata": dash.personalizzata(request.user),
+        "ruoli": Ruolo.objects.order_by("ordine", "nome") if request.user.has_perm("core.change_ruolo") else None,
         "contesto_ada": dash.contesto_per_ada(visibili), "sezioni_dashboard": hooks.sezioni_dashboard(request)})
 
 
@@ -108,6 +109,26 @@ def dashboard_layout(request):
     except (ValueError, TypeError):
         return JsonResponse({"errore": "disposizione non valida"}, status=400)
     return JsonResponse({"ok": True, **salvato})
+
+
+@login_required
+@require_POST
+def dashboard_per_ruolo(request):
+    """L'amministratore fa della sua dashboard quella di partenza di un ruolo (o la toglie): chi ha quel ruolo e non ha
+    ancora disposto la sua parte da lì; ognuno vede solo i widget che i suoi permessi gli consentono."""
+    from . import dashboard as dash
+    if not request.user.has_perm("core.change_ruolo"):
+        raise PermissionDenied
+    ruolo = get_object_or_404(Ruolo, pk=request.POST.get("ruolo") or 0)
+    if request.POST.get("azione") == "togli":
+        ruolo.dashboard = {}
+        messages.success(request, f"Il ruolo «{ruolo}» parte di nuovo dalla dashboard standard.")
+    else:
+        ruolo.dashboard = dash.layout_di(request.user)
+        messages.success(request, f"Questa disposizione è ora la dashboard di partenza del ruolo «{ruolo}» "
+                                  "per chi non ha ancora personalizzato la sua.")
+    ruolo.save(update_fields=["dashboard"])
+    return redirect("core:dashboard")
 
 
 @login_required

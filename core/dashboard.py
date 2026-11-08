@@ -118,7 +118,18 @@ def carica(visibili):
 
 
 def layout_di(utente):
-    return DashboardUtente.objects.filter(utente=utente).values_list("layout", flat=True).first() or {}
+    """La disposizione dell'utente; se non l'ha mai personalizzata, quella di partenza del suo ruolo (Ruolo.dashboard)."""
+    proprio = DashboardUtente.objects.filter(utente=utente).values_list("layout", flat=True).first()
+    return proprio or layout_del_ruolo(utente)
+
+
+def layout_del_ruolo(utente):
+    from .models import Ruolo
+    return Ruolo.objects.filter(profili__utente=utente).values_list("dashboard", flat=True).first() or {}
+
+
+def personalizzata(utente):
+    return DashboardUtente.objects.filter(utente=utente).exclude(layout={}).exists()
 
 
 def disponi(layout, widget):

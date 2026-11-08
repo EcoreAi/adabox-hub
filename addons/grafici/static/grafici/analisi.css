@@ -105,3 +105,11 @@
 /* tabella salvata dalla chat: scorre dentro la card */
 .an-tabella-salvata { max-height: 360px; overflow: auto; }
 .an-tabella-salvata th { position: sticky; top: 0; background: var(--ui-surface, #fff); }
+/* Condivisione di una pagina: con nessuno, l'azienda o alcuni ruoli e gruppi */
+.an-condividi { display: grid; gap: 4px; padding: 2px 4px; font-size: 13px; }
+.an-condividi label { display: flex; gap: 6px; align-items: center; }
+.an-condividi-scelte { border: 0; margin: 2px 0 4px 22px; padding: 0; display: grid; gap: 3px; }
+.an-condividi-scelte legend { font-size: 12px; color: var(--ui-text-3); padding: 0; margin-bottom: 2px; }
+.an-condividi-scelte summary { cursor: pointer; font-size: 12px; color: var(--ui-text-3); margin-top: 4px; }
+.an-condividi:not(:has(input[value="scelti"]:checked)) .an-condividi-scelte { display: none; }
+.an-condividi > button { justify-self: start; margin-top: 4px; }

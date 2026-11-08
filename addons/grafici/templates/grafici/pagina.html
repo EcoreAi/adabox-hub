@@ -4,7 +4,7 @@
 {% block app_content %}
 <div class="ui-pagehead">
   <div><h1>{{ pagina.titolo }}</h1>
-    <div class="sub">{% if area %}Dashboard dell'area di lavoro <a class="ui-link" href="{% url 'ai:progetto' area.pk %}">{{ area.nome }}</a> · la vedono e la dispongono i suoi membri, ognuno con i dati che i suoi permessi consentono{% else %}{% if pagina.app %}Scheda dell'app {{ info_app.label }} · {% endif %}{% if mio %}{{ widget|length }} widget{% if pagina.condivisa %} · condivisa con l'azienda{% endif %}{% else %}condivisa da {{ pagina.utente.get_full_name|default:pagina.utente.username }} · vedi i dati che i tuoi permessi ti consentono{% endif %}{% endif %}</div></div>
+    <div class="sub">{% if area %}Dashboard dell'area di lavoro <a class="ui-link" href="{% url 'ai:progetto' area.pk %}">{{ area.nome }}</a> · la vedono e la dispongono i suoi membri, ognuno con i dati che i suoi permessi consentono{% else %}{% if pagina.app %}Scheda dell'app {{ info_app.label }} · {% endif %}{% if mio %}{{ widget|length }} widget{% if a_chi %} · condivisa con {{ a_chi }}{% endif %}{% else %}condivisa da {{ pagina.utente.get_full_name|default:pagina.utente.username }} · vedi i dati che i tuoi permessi ti consentono{% endif %}{% endif %}</div></div>
   <div class="ui-pagehead-actions wd-azioni">
     {% if mio and perms.grafici.add_grafico %}<a class="ui-btn ui-btn-primary" href="{% url 'grafici:costruttore' %}?destinazione={% if area %}area:{{ area.pk }}{% elif pagina.app %}app:{{ pagina.app }}{% else %}{{ pagina.pk }}{% endif %}"><svg><use href="#icon-plus"/></svg> Nuovo grafico</a>{% endif %}
     {% if mio %}
@@ -25,7 +25,21 @@
         <div class="an-menu-sep"></div>
         {% if not pagina.app %}
         <form method="post" action="{% url 'grafici:sposta' pagina.pk %}" class="an-form-riga">{% csrf_token %}<button name="direzione" value="-1" type="submit">← Sposta prima</button><button name="direzione" value="1" type="submit">Sposta dopo →</button></form>
-        {% if perms.grafici.condividi_pagina %}<form method="post" action="{% url 'grafici:condividi' pagina.pk %}">{% csrf_token %}<button type="submit"><svg><use href="#icon-share"/></svg> {% if pagina.condivisa %}Non condividere più{% else %}Condividi con l'azienda{% endif %}</button></form>{% endif %}
+        {% if condivisione %}
+        <div class="an-menu-sep"></div>
+        <div class="an-menu-titolo">Condividi</div>
+        <form method="post" action="{% url 'grafici:condividi' pagina.pk %}" class="an-condividi">{% csrf_token %}
+          <label><input type="radio" name="a" value="nessuno"{% if condivisione.modo == "nessuno" %} checked{% endif %}> Solo io</label>
+          <label><input type="radio" name="a" value="azienda"{% if condivisione.modo == "azienda" %} checked{% endif %}> Tutta l'azienda</label>
+          <label><input type="radio" name="a" value="scelti"{% if condivisione.modo == "scelti" %} checked{% endif %}> Solo alcuni ruoli o gruppi</label>
+          <fieldset class="an-condividi-scelte">
+            {% if condivisione.ruoli %}<legend>Ruoli</legend>{% for r, sì in condivisione.ruoli %}<label><input type="checkbox" name="ruoli" value="{{ r.pk }}"{% if sì %} checked{% endif %}> {{ r }}</label>{% endfor %}{% endif %}
+            {% if condivisione.gruppi %}<details><summary>Gruppi dei moduli</summary>{% for g, sì in condivisione.gruppi %}<label><input type="checkbox" name="gruppi" value="{{ g.pk }}"{% if sì %} checked{% endif %}> {{ g }}</label>{% endfor %}</details>{% endif %}
+          </fieldset>
+          <button class="ui-btn ui-btn-primary ui-btn-sm" type="submit"><svg><use href="#icon-share"/></svg> Salva la condivisione</button>
+          <p class="ui-help">Ognuno vede i dati che i suoi permessi gli consentono.</p>
+        </form>
+        {% endif %}
         <div class="an-menu-sep"></div>
         <form method="post" action="{% url 'grafici:elimina' pagina.pk %}" onsubmit="return confirm('Eliminare la pagina? I grafici restano in libreria.')">{% csrf_token %}<button type="submit" class="an-pericolo"><svg><use href="#icon-trash"/></svg> Elimina pagina</button></form>
         {% else %}

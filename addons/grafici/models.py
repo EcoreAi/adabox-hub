@@ -13,6 +13,9 @@ class Pagina(models.Model):
     app = models.CharField("app", max_length=30, blank=True, db_index=True, help_text="vuoto = pagina libera")
     ordine = models.PositiveSmallIntegerField("ordine", default=0)
     condivisa = models.BooleanField("condivisa con l'azienda", default=False)
+    ruoli = models.ManyToManyField("core.Ruolo", blank=True, related_name="pagine_analisi", verbose_name="condivisa con i ruoli",
+                                   help_text="la vedono le persone dell'azienda con uno di questi ruoli")
+    gruppi = models.ManyToManyField("auth.Group", blank=True, related_name="pagine_analisi", verbose_name="condivisa con i gruppi")
     nascosta = models.BooleanField("nascosta", default=False, help_text="la scheda dell'app non compare tra le schede")
     # l'area di lavoro dell'assistente di cui è la dashboard: numero e non chiave esterna, Analisi non dipende da ai
     area = models.PositiveIntegerField("area di lavoro", null=True, blank=True, unique=True,

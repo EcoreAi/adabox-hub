@@ -20,7 +20,7 @@ def _url(p):
 
 
 def _mie_e_condivise(contesto):
-    return ((Pagina.objects.filter(utente=contesto.utente) | motore.condivise(contesto.azienda)).distinct()
+    return ((Pagina.objects.filter(utente=contesto.utente) | motore.condivise(contesto.azienda, contesto.utente)).distinct()
             .select_related("utente").order_by("app", "ordine", "pk"))
 
 

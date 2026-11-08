@@ -13,6 +13,7 @@ urlpatterns = [
     path("dashboard/", views.dashboard, name="dashboard"),
     path("dashboard/layout/", views.dashboard_layout, name="dashboard_layout"),
     path("dashboard/ripristina/", views.dashboard_reset, name="dashboard_reset"),
+    path("dashboard/ruolo/", views.dashboard_per_ruolo, name="dashboard_per_ruolo"),
     path("app/", views.launcher, name="launcher"),
     path("stile/", views.stile, name="stile"),
     path("profilo/", views.profilo, name="profilo"),
