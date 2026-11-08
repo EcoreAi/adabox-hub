@@ -33,3 +33,13 @@ def moduli(request):
     return [{"slug": m.slug, "nome": m.nome, "stato": m.stato, "versione_installata": m.versione_installata,
              "versione_disponibile": m.versione_disponibile, "application": m.application}
             for m in modules.sincronizza()]
+
+
+@api.get("/sdk/python/", tags=["piattaforma"], summary="SDK Python generato dallo schema (un file, solo libreria standard)")
+def sdk_python(request):
+    from django.http import HttpResponse
+
+    from .sdk import genera
+    risposta = HttpResponse(genera(api.get_openapi_schema()), content_type="text/x-python; charset=utf-8")
+    risposta["Content-Disposition"] = 'attachment; filename="adabox.py"'
+    return risposta
