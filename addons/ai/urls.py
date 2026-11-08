@@ -32,6 +32,7 @@ urlpatterns = [
     path("salva-documenti/<slug:tipo>/<int:pk>/", pagine.salva_documenti, name="salva_documenti"),
     path("voce/trascrivi/", pagine.trascrivi_voce, name="trascrivi_voce"),
     path("scrivi/<slug:campo>/", pagine.scrivi_con_ada, name="scrivi_con_ada"),
+    path("riassumi/<int:ct>/<int:pk>/", pagine.riassumi_record, name="riassumi_record"),
     path("scrivi/esito/<int:pk>/", pagine.esito_scrittura, name="esito_scrittura"),
     path("voce/messaggio/<int:pk>/", pagine.parti_voce, name="parti_voce"),
     path("voce/messaggio/<int:pk>/<int:parte>/", pagine.audio_voce, name="audio_voce"),

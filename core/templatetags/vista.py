@@ -49,3 +49,11 @@ def e_checkbox(campo):
 @register.inclusion_tag("core/vista/_campo.html")
 def campo(bound_field):
     return {"campo": bound_field}
+
+
+@register.simple_tag
+def riferimento_record(vista, obj=None):
+    """«ct:pk» del record (o solo «ct» per uno nuovo): lo usano gli aiuti che devono sapere su cosa si scrive."""
+    from core.generici import ct_di
+    ct = ct_di(vista.model).pk
+    return f"{ct}:{obj.pk}" if obj is not None and obj.pk else str(ct)

@@ -10,11 +10,23 @@
     <section data-fase="scelta" hidden>
       <p class="ai-scrivi-guida">Il campo ha già un testo. Ada può migliorarlo (più breve, senza ripetizioni né contraddizioni, nomi controllati) oppure puoi ripartire dalle domande.</p>
     </section>
+    <section data-fase="istruzione" hidden>
+      <p class="ai-scrivi-guida" data-istruzione-guida>Che cosa deve fare Ada con questo campo? Vedrai la proposta prima che entri nel campo.</p>
+      <div class="ai-scrivi-rapide" role="group" aria-label="Istruzioni rapide">
+        <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-rapida="migliora">Migliora</button>
+        <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-rapida="breve">Più breve</button>
+        <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-rapida="formale">Più formale</button>
+        <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-rapida="cordiale">Più cordiale</button>
+        <button type="button" class="ui-btn ui-btn-secondary ui-btn-sm" data-rapida="correggi">Correggi gli errori</button>
+      </div>
+      <label class="ai-scrivi-etichetta" for="ai-scrivi-istruzione">Oppure scrivi tu che cosa vuoi</label>
+      <textarea class="ui-input" id="ai-scrivi-istruzione" rows="3" data-istruzione placeholder="es. una risposta al cliente che conferma la consegna per lunedì"></textarea>
+    </section>
     <section data-fase="attesa" hidden>
       <p class="ai-scrivi-attesa" role="status"><span class="ai-puntini" aria-hidden="true"><i></i><i></i><i></i></span> Ada sta scrivendo e controlla i nomi nel gestionale…</p>
     </section>
     <section data-fase="bozza" hidden>
-      <label class="ai-scrivi-etichetta" for="ai-scrivi-bozza">Bozza (puoi modificarla)</label>
+      <label class="ai-scrivi-etichetta" for="ai-scrivi-bozza" data-bozza-etichetta>Bozza (puoi modificarla)</label>
       <textarea class="ui-input" id="ai-scrivi-bozza" rows="12" data-bozza></textarea>
       <div class="ai-scrivi-note" data-note hidden><strong>Da sapere</strong><div data-note-testo></div></div>
     </section>
@@ -25,6 +37,10 @@
       <button type="submit" value="annulla" class="ui-btn ui-btn-secondary">Annulla</button>
       <button type="button" class="ui-btn ui-btn-primary" data-azione="scrivi" hidden>Scrivi la bozza</button>
       <button type="button" class="ui-btn ui-btn-primary" data-azione="migliora" hidden>Migliora il testo</button>
+      <button type="button" class="ui-btn ui-btn-secondary" data-azione="copia" hidden>Copia</button>
+      <button type="button" class="ui-btn ui-btn-secondary" data-azione="nota" hidden>Salva come nota</button>
+      <button type="button" class="ui-btn ui-btn-primary" data-azione="libero" hidden>Scrivi</button>
+      <button type="button" class="ui-btn ui-btn-secondary" data-azione="aggiungi" hidden>Aggiungi in fondo</button>
       <button type="button" class="ui-btn ui-btn-primary" data-azione="usa" hidden>Usa questo testo</button>
     </footer>
   </form>

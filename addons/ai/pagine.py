@@ -753,8 +753,49 @@ def scrivi_con_ada(request, campo):
         risposte = json.loads(request.POST.get("risposte") or "{}")
     except ValueError:
         risposte = {}
-    turno = aiuto_testi.avvia(request.user, getattr(request, "azienda", None), campo, request.POST.get("testo", ""),
-                              risposte if isinstance(risposte, dict) else {})
+    azienda = getattr(request, "azienda", None)
+    if campo == aiuto_testi.LIBERO:
+        turno = aiuto_testi.avvia_libero(request.user, azienda, request.POST.get("testo", ""), request.POST.get("istruzione", ""),
+                                         request.POST.get("etichetta", ""), _record_per_ada(request, request.POST.get("record", "")))
+    else:
+        turno = aiuto_testi.avvia(request.user, azienda, campo, request.POST.get("testo", ""),
+                                  risposte if isinstance(risposte, dict) else {})
+    return JsonResponse({"esito": reverse("ai:esito_scrittura", args=[turno.pk])})
+
+
+def _record_per_ada(request, valore):
+    """«ct:pk» (o solo «ct» per un record nuovo) → il record in parole, solo se l'utente lo vede; altrimenti niente."""
+    from django.contrib.contenttypes.models import ContentType
+    from django.core.exceptions import PermissionDenied
+
+    from core.generici import vista_e_oggetto
+    from core.viste import registry
+
+    from . import aiuto_testi
+    ct, _, pk = (valore or "").partition(":")
+    if not ct.isdigit():
+        return ""
+    try:
+        if pk.isdigit():
+            vista, obj = vista_e_oggetto(request, int(ct), int(pk), "view")
+            return aiuto_testi.descrivi_record(vista, obj, messaggi=10, massimo=4000)
+        modello = ContentType.objects.get_for_id(int(ct)).model_class()
+        vista = registry.per_modello(modello) if modello else None
+        return f"Un nuovo record di tipo {vista.verbose_name}" if vista and vista.has_add_permission(request) else ""
+    except (Http404, PermissionDenied, ContentType.DoesNotExist):
+        return ""
+
+
+@require_POST
+@login_required
+@permission_required("ai.add_conversazione", raise_exception=True)
+def riassumi_record(request, ct, pk):
+    """Riassunto del record con un clic: lo scrive Ada con i permessi di chi guarda; il browser chiede l'esito."""
+    from core.generici import vista_e_oggetto
+
+    from . import aiuto_testi
+    vista, obj = vista_e_oggetto(request, ct, pk, "view")
+    turno = aiuto_testi.avvia_riassunto(request.user, getattr(request, "azienda", None), vista, obj)
     return JsonResponse({"esito": reverse("ai:esito_scrittura", args=[turno.pk])})
 
 

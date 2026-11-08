@@ -1,4 +1,6 @@
-"""«Scrivi con Ada»: aiuto a scrivere i campi di istruzioni (progetti, assistenti, attività pianificate).
+"""«Scrivi con Ada»: aiuto a scrivere i campi di istruzioni (progetti, assistenti, attività pianificate) e, con il
+campo «libero», qualsiasi campo di testo dei form e il composer del chatter (con un'istruzione: migliora, accorcia,
+scrivi da zero…). Più il riassunto di un record con un clic.
 
 Campo vuoto: Ada fa qualche domanda e scrive una bozza. Campo già scritto: lo migliora. In entrambi i casi controlla con
 gli strumenti di sola lettura i nomi che cita (commesse, clienti, etichette, documenti), con i permessi dell'utente, e
@@ -40,6 +42,76 @@ CAMPI = {
                      "criteri precisi con i nomi verificati, formato del risultato, cosa fare se non c'è niente. Nessuna domanda all'utente.",
     },
 }
+
+
+LIBERO = "libero"
+ISTRUZIONI_RAPIDE = {
+    "migliora": "Migliora il testo: più chiaro e scorrevole, stesso significato e stessa lunghezza circa.",
+    "breve": "Rendilo più breve e diretto, senza perdere informazioni importanti.",
+    "formale": "Riscrivilo con un tono più formale e professionale.",
+    "cordiale": "Riscrivilo con un tono più cordiale, restando professionale.",
+    "correggi": "Correggi solo errori di ortografia, grammatica e punteggiatura; non cambiare altro.",
+}
+CAMPI[LIBERO] = {"permesso": "ai.add_conversazione", "domande": [], "cosa": "", "struttura": ""}
+
+
+def richiesta_libera(testo_attuale, istruzione, etichetta="", record=""):
+    """Il messaggio per Ada per un campo di testo qualsiasi: l'istruzione dell'utente (o una rapida), il testo che c'è,
+    il campo e il record su cui si scrive."""
+    istruzione = ISTRUZIONI_RAPIDE.get(istruzione, istruzione).strip() or ISTRUZIONI_RAPIDE["migliora"]
+    regole = ("Aiuti a scrivere il testo di un campo di un gestionale. Italiano chiaro, frasi brevi, testo semplice senza "
+              "formattazione Markdown (niente asterischi, cancelletti o tabelle). Se citi nomi del "
+              "gestionale (clienti, prodotti, documenti, persone) controllali con gli strumenti di sola lettura e non inventare "
+              "dati, prezzi o date. Rispondi solo con il testo finale, pronto da inserire nel campo, senza premesse, virgolette "
+              f"o commenti. Se hai cose da segnalare, aggiungile in fondo dopo una riga che contiene solo «{SEPARATORE_NOTE}».")
+    parti = [f"Campo: {etichetta}" if etichetta else "", f"Record su cui si scrive:\n{record}" if record else "",
+             f"Istruzione: {istruzione}",
+             f"Testo attuale del campo:\n<testo>\n{testo_attuale.strip()}\n</testo>" if testo_attuale.strip() else "Il campo è vuoto: scrivi il testo da zero."]
+    return regole, "\n\n".join(p for p in parti if p)
+
+
+def descrivi_record(vista, obj, messaggi=30, massimo=8000):
+    """Il record in parole, per Ada: tipo, nome, i campi del dettaglio e gli ultimi messaggi del chatter."""
+    from core import chatter
+    righe = [f"{str(vista.verbose_name).capitalize()}: {obj}"]
+    for _, gruppi in vista.layout_dettaglio():
+        for riga in gruppi:
+            for campo in riga:
+                if campo.startswith(("@", "prop_")):
+                    continue
+                try:
+                    valore = chatter.testo_campo(obj, campo)
+                except Exception:                          # noqa: BLE001 - colonne calcolate, campi spariti
+                    continue
+                if valore and valore != chatter.VUOTO:
+                    righe.append(f"- {vista.etichetta(campo)}: {valore[:500]}")
+    if getattr(vista, "chatter", False):
+        voci = list(chatter.messaggi_di(obj)[:messaggi])[::-1]
+        if voci:
+            righe.append("Ultimi messaggi e modifiche (dal più vecchio):")
+            for m in voci:
+                chi = (m.autore.get_full_name() or m.autore.username) if m.autore else (m.autore_email or "Sistema")
+                testo = m.corpo or "; ".join(f"{c.get('label')}: {c.get('prima')} → {c.get('dopo')}" for c in m.modifiche)
+                righe.append(f"- {m.creato:%d/%m/%Y} {chi} ({m.get_tipo_display().lower()}): {testo[:400]}")
+    return "\n".join(righe)[:massimo]
+
+
+def avvia_libero(utente, azienda, testo_attuale, istruzione, etichetta="", record=""):
+    from . import motore
+    regole, corpo = richiesta_libera(testo_attuale[:6000], istruzione[:1000], etichetta[:100], record)
+    conversazione = Conversazione.objects.create(utente=utente, titolo="Scrivi con Ada", nascosta=True)
+    return motore.avvia(conversazione, corpo, utente, azienda, compito=COMPITO, nota=regole, web=False)
+
+
+def avvia_riassunto(utente, azienda, vista, obj):
+    from . import motore
+    regole = ("Riassumi il record per un collega che deve prenderlo in mano adesso. Italiano chiaro, al massimo 150 parole, "
+              "con brevi elenchi a trattino: a che punto è, i fatti importanti, le ultime novità, cosa resta da fare o chi aspetta cosa. "
+              "Testo semplice, senza formattazione Markdown (niente asterischi né cancelletti). "
+              "Usa solo i dati che hai (puoi leggere il gestionale con gli strumenti di sola lettura); non inventare. "
+              "Rispondi solo con il riassunto.")
+    conversazione = Conversazione.objects.create(utente=utente, titolo=f"Riassunto: {str(obj)[:150]}", nascosta=True)
+    return motore.avvia(conversazione, descrivi_record(vista, obj), utente, azienda, compito=COMPITO, nota=regole, web=False)
 
 
 def richiesta(chiave, testo_attuale, risposte):

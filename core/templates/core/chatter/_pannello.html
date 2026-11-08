@@ -7,7 +7,7 @@
       <label><input type="radio" name="tipo" value="messaggio" checked> Messaggio</label>
       <label><input type="radio" name="tipo" value="nota"> Nota interna</label>
     </div>
-    <textarea class="ui-input" name="corpo" rows="3" placeholder="Scrivi ai follower o lascia una nota… (@nome per avvisare un collega)" aria-label="Testo"></textarea>
+    <textarea class="ui-input" name="corpo" rows="3" data-scrivi-con-ada="libero" data-record="{{ chatter.ct }}:{{ chatter.obj.pk }}" data-etichetta="Messaggio o nota nel chatter" placeholder="Scrivi ai follower o lascia una nota… (@nome per avvisare un collega)" aria-label="Testo"></textarea>
     {% if chatter.puo_modificare %}
     <details class="ui-chatter-esterni">
       <summary class="ui-help">Anche a un indirizzo esterno</summary>

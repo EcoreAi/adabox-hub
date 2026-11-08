@@ -26,3 +26,6 @@
 .ai-scrivi .ai-avviso { margin: 0; color: #b42318; font-size: 13px; }
 @media (prefers-reduced-motion: reduce) { .ai-scrivi-attesa .ai-puntini i { animation: none; } }
 .ai-scrivi-domanda textarea { min-height: 52px; height: 52px; }
+.ai-scrivi-rapide { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+.ai-scrivi-rapide [hidden] { display: none; }
+#chatter .ai-scrivi-btn { margin: 4px 0 0; }

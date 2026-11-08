@@ -123,3 +123,12 @@ def colleghi_per(context, oggetto):
     """Con chi si può condividere un documento, un grafico o una tabella (e con chi lo è già)."""
     from ..condivisione import colleghi
     return colleghi(context["request"], oggetto)
+
+
+@register.simple_tag
+def url_riassunto(vista, obj):
+    """L'indirizzo che fa riassumere il record ad Ada."""
+    from django.urls import reverse
+
+    from core.generici import ct_di
+    return reverse("ai:riassumi_record", args=[ct_di(vista.model).pk, obj.pk])

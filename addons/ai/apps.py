@@ -16,6 +16,7 @@ class AiConfig(AppConfig):
         hooks.sezione_dettaglio("ai.ValutazioneRisposta", "ai/_valutazione.html", order=5)
         hooks.sezione_dettaglio("ai.ProgettoChat", "ai/_progetto.html", order=5)
         hooks.voce_testata("ai/_scrivi_con_ada.html", order=200, permission="ai.add_conversazione")
+        hooks.azione("core.vista_dettaglio", "ai/_riassumi_record.html", order=15, permission="ai.add_conversazione")
         hooks.sezione_dettaglio("*", "ai/_progetti_record.html", order=950, permission="ai.view_progettochat")
         hooks.sezione_dettaglio("ai.ServerMCP", "ai/_server_mcp.html", order=5, permission="ai.change_servermcp")
         hooks.sezione_dettaglio("ai.Provider", "ai/_provider_catalogo.html", order=5, permission="ai.view_modello")
