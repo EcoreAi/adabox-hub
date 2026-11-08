@@ -42,7 +42,8 @@ class OrdineAcquistoView(ModelView):
     chatter = True
     tracked_fields = operazioni.CAMPI_TRACCIATI
     buttons = ["invia", "conferma", "approva", "rifiuta", "ricevi_residuo", "rendi", "annulla"]
-    reports = [{"nome": "Stampa", "template": "acquisti/report/ordine.html"}]
+    reports = [{"nome": "Stampa", "template": "acquisti/report/ordine.html",
+                "colonne": [("prezzo", "Prezzo unitario"), ("sconto", "Sconto"), ("iva", "IVA"), ("importo", "Importo di riga")]}]
     api = True
 
 

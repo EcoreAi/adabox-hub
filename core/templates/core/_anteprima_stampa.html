@@ -1,0 +1,5 @@
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Anteprima</div>
+  <div class="ui-card-actions"><a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'core:anteprima_stampa' obj.pk %}" target="_blank" rel="noopener"><svg><use href="#icon-download"/></svg> Apri il PDF</a></div></div>
+  <div class="ui-card-body"><p class="ui-help">Sull'ultimo documento di questo tipo dell'azienda corrente{% if not obj.attivo %}, anche se il modello è spento{% endif %}.</p>
+  <iframe class="pv-anteprima" src="{% url 'core:anteprima_stampa' obj.pk %}?html=1" title="Anteprima della stampa"></iframe></div></section>
+<style>.pv-anteprima{width:100%;height:520px;border:1px solid var(--ui-border);border-radius:8px;background:#fff}</style>

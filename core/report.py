@@ -27,16 +27,21 @@ def disponibile():
         return False
 
 
-def html(vista, request, oggetti, indice):
-    """HTML del report `indice` della vista per gli oggetti dati (un record per pagina)."""
+def html(vista, request, oggetti, indice, modello=False):
+    """HTML del report `indice` della vista per gli oggetti dati (un record per pagina), con il modello di stampa
+    dell'azienda se c'è (core.stampe); `modello` passato esplicitamente serve all'anteprima (None = l'originale)."""
+    from core import stampe
     report = vista.reports[indice]
     azienda = getattr(request, "azienda", None)
+    if modello is False:
+        modello = stampe.modello_per(vista, indice, azienda)
     logo = ""
-    if azienda is not None and azienda.logo:
+    if azienda is not None and azienda.logo and (modello is None or modello.mostra_logo):
         logo = Path(settings.MEDIA_ROOT, azienda.logo.name).resolve().as_uri()
     return render_to_string(report["template"], {
         "vista": vista, "report": report, "oggetti": list(oggetti), "azienda": azienda, "logo": logo,
         "oggi": timezone.localdate(), "utente": request.user, "theme": settings.THEME,
+        "modello": modello, "css_modello": stampe.css(modello),
     })
 
 

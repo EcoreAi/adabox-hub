@@ -655,3 +655,31 @@ class RegolaRiga(models.Model):
 
     def __str__(self):
         return f"{self.vista}: {self.campo} {self.get_operatore_display()} {self.valore}".strip()
+
+
+class ModelloStampa(models.Model):
+    """Come si stampa un documento (un report di una vista) per un'azienda: colore, righe sotto l'intestazione, piè di
+    pagina, testi prima e dopo il corpo con segnaposto {{ campo }}, colonne nascoste. Senza modello: la stampa originale."""
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, related_name="modelli_stampa",
+                                verbose_name="azienda", help_text="vuoto = per tutte le aziende che non ne hanno uno proprio")
+    report = models.CharField("documento", max_length=120, help_text="modulo.slug:numero del report")
+    colore = models.CharField("colore", max_length=7, blank=True, help_text="titoli e linee, es. #1e3a8a; vuoto = quello standard")
+    mostra_logo = models.BooleanField("mostra il logo", default=True)
+    righe_intestazione = models.TextField("righe sotto l'intestazione", blank=True,
+                                          help_text="es. telefono, email, sito, REA, capitale sociale")
+    testo_iniziale = models.TextField("testo prima del documento", blank=True)
+    testo_finale = models.TextField("testo dopo il documento", blank=True, help_text="es. condizioni di vendita, coordinate bancarie")
+    piede = models.CharField("piè di pagina", max_length=250, blank=True, help_text="vuoto = nome dell'applicazione e data di stampa")
+    colonne_nascoste = models.JSONField("colonne nascoste", default=list, blank=True)
+    attivo = models.BooleanField("attivo", default=True, help_text="spento = si stampa l'originale")
+    aggiornato = models.DateTimeField("aggiornato il", auto_now=True)
+
+    class Meta:
+        verbose_name = "modello di stampa"
+        verbose_name_plural = "modelli di stampa"
+        ordering = ["report", "azienda__nome"]
+        constraints = [models.UniqueConstraint(fields=["azienda", "report"], name="modello_stampa_unico")]
+
+    def __str__(self):
+        from core import stampe
+        return f"{stampe.etichetta(self.report)} · {self.azienda or 'tutte le aziende'}"

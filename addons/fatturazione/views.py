@@ -50,7 +50,8 @@ class FatturaView(ModelView):
     chatter = True
     tracked_fields = ["stato", "cliente", "totale", "pagata"]
     buttons = ["emetti", "xml", "invia", "nota_di_credito", "annulla"]
-    reports = [{"nome": "Stampa", "template": "fatturazione/report/fattura.html"}]
+    reports = [{"nome": "Stampa", "template": "fatturazione/report/fattura.html",
+                "colonne": [("sconto", "Sconto"), ("iva", "Codice IVA di riga")]}]
     api = True
 
 

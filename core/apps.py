@@ -16,3 +16,5 @@ class CoreConfig(AppConfig):
         registry.autodiscover(["core", *settings.ADDONS_ATTIVI])
         from . import registro
         registro.collega()
+        from .registry import hooks
+        hooks.sezione_dettaglio("core.ModelloStampa", "core/_anteprima_stampa.html", order=5)

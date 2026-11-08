@@ -109,7 +109,7 @@ class ConsegnaView(ModelView):
     tracked_fields = ["stato"]
     buttons = ["spedisci", "annulla"]
     actions = ["fattura_differita"]
-    reports = [{"nome": "DDT", "template": "magazzino/report/ddt.html"}]
+    reports = [{"nome": "DDT", "template": "magazzino/report/ddt.html", "colonne": [("codice", "Codice articolo"), ("um", "Unità di misura")]}]
     api = True
 
 

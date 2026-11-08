@@ -6,7 +6,7 @@ from functools import wraps
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.migrations.recorder import MigrationRecorder
-from django.http import HttpResponseBadRequest, JsonResponse
+from django.http import Http404, HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import NoReverseMatch, reverse
 from django.utils.html import format_html
@@ -23,7 +23,7 @@ from django.db.models import Q
 
 from .models import LicenzaIstanza, RichiestaModulo
 from .models import (Azienda, CampoPersonalizzato, EmailRicevuta, Lavoro, Modulo, Parametro, ProfiloUtente, RegistroModifica,
-                     PermessoCampo, RegolaRiga, Ruolo, TokenApi)
+                     ModelloStampa, PermessoCampo, RegolaRiga, Ruolo, TokenApi)
 from .registry import modules, pacchetti, sincronia
 from .signals import crea_profilo
 from .viste import ModelView, register
@@ -58,6 +58,9 @@ def voci_kernel(user):
     if user.has_perm("core.view_campopersonalizzato"):
         voci.append({"label": "Campi personalizzati", "url": reverse("core:campi_lista"), "icon": "edit",
                      "sub": "Campi aggiunti ai modelli senza programmare"})
+    if user.has_perm("core.view_modellostampa"):
+        voci.append({"label": "Modelli di stampa", "url": reverse("core:stampe_lista"), "icon": "edit",
+                     "sub": "Intestazione, testi e colonne di preventivi, fatture, DDT e ordini"})
     if user.has_perm("core.change_parametro") and parametri.definizioni():
         voci.append({"label": "Impostazioni", "url": reverse("core:impostazioni"), "icon": "tool",
                      "sub": "Parametri delle app installate"})
@@ -728,3 +731,99 @@ class RegolaRigaView(ModelView):
     form_class = RegolaRigaForm
     form_layout = [("Regola", [("vista", "ruolo"), ("campo", "operatore"), "valore", "attiva"])]
     api = False
+
+
+class ModelloStampaForm(forms.ModelForm):
+    """Il documento si sceglie tra i report delle viste; le colonne tra quelle che quel documento permette di nascondere."""
+    class Meta:
+        model = ModelloStampa
+        fields = ["report", "azienda", "colore", "mostra_logo", "righe_intestazione", "testo_iniziale", "testo_finale",
+                  "piede", "colonne_nascoste", "attivo"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from core import stampe
+        self.disponibili = stampe.disponibili()
+        self.fields["report"] = forms.ChoiceField(label="documento", choices=[(k, e) for k, e, _ in self.disponibili])
+        colonne = sorted({(c, f"{e.split(' · ')[0]}: {n}") for k, e, cc in self.disponibili for c, n in cc}, key=lambda x: x[1])
+        self.fields["colonne_nascoste"] = forms.MultipleChoiceField(
+            label="colonne nascoste", required=False, widget=forms.CheckboxSelectMultiple,
+            choices=sorted({(c, n.split(": ", 1)[1]) for c, n in colonne}, key=lambda x: x[1]),
+            help_text="valgono solo se il documento ha quella colonna")
+        self.fields["colore"].widget = forms.TextInput(attrs={"type": "color"})
+        segnaposto = ", ".join(f"{{{{ {k} }}}} {v}" for k, v in stampe.SEGNAPOSTO.items())
+        for campo in ("testo_iniziale", "testo_finale"):
+            self.fields[campo].help_text = (self.fields[campo].help_text + " · " if self.fields[campo].help_text else "") + f"segnaposto: {segnaposto}"
+
+    def clean(self):
+        from core import stampe
+        dati = super().clean()
+        if dati.get("colore") and not stampe.COLORE.match(dati["colore"]):
+            self.add_error("colore", "Un colore come #1e3a8a.")
+        doppio = ModelloStampa.objects.filter(report=dati.get("report"), azienda=dati.get("azienda")).exclude(pk=self.instance.pk)
+        if dati.get("report") and doppio.exists():
+            self.add_error("report", "Per questo documento e questa azienda c'è già un modello: modifica quello.")
+        consentite = {c for k, _, cc in self.disponibili if k == dati.get("report") for c, _ in cc}
+        dati["colonne_nascoste"] = [c for c in dati.get("colonne_nascoste") or [] if c in consentite]
+        return dati
+
+
+@register
+class ModelloStampaView(ModelView):
+    """I modelli di stampa dei documenti per azienda; nella scheda l'anteprima sull'ultimo documento vero."""
+    model = ModelloStampa
+    slug = "stampe"
+    list_display = ["report", "azienda", "attivo", "aggiornato"]
+    list_filter = ["azienda", "attivo"]
+    form_class = ModelloStampaForm
+    form_layout = [("Documento", [("report", "azienda"), ("colore", "mostra_logo"), "attivo"]),
+                   ("Testi", ["righe_intestazione", "testo_iniziale", "testo_finale", "piede"]),
+                   ("Colonne", ["colonne_nascoste"])]
+    buttons = ["originale", "riattiva"]
+    api = False
+
+    def col_report(self, obj):
+        from core import stampe
+        return stampe.etichetta(obj.report)
+    col_report.short_description = "Documento"
+
+    def get_buttons(self, request, obj):
+        nomi = {"originale"} if obj.attivo else {"riattiva"}
+        return [(n, e) for n, e in super().get_buttons(request, obj) if n in nomi]
+
+    def originale(self, request, obj):
+        obj.attivo = False
+        obj.save(update_fields=["attivo", "aggiornato"])
+        return "Il documento torna a stamparsi com'era in origine; il modello resta qui, spento."
+    originale.short_description = "Torna all'originale"
+    originale.permission = "change"
+
+    def riattiva(self, request, obj):
+        obj.attivo = True
+        obj.save(update_fields=["attivo", "aggiornato"])
+        return "Modello di nuovo in uso."
+    riattiva.short_description = "Usa di nuovo questo modello"
+    riattiva.permission = "change"
+
+
+@login_required
+def anteprima_stampa(request, pk):
+    """Il PDF dell'ultimo documento di quel tipo (dell'azienda corrente) stampato con questo modello, anche se spento."""
+    from core import report, stampe
+    modello = get_object_or_404(ModelloStampa, pk=pk)
+    if not request.user.has_perm("core.view_modellostampa"):
+        raise PermissionDenied
+    vista, indice = stampe.vista_e_indice(modello.report)
+    if vista is None:
+        raise Http404
+    obj = vista.get_queryset(request).order_by("-pk").first()
+    if obj is None:
+        return HttpResponse("Non c'è ancora nessun documento di questo tipo da usare per l'anteprima.", content_type="text/plain; charset=utf-8")
+    contenuto = report.html(vista, request, [obj], indice, modello=modello)
+    if request.GET.get("html"):
+        return HttpResponse(contenuto)
+    try:
+        dati = report.pdf(contenuto)
+    except report.ReportNonDisponibile as e:
+        return HttpResponse(str(e), status=503, content_type="text/plain; charset=utf-8")
+    return HttpResponse(dati, content_type="application/pdf")

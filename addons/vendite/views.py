@@ -44,7 +44,8 @@ class OrdineView(ModelView):
     chatter = True
     tracked_fields = ["stato", "cliente", "totale", "commerciale"]
     buttons = ["invia", "conferma", "annulla", "riporta_in_bozza"]
-    reports = [{"nome": "Stampa", "template": "vendite/report/ordine.html"}]
+    reports = [{"nome": "Stampa", "template": "vendite/report/ordine.html",
+                "colonne": [("quantita", "Quantità"), ("prezzo", "Prezzo unitario"), ("sconto", "Sconto"), ("iva", "IVA"), ("importo", "Importo di riga")]}]
     api = True
 
 

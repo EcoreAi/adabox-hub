@@ -18,10 +18,10 @@
   {% if obj.cliente.partita_iva %}P.IVA {{ obj.cliente.partita_iva }}<br>{% endif %}{% if obj.cliente.codice_fiscale %}C.F. {{ obj.cliente.codice_fiscale }}{% endif %}
 </div>
 <table class="righe">
-  <thead><tr><th>Descrizione</th><th class="num">Q.tà</th><th class="num">Prezzo</th><th class="num">Sconto</th><th class="num">IVA</th><th class="num">Importo</th></tr></thead>
+  <thead><tr><th>Descrizione</th><th class="num col-quantita">Q.tà</th><th class="num col-prezzo">Prezzo</th><th class="num col-sconto">Sconto</th><th class="num col-iva">IVA</th><th class="num col-importo">Importo</th></tr></thead>
   <tbody>{% for r in obj.righe.all %}<tr>
-    <td>{{ r.descrizione }}</td><td class="num">{{ r.quantita|floatformat:"-3" }}</td><td class="num">{{ r.prezzo|floatformat:2 }}</td>
-    <td class="num">{% if r.sconto %}{{ r.sconto|floatformat:"-2" }}%{% endif %}</td><td class="num">{{ r.aliquota.codice }}</td><td class="num">{{ r.importo|floatformat:2 }}</td></tr>{% endfor %}</tbody>
+    <td>{{ r.descrizione }}</td><td class="num col-quantita">{{ r.quantita|floatformat:"-3" }}</td><td class="num col-prezzo">{{ r.prezzo|floatformat:2 }}</td>
+    <td class="num col-sconto">{% if r.sconto %}{{ r.sconto|floatformat:"-2" }}%{% endif %}</td><td class="num col-iva">{{ r.aliquota.codice }}</td><td class="num col-importo">{{ r.importo|floatformat:2 }}</td></tr>{% endfor %}</tbody>
 </table>
 <table class="totali">
   <tr><td>Imponibile</td><td class="num">{{ obj.imponibile|floatformat:2 }} €</td></tr>

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="it">
+{% load stampa %}<html lang="it">
 <head>
 <meta charset="utf-8">
 <title>{{ report.nome }}</title>
@@ -9,7 +9,7 @@
     @top-left { content: element(intestazione); }
     /* i riquadri dei margini non ereditano il font del corpo */
     @bottom-right { content: "Pagina " counter(page) " di " counter(pages); font-family: "DejaVu Sans", sans-serif; font-size: 8pt; color: #6e6e73; }
-    @bottom-left { content: "{{ theme.brand }} · stampato il {{ oggi|date:'d/m/Y' }}"; font-family: "DejaVu Sans", sans-serif; font-size: 8pt; color: #6e6e73; }
+    {% if modello.piede %}@bottom-left { content: element(piede); }{% else %}@bottom-left { content: "{{ theme.brand }} · stampato il {{ oggi|date:'d/m/Y' }}"; font-family: "DejaVu Sans", sans-serif; font-size: 8pt; color: #6e6e73; }{% endif %}
   }
   body { font-family: "DejaVu Sans", Helvetica, Arial, sans-serif; font-size: 10pt; color: #1d1d1f; }
   .intestazione { position: running(intestazione); display: flex; align-items: center; gap: 10px; width: 100%;
@@ -24,7 +24,11 @@
   table.dati { width: 100%; border-collapse: collapse; }
   table.dati th { text-align: left; width: 32%; font-weight: normal; color: #6e6e73; padding: 2mm 3mm 2mm 0; vertical-align: top; }
   table.dati td { padding: 2mm 0; border-bottom: 1px solid #f0f0f2; }
+  .piede { position: running(piede); font-family: "DejaVu Sans", sans-serif; font-size: 8pt; color: #6e6e73; }
+  .testo-modello { margin: 4mm 0; font-size: 9pt; } .testo-modello p { margin: 0 0 2mm; }
+  .intestazione .righe-extra { font-size: 8pt; color: #6e6e73; white-space: pre-line; }
   {% block stile %}{% endblock %}
+  {{ css_modello }}
 </style>
 </head>
 <body>
@@ -32,11 +36,15 @@
     {% if logo %}<img src="{{ logo }}" alt="">{% endif %}
     <div>
       <div class="azienda">{{ azienda.nome|default:theme.brand }}</div>
+      {% if modello.righe_intestazione %}<div class="righe-extra">{{ modello.righe_intestazione }}</div>{% endif %}
       {% if azienda %}<div class="dati">{% if azienda.indirizzo %}{{ azienda.indirizzo }}, {{ azienda.cap }} {{ azienda.citta }}{% if azienda.provincia %} ({{ azienda.provincia }}){% endif %}{% endif %}{% if azienda.partita_iva %} · P.IVA {{ azienda.partita_iva }}{% endif %}</div>{% endif %}
     </div>
   </div>
+  {% if modello.piede %}<div class="piede">{{ modello.piede }}</div>{% endif %}
   {% for obj in oggetti %}
-  <section class="record">{% block record %}<h1>{{ obj }}</h1>{% endblock %}</section>
+  <section class="record">{% testo_stampa modello "testo_iniziale" obj azienda as iniziale %}{% if iniziale %}<div class="testo-modello">{{ iniziale }}</div>{% endif %}
+    {% block record %}<h1>{{ obj }}</h1>{% endblock %}
+    {% testo_stampa modello "testo_finale" obj azienda as finale %}{% if finale %}<div class="testo-modello">{{ finale }}</div>{% endif %}</section>
   {% endfor %}
 </body>
 </html>
