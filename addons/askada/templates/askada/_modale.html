@@ -3,7 +3,7 @@
   <div class="ui-modal-box ak-box">
     <header class="ak-testa"><div><h2 id="ak-titolo"><svg class="ak-scintilla"><use href="#ai-scintilla"/></svg> Chiedi ad Ada</h2><p>Su «{{ titolo }}»: Ada vede quello che vedi tu in questa pagina</p></div>
       <button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-ak-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
-    <div class="ak-thread" id="ak-thread">
+    <div class="ak-thread" id="ak-thread" data-errori-propri>
       {% if recenti %}<p class="ak-recenti">Hai già chiesto qui: {% for d in recenti %}<a class="ui-link" href="{% url 'ai:conversazione' d.conversazione_id %}">{{ d.testo|truncatechars:40 }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
       <div class="ak-suggerimenti">{% for s in suggerimenti %}<button type="button" class="ak-chip" data-ak-sugg>{{ s }}</button>{% endfor %}</div>
     </div>

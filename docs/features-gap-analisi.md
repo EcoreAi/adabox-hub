@@ -11,7 +11,7 @@ Confronto con la checklist di `docs/features-gap` (Odoo, ERPNext, NetSuite, Busi
 - **Acquisti è stata l'app scelta per l'intervento:** passa da 0 a 8 voci complete su 14 (sezione E).
 - **Fatti il 2026-11-05:** scadenziario a fasce, fido dei clienti e pacchetto per il commercialista (FIN-06, FIN-07, FIN-01).
 - **Fatti il 2026-11-05 anche:** ricerche salvate, ricerca in tutte le app, Pivot, registro delle modifiche, scadenza e limiti dei token API (RPT-03, RPT-02, PLT-04, parte di PLT-17 e PLT-14).
-- **Fatto il 2026-11-08:** chatter completo, con messaggi fissati, menzioni senza Discuss e invio a indirizzi esterni scelti al momento (PLT-10).
+- **Fatto il 2026-11-08:** chatter completo, con messaggi fissati, menzioni senza Discuss e invio a indirizzi esterni scelti al momento (PLT-10), e tolleranza alla perdita di connessione: avviso offline, «Riprova» sugli errori, bozze dei form (PLT-19).
 - **Integrazioni, iniziate il 2026-11-05 nel modulo Connettori:** webhook firmati in uscita, identificativi esterni sui record, bottoni via API, chat collegata al contatto e primo connettore HubSpot sui contatti delle persone, provato solo contro un sistema simulato. Mancano aziende e opportunità e gli altri sistemi. Zucchetti e TeamSystem Enterprise/Lynfa non hanno documentazione pubblica trovata: servono partner o contatto commerciale.
 
 ## Da dove partire
@@ -249,12 +249,11 @@ Ogni voce aperta è assegnata all'app dove andrebbe costruita. Ordine dentro ogn
 
 ### theme
 
-2 voci aperte: 1 Core, 1 Adv, 0 Edge.
+1 voce aperta: 1 Core, 0 Adv, 0 Edge.
 
 | ID | Tier | Stato | Effort | Cosa costruire |
 |---|---|---|---|---|
 | PLT-16 | Core | PARTIAL | M | PWA con manifest, service worker e push, più pagine mobili per i flussi principali (attività, approvazioni, note spese, magazzino). |
-| PLT-19 | Adv | PARTIAL | S | Gestore globale degli errori HTMX e di rete con avviso e riprova, bozza locale dei form, indicatore di connessione assente. |
 
 ### spese
 
@@ -627,7 +626,7 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | PLT-16 | Interfaccia responsive e app mobile native o PWA sui flussi principali | Core | PARTIAL | theme/templates/theme/base.html viewport; theme/static/theme/ui.css (34 @media); @media in addons/discuss, addons/ai, addons/documenti, addons/assistenza, addons/grafici; docs/superpowers/specs/2026-10-09-django-template-design.md «Non portato: ... PWA» | Web responsive, non provato qui su dispositivo. Nessun manifest web, service worker o app nativa (ricerca senza risultati), quindi niente installazione né notifiche push. Nessun flusso pensato per il telefono, come magazzino con scanner o note spese da foto |
 | PLT-17 | Ricerca globale, filtri salvati e preferiti; viste kanban, lista, pivot, grafico, calendario, Gantt | Core | PARTIAL | core/viste/lista.py, filtri.py, gruppi.py, kanban.py, calendario.py, grafico.py, interroga.py; addons/grafici/costruttore.py; addons/capacita/pagine.py gantt; addons/discuss/pagine.py palette (Ctrl+K) | Lista con raggruppamenti, kanban, calendario e grafico generici. Mancano: ricerca globale sui record (Ctrl+K copre solo canali, persone e messaggi, e richiede discuss; l'AI cerca solo in conversazione); filtri salvati e preferiti (restano nell'URL); vista pivot; Gantt generico (solo capacita, in sola lettura) |
 | PLT-18 | Attività pianificate, notifiche, posta da fare per utente | Core | HAVE | core/attivita.py pianifica, raggruppate, promemoria; core/models.py AttivitaPianificata, TipoAttivita; core/views.py attivita_mie (/attivita/); core/viste/chatter.py attivita_fatta; addons/discuss/notifiche.py, addons/discuss/pagine.py posta, contatore | Completa con discuss installato: la campanella e la posta in arrivo vengono da lì; senza, restano /attivita/ e i promemoria email |
-| PLT-19 | Tolleranza alla perdita di connessione nell'interfaccia | Adv | PARTIAL | addons/discuss/static/discuss/discuss.js, palette.js, livechat.js; addons/ai/static/ai/chat.js; streaming AI con ripresa (/ai/flusso/); core/static/core/kanban.js; addons/askada/static/askada/askada.js htmx:responseError | Tolleranza solo in chat, AI e livechat. Nel resto nessun gestore globale di htmx:sendError o htmx:responseError e nessuna protezione dei form in compilazione: un salvataggio senza rete si perde senza avviso |
+| PLT-19 | Tolleranza alla perdita di connessione nell'interfaccia | Adv | HAVE | theme/static/theme/rete.js; core/templates/core/vista/form.html data-bozza; theme/tests/test_rete.py | Fatto il 2026-11-08: su ogni pagina una barra «Sei offline» finché la rete non torna; gestore globale di htmx:sendError, htmx:timeout e htmx:responseError con un avviso chiaro per tipo di errore e «Riprova» che rifà la stessa richiesta; bozza locale per utente dei form delle viste, proposta alla riapertura se l'invio non è arrivato o la scheda si è chiusa, cancellata all'uscita. Le righe aggiunte a mano nei form con righe non si ripristinano; i form fuori dalle viste non hanno la bozza |
 | PLT-20 | Marketplace di moduli: installare moduli di terzi senza toccare il kernel | Adv | PARTIAL | core/registry/pacchetti.py (firma, hash, estrazione); core/management/commands/modulo.py impacchetta, carica, indice, collauda; core/views.py moduli_carica, moduli_scarica; core/applicazioni.py; core/licenza.py; addons/rivendita/models.py, servizi.py, api.py; MODULI_CHIAVI_FIDATE | Moduli installabili senza forkare, con catalogo firmato e richieste dal cliente. Il catalogo è però del solo venditore ICHNOBYTE: nessun accesso per editori terzi, revisione, recensioni o pagamento. Un modulo gira con tutti i privilegi del processo |
 | PLT-21 | Costruttore low-code di app (modelli, viste, automazioni dalla UI) | Adv | PARTIAL | addons/studio/ (viste esistenti); core/proprieta.py (campi JSON); addons/automazioni/pagine.py (regole); core/viste/interroga.py | Si adattano viste esistenti e si aggiungono campi e regole, ma non si creano nuovi modelli, relazioni o app dalla UI. Ogni modello richiede codice e migrazione |
 | PLT-22 | Opzioni di installazione: SaaS multi-tenant e on-premise | Adv | PARTIAL | deploy/compose.cliente.yml, deploy/Dockerfile.cliente, docker-compose.yml, deploy/entrypoint.sh, deploy/nginx.conf; core/licenza.py; addons/rivendita/models.py Istanza; spec fase 1 «Multi-azienda dal primo giorno, multi-tenant mai» | On-premise e istanza ospitata per singolo cliente funzionano con Docker. Multi-tenant escluso per scelta di modello. Manca la creazione automatica di un'istanza ospitata: Rivendita gestisce licenze e moduli, non provisioning, aggiornamenti della flotta o backup remoti |
@@ -1152,7 +1151,6 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 
 | ID | Funzione | Cosa costruire | Dipende da | Effort |
 |---|---|---|---|---|
-| PLT-19 | Tolleranza alla perdita di connessione nell'interfaccia | Gestore globale degli errori HTMX e di rete con avviso e riprova, bozza locale dei form, indicatore di connessione assente. | - | S |
 | PLT-20 | Marketplace di moduli: installare moduli di terzi senza toccare il kernel | Registrazione degli editori con le loro chiavi, flusso di invio e revisione con modulo collauda automatico, scheda pubblica con recensioni, permessi dichiarati nel manifest. | - | M |
 | PLT-21 | Costruttore low-code di app (modelli, viste, automazioni dalla UI) | Modelli definiti da UI, in tabelle generiche con JSON o migrazioni generate, che producono una ModelView con liste, form, permessi, chatter e API. | PLT-06, PLT-08 | L |
 | PLT-22 | Opzioni di installazione: SaaS multi-tenant e on-premise | Provisioning automatico per istanza dal portale (stack, database, dominio, TLS, token), aggiornamenti controllati e monitoraggio della flotta. | - | M |
