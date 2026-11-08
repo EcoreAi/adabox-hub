@@ -219,6 +219,8 @@ def descrizione(spec, request=None, vista=None, tipo=""):
     filtri = len(spec.get("filtri") or {}) + len([k for k, v in (spec.get("lista") or {}).items() if (k == "q" or k.startswith("f_")) and v != ""])
     if filtri:
         pezzi.append(f"{filtri} filtr{'o' if filtri == 1 else 'i'}")
+    if spec.get("aziende"):
+        pezzi.append("tutte le tue aziende" if spec["aziende"] == "tutte" else f"{len(spec['aziende'])} aziende insieme")
     return " · ".join(p for p in pezzi if p)
 
 

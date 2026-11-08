@@ -33,6 +33,14 @@
         <div class="an-cost-riga"><label class="ui-label">Categorie<select class="ui-input" name="massimo">{% for v, e in massimi %}<option value="{{ v }}"{% if v == p.massimo %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
           <label class="an-cost-check"><input type="checkbox" name="ordine" value="valore"{% if p.ordine == "valore" %} checked{% endif %}> Ordina per valore</label></div>
         {% endif %}
+        {% if aziende_utente and p.tipo != "previsione" %}
+        <label class="ui-label">Aziende<select class="ui-input" name="aziende">
+          <option value="">Solo l'azienda corrente</option>
+          <option value="tutte"{% if p.aziende == "tutte" %} selected{% endif %}>Tutte le mie aziende (consolidato)</option>
+          {% for a in aziende_utente %}<option value="{{ a.pk }}"{% if p.aziende == a.pk|stringformat:"s" %} selected{% endif %}>Solo {{ a }}</option>{% endfor %}
+        </select></label>
+        <p class="ui-help">Con il consolidato ogni azienda conta con le sue regole e i valori si sommano; raggruppa per «azienda» per confrontarle.</p>
+        {% endif %}
         {% if p.tipo != "torta" and p.tipo != "previsione" %}<label class="ui-label">Obiettivo (facoltativo)<input class="ui-input" type="number" step="any" min="0" name="obiettivo" value="{{ p.obiettivo|default:'' }}" placeholder="{% if p.tipo == 'kpi' %}es. 10000: il KPI mostra quanto manca{% else %}es. 10000: una linea sul grafico{% endif %}"></label>{% endif %}
       </section>
       {% if vista %}

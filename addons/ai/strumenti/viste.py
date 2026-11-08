@@ -235,8 +235,10 @@ def leggi_record(contesto, vista, id):
     return risultato
 
 
-def aggrega_record(contesto, vista, per="", misura="count", filtri=None, testo=""):
-    return aggrega(vista_per(contesto, vista), richiesta.per(contesto), per, misura, filtri, testo)
+def aggrega_record(contesto, vista, per="", misura="count", filtri=None, testo="", aziende=None):
+    from core.viste.interroga import aziende_di
+    request = richiesta.per(contesto)
+    return aggrega(vista_per(contesto, vista), request, per, misura, filtri, testo, aziende=aziende_di(request, aziende))
 
 
 # ---------- registrazione ----------
@@ -280,5 +282,7 @@ registra(Strumento(
         "per": {"type": "string", "description": "raggruppa per campo (es. stato, cliente) o data (es. data:mese); "
                                                  "vuoto = solo il totale"},
         "misura": {"type": "string", "description": "count (default) oppure sum:campo, avg:campo, min:campo, "
-                                                    "max:campo"}},
+                                                    "max:campo"},
+        "aziende": {"description": "per il consolidato di più aziende dell'utente: \"tutte\" oppure una lista di id; "
+                                   "vuoto = solo l'azienda corrente"}},
      "required": ["vista"]}, aggrega_record))

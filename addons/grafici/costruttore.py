@@ -61,6 +61,7 @@ def parametri_di(request, grafico=None):
              "orizzonte": str(spec.get("orizzonte") or 3), "tipo": grafico.tipo, "aggiorna_ogni": str(grafico.aggiorna_ogni),
              "massimo": str(spec.get("massimo") or 30), "ordine": spec.get("ordine", ""), "titolo": grafico.titolo,
              "obiettivo": str((grafico.opzioni or {}).get("obiettivo", "") or ""),
+             "aziende": "tutte" if spec.get("aziende") == "tutte" else ",".join(str(x) for x in spec.get("aziende") or []),
              **{k: v for k, v in (spec.get("lista") or {}).items()}}
     p.setdefault("tipo", Grafico.BARRE)
     p.setdefault("misura", "count")
@@ -102,6 +103,10 @@ def spec_di(p):
     lista = {k: v for k, v in p.items() if (k == "q" or k.startswith("f_")) and v != ""}
     if lista:
         spec["lista"] = lista
+    if p.get("aziende") == "tutte":
+        spec["aziende"] = "tutte"
+    elif p.get("aziende"):
+        spec["aziende"] = [int(x) for x in str(p["aziende"]).split(",") if x.strip().isdigit()]
     return spec
 
 
@@ -121,6 +126,13 @@ def _anteprima(request, p, vista):
         except ErroreInterrogazione as e:
             w["errore"] = str(e)
     return w
+
+
+def _aziende_utente(request):
+    """Le aziende tra cui scegliere per il consolidato: solo se l'utente ne ha più di una."""
+    from core.azienda import consentite
+    tutte = list(consentite(request.user))
+    return tutte if len(tutte) > 1 else []
 
 
 def _contesto(request, grafico=None):
@@ -143,6 +155,7 @@ def _contesto(request, grafico=None):
             "w": _anteprima(request, p, vista),
             "destinazioni": motore.destinazioni(request, p.get("vista", ""), area=_area_scelta(request, p.get("destinazione", ""))),
             "grafico": grafico, "ai": motore._ai_disponibile(),
+            "aziende_utente": _aziende_utente(request),
             "scheda_attiva": ""}
 
 

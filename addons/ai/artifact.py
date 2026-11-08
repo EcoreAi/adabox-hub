@@ -44,7 +44,9 @@ def calcola(spec, contesto):
     v = vista_per(contesto, spec["vista"])
     request = richiesta.per(contesto)
     if spec["tipo"] == Artifact.GRAFICO:
-        r = aggrega(v, request, spec["per"], spec.get("misura", "count"), spec.get("filtri"), spec.get("testo", ""))
+        from core.viste.interroga import aziende_di
+        r = aggrega(v, request, spec["per"], spec.get("misura", "count"), spec.get("filtri"), spec.get("testo", ""),
+                    aziende=aziende_di(request, spec.get("aziende")))
         return {"serie": _serie(r.get("gruppi", []), spec["per"]), "totale": r["totale"]}
     r = cerca(v, request, spec.get("testo", ""), spec.get("filtri"), spec.get("ordina", ""), spec.get("limite", 50),
               1, spec.get("campi") or None)
@@ -107,13 +109,15 @@ def _crea(contesto, tipo, titolo, spec, dati):
                                    dati=dati)
 
 
-def grafico(contesto, vista, per, misura="count", tipo="barre", filtri=None, testo="", titolo=""):
+def grafico(contesto, vista, per, misura="count", tipo="barre", filtri=None, testo="", titolo="", aziende=None):
     if tipo not in TIPI_GRAFICO:
         raise ErroreStrumento(f"«tipo» è uno tra: {', '.join(TIPI_GRAFICO)}.")
     if not per:
         raise ErroreStrumento("Un grafico ha bisogno di «per» (campo o data:mese...).")
     spec = {"tipo": Artifact.GRAFICO, "vista": vista, "per": per, "misura": misura or "count", "grafico": tipo,
             "filtri": filtri or {}, "testo": testo or ""}
+    if aziende:
+        spec["aziende"] = aziende
     dati = calcola(spec, contesto)
     a = _crea(contesto, Artifact.GRAFICO, titolo or f"{vista}: {misura or 'count'} per {per}", spec, dati)
     return {"artifact": a.pk, "titolo": a.titolo, "totale": dati["totale"], "serie": dati["serie"],
@@ -151,7 +155,9 @@ registra(Strumento(
                                                                  "(es. data:mese, data:anno)"},
         "misura": {"type": "string", "description": "count (default) oppure sum:campo, avg:campo"},
         "tipo": {"type": "string", "enum": list(TIPI_GRAFICO), "description": "default barre; linee per le date"},
-        "filtri": FILTRI, "testo": TESTO, "titolo": {"type": "string", "description": "titolo breve del grafico"}},
+        "filtri": FILTRI, "testo": TESTO, "titolo": {"type": "string", "description": "titolo breve del grafico"},
+        "aziende": {"description": "consolidato di più aziende dell'utente: \"tutte\" o una lista di id; vuoto = solo la corrente "
+                                   "(con per=azienda il confronto tra aziende)"}},
      "required": ["vista", "per"]}, grafico))
 registra(Strumento(
     "tabella", "Mostra sotto la risposta una tabella di record (fino a 200) con link ed export CSV: per elenchi lunghi "

@@ -261,9 +261,79 @@ def _chiave(v):
     return v
 
 
-def aggrega(vista, request, per="", misura="count", filtri=None, testo="", lista=None, con_chiavi=False):
+# ---------- più aziende insieme (consolidato) ----------
+
+def aziende_di(request, valore):
+    """Le aziende da consolidare: "tutte" (quelle dell'utente) o una lista di id tra le sue; None = solo la corrente."""
+    if not valore:
+        return None
+    from core.azienda import consentite
+    tutte = consentite(request.user)
+    if valore == "tutte":
+        scelte = list(tutte)
+    else:
+        ids = {int(x) for x in (valore if isinstance(valore, (list, tuple)) else str(valore).split(",")) if str(x).strip().isdigit()}
+        scelte = [a for a in tutte if a.pk in ids]
+    return scelte or None
+
+
+def _ordina_chiavi(chiavi):
+    try:
+        return sorted(chiavi, key=lambda k: (k is None, k))
+    except TypeError:
+        return chiavi
+
+
+def _unisci(valori, funzione):
+    valori = [v for v in valori if v is not None]
+    if not valori:
+        return 0
+    if funzione == "min":
+        return min(valori)
+    if funzione == "max":
+        return max(valori)
+    return round(sum(valori), 2) if any(isinstance(v, float) for v in valori) else sum(valori)
+
+
+def _aggrega_aziende(vista, request, aziende, per, misura, filtri, testo, lista, con_chiavi):
+    """Ogni azienda con le sue regole (la vista e il suo queryset, come se l'utente ci lavorasse), poi si sommano i
+    gruppi con la stessa chiave; le medie vengono da somme e conteggi, così restano giuste."""
+    funzione, _, campo = (misura or "count").partition(":")
+    if funzione == "avg":
+        somme = _aggrega_aziende(vista, request, aziende, per, f"sum:{campo}", filtri, testo, lista, True)
+        conti = _aggrega_aziende(vista, request, aziende, per, "count", filtri, testo, lista, True)
+        n = {g.get("chiave"): g["valore"] for g in conti.get("gruppi", [])}
+        gruppi = [{**g, "valore": round(g["valore"] / n[g.get("chiave")], 2) if n.get(g.get("chiave")) else 0}
+                  for g in somme.get("gruppi", [])]
+        risultato = {**somme, "misura": misura, "totale": round(somme["totale"] / conti["totale"], 2) if conti["totale"] else 0}
+        if per:
+            risultato["gruppi"] = gruppi if con_chiavi else [{k: v for k, v in g.items() if k != "chiave"} for g in gruppi]
+        return risultato
+    parziali = [aggrega(vista, richiesta_di(request.user, a), per, misura, filtri, testo, lista, con_chiavi=True) for a in aziende]
+    risultato = {"vista": id_vista(vista), "misura": misura or "count", "totale": _unisci([r["totale"] for r in parziali], funzione),
+                 "aziende": [str(a) for a in aziende]}
+    if not per:
+        return risultato
+    valori, etichette = {}, {}
+    for r in parziali:
+        for g in r.get("gruppi", []):
+            chiave = g.get("chiave")
+            valori.setdefault(chiave, []).append(g["valore"])
+            etichette.setdefault(chiave, g["gruppo"])
+    gruppi = [{"gruppo": etichette[k], "valore": _unisci(valori[k], funzione), **({"chiave": k} if con_chiavi else {})}
+              for k in _ordina_chiavi(list(valori))]
+    risultato.update(per=per, gruppi=gruppi[:GRUPPI_MASSIMI])
+    if len(gruppi) > GRUPPI_MASSIMI or any(r.get("nota") for r in parziali):
+        risultato["nota"] = f"Più di {GRUPPI_MASSIMI} gruppi: mostrati i primi. Restringi i filtri."
+    return risultato
+
+
+def aggrega(vista, request, per="", misura="count", filtri=None, testo="", lista=None, con_chiavi=False, aziende=None):
     """{"misura", "per", "gruppi": [{"gruppo", "valore"[, "chiave"]}], "totale"} con i dati aggregati nel database;
-    con `con_chiavi` ogni gruppo porta anche il valore grezzo, per aprire la lista filtrata su quel gruppo."""
+    con `con_chiavi` ogni gruppo porta anche il valore grezzo, per aprire la lista filtrata su quel gruppo.
+    Con `aziende` (vedi aziende_di) il consolidato di più aziende."""
+    if aziende:
+        return _aggrega_aziende(vista, request, aziende, per, misura, filtri, testo, lista, con_chiavi)
     espressione, f_misura = _misura(vista, misura or "count")
     qs = filtra(vista, request, vista.get_queryset(request), testo, filtri, lista).order_by()
     if qs.query.distinct:                     # filtro su una relazione multipla: senza doppioni nelle somme
@@ -333,7 +403,7 @@ def calcola(spec, request):
     if not per:
         raise ErroreInterrogazione("Un grafico ha bisogno di «per»: un campo o una data (data:mese, data:anno…).")
     r = aggrega(vista, request, per, spec.get("misura", "count"), spec.get("filtri"), spec.get("testo", ""),
-                spec.get("lista"), con_chiavi=True)
+                spec.get("lista"), con_chiavi=True, aziende=aziende_di(request, spec.get("aziende")))
     valori, chiavi = serie_con_chiavi(r.get("gruppi", []), per, int(spec.get("massimo") or MAX_CATEGORIE), spec.get("ordine", ""))
     return {"serie": valori, "chiavi": chiavi, "totale": r["totale"], "misura": r["misura"], "per": per}
 
@@ -386,7 +456,11 @@ def _come_data(valore):
 def kpi(spec, request, storia=12):
     """Il numero di un KPI: la misura nel periodo in corso, quella del periodo prima (per il delta %) e gli ultimi
     `storia` periodi (per la sparkline), sul campo data della specifica; senza campo data, solo il totale.
-    {"valore", "precedente", "delta", "storico": [(etichetta, valore)], "periodo", "unita"}"""
+    {"valore", "precedente", "delta", "storico": [(etichetta, valore)], "periodo", "unita"}
+    Con spec["aziende"] il consolidato di più aziende (somme e conteggi sommati, medie da somma e conteggio)."""
+    aziende = aziende_di(request, spec.get("aziende"))
+    if aziende:
+        return _kpi_aziende(spec, request, aziende, storia)
     vista = vista_per_nome(spec["vista"], request)
     misura = spec.get("misura", "count") or "count"
     espressione, f_misura = _misura(vista, misura)
@@ -414,6 +488,26 @@ def kpi(spec, request, storia=12):
     delta = round((valore - precedente) * 100 / precedente, 1) if precedente else None
     return {"valore": valore, "precedente": precedente, "delta": delta, "periodo": periodo, "unita": unita,
             "storico": [(etichetta_periodo(p, periodo), valori.get(p, 0)) for p in periodi]}
+
+
+def _kpi_aziende(spec, request, aziende, storia):
+    base = {k: v for k, v in spec.items() if k != "aziende"}
+    funzione, _, campo = (spec.get("misura") or "count").partition(":")
+    if funzione == "avg":
+        s = _kpi_aziende({**base, "misura": f"sum:{campo}"}, request, aziende, storia)
+        c = _kpi_aziende({**base, "misura": "count"}, request, aziende, storia)
+        dividi = lambda a, b: round(a / b, 2) if b else 0          # noqa: E731
+        valore, precedente = dividi(s["valore"], c["valore"]), dividi(s["precedente"] or 0, c["precedente"] or 0)
+        return {**s, "valore": valore, "precedente": precedente if s["precedente"] is not None else None,
+                "delta": round((valore - precedente) * 100 / precedente, 1) if precedente else None,
+                "storico": [(e, dividi(v, c["storico"][i][1])) for i, (e, v) in enumerate(s["storico"])]}
+    parziali = [kpi(base, richiesta_di(request.user, a), storia) for a in aziende]
+    primo = parziali[0]
+    valore = _unisci([p["valore"] for p in parziali], funzione)
+    precedente = None if primo["precedente"] is None else _unisci([p["precedente"] for p in parziali], funzione)
+    storico = [(e, _unisci([p["storico"][i][1] for p in parziali], funzione)) for i, (e, _) in enumerate(primo["storico"])]
+    return {**primo, "valore": valore, "precedente": precedente, "storico": storico, "aziende": [str(a) for a in aziende],
+            "delta": round((valore - precedente) * 100 / precedente, 1) if precedente else None}
 
 
 # ---------- per il costruttore ----------
