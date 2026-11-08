@@ -67,6 +67,7 @@ class Proposta:
     passiva: bool
     punti: int = 0
     motivi: list = field(default_factory=list)
+    punti_storia: int = 0          # quelli dagli abbinamenti già confermati: non contano per «sicura»
 
     @property
     def residuo(self):
@@ -106,7 +107,7 @@ def _nome_nel_testo(nome, testo):
     return bool(parole) and all(re.search(rf"\b{re.escape(p)}\b", testo.lower()) for p in parole[:2])
 
 
-def _valuta(movimento, scadenza, passiva):
+def _valuta(movimento, scadenza, passiva, storia=None):
     proposta = Proposta(scadenza, passiva)
     documento, chi = proposta.documento, proposta.controparte
     testo = f"{movimento.descrizione} {movimento.controparte}"
@@ -122,21 +123,29 @@ def _valuta(movimento, scadenza, passiva):
     if _nome_nel_testo(chi.nome, testo):
         proposta.punti += PUNTI_NOME
         proposta.motivi.append(f"Nome di {chi.nome}")
+    if storia is not None and (indizi := storia.indizi(movimento, chi.pk)):
+        punti, motivo = max(indizi)                  # l'indizio più forte, non la somma: la storia aiuta, non decide
+        proposta.punti += punti
+        proposta.punti_storia = punti
+        proposta.motivi.append(motivo)
     return proposta
 
 
-def proposte(movimento, attive, da_pagare, massimo=4):
+def proposte(movimento, attive, da_pagare, massimo=4, storia=None):
+    """Le scadenze più probabili per il movimento; con `storia` (memoria.di) contano anche gli abbinamenti già confermati."""
     if movimento.importo > 0:
-        candidati = [_valuta(movimento, s, False) for s in attive]
+        candidati = [_valuta(movimento, s, False, storia) for s in attive]
     else:
-        candidati = [_valuta(movimento, s, True) for s in da_pagare]
+        candidati = [_valuta(movimento, s, True, storia) for s in da_pagare]
     buoni = [c for c in candidati if c.punti >= PUNTI_MINIMI]
     return sorted(buoni, key=lambda c: (-c.punti, c.scadenza.data or timezone.localdate()))[:massimo]
 
 
 def e_sicura(lista):
-    """Numero e importo tornano, e nessun'altra scadenza è altrettanto buona."""
-    return bool(lista) and lista[0].punti >= SICURO and (len(lista) == 1 or lista[1].punti < SICURO)
+    """Numero e importo tornano, e nessun'altra scadenza è altrettanto buona. Quello imparato dalla storia non conta:
+    da solo non fa mai abbinare in automatico."""
+    certi = sorted((p.punti - p.punti_storia for p in lista), reverse=True)
+    return bool(certi) and certi[0] >= SICURO and (len(certi) == 1 or certi[1] < SICURO)
 
 
 # ---------- abbinare

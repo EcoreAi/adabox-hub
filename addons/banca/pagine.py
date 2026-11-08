@@ -9,7 +9,7 @@ from django.views.decorators.http import require_POST
 
 from core.dashboard import queryset
 
-from . import abbina as motore, estratti
+from . import abbina as motore, estratti, memoria
 from .models import Abbinamento, Conto, MovimentoBanca
 
 PER_PAGINA = 40
@@ -34,9 +34,10 @@ def riconcilia(request):
     if conto:
         tutti = tutti.filter(conto=conto)
     attive, passive = motore.aperte_attive(request.azienda), motore.aperte_passive(request.azienda)
+    storia = memoria.di(request.azienda)
     schede, sicuri = [], 0
     for m in tutti.order_by("-data", "-pk")[:PER_PAGINA]:
-        lista = motore.proposte(m, attive, passive)
+        lista = motore.proposte(m, attive, passive, storia=storia)
         sicura = m.stato == MovimentoBanca.DA_ABBINARE and motore.e_sicura(lista)
         sicuri += sicura
         schede.append({"m": m, "proposte": lista, "sicura": sicura})
