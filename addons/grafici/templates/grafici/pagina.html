@@ -41,6 +41,7 @@
         </form>
         {% endif %}
         <div class="an-menu-sep"></div>
+        {% if perms.core.add_reportpianificato %}<a class="an-menu-link" href="{% url 'core:report_pianificati_nuovo' %}?tipo=analisi&riferimento={{ pagina.pk }}&formato=pdf"><svg><use href="#icon-inbox"/></svg> Invia per email periodicamente…</a>{% endif %}
         <form method="post" action="{% url 'grafici:elimina' pagina.pk %}" onsubmit="return confirm('Eliminare la pagina? I grafici restano in libreria.')">{% csrf_token %}<button type="submit" class="an-pericolo"><svg><use href="#icon-trash"/></svg> Elimina pagina</button></form>
         {% else %}
         <form method="post" action="{% url 'grafici:nascondi_app' pagina.app %}">{% csrf_token %}<button type="submit"><svg><use href="#icon-eye-off"/></svg> Nascondi questa scheda</button></form>

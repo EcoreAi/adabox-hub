@@ -3,6 +3,7 @@ KERNEL = [
     {"nome": "Posta in entrata", "funzione": "core.chatter.entrata.leggi_casella", "ogni": "2m"},
     {"nome": "Promemoria attività", "funzione": "core.attivita.promemoria", "ogni": "1d", "alle": "07:00"},
     {"nome": "Promemoria approvazioni scadute", "funzione": "core.approvazioni.promemoria", "ogni": "1d", "alle": "08:00"},
+    {"nome": "Report pianificati", "funzione": "core.report_pianificati.esegui_dovuti", "ogni": "15m"},
 ]
 
 

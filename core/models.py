@@ -1,3 +1,4 @@
+import datetime
 import hashlib
 import re
 import secrets
@@ -783,3 +784,40 @@ class Delega(models.Model):
 
     def __str__(self):
         return f"{self.da} → {self.a} ({self.dal:%d/%m} – {self.al:%d/%m})"
+
+
+class ReportPianificato(models.Model):
+    """Un invio periodico per email: una lista filtrata (Excel o CSV) o una pagina di Analisi (PDF), calcolata nel worker
+    con i permessi di chi l'ha creato e mandata agli indirizzi scelti."""
+    FORMATI = [("xlsx", "Excel"), ("csv", "CSV"), ("pdf", "PDF")]
+    FREQUENZE = [("giorno", "Ogni giorno"), ("settimana", "Ogni settimana"), ("mese", "Ogni mese")]
+    GIORNI = [(0, "lunedì"), (1, "martedì"), (2, "mercoledì"), (3, "giovedì"), (4, "venerdì"), (5, "sabato"), (6, "domenica")]
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="report_pianificati",
+                               verbose_name="proprietario")
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, related_name="+", verbose_name="azienda")
+    nome = models.CharField("nome", max_length=120)
+    tipo = models.CharField("che cosa", max_length=20, default="lista")
+    riferimento = models.CharField("vista o pagina", max_length=80)
+    parametri = models.TextField("filtri", blank=True, help_text="i filtri della lista, come nell'indirizzo (q, f_…, o)")
+    formato = models.CharField("formato", max_length=4, choices=FORMATI, default="xlsx")
+    frequenza = models.CharField("frequenza", max_length=10, choices=FREQUENZE, default="settimana")
+    giorno_settimana = models.PositiveSmallIntegerField("giorno della settimana", choices=GIORNI, default=0)
+    giorno_mese = models.PositiveSmallIntegerField("giorno del mese", default=1, help_text="da 1 a 28")
+    ora = models.TimeField("ora", default=datetime.time(7, 0))
+    destinatari = models.TextField("destinatari", help_text="indirizzi email, uno per riga o separati da virgola")
+    attivo = models.BooleanField("attivo", default=True)
+    ultimo_invio = models.DateTimeField("ultimo invio", null=True, blank=True, editable=False)
+    prossimo_invio = models.DateTimeField("prossimo invio", null=True, blank=True, editable=False, db_index=True)
+    ultimo_esito = models.CharField("ultimo esito", max_length=250, blank=True, editable=False)
+
+    class Meta:
+        verbose_name = "report pianificato"
+        verbose_name_plural = "report pianificati"
+        ordering = ["nome"]
+
+    def __str__(self):
+        return self.nome
+
+    def elenco_destinatari(self):
+        import re
+        return [d for d in re.split(r"[\s,;]+", self.destinatari or "") if "@" in d]

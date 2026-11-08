@@ -11,6 +11,7 @@
       <div class="ui-dropdown-menu is-right" role="menu">
         <a href="{{ urls.esporta }}?formato=xlsx{% if query_filtri %}&{{ query_filtri }}{% endif %}">Excel (.xlsx)</a>
         <a href="{{ urls.esporta }}?formato=csv{% if query_filtri %}&{{ query_filtri }}{% endif %}">CSV</a>
+        {% if perms.core.add_reportpianificato %}<a href="{% url 'core:report_pianificati_nuovo' %}?tipo=lista&riferimento={{ vista.modulo }}.{{ vista.slug }}&formato=xlsx&parametri={{ query_filtri|urlencode }}">Invia per email periodicamente…</a>{% endif %}
         {% if puo_aggiungere %}<hr><a href="{{ urls.importa }}">Importa da CSV o Excel…</a>{% endif %}
       </div>
     </div>

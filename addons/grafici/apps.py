@@ -13,3 +13,7 @@ class GraficiConfig(AppConfig):
         hooks.azione("core.dashboard_cassetto", "grafici/_cassetto_azioni.html", permission="grafici.add_grafico")
         hooks.azione("ai.artifact", "grafici/_salva_artifact.html", permission="grafici.add_grafico")
         hooks.azione("core.vista_grafico", "grafici/_salva_vista.html", permission="grafici.add_grafico")
+        from core import report_pianificati
+
+        from . import stampa
+        report_pianificati.registra_tipo("analisi", "Una pagina di Analisi", stampa.genera, stampa.scelte, formati=("pdf",))

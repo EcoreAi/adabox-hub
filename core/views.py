@@ -24,7 +24,8 @@ from django.db.models import Q
 from .models import LicenzaIstanza, RichiestaModulo
 from .models import (Azienda, CampoPersonalizzato, EmailRicevuta, Lavoro, Modulo, Parametro, ProfiloUtente, RegistroModifica,
                      ModelloStampa, PermessoCampo, RegolaRiga, Ruolo, TokenApi,
-                     CatenaApprovazione, DecisioneApprovazione, Delega, PassoApprovazione, RichiestaApprovazione)
+                     CatenaApprovazione, DecisioneApprovazione, Delega, PassoApprovazione, ReportPianificato,
+                     RichiestaApprovazione)
 from .registry import modules, pacchetti, sincronia
 from .signals import crea_profilo
 from .viste import Inline, ModelView, register
@@ -60,6 +61,9 @@ def voci_kernel(user):
     if user.has_perm("core.view_campopersonalizzato"):
         voci.append({"label": "Campi personalizzati", "url": reverse("core:campi_lista"), "icon": "edit",
                      "sub": "Campi aggiunti ai modelli senza programmare"})
+    if user.has_perm("core.add_reportpianificato"):
+        voci.append({"label": "Report pianificati", "url": reverse("core:report_pianificati_lista"), "icon": "inbox",
+                     "sub": "Liste e pagine di Analisi per email, ogni giorno, settimana o mese"})
     voci.append({"label": "Da approvare", "url": reverse("core:da_approvare"), "icon": "check",
                  "sub": "Le approvazioni che aspettano la tua decisione"})
     if user.has_perm("core.view_catenaapprovazione"):
@@ -980,3 +984,85 @@ def decidi_approvazione(request, pk):
     messages.success(request, "Decisione registrata.")
     prossimo = request.POST.get("da", "")
     return redirect(prossimo if prossimo and url_has_allowed_host_and_scheme(prossimo, {request.get_host()}) else "core:da_approvare")
+
+
+class ReportPianificatoForm(forms.ModelForm):
+    class Meta:
+        model = ReportPianificato
+        fields = ["nome", "tipo", "riferimento", "parametri", "formato", "frequenza", "giorno_settimana", "giorno_mese", "ora",
+                  "destinatari", "attivo"]
+        widgets = {"ora": forms.TimeInput(attrs={"type": "time"}, format="%H:%M"), "destinatari": forms.Textarea(attrs={"rows": 3})}
+
+    def __init__(self, *args, request=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        from core import report_pianificati as rp
+        self.request = request
+        tipi = rp.tipi()
+        self.fields["tipo"] = forms.ChoiceField(label="che cosa", choices=[(k, v["etichetta"]) for k, v in tipi.items()])
+        scelte = []
+        for codice, voce in tipi.items():
+            if voce.get("scelte") and request is not None:
+                scelte += [(r, f"{voce['etichetta']}: {e}") for r, e in voce["scelte"](request)]
+        self.fields["riferimento"] = forms.ChoiceField(label="vista o pagina", choices=scelte)
+        if request is not None and not self.instance.pk:
+            for campo in ("tipo", "riferimento", "parametri", "formato"):
+                if request.GET.get(campo):
+                    self.initial[campo] = request.GET[campo]
+            self.initial.setdefault("destinatari", request.user.email)
+
+    def clean(self):
+        from core import report_pianificati as rp
+        dati = super().clean()
+        tipo = rp.tipi().get(dati.get("tipo"))
+        if tipo and dati.get("formato") not in tipo["formati"]:
+            self.add_error("formato", "Formati possibili: " + ", ".join(tipo["formati"]))
+        if not 1 <= (dati.get("giorno_mese") or 1) <= 28:
+            self.add_error("giorno_mese", "Da 1 a 28.")
+        validi = [d for d in ReportPianificato(destinatari=dati.get("destinatari", "")).elenco_destinatari()]
+        if not validi:
+            self.add_error("destinatari", "Almeno un indirizzo email.")
+        return dati
+
+
+@register
+class ReportPianificatoView(ModelView):
+    """Gli invii periodici per email: ognuno vede i suoi; partono con i permessi di chi li ha creati."""
+    model = ReportPianificato
+    slug = "report_pianificati"
+    list_display = ["nome", "tipo", "frequenza", "prossimo_invio", "ultimo_invio", "ultimo_esito", "attivo"]
+    list_filter = ["tipo", "frequenza", "attivo"]
+    search_fields = ["nome", "destinatari"]
+    form_class = ReportPianificatoForm
+    form_layout = [("Che cosa", [("nome", "attivo"), ("tipo", "riferimento"), "parametri", "formato"]),
+                   ("Quando", [("frequenza", "ora"), ("giorno_settimana", "giorno_mese")]),
+                   ("A chi", ["destinatari"])]
+    readonly_fields = ["prossimo_invio", "ultimo_invio", "ultimo_esito"]
+    buttons = ["invia_ora"]
+    api = False
+    per_assistente = False
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs if request.user.is_superuser else qs.filter(utente=request.user)
+
+    def get_form_class(self, request=None):
+        base = super().get_form_class(request)
+
+        class Form(base):
+            def __init__(self, *args, **kwargs):
+                kwargs.setdefault("request", request)
+                super().__init__(*args, **kwargs)
+        return Form
+
+    def save_model(self, request, obj, form, change):
+        from core import report_pianificati as rp
+        if not change:
+            obj.utente, obj.azienda = request.user, getattr(request, "azienda", None)
+        obj.prossimo_invio = rp.prossimo(obj) if obj.attivo else None
+        super().save_model(request, obj, form, change)
+
+    def invia_ora(self, request, obj):
+        from core import report_pianificati as rp
+        return rp.esegui(obj, aggiorna=False) + " (invio di prova: la pianificazione non cambia)."
+    invia_ora.short_description = "Invia ora"
+    invia_ora.permission = "view"
