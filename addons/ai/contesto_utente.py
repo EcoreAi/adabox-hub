@@ -60,6 +60,12 @@ def nota_progetto(conversazione):
     righe = [f"Questa chat è nell'area di lavoro «{progetto.nome}» (area n. {progetto.pk})."]
     if progetto.istruzioni.strip():
         righe.append(f"Istruzioni per l'area di lavoro:\n{progetto.istruzioni.strip()}")
+    if progetto.app_collegate:
+        from core.registry import modules
+        nomi = {s: m.name for s, m in modules.manifests_attivi().items()}
+        app = [f"{nomi.get(s, s)} ({s})" for s in progetto.app_collegate if s in nomi]
+        if app:
+            righe.append("L'area lavora con queste app: " + ", ".join(app) + ". Usa di preferenza le loro viste.")
     if file := allegati_chat.di_progetto(progetto):
         righe.append("File dell'area di lavoro, da leggere con leggi_allegato se servono: " + ", ".join(f"«{a.nome}» (allegato n. {a.pk})" for a in file))
     righe += _nota_cartella(conversazione, progetto)

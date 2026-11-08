@@ -8,6 +8,7 @@ _dashboard = []                # [dict(template, order, permission)] sezioni in 
 _azioni = defaultdict(list)    # "chiave" -> [dict(template, order, permission)] azioni in un punto di un template
 _widget = []                   # [dict(funzione, modulo, permission)] altri widget per la libreria della dashboard
 _portale = []                  # prefissi degli indirizzi che i clienti del portale possono aprire
+_pagine_app = []               # pagine che un modulo aggiunge dentro le altre app (es. «Aree di lavoro» dell'assistente)
 
 
 def _chiave(model):
@@ -122,3 +123,16 @@ def percorsi_portale():
     from .modules import disattivati
     spenti = disattivati()
     return tuple(p for p in _portale if p.strip("/").split("/", 1)[0] not in spenti)
+
+
+def pagina_app(percorso, vista, nome, etichetta, mostra=None, escluse=()):
+    """Da chiamare nel ready() dell'app: la pagina `vista` si monta dentro ogni app applicazione, al suo indirizzo
+    «/<app>/<percorso>» e nel suo namespace (quindi con il menu di quell'app), e compare nel menu dell'app quando
+    `mostra(request, slug)` è vero. La vista riceve l'app da request.resolver_match.namespace."""
+    voce = {"percorso": percorso, "vista": vista, "nome": nome, "etichetta": etichetta, "mostra": mostra, "escluse": set(escluse)}
+    if not any(v["nome"] == nome for v in _pagine_app):
+        _pagine_app.append(voce)
+
+
+def pagine_app():
+    return list(_pagine_app)

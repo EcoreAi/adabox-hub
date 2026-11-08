@@ -1,0 +1,11 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Aree di lavoro · {{ nome_app }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Aree di lavoro</h1><div class="sub">Le aree collegate a {{ nome_app }} di cui fai parte, con quello che ci nasce</div></div>
+  {% if puo_creare %}<div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="{% url 'ai:progetti_nuovo' %}"><svg><use href="#icon-plus"/></svg> Nuova area di lavoro</a></div>{% endif %}</div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  {% for c in voci %}{% include "ai/_area_riquadro.html" %}
+  {% empty %}<p class="ui-help">Nessuna area di lavoro collegata a {{ nome_app }}. Si collega dalle impostazioni dell'area, alla voce «App collegate».</p>{% endfor %}
+</div></section>
+{% include "ai/_area_stile.html" %}
+{% endblock %}

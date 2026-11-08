@@ -1084,3 +1084,30 @@ def area_da_record(request, ct, pk):
     messages.success(request, f"Area di lavoro «{area.nome}» creata e collegata" + (
         f", condivisa con {', '.join(aree.nome(u) for u in persone)}." if persone else ". Aggiungi i colleghi dalle impostazioni dell'area."))
     return redirect(reverse("ai:progetto", args=[area.pk]))
+
+
+def _aree_dell_app(request, slug):
+    """Le aree che l'utente vede collegate all'app (la lista è piccola: si filtra in Python, vale su ogni database)."""
+    return [a for a in aree.visibili(request.user, getattr(request, "azienda", None)).select_related("utente")
+            if slug in (a.app_collegate or [])]
+
+
+def mostra_aree_nell_app(request, slug):
+    user = getattr(request, "user", None)
+    return bool(user and user.is_authenticated and user.has_perm("ai.view_progettochat") and _aree_dell_app(request, slug))
+
+
+@login_required
+@permission_required("ai.view_progettochat", raise_exception=True)
+def aree_dell_app(request):
+    """«Aree di lavoro» dentro un'app (CRM, Progetti…): le aree collegate a quell'app con quello che ci è nato."""
+    from django.apps import apps as django_apps
+
+    from core.registry import modules
+    slug = request.resolver_match.namespace.split(":")[0]
+    manifest = modules.manifests_attivi().get(slug)
+    dashboard = django_apps.is_installed("grafici") and request.user.has_perm("grafici.view_pagina")
+    voci = [{"area": a, **collegamenti.contenuto(request.user, a), "dashboard": reverse("grafici:pagina_area", args=[a.pk]) if dashboard else ""}
+            for a in _aree_dell_app(request, slug)]
+    return render(request, "ai/aree_app.html", {"voci": voci, "nome_app": manifest.name if manifest else slug,
+                                                 "puo_creare": request.user.has_perm("ai.add_progettochat")})

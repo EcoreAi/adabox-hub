@@ -531,6 +531,8 @@ class ProgettoChat(models.Model):
     cartella_documenti = models.PositiveIntegerField("cartella dei Documenti", null=True, blank=True)
     ambito = models.CharField("app predefinita", max_length=31, blank=True,
                               help_text="le chat nuove dell'area partono limitate a questa app (si cambia dalla casella)")
+    app_collegate = models.JSONField("app collegate", default=list, blank=True,
+                                     help_text="nelle app scelte compare «Aree di lavoro» con quest'area; Ada lavora di preferenza con loro")
     personale = models.BooleanField("area personale", default=False, editable=False,
                                     help_text="l'area di ognuno: privata, non si elimina; il nome si cambia")
     creato = models.DateTimeField("creato il", auto_now_add=True)

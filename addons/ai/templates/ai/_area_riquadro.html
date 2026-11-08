@@ -1,0 +1,15 @@
+{# Un'area di lavoro con quello che ci è nato (c = {area, chat, documenti, grafici, n_membri, dashboard}). #}
+<div class="ar-area">
+  <div class="ar-testa"><a class="ui-link ar-nome" href="{% url 'ai:progetto' c.area.pk %}">{{ c.area.nome }}</a>
+    <span class="ui-help">{% if c.n_membri %}condivisa con {{ c.n_membri }} collegh{{ c.n_membri|pluralize:"a,i" }}{% else %}solo tua{% endif %}</span>
+    <span class="ai-spazio"></span>
+    {% if c.dashboard %}<a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ c.dashboard }}">Dashboard</a>{% endif %}
+    <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'ai:progetto' c.area.pk %}">Apri l'area</a></div>
+  {% if c.chat or c.documenti or c.grafici %}
+  <div class="ar-colonne">
+    {% if c.chat %}<div><div class="ar-titolo">Chat</div>{% for x in c.chat %}<a class="ar-voce" href="{% url 'ai:conversazione' x.pk %}">{{ x.titolo }}{% if x.utente_id != request.user.pk %} <small>· {{ x.utente.first_name|default:x.utente.username }}</small>{% endif %}</a>{% endfor %}</div>{% endif %}
+    {% if c.documenti %}<div><div class="ar-titolo">Documenti</div>{% for d in c.documenti %}<a class="ar-voce" href="{% url 'ai:conversazione' d.conversazione_id %}{% if d.utente_id == request.user.pk %}?documento={{ d.pk }}{% endif %}">{{ d.titolo }}</a>{% endfor %}</div>{% endif %}
+    {% if c.grafici %}<div><div class="ar-titolo">Grafici e tabelle</div>{% for a in c.grafici %}<a class="ar-voce" href="{% if a.utente_id == request.user.pk %}{% url 'ai:artifact' a.pk %}{% else %}{% url 'ai:conversazione' a.conversazione_id %}{% endif %}">{{ a.titolo }}</a>{% endfor %}</div>{% endif %}
+  </div>
+  {% else %}<p class="ui-help">Ancora niente: apri l'area e scrivi ad Ada, che conosce questo record in tutte le chat dell'area.</p>{% endif %}
+</div>

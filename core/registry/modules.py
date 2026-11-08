@@ -286,6 +286,16 @@ def app_corrente(request, apps=None):
     app = next((a for a in apps if a["slug"] == namespace), None)
     if app is None:
         return None
-    attiva = max((v for v in app["menu"] if request.path.startswith(v["url"])),
-                 key=lambda v: len(v["url"]), default=None)
-    return {**app, "menu": [{**v, "attiva": v is attiva} for v in app["menu"]]}
+    menu = list(app["menu"])
+    from django.urls import NoReverseMatch, reverse
+
+    from . import hooks
+    for p in hooks.pagine_app():                          # le pagine che altri moduli aggiungono a quest'app
+        if namespace in p["escluse"] or (p["mostra"] and not p["mostra"](request, namespace)):
+            continue
+        try:
+            menu.append({"label": p["etichetta"], "url": reverse(f"{namespace}:{p['nome']}")})
+        except NoReverseMatch:
+            continue
+    attiva = max((v for v in menu if request.path.startswith(v["url"])), key=lambda v: len(v["url"]), default=None)
+    return {**app, "menu": [{**v, "attiva": v is attiva} for v in menu]}

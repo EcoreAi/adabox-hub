@@ -218,6 +218,9 @@ class ProgettoChatForm(forms.ModelForm):
                                                           "di lavoro, con i permessi di chi scrive; lì si salvano documenti, grafici e tabelle")
     ambito = forms.ChoiceField(label="app predefinita", required=False,
                                help_text="le chat nuove dell'area partono limitate a questa app; dalla casella si toglie o si cambia")
+    app_collegate = forms.MultipleChoiceField(label="app collegate", required=False, widget=forms.CheckboxSelectMultiple,
+                                              help_text="in queste app compare «Aree di lavoro» con quest'area e quello che ci nasce, "
+                                                        "per i membri; Ada lavora di preferenza con loro")
     membri = forms.ModelMultipleChoiceField(label="condivisa con", required=False, queryset=None, widget=forms.CheckboxSelectMultiple,
                                             help_text="colleghi della stessa azienda: usano istruzioni, file, cartella e record collegati e "
                                                       "aprono chat nell'area; le loro chat restano loro, salvo quelle che condividono")
@@ -227,7 +230,7 @@ class ProgettoChatForm(forms.ModelForm):
 
     class Meta:
         model = ProgettoChat
-        fields = ["nome", "istruzioni", "ambito", "cartella_documenti", "membri"]
+        fields = ["nome", "istruzioni", "ambito", "cartella_documenti", "app_collegate", "membri"]
         widgets = {"istruzioni": forms.Textarea(attrs={"rows": 10, "data-scrivi-con-ada": "progetto"})}
 
     def __init__(self, *args, **kwargs):
@@ -241,6 +244,8 @@ class ProgettoChatForm(forms.ModelForm):
         if self.instance.ambito and self.instance.ambito not in {s for s, _ in self.app}:
             app.append((self.instance.ambito, f"{self.instance.ambito} (non più disponibile)"))
         self.fields["ambito"].choices = app
+        self.fields["app_collegate"].choices = [(s, n) for s, n in self.app if s != "ai"] + [
+            (s, f"{s} (non più disponibile)") for s in (self.instance.app_collegate or []) if s not in {x for x, _ in self.app}]
         scelte = [("", "Nessuna")] + [(c.pk, percorso) for c, percorso in self.cartelle]
         if self.instance.cartella_documenti and self.instance.cartella_documenti not in {c.pk for c, _ in self.cartelle}:
             scelte.append((self.instance.cartella_documenti, "(cartella che non vedi più)"))

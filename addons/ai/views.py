@@ -285,7 +285,8 @@ class ProgettoChatView(_SoloMie):
     model = ProgettoChat
     slug = "progetti"
     form_class = ProgettoChatForm
-    form_layout = [("Area di lavoro", ["nome", "istruzioni", ("ambito", "cartella_documenti")]), ("Condivisione", ["membri"])]
+    form_layout = [("Area di lavoro", ["nome", "istruzioni", ("ambito", "cartella_documenti")]), ("App collegate", ["app_collegate"]),
+                   ("Condivisione", ["membri"])]
 
     def get_form_class(self, request=None):
         base = super().get_form_class(request)

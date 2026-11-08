@@ -10,8 +10,12 @@ from core.viste import registry
 
 def patterns_moduli():
     registry.autodiscover(settings.ADDONS_ATTIVI)
+    from . import hooks, modules
+    applicazioni = {s for s, m in modules.manifests_attivi().items() if getattr(m, "application", False)}
     patterns = []
     for slug in settings.ADDONS_ATTIVI:
         propri = importlib.import_module(f"{slug}.urls").urlpatterns if importlib.util.find_spec(f"{slug}.urls") else []
-        patterns.append(path(f"{slug}/", include((registry.urlpatterns(slug) + list(propri), slug))))
+        aggiunte = [path(p["percorso"], p["vista"], name=p["nome"]) for p in hooks.pagine_app()
+                    if slug in applicazioni and slug not in p["escluse"]]
+        patterns.append(path(f"{slug}/", include((registry.urlpatterns(slug) + list(propri) + aggiunte, slug))))
     return patterns

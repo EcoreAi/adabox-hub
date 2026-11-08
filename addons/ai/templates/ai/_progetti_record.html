@@ -4,20 +4,7 @@
     {% if pr.puo_creare %}<div class="ui-card-actions"><form method="post" action="{% url 'ai:area_da_record' pr.ct obj.pk %}">{% csrf_token %}<button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm"><svg><use href="#icon-plus"/></svg> Crea un'area di lavoro</button></form></div>{% endif %}</div>
   <div class="ui-card-body">
     {% for c in pr.collegati %}
-    <div class="ar-area">
-      <div class="ar-testa"><a class="ui-link ar-nome" href="{% url 'ai:progetto' c.area.pk %}">{{ c.area.nome }}</a>
-        <span class="ui-help">{% if c.n_membri %}condivisa con {{ c.n_membri }} collegh{{ c.n_membri|pluralize:"a,i" }}{% else %}solo tua{% endif %}</span>
-        <span class="ai-spazio"></span>
-        {% if c.dashboard %}<a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ c.dashboard }}">Dashboard</a>{% endif %}
-        <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'ai:progetto' c.area.pk %}">Apri l'area</a></div>
-      {% if c.chat or c.documenti or c.grafici %}
-      <div class="ar-colonne">
-        {% if c.chat %}<div><div class="ar-titolo">Chat</div>{% for x in c.chat %}<a class="ar-voce" href="{% url 'ai:conversazione' x.pk %}">{{ x.titolo }}{% if x.utente_id != request.user.pk %} <small>· {{ x.utente.first_name|default:x.utente.username }}</small>{% endif %}</a>{% endfor %}</div>{% endif %}
-        {% if c.documenti %}<div><div class="ar-titolo">Documenti</div>{% for d in c.documenti %}<a class="ar-voce" href="{% url 'ai:conversazione' d.conversazione_id %}{% if d.utente_id == request.user.pk %}?documento={{ d.pk }}{% endif %}">{{ d.titolo }}</a>{% endfor %}</div>{% endif %}
-        {% if c.grafici %}<div><div class="ar-titolo">Grafici e tabelle</div>{% for a in c.grafici %}<a class="ar-voce" href="{% if a.utente_id == request.user.pk %}{% url 'ai:artifact' a.pk %}{% else %}{% url 'ai:conversazione' a.conversazione_id %}{% endif %}">{{ a.titolo }}</a>{% endfor %}</div>{% endif %}
-      </div>
-      {% else %}<p class="ui-help">Ancora niente: apri l'area e scrivi ad Ada, che conosce questo record in tutte le chat dell'area.</p>{% endif %}
-    </div>
+    {% include "ai/_area_riquadro.html" %}
     {% empty %}<p class="ui-help">Nessuna area di lavoro collegata. Collegandone una, Ada conosce questo record in tutte le chat dell'area, e quello che ci nasce compare qui.</p>{% endfor %}
     {% if pr.liberi and perms.ai.change_progettochat %}
     <form method="post" class="ui-form-row" style="margin-top:10px;align-items:center;gap:8px" onsubmit="this.action=this.action.replace('/0/', '/' + this.progetto.value + '/')" action="{% url 'ai:collega' 0 %}">{% csrf_token %}
@@ -27,10 +14,5 @@
     </form>{% endif %}
   </div>
 </section>
-<style>.ar-area{padding:8px 0 12px;border-bottom:1px solid var(--ui-border)}.ar-area:last-of-type{border-bottom:0}
-.ar-testa{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.ar-nome{font-weight:600}
-.ar-colonne{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:8px}
-.ar-titolo{font-size:12px;color:var(--ui-text-3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
-.ar-voce{display:block;padding:3px 0;color:var(--ui-text);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ar-voce:hover{color:var(--ui-primary)}
-.ar-voce small{color:var(--ui-text-3)}</style>
+{% include "ai/_area_stile.html" %}
 {% endif %}
