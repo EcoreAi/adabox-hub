@@ -1,0 +1,4 @@
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Da registrare nel servizio</div></div>
+  <div class="ui-card-body"><p class="ui-help">Nell'app registrata su {{ obj }} indica questo indirizzo di reindirizzamento (redirect URI):</p>
+  {% load portale %}<pre class="ui-codice"><code>{% indirizzo_ritorno obj.tipo %}</code></pre>
+  <p class="ui-help">Entrano solo i clienti già invitati al portale, con la stessa email. Con Microsoft il primo accesso si conferma da un link mandato a quell'indirizzo.</p></div></section>

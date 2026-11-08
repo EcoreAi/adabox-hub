@@ -1,0 +1,9 @@
+{% load portale %}{% provider_accesso as servizi %}{% if servizi %}
+<div class="pt-accedi-con">
+  <p class="pt-accedi-sep"><span>clienti del portale</span></p>
+  {% for p in servizi %}<a class="ui-btn ui-btn-secondary pt-accedi-btn" href="{% url 'portale:accedi' p.tipo %}">Accedi con {{ p }}</a>{% endfor %}
+</div>
+<style>.pt-accedi-con{display:grid;gap:8px;margin-top:16px}.pt-accedi-btn{width:100%;justify-content:center}
+.pt-accedi-sep{display:flex;align-items:center;gap:10px;margin:0;font-size:12px;color:var(--ui-text-3)}
+.pt-accedi-sep::before,.pt-accedi-sep::after{content:"";flex:1;border-top:1px solid var(--ui-border)}</style>
+{% endif %}

@@ -11,7 +11,7 @@ Confronto con la checklist di `docs/features-gap` (Odoo, ERPNext, NetSuite, Busi
 - **Acquisti è stata l'app scelta per l'intervento:** passa da 0 a 8 voci complete su 14 (sezione E).
 - **Fatti il 2026-11-05:** scadenziario a fasce, fido dei clienti e pacchetto per il commercialista (FIN-06, FIN-07, FIN-01).
 - **Fatti il 2026-11-05 anche:** ricerche salvate, ricerca in tutte le app, Pivot, registro delle modifiche, scadenza e limiti dei token API (RPT-03, RPT-02, PLT-04, parte di PLT-17 e PLT-14).
-- **Fatto il 2026-11-08:** chatter completo, con messaggi fissati, menzioni senza Discuss e invio a indirizzi esterni scelti al momento (PLT-10), e tolleranza alla perdita di connessione: avviso offline, «Riprova» sugli errori, bozze dei form (PLT-19), posizioni e organigramma (HR-01), dashboard per ruolo e pagine di Analisi condivise con ruoli e gruppi (RPT-01), riaddebito delle spese ai clienti e rimborso abbinato alla banca (FIN-24), modulo web-to-lead per il sito (CRM-19), nuovo modulo Reception per i visitatori (HR-14).
+- **Fatto il 2026-11-08:** chatter completo, con messaggi fissati, menzioni senza Discuss e invio a indirizzi esterni scelti al momento (PLT-10), e tolleranza alla perdita di connessione: avviso offline, «Riprova» sugli errori, bozze dei form (PLT-19), posizioni e organigramma (HR-01), dashboard per ruolo e pagine di Analisi condivise con ruoli e gruppi (RPT-01), riaddebito delle spese ai clienti e rimborso abbinato alla banca (FIN-24), modulo web-to-lead per il sito (CRM-19), nuovo modulo Reception per i visitatori (HR-14), accesso al portale con Google e Microsoft (COM-10).
 - **Integrazioni, iniziate il 2026-11-05 nel modulo Connettori:** webhook firmati in uscita, identificativi esterni sui record, bottoni via API, chat collegata al contatto e primo connettore HubSpot sui contatti delle persone, provato solo contro un sistema simulato. Mancano aziende e opportunità e gli altri sistemi. Zucchetti e TeamSystem Enterprise/Lynfa non hanno documentazione pubblica trovata: servono partner o contatto commerciale.
 
 ## Da dove partire
@@ -70,7 +70,7 @@ Ogni voce aperta è assegnata all'app dove andrebbe costruita. Ordine dentro ogn
 
 ### core
 
-19 voci aperte: 13 Core, 6 Adv, 0 Edge.
+18 voci aperte: 13 Core, 5 Adv, 0 Edge.
 
 | ID | Tier | Stato | Effort | Cosa costruire |
 |---|---|---|---|---|
@@ -87,7 +87,6 @@ Ogni voce aperta è assegnata all'app dove andrebbe costruita. Ordine dentro ogn
 | CRM-08 | Core | PARTIAL | L | Caselle per utente con OAuth Gmail e Microsoft Graph oltre a IMAP, abbinamento automatico per mittente a contatto e opportunità aperta, invio al cliente dal chatter del record. |
 | PLT-02 | Core | MISSING | L | Modello Valuta e Cambio con aggiornamento da BCE, valuta e cambio su documenti, listini, scadenze e incassi, totali in valuta aziendale, Divisa in FatturaPA, report delle differenze di cambio. |
 | PLT-07 | Core | PARTIAL | L | Servizio di approvazione nel kernel con catene configurabili per tipo di documento e soglie (importo, sconto), passi per ruolo o responsabile, deleghe, scadenze, blocco della conferma e storico, adottato da acquisti, vendite, spese e personale. |
-| COM-10 | Adv | PARTIAL | S | Accesso OIDC con Google e Microsoft per gli utenti del portale, legato all'email già invitata senza auto-registrazione aperta. |
 | CRM-16 | Adv | PARTIAL | M | Servizio di firma riusabile sui documenti: richiesta con OTP via email o SMS, PDF con pagina di attestazione e hash conservato, opzione verso provider qualificato; applicato a preventivi e contratti. |
 | IND-03 | Adv | PARTIAL | M | Meccanismo di modelli di settore (moduli da attivare, ruoli, ricette di automazione, dati iniziali) e primo modello agenzia/consulenza; modulo agenda risorse per i saloni. |
 | PLT-23 | Adv | PARTIAL | M | Accesso OIDC e SAML configurabile da UI con creazione utente e mappatura di gruppi su ruoli, backend LDAP facoltativo. |
@@ -819,7 +818,7 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | COM-07 | Fedeltà, gift card, promozioni in POS ed eCommerce | Adv | MISSING | Nessuna occorrenza di fedelt, loyalty, gift, coupon, promozion | Non escluso esplicitamente, ma i canali di cui parla sono fuori scope: ha senso solo se si riaprono COM-03 o COM-05, oppure limitato alla vendita tradizionale (CRM-17). |
 | COM-08 | Connettori marketplace e piattaforme (Shopify, Amazon, POS terzi, logistica) | Adv | MISSING | Nessuna occorrenza di shopify, amazon, woocommerce; addons/magazzino/models.py (Consegna.vettore è testo libero); addons/discuss/connettori.py (solo messaggistica); core/api (API con token, base possibile) | Nessun connettore commerciale né integrazione con corrieri: niente tracking, etichette o sincronizzazione di ordini e giacenze. |
 | COM-09 | Gestione self-service di account e abbonamenti | Adv | PARTIAL | addons/ricorrenti/operazioni.py (disdici, revoca_disdetta, termine_disdetta); addons/assistenza/portale.py (invita, link_password; nessuna pagina account); core/applicazioni.py e addons/rivendita (richieste moduli, solo per la vendita di adabox stessa) | La logica degli abbonamenti esiste solo lato interno. Il cliente non vede i suoi canoni né può disdire o aggiornare dati e carta dal portale; ha solo la scelta della password. Le pagine Applicazioni e Rivendita riguardano le licenze adabox, non i clienti dell'azienda. |
-| COM-10 | Chat dal vivo e accesso con account social | Adv | PARTIAL | addons/discuss/livechat.py, assistente_sito.py, connettori.py, modelli_wa.py, sandbox.py; core/urls.py e core/due_fattori.py (login locale); oauth presente solo in addons/discuss/sandbox.py | Chat completa, con AI, WhatsApp e Telegram. Manca il social login: nessun provider OAuth o OIDC per portale e utenti (allauth assente). |
+| COM-10 | Chat dal vivo e accesso con account social | Adv | HAVE | addons/portale/oidc.py (PKCE, verifica RS256 dell'id_token); addons/portale/accesso_social.py; addons/portale/models.py ProviderAccesso, IdentitaEsterna; addons/portale/tests/test_accesso_social.py | Fatto il 2026-11-08: «Accedi con Google» e «Accedi con Microsoft» per i clienti del portale, solo se già invitati con quella email (nessuna registrazione aperta, niente utenti interni); Google collega subito se l'email è verificata, Microsoft dopo la conferma via email; verifica in due passaggi rispettata; segreto cifrato. Provato contro un servizio OIDC simulato: manca la prova con app vere registrate su Google e Microsoft |
 | COM-11 | Noleggio e biglietteria eventi | Adv | MISSING | Nessuna occorrenza di noleggio, rental, biglietti; addons/calendario/models.py (solo appuntamenti interni); addons/ricorrenti (canoni, non beni fisici) | Nessuna disponibilità di beni nel tempo, cauzioni, rientri, posti o biglietti. |
 
 ### Report e analisi (RPT)
@@ -1194,7 +1193,6 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | ID | Funzione | Cosa costruire | Dipende da | Effort |
 |---|---|---|---|---|
 | COM-09 | Gestione self-service di account e abbonamenti | Sezione portale con contratti, scadenze, fatture e disdetta entro i termini, modifica dei dati anagrafici e di pagamento con revisione interna. | COM-01, COM-02 | M |
-| COM-10 | Chat dal vivo e accesso con account social | Accesso OIDC con Google e Microsoft per gli utenti del portale, legato all'email già invitata senza auto-registrazione aperta. | PLT-23 | S |
 
 **Report e analisi**
 

@@ -1,7 +1,7 @@
 {
     "name": "Portale clienti",
     "summary": "L'area riservata dei clienti: preventivi, ordini, fatture, richieste di assistenza e progetti, ognuna dalla sua app",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Vendite e clienti",
     "depends": ["contatti"],
@@ -10,6 +10,7 @@
     "icon": "portale/icon.svg",
     "menu": [
         {"label": "Accessi al portale", "url_name": "portale:accessi_lista", "permission": "portale.view_accessoportale"},
+        {"label": "Google e Microsoft", "url_name": "portale:provider_lista", "permission": "portale.change_provideraccesso"},
     ],
     "groups": {
         "Portale / Gestore": ["portale.*"],
@@ -22,5 +23,11 @@
                     "link_password": ["Link per scegliere la password", "https://hub.example.it/accounts/reset/abc/"],
                     "link_accesso": ["Pagina di accesso", "https://hub.example.it/accounts/login/"], "nome_utente": ["Nome utente", "anna@rossi.it"]},
          "obbligatori": ["link_password"]},
+        {"codice": "portale.collega", "nome": "Conferma dell'account Google o Microsoft", "gruppo": "Portale clienti",
+         "oggetto": "Conferma l'accesso al portale con {{ servizio }}",
+         "corpo": "Ciao {{ nome }},\n\nqualcuno ha chiesto di entrare nel portale clienti di {{ marchio }} con un account {{ servizio }} che usa questo indirizzo.\n\nSe sei stato tu, conferma qui (vale 24 ore):\n{{ link }}\n\nSe non sei stato tu, ignora questa email: senza conferma non succede niente.\n",
+         "campi": {"nome": ["Nome della persona", "Anna"], "servizio": ["Il servizio", "Microsoft"],
+                    "link": ["Link di conferma", "https://hub.example.it/portale/accedi/conferma/abc/"]},
+         "obbligatori": ["link"]},
     ],
 }

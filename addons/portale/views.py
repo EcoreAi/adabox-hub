@@ -1,6 +1,7 @@
 from core.viste import ModelView, register
 
-from .models import AccessoPortale
+from .forms import ProviderAccessoForm
+from .models import AccessoPortale, IdentitaEsterna, ProviderAccesso
 
 
 @register
@@ -30,3 +31,27 @@ class AccessoPortaleView(ModelView):
     def col_ultimo_accesso(self, obj):
         return obj.utente.last_login.strftime("%d/%m/%Y %H:%M") if obj.utente.last_login else "mai"
     col_ultimo_accesso.short_description = "Ultimo accesso"
+
+
+@register
+class ProviderAccessoView(ModelView):
+    """Google e Microsoft per i clienti del portale: nella scheda l'indirizzo di ritorno da registrare nel servizio."""
+    model = ProviderAccesso
+    slug = "provider"
+    list_display = ["tipo", "client_id", "attivo"]
+    form_class = ProviderAccessoForm
+    form_layout = [("Servizio", [("tipo", "attivo"), "client_id", "nuovo_segreto", "tenant"])]
+
+
+@register
+class IdentitaEsternaView(ModelView):
+    """Gli account Google o Microsoft collegati: toglierne uno obbliga a ricollegarlo al prossimo accesso."""
+    model = IdentitaEsterna
+    slug = "account_collegati"
+    list_display = ["utente", "tipo", "email", "collegata_il", "ultimo_accesso"]
+    list_filter = ["tipo"]
+    search_fields = ["email", "utente__username"]
+    readonly_fields = ["utente", "tipo", "soggetto", "email", "collegata_il", "ultimo_accesso"]
+
+    def has_add_permission(self, request):
+        return False

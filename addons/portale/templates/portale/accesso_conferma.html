@@ -1,0 +1,11 @@
+{% extends 'theme/base.html' %}
+{% block title %}Accesso al portale · {{ theme.brand }}{% endblock %}
+{% block public_content %}
+<div class="ui-login"><div class="ui-login-card"><div class="ui-login-body">
+  {% if scaduto %}<h1>Link non valido</h1><p>Il link è scaduto o non è corretto: accedi di nuovo con il tuo account.</p>
+  {% elif inviata %}<h1>Controlla la posta</h1><p>Per collegare l'account {{ servizio }} abbiamo mandato un link a <strong>{{ email }}</strong>. Aprilo, conferma, poi accedi di nuovo.</p>
+  {% elif conferma %}<h1>Collega l'account {{ servizio }}</h1><p>Da ora potrai entrare nel portale con l'account {{ servizio }} di <strong>{{ email }}</strong>.</p>
+    <form method="post">{% csrf_token %}<button class="ui-btn ui-btn-primary" type="submit">Conferma</button></form>{% endif %}
+  <p style="margin-top:16px"><a class="ui-link" href="{% url 'login' %}">Torna all'accesso</a></p>
+</div></div></div>
+{% endblock %}

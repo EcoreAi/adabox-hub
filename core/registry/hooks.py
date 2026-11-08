@@ -49,9 +49,11 @@ def voci_testata(request):
 def _visibili(voci, request):
     """Le voci permesse all'utente, senza quelle dei moduli spenti (i template delle app seguono «<modulo>/...»)."""
     user = getattr(request, "user", None)
-    if user is None or not user.is_authenticated:
-        return []
     from .modules import disattivati
+    if user is None or not user.is_authenticated:          # chi non è entrato vede solo le voci pubbliche
+        spenti = disattivati()
+        return sorted([v for v in voci if v.get("pubblica") and v["permission"] is None
+                       and v["template"].split("/", 1)[0] not in spenti], key=lambda v: v["order"])
     spenti = disattivati()
     return sorted([v for v in voci if (v["permission"] is None or user.is_superuser or user.has_perm(v["permission"]))
                    and v["template"].split("/", 1)[0] not in spenti], key=lambda v: v["order"])
@@ -84,10 +86,13 @@ def widget_extra(request):
     return [v["funzione"] for v in _widget if v["modulo"] not in spenti and (v["permission"] is None or user.is_superuser or user.has_perm(v["permission"]))]
 
 
-def azione(chiave, template, order=100, permission=None):
+def azione(chiave, template, order=100, permission=None, pubblica=False):
     """Da chiamare nel ready() dell'app: dove un template altrui scrive {% agganci "chiave" %} compare `template`,
-    con il contesto di quel punto (es. «Salva in Analisi» sotto un grafico dell'assistente: chiave «ai.artifact»)."""
+    con il contesto di quel punto (es. «Salva in Analisi» sotto un grafico dell'assistente: chiave «ai.artifact»).
+    `pubblica`: compare anche a chi non ha fatto l'accesso (es. i bottoni nella pagina di login)."""
     voce = {"template": template, "order": order, "permission": permission}
+    if pubblica:
+        voce["pubblica"] = True
     if voce not in _azioni[chiave]:
         _azioni[chiave].append(voce)
 
