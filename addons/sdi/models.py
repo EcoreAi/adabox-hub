@@ -88,6 +88,14 @@ class FatturaPassiva(AziendaMixin):
     ricevuta_il = models.DateTimeField("ricevuta il", auto_now_add=True)
     registrata_il = models.DateField("registrata il", null=True, blank=True)
     note = models.TextField("note", blank=True)
+    ritenuta = models.DecimalField("ritenuta d'acconto", max_digits=14, decimal_places=2, default=0, editable=False)
+    base_ritenuta = models.DecimalField("soggetto a ritenuta", max_digits=14, decimal_places=2, default=0, editable=False)
+    aliquota_ritenuta = models.DecimalField("aliquota della ritenuta", max_digits=5, decimal_places=2, default=0, editable=False)
+    tipo_ritenuta = models.CharField("tipo di ritenuta", max_length=4, blank=True, editable=False)
+    causale_ritenuta = models.CharField("causale del pagamento", max_length=2, blank=True, editable=False,
+                                        help_text="la causale della CU (A lavoro autonomo, M occasionale, R/Q provvigioni…)")
+    contributo_cassa = models.DecimalField("contributo cassa previdenziale", max_digits=14, decimal_places=2, default=0, editable=False)
+    ritenuta_letta = models.BooleanField(default=False, editable=False)
 
     class Meta(AziendaMixin.Meta):
         verbose_name = "fattura ricevuta"

@@ -84,6 +84,26 @@ def _tutti(nodo, nome):
     return nodo.xpath(f"./*[local-name()='{nome}']")
 
 
+def ritenute_di(gen):
+    """I dati delle ritenute (DatiRitenuta, anche più d'uno) e della cassa previdenziale di DatiGeneraliDocumento."""
+    ritenute = [r for r in (_tutti(gen, "DatiRitenuta") if gen is not None else [])
+                if _t(r, "TipoRitenuta") in ("RT01", "RT02", "")]          # RT03-RT06 sono contributi (INPS, ENASARCO…), non IRPEF
+    importo = sum((_n(r, "ImportoRitenuta") for r in ritenute), Decimal(0))
+    base = Decimal(0)
+    for r in ritenute:
+        aliquota = _n(r, "AliquotaRitenuta")
+        if aliquota:
+            base += (_n(r, "ImportoRitenuta") * 100 / aliquota).quantize(Decimal("0.01"))
+    principale = max(ritenute, key=lambda r: _n(r, "ImportoRitenuta"), default=None)
+    cassa = sum((_n(c, "ImportoContributoCassa") for c in (_tutti(gen, "DatiCassaPrevidenziale") if gen is not None else [])), Decimal(0))
+    return {"ritenuta": importo, "base_ritenuta": base, "aliquota_ritenuta": _n(principale, "AliquotaRitenuta") if principale is not None else Decimal(0),
+            "tipo_ritenuta": _t(principale, "TipoRitenuta")[:4], "causale_ritenuta": _t(principale, "CausalePagamento")[:2],
+            "contributo_cassa": cassa}
+
+
+CAMPI_RITENUTA = ("ritenuta", "base_ritenuta", "aliquota_ritenuta", "tipo_ritenuta", "causale_ritenuta", "contributo_cassa")
+
+
 def leggi(contenuto):
     """{cedente, cessionario, documenti: [...]} dall'XML (un file può contenere più fatture: un "lotto")."""
     try:
@@ -128,6 +148,7 @@ def leggi(contenuto):
         riferimenti = {"ordini": [_t(o, "IdDocumento") for o in _tutti(generali, "DatiOrdineAcquisto")],
                        "ddt": [_t(d, "NumeroDDT") for d in _tutti(generali, "DatiDDT")]}
         documenti.append({
+            **ritenute_di(gen),
             "riferimenti": riferimenti, "tipo": _t(gen, "TipoDocumento") or "TD01", "numero": _t(gen, "Numero"), "data": _d(_t(gen, "Data")),
             "causale": "\n".join(c.text or "" for c in _tutti(gen, "Causale")),
             "imponibile": imponibile, "imposta": imposta, "totale": totale,
@@ -187,7 +208,7 @@ def importa(nome_file, contenuto, azienda=None):
             azienda=destinataria, fornitore=fornitore, tipo_documento=doc["tipo"][:4], numero=doc["numero"][:20],
             data=doc["data"], causale=doc["causale"], imponibile=doc["imponibile"], imposta=doc["imposta"],
             totale=doc["totale"], nome_file=nome_file[:80], originale=ContentFile(originale, name=nome_file),
-            identificativo_sdi=mt.identificativo_sdi if mt else "")
+            identificativo_sdi=mt.identificativo_sdi if mt else "", ritenuta_letta=True, **{c: doc[c] for c in CAMPI_RITENUTA})
         RigaPassiva.objects.bulk_create(RigaPassiva(fattura=f, **r) for r in doc["righe"])
         RiepilogoPassiva.objects.bulk_create(RiepilogoPassiva(fattura=f, **r) for r in doc["riepilogo"])
         scadenze = doc["scadenze"] or [{"data": doc["data"], "importo": doc["totale"], "modalita": "", "iban": ""}]

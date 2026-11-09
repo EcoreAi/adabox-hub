@@ -152,3 +152,30 @@ def scadenzario_fornitori(request):
     elenco = reverse("sdi:pagamenti_lista")
     return motore.risposta(request, voci_fornitori(request), "Scadenziario fornitori", "Fornitore", "scadenziario-fornitori",
                            lambda pk: f"{elenco}?f_pagata=0&f_fattura__fornitore={pk}")
+
+
+@login_required
+@permission_required("sdi.view_fatturapassiva", raise_exception=True)
+def ritenute_pagina(request):
+    """Le ritenute operate sui fornitori, per mese di pagamento: totali per l'F24 e dati per la CU dell'anno."""
+    import csv
+
+    from django.utils import timezone
+
+    from fatturazione.registro import MESI, periodo
+
+    from . import ritenute
+    anno, mese = periodo(request)
+    righe = ritenute.operate(queryset(request, FatturaPassiva), anno, mese)
+    if request.GET.get("formato") == "csv":
+        risposta = HttpResponse(content_type="text/csv; charset=utf-8")
+        risposta["Content-Disposition"] = f'attachment; filename="ritenute-{anno}{f"-{mese:02d}" if mese else ""}.csv"'
+        risposta.write("﻿")
+        scrittore = csv.writer(risposta, delimiter=";")
+        scrittore.writerows(ritenute.foglio(righe))
+        return risposta
+    oggi = timezone.localdate()
+    return render(request, "sdi/ritenute.html", {
+        "righe": righe, "f24": [(MESI[m - 1], codice, totale) for (m, codice), totale in ritenute.per_f24(righe).items()],
+        "cu": ritenute.per_cu(righe) if not mese else [], "anno": anno, "mese": mese, "anni": range(oggi.year, oggi.year - 6, -1),
+        "mesi": list(enumerate(MESI, start=1)), "titolo_periodo": f"{MESI[mese - 1]} {anno}" if mese else str(anno)})

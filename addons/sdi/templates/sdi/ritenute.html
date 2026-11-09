@@ -1,0 +1,31 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Ritenute · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Ritenute d'acconto</h1><div class="sub">{{ titolo_periodo }} · trattenute ai fornitori sulle fatture pagate, per l'F24 e la CU</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="?anno={{ anno }}&mese={{ mese|default_if_none:'' }}&formato=csv">Esporta CSV per lo studio</a></div>
+</div>
+<div class="ui-card is-revealed ui-section">
+  <form class="ui-filtri" method="get">
+    <select class="ui-input" name="anno" aria-label="Anno">{% for a in anni %}<option value="{{ a }}"{% if a == anno %} selected{% endif %}>{{ a }}</option>{% endfor %}</select>
+    <select class="ui-input" name="mese" aria-label="Mese"><option value="">Tutto l'anno</option>{% for n, nome in mesi %}<option value="{{ n }}"{% if n == mese %} selected{% endif %}>{{ nome|capfirst }}</option>{% endfor %}</select>
+    <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Mostra</button>
+  </form>
+  {% if f24 %}<div class="ui-card-body"><div class="cm-tessere">{% for nome, codice, totale in f24 %}
+    <div class="cm-tessera"><small>Pagate in {{ nome }} · codice {{ codice }}</small><strong>{{ totale|floatformat:2 }} €</strong></div>{% endfor %}</div>
+    <p class="ui-help" style="margin:0">Le ritenute si versano con l'F24 entro il 16 del mese dopo il pagamento. Conta quando si paga la fattura, non la sua data.</p></div>{% endif %}
+</div>
+{% if cu %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div><div class="ui-card-title">Per la CU {{ anno|add:1 }}</div><div class="ui-card-sub">Totali dell'anno per fornitore e causale</div></div></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Fornitore</th><th>Codice fiscale</th><th>Causale</th><th class="ui-num">Soggetto</th><th class="ui-num">Non soggetto</th><th class="ui-num">Ritenuta</th><th class="ui-num">Cassa</th></tr></thead>
+  <tbody>{% for fornitore, causale, soggetto, non_soggetto, ritenuta, cassa in cu %}<tr><td>{{ fornitore.nome }}</td><td>{{ fornitore.codice_fiscale|default:fornitore.partita_iva }}</td><td>{{ causale|default:"—" }}</td>
+    <td class="ui-num">{{ soggetto|floatformat:2 }}</td><td class="ui-num">{{ non_soggetto|floatformat:2 }}</td><td class="ui-num">{{ ritenuta|floatformat:2 }}</td><td class="ui-num">{{ cassa|floatformat:2 }}</td></tr>{% endfor %}</tbody></table></div>
+</section>{% endif %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Pagamenti con ritenuta</div></div>
+  {% if righe %}<div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Mese</th><th>Fornitore</th><th>Causale</th><th>Tributo</th><th class="ui-num">Pagato</th><th class="ui-num">Soggetto</th><th class="ui-num">Ritenuta</th><th>Fatture</th></tr></thead>
+  <tbody>{% for r in righe %}<tr><td>{{ r.nome_mese|capfirst }}</td><td>{{ r.fornitore.nome }}</td><td>{{ r.causale|default:"—" }}</td><td>{{ r.codice }}</td>
+    <td class="ui-num">{{ r.pagato|floatformat:2 }}</td><td class="ui-num">{{ r.soggetto|floatformat:2 }}</td><td class="ui-num">{{ r.ritenuta|floatformat:2 }}</td>
+    <td>{% for f in r.fatture %}<a class="ui-link" href="{% url 'sdi:passive_dettaglio' f.pk %}">{{ f.numero }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessuna fattura con ritenuta pagata nel periodo.</p></div></div>{% endif %}
+</section>
+<p class="ui-help">Dati di partenza per lo studio: la CU e l'F24 li prepara e li trasmette il commercialista. Le ritenute si leggono dalle fatture elettroniche ricevute (tipi RT01 e RT02); i contributi INPS o ENASARCO trattenuti non sono qui.</p>
+{% endblock %}

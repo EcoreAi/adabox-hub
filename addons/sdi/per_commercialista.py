@@ -33,6 +33,11 @@ def acquisti(request, anno, mese, avvisi):
     sospese = nel_periodo(queryset(request, FatturaPassiva).exclude(stato=FatturaPassiva.REGISTRATA), "data", anno, mese).select_related("fornitore")
     for f in sospese:
         avvisi.append(f"Fattura ricevuta {f.numero} di {f.fornitore}: {f.get_stato_display().lower()}, non inclusa nel registro")
+    from . import ritenute
+    trattenute = ritenute.operate(queryset(request, FatturaPassiva), anno, mese)
+    if trattenute:
+        tabella = ritenute.foglio(trattenute)
+        yield "acquisti/ritenute-operate.csv", foglio(tabella[0], tabella[1:])
     aperti, _ = scadenzario.tabella(voci_fornitori(request), timezone.localdate())
     if aperti:
         yield "acquisti/debiti-aperti-oggi.csv", scadenzario.testo_csv(aperti, "Fornitore").encode("utf-8-sig")
