@@ -26,13 +26,14 @@ class CostoOrario(AziendaMixin):
 
 class Condizioni(AziendaMixin):
     """Come si fattura un progetto."""
-    ORE, CORPO, NESSUNA = "ore", "corpo", "nessuna"
-    TIPI = [(ORE, "A ore"), (CORPO, "A corpo"), (NESSUNA, "Non si fattura")]
+    ORE, CORPO, TAPPE, NESSUNA = "ore", "corpo", "tappe", "nessuna"
+    TIPI = [(ORE, "A ore"), (CORPO, "A corpo"), (TAPPE, "A tappe (milestone o SAL)"), (NESSUNA, "Non si fattura")]
     progetto = models.OneToOneField("progetti.Progetto", on_delete=models.CASCADE, related_name="condizioni", verbose_name="progetto")
     tipo = models.CharField("fatturazione", max_length=8, choices=TIPI, default=ORE)
     tariffa = models.DecimalField("tariffa oraria (€)", max_digits=8, decimal_places=2, default=0,
                                   help_text="vale per chi non ha una tariffa propria qui sotto")
-    importo_corpo = models.DecimalField("importo a corpo (€)", max_digits=12, decimal_places=2, default=0)
+    importo_corpo = models.DecimalField("importo a corpo (€)", max_digits=12, decimal_places=2, default=0,
+                                        help_text="a corpo o a tappe: il valore del progetto")
     termine_pagamento = models.ForeignKey("fiscale.TerminePagamento", on_delete=models.SET_NULL, null=True, blank=True,
                                           verbose_name="pagamento")
     aliquota = models.ForeignKey("fiscale.AliquotaIva", on_delete=models.PROTECT, null=True, blank=True, verbose_name="IVA",
@@ -99,3 +100,35 @@ class FatturaProgetto(models.Model):
     class Meta:
         verbose_name = "fattura di un progetto"
         verbose_name_plural = "fatture dei progetti"
+
+
+class Tappa(models.Model):
+    """Una milestone o un SAL di un progetto a tappe: quando si completa nasce la sua fattura in bozza."""
+    condizioni = models.ForeignKey(Condizioni, on_delete=models.CASCADE, related_name="tappe", verbose_name="condizioni")
+    nome = models.CharField("tappa", max_length=120, help_text="es. Analisi consegnata, SAL 1")
+    percentuale = models.DecimalField("% del valore", max_digits=6, decimal_places=2, null=True, blank=True)
+    importo = models.DecimalField("oppure importo (€)", max_digits=12, decimal_places=2, null=True, blank=True)
+    prevista_il = models.DateField("prevista il", null=True, blank=True)
+    completata_il = models.DateField("completata il", null=True, blank=True, editable=False)
+    fattura = models.ForeignKey("fatturazione.Fattura", on_delete=models.SET_NULL, null=True, blank=True, related_name="tappe",
+                                verbose_name="fattura", editable=False)
+
+    class Meta:
+        verbose_name = "tappa"
+        verbose_name_plural = "tappe"
+        ordering = ["prevista_il", "pk"]
+
+    def __str__(self):
+        return self.nome
+
+    @property
+    def valore(self):
+        if self.importo is not None:
+            return self.importo
+        return (self.condizioni.importo_corpo * (self.percentuale or 0) / 100).quantize(Decimal("0.01"))
+
+    def clean(self):
+        if (self.percentuale is None) == (self.importo is None):
+            raise ValidationError("Indica la percentuale oppure l'importo della tappa.")
+        if self.percentuale is not None and not 0 < self.percentuale <= 100:
+            raise ValidationError({"percentuale": "Fra 0 e 100."})

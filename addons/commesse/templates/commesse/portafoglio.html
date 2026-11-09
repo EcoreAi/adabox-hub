@@ -1,0 +1,16 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Portafoglio progetti · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Portafoglio progetti</h1><div class="sub">{% if tutti %}Tutti i progetti{% else %}I progetti aperti{% endif %} · ricavi (fatturati e da fatturare), costi di ore, acquisti e spese imputati, margine · <a class="ui-link" href="?{% if not tutti %}tutti=1{% endif %}">{% if tutti %}solo gli aperti{% else %}mostra anche i chiusi{% endif %}</a></div></div></div>
+<div class="cm-tessere">
+  <div class="cm-tessera"><small>Ricavi</small><strong>{{ totale.ricavi|floatformat:2 }} €</strong></div>
+  <div class="cm-tessera"><small>Fatturato</small><strong>{{ totale.fatturato|floatformat:2 }} €</strong></div>
+  <div class="cm-tessera"><small>Costi</small><strong>{{ totale.costi|floatformat:2 }} €</strong></div>
+  <div class="cm-tessera {% if totale.margine >= 0 %}is-positivo{% else %}is-negativo{% endif %}"><small>Margine</small><strong>{{ totale.margine|floatformat:2 }} €</strong></div>
+</div>
+<section class="ui-card is-revealed ui-section">{% if righe %}<div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Progetto</th><th>Cliente</th><th>Fatturazione</th><th class="ui-num">Ricavi</th><th class="ui-num">Costi</th><th class="ui-num">Margine</th><th class="ui-num">%</th><th>Budget</th></tr></thead>
+  <tbody>{% for x in righe %}<tr><td><a class="ui-link" href="{% url 'progetti:progetti_dettaglio' x.progetto.pk %}">{{ x.progetto }}</a></td><td>{{ x.progetto.cliente|default:"—" }}</td><td>{{ x.tipo }}</td>
+    <td class="ui-num">{{ x.ricavi|floatformat:2 }}</td><td class="ui-num">{{ x.costi|floatformat:2 }}</td><td class="ui-num"><strong>{{ x.margine|floatformat:2 }}</strong></td><td class="ui-num">{{ x.percentuale }}%</td>
+    <td>{% if x.budget %}{{ x.budget.margine_proiezione|floatformat:2 }} € a fine periodo{% for r in x.budget.righe %}{% if r.oltre %} <span class="ui-pill ui-pill-danger">{{ r.nome|lower }} oltre</span>{% endif %}{% endfor %}{% else %}<span class="sub">—</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun progetto.</p></div></div>{% endif %}</section>
+{% endblock %}

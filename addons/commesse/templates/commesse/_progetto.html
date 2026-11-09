@@ -7,6 +7,7 @@
     <div class="cm-tessere">
       <div class="cm-tessera"><small>Ricavi</small><strong>{{ r.ricavi|floatformat:2 }} €</strong></div>
       <div class="cm-tessera"><small>Costo delle ore</small><strong>{{ r.costo|floatformat:2 }} €</strong></div>
+      {% if r.esterni or r.spese %}<div class="cm-tessera"><small>Costi esterni e spese</small><strong>{{ r.esterni|add:r.spese|floatformat:2 }} €</strong></div>{% endif %}
       <div class="cm-tessera {% if r.margine >= 0 %}is-positivo{% else %}is-negativo{% endif %}"><small>Margine</small><strong>{{ r.margine|floatformat:2 }} €</strong></div>
       <div class="cm-tessera"><small>Margine %</small><strong>{{ r.percentuale }}%</strong></div>
     </div>
@@ -16,10 +17,17 @@
       <span><i style="background:#fbbf24"></i>Da fatturare {{ r.in_attesa|floatformat:2 }} € ({{ r.ore_da_fatturare|floatformat:"-2" }} h)</span></div>{% endif %}
     {% if r.persone %}<div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>Persona</th><th class="num">Ore</th><th class="num">Costo</th></tr></thead><tbody>
       {% for p in r.persone %}<tr><td>{{ p.utente|default:"—" }}</td><td class="num">{{ p.ore|floatformat:"-2" }}</td><td class="num">{{ p.costo|floatformat:2 }} €</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+    {% if r.tappe %}<div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>Tappa</th><th>Prevista</th><th class="num">Valore</th><th>Fattura</th></tr></thead><tbody>
+      {% for t in r.tappe %}<tr><td>{{ t.nome }}</td><td>{{ t.prevista_il|date:"d/m/Y"|default:"—" }}</td><td class="num">{{ t.valore|floatformat:2 }} €</td>
+        <td>{% if t.fattura and t.fattura.stato != "annullata" %}<a class="ui-link" href="{% url 'fatturazione:fatture_dettaglio' t.fattura.pk %}">{{ t.fattura }}</a>{% elif perms.fatturazione.add_fattura %}<form method="post" action="{% url 'commesse:completa_tappa' t.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Completata: fattura</button></form>{% else %}—{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+    {% if r.budget %}<p class="sub">Budget «{{ r.budget.budget }}»: margine previsto {{ r.budget.margine_previsto|floatformat:2 }} €, a fine periodo {{ r.budget.margine_proiezione|floatformat:2 }} € al ritmo di finora{% for x in r.budget.righe %}{% if x.oltre %} · {{ x.nome|lower }} oltre il previsto{% endif %}{% endfor %}.</p>{% endif %}
     <div class="cm-azioni" style="margin-top:14px">
       {% if perms.fatturazione.add_fattura %}
       {% if r.condizioni.tipo == "ore" and r.ore_da_fatturare %}<a class="ui-btn ui-btn-primary ui-btn-sm" href="{% url 'commesse:fattura_ore' obj.pk %}">Fattura le ore</a>{% endif %}
-      {% if r.condizioni.tipo == "corpo" %}<form method="post" action="{% url 'commesse:fattura_corpo' obj.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Crea la fattura a corpo</button></form>{% endif %}
+      {% if r.condizioni.tipo == "corpo" and r.residuo_corpo > 0 %}<form method="post" action="{% url 'commesse:fattura_corpo' obj.pk %}" class="cm-azioni">{% csrf_token %}
+        <span class="sub">Restano {{ r.residuo_corpo|floatformat:2 }} €</span>
+        <input class="ui-input" name="importo" inputmode="decimal" placeholder="Acconto (vuoto = tutto)" aria-label="Importo dell'acconto" style="width:170px">
+        <button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Crea la fattura a corpo</button></form>{% endif %}
       {% endif %}
       {% if collegabili and perms.commesse.change_condizioni %}<form method="post" action="{% url 'commesse:collega_fattura' obj.pk %}" class="cm-azioni">{% csrf_token %}
         <select class="ui-input" name="fattura" aria-label="Fattura da collegare" style="width:auto">{% for f in collegabili %}<option value="{{ f.pk }}">{{ f }} · {{ f.imponibile|floatformat:2 }} €</option>{% endfor %}</select>

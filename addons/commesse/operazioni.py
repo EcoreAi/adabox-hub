@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Sum
+from django.utils import timezone
 
 from assistenza.models import Contratto, DatiTicket, Supporto
 from core import modelli_email, parametri
@@ -189,18 +190,71 @@ def fattura_ore(progetto, pk_righe=None, al=None):
     return fattura
 
 
-def fattura_corpo(progetto):
+def fatturato_corpo(progetto):
+    """L'imponibile già fatturato al progetto (fatture non annullate, meno le note di credito emesse)."""
+    totale = Decimal(0)
+    for f in Fattura.objects.filter(su_progetto__progetto=progetto).exclude(stato=Fattura.ANNULLATA):
+        totale += f.imponibile
+        totale -= sum((n.imponibile for n in f.note_credito.filter(stato=Fattura.EMESSA)), Decimal(0))
+    return totale
+
+
+def residuo_corpo(progetto):
+    return condizioni_di(progetto).importo_corpo - fatturato_corpo(progetto)
+
+
+def _fattura_progetto(progetto, condizioni, descrizione, importo):
+    if progetto.cliente_id is None:
+        raise ValidationError(f"{progetto} non ha un cliente: indicalo prima di fatturare.")
+    fattura = Fattura.objects.create(azienda=progetto.azienda, cliente=progetto.cliente, termine_pagamento=condizioni.termine_pagamento,
+                                     causale=progetto.nome[:200])
+    RigaFattura.objects.create(fattura=fattura, descrizione=descrizione[:250], prezzo=importo, aliquota=condizioni.aliquota)
+    FatturaProgetto.objects.create(fattura=fattura, progetto=progetto)
+    fattura.ricalcola()
+    return fattura
+
+
+@transaction.atomic
+def fattura_corpo(progetto, importo=None, descrizione=""):
+    """La fattura a corpo: senza importo, tutto il residuo; con un importo, un acconto. Mai oltre il valore."""
     condizioni = condizioni_di(progetto)
     if condizioni.tipo != Condizioni.CORPO or condizioni.importo_corpo <= 0:
         raise ValidationError("Indica l'importo a corpo nelle condizioni del progetto.")
-    if progetto.cliente_id is None:
-        raise ValidationError(f"{progetto} non ha un cliente: indicalo prima di fatturare.")
-    with transaction.atomic():
-        fattura = Fattura.objects.create(azienda=progetto.azienda, cliente=progetto.cliente, termine_pagamento=condizioni.termine_pagamento,
-                                         causale=progetto.nome[:200])
-        RigaFattura.objects.create(fattura=fattura, descrizione=progetto.nome[:250], prezzo=condizioni.importo_corpo, aliquota=condizioni.aliquota)
-        FatturaProgetto.objects.create(fattura=fattura, progetto=progetto)
-        fattura.ricalcola()
+    residuo = residuo_corpo(progetto)
+    importo = residuo if importo is None else Decimal(importo).quantize(Decimal("0.01"))
+    if importo <= 0 or residuo <= 0:
+        raise ValidationError("Il progetto a corpo è già fatturato per intero.")
+    if importo > residuo:
+        raise ValidationError(f"Restano da fatturare {residuo:.2f} €: non puoi fatturarne {importo:.2f}.")
+    acconto = importo < residuo
+    testo = descrizione or (f"Acconto su {progetto.nome}" if acconto else progetto.nome if residuo == condizioni.importo_corpo
+                            else f"Saldo di {progetto.nome}")
+    return _fattura_progetto(progetto, condizioni, testo, importo)
+
+
+def controlla_tappe(condizioni):
+    """La somma delle tappe non supera il valore del progetto."""
+    totale = sum((t.valore for t in condizioni.tappe.all()), Decimal(0))
+    if condizioni.importo_corpo and totale > condizioni.importo_corpo:
+        raise ValidationError(f"Le tappe valgono {totale:.2f} €, più del valore del progetto ({condizioni.importo_corpo:.2f} €).")
+    return totale
+
+
+@transaction.atomic
+def completa_tappa(tappa, utente=None):
+    """La tappa è raggiunta: si segna e nasce la sua fattura in bozza (una volta sola)."""
+    condizioni = tappa.condizioni
+    if condizioni.tipo != Condizioni.TAPPE:
+        raise ValidationError("Il progetto non si fattura a tappe.")
+    if tappa.fattura_id and tappa.fattura.stato != Fattura.ANNULLATA:
+        raise ValidationError(f"La tappa ha già la {tappa.fattura}.")
+    controlla_tappe(condizioni)
+    progetto = condizioni.progetto
+    fattura = _fattura_progetto(progetto, condizioni, f"{progetto.nome}: {tappa.nome}", tappa.valore)
+    tappa.completata_il, tappa.fattura = timezone.localdate(), fattura
+    tappa.save(update_fields=["completata_il", "fattura"])
+    from core import chatter
+    chatter.scrivi(progetto, utente, f"Tappa «{tappa.nome}» completata: {fattura} in bozza.", tipo="nota")
     return fattura
 
 
@@ -242,12 +296,69 @@ def redditivita(progetto):
     aperte = da_fatturare(progetto)
     in_attesa = sum((v["importo"] for v in aperte), Decimal(0))
     ricavi = fatturato + in_attesa
-    margine = ricavi - costo_ore
+    esterni = costi_analitica(progetto)
+    budget = budget_progetto(progetto)
+    margine = ricavi - costo_ore - esterni["acquisti"] - esterni["spese"]
     base = ricavi or Decimal(1)
+    condizioni = condizioni_di(progetto)
+    if condizioni.tipo == Condizioni.TAPPE:
+        tappe = list(condizioni.tappe.select_related("fattura"))
+        in_attesa = sum((t.valore for t in tappe if not t.fattura_id or t.fattura.stato == Fattura.ANNULLATA), Decimal(0))
+        ricavi = fatturato + in_attesa
+        margine = ricavi - costo_ore - esterni["acquisti"] - esterni["spese"]
+        base = ricavi or Decimal(1)
     return {"ore": ore_totali, "costo": calcoli.arrotonda(costo_ore), "fatturato": fatturato, "in_attesa": in_attesa,
+            "esterni": esterni["acquisti"], "spese": esterni["spese"], "budget": budget,
+            "residuo_corpo": residuo_corpo(progetto) if condizioni.tipo == Condizioni.CORPO else None,
+            "tappe": list(condizioni.tappe.select_related("fattura")) if condizioni.tipo == Condizioni.TAPPE else [],
             "ricavi": ricavi, "margine": calcoli.arrotonda(margine),
             "percentuale": int(margine * 100 / ricavi) if ricavi else 0,
             "quota_fatturato": int(fatturato * 100 / base), "quota_attesa": int(in_attesa * 100 / base),
             "ore_da_fatturare": sum((v["ore"] for v in aperte), Decimal(0)),
             "persone": sorted(per_persona.values(), key=lambda p: -p["ore"]),
             "condizioni": condizioni_di(progetto), "fatture": fatture.order_by("-data")[:10]}
+
+
+
+def _voci_analitiche(progetto):
+    from django.apps import apps
+    if not apps.is_installed("analitica"):
+        return []
+    from analitica.models import Voce
+    return list(Voce.objects.filter(azienda=progetto.azienda, progetto_id=progetto.pk))
+
+
+def costi_analitica(progetto):
+    """Fatture ricevute e note spese imputate alle voci analitiche collegate al progetto (positivi)."""
+    voci = _voci_analitiche(progetto)
+    valori = {"acquisti": Decimal(0), "spese": Decimal(0)}
+    if not voci:
+        return valori
+    from analitica.operazioni import movimenti
+    for m in movimenti(progetto.azienda, voci):
+        if m["fonte"].categoria in valori:
+            valori[m["fonte"].categoria] -= m["importo"]
+    return valori
+
+
+def budget_progetto(progetto):
+    """Il confronto dei budget delle voci collegate (il più recente), o None."""
+    voci = _voci_analitiche(progetto)
+    if not voci:
+        return None
+    from analitica.models import Budget
+    from analitica.operazioni import confronto
+    b = Budget.objects.filter(voce__in=voci).order_by("-dal").first()
+    return {"budget": b, **confronto(b)} if b else None
+
+
+def portafoglio(azienda, progetti):
+    """Per ogni progetto: ricavi, costi (ore, esterni, spese), margine e budget, per la vista d'insieme."""
+    righe = []
+    for p in progetti:
+        r = redditivita(p)
+        costi = r["costo"] + r["esterni"] + r["spese"]
+        righe.append({"progetto": p, "ricavi": r["ricavi"], "fatturato": r["fatturato"], "costi": costi, "margine": r["margine"],
+                      "percentuale": r["percentuale"], "budget": r["budget"], "tipo": r["condizioni"].get_tipo_display()})
+    totale = {k: sum((x[k] for x in righe), Decimal(0)) for k in ("ricavi", "fatturato", "costi", "margine")}
+    return righe, totale

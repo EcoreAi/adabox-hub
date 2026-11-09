@@ -1,6 +1,6 @@
 from core.viste import Inline, ModelView, register
 
-from .models import Condizioni, CostoOrario, TariffaPersona
+from .models import Condizioni, CostoOrario, TariffaPersona, Tappa
 
 
 @register
@@ -12,7 +12,8 @@ class CondizioniView(ModelView):
     search_fields = ["progetto__nome", "progetto__cliente__nome"]
     form_layout = [("Fatturazione", ["progetto", "tipo", ("tariffa", "importo_corpo"), ("termine_pagamento", "aliquota")])]
     company_field = "azienda"
-    inlines = [Inline(TariffaPersona, "condizioni", ["utente", "tariffa"], titolo="Tariffe delle persone", extra=1)]
+    inlines = [Inline(TariffaPersona, "condizioni", ["utente", "tariffa"], titolo="Tariffe delle persone", extra=1),
+               Inline(Tappa, "condizioni", ["nome", "percentuale", "importo", "prevista_il"], titolo="Tappe (per i progetti a tappe)", extra=0)]
 
 
 @register

@@ -57,8 +57,13 @@ def fattura_ore(request, pk):
 @permission_required("fatturazione.add_fattura", raise_exception=True)
 @require_POST
 def fattura_corpo(request, pk):
+    from decimal import Decimal, InvalidOperation
     try:
-        fattura = operazioni.fattura_corpo(_progetto(request, pk))
+        testo = (request.POST.get("importo") or "").replace(",", ".").strip()
+        fattura = operazioni.fattura_corpo(_progetto(request, pk), Decimal(testo) if testo else None)
+    except InvalidOperation:
+        messages.error(request, "Scrivi l'importo dell'acconto con i numeri.")
+        return redirect("progetti:progetti_dettaglio", pk=pk)
     except ValidationError as e:
         messages.error(request, " ".join(e.messages))
         return redirect("progetti:progetti_dettaglio", pk=pk)
@@ -103,3 +108,31 @@ def ore_ticket(request, pk):
     if url_has_allowed_host_and_scheme(prossima, {request.get_host()}, request.is_secure()):
         return redirect(prossima)
     return redirect("helpdesk:ticket_dettaglio", pk=pk)
+
+
+
+@login_required
+@permission_required("fatturazione.add_fattura", raise_exception=True)
+@require_POST
+def completa_tappa(request, pk):
+    from .models import Tappa
+    tappa = get_object_or_404(Tappa.objects.select_related("condizioni__progetto"), pk=pk, condizioni__azienda=request.azienda)
+    try:
+        fattura = operazioni.completa_tappa(tappa, request.user)
+    except ValidationError as e:
+        messages.error(request, " ".join(e.messages))
+        return redirect("progetti:progetti_dettaglio", pk=tappa.condizioni.progetto_id)
+    messages.success(request, f"Tappa completata: {fattura} in bozza, controllala ed emettila.")
+    return redirect("fatturazione:fatture_dettaglio", pk=fattura.pk)
+
+
+@login_required
+@permission_required("commesse.view_condizioni", raise_exception=True)
+def portafoglio(request):
+    """Tutti i progetti aperti: ricavi, costi, margine e budget a colpo d'occhio."""
+    from progetti.models import Progetto
+    progetti = queryset(request, Progetto).select_related("cliente").order_by("nome")
+    if request.GET.get("tutti") != "1":
+        progetti = progetti.exclude(stato=Progetto.CHIUSO)
+    righe, totale = operazioni.portafoglio(request.azienda, list(progetti[:150]))
+    return render(request, "commesse/portafoglio.html", {"righe": righe, "totale": totale, "tutti": request.GET.get("tutti") == "1"})
