@@ -1,0 +1,7 @@
+{% if obj.modificabile %}{% load vendite_extra %}{% modelli_preventivo obj as modelli %}{% if modelli %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <form method="post" action="{% url 'vendite:applica_modello' obj.pk %}" class="ui-filtri">{% csrf_token %}
+    <span class="sub">Parti da un modello:</span>
+    <select class="ui-input" name="modello" aria-label="Modello di preventivo">{% for m in modelli %}<option value="{{ m.pk }}">{{ m }}</option>{% endfor %}</select>
+    <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Aggiungi le sue righe</button></form>
+</div></section>{% endif %}{% endif %}

@@ -25,23 +25,26 @@
 
   {% if stato != 'modificato' %}
   <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>Descrizione</th><th class="num">Quantità</th><th class="num">Prezzo</th><th class="num">Sconto</th><th class="num">IVA</th><th class="num">Importo</th></tr></thead><tbody>
-    {% for r in righe %}<tr><td>{{ r.descrizione }}</td><td class="num">{{ r.quantita|floatformat:"-3" }}</td><td class="num">{{ r.prezzo|floatformat:2 }} €</td>
+    {% for r in righe %}<tr{% if r.opzionale %} class="vn-opzione"{% endif %}><td>{% if r.opzionale %}{% if stato == 'valido' %}<label><input type="checkbox" name="opzione" value="{{ r.pk }}" form="vn-accetta" data-lordo="{{ r.lordo|stringformat:'.2f' }}" onchange="vnTotale()"{% if r.scelta %} checked{% endif %}> {% endif %}<span class="ui-pill ui-pill-neutral">Opzionale</span> {% endif %}{{ r.descrizione }}{% if r.opzionale and stato == 'valido' %}</label>{% endif %}</td><td class="num">{{ r.quantita|floatformat:"-3" }}</td><td class="num">{{ r.prezzo|floatformat:2 }} €</td>
       <td class="num">{% if r.sconto %}{{ r.sconto|floatformat:"-2" }}%{% else %}—{% endif %}</td><td class="num">{{ r.aliquota|default:"—" }}</td><td class="num">{{ r.importo|floatformat:2 }} €</td></tr>{% endfor %}</tbody></table></div>
   <dl class="vn-somme"><div><dt>Imponibile</dt><dd>{{ ordine.imponibile|floatformat:2 }} €</dd></div>
     {% for g in iva %}<div><dt>IVA {{ g.aliquota }}</dt><dd>{{ g.imposta|floatformat:2 }} €</dd></div>{% endfor %}
-    <div class="is-totale"><dt>Totale</dt><dd>{{ ordine.totale|floatformat:2 }} €</dd></div></dl>
+    <div class="is-totale"><dt>Totale{% if opzioni %} senza opzioni{% endif %}</dt><dd>{{ ordine.totale|floatformat:2 }} €</dd></div>
+    {% if opzioni and stato == 'valido' %}<div class="is-totale"><dt>Con le opzioni scelte</dt><dd id="vn-con-opzioni" data-base="{{ ordine.totale|stringformat:'.2f' }}">{{ ordine.totale|floatformat:2 }} €</dd></div>{% endif %}</dl>
+  {% if opzioni and stato == 'valido' %}<p class="vn-nota">Le righe «Opzionale» si aggiungono solo se le spunti prima di accettare.</p>
+  <script>function vnTotale(){var e=document.getElementById("vn-con-opzioni"),t=parseFloat(e.dataset.base);document.querySelectorAll('input[name=opzione]:checked').forEach(function(c){t+=parseFloat(c.dataset.lordo)});e.textContent=t.toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2})+" €"}</script>{% endif %}
   {% if ordine.termine_pagamento %}<p class="vn-nota"><strong>Pagamento:</strong> {{ ordine.termine_pagamento }}</p>{% endif %}
   {% if ordine.note %}<p class="vn-nota">{{ ordine.note|linebreaksbr }}</p>{% endif %}
   {% endif %}
 
   {% if stato == 'valido' %}
   <section class="vn-risposta">
-    <form method="post">{% csrf_token %}<input type="hidden" name="azione" value="accetta">
+    <form method="post" id="vn-accetta">{% csrf_token %}<input type="hidden" name="azione" value="accetta">
       <h2>Accetta il preventivo</h2>
       {% if errore %}<div class="ui-alert ui-alert-danger" role="alert">{{ errore }}</div>{% endif %}
       <label class="ui-label" for="vn-nome">Nome e cognome di chi accetta</label>
       <input class="ui-input" id="vn-nome" name="nome" value="{{ nome|default:'' }}" maxlength="120" required autocomplete="name">
-      <label class="vn-conferma"><input type="checkbox" name="conferma" value="1" required> Ho letto il preventivo e lo accetto per {{ ordine.azienda }}, per un totale di {{ ordine.totale|floatformat:2 }} €, a nome di {{ ordine.cliente.nome }}.</label>
+      <label class="vn-conferma"><input type="checkbox" name="conferma" value="1" required> Ho letto il preventivo e lo accetto per {{ ordine.azienda }}, per un totale di {{ ordine.totale|floatformat:2 }} €{% if opzioni %} più le opzioni che ho spuntato{% endif %}, a nome di {{ ordine.cliente.nome }}.</label>
       <button class="ui-btn ui-btn-primary vn-accetta" type="submit">Accetto il preventivo</button>
     </form>
     <details class="vn-rifiuto"><summary>Preferisci rifiutarlo?</summary>

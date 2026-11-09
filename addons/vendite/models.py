@@ -63,12 +63,15 @@ class OrdineVendita(AziendaMixin, ProprietaMixin):
     def titolo_documento(self):
         return "Ordine" if self.stato == self.CONFERMATO else "Preventivo"
 
+    def righe_valide(self):
+        """Le righe che contano: le opzionali solo se il cliente le ha scelte."""
+        return [r for r in self.righe.select_related("aliquota") if not r.opzionale or r.scelta]
+
     def riepilogo_iva(self):
-        return calcoli.riepilogo_iva([(r.importo, r.aliquota) for r in self.righe.select_related("aliquota")])
+        return calcoli.riepilogo_iva([(r.importo, r.aliquota) for r in self.righe_valide()])
 
     def ricalcola(self):
-        self.imponibile, self.imposta, self.totale = calcoli.totali(
-            [(r.importo, r.aliquota) for r in self.righe.select_related("aliquota")])
+        self.imponibile, self.imposta, self.totale = calcoli.totali([(r.importo, r.aliquota) for r in self.righe_valide()])
         self.save(update_fields=["imponibile", "imposta", "totale"])
 
     def clean(self):
@@ -101,6 +104,8 @@ class RigaVendita(models.Model):
     aliquota = models.ForeignKey("fiscale.AliquotaIva", on_delete=models.PROTECT, null=True, blank=True,
                                  verbose_name="IVA")
     importo = models.DecimalField("importo", max_digits=14, decimal_places=2, default=0, editable=False)
+    opzionale = models.BooleanField("opzionale", default=False, help_text="non conta nel totale finché il cliente non la sceglie")
+    scelta = models.BooleanField("scelta dal cliente", default=False, editable=False)
 
     class Meta:
         verbose_name = "riga"
@@ -218,3 +223,38 @@ def sconto_per(cliente, prodotto, quantita, data):
         return migliore[0].sconto
     condizioni = CondizioniCliente.objects.filter(contatto=cliente).first()
     return condizioni.sconto if condizioni and condizioni.sconto else None
+
+
+class ModelloPreventivo(AziendaMixin):
+    """Un preventivo che si ripete: righe (anche opzionali) e testo per il cliente già pronti, da applicare a una bozza."""
+    nome = models.CharField("nome", max_length=100)
+    note = models.TextField("testo per il cliente", blank=True, help_text="va nelle note del preventivo")
+    giorni_validita = models.PositiveIntegerField("valido per giorni", null=True, blank=True)
+    attivo = models.BooleanField("attivo", default=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "modello di preventivo"
+        verbose_name_plural = "modelli di preventivo"
+        ordering = ["nome"]
+
+    def __str__(self):
+        return self.nome
+
+
+class RigaModelloPreventivo(models.Model):
+    modello = models.ForeignKey(ModelloPreventivo, on_delete=models.CASCADE, related_name="righe", verbose_name="modello")
+    prodotto = models.ForeignKey("prodotti.Prodotto", on_delete=models.PROTECT, null=True, blank=True, related_name="+", verbose_name="prodotto")
+    descrizione = models.CharField("descrizione", max_length=250, blank=True)
+    quantita = models.DecimalField("quantità", max_digits=12, decimal_places=3, default=1)
+    prezzo = models.DecimalField("prezzo (€)", max_digits=12, decimal_places=4, null=True, blank=True, help_text="vuoto = dal listino")
+    sconto = models.DecimalField("sconto %", max_digits=5, decimal_places=2, default=0)
+    opzionale = models.BooleanField("opzionale", default=False)
+
+    class Meta:
+        verbose_name = "riga del modello"
+        verbose_name_plural = "righe del modello"
+        ordering = ["pk"]
+
+    def clean(self):
+        if not self.prodotto_id and not self.descrizione:
+            raise ValidationError("Indica un prodotto o una descrizione.")

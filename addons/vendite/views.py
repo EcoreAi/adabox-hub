@@ -6,7 +6,7 @@ from core import chatter, lavori
 from core.models import Messaggio
 from core.viste import Inline, ModelView, register, schede
 
-from .models import OrdineVendita, RigaVendita, RegolaSconto
+from .models import OrdineVendita, RigaVendita, RegolaSconto, ModelloPreventivo, RigaModelloPreventivo
 from . import fido, operazioni
 from .segnali import ordine_annullato
 
@@ -31,7 +31,7 @@ class OrdineView(ModelView):
     readonly_fields = ["numero", "numero_ordine", "stato", "confermato_il"]
     company_field = "azienda"
     sequence_field = ("numero", "vendite.preventivo")
-    inlines = [Inline(RigaVendita, "ordine", ["prodotto", "descrizione", "quantita", "unita", "prezzo", "sconto", "aliquota"],
+    inlines = [Inline(RigaVendita, "ordine", ["prodotto", "descrizione", "quantita", "unita", "prezzo", "sconto", "aliquota", "opzionale"],
                       titolo="Righe", extra=2)]
     list_group_by = ["stato", "cliente", "commerciale", "data:mese"]
     list_sum = ["totale"]
@@ -168,3 +168,15 @@ class RegolaScontoView(ModelView):
     search_fields = ["nome", "cliente__nome", "prodotto__nome"]
     form_layout = [("Regola", [("nome", "sconto"), ("cliente", "quantita_minima"), ("prodotto", "categoria"), ("dal", "al"), "attiva"])]
     ai_descrizione = "Le regole di sconto automatico sugli ordini di vendita."
+
+
+@register
+class ModelloPreventivoView(ModelView):
+    """Preventivi che si ripetono: righe (anche opzionali) e testo pronti, da applicare a una bozza."""
+    model = ModelloPreventivo
+    slug = "modelli"
+    company_field = "azienda"
+    list_display = ["nome", "giorni_validita", "attivo"]
+    form_layout = [("Modello", [("nome", "giorni_validita"), "note", "attivo"])]
+    inlines = [Inline(RigaModelloPreventivo, "modello", ["prodotto", "descrizione", "quantita", "prezzo", "sconto", "opzionale"], titolo="Righe")]
+    ai_descrizione = "I modelli di preventivo con righe e testi già pronti."

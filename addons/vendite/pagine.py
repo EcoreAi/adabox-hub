@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from core.dashboard import queryset
 
 from . import operazioni
+from .models import OrdineVendita
 
 
 def _ip(request):
@@ -25,8 +26,11 @@ def preventivo_online(request, token):
     ordine, stato = operazioni.da_token(token)
     if ordine is None:
         return render(request, "vendite/online.html", {"stato": stato}, status=400)
-    contesto = {"ordine": ordine, "stato": stato, "righe": ordine.righe.select_related("aliquota"),
-                "iva": ordine.riepilogo_iva()}
+    righe = list(ordine.righe.select_related("aliquota"))
+    for r in righe:
+        r.lordo = r.importo * (1 + (r.aliquota.percentuale if r.aliquota else 0) / 100)
+    contesto = {"ordine": ordine, "stato": stato, "righe": righe, "iva": ordine.riepilogo_iva(),
+                "opzioni": [r for r in righe if r.opzionale]}
     if request.method == "POST" and stato == "valido":
         azione = request.POST.get("azione")
         try:
@@ -35,7 +39,8 @@ def preventivo_online(request, token):
                 if len(nome) < 2 or request.POST.get("conferma") != "1":
                     contesto.update(errore="Scrivi il tuo nome e spunta la conferma.", nome=nome)
                     return render(request, "vendite/online.html", contesto, status=400)
-                contesto.update(ordine=operazioni.accetta(ordine, nome, _ip(request)), stato="risposto", appena=True)
+                scelte = {int(x) for x in request.POST.getlist("opzione") if x.isdigit()}
+                contesto.update(ordine=operazioni.accetta(ordine, nome, _ip(request), scelte), stato="risposto", appena=True)
             elif azione == "rifiuta":
                 motivo = request.POST.get("motivo", "").strip()[:1000]
                 contesto.update(ordine=operazioni.rifiuta(ordine, motivo, _ip(request)), stato="risposto", appena=True)
@@ -93,3 +98,23 @@ def condizioni_contatto(request, pk):
     CondizioniCliente.objects.update_or_create(contatto=contatto, defaults={"azienda": contatto.azienda, "listino": listino, "sconto": sconto})
     messages.success(request, "Condizioni di vendita salvate: valgono per i prossimi ordini.")
     return redirect("contatti:contatti_dettaglio", pk=pk)
+
+
+
+@login_required
+@permission_required("vendite.change_ordinevendita", raise_exception=True)
+def applica_modello(request, pk):
+    from .models import ModelloPreventivo
+    if request.method != "POST":
+        return redirect("vendite:ordini_dettaglio", pk=pk)
+    ordine = get_object_or_404(queryset(request, OrdineVendita), pk=pk)
+    modello = queryset(request, ModelloPreventivo).filter(pk=request.POST.get("modello")).first() if request.POST.get("modello", "").isdigit() else None
+    if modello is None:
+        messages.error(request, "Scegli il modello.")
+    else:
+        try:
+            operazioni.applica_modello(ordine, modello, request.user)
+            messages.success(request, f"Modello «{modello}» applicato: controlla le righe.")
+        except ValidationError as e:
+            messages.error(request, " ".join(e.messages))
+    return redirect("vendite:ordini_dettaglio", pk=pk)

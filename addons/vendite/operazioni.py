@@ -15,15 +15,58 @@ from core.models import Messaggio
 from core.viste.gruppi import numero
 
 from . import fido
-from .models import OrdineVendita
+from .models import OrdineVendita, RigaVendita
 from .segnali import ordine_confermato
 
 SALE_LINK = "vendite.preventivo"
 GIORNI_LINK = 90         # se il preventivo non dice fino a quando vale
 
 
+def togli_opzioni_non_scelte(ordine, utente=None):
+    """Alla conferma le righe opzionali non scelte se ne vanno: magazzino e fatture vedono solo ciò che è stato preso."""
+    via = list(ordine.righe.filter(opzionale=True, scelta=False))
+    if via:
+        nomi = ", ".join(r.descrizione for r in via)
+        for r in via:
+            r.delete()
+        ordine.ricalcola()
+        chatter.scrivi(ordine, utente, f"Opzioni non scelte tolte alla conferma: {nomi}.", tipo=Messaggio.NOTA)
+
+
+def scegli_opzioni(ordine, scelte):
+    """Le righe opzionali scelte dal cliente (gli id), le altre no; totali ricalcolati."""
+    for r in ordine.righe.filter(opzionale=True):
+        nuova = r.pk in scelte
+        if r.scelta != nuova:
+            r.scelta = nuova
+            r.save(update_fields=["scelta"])
+    ordine.ricalcola()
+
+
+@transaction.atomic
+def applica_modello(ordine, modello, utente=None):
+    """Aggiunge alla bozza le righe del modello e, se le note sono vuote, il suo testo."""
+    if not ordine.modificabile:
+        raise ValidationError("Si applica un modello solo a un preventivo ancora modificabile.")
+    for rm in modello.righe.select_related("prodotto"):
+        RigaVendita.objects.create(ordine=ordine, prodotto=rm.prodotto, descrizione=rm.descrizione, quantita=rm.quantita, prezzo=rm.prezzo,
+                                   sconto=rm.sconto, opzionale=rm.opzionale)
+    campi = []
+    if modello.note and not ordine.note:
+        ordine.note = modello.note
+        campi.append("note")
+    if modello.giorni_validita and not ordine.validita:
+        ordine.validita = ordine.data + datetime.timedelta(days=modello.giorni_validita)
+        campi.append("validita")
+    if campi:
+        ordine.save(update_fields=campi)
+    ordine.ricalcola()
+    chatter.scrivi(ordine, utente, f"Applicato il modello «{modello}».", tipo=Messaggio.NOTA)
+
+
 def conferma(ordine, utente=None):
     """Numero d'ordine e segnale per magazzino e fatture. Chi chiama controlla che sia confermabile."""
+    togli_opzioni_non_scelte(ordine, utente)
     vecchi = chatter.valori(ordine, ["stato"])
     ordine.stato, ordine.confermato_il = OrdineVendita.CONFERMATO, timezone.localdate()
     ordine.numero_ordine = sequenze.prossimo("vendite.ordine", ordine.azienda)
@@ -35,7 +78,8 @@ def conferma(ordine, utente=None):
 def impronta(ordine):
     """Cambia se cambia ciò che il cliente accetta: un link vecchio non vale per un documento diverso."""
     dati = [ordine.cliente_id, str(ordine.totale), ordine.note,
-            [[r.descrizione, str(r.quantita), str(r.prezzo), str(r.sconto), r.aliquota_id] for r in ordine.righe.all()]]
+            [[r.descrizione, str(r.quantita), str(r.prezzo), str(r.sconto), r.aliquota_id, r.opzionale]
+             for r in ordine.righe.order_by("pk")]]
     return hashlib.sha256(json.dumps(dati, sort_keys=True).encode()).hexdigest()[:32]
 
 
@@ -79,10 +123,14 @@ def _avvisa_commerciale(ordine, esito, dettaglio):
             [ordine.commerciale.email]).send(fail_silently=True)
 
 
-def accetta(ordine, nome, ip=None):
-    """Registra chi ha accettato, quando, da dove e che cosa; poi l'ordine prosegue come una conferma interna."""
+def accetta(ordine, nome, ip=None, scelte=None):
+    """Registra chi ha accettato, quando, da dove e che cosa (con le opzioni scelte); poi l'ordine prosegue come una
+    conferma interna."""
     with transaction.atomic():
         ordine = _risponde(ordine)
+        if scelte is not None:
+            scegli_opzioni(ordine, set(scelte))
+            ordine.refresh_from_db()
         ordine.risposta, ordine.risposta_il, ordine.risposta_ip = OrdineVendita.ACCETTATO, timezone.now(), ip
         ordine.risposta_nome, ordine.risposta_impronta = nome, impronta(ordine)
         ordine.save(update_fields=["risposta", "risposta_il", "risposta_ip", "risposta_nome", "risposta_impronta"])

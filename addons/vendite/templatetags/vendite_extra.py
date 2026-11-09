@@ -13,3 +13,9 @@ def condizioni_cliente(contatto):
     return {"condizioni": CondizioniCliente.objects.filter(contatto=contatto).select_related("listino").first(),
             "listini": Listino.objects.filter(azienda_id=contatto.azienda_id, attivo=True),
             "regole": RegolaSconto.objects.filter(cliente=contatto, attiva=True)[:5]}
+
+
+@register.simple_tag
+def modelli_preventivo(ordine):
+    from vendite.models import ModelloPreventivo
+    return list(ModelloPreventivo.objects.filter(azienda_id=ordine.azienda_id, attivo=True))
