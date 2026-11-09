@@ -1,0 +1,24 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Paga la rata · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Rata {{ rata.numero }} di {{ rata.finanziamento }}</h1>
+  <div class="sub">Scadenza {{ rata.data|date:"d/m/Y" }} · {{ rata.importo|floatformat:2 }} € (capitale {{ rata.quota_capitale|floatformat:2 }}, interessi {{ rata.quota_interessi|floatformat:2 }}{% if rata.spese %}, spese {{ rata.spese|floatformat:2 }}{% endif %})</div></div></div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  {% if rata.pagata %}<p>La rata è già pagata il {{ rata.pagata_il|date:"d/m/Y" }}.</p>{% else %}
+  <form method="post" class="ui-form">{% csrf_token %}
+    {% if banca %}
+    <fieldset class="ui-field"><legend class="ui-label">Movimento bancario che la paga</legend>
+      {% for m in movimenti %}<label class="fi-movimento"><input type="radio" name="movimento" value="{{ m.pk }}"{% if forloop.first and m.esatto %} checked{% endif %}>
+        <span><strong>{{ m.data|date:"d/m/Y" }} · {{ m.importo|floatformat:2 }} €</strong> <span class="ui-help">{{ m.conto }} · {{ m.descrizione|truncatechars:80 }}</span></span></label>{% endfor %}
+      <label class="fi-movimento"><input type="radio" name="movimento" value=""{% if not movimenti %} checked{% endif %}> <span>Nessuno{% if not movimenti %}: non c'è un movimento in uscita adatto vicino alla scadenza{% endif %}</span></label>
+    </fieldset>
+    {% endif %}
+    <div class="ui-field"><label class="ui-label" for="data">Pagata il</label>
+      <input class="ui-input" type="date" id="data" name="data" value="{% if not movimenti %}{{ oggi|date:'Y-m-d' }}{% endif %}">
+      {% if movimenti %}<p class="ui-help">Lasciando vuoto vale la data del movimento scelto.</p>{% endif %}</div>
+    <button class="ui-btn ui-btn-primary" type="submit">Segna pagata</button>
+    <a class="ui-btn ui-btn-ghost" href="{% url 'finanziamenti:finanziamenti_dettaglio' rata.finanziamento_id %}">Annulla</a>
+  </form>{% endif %}
+</div></section>
+<style>.fi-movimento{display:flex;gap:8px;align-items:flex-start;padding:6px 0}.fi-movimento .ui-help{display:block}</style>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Estinzione anticipata · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Estinzione anticipata di {{ f }}</h1>
+  <div class="sub">Debito residuo {{ residuo|floatformat:2 }} € · tasso {{ f.tasso }}%</div></div></div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <form method="post" class="ui-form">{% csrf_token %}
+    <p class="ui-help">Le rate non pagate si tolgono e ne resta una sola, alla data scelta, con il debito residuo, gli interessi maturati dall'ultima rata pagata e la penale.</p>
+    <div class="ui-field"><label class="ui-label" for="data">Data dell'estinzione</label>
+      <input class="ui-input" type="date" id="data" name="data" value="{{ oggi|date:'Y-m-d' }}" required></div>
+    <div class="ui-field"><label class="ui-label" for="penale">Penale (€)</label>
+      <input class="ui-input" type="number" step="0.01" min="0" id="penale" name="penale" value="0"></div>
+    <button class="ui-btn ui-btn-primary" type="submit">Crea la rata di estinzione</button>
+    <a class="ui-btn ui-btn-ghost" href="{% url 'finanziamenti:finanziamenti_dettaglio' f.pk %}">Annulla</a>
+  </form>
+</div></section>
+{% endblock %}

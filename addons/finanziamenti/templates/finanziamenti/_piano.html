@@ -1,0 +1,11 @@
+{% load finanziamenti %}{% piano_di obj as p %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Piano delle rate</div>
+    <div class="ui-card-sub">Debito residuo {{ p.residuo|floatformat:2 }} € · rate pagate {{ p.pagate }} su {{ p.rate|length }} · interessi da pagare {{ p.interessi_da_pagare|floatformat:2 }} € su {{ p.interessi_totali|floatformat:2 }} €{% if p.scadute %} · <strong>{{ p.scadute|length }} scadut{{ p.scadute|length|pluralize:"a,e" }}</strong>{% endif %}</div></div></div>
+  <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th class="num">N.</th><th>Scadenza</th><th class="num">Capitale</th><th class="num">Interessi</th><th class="num">Spese</th><th class="num">Rata</th><th class="num">Residuo</th><th></th></tr></thead>
+  <tbody>{% for r in p.rate %}<tr{% if r.pagata %} style="opacity:.6"{% endif %}><td class="num">{{ r.numero }}</td><td>{{ r.data|date:"d/m/Y" }}</td>
+    <td class="num">{{ r.quota_capitale|floatformat:2 }}</td><td class="num">{{ r.quota_interessi|floatformat:2 }}</td><td class="num">{{ r.spese|floatformat:2 }}</td>
+    <td class="num"><strong>{{ r.importo|floatformat:2 }}</strong></td><td class="num">{{ r.debito_residuo|floatformat:2 }}</td>
+    <td>{% if r.pagata %}Pagata il {{ r.pagata_il|date:"d/m/Y" }}{% elif perms.finanziamenti.change_ratafinanziamento %}<a class="ui-btn ui-btn-sm ui-btn-secondary" href="{% url 'finanziamenti:paga' r.pk %}">Paga</a>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="8">Nessuna rata: salva il finanziamento per generare il piano.</td></tr>{% endfor %}</tbody></table></div>
+</section>
