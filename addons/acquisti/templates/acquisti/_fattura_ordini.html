@@ -13,4 +13,10 @@
       <button class="ui-btn ui-btn-secondary ui-btn-sm">Collega</button>
     </form>{% endif %}
   </div>
+  {% confronto_fattura obj as righe %}{% if righe %}
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Riga della fattura</th><th>Prodotto</th><th class="ui-num">Prezzo</th><th class="ui-num">Nell'ordine</th><th class="ui-num">Fatturati</th><th class="ui-num">Ricevuti</th><th>Esito</th></tr></thead>
+  <tbody>{% for v in righe %}<tr><td>{% if v.riga.codice_articolo %}<span class="sub">{{ v.riga.codice_articolo }}</span> {% endif %}{{ v.riga.descrizione|truncatechars:60 }}</td><td>{{ v.prodotto|default:"—" }}</td>
+    <td class="ui-num">{{ v.riga.prezzo|floatformat:2 }}</td><td class="ui-num">{% if v.prezzo_ordine is not None %}{{ v.prezzo_ordine|floatformat:2 }}{% if v.scarto_prezzo %} <span class="sub">({% if v.scarto_prezzo > 0 %}+{% endif %}{{ v.scarto_prezzo }}%)</span>{% endif %}{% else %}—{% endif %}</td>
+    <td class="ui-num">{{ v.fatturato|floatformat:"-3"|default:"—" }}</td><td class="ui-num">{{ v.ricevuto|floatformat:"-3"|default:"—" }}</td>
+    <td>{% if v.esito == "ok" %}<span class="ui-pill ui-pill-success">In linea</span>{% elif v.esito == "prezzo" %}<span class="ui-pill ui-pill-danger">Prezzo più alto</span>{% elif v.esito == "quantita" %}<span class="ui-pill ui-pill-danger">Più del ricevuto</span>{% elif v.esito == "fuori" %}<span class="ui-pill ui-pill-warn">Non nell'ordine</span>{% else %}<span class="ui-pill ui-pill-neutral">Prodotto non riconosciuto</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
 </section>

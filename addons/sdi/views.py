@@ -96,7 +96,7 @@ class FatturaPassivaView(ModelView):
              "per": ["data:mese", "fornitore"]}
     chatter = True
     tracked_fields = ["stato", "note"]
-    buttons = ["registra", "contesta", "scarica"]
+    buttons = ["registra", "forza", "contesta", "scarica"]
     actions = ["registra_selezionate"]
 
     def col_totale(self, obj):
@@ -112,13 +112,26 @@ class FatturaPassivaView(ModelView):
         return voci + [("IVA", euro(obj.imposta)), ("Totale", euro(obj.totale))]
 
     def get_buttons(self, request, obj):
-        ammessi = {"scarica"} | ({"registra", "contesta"} if obj.stato == FatturaPassiva.DA_VERIFICARE else set())
+        ammessi = {"scarica"} | ({"registra", "forza", "contesta"} if obj.stato == FatturaPassiva.DA_VERIFICARE else set())
         return [(n, e) for n, e in super().get_buttons(request, obj) if n in ammessi]
 
     def registra(self, request, obj):
-        passive.registra(obj)
+        from django.core.exceptions import ValidationError
+        try:
+            passive.registra(obj)
+        except ValidationError as e:
+            return " ".join(e.messages)
         return f"Fattura {obj.numero} registrata."
     registra.short_description = "Registra"
+
+    def forza(self, request, obj):
+        passive.registra(obj, forza=True)
+        from core import chatter
+        chatter.scrivi(obj, request.user, "Registrata nonostante il confronto con l'ordine.", tipo="nota")
+        return f"Fattura {obj.numero} registrata comunque."
+    forza.short_description = "Registra comunque"
+    forza.rischio = "irreversibile"
+    forza.permission = "sdi.delete_fatturapassiva"
 
     def contesta(self, request, obj):
         obj.stato = FatturaPassiva.CONTESTATA
@@ -134,11 +147,15 @@ class FatturaPassivaView(ModelView):
     scarica.permission = "view"
 
     def registra_selezionate(self, request, queryset):
-        n = 0
+        from django.core.exceptions import ValidationError
+        n, ferme = 0, []
         for f in queryset.filter(stato=FatturaPassiva.DA_VERIFICARE):
-            passive.registra(f)
-            n += 1
-        return f"Fatture registrate: {n}."
+            try:
+                passive.registra(f)
+                n += 1
+            except ValidationError:
+                ferme.append(f.numero)
+        return f"Fatture registrate: {n}." + (f" Ferme per il confronto con l'ordine: {', '.join(ferme)}." if ferme else "")
     registra_selezionate.short_description = "Registra"
 
 

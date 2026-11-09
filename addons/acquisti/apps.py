@@ -23,6 +23,8 @@ class AcquistiConfig(AppConfig):
 
             from . import riscontro
             fattura_ricevuta.connect(riscontro.fattura_ricevuta, dispatch_uid="acquisti.fattura_ricevuta")
+            from sdi.segnali import registrazione
+            registrazione.connect(riscontro.blocca_registrazione, dispatch_uid="acquisti.blocca_registrazione")
             post_delete.connect(riscontro.fattura_eliminata, sender=FatturaPassiva, dispatch_uid="acquisti.fattura_eliminata")
             hooks.sezione_dettaglio("sdi.FatturaPassiva", "acquisti/_fattura_ordini.html", order=10,
                                     permission="acquisti.view_ordineacquisto")

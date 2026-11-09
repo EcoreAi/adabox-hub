@@ -132,6 +132,7 @@ def leggi(contenuto):
         gen = _uno(corpo, "DatiGenerali/DatiGeneraliDocumento")
         beni = _uno(corpo, "DatiBeniServizi")
         righe = [{"numero_linea": int(_t(r, "NumeroLinea") or 0), "descrizione": _t(r, "Descrizione"),
+                  "codice_articolo": _t(r, "CodiceArticolo/CodiceValore")[:60],
                   "quantita": _n(r, "Quantita", "") if _t(r, "Quantita") else None, "unita": _t(r, "UnitaMisura"),
                   "prezzo": _n(r, "PrezzoUnitario"), "importo": _n(r, "PrezzoTotale"),
                   "aliquota": _n(r, "AliquotaIVA"), "natura": _t(r, "Natura")}
@@ -226,7 +227,12 @@ def collega_metadati(notifica):
             identificativo_sdi=notifica.identificativo_sdi)
 
 
-def registra(fattura):
+def registra(fattura, forza=False):
+    """Registra la fattura. Gli altri moduli possono fermarla (es. gli Acquisti, se il confronto con l'ordine è fuori
+    tolleranza e il blocco è acceso): ValidationError, salvo forza."""
+    from .segnali import registrazione
+    if not forza:
+        registrazione.send(sender=FatturaPassiva, fattura=fattura)
     fattura.stato, fattura.registrata_il = FatturaPassiva.REGISTRATA, timezone.localdate()
     fattura.save(update_fields=["stato", "registrata_il"])
 

@@ -1,7 +1,7 @@
 {
     "name": "Acquisti",
     "summary": "Ordini ai fornitori con listini, gare, contratti quadro, approvazioni, riordino, riscontro con merce e fatture, resi e valutazione dei fornitori",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Acquisti",
     "depends": ["prodotti", "contatti"],
@@ -43,6 +43,9 @@
     "settings": [
         {"chiave": "tolleranza_riscontro", "label": "Scostamento ammesso tra fattura e merce ricevuta (%)", "tipo": "decimale",
          "default": "1", "per_azienda": True, "help": "Oltre questa percentuale il riscontro dell'ordine segnala lo scostamento"},
+        {"chiave": "blocca_registrazione", "label": "Blocca la registrazione delle fatture fuori tolleranza", "tipo": "booleano",
+         "default": False, "per_azienda": True,
+         "help": "Una fattura con prezzi più alti dell'ordine o più quantità del ricevuto non si registra finché non si verifica o si forza"},
     ],
     "cron": [{"nome": "Riordino automatico", "funzione": "acquisti.riordino.automatico", "ogni": "1d", "alle": "06:00"}],
     "email": [

@@ -90,3 +90,8 @@ def ordini_di_fattura(fattura):
                                            stato=OrdineAcquisto.CONFERMATO).exclude(
         pk__in=[c.ordine_id for c in collegamenti]).order_by("-confermato_il", "-pk")[:30]
     return {"collegamenti": collegamenti, "da_imputare": imponibile - imputato, "aperti": aperti}
+
+
+@register.simple_tag
+def confronto_fattura(fattura):
+    return riscontro.confronto_righe(fattura)

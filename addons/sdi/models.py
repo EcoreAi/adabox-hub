@@ -115,6 +115,7 @@ class FatturaPassiva(AziendaMixin):
 class RigaPassiva(models.Model):
     fattura = models.ForeignKey(FatturaPassiva, on_delete=models.CASCADE, related_name="righe")
     numero_linea = models.PositiveIntegerField("n.", default=1)
+    codice_articolo = models.CharField("codice articolo", max_length=60, blank=True, help_text="il codice del fornitore, dall'XML")
     descrizione = models.TextField("descrizione")
     quantita = models.DecimalField("quantità", max_digits=21, decimal_places=8, null=True, blank=True)
     unita = models.CharField("unità", max_length=10, blank=True)

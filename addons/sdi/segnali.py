@@ -2,3 +2,4 @@
 from django.dispatch import Signal
 
 fattura_ricevuta = Signal()      # sender=FatturaPassiva, fattura=…, riferimenti={"ordini": […], "ddt": […]}
+registrazione = Signal()         # sender=FatturaPassiva, fattura=…: prima della registrazione; un ricevitore può alzare ValidationError

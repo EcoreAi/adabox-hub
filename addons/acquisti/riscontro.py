@@ -246,3 +246,87 @@ def crea_reso(ordine, utente=None):
         RigaConsegna.objects.create(consegna=reso, prodotto_id=g["prodotto_id"], quantita=g["netto"])
     chatter.scrivi(ordine, utente, "Creato il documento di reso al fornitore.", tipo="nota")
     return reso
+
+
+
+def confronto_righe(fattura):
+    """Le righe della fattura confrontate con gli ordini collegati: il prodotto si trova dal codice articolo (listino o
+    righe d'ordine del fornitore) o dalla descrizione; poi prezzo unitario netto e quantità contro ordinato e ricevuto.
+    [{riga, prodotto, prezzo_ordine, scarto_prezzo (%), ordinato, ricevuto, fatturato, esito}]: esito ok, prezzo,
+    quantita, fuori (prodotto non negli ordini), sconosciuto (prodotto non trovato)."""
+    from .models import VoceListino
+    ordini = [c.ordine for c in FatturaOrdine.objects.filter(fattura_id=fattura.pk).select_related("ordine")]
+    if not ordini:
+        return []
+    limite = tolleranza(fattura.azienda)
+    righe_ordine, gruppi = {}, {}
+    for o in ordini:
+        for r in o.righe.select_related("prodotto").exclude(prodotto=None):
+            righe_ordine.setdefault(r.prodotto_id, []).append(r)
+        for g in righe(o):
+            if g["prodotto_id"]:
+                x = gruppi.setdefault(g["prodotto_id"], {"ordinato": Decimal(0), "ricevuto": Decimal(0)})
+                x["ordinato"] += g["ordinato"]
+                x["ricevuto"] += g["netto"] if g["a_magazzino"] else g["ordinato"]
+    per_codice = {v.codice_fornitore.strip().upper(): v.prodotto_id for v in
+                  VoceListino.objects.filter(azienda=fattura.azienda, fornitore=fattura.fornitore).exclude(codice_fornitore="")}
+    for lista in righe_ordine.values():
+        for r in lista:
+            if r.codice_fornitore:
+                per_codice.setdefault(r.codice_fornitore.strip().upper(), r.prodotto_id)
+    fatturato, risultato = {}, []
+    for rp in fattura.righe.order_by("numero_linea", "pk"):
+        if rp.importo == 0 and not rp.quantita:
+            continue
+        prodotto_id = per_codice.get((rp.codice_articolo or "").strip().upper())
+        if prodotto_id is None:
+            testo = (rp.descrizione or "").lower()
+            prodotto_id = next((pid for pid, lista in righe_ordine.items() if lista[0].prodotto.nome.lower() in testo), None)
+        voce = {"riga": rp, "prodotto": None, "prezzo_ordine": None, "scarto_prezzo": None, "ordinato": None, "ricevuto": None,
+                "fatturato": rp.quantita, "esito": "sconosciuto"}
+        if prodotto_id is None:
+            risultato.append(voce)
+            continue
+        lista = righe_ordine.get(prodotto_id)
+        if not lista:
+            from prodotti.models import Prodotto
+            voce.update(prodotto=Prodotto.objects.filter(pk=prodotto_id).first(), esito="fuori")
+            risultato.append(voce)
+            continue
+        r0 = lista[0]
+        netto = (r0.prezzo * (100 - r0.sconto) / 100 / (r0.per_unita or 1)).quantize(Decimal("0.0001"))   # per unità del prodotto
+        fatturato[prodotto_id] = fatturato.get(prodotto_id, Decimal(0)) + (rp.quantita or 0)
+        scarto = ((Decimal(rp.prezzo) - netto) * 100 / netto).quantize(Decimal("0.1")) if netto else None
+        g = gruppi.get(prodotto_id, {"ordinato": Decimal(0), "ricevuto": Decimal(0)})
+        esito = "ok"
+        if scarto is not None and scarto > limite:
+            esito = "prezzo"
+        elif fatturato[prodotto_id] > g["ricevuto"] * (1 + limite / 100):
+            esito = "quantita"
+        voce.update(prodotto=r0.prodotto, prezzo_ordine=netto, scarto_prezzo=scarto, ordinato=g["ordinato"], ricevuto=g["ricevuto"], esito=esito)
+        risultato.append(voce)
+    return risultato
+
+
+def problemi(fattura):
+    """Le righe fuori tolleranza (prezzo più alto o più quantità del ricevuto), in parole."""
+    testi = []
+    for v in confronto_righe(fattura):
+        if v["esito"] == "prezzo":
+            testi.append(f"{v['prodotto']}: prezzo {v['riga'].prezzo:.2f} € contro {v['prezzo_ordine']:.2f} € dell'ordine (+{v['scarto_prezzo']}%)")
+        elif v["esito"] == "quantita":
+            testi.append(f"{v['prodotto']}: fatturati {Decimal(v['fatturato']).normalize():f}, ricevuti {Decimal(v['ricevuto']).normalize():f}")
+    return testi
+
+
+def blocca_registrazione(sender, fattura, **kwargs):
+    """Con il blocco acceso, una fattura fuori tolleranza non si registra: si verifica, si contesta o si forza."""
+    try:
+        acceso = parametri.leggi("acquisti.blocca_registrazione", fattura.azienda)
+    except KeyError:
+        acceso = False
+    if not acceso:
+        return
+    elenco = problemi(fattura)
+    if elenco:
+        raise ValidationError("Fuori tolleranza rispetto all'ordine: " + "; ".join(elenco) + ". Contestala o chiedi a un responsabile di forzarla.")
