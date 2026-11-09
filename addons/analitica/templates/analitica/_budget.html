@@ -1,0 +1,9 @@
+{% load analitica %}{% confronto_budget obj as c %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Previsto e consuntivo</div><div class="ui-card-sub">Periodo trascorso al {{ c.avanzamento }}% · la proiezione prosegue al ritmo di finora</div></div></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Categoria</th><th class="ui-num">Previsto</th><th class="ui-num">Consuntivo</th><th class="ui-num">%</th><th class="ui-num">Proiezione a fine periodo</th></tr></thead>
+  <tbody>{% for r in c.righe %}<tr><td>{{ r.nome }}</td><td class="ui-num">{{ r.previsto|floatformat:2 }}</td><td class="ui-num">{{ r.consuntivo|floatformat:2 }}</td><td class="ui-num">{% if r.percentuale is not None %}{{ r.percentuale }}%{% else %}—{% endif %}</td>
+    <td class="ui-num">{{ r.proiezione|floatformat:2 }}{% if r.oltre %} <span class="ui-pill ui-pill-danger">oltre il previsto</span>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="5" class="sub">Aggiungi le righe del previsto nella modifica.</td></tr>{% endfor %}
+  <tr><td><strong>Margine</strong></td><td class="ui-num"><strong>{{ c.margine_previsto|floatformat:2 }}</strong></td><td class="ui-num"><strong>{{ c.margine_consuntivo|floatformat:2 }}</strong></td><td></td><td class="ui-num"><strong>{{ c.margine_proiezione|floatformat:2 }}</strong></td></tr></tbody></table></div>
+</section>

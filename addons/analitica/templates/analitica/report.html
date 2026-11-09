@@ -1,0 +1,19 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Report per asse · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Report per asse</h1><div class="sub">Ricavi e costi imputati alle voci, con il margine</div></div>
+  {% if dati %}<div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="?asse={{ asse.pk }}&dal={{ dal|date:'Y-m-d' }}&al={{ al|date:'Y-m-d' }}&formato=csv">Esporta CSV</a></div>{% endif %}</div>
+{% if not asse %}<section class="ui-card is-revealed"><div class="ui-card-body"><p>Nessun asse ancora: <a class="ui-link" href="{% url 'analitica:assi_nuovo' %}">crea il primo</a>, per esempio «Centro di costo».</p></div></section>{% else %}
+<div class="ui-card is-revealed ui-section">
+  <form class="ui-filtri" method="get">
+    <select class="ui-input" name="asse" aria-label="Asse">{% for a in assi %}<option value="{{ a.pk }}"{% if a.pk == asse.pk %} selected{% endif %}>{{ a }}</option>{% endfor %}</select>
+    <label class="sub" for="rp-dal">dal</label><input class="ui-input" type="date" id="rp-dal" name="dal" value="{{ dal|date:'Y-m-d' }}" style="max-width:170px">
+    <label class="sub" for="rp-al">al</label><input class="ui-input" type="date" id="rp-al" name="al" value="{{ al|date:'Y-m-d' }}" style="max-width:170px">
+    <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Mostra</button>
+  </form>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Voce</th><th class="ui-num">Ricavi</th><th class="ui-num">Costi esterni</th><th class="ui-num">Note spese</th><th class="ui-num">Margine</th></tr></thead>
+  <tbody>{% for x in dati.righe %}<tr><td>{{ x.voce }}</td><td class="ui-num">{{ x.ricavi|floatformat:2 }}</td><td class="ui-num">{{ x.acquisti|floatformat:2 }}</td><td class="ui-num">{{ x.spese|floatformat:2 }}</td><td class="ui-num"><strong>{{ x.margine|floatformat:2 }}</strong></td></tr>{% endfor %}
+    <tr><td><strong>Totale</strong></td><td class="ui-num"><strong>{{ dati.totale.ricavi|floatformat:2 }}</strong></td><td class="ui-num"><strong>{{ dati.totale.acquisti|floatformat:2 }}</strong></td><td class="ui-num"><strong>{{ dati.totale.spese|floatformat:2 }}</strong></td><td class="ui-num"><strong>{{ dati.totale.margine|floatformat:2 }}</strong></td></tr></tbody></table></div>
+  <div class="ui-card-body"><p class="ui-help" style="margin:0">Non ancora imputato su questo asse: {% for n in dati.non_imputato %}{{ n.fonte.nome|lower }} {{ n.importo|floatformat:2 }} €{% if not forloop.last %}, {% endif %}{% endfor %}. <a class="ui-link" href="{% url 'analitica:imputa' %}?senza=1">Imputa le righe</a></p></div>
+</div>{% endif %}
+{% endblock %}

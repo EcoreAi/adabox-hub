@@ -1,0 +1,7 @@
+{% load analitica %}{% analitica_documento obj as a %}{% if a %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Analitica</div><div class="ui-card-sub">Su quali centri di costo o commesse vanno le righe</div></div>
+    {% if perms.analitica.add_imputazione %}<a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'analitica:imputa' %}?fonte={{ a.fonte.chiave }}">Imputa</a>{% endif %}</div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Riga</th><th>Imputata a</th></tr></thead>
+  <tbody>{% for x in a.righe %}<tr><td>{{ x.descrizione|truncatechars:70 }}</td><td>{% for i in x.imputazioni %}<span class="ui-pill ui-pill-neutral" title="{{ i.voce.asse }}">{{ i.voce }}{% if i.percentuale != 100 %} {{ i.percentuale|floatformat:"-2" }}%{% endif %}</span> {% empty %}<span class="sub">—</span>{% endfor %}</td></tr>{% endfor %}</tbody></table></div>
+</section>{% endif %}

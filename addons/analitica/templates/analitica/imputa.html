@@ -1,0 +1,31 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Imputa le righe · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Imputa le righe</h1><div class="sub">Scegli le righe e mettile su una voce (o ripartiscile con un modello)</div></div></div>
+<div class="ui-card is-revealed ui-section">
+  <form class="ui-filtri" method="get">
+    <select class="ui-input" name="fonte" aria-label="Documenti">{% for f in fonti %}<option value="{{ f.chiave }}"{% if f.chiave == fonte.chiave %} selected{% endif %}>{{ f.nome }}</option>{% endfor %}</select>
+    <label class="sub" for="an-dal">dal</label><input class="ui-input" type="date" id="an-dal" name="dal" value="{{ dal|date:'Y-m-d' }}" style="max-width:170px">
+    <label class="sub" for="an-al">al</label><input class="ui-input" type="date" id="an-al" name="al" value="{{ al|date:'Y-m-d' }}" style="max-width:170px">
+    <label class="ui-checkbox-row" style="padding-top:0"><input type="checkbox" class="ui-checkbox" name="senza" value="1"{% if senza %} checked{% endif %}> Solo da imputare</label>
+    <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Mostra</button>
+  </form>
+</div>
+{% if not voci %}<p class="ui-help">Prima crea un asse e le sue voci: <a class="ui-link" href="{% url 'analitica:assi_lista' %}">Assi</a>, <a class="ui-link" href="{% url 'analitica:voci_lista' %}">Voci</a>.</p>{% endif %}
+<form method="post" class="ui-card is-revealed ui-section">{% csrf_token %}
+  <input type="hidden" name="fonte" value="{{ fonte.chiave }}"><input type="hidden" name="dal" value="{{ dal|date:'Y-m-d' }}"><input type="hidden" name="al" value="{{ al|date:'Y-m-d' }}">{% if senza %}<input type="hidden" name="senza" value="1">{% endif %}
+  <div class="ui-card-body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <select class="ui-input" name="voce" aria-label="Voce" style="max-width:260px"><option value="">Voce…</option>{% for v in voci %}<option value="{{ v.pk }}">{{ v.asse }} · {{ v }}</option>{% endfor %}</select>
+    <input class="ui-input" name="percentuale" value="100" inputmode="decimal" style="max-width:90px" aria-label="Percentuale"> %
+    <label class="ut-check"><input type="checkbox" name="aggiungi" value="1"> Aggiungi una parte (non sostituire)</label>
+    <button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Imputa le scelte</button>
+    {% if modelli %}<select class="ui-input" name="modello" aria-label="Modello di ripartizione" style="max-width:220px"><option value="">…oppure un modello</option>{% for m in modelli %}<option value="{{ m.pk }}">{{ m }}</option>{% endfor %}</select>{% endif %}
+    {% if assi %}<select class="ui-input" name="asse" aria-label="Asse da togliere" style="max-width:180px">{% for a in assi %}<option value="{{ a.pk }}">{{ a }}</option>{% endfor %}</select>
+    <button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit" name="azione" value="togli">Togli dall'asse</button>{% endif %}
+  </div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th><input type="checkbox" class="ui-checkbox" aria-label="Tutte" onchange="document.querySelectorAll('.an-riga').forEach(function(c){c.checked=this.checked}.bind(this))"></th><th>Data</th><th>Documento</th><th>Controparte</th><th>Riga</th><th class="ui-num">Importo</th><th>Imputata a</th></tr></thead>
+  <tbody>{% for x in righe %}<tr><td><input type="checkbox" class="ui-checkbox an-riga" name="riga" value="{{ x.r.pk }}" aria-label="Scegli la riga"></td><td>{{ x.data|date:"d/m/Y" }}</td><td>{{ x.documento }}</td><td>{{ x.controparte }}</td><td>{{ x.descrizione|truncatechars:60 }}</td><td class="ui-num">{{ x.importo|floatformat:2 }}</td>
+    <td>{% for i in x.imputazioni %}<span class="ui-pill ui-pill-neutral" title="{{ i.voce.asse }}">{{ i.voce }}{% if i.percentuale != 100 %} {{ i.percentuale|floatformat:"-2" }}%{% endif %}</span> {% empty %}<span class="sub">—</span>{% endfor %}</td></tr>
+  {% empty %}<tr><td colspan="7" class="sub">Nessuna riga nel periodo.</td></tr>{% endfor %}</tbody></table></div>
+</form>
+{% endblock %}
