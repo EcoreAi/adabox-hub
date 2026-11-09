@@ -1,0 +1,94 @@
+# CI: test (divisi in 4 parti), test su Postgres, controlli Django e vulnerabilità note delle librerie.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"          # come il Dockerfile di produzione
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  test:
+    name: test (parte ${{ matrix.parte }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        parte: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - name: Pango e font per WeasyPrint (test pdf)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 fonts-dejavu-core
+      - run: pip install -r requirements-dev.txt
+      - name: pytest
+        # ogni file di core/tests e ogni cartella tests dei moduli è un pezzo; i pezzi si dividono a turno fra le 4 parti
+        run: |
+          pezzi=$( { ls core/tests/test_*.py; echo theme; echo config; find addons -mindepth 2 -maxdepth 2 -type d -name tests | sort; } \
+                   | awk -v n=4 -v p=${{ matrix.parte }} 'NR % n == p % n')
+          echo "$pezzi"
+          python -m pytest -p no:cacheprovider -q $pezzi
+
+  postgres:
+    name: test su Postgres
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: test
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:test@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -p no:cacheprovider -q -m postgres
+
+  controlli:
+    name: controlli Django
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements.txt
+      - name: check e migrazioni mancanti, con tutti i moduli dei test
+        run: |
+          export ADDONS_FORCE=$(sed -n 's/^ *ADDONS_FORCE=//p' pytest.ini)
+          python manage.py check
+          python manage.py makemigrations --check --dry-run
+
+  vulnerabilita:
+    name: vulnerabilità note (pip-audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install pip-audit
+      - run: pip-audit -r requirements.txt -r requirements-dev.txt
