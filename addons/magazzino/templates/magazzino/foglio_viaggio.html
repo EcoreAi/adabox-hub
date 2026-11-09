@@ -1,0 +1,6 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ v }}</title>
+<style>body{font:13px/1.4 system-ui,sans-serif;margin:24px;color:#111;background:#fff}h1{font-size:18px;margin:0}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border-bottom:1px solid #ccc;padding:8px 4px;text-align:left;vertical-align:top}.firma{height:40px;border-bottom:1px solid #999}@media print{button{display:none}}</style></head><body>
+<button onclick="window.print()">Stampa</button><h1>{{ v }}</h1><p>Autista: {{ v.autista|default:"—" }} · parte da {{ v.magazzino }}{% if v.note %} · {{ v.note }}{% endif %}</p>
+<table><thead><tr><th>#</th><th>Cliente e indirizzo</th><th>DDT</th><th>Colli</th><th>Firma e ora</th></tr></thead><tbody>
+{% for t in tappe %}<tr><td>{{ forloop.counter }}</td><td><strong>{{ t.consegna.cliente }}</strong><br>{{ t.consegna.destinazione|default:t.consegna.cliente.indirizzo }}{% if t.consegna.cliente.telefono %}<br>{{ t.consegna.cliente.telefono }}{% endif %}</td>
+  <td>{{ t.consegna.numero|default:"—" }}</td><td>{{ t.consegna.colli }}</td><td><div class="firma"></div></td></tr>{% endfor %}</tbody></table></body></html>

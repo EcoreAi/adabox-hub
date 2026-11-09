@@ -1,7 +1,7 @@
 {
     "name": "Magazzino",
     "summary": "Giacenze, movimenti, consegne con DDT, ricevimenti e scorte minime",
-    "version": "1.13.0",
+    "version": "1.14.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Magazzino",
     "depends": ["prodotti", "contatti"],
@@ -18,6 +18,8 @@
         {"label": "Inventari", "url_name": "magazzino:inventari_lista", "permission": "magazzino.view_inventario"},
         {"label": "Consegne", "url_name": "magazzino:consegne_lista", "permission": "magazzino.view_consegna"},
         {"label": "Ricevimenti", "url_name": "magazzino:ricevimenti_lista", "permission": "magazzino.view_ricevimento"},
+        {"label": "Viaggi", "url_name": "magazzino:viaggi_lista", "permission": "magazzino.view_viaggio"},
+        {"label": "Imballi", "url_name": "magazzino:imballi_lista", "permission": "magazzino.change_modelloimballo"},
         {"label": "Resi", "url_name": "magazzino:resi_lista", "permission": "magazzino.view_reso"},
         {"label": "Controlli qualità", "url_name": "magazzino:controlli_lista", "permission": "magazzino.view_controlloqualita"},
         {"label": "Non conformità", "url_name": "magazzino:non-conformita_lista", "permission": "magazzino.view_nonconformita"},

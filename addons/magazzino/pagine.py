@@ -308,3 +308,31 @@ def tracciamento_prodotto(request, pk):
 
 def giacenza_senza_lotto(prodotto):
     return Movimento.objects.filter(prodotto=prodotto, lotto__isnull=True).aggregate(t=Sum("quantita"))["t"] or 0
+
+
+@login_required
+@permission_required("magazzino.change_viaggio", raise_exception=True)
+def tappa_esito(request, pk):
+    from django.contrib import messages
+    from django.core.exceptions import ValidationError
+    from django.shortcuts import get_object_or_404, redirect
+
+    from . import viaggi
+    from .models import TappaViaggio
+    tappa = get_object_or_404(TappaViaggio.objects.select_related("viaggio"), pk=pk, viaggio__azienda=request.azienda)
+    if request.method == "POST":
+        try:
+            viaggi.esito(tappa, request.POST.get("esito") == "si", request.POST.get("nota", ""))
+        except ValidationError as e:
+            messages.error(request, " ".join(e.messages))
+    return redirect("magazzino:viaggi_dettaglio", pk=tappa.viaggio_id)
+
+
+@login_required
+@permission_required("magazzino.view_viaggio", raise_exception=True)
+def foglio_viaggio(request, pk):
+    from django.shortcuts import get_object_or_404
+
+    from .models import Viaggio
+    v = get_object_or_404(queryset(request, Viaggio), pk=pk)
+    return render(request, "magazzino/foglio_viaggio.html", {"v": v, "tappe": v.tappe.select_related("consegna__cliente", "consegna__destinazione")})

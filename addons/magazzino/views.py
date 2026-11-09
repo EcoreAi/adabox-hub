@@ -5,7 +5,7 @@ from core.viste import Inline, ModelView, register, schede
 
 from . import operazioni
 from .models import Consegna, Magazzino, Movimento, Ricevimento, RigaConsegna, RigaRicevimento, Ubicazione
-from .models import ControlloQualita, CostoAccessorio, Inventario, NonConformita, PuntoControllo, Lotto, Reso, RigaReso, ScortaMagazzino
+from .models import Collo, ControlloQualita, ModelloImballo, TappaViaggio, Viaggio, CostoAccessorio, Inventario, NonConformita, PuntoControllo, Lotto, Reso, RigaReso, ScortaMagazzino
 
 
 @register
@@ -108,7 +108,8 @@ class ConsegnaView(ModelView):
                                  ("vettore", "colli"), ("peso", "aspetto_beni"), "note"])]
     readonly_fields = ["numero", "stato"]
     company_field = "azienda"
-    inlines = [Inline(RigaConsegna, "consegna", ["prodotto", "descrizione", "quantita", "ubicazione", "lotti"], titolo="Merce")]
+    inlines = [Inline(RigaConsegna, "consegna", ["prodotto", "descrizione", "quantita", "ubicazione", "lotti"], titolo="Merce"),
+               Inline(Collo, "consegna", ["numero", "imballo", "peso", "tracciamento"], titolo="Colli", extra=0)]
     kanban_group = "stato"
     kanban_fields = ["cliente", "data", "riferimento"]
     kanban_ricco = True
@@ -120,6 +121,11 @@ class ConsegnaView(ModelView):
     reports = [{"nome": "DDT", "template": "magazzino/report/ddt.html", "colonne": [("codice", "Codice articolo"), ("um", "Unità di misura")]}]
     api = True
 
+
+    def formsets(self, request, obj, data=None, files=None):
+        """I colli sono facoltativi: chi salva la consegna senza mandarli (API, importazioni, Ada) li lascia come sono."""
+        tutti = super().formsets(request, obj, data, files)
+        return tutti if data is None else [(i, fs) for i, fs in tutti if f"{fs.prefix}-TOTAL_FORMS" in data]
 
     def kanban_queryset(self, qs):
         return qs.select_related("cliente")
@@ -517,3 +523,44 @@ class NonConformitaView(ModelView):
 
     def has_add_permission(self, request):
         return False
+
+
+@register
+class ModelloImballoView(ModelView):
+    model = ModelloImballo
+    slug = "imballi"
+    company_field = "azienda"
+    list_display = ["nome", "lunghezza", "larghezza", "altezza", "tara"]
+    form_layout = [("Imballo", ["nome", ("lunghezza", "larghezza", "altezza"), "tara"])]
+    ai_descrizione = "I modelli di imballo per i colli delle spedizioni."
+
+
+@register
+class ViaggioView(ModelView):
+    """I viaggi di consegna con il proprio mezzo: tappe in ordine, partenza, esito, foglio di viaggio."""
+    model = Viaggio
+    slug = "viaggi"
+    company_field = "azienda"
+    list_display = ["data", "mezzo", "autista", "magazzino", "stato"]
+    list_filter = ["stato", "autista"]
+    form_layout = [("Viaggio", [("data", "mezzo"), ("autista", "magazzino"), "note"])]
+    inlines = [Inline(TappaViaggio, "viaggio", ["consegna", "ordine"], titolo="Tappe")]
+    calendar_date = "data"
+    buttons = ["parti"]
+    ai_descrizione = "I viaggi di consegna con mezzo, autista e tappe."
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and (obj is None or obj.stato == obj.PIANIFICATO)
+
+    def get_buttons(self, request, obj):
+        return super().get_buttons(request, obj) if obj.stato == obj.PIANIFICATO else []
+
+    def parti(self, request, obj):
+        from . import viaggi
+        try:
+            viaggi.parti(obj, request.user)
+        except ValidationError as e:
+            return " ".join(e.messages)
+        return "Il viaggio è partito: le consegne sono spedite con il loro DDT."
+    parti.short_description = "Parti (spedisci le consegne)"
+    parti.rischio = "irreversibile"

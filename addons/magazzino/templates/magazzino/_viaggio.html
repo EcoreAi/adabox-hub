@@ -1,0 +1,8 @@
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Tappe</div><div class="spacer"></div><a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'magazzino:foglio_viaggio' obj.pk %}" target="_blank" rel="noopener">Foglio di viaggio</a></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>#</th><th>Cliente</th><th>Indirizzo</th><th>DDT</th><th>Esito</th></tr></thead>
+  <tbody>{% for t in obj.tappe.all %}<tr><td>{{ forloop.counter }}</td><td>{{ t.consegna.cliente }}</td><td>{{ t.consegna.destinazione|default:t.consegna.cliente.indirizzo }}</td><td>{{ t.consegna.numero|default:"—" }}</td>
+    <td>{% if t.esito != "da_fare" %}{{ t.get_esito_display }}{% if t.nota %} · {{ t.nota }}{% endif %}{% elif obj.stato == "in_corso" and perms.magazzino.change_viaggio %}<form method="post" action="{% url 'magazzino:tappa_esito' t.pk %}" style="display:flex;gap:6px;flex-wrap:wrap">{% csrf_token %}
+      <input class="ui-input" name="nota" placeholder="Nota" style="max-width:160px" aria-label="Nota"><button class="ui-btn ui-btn-secondary ui-btn-sm" name="esito" value="si">Consegnata</button><button class="ui-btn ui-btn-ghost ui-btn-sm" name="esito" value="no">Non consegnata</button></form>{% else %}Da fare{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="5" class="sub">Aggiungi le consegne nella modifica.</td></tr>{% endfor %}</tbody></table></div>
+</section>

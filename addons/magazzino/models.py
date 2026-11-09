@@ -636,3 +636,76 @@ class NonConformita(AziendaMixin):
 
     def __str__(self):
         return f"Non conformità {self.prodotto} · {self.fornitore or '—'}"
+
+
+class ModelloImballo(AziendaMixin):
+    """Una scatola o un bancale standard: misure e tara, per comporre i colli delle spedizioni."""
+    nome = models.CharField("nome", max_length=80, help_text="es. Scatola media, Bancale EUR")
+    lunghezza = models.PositiveIntegerField("lunghezza (cm)", null=True, blank=True)
+    larghezza = models.PositiveIntegerField("larghezza (cm)", null=True, blank=True)
+    altezza = models.PositiveIntegerField("altezza (cm)", null=True, blank=True)
+    tara = models.DecimalField("tara (kg)", max_digits=8, decimal_places=2, default=0)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "modello di imballo"
+        verbose_name_plural = "modelli di imballo"
+        ordering = ["nome"]
+
+    def __str__(self):
+        misure = "×".join(str(x) for x in (self.lunghezza, self.larghezza, self.altezza) if x)
+        return f"{self.nome}{f' ({misure} cm)' if misure else ''}"
+
+
+class Collo(models.Model):
+    """Un collo della consegna: imballo, peso, eventuale numero di tracciamento del vettore."""
+    consegna = models.ForeignKey(Consegna, on_delete=models.CASCADE, related_name="colli_spedizione", verbose_name="consegna")
+    numero = models.PositiveSmallIntegerField("collo n.", default=1)
+    imballo = models.ForeignKey(ModelloImballo, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="imballo")
+    peso = models.DecimalField("peso lordo (kg)", max_digits=10, decimal_places=2, null=True, blank=True)
+    tracciamento = models.CharField("tracciamento", max_length=60, blank=True, help_text="il codice del vettore")
+
+    class Meta:
+        verbose_name = "collo"
+        verbose_name_plural = "colli"
+        ordering = ["numero"]
+
+
+class Viaggio(AziendaMixin):
+    """Un giro di consegne con il proprio mezzo: chi guida, con che cosa, in che ordine passare dai clienti."""
+    PIANIFICATO, IN_CORSO, CONCLUSO = "pianificato", "in_corso", "concluso"
+    STATI = [(PIANIFICATO, "Pianificato"), (IN_CORSO, "In corso"), (CONCLUSO, "Concluso")]
+    data = models.DateField("data", default=timezone.localdate)
+    mezzo = models.CharField("mezzo", max_length=80, help_text="es. Furgone AB123CD")
+    autista = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="autista")
+    magazzino = models.ForeignKey(Magazzino, on_delete=models.PROTECT, related_name="viaggi", verbose_name="parte da")
+    stato = models.CharField("stato", max_length=12, choices=STATI, default=PIANIFICATO, editable=False)
+    note = models.TextField("note", blank=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "viaggio"
+        verbose_name_plural = "viaggi"
+        ordering = ["-data", "-pk"]
+
+    def __str__(self):
+        return f"Viaggio del {self.data:%d/%m/%Y} · {self.mezzo}"
+
+
+class TappaViaggio(models.Model):
+    DA_FARE, CONSEGNATA, NON_CONSEGNATA = "da_fare", "consegnata", "non_consegnata"
+    viaggio = models.ForeignKey(Viaggio, on_delete=models.CASCADE, related_name="tappe", verbose_name="viaggio")
+    consegna = models.ForeignKey(Consegna, on_delete=models.PROTECT, related_name="tappe", verbose_name="consegna")
+    ordine = models.PositiveSmallIntegerField("ordine", default=10)
+    esito = models.CharField("esito", max_length=15, default=DA_FARE, editable=False,
+                             choices=[(DA_FARE, "Da fare"), (CONSEGNATA, "Consegnata"), (NON_CONSEGNATA, "Non consegnata")])
+    nota = models.CharField("nota", max_length=200, blank=True)
+    alle = models.DateTimeField("alle", null=True, blank=True, editable=False)
+
+    class Meta:
+        verbose_name = "tappa"
+        verbose_name_plural = "tappe"
+        ordering = ["ordine", "pk"]
+        constraints = [models.UniqueConstraint(fields=["viaggio", "consegna"], name="magazzino_tappa_unica")]
+
+    def clean(self):
+        if self.consegna_id and self.viaggio_id and self.consegna.magazzino_id != self.viaggio.magazzino_id:
+            raise ValidationError({"consegna": "La consegna parte da un altro magazzino."})
