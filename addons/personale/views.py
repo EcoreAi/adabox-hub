@@ -86,6 +86,7 @@ class TipoAssenzaView(ModelView):
 class DipendenteView(ModelView):
     model = Dipendente
     slug = "dipendenti"
+    import_key = "codice_fiscale"
     list_display = ["__str__", "reparto", "ruolo", "responsabile", "tipo_contratto", "attivo"]
     list_filter = ["reparto", "tipo_contratto", "attivo"]
     search_fields = ["nome", "cognome", "codice_fiscale", "email", "ruolo"]

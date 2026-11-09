@@ -51,6 +51,7 @@ class ProdottoView(ModelView):
 class ListinoView(ModelView):
     model = Listino
     slug = "listini"
+    import_key = "nome"
     list_display = ["nome", "attivo"]
     form_layout = [("Listino", ["nome", ("attivo", "iva_inclusa"), "note"])]
     company_field = "azienda"

@@ -12,6 +12,7 @@ from .models import Inventario, Lotto, Reso, RigaReso, ScortaMagazzino
 class MagazzinoView(ModelView):
     model = Magazzino
     slug = "magazzini"
+    import_key = "nome"
     list_display = ["nome", "indirizzo", "predefinito"]
     form_layout = [("Magazzino", ["nome", "indirizzo", "predefinito"])]
     company_field = "azienda"

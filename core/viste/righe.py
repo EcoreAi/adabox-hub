@@ -23,6 +23,11 @@ class Inline:
         return inlineformset_factory(documento, self.model, form=form, fk_name=self.fk, fields=self.fields,
                                      extra=self.extra, can_delete=True)
 
+    def form_class(self, azienda_id=None):
+        """La form di una riga sola (per l'importazione di testata e righe)."""
+        from .base import _campo_form, form_per_azienda
+        return form_per_azienda(modelform_factory(self.model, fields=self.fields, formfield_callback=_campo_form), azienda_id)
+
     def colonne(self):
         meta = self.model._meta
         return [str(meta.get_field(c).verbose_name).capitalize() for c in self.fields]
