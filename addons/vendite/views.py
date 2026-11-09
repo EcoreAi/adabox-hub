@@ -6,7 +6,8 @@ from core import chatter, lavori
 from core.models import Messaggio
 from core.viste import Inline, ModelView, register, schede
 
-from .models import OrdineVendita, RigaVendita, RegolaSconto, ModelloPreventivo, RigaModelloPreventivo
+from .models import (ModelloPreventivo, OrdineVendita, PianoProvvigioni, Provvigione, RegolaProvvigione, RegolaSconto,
+                     RigaModelloPreventivo, RigaVendita)
 from . import fido, operazioni
 from .segnali import ordine_annullato
 
@@ -180,3 +181,35 @@ class ModelloPreventivoView(ModelView):
     form_layout = [("Modello", [("nome", "giorni_validita"), "note", "attivo"])]
     inlines = [Inline(RigaModelloPreventivo, "modello", ["prodotto", "descrizione", "quantita", "prezzo", "sconto", "opzionale"], titolo="Righe")]
     ai_descrizione = "I modelli di preventivo con righe e testi già pronti."
+
+
+@register
+class PianoProvvigioniView(ModelView):
+    """I piani provvigionali dei commerciali, con le percentuali per prodotto o categoria."""
+    model = PianoProvvigioni
+    slug = "piani-provvigioni"
+    company_field = "azienda"
+    list_display = ["nome", "utente", "percentuale", "maturazione", "maggiorazione", "attivo"]
+    list_filter = ["attivo", "maturazione", "utente"]
+    form_layout = [("Piano", [("nome", "utente"), ("percentuale", "maturazione"), "maggiorazione", ("dal", "al"), "attivo"])]
+    inlines = [Inline(RegolaProvvigione, "piano", ["prodotto", "categoria", "percentuale"], titolo="Percentuali per prodotto o categoria", extra=0)]
+
+
+@register
+class ProvvigioneView(ModelView):
+    """Le provvigioni maturate: il commerciale vede le sue."""
+    model = Provvigione
+    slug = "provvigioni"
+    company_field = "azienda"
+    list_display = ["data", "utente", "descrizione", "base", "importo", "stato"]
+    list_filter = ["stato", "utente", "data"]
+    search_fields = ["descrizione", "ordine__numero", "ordine__numero_ordine"]
+    form_layout = [("Provvigione", [("utente", "data"), "ordine", "descrizione", ("base", "importo"), ("stato", "liquidata_il")])]
+    readonly_fields = ["ordine"]
+    list_sum = ["base", "importo"]
+    list_group_by = ["utente", "stato", "data:mese"]
+    graph = {"tipi": ["barre"], "misure": ["sum:importo"], "per": ["data:mese", "utente"]}
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs if request.user.has_perm("vendite.change_provvigione") else qs.filter(utente=request.user)

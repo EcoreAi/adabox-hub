@@ -118,3 +118,36 @@ def applica_modello(request, pk):
         except ValidationError as e:
             messages.error(request, " ".join(e.messages))
     return redirect("vendite:ordini_dettaglio", pk=pk)
+
+
+def _giorno(testo, predefinito):
+    import datetime
+    try:
+        return datetime.date.fromisoformat(testo) if testo else predefinito
+    except ValueError:
+        return predefinito
+
+
+@login_required
+@permission_required("vendite.view_provvigione", raise_exception=True)
+def estratto_provvigioni(request):
+    """L'estratto provvigionale del periodo: il commerciale vede il suo, chi gestisce le provvigioni quello di tutti."""
+    from django.contrib.auth import get_user_model
+    from django.utils import timezone
+
+    from . import provvigioni
+    oggi = timezone.localdate()
+    dal = _giorno(request.GET.get("dal") or request.POST.get("dal"), oggi.replace(day=1))
+    al = _giorno(request.GET.get("al") or request.POST.get("al"), oggi)
+    gestore = request.user.has_perm("vendite.change_provvigione")
+    utenti = get_user_model().objects.filter(provvigioni__azienda=request.azienda).distinct().order_by("first_name", "username") if gestore else []
+    scelto = request.user
+    if gestore and (request.GET.get("utente") or request.POST.get("utente")):
+        scelto = get_object_or_404(get_user_model(), pk=request.GET.get("utente") or request.POST.get("utente"))
+    if request.method == "POST" and gestore and request.POST.get("azione") == "liquida":
+        n = provvigioni.liquida(scelto, request.azienda.pk, dal, al)
+        messages.success(request, f"Liquidate {n} provvigioni.")
+        return redirect(f"{request.path}?utente={scelto.pk}&dal={dal:%Y-%m-%d}&al={al:%Y-%m-%d}")
+    return render(request, "vendite/estratto_provvigioni.html", {
+        "dal": dal, "al": al, "scelto": scelto, "utenti": utenti, "gestore": gestore,
+        **provvigioni.estratto(scelto, request.azienda.pk, dal, al)})

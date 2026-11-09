@@ -1,0 +1,23 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Estratto provvigioni · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Estratto provvigioni</h1><div class="sub">{{ scelto.get_full_name|default:scelto.username }} · dal {{ dal|date:"d/m/Y" }} al {{ al|date:"d/m/Y" }}</div></div></div>
+<div class="ui-card is-revealed ui-section"><form class="ui-filtri" method="get">
+  {% if gestore %}<select class="ui-input" name="utente" style="max-width:220px" aria-label="Commerciale">{% for u in utenti %}<option value="{{ u.pk }}" {% if u.pk == scelto.pk %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>{% endfor %}</select>{% endif %}
+  <label class="sub" for="pv-dal">dal</label><input class="ui-input" type="date" id="pv-dal" name="dal" value="{{ dal|date:'Y-m-d' }}" style="max-width:170px">
+  <label class="sub" for="pv-al">al</label><input class="ui-input" type="date" id="pv-al" name="al" value="{{ al|date:'Y-m-d' }}" style="max-width:170px">
+  <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Mostra</button></form>
+  <div class="ui-card-body"><div class="cm-tessere">
+    <div class="cm-tessera"><small>Venduto</small><strong>{{ base|floatformat:2 }} €</strong></div>
+    <div class="cm-tessera"><small>Provvigioni</small><strong>{{ totale|floatformat:2 }} €</strong></div>
+    <div class="cm-tessera"><small>Quota</small><strong>{% if obiettivo %}{{ percentuale_obiettivo }}% di {{ obiettivo.importo|floatformat:0 }} €{% else %}—{% endif %}</strong></div>
+    <div class="cm-tessera"><small>Maggiorazione</small><strong>{{ maggiorazione|floatformat:2 }} €</strong></div>
+    <div class="cm-tessera"><small>Totale</small><strong>{{ da_pagare|floatformat:2 }} €</strong></div>
+  </div></div></div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Movimenti</div><div class="spacer"></div>
+  {% if gestore and da_liquidare %}<form method="post">{% csrf_token %}<input type="hidden" name="utente" value="{{ scelto.pk }}"><input type="hidden" name="dal" value="{{ dal|date:'Y-m-d' }}"><input type="hidden" name="al" value="{{ al|date:'Y-m-d' }}">
+    <button class="ui-btn ui-btn-primary ui-btn-sm" name="azione" value="liquida">Segna liquidate ({{ da_liquidare|floatformat:2 }} €)</button></form>{% endif %}</div>
+  {% if righe %}<div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Data</th><th>Descrizione</th><th class="ui-num">Venduto</th><th class="ui-num">Provvigione</th><th>Stato</th></tr></thead>
+  <tbody>{% for r in righe %}<tr><td>{{ r.data|date:"d/m/Y" }}</td><td><a href="{% url 'vendite:ordini_dettaglio' r.ordine_id %}">{{ r.descrizione|default:r.ordine }}</a></td><td class="ui-num">{{ r.base|floatformat:2 }}</td><td class="ui-num">{{ r.importo|floatformat:2 }}</td><td>{{ r.get_stato_display }}</td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<div class="ui-card-body"><p class="sub" style="margin:0">Nessuna provvigione nel periodo.</p></div>{% endif %}</section>
+{% endblock %}
