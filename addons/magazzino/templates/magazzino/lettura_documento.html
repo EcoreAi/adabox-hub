@@ -1,0 +1,117 @@
+{% extends 'core/base_app.html' %}
+{% block title %}{{ titolo }} · Lettura codici · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>{{ titolo }}</h1><div class="sub"><a class="ui-link" href="{{ dettaglio }}">{% if doc %}Apri il documento{% else %}Lettura codici{% endif %}</a> · leggi un pezzo alla volta, o il codice della confezione</div></div></div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <form id="lc-leggi" class="lc-riga" autocomplete="off">
+    <input class="ui-input lc-codice" id="lc-codice" placeholder="Codice a barre" inputmode="none" autofocus aria-label="Codice a barre">
+    <button class="ui-btn ui-btn-secondary" type="submit">Aggiungi</button>
+    <button class="ui-btn ui-btn-ghost" type="button" id="lc-camera" hidden>Fotocamera</button>
+  </form>
+  <video id="lc-video" playsinline muted hidden></video>
+  <p id="lc-esito" class="lc-esito" role="status" aria-live="polite"></p>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Prodotto</th>{% if tipo != "trasferimento" %}<th class="ui-num">Attesi</th>{% endif %}<th class="ui-num">Letti</th><th></th></tr></thead>
+    <tbody id="lc-righe"></tbody></table></div>
+</div></section>
+<form method="post" id="lc-conferma" class="ui-card is-revealed ui-section">{% csrf_token %}
+  <input type="hidden" name="letture" id="lc-letture">
+  <div class="ui-card-body lc-riga">
+    {% if tipo == "trasferimento" %}
+      <label class="ui-label" for="lc-da">Da</label><select class="ui-input" id="lc-da" name="da" required>{% for v, nome in posti %}<option value="{{ v }}">{{ nome }}</option>{% endfor %}</select>
+      <label class="ui-label" for="lc-a">A</label><select class="ui-input" id="lc-a" name="a" required>{% for v, nome in posti %}<option value="{{ v }}">{{ nome }}</option>{% endfor %}</select>
+      <button class="ui-btn ui-btn-primary" type="submit">Sposta</button>
+    {% else %}
+      <label class="ut-check"><input type="checkbox" name="togli" value="1"> Togli le righe non lette</label>
+      <button class="ui-btn ui-btn-secondary" type="submit" name="chiudi" value="0">Salva le quantità</button>
+      <button class="ui-btn ui-btn-primary" type="submit" name="chiudi" value="1">{% if tipo == "ricevimento" %}Salva e ricevi{% else %}Salva e spedisci{% endif %}</button>
+    {% endif %}
+  </div>
+</form>
+{{ righe|json_script:"lc-iniziali" }}
+<style>
+.lc-riga{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.lc-codice{flex:1;min-width:200px;font-size:1.2em;padding:12px}
+#lc-video{width:100%;max-height:260px;border-radius:12px;margin-top:10px;background:#000}
+.lc-esito{min-height:1.4em;margin:10px 0}
+.lc-esito.is-ok{color:var(--ui-success,#15803d)} .lc-esito.is-no{color:var(--ui-danger,#b91c1c)}
+tr.is-giusto td{background:color-mix(in srgb,var(--ui-success,#15803d) 10%,transparent)}
+tr.is-troppi td{background:color-mix(in srgb,var(--ui-danger,#b91c1c) 10%,transparent)}
+.lc-piu{display:inline-flex;gap:4px}
+</style>
+<script>
+(function () {
+  var righe = {}, ordine = [];
+  JSON.parse(document.getElementById("lc-iniziali").textContent).forEach(function (r) { righe[r.id] = {nome: r.nome, attesi: r.attesi, letti: 0}; ordine.push(r.id); });
+  var conAttesi = "{{ tipo }}" !== "trasferimento";
+  var corpo = document.getElementById("lc-righe"), esito = document.getElementById("lc-esito"), campo = document.getElementById("lc-codice");
+  function n(x) { return (Math.round(x * 1000) / 1000).toLocaleString("it-IT"); }
+  function disegna() {
+    corpo.innerHTML = "";
+    ordine.forEach(function (id) {
+      var r = righe[id], tr = document.createElement("tr");
+      if (conAttesi) tr.className = r.letti === r.attesi ? "is-giusto" : (r.letti > r.attesi ? "is-troppi" : "");
+      var nome = document.createElement("td"); nome.textContent = r.nome; tr.appendChild(nome);
+      if (conAttesi) { var a = document.createElement("td"); a.className = "ui-num"; a.textContent = n(r.attesi); tr.appendChild(a); }
+      var l = document.createElement("td"); l.className = "ui-num"; l.textContent = n(r.letti); tr.appendChild(l);
+      var b = document.createElement("td"), box = document.createElement("span"); box.className = "lc-piu";
+      [["−", -1], ["+", 1]].forEach(function (x) {
+        var bt = document.createElement("button"); bt.type = "button"; bt.className = "ui-btn ui-btn-ghost ui-btn-sm"; bt.textContent = x[0];
+        bt.setAttribute("aria-label", (x[1] > 0 ? "Uno in più di " : "Uno in meno di ") + r.nome);
+        bt.onclick = function () { r.letti = Math.max(0, r.letti + x[1]); disegna(); campo.focus(); };
+        box.appendChild(bt);
+      });
+      b.appendChild(box); tr.appendChild(b); corpo.appendChild(tr);
+    });
+  }
+  function avvisa(testo, ok) {
+    esito.textContent = testo; esito.className = "lc-esito " + (ok ? "is-ok" : "is-no");
+    if (navigator.vibrate) navigator.vibrate(ok ? 40 : [80, 60, 80]);
+  }
+  var inCorso = {};
+  function leggi(codice) {
+    codice = (codice || "").trim();
+    if (!codice || inCorso[codice]) return;
+    inCorso[codice] = true;
+    fetch("{% url 'magazzino:lettura_codice' %}?c=" + encodeURIComponent(codice), {credentials: "same-origin"})
+      .then(function (r) { return r.json().then(function (d) { return {ok: r.ok, d: d}; }); })
+      .then(function (x) {
+        if (!x.ok) { avvisa(x.d.errore || "Codice non trovato.", false); return; }
+        var r = righe[x.d.id];
+        if (!r) {
+          if (conAttesi && "{{ tipo }}" === "consegna") { avvisa(x.d.nome + " non è in questa consegna.", false); return; }
+          r = righe[x.d.id] = {nome: x.d.nome, attesi: 0, letti: 0}; ordine.push(x.d.id);
+        }
+        r.letti += x.d.pezzi;
+        avvisa("+" + n(x.d.pezzi) + " " + x.d.nome, !(conAttesi && r.letti > r.attesi));
+        disegna();
+      })
+      .catch(function () { avvisa("Non riesco a controllare il codice: c'è connessione?", false); })
+      .finally(function () { setTimeout(function () { delete inCorso[codice]; }, 600); });
+  }
+  document.getElementById("lc-leggi").addEventListener("submit", function (e) { e.preventDefault(); leggi(campo.value); campo.value = ""; campo.focus(); });
+  document.getElementById("lc-conferma").addEventListener("submit", function () {
+    var dati = {}; ordine.forEach(function (id) { if (righe[id].letti) dati[id] = righe[id].letti; });
+    document.getElementById("lc-letture").value = JSON.stringify(dati);
+  });
+  if ("BarcodeDetector" in window && navigator.mediaDevices && window.isSecureContext) {
+    var bottone = document.getElementById("lc-camera"), video = document.getElementById("lc-video"), attiva = null;
+    bottone.hidden = false;
+    bottone.onclick = function () {
+      if (attiva) { attiva.getTracks().forEach(function (t) { t.stop(); }); attiva = null; video.hidden = true; bottone.textContent = "Fotocamera"; return; }
+      var lettore = new BarcodeDetector(), ultimo = "", quando = 0;
+      navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}}).then(function (s) {
+        attiva = s; video.srcObject = s; video.hidden = false; video.play(); bottone.textContent = "Chiudi fotocamera";
+        (function giro() {
+          if (!attiva) return;
+          lettore.detect(video).then(function (trovati) {
+            var c = trovati.length ? trovati[0].rawValue : "";
+            if (c && (c !== ultimo || Date.now() - quando > 1500)) { ultimo = c; quando = Date.now(); leggi(c); }
+          }).catch(function () {}).finally(function () { setTimeout(giro, 250); });
+        })();
+      }).catch(function () { avvisa("La fotocamera non è disponibile: usa il lettore o scrivi il codice.", false); });
+    };
+  }
+  disegna();
+})();
+</script>
+{% endblock %}

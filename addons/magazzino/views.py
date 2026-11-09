@@ -89,6 +89,13 @@ def _bottone(request, funzione, obj, messaggio):
     return messaggio(obj)
 
 
+def _leggi(obj, tipo):
+    from django.shortcuts import redirect
+    if obj.stato != obj.BOZZA:
+        return "Il documento non è più in bozza."
+    return redirect("magazzino:lettura_documento", tipo=tipo, pk=obj.pk)
+
+
 @register
 class ConsegnaView(ModelView):
     model = Consegna
@@ -107,7 +114,7 @@ class ConsegnaView(ModelView):
     kanban_colori = {"bozza": "azzurro", "fatto": "verde", "annullato": "grigio"}
     chatter = True
     tracked_fields = ["stato"]
-    buttons = ["spedisci", "annulla"]
+    buttons = ["leggi_codici", "spedisci", "annulla"]
     actions = ["fattura_differita"]
     reports = [{"nome": "DDT", "template": "magazzino/report/ddt.html", "colonne": [("codice", "Codice articolo"), ("um", "Unità di misura")]}]
     api = True
@@ -161,6 +168,11 @@ class ConsegnaView(ModelView):
         return "Consegna annullata."
     annulla.short_description = "Annulla"
 
+    def leggi_codici(self, request, obj):
+        return _leggi(obj, "consegna")
+    leggi_codici.short_description = "Leggi i codici"
+    leggi_codici.ai = False
+
 
 @register
 class RicevimentoView(ModelView):
@@ -179,7 +191,7 @@ class RicevimentoView(ModelView):
     kanban_colori = {"bozza": "azzurro", "fatto": "verde", "annullato": "grigio"}
     chatter = True
     tracked_fields = ["stato"]
-    buttons = ["ricevi"]
+    buttons = ["leggi_codici", "ricevi"]
     api = True
 
 
@@ -198,5 +210,10 @@ class RicevimentoView(ModelView):
 
     def ricevi(self, request, obj):
         return _bottone(request, operazioni.ricevi, obj, lambda r: "Merce ricevuta e caricata a magazzino.")
+
+    def leggi_codici(self, request, obj):
+        return _leggi(obj, "ricevimento")
+    leggi_codici.short_description = "Leggi i codici"
+    leggi_codici.ai = False
     ricevi.short_description = "Ricevi la merce"
     ricevi.rischio = "irreversibile"
