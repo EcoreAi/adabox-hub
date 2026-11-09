@@ -216,3 +216,23 @@ class ObiettivoVendita(AziendaMixin):
             raise ValidationError("Indica la persona oppure il team.")
         if self.dal and self.al and self.al < self.dal:
             raise ValidationError({"al": "La fine viene dopo l'inizio."})
+
+
+class RettificaPrevisione(AziendaMixin):
+    """La previsione di un mese corretta a mano (di tutta l'azienda o di un commerciale), con il motivo."""
+    mese = models.DateField("mese", help_text="il primo giorno del mese")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name="+",
+                               verbose_name="commerciale")
+    importo = models.DecimalField("previsione (€)", max_digits=14, decimal_places=2)
+    nota = models.CharField("motivo", max_length=200, blank=True)
+    autore = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                               verbose_name="rettificata da")
+    modificata_il = models.DateTimeField("modificata il", auto_now=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "rettifica della previsione"
+        verbose_name_plural = "rettifiche della previsione"
+        constraints = [models.UniqueConstraint(fields=["azienda", "mese", "utente"], name="crm_rettifica_unica"),
+                       # con utente vuoto il vincolo sopra non vale (NULL è sempre diverso): una sola dell'azienda per mese
+                       models.UniqueConstraint(fields=["azienda", "mese"], condition=models.Q(utente__isnull=True),
+                                               name="crm_rettifica_azienda_unica")]

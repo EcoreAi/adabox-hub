@@ -4,4 +4,5 @@ from django.urls import path
 from . import modulo_web, pagine
 
 urlpatterns = [path("modulo/<str:chiave>/", modulo_web.invia, name="modulo_web"),
-               path("risultati/", pagine.risultati, name="risultati")]
+               path("risultati/", pagine.risultati, name="risultati"),
+               path("previsione/", pagine.previsione, name="previsione")]

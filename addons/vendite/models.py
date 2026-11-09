@@ -260,3 +260,77 @@ class RigaModelloPreventivo(models.Model):
     def clean(self):
         if not self.prodotto_id and not self.descrizione:
             raise ValidationError("Indica un prodotto o una descrizione.")
+
+
+class PianoProvvigioni(AziendaMixin):
+    """Quanto prende un commerciale sul venduto: percentuale di base, regole per prodotto o categoria, maturazione
+    alla conferma dell'ordine o all'incasso della fattura, maggiorazione se raggiunge la quota del periodo."""
+    ORDINE, INCASSO = "ordine", "incasso"
+    MATURAZIONI = [(ORDINE, "Alla conferma dell'ordine"), (INCASSO, "All'incasso della fattura")]
+    nome = models.CharField("nome", max_length=80)
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name="piani_provvigioni",
+                               verbose_name="commerciale", help_text="vuoto = vale per tutti i commerciali senza un piano proprio")
+    percentuale = models.DecimalField("provvigione di base (%)", max_digits=5, decimal_places=2, default=0)
+    maturazione = models.CharField("matura", max_length=8, choices=MATURAZIONI, default=ORDINE)
+    maggiorazione = models.DecimalField("in più a quota raggiunta (%)", max_digits=5, decimal_places=2, default=0,
+                                        help_text="punti percentuali in più sul venduto del periodo se il commerciale raggiunge il suo obiettivo")
+    dal = models.DateField("valido dal", null=True, blank=True)
+    al = models.DateField("valido fino al", null=True, blank=True)
+    attivo = models.BooleanField("attivo", default=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "piano provvigionale"
+        verbose_name_plural = "piani provvigionali"
+        ordering = ["nome"]
+
+    def __str__(self):
+        return self.nome
+
+    def percentuale_per(self, prodotto, regole=None):
+        regole = list(self.regole.all()) if regole is None else regole
+        if prodotto is not None:
+            for r in regole:
+                if r.prodotto_id == prodotto.pk:
+                    return r.percentuale
+            for r in regole:
+                if r.categoria_id and r.prodotto_id is None and r.categoria_id == prodotto.categoria_id:
+                    return r.percentuale
+        return self.percentuale
+
+
+class RegolaProvvigione(models.Model):
+    piano = models.ForeignKey(PianoProvvigioni, on_delete=models.CASCADE, related_name="regole", verbose_name="piano")
+    prodotto = models.ForeignKey("prodotti.Prodotto", on_delete=models.CASCADE, null=True, blank=True, related_name="+", verbose_name="prodotto")
+    categoria = models.ForeignKey("prodotti.Categoria", on_delete=models.CASCADE, null=True, blank=True, related_name="+", verbose_name="categoria")
+    percentuale = models.DecimalField("provvigione (%)", max_digits=5, decimal_places=2)
+
+    class Meta:
+        verbose_name = "regola provvigionale"
+        verbose_name_plural = "regole provvigionali"
+
+    def clean(self):
+        if not self.prodotto_id and not self.categoria_id:
+            raise ValidationError("Indica un prodotto o una categoria.")
+
+
+class Provvigione(AziendaMixin):
+    MATURATA, LIQUIDATA, ANNULLATA = "maturata", "liquidata", "annullata"
+    STATI = [(MATURATA, "Maturata"), (LIQUIDATA, "Liquidata"), (ANNULLATA, "Annullata")]
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="provvigioni", verbose_name="commerciale")
+    piano = models.ForeignKey(PianoProvvigioni, on_delete=models.SET_NULL, null=True, blank=True, related_name="provvigioni", verbose_name="piano")
+    ordine = models.ForeignKey("vendite.OrdineVendita", on_delete=models.CASCADE, related_name="provvigioni", verbose_name="ordine")
+    data = models.DateField("maturata il", default=timezone.localdate)
+    base = models.DecimalField("venduto (imponibile)", max_digits=14, decimal_places=2, default=0)
+    importo = models.DecimalField("provvigione", max_digits=14, decimal_places=2, default=0)
+    descrizione = models.CharField("descrizione", max_length=200, blank=True)
+    incasso_id = models.PositiveBigIntegerField("incasso", null=True, blank=True, editable=False, db_index=True)
+    stato = models.CharField("stato", max_length=10, choices=STATI, default=MATURATA)
+    liquidata_il = models.DateField("liquidata il", null=True, blank=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "provvigione"
+        verbose_name_plural = "provvigioni"
+        ordering = ["-data", "-pk"]
+
+    def __str__(self):
+        return f"{self.ordine} · {self.utente} · {self.importo} €"

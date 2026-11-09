@@ -16,6 +16,15 @@ class VenditeConfig(AppConfig):
         hooks.sezione_dettaglio("contatti.Contatto", "vendite/_fido_contatto.html", order=25,
                                 permission="vendite.view_ordinevendita")
         from django.apps import apps
+        from . import provvigioni
+        from .segnali import ordine_annullato, ordine_confermato
+        ordine_confermato.connect(provvigioni.da_conferma, dispatch_uid="vendite.provvigioni")
+        ordine_annullato.connect(provvigioni.da_annullamento, dispatch_uid="vendite.provvigioni_annullate")
+        if apps.is_installed("fatturazione"):              # provvigioni che maturano all'incasso
+            from django.db.models.signals import post_delete, post_save
+            incasso = apps.get_model("fatturazione", "Incasso")
+            post_save.connect(provvigioni.da_incasso, sender=incasso, dispatch_uid="vendite.provvigioni_incasso")
+            post_delete.connect(provvigioni.incasso_eliminato, sender=incasso, dispatch_uid="vendite.provvigioni_incasso_eliminato")
         if apps.is_installed("crm"):                       # preventivi dalle opportunità, vinta alla conferma
             from . import opportunita
             from .segnali import ordine_confermato
