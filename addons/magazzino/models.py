@@ -450,3 +450,71 @@ def impegni_e_arrivi(azienda):
                 chiave = (r["prodotto"], predefinito.pk)
                 arrivi[chiave] = arrivi.get(chiave, 0) + r["t"]
     return impegni, arrivi
+
+
+class Reso(AziendaMixin):
+    """Un reso del cliente (RMA): si autorizza, la merce rientra (a magazzino o a scarto) e la nota di credito nasce già
+    con le sole righe rese. La fattura è un numero perché la Fatturazione è facoltativa per il Magazzino."""
+    RICHIESTO, AUTORIZZATO, RIENTRATO, CHIUSO, RIFIUTATO = "richiesto", "autorizzato", "rientrato", "chiuso", "rifiutato"
+    STATI = [(RICHIESTO, "Richiesto"), (AUTORIZZATO, "Autorizzato"), (RIENTRATO, "Merce rientrata"), (CHIUSO, "Chiuso"),
+             (RIFIUTATO, "Rifiutato")]
+    MOTIVI = [("difettoso", "Difettoso"), ("errato", "Prodotto sbagliato"), ("danneggiato", "Danneggiato nel trasporto"),
+              ("non_conforme", "Non conforme all'ordine"), ("ripensamento", "Ripensamento"), ("altro", "Altro")]
+    numero = models.CharField("numero", max_length=30, blank=True, editable=False, db_index=True)
+    cliente = models.ForeignKey("contatti.Contatto", on_delete=models.PROTECT, related_name="resi", verbose_name="cliente")
+    consegna = models.ForeignKey(Consegna, on_delete=models.SET_NULL, null=True, blank=True, related_name="resi",
+                                 verbose_name="DDT di origine")
+    magazzino = models.ForeignKey(Magazzino, on_delete=models.PROTECT, related_name="resi", verbose_name="rientra in")
+    data = models.DateField("data", default=timezone.localdate)
+    motivo = models.CharField("motivo", max_length=14, choices=MOTIVI, default="difettoso")
+    descrizione = models.TextField("descrizione del problema", blank=True)
+    stato = models.CharField("stato", max_length=12, choices=STATI, default=RICHIESTO, editable=False)
+    fattura_id = models.PositiveBigIntegerField("fattura", null=True, blank=True, editable=False)
+    nota_credito_id = models.PositiveBigIntegerField("nota di credito", null=True, blank=True, editable=False)
+    rientrato_il = models.DateField("rientrato il", null=True, blank=True, editable=False)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "reso"
+        verbose_name_plural = "resi"
+        ordering = ["-data", "-pk"]
+
+    def __str__(self):
+        return f"Reso {self.numero or self.pk} · {self.cliente}"
+
+    def clean(self):
+        if self.consegna_id and self.cliente_id and self.consegna.cliente_id != self.cliente_id:
+            raise ValidationError({"consegna": "Il DDT è di un altro cliente."})
+
+    def _fattura(self, pk):
+        from django.apps import apps
+        if not pk or not apps.is_installed("fatturazione"):
+            return None
+        from fatturazione.models import Fattura
+        return Fattura.objects.filter(pk=pk, azienda_id=self.azienda_id).first()
+
+    @property
+    def fattura(self):
+        return self._fattura(self.fattura_id)
+
+    @property
+    def nota_credito(self):
+        return self._fattura(self.nota_credito_id)
+
+
+class RigaReso(models.Model):
+    DA_VEDERE, MAGAZZINO, SCARTO = "da_vedere", "magazzino", "scarto"
+    ESITI = [(DA_VEDERE, "Da ispezionare"), (MAGAZZINO, "Rimessa a magazzino"), (SCARTO, "Scartata")]
+    reso = models.ForeignKey(Reso, on_delete=models.CASCADE, related_name="righe", verbose_name="reso")
+    prodotto = models.ForeignKey("prodotti.Prodotto", on_delete=models.PROTECT, verbose_name="prodotto")
+    quantita = models.DecimalField("quantità", max_digits=12, decimal_places=3, default=1)
+    esito = models.CharField("esito", max_length=10, choices=ESITI, default=DA_VEDERE)
+    lotti = models.TextField("lotti o seriali", blank=True, help_text="per i prodotti tracciati: quali rientrano")
+
+    class Meta:
+        verbose_name = "riga del reso"
+        verbose_name_plural = "righe del reso"
+        ordering = ["pk"]
+
+    def clean(self):
+        if self.quantita is not None and self.quantita <= 0:
+            raise ValidationError({"quantita": "Scrivi quanti pezzi rientrano."})

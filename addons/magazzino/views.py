@@ -5,7 +5,7 @@ from core.viste import Inline, ModelView, register, schede
 
 from . import operazioni
 from .models import Consegna, Magazzino, Movimento, Ricevimento, RigaConsegna, RigaRicevimento, Ubicazione
-from .models import Inventario, Lotto, ScortaMagazzino
+from .models import Inventario, Lotto, Reso, RigaReso, ScortaMagazzino
 
 
 @register
@@ -114,7 +114,7 @@ class ConsegnaView(ModelView):
     kanban_colori = {"bozza": "azzurro", "pronto": "viola", "fatto": "verde", "annullato": "grigio"}
     chatter = True
     tracked_fields = ["stato"]
-    buttons = ["preleva", "leggi_codici", "pronta", "spedisci", "annulla", "storna"]
+    buttons = ["preleva", "leggi_codici", "pronta", "spedisci", "annulla", "storna", "reso"]
     actions = ["fattura_differita"]
     reports = [{"nome": "DDT", "template": "magazzino/report/ddt.html", "colonne": [("codice", "Codice articolo"), ("um", "Unità di misura")]}]
     api = True
@@ -138,10 +138,10 @@ class ConsegnaView(ModelView):
     def get_buttons(self, request, obj):
         tutti = super().get_buttons(request, obj)
         if obj.stato == Consegna.FATTO:
-            return [b for b in tutti if b[0] in ("storna", "preleva")]
+            return [b for b in tutti if b[0] in ("storna", "preleva", "reso")]
         if obj.stato == Consegna.ANNULLATO:
             return []
-        return [b for b in tutti if b[0] != "storna" and not (b[0] == "pronta" and obj.stato == Consegna.PRONTO)]
+        return [b for b in tutti if b[0] not in ("storna", "reso") and not (b[0] == "pronta" and obj.stato == Consegna.PRONTO)]
 
     def get_actions(self, request):
         azioni = super().get_actions(request)
@@ -165,6 +165,18 @@ class ConsegnaView(ModelView):
         return _bottone(request, operazioni.spedisci, obj, lambda c: f"Consegna spedita con il DDT {c.numero}.")
     spedisci.short_description = "Spedisci (emetti DDT)"
     spedisci.rischio = "irreversibile"
+
+    def reso(self, request, obj):
+        from django.shortcuts import redirect
+
+        from . import resi
+        try:
+            r = resi.da_consegna(obj, request.user)
+        except ValidationError as e:
+            return " ".join(e.messages)
+        return redirect("magazzino:resi_dettaglio", pk=r.pk)
+    reso.short_description = "Crea un reso"
+    reso.permission = "magazzino.add_reso"
 
     def preleva(self, request, obj):
         from django.shortcuts import redirect
@@ -310,3 +322,68 @@ class ScortaMagazzinoView(ModelView):
     search_fields = ["prodotto__nome", "prodotto__codice"]
     form_layout = [("Scorta", [("magazzino", "prodotto"), ("punto_riordino", "scorta_obiettivo")])]
     ai_descrizione = "Punti di riordino e scorte obiettivo dei prodotti per singolo magazzino."
+
+
+@register
+class ResoView(ModelView):
+    """I resi dei clienti: autorizzazione, rientro della merce, nota di credito con le righe rese."""
+    model = Reso
+    slug = "resi"
+    company_field = "azienda"
+    list_display = ["numero", "data", "cliente", "motivo", "stato", "consegna"]
+    list_filter = ["stato", "motivo"]
+    search_fields = ["numero", "cliente__nome", "descrizione"]
+    form_layout = [("Reso", [("cliente", "consegna"), ("magazzino", "data"), "motivo", "descrizione"])]
+    readonly_fields = ["numero", "stato", "rientrato_il"]
+    inlines = [Inline(RigaReso, "reso", ["prodotto", "quantita", "esito", "lotti"], titolo="Merce resa")]
+    kanban_group = "stato"
+    chatter = True
+    tracked_fields = ["stato"]
+    buttons = ["autorizza", "rientra", "nota_di_credito", "rifiuta"]
+    ai_descrizione = "I resi dei clienti (RMA): motivo, merce resa, esito dell'ispezione, rientro e nota di credito."
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        from . import resi
+        resi.numera(obj)
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and (obj is None or obj.stato in (Reso.RICHIESTO, Reso.AUTORIZZATO))
+
+    def get_buttons(self, request, obj):
+        tutti = super().get_buttons(request, obj)
+        ammessi = {Reso.RICHIESTO: {"autorizza", "rifiuta"}, Reso.AUTORIZZATO: {"rientra", "nota_di_credito", "rifiuta"},
+                   Reso.RIENTRATO: {"nota_di_credito"}}.get(obj.stato, set())
+        if not apps.is_installed("fatturazione") or obj.nota_credito_id:
+            ammessi = ammessi - {"nota_di_credito"}
+        return [b for b in tutti if b[0] in ammessi]
+
+    def autorizza(self, request, obj):
+        from . import resi
+        return _bottone(request, resi.autorizza, obj, lambda r: f"{r} autorizzato: aspetta la merce.")
+    autorizza.short_description = "Autorizza"
+
+    def rifiuta(self, request, obj):
+        from . import resi
+        return _bottone(request, resi.rifiuta, obj, lambda r: f"{r} rifiutato.")
+    rifiuta.short_description = "Rifiuta"
+
+    def rientra(self, request, obj):
+        from . import resi
+        return _bottone(request, resi.rientra, obj, lambda r: "Merce rientrata: le righe rimesse a magazzino sono di nuovo in giacenza.")
+    rientra.short_description = "Merce rientrata"
+    rientra.permission = "magazzino.add_movimento"
+
+    def nota_di_credito(self, request, obj):
+        from django.contrib import messages
+        from django.shortcuts import redirect
+
+        from . import resi
+        try:
+            nota = resi.nota_di_credito(obj, request.user)
+        except ValidationError as e:
+            return " ".join(e.messages)
+        messages.success(request, "Nota di credito in bozza con le righe rese: controllala ed emettila.")
+        return redirect("fatturazione:fatture_dettaglio", pk=nota.pk)
+    nota_di_credito.short_description = "Nota di credito"
+    nota_di_credito.permission = "fatturazione.add_fattura"
