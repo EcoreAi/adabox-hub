@@ -1,6 +1,6 @@
 from core.viste import Inline, ModelView, register, schede
 
-from .models import Categoria, Listino, PrezzoListino, Prodotto, UnitaMisura
+from .models import Categoria, ComponenteKit, Confezione, Listino, PrezzoListino, Prodotto, UnitaMisura
 
 
 @register
@@ -9,12 +9,14 @@ class ProdottoView(ModelView):
     slug = "prodotti"
     list_display = ["nome", "codice", "tipo", "categoria", "prezzo_vendita", "aliquota_iva", "attivo"]
     list_filter = ["tipo", "categoria", "aliquota_iva", "attivo"]
-    search_fields = ["nome", "codice", "codice_barre", "descrizione_vendita"]
+    search_fields = ["nome", "codice", "codice_barre", "descrizione_vendita", "confezioni__codice_barre"]
     form_layout = [
         ("Prodotto", [("nome", "codice"), ("tipo", "categoria"), ("unita", "codice_barre"), "attivo"]),
         ("Prezzi", [("prezzo_vendita", "costo"), "aliquota_iva"]),
-        ("Altro", ["descrizione_vendita", "scorta_minima", "@proprieta"]),
+        ("Altro", ["descrizione_vendita", ("scorta_minima", "kit"), "@proprieta"]),
     ]
+    inlines = [Inline(Confezione, "prodotto", ["nome", "quantita", "codice_barre", "peso"], titolo="Confezioni", extra=0),
+               Inline(ComponenteKit, "kit", ["componente", "quantita"], titolo="Componenti del kit", extra=0)]
     company_field = "azienda"
     sequence_field = ("codice", "prodotti.prodotto")
     list_group_by = ["tipo", "categoria", "aliquota_iva"]
@@ -26,6 +28,14 @@ class ProdottoView(ModelView):
     tracked_fields = ["prezzo_vendita", "costo", "aliquota_iva", "attivo"]
     import_key = "codice"
     api = True
+
+    def formsets(self, request, obj, data=None, files=None):
+        """Confezioni e componenti sono facoltativi: chi salva il prodotto senza mandarli (API, importazioni, Ada,
+        vecchi form) li lascia come sono, invece di vedersi rifiutare il salvataggio."""
+        tutti = super().formsets(request, obj, data, files)
+        if data is None:
+            return tutti
+        return [(inline, fs) for inline, fs in tutti if f"{fs.prefix}-TOTAL_FORMS" in data]
 
     def kanban_queryset(self, qs):
         return qs.select_related("categoria")

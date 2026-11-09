@@ -1,0 +1,6 @@
+{% load magazzino %}{% kit_prodotto obj as k %}{% if k %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Kit</div><div class="ui-card-sub">{% if k.componenti %}Con la merce di tutti i magazzini se ne fanno <strong>{{ k.disponibili }}</strong>: in consegna escono i componenti{% else %}Aggiungi i componenti nella modifica del prodotto: finché non ci sono esce il kit stesso{% endif %}</div></div></div>
+  {% if k.componenti %}<div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Componente</th><th class="ui-num">Per kit</th><th class="ui-num">Giacenza</th></tr></thead>
+  <tbody>{% for x in k.componenti %}<tr><td><a class="ui-link" href="{% url 'prodotti:prodotti_dettaglio' x.c.componente_id %}">{{ x.c.componente }}</a></td><td class="ui-num">{{ x.c.quantita|floatformat:"-3g" }}</td><td class="ui-num">{{ x.giacenza|floatformat:"-3g" }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+</section>{% endif %}

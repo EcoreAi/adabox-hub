@@ -18,30 +18,87 @@ def _negativa_ammessa(azienda):
         return True
 
 
+class _Parte:
+    """Una riga da scaricare: la riga stessa, o un componente del kit della riga (senza lotti né ubicazione scritti)."""
+    def __init__(self, riga, prodotto, quantita, propria):
+        self.prodotto, self.quantita = prodotto, quantita
+        self.lotti = riga.lotti if propria else ""
+        self.ubicazione = riga.ubicazione if propria else None
+        self.kit = None if propria else riga.prodotto
+
+
+def parti_da_scaricare(righe):
+    """Le righe con i kit esplosi nei componenti: ciò che esce davvero dal magazzino."""
+    parti = []
+    for r in righe:
+        esploso = r.prodotto.esploso(r.quantita)
+        propria = len(esploso) == 1 and esploso[0][0] == r.prodotto
+        parti.extend(_Parte(r, p, q, propria) for p, q in esploso)
+    return parti
+
+
+def colli_suggeriti(consegna):
+    """(colli, peso in kg o None) dalle confezioni dei prodotti: la confezione più grande che non supera la quantità,
+    il resto in una confezione in più; i prodotti senza confezioni non contano."""
+    import math
+    colli, peso, con_peso = 0, Decimal(0), True
+    for r in consegna.righe.select_related("prodotto").prefetch_related("prodotto__confezioni"):
+        confezioni = sorted(r.prodotto.confezioni.all(), key=lambda c: c.quantita, reverse=True)
+        if not confezioni:
+            continue
+        scelta = next((c for c in confezioni if c.quantita <= r.quantita), confezioni[-1])
+        n = math.ceil(Decimal(r.quantita) / scelta.quantita)
+        colli += n
+        if scelta.peso is None:
+            con_peso = False
+        else:
+            peso += scelta.peso * n
+    return colli, (peso if con_peso and colli else None)
+
+
 @transaction.atomic
 def spedisci(consegna, utente=None):
-    """DDT numerato e scarico di ogni riga. Senza giacenze negative ammesse, controlla la disponibilità."""
+    """DDT numerato e scarico di ogni riga (dei componenti, per i kit). Senza giacenze negative ammesse, controlla la
+    disponibilità. Se i colli sono rimasti quelli di partenza, li suggeriscono le confezioni."""
     if consegna.stato != Consegna.BOZZA:
         raise ValidationError("La consegna non è da spedire.")
     righe = list(consegna.righe.select_related("prodotto"))
     if not righe:
         raise ValidationError("La consegna non ha righe.")
+    parti = parti_da_scaricare(righe)
     if not _negativa_ammessa(consegna.azienda):
-        mancanti = [f"{r.prodotto} (disponibili {giacenza(r.prodotto, consegna.magazzino)})"
-                    for r in righe if giacenza(r.prodotto, consegna.magazzino) < r.quantita]
+        bisogno = {}
+        for p in parti:
+            bisogno[p.prodotto] = bisogno.get(p.prodotto, Decimal(0)) + Decimal(p.quantita)
+        mancanti = [f"{prodotto} (disponibili {giacenza(prodotto, consegna.magazzino)})"
+                    for prodotto, q in bisogno.items() if giacenza(prodotto, consegna.magazzino) < q]
         if mancanti:
             raise ValidationError("Merce insufficiente: " + ", ".join(mancanti))
     ct = ContentType.objects.get_for_model(Consegna)
-    piano = [(r, lotti.per_uscita(r, r.prodotto, consegna.magazzino)) for r in righe]      # prima tutti i controlli
-    for r, parti in piano:
-        for lotto, quantita in parti:
-            Movimento.objects.create(azienda=consegna.azienda, prodotto=r.prodotto, magazzino=consegna.magazzino,
-                                     ubicazione=r.ubicazione, lotto=lotto, quantita=-quantita, tipo=Movimento.SCARICO,
-                                     utente=utente, causale=f"Consegna a {consegna.cliente}", content_type=ct,
-                                     object_id=consegna.pk)
+    piano = [(p, lotti.per_uscita(p, p.prodotto, consegna.magazzino)) for p in parti]      # prima tutti i controlli
+    for p, scelte in piano:
+        causale = f"Consegna a {consegna.cliente}" + (f" (kit {p.kit.nome})" if p.kit else "")
+        for lotto, quantita in scelte:
+            Movimento.objects.create(azienda=consegna.azienda, prodotto=p.prodotto, magazzino=consegna.magazzino,
+                                     ubicazione=p.ubicazione, lotto=lotto, quantita=-quantita, tipo=Movimento.SCARICO,
+                                     utente=utente, causale=causale[:200], content_type=ct, object_id=consegna.pk)
+    campi = ["numero", "stato"]
+    if consegna.colli == 1 and not consegna.peso:
+        colli, peso = colli_suggeriti(consegna)
+        if colli > 1:
+            consegna.colli, consegna.peso = colli, peso
+            campi += ["colli", "peso"]
     consegna.numero = sequenze.prossimo("magazzino.ddt", consegna.azienda)
     consegna.stato = Consegna.FATTO
-    consegna.save(update_fields=["numero", "stato"])
+    consegna.save(update_fields=campi)
+
+
+def disponibili_kit(kit, magazzino=None):
+    """Quanti kit si possono fare con la merce: il minimo, fra i componenti, di giacenza diviso quantità per kit."""
+    componenti = list(kit.componenti.select_related("componente"))
+    if not kit.kit or not componenti:
+        return None
+    return min(int(max(Decimal(giacenza(c.componente, magazzino)), Decimal(0)) // c.quantita) for c in componenti)
 
 
 @transaction.atomic
@@ -51,6 +108,9 @@ def ricevi(ricevimento, utente=None):
     righe = list(ricevimento.righe.select_related("prodotto"))
     if not righe:
         raise ValidationError("Il ricevimento non ha righe.")
+    kit = [str(r.prodotto) for r in righe if r.prodotto.kit and r.prodotto.componenti.exists()]
+    if kit:
+        raise ValidationError(f"Un kit non ha giacenza propria: ricevi i suoi componenti ({', '.join(kit)}).")
     ct = ContentType.objects.get_for_model(Ricevimento)
     dall_ordine = costi_ordine(ricevimento)
     piano = [(r, lotti.per_entrata(r, r.prodotto)) for r in righe]

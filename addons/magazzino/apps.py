@@ -19,6 +19,8 @@ class MagazzinoConfig(AppConfig):
         hooks.sezione_dettaglio("magazzino.Lotto", "magazzino/_tracciabilita.html", order=5)
         hooks.sezione_dettaglio("prodotti.Prodotto", "magazzino/_costo_prodotto.html", order=30,
                                 permission="magazzino.view_movimento")
+        hooks.sezione_dettaglio("prodotti.Prodotto", "magazzino/_kit_prodotto.html", order=25,
+                                permission="magazzino.view_movimento")
         if apps.is_installed("fatturazione"):
             from fatturazione import commercialista
 

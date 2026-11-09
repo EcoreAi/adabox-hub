@@ -56,3 +56,14 @@ def tracciabilita(lotto):
 def tracciamento_prodotto(prodotto):
     t = getattr(prodotto, "tracciamento", None)
     return {"tipo": t.tipo if t else "", "scadenza": t.scadenza if t else False}
+
+
+@register.simple_tag
+def kit_prodotto(prodotto):
+    """Per la scheda di un kit: quanti se ne possono fare e la giacenza di ogni componente."""
+    from magazzino.models import giacenza
+    from magazzino.operazioni import disponibili_kit
+    if not prodotto.kit:
+        return None
+    componenti = [{"c": c, "giacenza": giacenza(c.componente)} for c in prodotto.componenti.select_related("componente")]
+    return {"disponibili": disponibili_kit(prodotto), "componenti": componenti}
