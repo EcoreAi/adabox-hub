@@ -11,6 +11,8 @@ class PersonaleConfig(AppConfig):
         hooks.sezione_dettaglio("personale.Dipendente", "personale/_saldo.html", order=10)
         hooks.sezione_dettaglio("personale.Dipendente", "personale/_contratti.html", order=11,
                                 permission="personale.view_contrattolavoro")
+        hooks.sezione_dettaglio("personale.RichiestaModifica", "personale/_decidi_richiesta.html", order=1,
+                                permission="personale.change_richiestamodifica")
         from django.db.models.signals import post_save
 
         from . import contratti

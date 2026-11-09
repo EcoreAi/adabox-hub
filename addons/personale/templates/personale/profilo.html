@@ -1,0 +1,35 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Il mio profilo · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+{% if not io %}<div class="ui-pagehead"><div><h1>Il mio profilo</h1></div></div>
+<section class="ui-card is-revealed"><div class="ui-card-body"><p>Il tuo utente non è collegato a una scheda di dipendente: chiedi all'ufficio del personale.</p></div></section>
+{% else %}
+<div class="ui-pagehead"><div><h1>{{ io.nome }} {{ io.cognome }}</h1><div class="sub">{{ io.ruolo|default:io.posizione|default:"" }}{% if io.reparto %} · {{ io.reparto }}{% endif %}{% if io.responsabile %} · responsabile {{ io.responsabile }}{% endif %}</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-primary" href="{% url 'personale:mie' %}">Chiedi ferie o permessi</a></div></div>
+<div class="cm-tessere">
+  <div class="cm-tessera"><small>Ferie {{ anno }}</small><strong>{{ saldo.ferie.residue|floatformat:"-2" }} gg</strong></div>
+  <div class="cm-tessera"><small>Permessi {{ anno }}</small><strong>{{ saldo.permessi.residue|floatformat:"-2" }} h</strong></div>
+  {% if ore_mese is not None %}<div class="cm-tessera"><small>Ore questo mese</small><strong>{{ ore_mese|floatformat:"-2" }}</strong></div>{% endif %}
+  <div class="cm-tessera"><small>Contratto</small><strong>{% if contratto %}{{ contratto.get_tipo_display }}{% else %}—{% endif %}</strong></div>
+</div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Il mio contratto</div></div><div class="ui-card-body">
+  {% if contratto %}<p style="margin:0">{{ contratto.get_tipo_display }} dal {{ contratto.dal|date:"d/m/Y" }}{% if contratto.al %} al {{ contratto.al|date:"d/m/Y" }}{% endif %}{% if contratto.ccnl %} · CCNL {{ contratto.ccnl }}{% endif %}{% if contratto.livello %}, livello {{ contratto.livello }}{% endif %} · {{ contratto.ore_settimanali|floatformat:"-1" }} ore a settimana · {{ contratto.giorni_ferie_annui|floatformat:"-2" }} giorni di ferie l'anno{% if contratto.mensile %} · lordo mensile {{ contratto.mensile|floatformat:2 }} € su {{ contratto.mensilita }} mensilità{% endif %}</p>
+  {% else %}<p class="sub" style="margin:0">Nessun contratto registrato.</p>{% endif %}</div></section>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Cedolini e documenti</div></div>
+  {% if documenti %}<div class="ui-table-wrap"><table class="ui-table is-revealed"><tbody>{% for d in documenti %}<tr><td><a class="ui-link" href="{% url 'personale:documento' d.pk %}">{{ d.titolo }}</a>{% if not d.letto_il %} <span class="ui-pill ui-pill-primary">nuovo</span>{% endif %}</td><td>{{ d.get_tipo_display }}</td><td>{{ d.periodo|date:"m/Y"|default:"" }}</td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<div class="ui-card-body"><p class="sub" style="margin:0">Nessun documento per ora.</p></div>{% endif %}</section>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Assenze</div><div class="spacer"></div><a class="ui-link" href="{% url 'personale:mie' %}">Tutte</a></div>
+  {% if assenze %}<div class="ui-table-wrap"><table class="ui-table is-revealed"><tbody>{% for a in assenze %}<tr><td>{{ a.tipo }}</td><td>{{ a.dal|date:"d/m/Y" }}{% if a.al != a.dal %} – {{ a.al|date:"d/m/Y" }}{% endif %}</td><td>{{ a.get_stato_display }}</td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<div class="ui-card-body"><p class="sub" style="margin:0">Nessuna assenza.</p></div>{% endif %}</section>
+{% if note_spese is not None %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Note spese</div></div>
+  {% if note_spese %}<div class="ui-table-wrap"><table class="ui-table is-revealed"><tbody>{% for n in note_spese %}<tr><td><a class="ui-link" href="{% url 'spese:note_dettaglio' n.pk %}">{{ n }}</a></td><td>{{ n.get_stato_display }}</td><td class="ui-num">{{ n.totale|floatformat:2 }} €</td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<div class="ui-card-body"><p class="sub" style="margin:0">Nessuna nota spese.</p></div>{% endif %}</section>{% endif %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div><div class="ui-card-title">I miei dati</div><div class="ui-card-sub">{{ io.email|default:"nessuna email" }} · {{ io.telefono|default:"nessun telefono" }}</div></div></div>
+  <div class="ui-card-body"><form method="post" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;align-items:end">{% csrf_token %}
+    <div class="ui-form-group"><label class="ui-label" for="pf-email">Nuova email</label><input class="ui-input" id="pf-email" name="email" type="email"></div>
+    <div class="ui-form-group"><label class="ui-label" for="pf-tel">Nuovo telefono</label><input class="ui-input" id="pf-tel" name="telefono" maxlength="40"></div>
+    <div class="ui-form-group" style="grid-column:1/-1"><label class="ui-label" for="pf-altro">Altro da cambiare</label><textarea class="ui-input" id="pf-altro" name="altro" rows="2" placeholder="es. indirizzo, IBAN per gli accrediti"></textarea></div>
+    <div><button class="ui-btn ui-btn-secondary" type="submit">Chiedi la modifica</button></div></form>
+  {% for r in richieste %}<p class="ui-help" style="margin:6px 0 0">Richiesta del {{ r.creata|date:"d/m/Y" }}: {{ r.get_stato_display|lower }}.</p>{% endfor %}</div></section>
+{% endif %}
+{% endblock %}

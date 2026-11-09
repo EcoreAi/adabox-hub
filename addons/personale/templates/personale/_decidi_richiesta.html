@@ -1,0 +1,5 @@
+{% if obj.stato == "in_attesa" %}<section class="ui-card is-revealed ui-section"><div class="ui-card-body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+  <span>Approvando, email e telefono indicati vanno sul dipendente; «altro» si aggiorna a mano.</span>
+  <form method="post" action="{% url 'personale:richiesta_decidi' obj.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-primary ui-btn-sm" name="esito" value="approva">Approva</button>
+    <button class="ui-btn ui-btn-ghost ui-btn-sm" name="esito" value="rifiuta">Rifiuta</button></form>
+</div></section>{% endif %}

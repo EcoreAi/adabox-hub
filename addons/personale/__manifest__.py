@@ -1,7 +1,7 @@
 {
     "name": "Personale",
     "summary": "Dipendenti e reparti, richieste di ferie e permessi con approvazione, saldi e calendario delle assenze",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Risorse umane",
     "depends": [],
@@ -12,11 +12,14 @@
     "icon": "personale/icon.svg",
     "dashboard": "personale.dashboard.kpi",
     "menu": [
+        {"label": "Il mio profilo", "url_name": "personale:profilo", "permission": "personale.add_assenza"},
         {"label": "Le mie assenze", "url_name": "personale:mie", "permission": "personale.add_assenza"},
         {"label": "Assenze", "url_name": "personale:assenze_lista", "permission": "personale.view_assenza"},
         {"label": "Calendario", "url_name": "personale:assenze_calendario", "permission": "personale.view_assenza"},
         {"label": "Dipendenti", "url_name": "personale:dipendenti_lista", "permission": "personale.view_dipendente"},
         {"label": "Contratti", "url_name": "personale:contratti_lista", "permission": "personale.view_contrattolavoro"},
+        {"label": "Documenti dei dipendenti", "url_name": "personale:documenti_lista", "permission": "personale.view_documentodipendente"},
+        {"label": "Richieste di modifica", "url_name": "personale:richieste_lista", "permission": "personale.view_richiestamodifica"},
         {"label": "Presenze", "url_name": "personale:presenze", "permission": "personale.view_timbratura"},
         {"label": "Timbrature", "url_name": "personale:timbrature_lista", "permission": "personale.change_timbratura"},
         {"label": "Chiosco", "url_name": "personale:chiosco", "permission": "personale.add_timbratura"},

@@ -6,6 +6,7 @@ from django.db import models
 from django.utils import timezone
 
 from core.mixins import AziendaMixin, ProprietaMixin
+from core.storage import StoragePrivato
 
 from . import calendario_lavoro
 
@@ -261,3 +262,57 @@ class VoceRetributiva(models.Model):
         verbose_name = "voce retributiva"
         verbose_name_plural = "voci retributive"
         ordering = ["pk"]
+
+
+def _percorso_documento(instance, filename):
+    import uuid
+    return f"personale/{timezone.now():%Y/%m}/{uuid.uuid4().hex}-{filename}"
+
+
+class DocumentoDipendente(AziendaMixin):
+    """Un documento riservato per il dipendente (cedolino, CU, contratto firmato…): lo carica l'ufficio del personale,
+    lo vede solo lui nel suo profilo."""
+    TIPI = [("cedolino", "Cedolino"), ("cu", "Certificazione Unica"), ("contratto", "Contratto"), ("comunicazione", "Comunicazione"),
+            ("altro", "Altro")]
+    dipendente = models.ForeignKey(Dipendente, on_delete=models.CASCADE, related_name="documenti", verbose_name="dipendente")
+    tipo = models.CharField("tipo", max_length=14, choices=TIPI, default="cedolino")
+    titolo = models.CharField("titolo", max_length=150, help_text="es. Cedolino ottobre 2026")
+    periodo = models.DateField("periodo", null=True, blank=True, help_text="il mese a cui si riferisce")
+    file = models.FileField("file", upload_to=_percorso_documento, storage=StoragePrivato(), max_length=300)
+    pubblicato_il = models.DateTimeField("pubblicato il", auto_now_add=True)
+    letto_il = models.DateTimeField("letto il", null=True, blank=True, editable=False)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "documento del dipendente"
+        verbose_name_plural = "documenti dei dipendenti"
+        ordering = ["-periodo", "-pubblicato_il"]
+
+    def __str__(self):
+        return f"{self.titolo} · {self.dipendente}"
+
+
+class RichiestaModifica(AziendaMixin):
+    """Il dipendente chiede di correggere i suoi dati: l'ufficio del personale approva (e i campi si aggiornano) o rifiuta."""
+    IN_ATTESA, APPROVATA, RIFIUTATA = "in_attesa", "approvata", "rifiutata"
+    STATI = [(IN_ATTESA, "In attesa"), (APPROVATA, "Approvata"), (RIFIUTATA, "Rifiutata")]
+    dipendente = models.ForeignKey(Dipendente, on_delete=models.CASCADE, related_name="richieste_modifica", verbose_name="dipendente")
+    email = models.EmailField("nuova email", blank=True)
+    telefono = models.CharField("nuovo telefono", max_length=40, blank=True)
+    altro = models.TextField("altro da cambiare", blank=True, help_text="es. indirizzo, IBAN per gli accrediti")
+    stato = models.CharField("stato", max_length=10, choices=STATI, default=IN_ATTESA, editable=False)
+    decisa_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                                  verbose_name="decisa da", editable=False)
+    decisa_il = models.DateTimeField("decisa il", null=True, blank=True, editable=False)
+    creata = models.DateTimeField("chiesta il", auto_now_add=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "richiesta di modifica dei dati"
+        verbose_name_plural = "richieste di modifica dei dati"
+        ordering = ["-creata"]
+
+    def __str__(self):
+        return f"Modifica dati di {self.dipendente} del {self.creata:%d/%m/%Y}"
+
+    def clean(self):
+        if not (self.email or self.telefono or self.altro.strip()):
+            raise ValidationError("Scrivi che cosa va cambiato.")

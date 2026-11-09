@@ -7,7 +7,7 @@ from core.colori import sicuro
 from core.viste import Inline, ModelView, register, schede
 
 from . import flusso
-from .models import Assenza, Dipendente, Posizione, Reparto, Timbratura, TipoAssenza, ContrattoLavoro, VoceRetributiva
+from .models import Assenza, Dipendente, Posizione, Reparto, Timbratura, TipoAssenza, ContrattoLavoro, VoceRetributiva, DocumentoDipendente, RichiestaModifica
 
 
 @register
@@ -236,3 +236,37 @@ class ContrattoLavoroView(ModelView):
     inlines = [Inline(VoceRetributiva, "contratto", ["nome", "importo", "tipo"], titolo="Voci retributive", extra=0)]
     api = False                   # dati riservati: niente API
     ai_descrizione = "I contratti di lavoro dei dipendenti, dati riservati alle risorse umane."
+
+
+@register
+class DocumentoDipendenteView(ModelView):
+    """Cedolini e documenti riservati: li carica l'ufficio, il dipendente li vede nel suo profilo."""
+    model = DocumentoDipendente
+    slug = "documenti"
+    company_field = "azienda"
+    list_display = ["dipendente", "tipo", "titolo", "periodo", "pubblicato_il", "letto_il"]
+    list_filter = ["tipo", "dipendente"]
+    search_fields = ["titolo", "dipendente__nome", "dipendente__cognome"]
+    form_layout = [("Documento", [("dipendente", "tipo"), ("titolo", "periodo"), "file"])]
+    api = False
+    ai_descrizione = "I documenti riservati dei dipendenti (cedolini, CU): solo i dati, mai i file."
+
+
+@register
+class RichiestaModificaView(ModelView):
+    """Le richieste dei dipendenti di correggere i loro dati: approva o rifiuta dalla scheda."""
+    model = RichiestaModifica
+    slug = "richieste"
+    company_field = "azienda"
+    list_display = ["creata", "dipendente", "email", "telefono", "stato"]
+    list_filter = ["stato"]
+    readonly_fields = ["dipendente", "email", "telefono", "altro", "stato", "decisa_da", "decisa_il", "creata"]
+    form_layout = [("Richiesta", [("dipendente", "creata"), ("email", "telefono"), "altro", ("stato", "decisa_da")])]
+    api = False
+    ai_descrizione = "Le richieste dei dipendenti di modificare i propri dati anagrafici."
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False if obj is not None else super().has_change_permission(request, obj)
