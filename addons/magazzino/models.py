@@ -274,6 +274,8 @@ class RigaConsegna(models.Model):
                                    verbose_name="preleva da", help_text="vuoto = dove ce n'è di più")
     lotti = models.TextField("lotti o seriali", blank=True,
                              help_text="es. L24A:5, L24B:3 oppure un seriale per riga; vuoto = i lotti che scadono prima")
+    prelevata = models.DecimalField("prelevata", max_digits=12, decimal_places=3, null=True, blank=True, editable=False)
+    collo = models.PositiveSmallIntegerField("collo", null=True, blank=True, editable=False, help_text="in quale collo è imballata")
 
     class Meta:
         verbose_name = "riga"

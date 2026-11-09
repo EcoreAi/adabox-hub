@@ -114,7 +114,7 @@ class ConsegnaView(ModelView):
     kanban_colori = {"bozza": "azzurro", "pronto": "viola", "fatto": "verde", "annullato": "grigio"}
     chatter = True
     tracked_fields = ["stato"]
-    buttons = ["leggi_codici", "pronta", "spedisci", "annulla", "storna"]
+    buttons = ["preleva", "leggi_codici", "pronta", "spedisci", "annulla", "storna"]
     actions = ["fattura_differita"]
     reports = [{"nome": "DDT", "template": "magazzino/report/ddt.html", "colonne": [("codice", "Codice articolo"), ("um", "Unità di misura")]}]
     api = True
@@ -138,7 +138,7 @@ class ConsegnaView(ModelView):
     def get_buttons(self, request, obj):
         tutti = super().get_buttons(request, obj)
         if obj.stato == Consegna.FATTO:
-            return [b for b in tutti if b[0] == "storna"]
+            return [b for b in tutti if b[0] in ("storna", "preleva")]
         if obj.stato == Consegna.ANNULLATO:
             return []
         return [b for b in tutti if b[0] != "storna" and not (b[0] == "pronta" and obj.stato == Consegna.PRONTO)]
@@ -165,6 +165,12 @@ class ConsegnaView(ModelView):
         return _bottone(request, operazioni.spedisci, obj, lambda c: f"Consegna spedita con il DDT {c.numero}.")
     spedisci.short_description = "Spedisci (emetti DDT)"
     spedisci.rischio = "irreversibile"
+
+    def preleva(self, request, obj):
+        from django.shortcuts import redirect
+        return redirect("magazzino:prelievo", pk=obj.pk)
+    preleva.short_description = "Prelievo e colli"
+    preleva.ai = False
 
     def pronta(self, request, obj):
         return _bottone(request, operazioni.segna_pronta, obj, lambda c: "Consegna pronta: merce preparata, da spedire.")

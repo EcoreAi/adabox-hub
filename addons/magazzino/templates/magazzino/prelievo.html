@@ -1,0 +1,25 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Prelievo · {{ c }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Prelievo per {{ c.cliente }}</h1><div class="sub"><a class="ui-link" href="{% url 'magazzino:consegne_dettaglio' c.pk %}">{% if c.numero %}DDT {{ c.numero }}{% else %}Consegna del {{ c.data|date:"d/m/Y" }}{% endif %}</a> · {{ c.magazzino }} · {{ c.get_stato_display }} · in ordine di ubicazione</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="?stampa=lista" target="_blank" rel="noopener">Stampa la lista</a> <a class="ui-btn ui-btn-ghost" href="?stampa=colli" target="_blank" rel="noopener">Distinta colli</a></div>
+</div>
+<form method="post" class="ui-card is-revealed ui-section">{% csrf_token %}
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Dove</th><th>Prodotto</th><th>Lotti</th><th class="ui-num">Da prelevare</th><th class="ui-num">Prelevati</th><th class="ui-num">Collo</th></tr></thead>
+  <tbody>{% for v in voci %}{% for p in v.parti %}<tr>
+    <td><strong>{{ p.ubicazione.percorso|default:"—" }}</strong></td>
+    <td>{{ p.prodotto }}{% if p.kit %} <span class="ui-help">per il kit {{ p.kit.nome }}</span>{% endif %}</td>
+    <td>{{ p.lotti|default:"—" }}</td><td class="ui-num">{{ p.quantita|floatformat:"-3g" }}</td>
+    {% if forloop.first %}<td class="ui-num" rowspan="{{ v.parti|length }}"><input class="ui-input" name="p_{{ v.riga.pk }}" inputmode="decimal" style="max-width:100px;text-align:right" value="{% if v.riga.prelevata is not None %}{{ v.riga.prelevata|floatformat:'-3' }}{% else %}{{ v.riga.quantita|floatformat:'-3' }}{% endif %}" aria-label="Prelevati di {{ v.riga.prodotto }}"{% if not aperta %} disabled{% endif %}>{% if v.parti|length > 1 %}<div class="ui-help">kit {{ v.riga.prodotto.nome }}</div>{% endif %}</td>
+    <td class="ui-num" rowspan="{{ v.parti|length }}"><input class="ui-input" name="k_{{ v.riga.pk }}" inputmode="numeric" style="max-width:70px;text-align:right" value="{{ v.riga.collo|default_if_none:'' }}" aria-label="Collo di {{ v.riga.prodotto }}"{% if not aperta %} disabled{% endif %}></td>{% endif %}
+  </tr>{% endfor %}{% endfor %}</tbody></table></div>
+  {% if aperta %}<div class="ui-card-body" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+    <span class="ui-help">Se ne prelevi meno:</span>
+    <label class="ut-check"><input type="radio" name="resto" value="togli" checked> la consegna parte con quelli</label>
+    <label class="ut-check"><input type="radio" name="resto" value="dopo"> il resto va in una nuova consegna</label>
+    <button class="ui-btn ui-btn-primary" type="submit">Conferma: merce pronta</button>
+  </div>{% endif %}
+</form>
+<p class="ui-help">I colli del DDT diventano quanti numeri di collo diversi hai usato. Il lettore di codici è nella pagina «Leggi i codici» della consegna.</p>
+{% endblock %}

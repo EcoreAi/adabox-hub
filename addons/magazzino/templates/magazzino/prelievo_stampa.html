@@ -1,0 +1,17 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% if stampa == "colli" %}Distinta colli{% else %}Lista di prelievo{% endif %} · {{ c.cliente }}</title>
+<style>body{font:13px/1.4 system-ui,sans-serif;margin:24px;color:#111;background:#fff}h1{font-size:18px;margin:0 0 4px}.sub{color:#555;margin-bottom:14px}
+table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ccc;padding:6px 4px;text-align:left;vertical-align:top}.n{text-align:right}.casella{display:inline-block;width:16px;height:16px;border:1.5px solid #333}
+h2{font-size:15px;margin:18px 0 6px}@media print{button{display:none}body{margin:10mm}}</style></head><body>
+<button onclick="window.print()">Stampa</button>
+<h1>{% if stampa == "colli" %}Distinta colli{% else %}Lista di prelievo{% endif %}</h1>
+<div class="sub">{{ c.cliente }}{% if c.destinazione %} · {{ c.destinazione }}{% endif %} · {{ c.magazzino }} · {% if c.numero %}DDT {{ c.numero }} del {% endif %}{{ c.data|date:"d/m/Y" }}{% if c.riferimento %} · {{ c.riferimento }}{% endif %}</div>
+{% if stampa == "colli" %}
+  {% for numero, righe in colli %}<h2>{% if numero %}Collo {{ numero }} di {{ c.colli }}{% else %}Senza collo{% endif %}</h2>
+  <table><thead><tr><th>Codice</th><th>Prodotto</th><th class="n">Quantità</th></tr></thead><tbody>{% for r in righe %}<tr><td>{{ r.prodotto.codice }}</td><td>{{ r.descrizione }}</td><td class="n">{% if r.prelevata is not None %}{{ r.prelevata|floatformat:"-3g" }}{% else %}{{ r.quantita|floatformat:"-3g" }}{% endif %}</td></tr>{% endfor %}</tbody></table>{% endfor %}
+{% else %}
+  <table><thead><tr><th></th><th>Dove</th><th>Codice</th><th>Prodotto</th><th>Lotti</th><th class="n">Quantità</th><th class="n">Collo</th></tr></thead><tbody>
+  {% for v in voci %}{% for p in v.parti %}<tr><td><span class="casella"></span></td><td><strong>{{ p.ubicazione.percorso|default:"—" }}</strong></td><td>{{ p.prodotto.codice }}</td><td>{{ p.prodotto.nome }}{% if p.kit %} (kit {{ p.kit.nome }}){% endif %}</td><td>{{ p.lotti }}</td><td class="n">{{ p.quantita|floatformat:"-3g" }}</td><td class="n">{{ v.riga.collo|default_if_none:"" }}</td></tr>{% endfor %}{% endfor %}
+  </tbody></table>
+{% endif %}
+</body></html>
