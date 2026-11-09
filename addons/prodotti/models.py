@@ -19,16 +19,57 @@ class Categoria(models.Model):
 
 
 class UnitaMisura(models.Model):
+    """Le unità si convertono tra loro solo nella stessa categoria: il fattore dice quante unità di riferimento vale
+    (peso: kg = 1, g = 0,001; pezzi: pz = 1, dozzina = 12). «Altro» non si converte."""
+    PEZZI, PESO, VOLUME, LUNGHEZZA, SUPERFICIE, TEMPO, ALTRO = "pezzi", "peso", "volume", "lunghezza", "superficie", "tempo", "altro"
+    CATEGORIE = [(PEZZI, "Pezzi"), (PESO, "Peso"), (VOLUME, "Volume"), (LUNGHEZZA, "Lunghezza"), (SUPERFICIE, "Superficie"),
+                 (TEMPO, "Tempo"), (ALTRO, "Altro (non si converte)")]
     simbolo = models.CharField("simbolo", max_length=10, unique=True)
     nome = models.CharField("nome", max_length=40)
+    categoria = models.CharField("categoria", max_length=12, choices=CATEGORIE, default=ALTRO)
+    fattore = models.DecimalField("vale", max_digits=18, decimal_places=9, default=1,
+                                  help_text="quante unità di riferimento della categoria (kg, pz, l, m, m², h) vale una di queste")
 
     class Meta:
         verbose_name = "unità di misura"
         verbose_name_plural = "unità di misura"
-        ordering = ["nome"]
+        ordering = ["categoria", "fattore", "nome"]
 
     def __str__(self):
         return self.simbolo
+
+    def clean(self):
+        if self.fattore is not None and self.fattore <= 0:
+            raise ValidationError({"fattore": "Il fattore deve essere positivo."})
+
+    def compatibile(self, altra):
+        return altra is None or altra.pk == self.pk or (self.categoria == altra.categoria and self.categoria != self.ALTRO)
+
+
+def converti(quantita, da, a):
+    """La quantità espressa in `da` riportata in `a` (None = nessuna conversione). ValidationError fra categorie diverse."""
+    if quantita is None or da is None or a is None or da.pk == a.pk:
+        return quantita
+    if not da.compatibile(a):
+        raise ValidationError(f"Non si converte da {da} a {a}: sono di categorie diverse.")
+    return (Decimal(quantita) * da.fattore / a.fattore).quantize(Decimal("0.001"))
+
+
+def prepara_riga(riga, verso="vendita"):
+    """Per le righe di ordini e fatture: unità predefinita del prodotto e quantità nell'unità base (quantita_base)."""
+    prodotto = riga.prodotto if riga.prodotto_id else None
+    if prodotto is None:
+        riga.quantita_base = riga.quantita
+        return
+    if riga.unita_id is None:
+        riga.unita = (prodotto.unita_vendita if verso == "vendita" else prodotto.unita_acquisto) or prodotto.unita
+    riga.quantita_base = converti(riga.quantita, riga.unita, prodotto.unita)
+
+
+def controlla_unita(riga):
+    """Errore di form se l'unità della riga non si converte in quella del prodotto."""
+    if riga.prodotto_id and riga.unita_id and not riga.unita.compatibile(riga.prodotto.unita):
+        raise ValidationError({"unita": f"{riga.prodotto} si misura in {riga.prodotto.unita}: {riga.unita} non si converte."})
 
 
 def aliquota_predefinita():
@@ -47,7 +88,12 @@ class Prodotto(AziendaMixin, ProprietaMixin):
     nome = models.CharField("nome", max_length=200)
     tipo = models.CharField("tipo", max_length=8, choices=[(BENE, "Bene"), (SERVIZIO, "Servizio")], default=BENE)
     categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="categoria")
-    unita = models.ForeignKey(UnitaMisura, on_delete=models.PROTECT, default=unita_predefinita, verbose_name="unità")
+    unita = models.ForeignKey(UnitaMisura, on_delete=models.PROTECT, default=unita_predefinita, verbose_name="unità",
+                              help_text="l'unità del magazzino: giacenze e movimenti sono in questa")
+    unita_vendita = models.ForeignKey(UnitaMisura, on_delete=models.PROTECT, null=True, blank=True, related_name="+",
+                                      verbose_name="unità di vendita", help_text="vuoto = come l'unità del prodotto")
+    unita_acquisto = models.ForeignKey(UnitaMisura, on_delete=models.PROTECT, null=True, blank=True, related_name="+",
+                                       verbose_name="unità di acquisto", help_text="vuoto = come l'unità del prodotto")
     prezzo_vendita = models.DecimalField("prezzo di vendita (€)", max_digits=12, decimal_places=4, default=0)
     costo = models.DecimalField("costo (€)", max_digits=12, decimal_places=4, default=0)
     aliquota_iva = models.ForeignKey("fiscale.AliquotaIva", on_delete=models.PROTECT, default=aliquota_predefinita,
@@ -79,6 +125,10 @@ class Prodotto(AziendaMixin, ProprietaMixin):
         return componenti or [(self, Decimal(quantita))]
 
     def clean(self):
+        for campo in ("unita_vendita", "unita_acquisto"):
+            altra = getattr(self, campo)
+            if altra is not None and self.unita_id and not altra.compatibile(self.unita):
+                raise ValidationError({campo: f"Non si converte in {self.unita}: scegli un'unità della stessa categoria."})
         if self.codice and self.azienda_id and (
                 Prodotto.objects.filter(azienda_id=self.azienda_id, codice=self.codice).exclude(pk=self.pk).exists()):
             raise ValidationError({"codice": "Esiste già un prodotto con questo codice."})

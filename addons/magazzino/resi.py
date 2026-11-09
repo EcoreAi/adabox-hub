@@ -119,7 +119,8 @@ def nota_di_credito(reso, utente=None):
                                   causale=f"{reso} ({reso.get_motivo_display().lower()}) sulla fattura {fattura.numero}"[:200])
     for r in reso.righe.select_related("prodotto"):
         rf = per_prodotto[r.prodotto_id]
-        RigaFattura.objects.create(fattura=nota, prodotto=r.prodotto, descrizione=rf.descrizione, quantita=r.quantita, prezzo=rf.prezzo,
+        RigaFattura.objects.create(fattura=nota, prodotto=r.prodotto, descrizione=rf.descrizione, quantita=r.quantita, unita=r.prodotto.unita,
+                                   prezzo=(rf.prezzo / rf.per_unita).quantize(Decimal("0.0001")),
                                    sconto=rf.sconto, aliquota=rf.aliquota)
     nota.ricalcola()
     reso.fattura_id, reso.nota_credito_id = fattura.pk, nota.pk

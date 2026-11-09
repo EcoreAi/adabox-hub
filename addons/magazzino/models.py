@@ -446,7 +446,7 @@ def impegni_e_arrivi(azienda):
         if predefinito is not None:
             for r in (RigaAcquisto.objects.filter(ordine__azienda=azienda, prodotto__isnull=False, ordine__gara=None,
                                                   ordine__stato__in=[OrdineAcquisto.BOZZA, OrdineAcquisto.INVIATO, OrdineAcquisto.DA_APPROVARE])
-                      .values("prodotto").annotate(t=Sum("quantita"))):
+                      .values("prodotto").annotate(t=Sum("quantita_base"))):
                 chiave = (r["prodotto"], predefinito.pk)
                 arrivi[chiave] = arrivi.get(chiave, 0) + r["t"]
     return impegni, arrivi

@@ -17,8 +17,29 @@ DEMO = [
 ]
 
 
+UNITA = [  # simbolo, nome, categoria, fattore: le unità convertibili oltre a quelle delle fixture
+    ("dz", "Dozzine", "pezzi", "12"), ("g", "Grammi", "peso", "0.001"), ("t", "Tonnellate", "peso", "1000"),
+    ("ml", "Millilitri", "volume", "0.001"), ("m3", "Metri cubi", "volume", "1000"), ("cm", "Centimetri", "lunghezza", "0.01"),
+    ("mm", "Millimetri", "lunghezza", "0.001"), ("km", "Chilometri", "lunghezza", "1000"), ("m2", "Metri quadri", "superficie", "1"),
+    ("min", "Minuti", "tempo", "0.016666667"),
+]
+
+
+def unita_aggiuntive():
+    """Crea per simbolo le unità che mancano (non tocca quelle che ci sono): dopo le fixture, all'installazione e
+    a ogni aggiornamento."""
+    from .models import UnitaMisura
+    for simbolo, nome, categoria, fattore in UNITA:
+        UnitaMisura.objects.get_or_create(simbolo=simbolo, defaults={"nome": nome, "categoria": categoria, "fattore": Decimal(fattore)})
+
+
 def post_install(modulo):
     Group.objects.get(name="Prodotti / Utente").user_set.add(*User.objects.filter(is_active=True))
+    unita_aggiuntive()
+
+
+def post_upgrade(modulo, da=""):
+    unita_aggiuntive()
 
 
 def demo(modulo):

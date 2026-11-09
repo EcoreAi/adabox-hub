@@ -163,6 +163,7 @@ def _crea_fattura(canone, dal):
                                      causale=f"{canone.nome} {periodo}"[:200], rif_tipo="contratto", rif_numero=canone.numero[:20])
     for r in canone.righe.select_related("prodotto", "aliquota"):
         RigaFattura.objects.create(fattura=fattura, prodotto=r.prodotto, descrizione=f"{r.descrizione} · {periodo}"[:250],
+                                   unita=r.prodotto.unita if r.prodotto_id else None,
                                    quantita=r.quantita, prezzo=r.prezzo, sconto=r.sconto, aliquota=r.aliquota)
     fattura.ricalcola()
     FatturaCanone.objects.create(canone=canone, fattura=fattura, dal=dal, al=al)

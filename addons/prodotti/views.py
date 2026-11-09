@@ -11,7 +11,7 @@ class ProdottoView(ModelView):
     list_filter = ["tipo", "categoria", "aliquota_iva", "attivo"]
     search_fields = ["nome", "codice", "codice_barre", "descrizione_vendita", "confezioni__codice_barre"]
     form_layout = [
-        ("Prodotto", [("nome", "codice"), ("tipo", "categoria"), ("unita", "codice_barre"), "attivo"]),
+        ("Prodotto", [("nome", "codice"), ("tipo", "categoria"), ("unita", "codice_barre"), ("unita_vendita", "unita_acquisto"), "attivo"]),
         ("Prezzi", [("prezzo_vendita", "costo"), "aliquota_iva"]),
         ("Altro", ["descrizione_vendita", ("scorta_minima", "kit"), "@proprieta"]),
     ]
@@ -68,6 +68,9 @@ class CategoriaView(ModelView):
 
 @register
 class UnitaView(ModelView):
+    """Le unità di misura con categoria e fattore di conversione."""
     model = UnitaMisura
     slug = "unita"
-    list_display = ["simbolo", "nome"]
+    list_display = ["simbolo", "nome", "categoria", "fattore"]
+    list_filter = ["categoria"]
+    form_layout = [("Unità", [("simbolo", "nome"), ("categoria", "fattore")])]

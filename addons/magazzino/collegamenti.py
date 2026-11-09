@@ -19,7 +19,7 @@ def consegna_da_ordine(sender, ordine, utente=None, **kwargs):
         riferimento=ordine.numero_ordine, origine_tipo=ContentType.objects.get_for_model(ordine), origine_id=ordine.pk)
     for r in righe:
         RigaConsegna.objects.create(consegna=consegna, prodotto=r.prodotto, descrizione=r.descrizione,
-                                    quantita=r.quantita)
+                                    quantita=r.quantita_base if r.quantita_base is not None else r.quantita)
     return consegna
 
 
@@ -31,7 +31,8 @@ def ricevimento_da_ordine(sender, ordine, utente=None, **kwargs):
         azienda=ordine.azienda, magazzino=Magazzino.predefinito_per(ordine.azienda), fornitore=ordine.fornitore,
         riferimento=ordine.numero, origine_tipo=ContentType.objects.get_for_model(ordine), origine_id=ordine.pk)
     for r in righe:
-        RigaRicevimento.objects.create(ricevimento=ricevimento, prodotto=r.prodotto, quantita=r.quantita)
+        RigaRicevimento.objects.create(ricevimento=ricevimento, prodotto=r.prodotto,
+                                       quantita=r.quantita_base if r.quantita_base is not None else r.quantita)
     return ricevimento
 
 

@@ -83,6 +83,10 @@ class RigaVendita(models.Model):
                                  verbose_name="prodotto")
     descrizione = models.CharField("descrizione", max_length=250, blank=True)
     quantita = models.DecimalField("quantità", max_digits=12, decimal_places=3, default=1)
+    unita = models.ForeignKey("prodotti.UnitaMisura", on_delete=models.PROTECT, null=True, blank=True, related_name="+",
+                              verbose_name="unità", help_text="vuoto = quella del prodotto")
+    quantita_base = models.DecimalField("quantità nell'unità del prodotto", max_digits=14, decimal_places=3, null=True, blank=True,
+                                        editable=False)
     prezzo = models.DecimalField("prezzo (€)", max_digits=12, decimal_places=4, null=True, blank=True,
                                  help_text="vuoto = dal listino o dal prodotto")
     sconto = models.DecimalField("sconto %", max_digits=5, decimal_places=2, default=0)
@@ -105,16 +109,28 @@ class RigaVendita(models.Model):
             raise ValidationError({"quantita": "La quantità deve essere positiva."})
         if self.sconto is not None and not 0 <= self.sconto <= 100:
             raise ValidationError({"sconto": "Lo sconto va da 0 a 100."})
+        from prodotti.models import controlla_unita
+        controlla_unita(self)
+
+    @property
+    def per_unita(self):
+        """Quante unità del prodotto vale una unità della riga (1 se è la stessa)."""
+        from prodotti.models import converti
+        if not self.prodotto_id or not self.unita_id:
+            return Decimal(1)
+        return converti(Decimal(1), self.unita, self.prodotto.unita) or Decimal(1)
 
     def save(self, *args, **kwargs):
         """Valori mancanti dal prodotto e dal listino del documento; importo ricalcolato."""
         from fiscale.models import AliquotaIva
+        from prodotti.models import prepara_riga
         from prodotti.prezzi import prezzo
+        prepara_riga(self, "vendita")
         if self.prodotto_id:
             if not self.descrizione:
                 self.descrizione = (self.prodotto.descrizione_vendita or self.prodotto.nome)[:250]
-            if self.prezzo is None:
-                self.prezzo = prezzo(self.prodotto, self.ordine.listino, self.quantita)
+            if self.prezzo is None:                    # il listino è per unità del prodotto: riportato all'unità della riga
+                self.prezzo = prezzo(self.prodotto, self.ordine.listino, self.quantita_base) * self.per_unita
             if self.aliquota_id is None:
                 self.aliquota = self.prodotto.aliquota_iva
         if self.aliquota_id is None:

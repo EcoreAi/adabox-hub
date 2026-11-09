@@ -45,7 +45,7 @@ def consumato(riga_contratto):
     """Quantità già richiamata: conta solo gli ordini confermati, così annullarne uno libera il residuo."""
     return (RigaAcquisto.objects.filter(ordine__contratto_id=riga_contratto.contratto_id,
                                         ordine__stato=OrdineAcquisto.CONFERMATO, prodotto=riga_contratto.prodotto)
-            .aggregate(t=Sum("quantita"))["t"] or Decimal(0))
+            .aggregate(t=Sum("quantita_base"))["t"] or Decimal(0))
 
 
 def residui_contratto(contratto):
@@ -70,7 +70,7 @@ def _controlla_contratto(ordine):
     limiti = {r.prodotto_id: r for r in contratto.righe.select_related("prodotto")}
     richiesto = {}
     for r in ordine.righe.exclude(prodotto=None):
-        richiesto[r.prodotto_id] = richiesto.get(r.prodotto_id, Decimal(0)) + r.quantita
+        richiesto[r.prodotto_id] = richiesto.get(r.prodotto_id, Decimal(0)) + (r.quantita_base if r.quantita_base is not None else r.quantita)
     oltre = []
     for prodotto_id, quantita in richiesto.items():
         limite = limiti.get(prodotto_id)
@@ -114,7 +114,7 @@ def richiamo(contratto, utente=None):
                            riferimento_fornitore=contratto.riferimento_fornitore)
     for x in aperte:
         r = x["riga"]
-        RigaAcquisto.objects.create(ordine=ordine, prodotto=r.prodotto, prezzo=r.prezzo,
+        RigaAcquisto.objects.create(ordine=ordine, prodotto=r.prodotto, prezzo=r.prezzo, unita=r.prodotto.unita if r.prodotto_id else None,
                                     quantita=x["residuo"] if x["residuo"] is not None else Decimal(1))
     ordine.ricalcola()
     return ordine
@@ -302,7 +302,8 @@ def crea_offerte(gara, utente=None):
     for fornitore in gara.fornitori.exclude(pk__in=presenti):
         ordine = _nuovo_ordine(gara.azienda, fornitore, utente, gara=gara)
         for r in righe:
-            RigaAcquisto.objects.create(ordine=ordine, prodotto=r.prodotto, descrizione=r.descrizione, quantita=r.quantita)
+            RigaAcquisto.objects.create(ordine=ordine, prodotto=r.prodotto, descrizione=r.descrizione, quantita=r.quantita,
+                                        unita=r.prodotto.unita if r.prodotto_id else None)
         ordine.ricalcola()
         creati += 1
     return creati

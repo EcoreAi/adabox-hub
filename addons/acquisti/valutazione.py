@@ -43,7 +43,7 @@ def schede(azienda, dal, al):
     id_ordini = [o.pk for o in ordini]
     date, ricevuto, reso = _documenti(azienda, id_ordini)
     beni = {r["ordine"]: r["t"] for r in RigaAcquisto.objects.filter(
-        ordine__in=id_ordini, prodotto__tipo="bene").values("ordine").annotate(t=Sum("quantita"))}
+        ordine__in=id_ordini, prodotto__tipo="bene").values("ordine").annotate(t=Sum("quantita_base"))}
     fatturato = {r["ordine"]: r["t"] for r in FatturaOrdine.objects.filter(ordine__in=id_ordini).values("ordine").annotate(t=Sum("importo"))}
     tolleranza = riscontro.tolleranza(azienda)
     gruppi = defaultdict(lambda: {"ordini": 0, "valore": Decimal(0), "in_tempo": 0, "misurati": 0, "giorni": [],

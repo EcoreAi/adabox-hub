@@ -249,7 +249,7 @@ def genera(fattura):
     _riferimenti(generali, fattura)
 
     beni = _sub(corpo, "DatiBeniServizi")
-    for n, r in enumerate(fattura.righe.select_related("aliquota", "prodotto__unita"), start=1):
+    for n, r in enumerate(fattura.righe.select_related("aliquota", "prodotto__unita", "unita"), start=1):
         linea = _sub(beni, "DettaglioLinee")
         _sub(linea, "NumeroLinea", n)
         if r.prodotto_id and r.prodotto.codice:
@@ -259,7 +259,7 @@ def genera(fattura):
         _sub(linea, "Descrizione", r.descrizione[:1000] or "—")
         _sub(linea, "Quantita", _d(r.quantita, 3))
         if r.prodotto_id:
-            _sub(linea, "UnitaMisura", r.prodotto.unita.simbolo)
+            _sub(linea, "UnitaMisura", (r.unita or r.prodotto.unita).simbolo)
         _sub(linea, "PrezzoUnitario", _d(r.prezzo, 4))
         if r.sconto:
             sc = _sub(linea, "ScontoMaggiorazione")

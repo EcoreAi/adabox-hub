@@ -50,7 +50,7 @@ def righe(ordine):
         else:
             g = gruppi.setdefault(f"riga-{r.pk}", {"nome": r.descrizione, "unita": "", "ordinato": Decimal(0),
                                                    "importo": Decimal(0), "a_magazzino": False, "prodotto_id": r.prodotto_id})
-        g["ordinato"] += r.quantita
+        g["ordinato"] += r.quantita_base if r.quantita_base is not None and g["a_magazzino"] else r.quantita
         g["importo"] += r.importo
     for g in gruppi.values():
         if g["a_magazzino"]:

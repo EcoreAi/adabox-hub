@@ -226,6 +226,10 @@ class RigaAcquisto(models.Model):
     descrizione = models.CharField("descrizione", max_length=250, blank=True)
     codice_fornitore = models.CharField("codice del fornitore", max_length=60, blank=True, editable=False)
     quantita = models.DecimalField("quantità", max_digits=12, decimal_places=3, default=1)
+    unita = models.ForeignKey("prodotti.UnitaMisura", on_delete=models.PROTECT, null=True, blank=True, related_name="+",
+                              verbose_name="unità", help_text="vuoto = quella del prodotto")
+    quantita_base = models.DecimalField("quantità nell'unità del prodotto", max_digits=14, decimal_places=3, null=True, blank=True,
+                                        editable=False)
     prezzo = models.DecimalField("prezzo (€)", max_digits=12, decimal_places=4, null=True, blank=True,
                                  help_text="vuoto = contratto o listino del fornitore, altrimenti costo del prodotto")
     sconto = models.DecimalField("sconto %", max_digits=5, decimal_places=2, default=0)
@@ -243,22 +247,36 @@ class RigaAcquisto(models.Model):
             raise ValidationError("Indica un prodotto o una descrizione.")
         if self.quantita is not None and self.quantita <= 0:
             raise ValidationError({"quantita": "La quantità deve essere positiva."})
+        from prodotti.models import controlla_unita
+        controlla_unita(self)
+
+    @property
+    def per_unita(self):
+        """Quante unità del prodotto vale una unità della riga (1 se è la stessa)."""
+        from prodotti.models import converti
+        if not self.prodotto_id or not self.unita_id:
+            return Decimal(1)
+        return converti(Decimal(1), self.unita, self.prodotto.unita) or Decimal(1)
 
     def save(self, *args, **kwargs):
         from fiscale.models import AliquotaIva
 
+        from prodotti.models import prepara_riga
+
         from . import listini
+        prepara_riga(self, "acquisto")
         if self.prodotto_id:
             self.descrizione = self.descrizione or self.prodotto.nome
-            voce = listini.voce(self.ordine.fornitore, self.prodotto, self.quantita, self.ordine.data)
+            voce = listini.voce(self.ordine.fornitore, self.prodotto, self.quantita_base, self.ordine.data)
             if voce is not None and not self.codice_fornitore:
                 self.codice_fornitore = voce.codice_fornitore
-            if self.prezzo is None:
-                self.prezzo = listini.prezzo_contratto(self.ordine, self.prodotto)
-            if self.prezzo is None and voce is not None:
-                self.prezzo = voce.prezzo
-            if self.prezzo is None:
-                self.prezzo = self.prodotto.costo
+            if self.prezzo is None:                    # prezzi per unità del prodotto: riportati all'unità della riga
+                base = listini.prezzo_contratto(self.ordine, self.prodotto)
+                if base is None and voce is not None:
+                    base = voce.prezzo
+                if base is None:
+                    base = self.prodotto.costo
+                self.prezzo = base * self.per_unita if base is not None else None
         if self.aliquota_id is None:
             condizioni = listini.condizioni(self.ordine.fornitore)
             self.aliquota = condizioni.aliquota if condizioni else None

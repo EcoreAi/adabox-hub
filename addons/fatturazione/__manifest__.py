@@ -1,7 +1,7 @@
 {
     "name": "Fatturazione",
     "summary": "Fatture e note di credito, scadenze e incassi, fattura elettronica XML e registro IVA",
-    "version": "1.3.1",
+    "version": "1.4.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Contabilità",
     "depends": ["vendite", "fiscale"],

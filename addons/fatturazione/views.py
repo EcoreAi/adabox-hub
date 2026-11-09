@@ -32,7 +32,7 @@ class FatturaView(ModelView):
     ]
     readonly_fields = ["numero", "stato", "ordine", "fattura_origine", "emessa_il"]
     company_field = "azienda"
-    inlines = [Inline(RigaFattura, "fattura", ["prodotto", "descrizione", "quantita", "prezzo", "sconto", "aliquota"],
+    inlines = [Inline(RigaFattura, "fattura", ["prodotto", "descrizione", "quantita", "unita", "prezzo", "sconto", "aliquota"],
                       titolo="Righe", extra=2),
                Inline(CassaPrevidenziale, "fattura", ["tipo", "aliquota_cassa", "aliquota", "soggetta_ritenuta"],
                       titolo="Cassa previdenziale", extra=0),

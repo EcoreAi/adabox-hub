@@ -30,7 +30,8 @@ def _quantita(azienda):
     arrivo = _per_prodotto(RigaRicevimento.objects.filter(ricevimento__azienda=azienda, ricevimento__stato=Ricevimento.BOZZA))
     richieste = _per_prodotto(RigaAcquisto.objects.filter(
         ordine__azienda=azienda, prodotto__isnull=False,
-        ordine__stato__in=[OrdineAcquisto.BOZZA, OrdineAcquisto.INVIATO, OrdineAcquisto.DA_APPROVARE], ordine__gara=None))
+        ordine__stato__in=[OrdineAcquisto.BOZZA, OrdineAcquisto.INVIATO, OrdineAcquisto.DA_APPROVARE], ordine__gara=None),
+        misura="quantita_base")
     impegni = _per_prodotto(RigaConsegna.objects.filter(consegna__azienda=azienda, consegna__stato__in=Consegna.APERTI))
     return giacenze, arrivo, richieste, impegni
 
@@ -102,7 +103,7 @@ def crea_richieste(azienda, voci, utente=None, nota="Creata dalle proposte di ri
     for fornitore, gruppo in per_fornitore.items():
         ordine = _nuovo_ordine(azienda, fornitore, utente)
         for v in gruppo:
-            RigaAcquisto.objects.create(ordine=ordine, prodotto=v["prodotto"], quantita=v["quantita"],
+            RigaAcquisto.objects.create(ordine=ordine, prodotto=v["prodotto"], quantita=v["quantita"], unita=v["prodotto"].unita,
                                         **({"descrizione": f"{v['prodotto'].nome} · per {v['magazzino']}"[:250]} if v.get("magazzino") else {}))
         ordine.ricalcola()
         chatter.scrivi(ordine, utente, nota, tipo="nota")

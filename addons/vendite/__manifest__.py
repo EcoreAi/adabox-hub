@@ -1,7 +1,7 @@
 {
     "name": "Vendite",
     "summary": "Preventivi e ordini dei clienti, con listini, sconti, IVA, stampa e invio per email",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Vendite",
     "depends": ["prodotti", "contatti"],

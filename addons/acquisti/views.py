@@ -29,7 +29,7 @@ class OrdineAcquistoView(ModelView):
     readonly_fields = ["numero", "stato", "confermato_il"]
     company_field = "azienda"
     sequence_field = ("numero", "acquisti.ordine")
-    inlines = [Inline(RigaAcquisto, "ordine", ["prodotto", "descrizione", "quantita", "prezzo", "sconto", "aliquota"],
+    inlines = [Inline(RigaAcquisto, "ordine", ["prodotto", "descrizione", "quantita", "unita", "prezzo", "sconto", "aliquota"],
                       titolo="Righe", extra=2)]
     list_group_by = ["stato", "fornitore", "data:mese"]
     list_sum = ["totale"]

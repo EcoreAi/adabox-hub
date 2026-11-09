@@ -31,7 +31,7 @@ def da_ordine(ordine):
                                      termine_pagamento=ordine.termine_pagamento,
                                      causale=f"Ordine {ordine.numero_ordine} del {ordine.data:%d/%m/%Y}")
     for r in ordine.righe.all():
-        RigaFattura.objects.create(fattura=fattura, prodotto=r.prodotto, descrizione=r.descrizione,
+        RigaFattura.objects.create(fattura=fattura, prodotto=r.prodotto, descrizione=r.descrizione, unita=r.unita,
                                    quantita=r.quantita, prezzo=r.prezzo, sconto=r.sconto, aliquota=r.aliquota)
     fattura.ricalcola()
     return fattura
@@ -187,7 +187,7 @@ def nota_di_credito(fattura):
     nota = Fattura.objects.create(azienda=fattura.azienda, tipo=Fattura.NOTA_CREDITO, cliente=fattura.cliente,
                                   fattura_origine=fattura, causale=f"Storno della fattura {fattura.numero}")
     for r in fattura.righe.all():
-        RigaFattura.objects.create(fattura=nota, prodotto=r.prodotto, descrizione=r.descrizione, quantita=r.quantita,
+        RigaFattura.objects.create(fattura=nota, prodotto=r.prodotto, descrizione=r.descrizione, quantita=r.quantita, unita=r.unita,
                                    prezzo=r.prezzo, sconto=r.sconto, aliquota=r.aliquota,
                                    soggetta_ritenuta=r.soggetta_ritenuta, is_bollo=r.is_bollo)
     for c in fattura.casse.all():
@@ -229,7 +229,8 @@ def da_consegne(consegne):
         for r in c.righe.select_related("prodotto"):
             riga_ordine = ordine_c.righe.filter(prodotto=r.prodotto).first() if ordine_c else None
             RigaFattura.objects.create(fattura=fattura, prodotto=r.prodotto, descrizione=r.descrizione, quantita=r.quantita,
-                                       prezzo=riga_ordine.prezzo if riga_ordine else None,
+                                       unita=r.prodotto.unita,          # il DDT è nell'unità del prodotto: prezzo riportato a quella
+                                       prezzo=(riga_ordine.prezzo / riga_ordine.per_unita).quantize(Decimal("0.0001")) if riga_ordine else None,
                                        sconto=riga_ordine.sconto if riga_ordine else 0,
                                        aliquota=riga_ordine.aliquota if riga_ordine else None)
     fattura.ricalcola()

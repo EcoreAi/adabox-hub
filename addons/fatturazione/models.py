@@ -195,6 +195,10 @@ class RigaFattura(models.Model):
                                  verbose_name="prodotto")
     descrizione = models.CharField("descrizione", max_length=250, blank=True)
     quantita = models.DecimalField("quantità", max_digits=12, decimal_places=3, default=1)
+    unita = models.ForeignKey("prodotti.UnitaMisura", on_delete=models.PROTECT, null=True, blank=True, related_name="+",
+                              verbose_name="unità", help_text="vuoto = quella del prodotto")
+    quantita_base = models.DecimalField("quantità nell'unità del prodotto", max_digits=14, decimal_places=3, null=True, blank=True,
+                                        editable=False)
     prezzo = models.DecimalField("prezzo (€)", max_digits=12, decimal_places=4, null=True, blank=True)
     sconto = models.DecimalField("sconto %", max_digits=5, decimal_places=2, default=0)
     aliquota = models.ForeignKey("fiscale.AliquotaIva", on_delete=models.PROTECT, null=True, blank=True,
@@ -214,13 +218,25 @@ class RigaFattura(models.Model):
             raise ValidationError("Indica un prodotto o una descrizione.")
         if self.quantita is not None and self.quantita <= 0:
             raise ValidationError({"quantita": "La quantità deve essere positiva."})
+        from prodotti.models import controlla_unita
+        controlla_unita(self)
+
+    @property
+    def per_unita(self):
+        """Quante unità del prodotto vale una unità della riga (1 se è la stessa)."""
+        from prodotti.models import converti
+        if not self.prodotto_id or not self.unita_id:
+            return Decimal(1)
+        return converti(Decimal(1), self.unita, self.prodotto.unita) or Decimal(1)
 
     def save(self, *args, **kwargs):
         from fiscale.models import AliquotaIva
+        from prodotti.models import prepara_riga
+        prepara_riga(self, "vendita")
         if self.prodotto_id:
             self.descrizione = self.descrizione or (self.prodotto.descrizione_vendita or self.prodotto.nome)[:250]
             if self.prezzo is None:
-                self.prezzo = self.prodotto.prezzo_vendita
+                self.prezzo = self.prodotto.prezzo_vendita * self.per_unita
             if self.aliquota_id is None:
                 self.aliquota = self.prodotto.aliquota_iva
         if self.aliquota_id is None:
