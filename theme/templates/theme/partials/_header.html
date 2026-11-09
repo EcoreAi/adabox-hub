@@ -8,7 +8,7 @@
 
     <nav class="ui-nav" aria-label="Principale">
       {% for item in theme.nav_principale|default:theme.nav %}
-        <a href="{% url item.url_name %}" class="{% if current == item.url_name %}is-active{% endif %}">{{ item.label }}</a>
+        <a href="{% url item.url_name %}" class="{% if current == item.url_name or item.slug == 'dashboard' and theme.nav_dashboard_attiva %}is-active{% endif %}">{{ item.label }}</a>
       {% endfor %}
       {% if theme.nav_altre %}
       <div class="ui-dropdown ui-nav-altre">

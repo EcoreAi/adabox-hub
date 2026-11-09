@@ -250,6 +250,17 @@ def libreria_di(utente):
     return Grafico.objects.filter(Q(utente=utente) | Q(condiviso_con=utente)).select_related("utente").distinct().order_by("titolo", "pk")
 
 
+def grafici_delle_app(utente):
+    """[{app, icona, voci: [{label, url}]}]: le viste a grafico delle liste (le voci di menu «…_grafico») delle app che
+    l'utente vede, da cui si esplora e si salva un grafico."""
+    risultato = []
+    for a in modules.app_visibili(utente):
+        voci = [{"label": v["label"], "url": v["url"]} for v in a["menu"] if v["url_name"].endswith("_grafico")]
+        if voci:
+            risultato.append({"app": a["label"], "icona": a.get("icon") or "", "voci": voci})
+    return risultato
+
+
 def widget_per_panoramica(request):
     return [widget_leggero(g, request) for g in libreria_di(request.user)]
 
@@ -371,7 +382,7 @@ def metti_in(utente, valore, grafico, titolo_nuova="", azienda=None):
     """Mette il grafico dove indica un form o Ada; (titolo, indirizzo) del posto, o (None, None) se resta solo in libreria."""
     if (valore or "").strip() == PANORAMICA:
         imposta_panoramica(grafico, utente, True)
-        return "Panoramica", reverse("core:dashboard")
+        return "Dashboard", reverse("core:dashboard")
     p = destinazione(utente, valore, titolo_nuova, azienda)
     if p is None:
         return None, None
@@ -552,7 +563,7 @@ def destinazioni(request, vista="", area=None):
     if area is not None and area_visibile(request.user, getattr(request, "azienda", None), area.pk):
         scelte.append((f"area:{area.pk}", f"Dashboard dell'area «{area.nome}»"))
     scelte += [(f"app:{a['slug']}", f"Scheda {a['label']}") for a in apps if a["slug"] == app_vista]
-    scelte.append((PANORAMICA, "Panoramica"))
+    scelte.append((PANORAMICA, "Dashboard"))
     scelte += [(str(p.pk), p.titolo) for p in Pagina.objects.filter(utente=request.user, app="", area__isnull=True)]
     scelte += [(f"app:{a['slug']}", f"Scheda {a['label']}") for a in apps if a["slug"] != app_vista]
     scelte.append(("nuova", "Nuova pagina…"))

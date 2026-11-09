@@ -112,10 +112,12 @@ def pagina_area(request, area):
 @login_required
 @permission_required(VISTA)
 def pagine(request):
-    """Gestione: le pagine dell'utente, quelle condivise con lui, le schede delle app nascoste e i grafici in libreria."""
+    """La scheda «Statistiche» della dashboard: i grafici delle app da esplorare, la libreria, le pagine dell'utente e
+    quelle condivise con lui, le schede delle app nascoste."""
     mie = list(Pagina.objects.filter(utente=request.user, area__isnull=True))
     nascoste = {p.app for p in mie if p.app and p.nascosta}
     return render(request, "grafici/pagine.html", {
+        "grafici_app": motore.grafici_delle_app(request.user),
         "libere": [p for p in mie if not p.app], "app_pagine": [p for p in mie if p.app],
         "condivise": motore.condivise(request.azienda, request.user).exclude(utente=request.user).select_related("utente"),
         "app_nascoste": [a for a in motore.app_con_indicatori(request.user) if a["slug"] in nascoste],
@@ -284,7 +286,7 @@ def _mio_grafico(request, pk):
 def _scelte_pagine(g, request):
     """Le pagine di chi guarda, con quelle in cui il grafico sta già; le schede delle app solo se già personali."""
     dentro = {p.pk for p in motore.pagine_con(g, request.user)}
-    righe = [{"valore": motore.PANORAMICA, "titolo": "Panoramica", "dentro": motore.in_panoramica(g, request.user)}]
+    righe = [{"valore": motore.PANORAMICA, "titolo": "Dashboard", "dentro": motore.in_panoramica(g, request.user)}]
     righe += [{"valore": str(p.pk), "titolo": p.titolo, "dentro": p.pk in dentro} for p in Pagina.objects.filter(utente=request.user).order_by("app", "ordine", "pk")]
     return righe
 

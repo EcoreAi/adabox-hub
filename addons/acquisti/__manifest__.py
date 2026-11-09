@@ -17,7 +17,7 @@
         {"label": "Contratti quadro", "url_name": "acquisti:contratti_lista", "permission": "acquisti.view_contrattoquadro"},
         {"label": "Listini fornitori", "url_name": "acquisti:listini_lista", "permission": "acquisti.view_vocelistino"},
         {"label": "Valutazione fornitori", "url_name": "acquisti:valutazione", "permission": "acquisti.view_ordineacquisto"},
-        {"label": "Analisi", "url_name": "acquisti:ordini_grafico", "permission": "acquisti.view_ordineacquisto"},
+        {"label": "Grafico", "url_name": "acquisti:ordini_grafico", "permission": "acquisti.view_ordineacquisto"},
         {"label": "Condizioni fornitori", "url_name": "acquisti:condizioni_lista", "permission": "acquisti.view_condizionifornitore"},
         {"label": "Regole di riordino", "url_name": "acquisti:regole-riordino_lista", "permission": "acquisti.view_regolariordino"},
         {"label": "Regole di approvazione", "url_name": "acquisti:approvazioni_lista", "permission": "acquisti.change_regolaapprovazione"},

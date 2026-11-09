@@ -1,7 +1,8 @@
-{% load analisi tema static %}{% schede_analisi scheda_attiva as sch %}{# Le schede della dashboard in una riga sola: Panoramica, le pagine e le app in uso; il resto in «Altre schede», per area. #}
+{% load analisi tema static %}{% schede_analisi scheda_attiva as sch %}{# Le schede della dashboard in una riga sola: Dashboard, Statistiche, le pagine e le app in uso; il resto in «Altre schede», per area. #}
 <link rel="stylesheet" href="{% statico 'grafici/analisi.css' %}">
 <nav class="an-schede" aria-label="Schede della dashboard">
-  <a class="an-scheda{% if scheda_attiva == 'panoramica' %} is-attiva{% endif %}" href="{% url 'core:dashboard' %}"><svg><use href="#icon-home"/></svg><span>Panoramica</span></a>
+  <a class="an-scheda{% if scheda_attiva == 'panoramica' %} is-attiva{% endif %}" href="{% url 'core:dashboard' %}"><svg><use href="#icon-home"/></svg><span>Dashboard</span></a>
+  <a class="an-scheda{% if scheda_attiva == 'statistiche' %} is-attiva{% endif %}" href="{% url 'grafici:pagine' %}"><svg><use href="#icon-bar-chart"/></svg><span>Statistiche</span></a>
   {% for s in sch.visibili %}
   <a class="an-scheda{% if s.app %} an-scheda-app{% endif %}{% if s.attiva %} is-attiva{% endif %}{% if s.condivisa %} is-condivisa{% endif %}" href="{{ s.url }}"{% if s.condivisa %} title="Condivisa da {{ s.proprietario }}"{% endif %}>{% if s.immagine %}<img src="{% static s.immagine %}" alt="">{% else %}<svg><use href="#icon-{{ s.icona|default:'bar-chart' }}"/></svg>{% endif %}<span>{{ s.titolo }}</span></a>
   {% endfor %}

@@ -13,7 +13,7 @@
     "menu": [
         {"label": "Settimana", "url_name": "timesheet:settimana", "permission": "timesheet.add_rigaore"},
         {"label": "Ore", "url_name": "timesheet:ore_lista", "permission": "timesheet.view_rigaore"},
-        {"label": "Analisi", "url_name": "timesheet:ore_grafico", "permission": "timesheet.view_rigaore"},
+        {"label": "Grafico", "url_name": "timesheet:ore_grafico", "permission": "timesheet.view_rigaore"},
     ],
     "groups": {
         "Timesheet / Utente": ["timesheet.view_rigaore", "timesheet.add_rigaore", "timesheet.change_rigaore",
