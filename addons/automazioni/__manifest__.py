@@ -1,7 +1,7 @@
 {
     "name": "Automazioni",
     "summary": "Quando succede qualcosa, fallo da solo: solleciti, promemoria, assegnazioni e i modelli delle email",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],

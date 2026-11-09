@@ -32,8 +32,26 @@ class Saltata(Exception):
 
 # ---------- eventi al salvataggio
 
+def _codici_attivi(azienda_id):
+    """Gli eventi con almeno una regola accesa nell'azienda, in cache: gli eventi generici osservano molti modelli e un
+    salvataggio qualsiasi non deve costare una query."""
+    from django.core.cache import cache
+    chiave = f"automazioni:attive:{azienda_id}"
+    codici = cache.get(chiave)
+    if codici is None:
+        codici = set(Regola.objects.filter(azienda_id=azienda_id, attiva=True).values_list("evento", flat=True))
+        cache.set(chiave, codici, 300)
+    return codici
+
+
+def dimentica_cache(sender, instance, **kwargs):
+    from django.core.cache import cache
+    cache.delete(f"automazioni:attive:{instance.azienda_id}")
+
+
 def _regole_attive(azienda_id, codici):
-    return Regola.objects.filter(azienda_id=azienda_id, attiva=True, evento__in=codici)
+    attivi = _codici_attivi(azienda_id) & set(codici)
+    return Regola.objects.filter(azienda_id=azienda_id, attiva=True, evento__in=attivi) if attivi else Regola.objects.none()
 
 
 def prima_di_salvare(sender, instance, raw=False, **kwargs):
@@ -174,7 +192,94 @@ def _assegna(azione, regola, dominio, record, valori, simula):
     return f"Assegnato a {catalogo._nome(persona)}"
 
 
-AZIONI = {"email": _email, "attivita": _attivita, "nota": _nota, "assegna": _assegna}
+def _campo(azione, regola, dominio, record, valori, simula):
+    from django.core.exceptions import ValidationError
+    nome = azione.get("campo")
+    voce = next((m for m in catalogo.modificabili(dominio) if m[0] == nome), None)
+    if voce is None:
+        raise Saltata("il campo non si può più cambiare")
+    f = record._meta.get_field(nome)
+    testo = modelli_email.riempi(str(azione.get("valore", "")), valori)
+    try:
+        valore = f.to_python(testo if voce[2] != "sino" else testo in ("1", "si", "sì", "true", "True"))
+    except ValidationError as e:
+        raise Saltata(f"valore non valido per {voce[1].lower()}") from e
+    if getattr(record, nome) == valore:
+        return f"{voce[1]} era già {testo}"
+    if not simula:
+        vecchi = chatter.valori(record, [nome])
+        setattr(record, nome, valore)
+        record.full_clean(exclude=[c.name for c in record._meta.fields if c.name != nome])
+        record.save(update_fields=[nome])
+        chatter.traccia(record, vecchi, None)
+    return f"{voce[1]}: {testo}"
+
+
+def _bottone(azione, regola, dominio, record, valori, simula):
+    from types import SimpleNamespace
+
+    from django.contrib.messages.storage.fallback import FallbackStorage  # noqa: F401  (i bottoni possono scrivere messaggi)
+
+    from core.viste import registry
+    vista = registry.per_modello(type(record))
+    nome = azione.get("bottone")
+    if vista is None or nome not in vista.buttons:
+        raise Saltata("il bottone non c'è più")
+    etichetta = vista.etichetta_metodo(nome)
+    if simula:
+        return f"Premerebbe «{etichetta}»"
+    utente = regola.creata_da
+    if utente is None or not utente.is_active:
+        raise Saltata("chi ha creato la regola non è più attivo")
+    finta = SimpleNamespace(user=utente, azienda=regola.azienda, method="POST", POST={}, GET={}, META={}, session={},
+                            _messages=_Messaggi())
+    if not vista.permesso_metodo(finta, getattr(vista, nome)):
+        raise Saltata(f"{catalogo._nome(utente)} non ha il permesso di «{etichetta}»")
+    esito = getattr(vista, nome)(finta, record)
+    testo = esito if isinstance(esito, str) else "fatto"
+    return f"«{etichetta}»: {testo}"[:300]
+
+
+class _Messaggi(list):
+    """Raccoglie i messaggi che un bottone scrive per l'utente (qui non c'è nessuno a leggerli)."""
+    level = 0
+
+    def add(self, level, message, extra_tags=""):
+        self.append(str(message))
+
+
+def _webhook(azione, regola, dominio, record, valori, simula):
+    """POST JSON firmato (HMAC SHA-256 nell'intestazione X-Adabox-Firma, se c'è un segreto) all'indirizzo indicato."""
+    import hashlib
+    import hmac
+    import json
+
+    import httpx2 as httpx
+    url = azione.get("url", "")
+    corpo = json.dumps({"regola": regola.nome, "evento": regola.evento, "modello": record._meta.label_lower, "id": record.pk,
+                        "valori": valori}, ensure_ascii=False, default=str).encode()
+    if simula:
+        return f"Chiamerebbe {url}"
+    intestazioni = {"Content-Type": "application/json", "User-Agent": "adabox-automazioni"}
+    if azione.get("segreto"):
+        intestazioni["X-Adabox-Firma"] = hmac.new(azione["segreto"].encode(), corpo, hashlib.sha256).hexdigest()
+    client = HTTP or httpx.Client(timeout=15, trust_env=False)
+    try:
+        r = client.post(url, content=corpo, headers=intestazioni)
+    except httpx.HTTPError as e:
+        raise RuntimeError(f"{url} non risponde ({type(e).__name__})") from e
+    finally:
+        if HTTP is None:
+            client.close()
+    if r.status_code >= 400:
+        raise RuntimeError(f"{url} ha risposto {r.status_code}")
+    return f"Chiamato {url} ({r.status_code})"
+
+
+HTTP = None                                         # solo per i test: un client httpx finto
+
+AZIONI = {"email": _email, "attivita": _attivita, "nota": _nota, "assegna": _assegna, "campo": _campo, "bottone": _bottone,
+          "webhook": _webhook}
 
 
 def _fai(regola, record, extra, simula):

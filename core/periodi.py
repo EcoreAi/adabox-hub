@@ -75,3 +75,23 @@ def periodo_chiuso(request, pk):
                        f"Periodo chiuso fino al {data:%d/%m/%Y}." if data else "Periodo riaperto.", tipo="nota")
         messages.success(request, f"Periodo chiuso fino al {data:%d/%m/%Y}." if data else "Periodo riaperto.")
     return redirect("core:aziende_dettaglio", pk=pk)
+
+
+@login_required
+@permission_required("core.change_pianificazione", raise_exception=True)
+def pianificazioni(request):
+    """I lavori pianificati dei moduli: quando girano, l'ultima e la prossima volta, accesi o spenti."""
+    from .models import Pianificazione
+    if request.method == "POST":
+        p = Pianificazione.objects.filter(pk=request.POST.get("pk")).first()
+        if p is not None:
+            if request.POST.get("azione") == "ora":
+                p.prossima_esecuzione = timezone.now()
+                p.save(update_fields=["prossima_esecuzione"])
+                messages.success(request, f"«{p.nome}» parte al prossimo giro (entro un minuto).")
+            else:
+                p.attiva = not p.attiva
+                p.save(update_fields=["attiva"])
+                messages.success(request, f"«{p.nome}» {'acceso' if p.attiva else 'spento'}.")
+        return redirect("core:pianificazioni")
+    return render(request, "core/pianificazioni.html", {"righe": Pianificazione.objects.order_by("modulo", "nome")})

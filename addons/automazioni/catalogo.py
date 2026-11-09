@@ -25,6 +25,7 @@ class Dominio:
     interni: dict = field(default_factory=dict)     # {ruolo: (etichetta, record -> utente)}
     condizioni: dict = field(default_factory=dict)  # {nome: (etichetta, tipo, record -> valore[, scelte])}
     assegna: str = ""                               # campo dell'assegnatario, se la regola può assegnare
+    modello: str = ""                               # app_label.Model dei record (per cambiare campi e premere bottoni)
 
 
 @dataclass
@@ -289,6 +290,42 @@ FONTI = {"fatturazione": _fatture, "helpdesk": _ticket, "vendite": _vendite, "cr
 _cache = None
 
 
+def _generici(gia):
+    """Un dominio per ogni ModelView con l'azienda che non ha già un dominio proprio: eventi «creato», «modificato» e,
+    se c'è un campo stato con scelte, «stato cambiato». Le condizioni sono i campi con scelte e i sì/no."""
+    from core.viste import registry
+    risultato = []
+    for vv in registry._viste.values():
+        for v in vv:
+            label = v.opts.label
+            if not v.company_field or label.lower() in gia or v.opts.app_label in ("core", "automazioni"):
+                continue
+            gia.add(label.lower())
+            codice = f"v_{v.opts.label_lower.replace('.', '_')}"
+            nome = str(v.opts.verbose_name_plural).capitalize()
+            condizioni = {}
+            for f in v.opts.concrete_fields:
+                if f.choices:
+                    condizioni[f.name] = (str(f.verbose_name).capitalize(), "scelta", (lambda n: lambda o: getattr(o, n))(f.name),
+                                          [(k, str(t)) for k, t in f.flatchoices])
+                elif f.get_internal_type() == "BooleanField" and f.editable:
+                    condizioni[f.name] = (str(f.verbose_name).capitalize(), "sino", (lambda n: lambda o: getattr(o, n))(f.name))
+            utenti = [f.name for f in v.opts.concrete_fields if f.is_relation and f.related_model is not None
+                      and f.related_model._meta.label == "auth.User" and f.editable]
+            dominio = Dominio(codice, nome, v.modulo, {"record": ("Il record", "…"), "link_interno": ("Link interno", "https://…")},
+                              lambda o: {"record": str(o), "link_interno": _link(o)},
+                              interni={u: (str(v.opts.get_field(u).verbose_name).capitalize(), (lambda n: lambda o: getattr(o, n))(u)) for u in utenti},
+                              condizioni=condizioni, assegna=utenti[0] if utenti else "", modello=label)
+            voci = [Evento(f"{codice}.creato", codice, f"Nasce un record: {str(v.opts.verbose_name)}", label, (), lambda p, o, n: n),
+                    Evento(f"{codice}.modificato", codice, f"Cambia un record: {str(v.opts.verbose_name)}", label, (), lambda p, o, n: not n)]
+            stato = next((f for f in v.opts.concrete_fields if f.name == "stato" and f.choices), None)
+            if stato is not None:
+                voci.append(Evento(f"{codice}.stato", codice, f"Cambia lo stato: {str(v.opts.verbose_name)}", label, ("stato",),
+                                   lambda p, o, n: not n and "stato" in p and p["stato"] != o.stato))
+            risultato.append((dominio, voci))
+    return risultato
+
+
 def _carica():
     global _cache
     if _cache is None:
@@ -296,10 +333,47 @@ def _carica():
         for modulo, fonte in FONTI.items():
             if apps.is_installed(modulo):
                 dominio, voci = fonte()
+                if not dominio.modello:
+                    dominio.modello = next((e.modello for e in voci if e.modello), "")
                 domini[dominio.codice] = dominio
                 eventi.update({e.codice: e for e in voci})
+        try:
+            gia = {d.modello.lower() for d in domini.values() if d.modello}
+            for dominio, voci in _generici(gia):
+                domini[dominio.codice] = dominio
+                eventi.update({e.codice: e for e in voci})
+        except Exception:                           # noqa: BLE001 (le viste non ancora pronte: solo i domini propri)
+            pass
         _cache = domini, eventi
     return _cache
+
+
+def modificabili(dominio):
+    """[(campo, etichetta, tipo, scelte)] dei campi che l'azione «cambia un campo» può impostare."""
+    if not dominio.modello:
+        return []
+    modello = apps.get_model(dominio.modello)
+    risultato = []
+    for f in modello._meta.concrete_fields:
+        if not f.editable or f.primary_key or f.is_relation or f.name in ("azienda", "proprieta"):
+            continue
+        tipo = "scelta" if f.choices else {"BooleanField": "sino", "DateField": "data", "DecimalField": "numero",
+                                           "IntegerField": "numero", "PositiveIntegerField": "numero",
+                                           "PositiveSmallIntegerField": "numero", "CharField": "testo", "TextField": "testo"}.get(f.get_internal_type())
+        if tipo:
+            risultato.append((f.name, str(f.verbose_name).capitalize(), tipo, [(str(k), str(t)) for k, t in f.flatchoices] if f.choices else []))
+    return risultato
+
+
+def bottoni(dominio):
+    """[(nome, etichetta)] dei bottoni della vista del record che una regola può premere (non quelli marcati ai=False)."""
+    if not dominio.modello:
+        return []
+    from core.viste import registry
+    vista = registry.per_modello(apps.get_model(dominio.modello))
+    if vista is None:
+        return []
+    return [(n, vista.etichetta_metodo(n)) for n in vista.buttons if getattr(getattr(vista, n, None), "ai", True) is not False]
 
 
 def domini():

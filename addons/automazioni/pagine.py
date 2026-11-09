@@ -62,7 +62,9 @@ def _dati_costruttore(azienda):
             "esterni": [{"ruolo": r, "etichetta": v[0]} for r, v in d.esterni.items()],
             "interni": [{"ruolo": r, "etichetta": v[0]} for r, v in d.interni.items()],
             "condizioni": [{"nome": n, "etichetta": v[0], "tipo": v[1],
-                            "scelte": [[str(k), str(t)] for k, t in v[3]] if len(v) > 3 else []} for n, v in d.condizioni.items()]}
+                            "scelte": [[str(k), str(t)] for k, t in v[3]] if len(v) > 3 else []} for n, v in d.condizioni.items()],
+            "modificabili": [{"nome": n, "etichetta": e, "tipo": t, "scelte": s} for n, e, t, s in catalogo.modificabili(d)],
+            "bottoni": [{"nome": n, "etichetta": e} for n, e in catalogo.bottoni(d)]}
     return {"gruppi": [{"nome": n, "eventi": v} for n, v in gruppi.items()], "domini": domini,
             "utenti": [{"id": u.pk, "nome": catalogo._nome(u)} for u in controlli.utenti_di(azienda)],
             "tipi": [{"id": t.pk, "nome": t.nome} for t in TipoAttivita.objects.all()]}

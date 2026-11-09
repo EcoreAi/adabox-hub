@@ -1,0 +1,13 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Lavori pianificati · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Lavori pianificati</h1><div class="sub">Quello che i moduli fanno da soli a intervalli: riordino, solleciti, letture della banca…</div></div></div>
+<section class="ui-card is-revealed ui-section">{% if righe %}<div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>App</th><th>Lavoro</th><th>Ogni</th><th>Ultima volta</th><th>Prossima</th><th></th></tr></thead>
+  <tbody>{% for p in righe %}<tr{% if not p.attiva %} class="is-spento"{% endif %}><td>{{ p.modulo }}</td><td>{{ p.nome }}</td><td>{{ p.ogni }}{% if p.alle %} alle {{ p.alle }}{% endif %}</td>
+    <td>{{ p.ultima_esecuzione|date:"d/m/Y H:i"|default:"—" }}</td><td>{% if p.attiva %}{{ p.prossima_esecuzione|date:"d/m/Y H:i"|default:"—" }}{% else %}<span class="ui-pill ui-pill-neutral">spento</span>{% endif %}</td>
+    <td><form method="post" style="display:flex;gap:6px">{% csrf_token %}<input type="hidden" name="pk" value="{{ p.pk }}">
+      {% if p.attiva %}<button class="ui-btn ui-btn-ghost ui-btn-sm" name="azione" value="ora">Fallo adesso</button>{% endif %}
+      <button class="ui-btn ui-btn-ghost ui-btn-sm" name="azione" value="interruttore">{% if p.attiva %}Spegni{% else %}Accendi{% endif %}</button></form></td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<div class="ui-card-body"><p class="sub" style="margin:0">Nessun lavoro pianificato.</p></div>{% endif %}</section>
+<p class="ui-help">Spegnere un lavoro vale finché non lo riaccendi, anche dopo gli aggiornamenti dei moduli.</p>
+{% endblock %}

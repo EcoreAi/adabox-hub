@@ -36,6 +36,7 @@ urlpatterns = [
     path("ricerche/<int:pk>/predefinita/", salvate_viste.predefinita_vista, name="ricerca_predefinita"),
     path("impostazioni/", views.impostazioni, name="impostazioni"),
     path("impostazioni/numerazioni/", periodi.numerazioni, name="numerazioni"),
+    path("impostazioni/pianificazioni/", periodi.pianificazioni, name="pianificazioni"),
     path("aziende/<int:pk>/periodo-chiuso/", periodi.periodo_chiuso, name="periodo_chiuso"),
     path("kanban/nota/<int:pk>/", kanban_viste.nota, name="kanban_nota"),
     path("impostazioni/barra/", views.impostazioni_barra, name="impostazioni_barra"),

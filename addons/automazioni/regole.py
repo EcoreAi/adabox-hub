@@ -116,6 +116,27 @@ def _azione(a, dominio, azienda, errori):
             errori.append("Scegli la persona a cui assegnare il record.")
             return None
         return {"tipo": tipo, "utente": int(a["utente"])}
+    elif tipo == "campo":
+        voce = next((m for m in catalogo.modificabili(dominio) if m[0] == a.get("campo")), None)
+        valore = str(a.get("valore", "")).strip()[:200]
+        if voce is None:
+            errori.append("Scegli il campo da cambiare.")
+            return None
+        if voce[2] == "scelta" and valore not in {k for k, _ in voce[3]}:
+            errori.append(f"Scegli il valore per {voce[1].lower()}.")
+            return None
+        return {"tipo": tipo, "campo": voce[0], "valore": valore}
+    elif tipo == "bottone":
+        if a.get("bottone") not in {n for n, _ in catalogo.bottoni(dominio)}:
+            errori.append("Scegli il bottone da premere.")
+            return None
+        return {"tipo": tipo, "bottone": a["bottone"]}
+    elif tipo == "webhook":
+        url = str(a.get("url", "")).strip()[:500]
+        if not url.startswith("https://") and not url.startswith("http://"):
+            errori.append("Scrivi l'indirizzo del webhook, che inizia con https://.")
+            return None
+        return {"tipo": tipo, "url": url, "segreto": str(a.get("segreto", "")).strip()[:200]}
     else:
         errori.append("Azione sconosciuta.")
         return None
@@ -204,6 +225,14 @@ def descrivi_azioni(regola):
             voci.append({"icona": "edit", "testo": f"Scrivi la nota «{a['testo'][:80]}»"})
         elif a["tipo"] == "assegna":
             voci.append({"icona": "user", "testo": f"Assegna a {persone.get(a.get('utente'), 'una persona non più attiva')}"})
+        elif a["tipo"] == "campo":
+            etichetta = next((m[1] for m in catalogo.modificabili(dominio) if m[0] == a.get("campo")), a.get("campo"))
+            voci.append({"icona": "edit", "testo": f"Metti {etichetta.lower()} a «{a.get('valore', '')}»"})
+        elif a["tipo"] == "bottone":
+            etichetta = dict(catalogo.bottoni(dominio)).get(a.get("bottone"), a.get("bottone"))
+            voci.append({"icona": "zap", "testo": f"Premi «{etichetta}»"})
+        elif a["tipo"] == "webhook":
+            voci.append({"icona": "link", "testo": f"Chiama {a.get('url', '')}"})
     return voci
 
 

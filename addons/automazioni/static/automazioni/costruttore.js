@@ -95,11 +95,27 @@
       casella(a.testo, 'testo', 'Che cosa deve fare'), crea('span', { textContent: 'entro giorni' }), casella(a.giorni ?? 0, 'giorni', '0', 'number')],
     nota: (a) => [crea('span', { textContent: 'Scrivi la nota' }), casella(a.testo, 'testo', 'Testo della nota')],
     assegna: (a) => [crea('span', { textContent: 'Assegna a' }), scelta(DATI.utenti.map((u) => [u.id, u.nome]), a.utente, 'utente')],
+    campo: (a, d) => {
+      const campo = scelta(d.modificabili.map((m) => [m.nome, m.etichetta]), a.campo, 'campo');
+      const posto = crea('span');
+      const disegna = () => {
+        const m = d.modificabili.find((x) => x.nome === campo.value);
+        posto.replaceChildren(m && m.scelte.length ? scelta(m.scelte, a.valore, 'valore')
+          : m && m.tipo === 'sino' ? scelta([['1', 'Sì'], ['0', 'No']], a.valore, 'valore') : casella(a.valore || '', 'valore', 'Valore'));
+      };
+      campo.addEventListener('change', disegna);
+      disegna();
+      return [crea('span', { textContent: 'Metti' }), campo, crea('span', { textContent: 'a' }), posto];
+    },
+    bottone: (a, d) => [crea('span', { textContent: 'Premi' }), scelta(d.bottoni.map((b) => [b.nome, b.etichetta]), a.bottone, 'bottone')],
+    webhook: (a) => [crea('span', { textContent: 'Chiama' }), casella(a.url || '', 'url', 'https://…'), casella(a.segreto || '', 'segreto', 'Segreto per la firma (facoltativo)')],
   };
   const aggiungiAzione = (a) => {
     const d = dominio();
     if (!d) { evento.focus(); return; }
     if (a.tipo === 'assegna' && !d.assegna) { window.uiToast('Questo tipo di record non si assegna'); return; }
+    if (a.tipo === 'campo' && !d.modificabili.length) { window.uiToast('Questo tipo di record non ha campi da cambiare'); return; }
+    if (a.tipo === 'bottone' && !d.bottoni.length) { window.uiToast('Questo tipo di record non ha bottoni'); return; }
     const r = riga(...DISEGNA[a.tipo](a, d));
     r.dataset.tipo = a.tipo;
     listaAzioni.append(r);
