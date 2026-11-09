@@ -40,11 +40,13 @@
     "email": [
         {"codice": "fatturazione.invio", "nome": "Invio della fattura al cliente", "gruppo": "Fatture",
          "oggetto": "{{ documento }} — {{ azienda }}",
-         "corpo": "Gentile {{ cliente }},\nin allegato {{ documento_testo }}.\n\nCordiali saluti\n{{ azienda }}",
+         "corpo": "Gentile {{ cliente }},\nin allegato {{ documento_testo }}.{{ paga_online }}\n\nCordiali saluti\n{{ azienda }}",
          "campi": {
         "documento": ["Il documento (con la maiuscola)", "Fattura 12/2026"], "documento_testo": ["Il documento, dentro una frase", "fattura 12/2026"],
         "numero": ["Numero", "12/2026"], "cliente": ["Nome del cliente", "Rossi Srl"], "data": ["Data", "02/11/2026"],
         "totale": ["Totale", "1.220,00 €"],
-             "da_pagare": ["Importo da pagare", "1.220,00 €"]}},
+             "da_pagare": ["Importo da pagare", "1.220,00 €"],
+             "paga_online": ["Frase con il link per pagare online (vuota se non si può)", "\nPuò pagarla online da questo link: https://hub.example.it/pagamenti/fattura/…/"],
+             "link_pagamento": ["Solo il link per pagare online (vuoto se non si può)", "https://hub.example.it/pagamenti/fattura/…/"]}},
     ],
 }

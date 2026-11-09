@@ -1,4 +1,4 @@
-"""Pagine pubbliche e del portale: «Paga ora», ritorno dal pagamento, pagamento simulato, webhook di Stripe."""
+"""Pagine pubbliche e del portale: «Paga ora», ritorno dal pagamento, pagamento simulato, webhook di Stripe e PayPal."""
 from django.contrib import messages
 from django.core import signing
 from django.http import Http404, HttpResponse, HttpResponseBadRequest
@@ -69,11 +69,13 @@ def _esito_url(pk, firma):
 @csrf_exempt
 @require_POST
 def webhook(request, pk):
-    """Gli eventi di Stripe, firmati con il segreto del fornitore: un pagamento completato diventa un incasso anche se il
-    cliente chiude la pagina prima di tornare."""
-    fornitore = FornitorePagamento.objects.filter(pk=pk, tipo=FornitorePagamento.STRIPE).first()
+    """Gli eventi del fornitore, verificati (Stripe con il segreto, PayPal chiedendo a PayPal): un pagamento completato
+    diventa un incasso anche se il cliente chiude la pagina prima di tornare."""
+    fornitore = FornitorePagamento.objects.filter(pk=pk, tipo__in=[FornitorePagamento.STRIPE, FornitorePagamento.PAYPAL]).first()
     if fornitore is None:
         return HttpResponse(status=404)
+    if fornitore.tipo == FornitorePagamento.PAYPAL:
+        return _webhook_paypal(request, fornitore)
     try:
         evento = fornitori.evento_stripe(fornitore, request.body, request.headers.get("Stripe-Signature", ""))
     except (fornitori.ErrorePagamento, ValueError):
@@ -83,6 +85,22 @@ def webhook(request, pk):
         pagamento = Pagamento.objects.filter(fornitore=fornitore, id_esterno=sessione.get("id", "")).first()
         if pagamento is not None and sessione.get("payment_status") == "paid":
             servizi.conferma(pagamento, sessione.get("payment_intent") or sessione.get("id", ""))
+    return HttpResponse(status=200)
+
+
+def _webhook_paypal(request, fornitore):
+    try:
+        evento = fornitori.evento_paypal(fornitore, request.body, request.headers)
+    except fornitori.ErrorePagamento:
+        return HttpResponseBadRequest("firma non valida")
+    if evento.get("event_type") in ("CHECKOUT.ORDER.APPROVED", "CHECKOUT.ORDER.COMPLETED", "PAYMENT.CAPTURE.COMPLETED"):
+        ordine = fornitori.ordine_dell_evento(evento)
+        pagamento = Pagamento.objects.filter(fornitore=fornitore, id_esterno=ordine).first() if ordine else None
+        if pagamento is not None:
+            try:
+                servizi.verifica(pagamento)                 # cattura se serve, poi l'incasso una volta sola
+            except fornitori.ErrorePagamento:
+                return HttpResponse(status=503)             # PayPal riprova più tardi
     return HttpResponse(status=200)
 
 

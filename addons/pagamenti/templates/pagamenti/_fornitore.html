@@ -6,3 +6,11 @@
     <p class="ui-help">Senza webhook l'incasso si registra comunque quando il cliente torna dalla pagina di pagamento; il webhook serve se la chiude prima.</p>
   </div>
 </section>{% endif %}
+{% if obj.tipo == "paypal" %}<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Webhook di PayPal</div></div>
+  <div class="ui-card-body">
+    <p>Nel portale sviluppatori di PayPal, nell'app di cui hai copiato Client ID e Secret, aggiungi un webhook con questo indirizzo e gli eventi <code>Checkout order approved</code> e <code>Payment capture completed</code>, poi copia qui il suo ID:</p>
+    <p><code>{{ request.scheme }}://{{ request.get_host }}{% url 'pagamenti:webhook' obj.pk %}</code></p>
+    <p class="ui-help">Senza webhook l'incasso si registra comunque quando il cliente torna da PayPal; il webhook serve se chiude la pagina prima. Con «ambiente di prova» usa le credenziali della sandbox.</p>
+  </div>
+</section>{% endif %}

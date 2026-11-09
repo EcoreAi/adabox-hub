@@ -5,10 +5,12 @@ from core.mixins import AziendaMixin
 
 class FornitorePagamento(AziendaMixin):
     """Il conto con cui l'azienda incassa online. Le chiavi si scrivono e si salvano cifrate, non si rileggono."""
-    STRIPE, FINTO = "stripe", "finto"
-    TIPI = [(STRIPE, "Stripe"), (FINTO, "Simulato (prove e demo)")]
+    STRIPE, PAYPAL, FINTO = "stripe", "paypal", "finto"
+    TIPI = [(STRIPE, "Stripe"), (PAYPAL, "PayPal"), (FINTO, "Simulato (prove e demo)")]
     nome = models.CharField("nome", max_length=80, default="Stripe")
     tipo = models.CharField("fornitore", max_length=10, choices=TIPI, default=STRIPE)
+    client_id = models.CharField("Client ID", max_length=200, blank=True, help_text="Solo PayPal: dall'app creata nel portale sviluppatori")
+    sandbox = models.BooleanField("ambiente di prova", default=False, help_text="Solo PayPal: usa la sandbox (nessun incasso vero)")
     chiave_cifrata = models.TextField(blank=True, editable=False)
     segreto_webhook_cifrato = models.TextField(blank=True, editable=False)
     attivo = models.BooleanField("attivo", default=True)
@@ -32,6 +34,8 @@ class FornitorePagamento(AziendaMixin):
 
     @property
     def di_prova(self):
+        if self.tipo == self.PAYPAL:
+            return self.sandbox
         return self.tipo == self.FINTO or self.chiave().startswith("sk_test_")
 
 

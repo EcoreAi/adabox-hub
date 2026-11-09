@@ -66,11 +66,13 @@ def _nome(utente):
 
 
 def _fatture():
+    from fatturazione import operazioni
     from fatturazione.models import Fattura, Scadenza
 
     def valori(f):
         return {"documento": str(f), "numero": f.numero, "cliente": f.cliente.nome, "data": _data(f.data),
-                "totale": _euro(f.totale), "residuo": _euro(f.residuo), "link_interno": _link(f)}
+                "totale": _euro(f.totale), "residuo": _euro(f.residuo), "link_interno": _link(f),
+                "paga_online": operazioni.frase_pagamento(f), "link_pagamento": operazioni.link_pagamento(f)}
 
     def scadute(azienda, giorni):
         limite = timezone.localdate() - timedelta(days=giorni)
@@ -90,7 +92,10 @@ def _fatture():
         {"documento": ("Il documento", "Fattura 12/2026"), "numero": ("Numero", "12/2026"), "cliente": ("Nome del cliente", "Rossi Srl"),
          "data": ("Data", "02/10/2026"), "totale": ("Totale", "1.220,00 €"), "residuo": ("Ancora da incassare", "1.220,00 €"),
          "scadenza": ("Data della scadenza", "01/11/2026"), "importo_scadenza": ("Importo della scadenza", "610,00 €"),
-         "giorni_ritardo": ("Giorni di ritardo", "7"), "link_interno": ("Link interno alla fattura", "https://hub.example.it/fatturazione/fatture/1/")},
+         "giorni_ritardo": ("Giorni di ritardo", "7"),
+         "paga_online": ("Frase con il link per pagare online (vuota se non si può)", "\nPuò pagarla online da questo link: https://hub.example.it/pagamenti/fattura/…/"),
+         "link_pagamento": ("Solo il link per pagare online (vuoto se non si può)", "https://hub.example.it/pagamenti/fattura/…/"),
+         "link_interno": ("Link interno alla fattura", "https://hub.example.it/fatturazione/fatture/1/")},
         valori,
         esterni={"cliente": ("Il cliente", lambda f: f.cliente.email)},
         condizioni={"totale": ("Totale", "numero", lambda f: f.totale),

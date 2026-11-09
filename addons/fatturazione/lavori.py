@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from core import chatter, modelli_email, report
 from core.viste.gruppi import numero
 
+from . import operazioni
 from .models import Fattura
 
 
@@ -16,7 +17,8 @@ def invia(fattura_id, utente_id=None):
     email = modelli_email.messaggio("fatturazione.invio", fattura.azienda, {
         "documento": documento, "documento_testo": f"{documento[0].lower()}{documento[1:]}", "numero": fattura.numero,
         "cliente": fattura.cliente.nome, "data": f"{fattura.data:%d/%m/%Y}", "totale": f"{numero(fattura.totale)} €",
-        "da_pagare": f"{numero(fattura.da_incassare)} €"}, [fattura.cliente.email])
+        "da_pagare": f"{numero(fattura.da_incassare)} €",
+        "paga_online": operazioni.frase_pagamento(fattura), "link_pagamento": operazioni.link_pagamento(fattura)}, [fattura.cliente.email])
     try:
         email.attach(f"{fattura}".replace("/", "-") + ".pdf", report.pdf(report.html(vista, richiesta, [fattura], 0)),
                      "application/pdf")

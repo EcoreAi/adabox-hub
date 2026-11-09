@@ -257,3 +257,18 @@ def importo_con_segno(fattura):
 
 __all__ = ["Decimal", "da_ordine", "fatture_attive", "annulla_da_ordine", "emetti", "incassa", "nota_di_credito", "controlla", "importo_con_segno", "registra_incasso",
            "incassa_fattura", "annulla_incasso", "da_consegne", "da_rimborsare"]
+
+
+def link_pagamento(fattura):
+    """Il link «Paga ora» della fattura se si paga online (modulo Pagamenti online con un fornitore attivo), altrimenti ""."""
+    from django.apps import apps
+    if not apps.is_installed("pagamenti"):
+        return ""
+    from pagamenti import servizi
+    return servizi.link(fattura) if servizi.pagabile(fattura) else ""
+
+
+def frase_pagamento(fattura):
+    """Da mettere in coda a una frase delle email: «Può pagarla online…» con il link, oppure niente."""
+    link = link_pagamento(fattura)
+    return f"\nPuò pagarla online da questo link: {link}" if link else ""

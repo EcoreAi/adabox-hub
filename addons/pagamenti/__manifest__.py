@@ -1,7 +1,7 @@
 {
     "name": "Pagamenti online",
-    "summary": "«Paga ora» sulle fatture: il cliente paga con carta dal portale o da un link, e l'incasso si registra da solo",
-    "version": "1.0.0",
+    "summary": "«Paga ora» sulle fatture: il cliente paga con carta o PayPal dal portale o da un link, e l'incasso si registra da solo",
+    "version": "1.1.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Amministrazione",
     "depends": ["fatturazione"],

@@ -14,9 +14,9 @@ class FornitoreView(ModelView):
     company_field = "azienda"
     list_display = ["nome", "tipo", "chiave", "attivo"]
     form_class = FornitoreForm
-    form_layout = [("Fornitore", [("nome", "tipo"), "attivo", "nuova_chiave", "nuovo_segreto"])]
+    form_layout = [("Fornitore", [("nome", "tipo"), ("client_id", "sandbox"), "attivo", "nuova_chiave", "nuovo_segreto"])]
     buttons = ["prova"]
-    ai_descrizione = "I fornitori di pagamento online (Stripe) con cui l'azienda incassa le fatture dal portale o da un link."
+    ai_descrizione = "I fornitori di pagamento online (Stripe, PayPal) con cui l'azienda incassa le fatture dal portale o da un link."
 
     def layout_dettaglio(self):
         via = {"nuova_chiave", "nuovo_segreto"}
@@ -25,6 +25,8 @@ class FornitoreView(ModelView):
     def col_chiave(self, obj):
         if obj.tipo == obj.FINTO:
             return "—"
+        if obj.tipo == obj.PAYPAL:
+            return f"{obj.client_id[:8]}…{' (sandbox)' if obj.sandbox else ''}" if obj.client_id and obj.chiave_cifrata else "manca"
         try:
             chiave = obj.chiave()
         except cifratura.SegretoIlleggibile:
@@ -38,7 +40,9 @@ class FornitoreView(ModelView):
             fornitori.prova(obj)
         except fornitori.ErrorePagamento as e:
             return f"Prova non riuscita: {e}"
-        return "Chiave valida: Stripe risponde." if obj.tipo == obj.STRIPE else "Fornitore simulato: nessuna chiave da provare."
+        if obj.tipo == obj.FINTO:
+            return "Fornitore simulato: nessuna chiave da provare."
+        return f"Chiave valida: {obj.get_tipo_display()} risponde."
     prova.short_description = "Prova la chiave"
     prova.ai = False
 
@@ -54,7 +58,7 @@ class PagamentoView(ModelView):
     search_fields = ["fattura__numero", "riferimento", "id_esterno"]
     readonly_fields = ["fattura", "fornitore", "importo", "stato", "id_esterno", "url_pagamento", "riferimento", "nota", "creato", "completato_il"]
     form_layout = [("Pagamento", [("fattura", "importo"), ("stato", "fornitore"), ("riferimento", "completato_il"), "nota", "id_esterno"])]
-    ai_descrizione = "I pagamenti online delle fatture (Stripe): importo, stato, quando sono stati pagati."
+    ai_descrizione = "I pagamenti online delle fatture (Stripe, PayPal): importo, stato, quando sono stati pagati."
 
     def has_add_permission(self, request):
         return False
