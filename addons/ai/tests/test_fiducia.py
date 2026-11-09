@@ -137,8 +137,9 @@ def test_provenienza_e_badge(scena):
     assert turno.provenienza["esito"] == "parziale" and turno.provenienza["non_verificati"] == ["4.321,00"]
     assert turno.provenienza["strumenti"] == ["aggrega_record"] and turno.provenienza["letture"] == 1
     html = scena["client"].get(f"/ai/chat/{scena['conversazione'].pk}/").content.decode()
-    assert "Dati dal gestionale (1 letture)" in html and "1 numero non trovato nei dati letti" in html
-    assert "Locale ·" in html                                                        # modello e costo per chi vede i consumi
+    assert "1 fonte consultata" in html and "1 numero non trovato nei dati letti" in html
+    assert turno.provenienza["fonti"][0]["titolo"] == "Aziende"
+    assert "USD" in html and "Locale ·" not in html                     # token e costo per chi vede i consumi, non il modello
     with finto.con_copione([["Ciao!"]]):
         turno = _avvia(scena, "Ciao")
     turno.refresh_from_db()

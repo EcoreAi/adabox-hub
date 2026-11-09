@@ -428,17 +428,86 @@ def _badge(pv):
     return render_to_string("ai/_provenienza.html", {"pv": pv})
 
 
-@pytest.mark.parametrize("strumento,parola", [("cerca_web", "Dal web"), ("leggi_pagina", "Dal web"), ("leggi_allegato", "Dagli allegati"),
-                                              ("mcp3_cerca_ordine", "Da sistemi esterni")])
-def test_web_e_allegati_non_risultano_dati_del_gestionale(s, strumento, parola):
+@pytest.mark.parametrize("strumento,origine", [("cerca_web", "web"), ("leggi_pagina", "web"), ("leggi_allegato", "allegati"),
+                                               ("mcp3_cerca_ordine", "esterni")])
+def test_web_e_allegati_non_risultano_dati_del_gestionale(s, strumento, origine):
     pv = _turno_con_lettura(s, strumento)
     html = _badge(pv)
-    assert pv["letture"] == 0 and parola in html and "Dati dal gestionale" not in html and "Senza dati" not in html
+    assert pv["letture"] == 0 and [f["origine"] for f in pv["fonti"]] == [origine]
+    assert f"ai-pv-origine is-{origine}" in html and "is-gestionale" not in html and "Senza dati" not in html
 
 
 def test_i_record_restano_dati_del_gestionale(s):
     pv = _turno_con_lettura(s, "cerca_record")
-    assert pv["letture"] == 1 and pv["letture_web"] == 0 and "Dati dal gestionale" in _badge(pv)
+    assert pv["letture"] == 1 and pv["letture_web"] == 0
+    html = _badge(pv)
+    assert "1 fonte consultata" in html and "ai-pv-origine is-gestionale" in html
+
+
+# --- i chip sotto la risposta si aprono con i dettagli ---
+
+def test_fonti_leggibili():
+    from ai.provenienza import fonte
+    f = fonte("cerca_record", {"vista": "contatti.contatti", "filtri": {"cliente": True}})
+    assert f == {"origine": "gestionale", "titolo": "Contatti", "dettaglio": "ricerca · filtri: cliente: True", "url": reverse("contatti:contatti_lista")}
+    assert fonte("leggi_record", {"vista": "contatti.contatti", "id": 7})["dettaglio"] == "record n. 7"
+    assert fonte("leggi_pagina", {"url": "https://www.example.com/a/b"}) == {
+        "origine": "web", "titolo": "example.com", "dettaglio": "https://www.example.com/a/b", "url": "https://www.example.com/a/b"}
+    assert fonte("leggi_pagina", {"url": "javascript:alert(1)"})["url"] == ""          # solo link http e https
+    assert fonte("cerca_web", {"query": "aliquota iva"})["dettaglio"] == "aliquota iva"
+    assert fonte("data_e_ora", {}) is None and fonte("crea_record", {"vista": "x.y"}) is None
+    assert fonte("cerca_record", {"vista": "inesistente.vista"})["titolo"] == "inesistente.vista"
+
+
+def test_le_fonti_uguali_contano_una_volta(s):
+    from ai import provenienza
+    c = _chat(s)
+    t = Turno.objects.create(conversazione=c, utente=s["u"], azienda=s["az"])
+    chiamate = [{"tipo": "strumento", "id": i, "nome": "cerca_record", "argomenti": {"vista": "contatti.contatti"}} for i in "ab"]
+    chiamate.append({"tipo": "strumento", "id": "c", "nome": "cerca_web", "argomenti": {"query": "x"}})
+    Evento.objects.create(conversazione=c, turno=t, tipo=Evento.ASSISTENTE, dati={"ruolo": "assistente", "blocchi": chiamate})
+    Evento.objects.create(conversazione=c, turno=t, tipo=Evento.STRUMENTO, dati={"ruolo": "strumento", "risultati": [
+        {"id": "a", "contenuto": "1", "errore": False}, {"id": "b", "contenuto": "1", "errore": False},
+        {"id": "c", "contenuto": "errore", "errore": True}]})                       # una lettura fallita non è una fonte
+    pv = provenienza.calcola(t, "Ok", segnaposto={"[FULLNAME_1]"})
+    assert [f["titolo"] for f in pv["fonti"]] == ["Contatti"] and pv["pii"] == 1 and pv["segnaposto"] == ["[FULLNAME_1]"]
+
+
+def _risposta(s, provenienza, segnaposto=None, uso=None):
+    from ai.models import MessaggioChat
+    c = _chat(s, segnaposto=segnaposto or {})
+    t = Turno.objects.create(conversazione=c, utente=s["u"], azienda=s["az"], provenienza=provenienza, uso=uso or {},
+                             costo=Decimal("0.0027"), passi=2, modello=Modello.objects.first())
+    return MessaggioChat.objects.create(conversazione=c, ruolo="assistente", testo="Ok", turno=t)
+
+
+def test_dati_protetti_con_tipo_valore_e_segnaposto(client, s):
+    from ai.templatetags.ai import provenienza as pv_di
+    m = _risposta(s, {"esito": "verificato", "letture": 1, "fonti": [], "pii": 2, "segnaposto": ["[EMAIL_1]", "[FULLNAME_1]"]},
+                  segnaposto={"[FULLNAME_1]": "Enrico", "[EMAIL_1]": "e@example.com", "[FULLNAME_2]": "Altro"})
+    pv = pv_di(m)
+    assert pv["protetti"] == [{"tipo": "Email", "valore": "e@example.com", "segnaposto": "[EMAIL_1]"},
+                              {"tipo": "Nome", "valore": "Enrico", "segnaposto": "[FULLNAME_1]"}]   # solo quelli del turno
+    html = _badge(pv)
+    assert "2 dati personali protetti" in html and "<td>Enrico</td>" in html and "<code>[FULLNAME_1]</code>" in html
+    assert "Altro" not in html
+
+
+def test_token_e_costo_senza_nome_del_modello(rf, s):
+    from django.template.loader import render_to_string
+
+    from ai.templatetags.ai import provenienza as pv_di
+    m = _risposta(s, {"esito": "conversazione", "pii": 0}, uso={"input": 26000, "cache_lettura": 737, "output": 273})
+    pv = pv_di(m)
+    assert pv["token"] == {"entrata": 26737, "cache": 737, "uscita": 273, "passi": 2}
+    request = rf.get("/")
+    request.user = User.objects.create_user("curioso", "c@example.com", "x")
+    senza = render_to_string("ai/_provenienza.html", {"pv": pv}, request=request)
+    assert "token" not in senza                                                      # serve il permesso sui turni
+    request.user.user_permissions.add(Permission.objects.get(codename="view_turno"))
+    request.user = User.objects.get(pk=request.user.pk)
+    html = render_to_string("ai/_provenienza.html", {"pv": pv}, request=request)
+    assert "↑ 26.737 · ↓ 273 token · ≈ 0,0027 USD" in html and "di cui 737 dalla cache" in html and "Finto" not in html
 
 
 def test_le_risposte_di_prima_si_mostrano_ancora(s):

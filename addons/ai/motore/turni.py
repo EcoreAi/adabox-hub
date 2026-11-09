@@ -394,7 +394,7 @@ def _chiudi(e, stato, coda="", errore=""):
     if stato == Turno.COMPLETATO and turno.conversazione_id:
         from .. import provenienza
         try:
-            turno.provenienza = provenienza.calcola(turno, testo, len(e.protezione.protetti) if e.protezione else 0)
+            turno.provenienza = provenienza.calcola(turno, testo, segnaposto=e.protezione.protetti if e.protezione else ())
         except Exception:                          # la provenienza è un di più: non deve rompere il turno
             log.exception("provenienza del turno %s", turno.pk)
     with transaction.atomic():                         # insieme: chi vede il turno concluso trova già il messaggio
