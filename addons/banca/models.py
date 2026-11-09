@@ -109,6 +109,8 @@ class Abbinamento(models.Model):
     movimento = models.ForeignKey(MovimentoBanca, on_delete=models.CASCADE, related_name="abbinamenti", verbose_name="movimento")
     incasso = models.OneToOneField("fatturazione.Incasso", on_delete=models.CASCADE, null=True, blank=True, related_name="da_banca", verbose_name="incasso")
     scadenza_passiva = models.ForeignKey("sdi.ScadenzaPassiva", on_delete=models.CASCADE, null=True, blank=True, related_name="da_banca", verbose_name="scadenza da pagare")
+    pagamento_passivo = models.OneToOneField("sdi.PagamentoPassivo", on_delete=models.CASCADE, null=True, blank=True, related_name="da_banca",
+                                             verbose_name="pagamento al fornitore")
     importo = models.DecimalField("importo", max_digits=14, decimal_places=2)
     # un altro documento che il movimento salda (il rimborso di una nota spese…): la banca non dipende dai moduli
     tipo_documento = models.ForeignKey("contenttypes.ContentType", on_delete=models.CASCADE, null=True, blank=True,

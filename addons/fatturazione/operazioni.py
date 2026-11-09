@@ -9,7 +9,7 @@ from core import chatter, sequenze
 from fiscale import calcoli
 from fiscale.models import AliquotaIva
 
-from .models import CassaPrevidenziale, DatiFiscali, Fattura, Incasso, RigaFattura, RiferimentoDDT, Ritenuta, Scadenza
+from .models import CassaPrevidenziale, CreditoCliente, DatiFiscali, Fattura, Incasso, RigaFattura, RiferimentoDDT, Ritenuta, Scadenza
 
 
 def fatture_attive(ordine):
@@ -115,7 +115,7 @@ def _aggiorna_scadenza(scadenza):
 
 @transaction.atomic
 def registra_incasso(scadenza, importo=None, data=None, metodo="bonifico", tipo=Incasso.INCASSO, riferimento="", utente=None,
-                     nota_credito=None):
+                     nota_credito=None, credito=None):
     scadenza = Scadenza.objects.select_for_update().select_related("fattura").get(pk=scadenza.pk)
     importo = scadenza.residuo if importo is None else calcoli.arrotonda(importo)
     if importo <= 0:
@@ -123,19 +123,27 @@ def registra_incasso(scadenza, importo=None, data=None, metodo="bonifico", tipo=
     if importo > scadenza.residuo:
         raise ValidationError(f"Restano da incassare {scadenza.residuo} €: non puoi registrarne {importo}.")
     incasso = Incasso.objects.create(scadenza=scadenza, importo=importo, data=data or timezone.localdate(), metodo=metodo,
-                                     tipo=tipo, riferimento=riferimento, utente=utente, nota_credito=nota_credito)
+                                     tipo=tipo, riferimento=riferimento, utente=utente, nota_credito=nota_credito, credito=credito)
     _aggiorna_scadenza(scadenza)
     return incasso
 
 
 @transaction.atomic
-def incassa_fattura(fattura, importo, data=None, metodo="bonifico", tipo=Incasso.INCASSO, riferimento="", utente=None):
-    """Un importo sulla fattura: copre le scadenze dalla più vecchia. Restituisce gli incassi creati."""
+def incassa_fattura(fattura, importo, data=None, metodo="bonifico", tipo=Incasso.INCASSO, riferimento="", utente=None,
+                    eccedenza_a_credito=False):
+    """Un importo sulla fattura: copre le scadenze dalla più vecchia. Restituisce gli incassi creati. Con
+    eccedenza_a_credito, ciò che supera il residuo resta come credito del cliente invece di essere rifiutato."""
     importo = calcoli.arrotonda(importo)
     aperte = list(fattura.scadenze.filter(pagata=False).order_by("data", "pk"))
     residuo = sum((s.residuo for s in aperte), Decimal(0))
     if importo <= 0:
         raise ValidationError("L'importo deve essere positivo.")
+    if importo > residuo and eccedenza_a_credito and tipo == Incasso.INCASSO:
+        crea_credito(fattura.azienda, fattura.cliente, importo - residuo, data, metodo, riferimento, CreditoCliente.ECCEDENZA, utente,
+                     note=f"Eccedenza del pagamento di {fattura}")
+        importo = residuo
+        if importo <= 0:
+            return []
     if importo > residuo:
         raise ValidationError(f"Restano da incassare {residuo} €: non puoi registrarne {importo}.")
     creati = []
@@ -273,3 +281,47 @@ def frase_pagamento(fattura):
     """Da mettere in coda a una frase delle email: «Può pagarla online…» con il link, oppure niente."""
     link = link_pagamento(fattura)
     return f"\nPuò pagarla online da questo link: {link}" if link else ""
+
+
+
+# ---------- crediti dei clienti (acconti ed eccedenze)
+
+def crea_credito(azienda, cliente, importo, data=None, metodo="bonifico", riferimento="", origine=CreditoCliente.ACCONTO, utente=None,
+                 note=""):
+    importo = calcoli.arrotonda(importo)
+    if importo <= 0:
+        raise ValidationError("L'importo deve essere positivo.")
+    return CreditoCliente.objects.create(azienda=azienda, cliente=cliente, importo=importo, data=data or timezone.localdate(),
+                                         metodo=metodo, riferimento=riferimento[:120], origine=origine, utente=utente, note=note)
+
+
+def crediti_disponibili(cliente, azienda=None):
+    """I crediti del cliente con un residuo, dal più vecchio."""
+    qs = CreditoCliente.objects.filter(cliente=cliente).prefetch_related("utilizzi").order_by("data", "pk")
+    if azienda is not None:
+        qs = qs.filter(azienda=azienda)
+    return [c for c in qs if c.residuo > 0]
+
+
+@transaction.atomic
+def usa_credito(fattura, utente=None, importo=None, data=None):
+    """Copre le scadenze aperte della fattura con i crediti del cliente, dal più vecchio, fino a `importo` (o finché basta).
+    Restituisce gli incassi creati."""
+    if fattura.stato != Fattura.EMESSA or fattura.tipo == Fattura.NOTA_CREDITO:
+        raise ValidationError("Il credito si usa su una fattura emessa.")
+    resto = fattura.residuo if importo is None else min(calcoli.arrotonda(importo), fattura.residuo)
+    creati = []
+    for credito in crediti_disponibili(fattura.cliente, fattura.azienda):
+        for scadenza in fattura.scadenze.filter(pagata=False).order_by("data", "pk"):
+            if resto <= 0:
+                break
+            disponibile = CreditoCliente.objects.get(pk=credito.pk).residuo
+            quota = min(resto, scadenza.residuo, disponibile)
+            if quota <= 0:
+                break
+            creati.append(registra_incasso(scadenza, quota, data, metodo="altro", tipo=Incasso.CREDITO, credito=credito, utente=utente,
+                                           riferimento=f"{credito}"[:120]))
+            resto -= quota
+    if not creati:
+        raise ValidationError("Il cliente non ha crediti da usare.")
+    return creati

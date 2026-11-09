@@ -336,8 +336,9 @@ class Scadenza(models.Model):
 
 class Incasso(models.Model):
     """Soldi arrivati (anche in parte) su una scadenza, oppure scalati con una nota di credito o un abbuono."""
-    INCASSO, COMPENSAZIONE, ABBUONO = "incasso", "compensazione", "abbuono"
-    TIPI = [(INCASSO, "Incasso"), (COMPENSAZIONE, "Compensazione con nota di credito"), (ABBUONO, "Abbuono")]
+    INCASSO, COMPENSAZIONE, ABBUONO, CREDITO = "incasso", "compensazione", "abbuono", "credito"
+    TIPI = [(INCASSO, "Incasso"), (COMPENSAZIONE, "Compensazione con nota di credito"), (ABBUONO, "Abbuono"),
+            (CREDITO, "Dal credito del cliente")]
     METODI = [("bonifico", "Bonifico"), ("contanti", "Contanti"), ("carta", "Carta"), ("assegno", "Assegno"),
               ("riba", "RIBA"), ("sdd", "Addebito SEPA"), ("altro", "Altro")]
     scadenza = models.ForeignKey(Scadenza, on_delete=models.CASCADE, related_name="incassi", verbose_name="scadenza")
@@ -348,6 +349,8 @@ class Incasso(models.Model):
     riferimento = models.CharField("riferimento", max_length=120, blank=True, help_text="es. CRO del bonifico")
     nota_credito = models.ForeignKey(Fattura, on_delete=models.SET_NULL, null=True, blank=True, related_name="compensazioni",
                                      verbose_name="nota di credito")
+    credito = models.ForeignKey("CreditoCliente", on_delete=models.PROTECT, null=True, blank=True, related_name="utilizzi",
+                                verbose_name="credito usato")
     utente = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
                                verbose_name="registrato da")
     creato = models.DateTimeField("registrato il", auto_now_add=True)
@@ -359,3 +362,41 @@ class Incasso(models.Model):
 
     def __str__(self):
         return f"{self.get_tipo_display()} di {self.importo} € del {self.data:%d/%m/%Y}"
+
+
+class CreditoCliente(AziendaMixin):
+    """Soldi del cliente non ancora legati a una fattura: un acconto, o l'eccedenza di un pagamento. Si usano poi sulle
+    scadenze delle sue fatture (un incasso «dal credito del cliente»)."""
+    ACCONTO, ECCEDENZA, ALTRO = "acconto", "eccedenza", "altro"
+    ORIGINI = [(ACCONTO, "Acconto"), (ECCEDENZA, "Eccedenza di un pagamento"), (ALTRO, "Altro")]
+    cliente = models.ForeignKey("contatti.Contatto", on_delete=models.PROTECT, related_name="crediti", verbose_name="cliente")
+    data = models.DateField("data", default=timezone.localdate)
+    importo = models.DecimalField("importo", max_digits=14, decimal_places=2)
+    origine = models.CharField("origine", max_length=10, choices=ORIGINI, default=ACCONTO)
+    metodo = models.CharField("metodo", max_length=10, choices=Incasso.METODI, default="bonifico")
+    riferimento = models.CharField("riferimento", max_length=120, blank=True)
+    note = models.TextField("note", blank=True)
+    utente = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="registrato da",
+                               editable=False)
+    creato = models.DateTimeField("registrato il", auto_now_add=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "credito del cliente"
+        verbose_name_plural = "crediti dei clienti"
+        ordering = ["data", "pk"]
+
+    def __str__(self):
+        return f"{self.get_origine_display()} di {self.cliente} del {self.data:%d/%m/%Y}"
+
+    @property
+    def usato(self):
+        return sum((u.importo for u in self.utilizzi.all()), Decimal(0))
+
+    @property
+    def residuo(self):
+        return self.importo - self.usato
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.importo is not None and self.importo <= 0:
+            raise ValidationError({"importo": "L'importo deve essere positivo."})

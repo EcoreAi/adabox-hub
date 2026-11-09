@@ -42,7 +42,8 @@ def incasso(request, pk):
         importo = Decimal(request.POST.get("importo") or "0")
         data = datetime.date.fromisoformat(request.POST.get("data") or timezone.localdate().isoformat())
         operazioni.incassa_fattura(fattura, importo, data, request.POST.get("metodo", "bonifico"),
-                                   request.POST.get("tipo", Incasso.INCASSO), request.POST.get("riferimento", "")[:120], request.user)
+                                   request.POST.get("tipo", Incasso.INCASSO), request.POST.get("riferimento", "")[:120], request.user,
+                                   eccedenza_a_credito=request.POST.get("eccedenza") == "1")
     except (InvalidOperation, ValueError):
         messages.error(request, "Controlla importo e data.")
     except ValidationError as e:
@@ -62,3 +63,18 @@ def incasso_annulla(request, pk):
     operazioni.annulla_incasso(voce)
     messages.success(request, "Incasso annullato.")
     return redirect("fatturazione:fatture_dettaglio", pk=fattura_pk)
+
+
+
+@login_required
+@require_POST
+@permission_required("fatturazione.change_scadenza", raise_exception=True)
+def usa_credito(request, pk):
+    fattura = get_object_or_404(queryset(request, Fattura), pk=pk)
+    try:
+        incassi = operazioni.usa_credito(fattura, request.user)
+    except ValidationError as e:
+        messages.error(request, " ".join(e.messages))
+    else:
+        messages.success(request, f"Usati {sum(i.importo for i in incassi):.2f} € del credito del cliente.")
+    return redirect("fatturazione:fatture_dettaglio", pk=pk)

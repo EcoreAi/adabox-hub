@@ -1,0 +1,21 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Pagamento a {{ s.fattura.fornitore }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Pagamento a {{ s.fattura.fornitore }}</h1><div class="sub"><a class="ui-link" href="{% url 'sdi:pagamenti_dettaglio' s.pk %}">Scadenza del {{ s.data|date:"d/m/Y"|default:"—" }}</a> · fattura {{ s.fattura.numero }} · {{ s.importo|floatformat:2 }} € · da pagare <strong>{{ s.residuo|floatformat:2 }} €</strong></div></div></div>
+{% if s.residuo > 0 %}<form method="post" class="ui-card is-revealed ui-section">{% csrf_token %}
+  <div class="ui-card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end">
+    <div class="ui-form-group"><label class="ui-label" for="pp-tipo">Tipo</label><select class="ui-input" id="pp-tipo" name="tipo"><option value="pagamento">Pagamento</option><option value="abbuono">Abbuono del fornitore</option></select></div>
+    <div class="ui-form-group"><label class="ui-label" for="pp-importo">Importo (€)</label><input class="ui-input" id="pp-importo" name="importo" inputmode="decimal" value="{{ s.residuo|floatformat:'2u' }}" required></div>
+    <div class="ui-form-group"><label class="ui-label" for="pp-data">Data</label><input class="ui-input" type="date" id="pp-data" name="data" value="{{ oggi|date:'Y-m-d' }}"></div>
+    <div class="ui-form-group"><label class="ui-label" for="pp-metodo">Metodo</label><select class="ui-input" id="pp-metodo" name="metodo">{% for v, n in metodi %}<option value="{{ v }}">{{ n }}</option>{% endfor %}</select></div>
+    <div class="ui-form-group"><label class="ui-label" for="pp-rif">Riferimento</label><input class="ui-input" id="pp-rif" name="riferimento" maxlength="120" placeholder="es. CRO"></div>
+    <div><button class="ui-btn ui-btn-primary" type="submit">Registra</button></div>
+  </div>
+</form>{% endif %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Pagamenti registrati</div></div>
+  {% if pagamenti %}<div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Data</th><th>Tipo</th><th>Metodo</th><th>Riferimento</th><th class="ui-num">Importo</th><th></th></tr></thead>
+  <tbody>{% for p in pagamenti %}<tr><td>{{ p.data|date:"d/m/Y" }}</td><td>{{ p.get_tipo_display }}</td><td>{{ p.get_metodo_display }}</td><td>{{ p.riferimento|default:"—" }}</td><td class="ui-num">{{ p.importo|floatformat:2 }} €</td>
+    <td><form method="post" onsubmit="return confirm('Annullare questo pagamento?')">{% csrf_token %}<button class="ui-btn ui-btn-ghost ui-btn-sm" name="annulla" value="{{ p.pk }}">Annulla</button></form></td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<div class="ui-card-body"><p class="sub" style="margin:0">Ancora nessun pagamento.</p></div>{% endif %}
+</section>
+{% endblock %}

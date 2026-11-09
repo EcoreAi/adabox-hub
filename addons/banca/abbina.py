@@ -78,7 +78,7 @@ class Proposta:
 
     @property
     def residuo(self):
-        return self.scadenza.importo if self.passiva else self.scadenza.residuo
+        return self.scadenza.residuo
 
     @property
     def documento(self):
@@ -210,14 +210,14 @@ def _su_attiva(movimento, pk, resto, utente):
 
 
 def _su_passiva(movimento, pk, resto, utente):
-    """Le scadenze dei fornitori non hanno pagamenti parziali: serve l'importo per intero."""
+    """Paga la scadenza del fornitore fin dove arriva il movimento: il resto della scadenza resta da pagare."""
     scadenza = ScadenzaPassiva.objects.select_for_update().select_related("fattura").filter(pk=pk, fattura__azienda=movimento.azienda, pagata=False).first()
     if scadenza is None:
         raise ValidationError("Una scadenza scelta non è più aperta: ricarica la pagina.")
-    if resto < scadenza.importo:
-        raise ValidationError(f"Il movimento non copre tutta la scadenza da {scadenza.importo} €: va pagata per intero.")
-    passive.paga(scadenza, movimento.data)
-    return Abbinamento.objects.create(movimento=movimento, scadenza_passiva=scadenza, importo=scadenza.importo, utente=utente)
+    quota = min(resto, scadenza.residuo)
+    pagamento = passive.paga(scadenza, movimento.data, quota, metodo=METODI.get(scadenza.modalita, "bonifico"),
+                             riferimento=(movimento.riferimento or movimento.descrizione)[:120], utente=utente)
+    return Abbinamento.objects.create(movimento=movimento, scadenza_passiva=scadenza, pagamento_passivo=pagamento, importo=quota, utente=utente)
 
 
 @transaction.atomic
@@ -227,12 +227,14 @@ def annulla(abbinamento):
         fatture.annulla_incasso(abbinamento.incasso)        # l'abbinamento se ne va con lui, e il segnale aggiorna il movimento
     elif abbinamento.id_documento:                          # un altro documento (es. un rimborso): resta com'è
         abbinamento.delete()
-    else:
-        scadenza = abbinamento.scadenza_passiva
-        scadenza.pagata, scadenza.pagata_il = False, None
-        scadenza.save(update_fields=["pagata", "pagata_il"])
-        _passiva_cambiata(scadenza.fattura)
+    elif abbinamento.pagamento_passivo_id:
+        pagamento = abbinamento.pagamento_passivo
         abbinamento.delete()
+        passive.annulla_pagamento(pagamento)
+    else:                                                   # abbinamenti di prima dei pagamenti parziali
+        scadenza = abbinamento.scadenza_passiva
+        abbinamento.delete()
+        passive.riapri(scadenza)
 
 
 def candidati_uscita(azienda, importo, data=None, giorni=45):

@@ -20,7 +20,7 @@ from django.db.models import Q
 from core import parametri
 from fatturazione.models import Fattura, Incasso
 from fiscale.calcoli import arrotonda
-from sdi.models import FatturaPassiva, ScadenzaPassiva
+from sdi.models import FatturaPassiva
 
 from .models import Liquidazione
 
@@ -191,12 +191,13 @@ def _acquisti(azienda, anno, mesi_periodo, c):
 
 def _differita_pagata(azienda, anno, mesi_periodo):
     totale = ZERO
-    scadenze = (ScadenzaPassiva.objects.filter(fattura__azienda=azienda, fattura__stato=FatturaPassiva.REGISTRATA, pagata=True,
-                                               pagata_il__year=anno, pagata_il__month__in=mesi_periodo,
-                                               fattura__riepilogo__esigibilita="D")
-                .distinct().select_related("fattura__detraibilita"))
-    for s in scadenze:
-        f = s.fattura
+    from sdi.models import PagamentoPassivo
+    pagamenti = (PagamentoPassivo.objects.filter(scadenza__fattura__azienda=azienda, scadenza__fattura__stato=FatturaPassiva.REGISTRATA,
+                                                 tipo=PagamentoPassivo.PAGAMENTO, data__year=anno, data__month__in=mesi_periodo,
+                                                 scadenza__fattura__riepilogo__esigibilita="D")
+                 .distinct().select_related("scadenza__fattura__detraibilita"))
+    for s in pagamenti:                                    # l'IVA differita diventa detraibile man mano che si paga
+        f = s.scadenza.fattura
         iva = sum((r.imposta for r in f.riepilogo.all() if r.esigibilita == "D"), ZERO)
         if f.totale:
             totale += iva * s.importo / f.totale * _percentuale(f) / 100

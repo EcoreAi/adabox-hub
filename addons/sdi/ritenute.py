@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from django.db.models import Q
 
-from .models import FatturaPassiva, ScadenzaPassiva
+from .models import FatturaPassiva, PagamentoPassivo
 from .passive import CAMPI_RITENUTA, FatturaNonValida, estrai_p7m, leggi
 
 CENT = Decimal("0.01")
@@ -59,12 +59,14 @@ def operate(fatture_qs, anno, mese=None):
     """[Riga] per fornitore, mese di pagamento e causale: quanto si è pagato nel periodo e la parte di ritenuta che ne
     segue, in proporzione al pagato sul totale da pagare della fattura."""
     aggiorna(fatture_qs)
-    scadenze = ScadenzaPassiva.objects.filter(fattura__in=fatture_qs.filter(~Q(ritenuta=0)), pagata=True, pagata_il__year=anno)
+    pagamenti = PagamentoPassivo.objects.filter(scadenza__fattura__in=fatture_qs.filter(~Q(ritenuta=0)), tipo=PagamentoPassivo.PAGAMENTO,
+                                                data__year=anno)
     if mese:
-        scadenze = scadenze.filter(pagata_il__month=mese)
+        pagamenti = pagamenti.filter(data__month=mese)
     righe = {}
-    for s in scadenze.select_related("fattura__fornitore").order_by("pagata_il", "pk"):
-        f = s.fattura
+    for s in pagamenti.select_related("scadenza__fattura__fornitore").order_by("data", "pk"):
+        f = s.scadenza.fattura
+        s.pagata_il = s.data
         da_pagare = sum((x.importo for x in f.scadenze.all()), Decimal(0)) or (f.totale - f.ritenuta)
         quota = (s.importo / da_pagare) if da_pagare else Decimal(1)
         segno = -1 if f.nota_credito else 1

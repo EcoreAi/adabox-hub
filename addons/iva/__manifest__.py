@@ -1,7 +1,7 @@
 {
     "name": "IVA",
     "summary": "Liquidazione IVA mensile o trimestrale dai registri, con credito riportato e detraibilità, e file LIPE",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Contabilità",
     "depends": ["sdi"],

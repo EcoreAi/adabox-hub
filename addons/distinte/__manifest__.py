@@ -1,7 +1,7 @@
 {
     "name": "Distinte di pagamento",
     "summary": "Bonifici SEPA ai fornitori, addebiti SDD e RiBa ai clienti dalle scadenze aperte, con file per la banca ed esiti",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Contabilità",
     "depends": ["banca"],

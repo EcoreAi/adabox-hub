@@ -57,7 +57,7 @@ def _da_pagare(azienda):
     for s in scadenze:
         coordinate = _coordinate(s.fattura.fornitore)
         iban = s.iban or (coordinate.iban if coordinate else "")
-        c = Candidato(f"p{s.pk}", s, s.fattura, s.fattura.fornitore.nome, s.importo, s.data or s.fattura.data, iban=iban,
+        c = Candidato(f"p{s.pk}", s, s.fattura, s.fattura.fornitore.nome, s.residuo, s.data or s.fattura.data, iban=iban,
                       modalita_giusta=s.modalita in ("", "MP05"))
         if not iban:
             c.problema = "manca l'IBAN del fornitore"
@@ -191,7 +191,9 @@ def pagata(voce, data=None, utente=None):
             voce.incasso = operazioni.registra_incasso(scadenza, importo, data, metodo=METODO[voce.distinta.tipo],
                                                        riferimento=f"Distinta {voce.distinta.pk}", utente=utente)
     elif voce.scadenza_passiva_id:
-        passive.paga(voce.scadenza_passiva, data)
+        importo = min(voce.importo, voce.scadenza_passiva.residuo)
+        if importo > 0:
+            passive.paga(voce.scadenza_passiva, data, importo, metodo="bonifico", riferimento=f"Distinta {voce.distinta.pk}", utente=utente)
     voce.esito, voce.esito_il, voce.motivo = VoceDistinta.PAGATA, data, ""
     voce.save(update_fields=["esito", "esito_il", "motivo", "incasso"])
     _chiudi_se_finita(voce.distinta)
@@ -209,10 +211,7 @@ def insoluta(voce, data=None, motivo=""):
         voce.save(update_fields=["incasso"])
         operazioni.annulla_incasso(incasso)
     if voce.scadenza_passiva_id and voce.esito == VoceDistinta.PAGATA:
-        s = voce.scadenza_passiva
-        s.pagata, s.pagata_il = False, None
-        s.save(update_fields=["pagata", "pagata_il"])
-        FatturaPassiva.objects.filter(pk=s.fattura_id).update(pagata=False)
+        passive.riapri(voce.scadenza_passiva, riferimento=f"Distinta {voce.distinta.pk}")
     voce.esito, voce.esito_il, voce.motivo = VoceDistinta.INSOLUTA, data or timezone.localdate(), motivo[:120]
     voce.save(update_fields=["esito", "esito_il", "motivo"])
     _chiudi_se_finita(voce.distinta)

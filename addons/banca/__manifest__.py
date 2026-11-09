@@ -1,7 +1,7 @@
 {
     "name": "Banca",
     "summary": "Estratti conto importati o letti in automatico dalla banca, abbinati a fatture e fornitori: gli incassi si registrano con un clic, senza contabilità",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Contabilità",
     "depends": ["sdi"],

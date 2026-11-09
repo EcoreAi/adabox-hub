@@ -9,7 +9,7 @@ from core import azienda as azienda_corrente
 from core.viste import Inline, ModelView, register, schede
 
 from . import fatturapa, operazioni
-from .models import CassaPrevidenziale, DatiFiscali, Fattura, Incasso, RigaFattura, RiferimentoDDT, Ritenuta, Scadenza
+from .models import CassaPrevidenziale, CreditoCliente, DatiFiscali, Fattura, Incasso, RigaFattura, RiferimentoDDT, Ritenuta, Scadenza
 
 
 def euro(valore):
@@ -288,3 +288,32 @@ class DatiFiscaliView(ModelView):
     list_display = ["azienda", "regime_fiscale", "iban"]
     form_layout = [("Emittente", ["azienda", "regime_fiscale", ("iban", "banca"), "bollo_al_cliente"]),
                    ("Registro delle imprese", [("rea_ufficio", "rea_numero"), ("capitale_sociale", "socio_unico")])]
+
+
+@register
+class CreditoClienteView(ModelView):
+    """Acconti ed eccedenze dei clienti non ancora usati su una fattura: si usano dalla fattura con «Usa il credito»."""
+    model = CreditoCliente
+    slug = "crediti"
+    company_field = "azienda"
+    list_display = ["data", "cliente", "origine", "importo", "residuo", "metodo", "riferimento"]
+    list_filter = ["origine", "cliente"]
+    search_fields = ["cliente__nome", "riferimento", "note"]
+    list_sum = ["importo"]
+    form_layout = [("Credito", [("cliente", "data"), ("importo", "origine"), ("metodo", "riferimento"), "note"])]
+    ai_descrizione = "I crediti dei clienti: acconti ricevuti e pagamenti in più, con quanto resta da usare sulle fatture."
+
+    def col_residuo(self, obj):
+        return f"{obj.residuo:.2f} €".replace(".", ",")
+    col_residuo.short_description = "Da usare"
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.utente = request.user
+        super().save_model(request, obj, form, change)
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and (obj is None or not obj.utilizzi.exists())
+
+    def has_delete_permission(self, request, obj=None):
+        return super().has_delete_permission(request, obj) and (obj is None or not obj.utilizzi.exists())

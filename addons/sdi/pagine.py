@@ -143,7 +143,7 @@ def voci_fornitori(request):
     """Le note di credito non sono debiti da pagare, anche se dal file arrivano con una scadenza."""
     scadenze = (queryset(request, ScadenzaPassiva).filter(pagata=False).exclude(fattura__tipo_documento="TD04")
                 .select_related("fattura__fornitore"))
-    return [(s.fattura.fornitore_id, s.fattura.fornitore.nome, s.data, s.importo) for s in scadenze]
+    return [(s.fattura.fornitore_id, s.fattura.fornitore.nome, s.data, s.residuo) for s in scadenze]
 
 
 @login_required
@@ -179,3 +179,40 @@ def ritenute_pagina(request):
         "righe": righe, "f24": [(MESI[m - 1], codice, totale) for (m, codice), totale in ritenute.per_f24(righe).items()],
         "cu": ritenute.per_cu(righe) if not mese else [], "anno": anno, "mese": mese, "anni": range(oggi.year, oggi.year - 6, -1),
         "mesi": list(enumerate(MESI, start=1)), "titolo_periodo": f"{MESI[mese - 1]} {anno}" if mese else str(anno)})
+
+
+@login_required
+@permission_required("sdi.change_scadenzapassiva", raise_exception=True)
+def pagamento_passivo(request, pk):
+    """Un pagamento parziale o un abbuono su una scadenza del fornitore, e l'annullo di quelli già registrati."""
+    import datetime
+    from decimal import Decimal, InvalidOperation
+
+    from django.utils import timezone
+
+    from . import passive
+    from .models import PagamentoPassivo
+    s = get_object_or_404(ScadenzaPassiva.objects.filter(fattura__azienda=request.azienda).select_related("fattura__fornitore"), pk=pk)
+    if request.method == "POST":
+        if request.POST.get("annulla", "").isdigit():
+            p = get_object_or_404(PagamentoPassivo, pk=request.POST["annulla"], scadenza=s)
+            if hasattr(p, "da_banca"):
+                messages.error(request, "Questo pagamento viene da un movimento della banca: annullalo da lì.")
+            else:
+                passive.annulla_pagamento(p)
+                messages.success(request, "Pagamento annullato.")
+            return redirect("sdi:pagamento_passivo", pk=s.pk)
+        try:
+            importo = Decimal(request.POST.get("importo", "").replace(",", "."))
+            data = datetime.date.fromisoformat(request.POST.get("data") or timezone.localdate().isoformat())
+            passive.paga(s, data, importo, tipo=request.POST.get("tipo") if request.POST.get("tipo") in ("pagamento", "abbuono") else "pagamento",
+                         metodo=request.POST.get("metodo", "bonifico"), riferimento=request.POST.get("riferimento", ""), utente=request.user)
+        except (InvalidOperation, ValueError):
+            messages.error(request, "Scrivi importo e data validi.")
+        except ValidationError as e:
+            messages.error(request, " ".join(e.messages))
+        else:
+            messages.success(request, "Registrato.")
+        return redirect("sdi:pagamento_passivo", pk=s.pk)
+    return render(request, "sdi/pagamento_passivo.html", {"s": s, "pagamenti": s.pagamenti.all(), "oggi": timezone.localdate(),
+                                                          "metodi": PagamentoPassivo.METODI})

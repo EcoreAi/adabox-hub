@@ -21,7 +21,7 @@ def voci(request, dal, oggi):
     ricevute, da_verificare = passive.filter(ricevuta_il__gte=dal), passive.filter(stato=FatturaPassiva.DA_VERIFICARE)
     scadute = pagamenti.filter(data__lt=oggi)
     vicine = pagamenti.filter(data__gte=oggi, data__lte=oggi + datetime.timedelta(days=7))
-    riga = lambda s: f"{s.fattura.fornitore} · {s.fattura.numero} · {numero(s.importo)} € · {s.data:%d/%m/%Y}"      # noqa: E731
+    riga = lambda s: f"{s.fattura.fornitore} · {s.fattura.numero} · {numero(s.residuo)} € · {s.data:%d/%m/%Y}"      # noqa: E731
     return [
         voce(NOVITA, ricevute.count(), "fattura ricevuta da un fornitore", "fatture ricevute dai fornitori", reverse("sdi:passive_lista"),
              dettagli=dettagli_di(ricevute, lambda f: f"{f.fornitore} · {f.numero} · {numero(f.totale)} €")),

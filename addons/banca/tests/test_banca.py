@@ -244,10 +244,11 @@ def test_un_bonifico_per_piu_fatture(s):
 
 def test_passiva_per_intero_e_annullo(s):
     sp = _passiva(s)
-    with pytest.raises(ValidationError):
-        abbina.abbina(_mov(s, -50, "poco"), [f"p{sp.pk}"])
+    parziale = _mov(s, -50, "poco")
+    abbina.abbina(parziale, [f"p{sp.pk}"])                                     # paga una parte: il resto resta da pagare
     sp.refresh_from_db()
-    assert not sp.pagata
+    assert not sp.pagata and sp.residuo == sp.importo - 50
+    abbina.annulla(parziale.abbinamenti.get())
     m = _mov(s, -100, "ok", data=G(2026, 6, 20))
     abbina.abbina(m, [f"p{sp.pk}"])
     sp.refresh_from_db(), sp.fattura.refresh_from_db()

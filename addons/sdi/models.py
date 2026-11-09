@@ -152,11 +152,40 @@ class ScadenzaPassiva(models.Model):
     iban = models.CharField("IBAN", max_length=34, blank=True)
     pagata = models.BooleanField("pagata", default=False)
     pagata_il = models.DateField("pagata il", null=True, blank=True)
+    pagato = models.DecimalField("pagato", max_digits=14, decimal_places=2, default=0, editable=False)
 
     class Meta:
         verbose_name = "scadenza da pagare"
         verbose_name_plural = "scadenze da pagare"
         ordering = ["pagata", "data", "pk"]
 
+    @property
+    def residuo(self):
+        return self.importo - self.pagato
+
     def __str__(self):
         return f"{self.fattura} · {self.importo} €"
+
+
+class PagamentoPassivo(models.Model):
+    """Soldi dati al fornitore (anche in parte) su una scadenza, oppure un abbuono che lui ci concede."""
+    PAGAMENTO, ABBUONO = "pagamento", "abbuono"
+    TIPI = [(PAGAMENTO, "Pagamento"), (ABBUONO, "Abbuono")]
+    METODI = [("bonifico", "Bonifico"), ("contanti", "Contanti"), ("carta", "Carta"), ("assegno", "Assegno"), ("riba", "RIBA"),
+              ("sdd", "Addebito SEPA"), ("compensazione", "Compensazione"), ("altro", "Altro")]
+    scadenza = models.ForeignKey(ScadenzaPassiva, on_delete=models.CASCADE, related_name="pagamenti", verbose_name="scadenza")
+    tipo = models.CharField("tipo", max_length=10, choices=TIPI, default=PAGAMENTO)
+    data = models.DateField("data", default=timezone.localdate)
+    importo = models.DecimalField("importo", max_digits=14, decimal_places=2)
+    metodo = models.CharField("metodo", max_length=14, choices=METODI, default="bonifico")
+    riferimento = models.CharField("riferimento", max_length=120, blank=True, help_text="es. CRO del bonifico")
+    utente = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="registrato da")
+    creato = models.DateTimeField("registrato il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "pagamento a fornitore"
+        verbose_name_plural = "pagamenti a fornitori"
+        ordering = ["-data", "-pk"]
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} di {self.importo} € del {self.data:%d/%m/%Y}"

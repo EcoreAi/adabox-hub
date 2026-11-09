@@ -1,4 +1,4 @@
-{% with scadenze=obj.scadenze.all note=obj.note_credito.all %}
+{% load fatturazione_extra %}{% with scadenze=obj.scadenze.all note=obj.note_credito.all %}
 {% if scadenze or note or obj.fattura_origine or obj.ordine %}
 <section class="ui-card is-revealed ui-section">
   <div class="ui-card-head"><div class="ui-card-title">Pagamento e collegamenti</div></div>
@@ -26,13 +26,17 @@
     </div>{% endfor %}
     {% if obj.residuo and perms.fatturazione.change_scadenza %}
     <form method="post" action="{% url 'fatturazione:incasso' obj.pk %}" class="ft-form">{% csrf_token %}
-      <div class="ui-form-group"><label class="ui-label" for="ft-importo">Importo</label><input class="ui-input" id="ft-importo" name="importo" type="number" step="0.01" min="0.01" max="{{ obj.residuo|stringformat:'.2f' }}" value="{{ obj.residuo|stringformat:'.2f' }}" required></div>
+      <div class="ui-form-group"><label class="ui-label" for="ft-importo">Importo</label><input class="ui-input" id="ft-importo" name="importo" type="number" step="0.01" min="0.01" value="{{ obj.residuo|stringformat:'.2f' }}" required></div>
       <div class="ui-form-group"><label class="ui-label" for="ft-data">Data</label><input class="ui-input" id="ft-data" name="data" type="date" value="{% now 'Y-m-d' %}" required></div>
       <div class="ui-form-group"><label class="ui-label" for="ft-tipo">Tipo</label><select class="ui-input" id="ft-tipo" name="tipo"><option value="incasso">Incasso</option><option value="abbuono">Abbuono</option></select></div>
       <div class="ui-form-group"><label class="ui-label" for="ft-metodo">Metodo</label><select class="ui-input" id="ft-metodo" name="metodo"><option value="bonifico">Bonifico</option><option value="contanti">Contanti</option><option value="carta">Carta</option><option value="assegno">Assegno</option><option value="riba">RIBA</option><option value="sdd">Addebito SEPA</option><option value="altro">Altro</option></select></div>
       <div class="ui-form-group"><label class="ui-label" for="ft-rif">Riferimento</label><input class="ui-input" id="ft-rif" name="riferimento" placeholder="CRO, assegno…" maxlength="120"></div>
+      <label class="ut-check" style="align-self:center"><input type="checkbox" name="eccedenza" value="1"> Se paga di più, il resto resta come suo credito</label>
       <button class="ui-btn ui-btn-primary" type="submit"><svg><use href="#icon-check"/></svg> Registra</button>
-    </form>{% endif %}
+    </form>
+    {% credito_cliente obj as credito %}{% if credito %}<form method="post" action="{% url 'fatturazione:usa_credito' obj.pk %}" class="ft-form">{% csrf_token %}
+      <span>{{ obj.cliente }} ha un credito di <strong>{{ credito|floatformat:2 }} €</strong> (acconti o pagamenti in più).</span>
+      <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Usa il credito su questa fattura</button></form>{% endif %}{% endif %}
     {% endif %}
   </div>
 </section>

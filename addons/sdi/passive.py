@@ -5,6 +5,7 @@ import subprocess
 from decimal import Decimal, InvalidOperation
 
 from django.core.files.base import ContentFile
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 from lxml import etree
@@ -230,9 +231,49 @@ def registra(fattura):
     fattura.save(update_fields=["stato", "registrata_il"])
 
 
-def paga(scadenza, data=None):
-    scadenza.pagata, scadenza.pagata_il = True, data or timezone.localdate()
-    scadenza.save(update_fields=["pagata", "pagata_il"])
+def aggiorna_scadenza(scadenza):
+    """Da chiamare dopo ogni pagamento: importo pagato, scadenza chiusa o riaperta, fattura pagata o no."""
+    pagamenti = list(scadenza.pagamenti.all())
+    scadenza.pagato = sum((p.importo for p in pagamenti), Decimal(0))
+    scadenza.pagata = scadenza.pagato >= scadenza.importo
+    scadenza.pagata_il = max((p.data for p in pagamenti), default=None) if scadenza.pagata else None
+    scadenza.save(update_fields=["pagato", "pagata", "pagata_il"])
+    fattura = scadenza.fattura
+    fattura.pagata = not fattura.scadenze.filter(pagata=False).exists()
+    fattura.save(update_fields=["pagata"])
+
+
+@transaction.atomic
+def paga(scadenza, data=None, importo=None, tipo="pagamento", metodo="bonifico", riferimento="", utente=None):
+    """Un pagamento (o un abbuono) sulla scadenza del fornitore: senza importo, tutto il residuo. Restituisce il pagamento."""
+    from .models import PagamentoPassivo
+    scadenza = ScadenzaPassiva.objects.select_for_update().select_related("fattura").get(pk=scadenza.pk)
+    importo = scadenza.residuo if importo is None else Decimal(importo).quantize(Decimal("0.01"))
+    if importo <= 0:
+        raise ValidationError("L'importo deve essere positivo.")
+    if importo > scadenza.residuo:
+        raise ValidationError(f"Restano da pagare {scadenza.residuo} €: non puoi registrarne {importo}.")
+    pagamento = PagamentoPassivo.objects.create(scadenza=scadenza, tipo=tipo, data=data or timezone.localdate(), importo=importo,
+                                                metodo=metodo, riferimento=riferimento[:120], utente=utente)
+    aggiorna_scadenza(scadenza)
+    return pagamento
+
+
+@transaction.atomic
+def annulla_pagamento(pagamento):
+    scadenza = pagamento.scadenza
+    pagamento.delete()
+    aggiorna_scadenza(scadenza)
+
+
+@transaction.atomic
+def riapri(scadenza, riferimento=None):
+    """Toglie i pagamenti della scadenza (solo quelli con quel riferimento, se indicato): torna da pagare."""
+    pagamenti = scadenza.pagamenti.all()
+    if riferimento is not None:
+        pagamenti = pagamenti.filter(riferimento=riferimento)
+    pagamenti.delete()
+    aggiorna_scadenza(scadenza)
     fattura = scadenza.fattura
     fattura.pagata = not fattura.scadenze.filter(pagata=False).exists()
     fattura.save(update_fields=["pagata"])

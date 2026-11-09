@@ -50,8 +50,7 @@ def noi(db, settings, tmp_path):
 
 def _paga(f, *date):
     for s, d in zip(f.scadenze.order_by("pk"), date):
-        s.pagata, s.pagata_il = True, d
-        s.save()
+        passive.paga(s, d)
 
 
 def test_letta_dall_xml_e_proporzionale_al_pagato(noi):

@@ -147,18 +147,22 @@ class ScadenzaPassivaView(ModelView):
     model = ScadenzaPassiva
     slug = "pagamenti"
     verbose_name_plural = "scadenze da pagare"
-    list_display = ["fattura", "fornitore", "data", "importo", "modalita", "pagata", "pagata_il"]
+    list_display = ["fattura", "fornitore", "data", "importo", "residuo", "modalita", "pagata", "pagata_il"]
     list_filter = ["pagata", "data", "fattura__fornitore"]
     search_fields = ["fattura__numero", "fattura__fornitore__nome"]
-    form_layout = [("Scadenza", [("fattura", "data"), ("importo", "modalita"), "iban", ("pagata", "pagata_il")])]
-    readonly_fields = ["fattura", "data", "importo", "modalita", "iban", "pagata", "pagata_il"]
+    form_layout = [("Scadenza", [("fattura", "data"), ("importo", "modalita"), "iban", ("pagata", "pagata_il"), "pagato"])]
+    readonly_fields = ["fattura", "data", "importo", "modalita", "iban", "pagata", "pagata_il", "pagato"]
     ordering = ["pagata", "data"]
     list_sum = ["importo"]
     list_group_by = ["pagata", "data:mese"]
     actions = ["paga_selezionate"]
-    buttons = ["paga"]
+    buttons = ["paga", "registra"]
     chatter = True
     tracked_fields = ["pagata"]
+
+    def col_residuo(self, obj):
+        return euro(obj.residuo)
+    col_residuo.short_description = "Da pagare"
 
     def indirizzi_suggeriti(self, obj):
         return super().indirizzi_suggeriti(obj.fattura.fornitore) if obj.fattura_id and obj.fattura.fornitore_id else []
@@ -182,13 +186,19 @@ class ScadenzaPassivaView(ModelView):
         return [] if obj.pagata else super().get_buttons(request, obj)
 
     def paga(self, request, obj):
-        passive.paga(obj)
-        return f"Pagati {euro(obj.importo)} a {obj.fattura.fornitore}."
+        residuo = obj.residuo
+        passive.paga(obj, utente=request.user)
+        return f"Pagati {euro(residuo)} a {obj.fattura.fornitore}."
     paga.short_description = "Segna pagata"
+
+    def registra(self, request, obj):
+        return redirect("sdi:pagamento_passivo", pk=obj.pk)
+    registra.short_description = "Pagamento parziale o abbuono"
+    registra.ai = False
 
     def paga_selezionate(self, request, queryset):
         scadenze = list(queryset.filter(pagata=False).select_related("fattura"))
         for s in scadenze:
-            passive.paga(s)
+            passive.paga(s, utente=request.user)
         return f"Scadenze pagate: {len(scadenze)}."
     paga_selezionate.short_description = "Segna pagate"
