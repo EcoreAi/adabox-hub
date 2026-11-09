@@ -1,0 +1,25 @@
+{% extends "core/report/base.html" %}{% load prodotti_stampa %}
+{% block stile %}
+  .griglia { display: flex; flex-wrap: wrap; gap: 5mm; }
+  .voce { width: 54mm; page-break-inside: avoid; border: 1px solid #e5e5ea; border-radius: 2mm; padding: 3mm; }
+  .voce .foto { width: 100%; height: 42mm; object-fit: contain; display: block; margin-bottom: 2mm; }
+  .voce .senza-foto { height: 42mm; background: #f5f5f7; margin-bottom: 2mm; border-radius: 1mm; }
+  .voce .nome { font-weight: bold; font-size: 9.5pt; }
+  .voce .codice { font-size: 8pt; color: #6e6e73; }
+  .voce .prezzo { font-size: 11pt; font-weight: bold; margin-top: 1.5mm; }
+  .categoria { width: 100%; font-size: 11pt; margin: 3mm 0 0; text-transform: uppercase; letter-spacing: .04em; color: #6e6e73; }
+{% endblock %}
+{% block record %}
+<h1>{{ titolo }}</h1>
+<div class="griglia">
+  {% for p in prodotti %}
+  {% ifchanged p.categoria_id %}<div class="categoria">{{ p.categoria|default:"Senza categoria" }}</div>{% endifchanged %}
+  <div class="voce">
+    {% with foto=p|immagine_stampa %}{% if foto %}<img class="foto" src="{{ foto }}" alt="">{% else %}<div class="senza-foto"></div>{% endif %}{% endwith %}
+    <div class="nome">{{ p.nome }}</div>
+    <div class="codice">{{ p.codice }}{% if p.codice_barre %} · {{ p.codice_barre }}{% endif %}</div>
+    {% if mostra_prezzi %}<div class="prezzo">{{ p.prezzo_vendita|floatformat:2 }} € <span style="font-size:7.5pt;font-weight:normal;color:#6e6e73;">+ IVA</span></div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

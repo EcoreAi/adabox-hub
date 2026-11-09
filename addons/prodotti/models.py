@@ -1,9 +1,13 @@
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 
 from core.mixins import AziendaMixin, ProprietaMixin
+
+from . import immagini
 
 
 class Categoria(models.Model):
@@ -105,6 +109,9 @@ class Prodotto(AziendaMixin, ProprietaMixin):
     kit = models.BooleanField("kit", default=False,
                               help_text="Si vende come un pezzo solo ma è fatto di altri prodotti: in consegna escono i componenti")
     attivo = models.BooleanField("attivo", default=True)
+    immagine = models.ImageField("immagine", upload_to=immagini.percorso, storage=immagini.storage, max_length=300,
+                                 blank=True, validators=[immagini.valida],
+                                 help_text="JPEG, PNG, WebP o GIF: si riduce da sola e perde i dati della fotocamera")
 
     class Meta(AziendaMixin.Meta):
         verbose_name = "prodotto"
@@ -113,6 +120,17 @@ class Prodotto(AziendaMixin, ProprietaMixin):
 
     def __str__(self):
         return f"[{self.codice}] {self.nome}" if self.codice else self.nome
+
+    def save(self, *args, **kwargs):
+        vecchio = immagini.prepara(self, "immagine")
+        super().save(*args, **kwargs)
+        if vecchio:
+            transaction.on_commit(lambda: immagini.storage.delete(vecchio))
+
+    @property
+    def url_immagine(self):
+        """L'URL dell'immagine da mostrare (anche quella della galleria o del modello), '' se non c'è."""
+        return immagini.url(self)
 
     @property
     def a_magazzino(self):
@@ -135,6 +153,38 @@ class Prodotto(AziendaMixin, ProprietaMixin):
             raise ValidationError({"codice": "Esiste già un prodotto con questo codice."})
         if self.prezzo_vendita is not None and self.prezzo_vendita < 0:
             raise ValidationError({"prezzo_vendita": "Il prezzo non può essere negativo."})
+
+
+class ImmagineProdotto(models.Model):
+    """Le altre foto del prodotto, oltre a quella principale: lati, dettagli, ambientate."""
+    prodotto = models.ForeignKey(Prodotto, on_delete=models.CASCADE, related_name="immagini", verbose_name="prodotto")
+    file = models.ImageField("immagine", upload_to=immagini.percorso, storage=immagini.storage, max_length=300,
+                             validators=[immagini.valida])
+    didascalia = models.CharField("didascalia", max_length=200, blank=True)
+    ordine = models.PositiveSmallIntegerField("ordine", default=0)
+
+    class Meta:
+        verbose_name = "immagine del prodotto"
+        verbose_name_plural = "immagini del prodotto"
+        ordering = ["ordine", "pk"]
+
+    def __str__(self):
+        return self.didascalia or f"Immagine di {self.prodotto}"
+
+    def save(self, *args, **kwargs):
+        vecchio = immagini.prepara(self, "file")
+        super().save(*args, **kwargs)
+        if vecchio:
+            transaction.on_commit(lambda: immagini.storage.delete(vecchio))
+
+
+@receiver(post_delete, sender=Prodotto)
+@receiver(post_delete, sender=ImmagineProdotto)
+def _cancella_file(sender, instance, **kwargs):
+    """Il file se ne va con il record (dopo il commit, se la cancellazione viene annullata resta)."""
+    nome = (instance.immagine if sender is Prodotto else instance.file).name
+    if nome:
+        transaction.on_commit(lambda: immagini.storage.delete(nome))
 
 
 class Listino(AziendaMixin):

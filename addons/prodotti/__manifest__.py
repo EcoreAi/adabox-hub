@@ -1,7 +1,7 @@
 {
     "name": "Prodotti",
-    "summary": "Catalogo di beni e servizi con prezzi, costi, IVA, listini, confezioni e kit",
-    "version": "1.5.0",
+    "summary": "Catalogo di beni e servizi con immagini, prezzi, costi, IVA, listini, confezioni e kit",
+    "version": "1.6.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Vendite",
     "depends": ["fiscale"],
@@ -18,7 +18,7 @@
     "groups": {
         "Prodotti / Utente": ["prodotti.view_prodotto", "prodotti.view_listino", "prodotti.view_categoria",
                               "prodotti.view_unitamisura", "prodotti.view_prezzolistino",
-                              "prodotti.view_confezione", "prodotti.view_componentekit"],
+                              "prodotti.view_confezione", "prodotti.view_componentekit", "prodotti.view_immagineprodotto"],
         "Prodotti / Responsabile": ["prodotti.*"],
     },
     "data": ["data/iniziali.json"],

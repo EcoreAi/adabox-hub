@@ -1,0 +1,32 @@
+{% extends "core/report/base.html" %}{% load prodotti_stampa %}
+{% block stile %}
+  .testa-prodotto { display: flex; gap: 8mm; align-items: flex-start; }
+  .testa-prodotto .foto { width: 70mm; height: 70mm; object-fit: contain; border: 1px solid #e5e5ea; border-radius: 2mm; }
+  .testa-prodotto .dati-prodotto { flex: 1; }
+  .prezzo { font-size: 18pt; font-weight: bold; margin: 3mm 0; }
+  .galleria { display: flex; flex-wrap: wrap; gap: 4mm; }
+  .galleria figure { margin: 0; width: 40mm; }
+  .galleria img { width: 40mm; height: 40mm; object-fit: contain; border: 1px solid #e5e5ea; border-radius: 2mm; }
+  .galleria figcaption { font-size: 8pt; color: #6e6e73; }
+  .descrizione { white-space: pre-line; }
+{% endblock %}
+{% block record %}
+<div class="testa-prodotto">
+  {% with foto=obj|immagine_stampa %}{% if foto %}<img class="foto" src="{{ foto }}" alt="">{% endif %}{% endwith %}
+  <div class="dati-prodotto">
+    <div style="font-size:9pt;color:#6e6e73;">{{ obj.codice }}{% if obj.categoria %} · {{ obj.categoria }}{% endif %} · {{ obj.get_tipo_display }}</div>
+    <h1>{{ obj.nome }}</h1>
+    <div class="prezzo">{{ obj.prezzo_vendita|floatformat:2 }} € <span style="font-size:9pt;font-weight:normal;color:#6e6e73;">+ IVA {{ obj.aliquota_iva.codice }} · per {{ obj.unita_vendita|default:obj.unita }}</span></div>
+    <table class="dati">
+      {% if obj.codice_barre %}<tr><th>Codice a barre</th><td>{{ obj.codice_barre }}</td></tr>{% endif %}
+      {% if obj.peso %}<tr><th>Peso</th><td>{{ obj.peso|floatformat:"-3" }} kg</td></tr>{% endif %}
+      {% for c in obj.confezioni.all %}<tr><th>{% if forloop.first %}Confezioni{% endif %}</th><td>{{ c }}{% if c.codice_barre %} · {{ c.codice_barre }}{% endif %}</td></tr>{% endfor %}
+    </table>
+  </div>
+</div>
+{% if obj.descrizione_vendita %}<h2>Descrizione</h2><div class="descrizione">{{ obj.descrizione_vendita }}</div>{% endif %}
+{% if obj.kit %}<h2>Contenuto del kit</h2>
+<table class="dati">{% for c in obj.componenti.all %}<tr><th>{{ c.quantita|floatformat:"-3" }} ×</th><td>{{ c.componente }}</td></tr>{% endfor %}</table>{% endif %}
+{% if obj.immagini.all %}<h2>Immagini</h2>
+<div class="galleria">{% for i in obj.immagini.all %}<figure><img src="{{ i.file|file_stampa }}" alt="">{% if i.didascalia %}<figcaption>{{ i.didascalia }}</figcaption>{% endif %}</figure>{% endfor %}</div>{% endif %}
+{% endblock %}

@@ -2,7 +2,7 @@
 import datetime
 
 from django.core.exceptions import FieldDoesNotExist
-from django.db.models.fields.files import FieldFile
+from django.db.models.fields.files import FieldFile, ImageField
 from django.utils import timezone
 from django.utils.html import format_html
 
@@ -16,6 +16,18 @@ def _link(vista_rel, request, valore):
         return format_html('<a class="ui-link" href="{}">{}</a>', vista_rel.url("dettaglio", pk=valore.pk), valore)
     except Exception:          # vista registrata ma non montata negli URL
         return None
+
+
+def _miniatura(valore):
+    """<img> cliccabile per le immagini con un URL (gli storage privati con una vista di download lo danno);
+    None se l'immagine non ha un URL. `url_miniatura(nome, lato)` dello storage, se c'è, dà la versione ridotta."""
+    try:
+        url = valore.url
+    except ValueError:
+        return None
+    piccola = getattr(valore.storage, "url_miniatura", None)
+    return format_html('<a href="{}" target="_blank" rel="noopener"><img class="ui-miniatura" src="{}" alt="" loading="lazy"></a>',
+                       url, piccola(valore.name, 200) if piccola else url)
 
 
 def rendi(vista, obj, campo, request=None):
@@ -34,6 +46,9 @@ def rendi(vista, obj, campo, request=None):
     valore = getattr(obj, campo, None)
     if f is None and callable(valore):
         valore = valore()
+    if isinstance(valore, FieldFile) and valore and isinstance(f, ImageField):
+        if miniatura := _miniatura(valore):
+            return miniatura
     if isinstance(valore, FieldFile):
         valore = valore.name.rsplit("/", 1)[-1] if valore else ""           # il nome, non il percorso interno
     if valore is None or valore == "":
