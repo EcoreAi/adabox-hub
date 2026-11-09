@@ -2,7 +2,10 @@
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_ipv46_address
-from django.shortcuts import render
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, redirect, render
+
+from core.dashboard import queryset
 
 from . import operazioni
 
@@ -63,3 +66,30 @@ def da_opportunita(request, pk):
         return redirect("crm:opportunita_dettaglio", opp.pk)
     messages.success(request, "Preventivo creato dall'opportunità: aggiungi le righe.")
     return redirect("vendite:ordini_modifica", ordine.pk)
+
+
+
+@login_required
+@permission_required("vendite.change_ordinevendita", raise_exception=True)
+def condizioni_contatto(request, pk):
+    """Listino e sconto generale del cliente, dalla sua scheda."""
+    from decimal import Decimal, InvalidOperation
+
+    from contatti.models import Contatto
+    from prodotti.models import Listino
+
+    from .models import CondizioniCliente
+    if request.method != "POST":
+        return redirect("contatti:contatti_dettaglio", pk=pk)
+    contatto = get_object_or_404(queryset(request, Contatto), pk=pk)
+    listino = queryset(request, Listino).filter(pk=request.POST.get("listino")).first() if request.POST.get("listino", "").isdigit() else None
+    try:
+        sconto = Decimal((request.POST.get("sconto") or "0").replace(",", "."))
+        if not 0 <= sconto <= 100:
+            raise InvalidOperation
+    except InvalidOperation:
+        messages.error(request, "Lo sconto va da 0 a 100.")
+        return redirect("contatti:contatti_dettaglio", pk=pk)
+    CondizioniCliente.objects.update_or_create(contatto=contatto, defaults={"azienda": contatto.azienda, "listino": listino, "sconto": sconto})
+    messages.success(request, "Condizioni di vendita salvate: valgono per i prossimi ordini.")
+    return redirect("contatti:contatti_dettaglio", pk=pk)

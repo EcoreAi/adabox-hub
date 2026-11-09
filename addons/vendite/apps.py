@@ -10,6 +10,8 @@ class VenditeConfig(AppConfig):
         from core.registry import hooks
         hooks.sezione_dettaglio("vendite.OrdineVendita", "vendite/_fido_ordine.html", order=2)
         hooks.sezione_dettaglio("vendite.OrdineVendita", "vendite/_risposta.html", order=3)
+        hooks.sezione_dettaglio("contatti.Contatto", "vendite/_condizioni_contatto.html", order=24,
+                                permission="vendite.view_ordinevendita")
         hooks.sezione_dettaglio("contatti.Contatto", "vendite/_fido_contatto.html", order=25,
                                 permission="vendite.view_ordinevendita")
         from django.apps import apps

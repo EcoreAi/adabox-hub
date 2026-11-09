@@ -1,7 +1,7 @@
 {
     "name": "Vendite",
     "summary": "Preventivi e ordini dei clienti, con listini, sconti, IVA, stampa e invio per email",
-    "version": "1.5.0",
+    "version": "1.6.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Vendite",
     "depends": ["prodotti", "contatti"],
@@ -14,11 +14,13 @@
         {"label": "Preventivi e ordini", "url_name": "vendite:ordini_lista", "permission": "vendite.view_ordinevendita"},
         {"label": "Pipeline", "url_name": "vendite:ordini_kanban", "permission": "vendite.view_ordinevendita"},
         {"label": "Analisi", "url_name": "vendite:ordini_grafico", "permission": "vendite.view_ordinevendita"},
+        {"label": "Regole di sconto", "url_name": "vendite:sconti_lista", "permission": "vendite.view_regolasconto"},
     ],
     "groups": {
         "Vendite / Venditore": ["vendite.view_ordinevendita", "vendite.add_ordinevendita",
                                 "vendite.change_ordinevendita", "vendite.view_rigavendita", "vendite.add_rigavendita",
-                                "vendite.change_rigavendita", "vendite.delete_rigavendita"],
+                                "vendite.change_rigavendita", "vendite.delete_rigavendita", "vendite.view_regolasconto",
+                                "vendite.view_condizionicliente"],
         "Vendite / Responsabile": ["vendite.*"],
     },
     "hooks": "vendite.hooks",

@@ -77,6 +77,13 @@ class OrdineVendita(AziendaMixin, ProprietaMixin):
         if self.indirizzo_consegna_id and self.cliente_id and self.indirizzo_consegna.contatto_id != self.cliente_id:
             raise ValidationError({"indirizzo_consegna": "L'indirizzo è di un altro contatto."})
 
+    def save(self, *args, **kwargs):
+        if self._state.adding and self.listino_id is None and self.cliente_id:      # il listino del cliente, se ne ha uno
+            condizioni = CondizioniCliente.objects.filter(contatto_id=self.cliente_id).first()
+            if condizioni is not None and condizioni.listino_id:
+                self.listino_id = condizioni.listino_id
+        super().save(*args, **kwargs)
+
 
 class RigaVendita(models.Model):
     ordine = models.ForeignKey(OrdineVendita, on_delete=models.CASCADE, related_name="righe", verbose_name="ordine")
@@ -132,7 +139,9 @@ class RigaVendita(models.Model):
                 self.descrizione = (self.prodotto.descrizione_vendita or self.prodotto.nome)[:250]
             dal_listino = self.prezzo is None
             if dal_listino:                            # il listino è per unità del prodotto: riportato all'unità della riga
-                self.prezzo = prezzo(self.prodotto, self.ordine.listino, self.quantita_base) * self.per_unita
+                self.prezzo = prezzo(self.prodotto, self.ordine.listino, self.quantita_base, self.ordine.data) * self.per_unita
+                if self._state.adding and not self.sconto:  # sconto automatico solo sui prezzi che decide il sistema
+                    self.sconto = sconto_per(self.ordine.cliente, self.prodotto, self.quantita_base, self.ordine.data) or self.sconto
                 if self.ordine.listino_id and self.ordine.listino.iva_inclusa and apps.is_installed("fatturazione"):
                     from fatturazione.posizioni import scorporo
                     self.prezzo = scorporo(self.prezzo, self.prodotto.aliquota_iva)
@@ -146,3 +155,66 @@ class RigaVendita(models.Model):
         self.prezzo = self.prezzo if self.prezzo is not None else Decimal(0)
         self.importo = calcoli.importo_riga(self.quantita, self.prezzo, self.sconto)
         super().save(*args, **kwargs)
+
+
+class CondizioniCliente(AziendaMixin):
+    """Listino e sconto generale di un cliente: i suoi ordini nascono con il suo listino."""
+    contatto = models.OneToOneField("contatti.Contatto", on_delete=models.CASCADE, related_name="condizioni_vendita", verbose_name="cliente")
+    listino = models.ForeignKey("prodotti.Listino", on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="listino")
+    sconto = models.DecimalField("sconto generale %", max_digits=5, decimal_places=2, default=0,
+                                 help_text="vale sulle righe senza una regola di sconto più precisa")
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "condizioni di vendita del cliente"
+        verbose_name_plural = "condizioni di vendita dei clienti"
+
+    def __str__(self):
+        return f"{self.contatto}: {self.listino or 'listino base'}"
+
+
+class RegolaSconto(AziendaMixin):
+    """Uno sconto automatico sulle righe d'ordine: per un cliente o per tutti, su un prodotto, una categoria o tutto,
+    da una quantità, in un periodo. Vince la regola più precisa."""
+    nome = models.CharField("nome", max_length=80)
+    cliente = models.ForeignKey("contatti.Contatto", on_delete=models.CASCADE, null=True, blank=True, related_name="regole_sconto",
+                                verbose_name="cliente", help_text="vuoto = tutti i clienti")
+    prodotto = models.ForeignKey("prodotti.Prodotto", on_delete=models.CASCADE, null=True, blank=True, related_name="+", verbose_name="prodotto")
+    categoria = models.ForeignKey("prodotti.Categoria", on_delete=models.CASCADE, null=True, blank=True, related_name="+",
+                                  verbose_name="categoria", help_text="vale se non c'è il prodotto")
+    quantita_minima = models.DecimalField("da quantità", max_digits=12, decimal_places=3, default=1)
+    sconto = models.DecimalField("sconto %", max_digits=5, decimal_places=2)
+    dal = models.DateField("dal", null=True, blank=True)
+    al = models.DateField("al", null=True, blank=True)
+    attiva = models.BooleanField("attiva", default=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "regola di sconto"
+        verbose_name_plural = "regole di sconto"
+        ordering = ["nome"]
+
+    def __str__(self):
+        return f"{self.nome} ({self.sconto}%)"
+
+    def clean(self):
+        if self.sconto is not None and not 0 < self.sconto <= 100:
+            raise ValidationError({"sconto": "Lo sconto va da 0 a 100."})
+        if self.dal and self.al and self.al < self.dal:
+            raise ValidationError({"al": "La fine viene dopo l'inizio."})
+
+
+def sconto_per(cliente, prodotto, quantita, data):
+    """Lo sconto della regola più precisa (cliente, poi prodotto, poi categoria, poi quantità), o quello generale del cliente."""
+    from django.db.models import Q
+    if cliente is None or prodotto is None:
+        return None
+    regole = (RegolaSconto.objects.filter(azienda_id=cliente.azienda_id, attiva=True, quantita_minima__lte=quantita or 1)
+              .filter(Q(cliente=cliente) | Q(cliente__isnull=True))
+              .filter(Q(prodotto=prodotto) | Q(prodotto__isnull=True))
+              .filter(Q(categoria_id=prodotto.categoria_id) | Q(categoria__isnull=True))
+              .filter(Q(dal__isnull=True) | Q(dal__lte=data), Q(al__isnull=True) | Q(al__gte=data)))
+    migliore = sorted(regole, key=lambda r: (r.cliente_id is not None, r.prodotto_id is not None, r.categoria_id is not None,
+                                             r.quantita_minima, r.sconto), reverse=True)
+    if migliore:
+        return migliore[0].sconto
+    condizioni = CondizioniCliente.objects.filter(contatto=cliente).first()
+    return condizioni.sconto if condizioni and condizioni.sconto else None

@@ -1,7 +1,7 @@
 {
     "name": "Prodotti",
     "summary": "Catalogo di beni e servizi con prezzi, costi, IVA, listini, confezioni e kit",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Vendite",
     "depends": ["fiscale"],

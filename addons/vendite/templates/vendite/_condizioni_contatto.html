@@ -1,0 +1,10 @@
+{% load vendite_extra %}{% condizioni_cliente obj as c %}{% if c %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Listino e sconto</div><div class="ui-card-sub">I suoi ordini nascono con questo listino; lo sconto generale vale dove non c'è una regola più precisa</div></div></div>
+  <div class="ui-card-body">{% if perms.vendite.change_ordinevendita %}<form method="post" action="{% url 'vendite:condizioni_contatto' obj.pk %}" class="ui-filtri">{% csrf_token %}
+    <select class="ui-input" name="listino" aria-label="Listino"><option value="">Listino base (prezzi dei prodotti)</option>{% for l in c.listini %}<option value="{{ l.pk }}"{% if c.condizioni.listino_id == l.pk %} selected{% endif %}>{{ l }}{% if l.iva_inclusa %} (IVA inclusa){% endif %}</option>{% endfor %}</select>
+    <input class="ui-input" name="sconto" inputmode="decimal" value="{{ c.condizioni.sconto|default:0|floatformat:'-2' }}" style="max-width:90px" aria-label="Sconto generale"> %
+    <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Salva</button></form>
+  {% else %}<p style="margin:0">{{ c.condizioni.listino|default:"Listino base" }}{% if c.condizioni.sconto %} · sconto {{ c.condizioni.sconto|floatformat:"-2" }}%{% endif %}</p>{% endif %}
+  {% if c.regole %}<p class="ui-help">Regole di sconto per lui: {% for r in c.regole %}{{ r }}{% if not forloop.last %}, {% endif %}{% endfor %}.</p>{% endif %}</div>
+</section>{% endif %}

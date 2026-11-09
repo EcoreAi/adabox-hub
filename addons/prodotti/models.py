@@ -158,6 +158,8 @@ class PrezzoListino(models.Model):
                                  verbose_name="prodotto")
     quantita_minima = models.DecimalField("da quantità", max_digits=12, decimal_places=3, default=1)
     prezzo = models.DecimalField("prezzo (€)", max_digits=12, decimal_places=4)
+    valido_dal = models.DateField("valido dal", null=True, blank=True)
+    valido_al = models.DateField("valido al", null=True, blank=True)
 
     class Meta:
         verbose_name = "prezzo di listino"

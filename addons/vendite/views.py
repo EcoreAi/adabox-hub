@@ -6,7 +6,7 @@ from core import chatter, lavori
 from core.models import Messaggio
 from core.viste import Inline, ModelView, register, schede
 
-from .models import OrdineVendita, RigaVendita
+from .models import OrdineVendita, RigaVendita, RegolaSconto
 from . import fido, operazioni
 from .segnali import ordine_annullato
 
@@ -155,3 +155,16 @@ class OrdineView(ModelView):
         self._stato(request, obj, OrdineVendita.BOZZA)
         return f"{obj} riportato in bozza."
     riporta_in_bozza.short_description = "Riporta in bozza"
+
+
+@register
+class RegolaScontoView(ModelView):
+    """Sconti automatici sulle righe d'ordine, per cliente, prodotto, categoria, quantità e periodo."""
+    model = RegolaSconto
+    slug = "sconti"
+    company_field = "azienda"
+    list_display = ["nome", "cliente", "prodotto", "categoria", "quantita_minima", "sconto", "dal", "al", "attiva"]
+    list_filter = ["attiva", "cliente", "categoria"]
+    search_fields = ["nome", "cliente__nome", "prodotto__nome"]
+    form_layout = [("Regola", [("nome", "sconto"), ("cliente", "quantita_minima"), ("prodotto", "categoria"), ("dal", "al"), "attiva"])]
+    ai_descrizione = "Le regole di sconto automatico sugli ordini di vendita."

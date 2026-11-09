@@ -4,6 +4,7 @@ from . import pagine
 
 urlpatterns = [
     path("preventivo/<str:token>/", pagine.preventivo_online, name="preventivo_online"),
+    path("contatto/<int:pk>/condizioni/", pagine.condizioni_contatto, name="condizioni_contatto"),
 ]
 
 from django.apps import apps  # noqa: E402
