@@ -26,6 +26,7 @@ class MagazzinoConfig(AppConfig):
 
             from . import per_commercialista
             commercialista.aggiungi(per_commercialista.inventario)
+            commercialista.aggiungi(per_commercialista.differenze_inventario)
         if apps.is_installed("vendite"):
             from vendite.segnali import ordine_annullato, ordine_confermato
             ordine_confermato.connect(collegamenti.consegna_da_ordine, dispatch_uid="magazzino.consegna")

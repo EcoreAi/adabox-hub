@@ -16,7 +16,7 @@ from core.dashboard import queryset
 from prodotti.models import Prodotto, da_codice
 
 from . import operazioni
-from .models import Consegna, Ricevimento, RigaConsegna, RigaRicevimento
+from .models import Consegna, Inventario, Ricevimento, RigaConsegna, RigaRicevimento
 
 TIPI = {"ricevimento": (Ricevimento, RigaRicevimento, "ricevimento"), "consegna": (Consegna, RigaConsegna, "consegna")}
 
@@ -30,7 +30,9 @@ def inizio(request):
         if request.user.has_perm("magazzino.change_ricevimento") else [],
         "consegne": queryset(request, Consegna).filter(stato=Consegna.BOZZA).select_related("cliente").order_by("data", "pk")[:50]
         if request.user.has_perm("magazzino.change_consegna") else [],
-        "trasferire": request.user.has_perm("magazzino.add_movimento")})
+        "trasferire": request.user.has_perm("magazzino.add_movimento"),
+        "inventari": queryset(request, Inventario).filter(stato=Inventario.CONTA).select_related("magazzino").order_by("data", "pk")[:20]
+        if request.user.has_perm("magazzino.change_inventario") else []})
 
 
 @login_required
@@ -154,3 +156,26 @@ def trasferimento(request):
         return redirect("magazzino:lettura")
     return render(request, "magazzino/lettura_documento.html", {"tipo": "trasferimento", "righe": [], "posti": _posti(request),
                                                                 "titolo": "Sposta merce", "dettaglio": reverse("magazzino:lettura")})
+
+
+@login_required
+@permission_required("magazzino.change_inventario", raise_exception=True)
+def inventario(request, pk):
+    """La conta con il lettore: i pezzi letti si sommano al contato (conta alla cieca: il teorico non si mostra)."""
+    from . import inventari
+    inv = get_object_or_404(queryset(request, Inventario), pk=pk)
+    conta = reverse("magazzino:inventario_conta", args=[inv.pk])
+    if inv.stato != Inventario.CONTA:
+        messages.warning(request, "L'inventario non è più in conta.")
+        return redirect(conta)
+    if request.method == "POST":
+        try:
+            letture = _letture(request)
+            inventari.aggiungi_letti(inv, letture)
+        except ValidationError as e:
+            messages.error(request, " ".join(e.messages))
+            return redirect(request.path)
+        messages.success(request, f"Aggiunti al contato {len(letture)} prodotti.")
+        return redirect(conta)
+    return render(request, "magazzino/lettura_documento.html", {"tipo": "inventario", "righe": [], "titolo": f"Conta: {inv}",
+                                                                "dettaglio": conta, "doc": inv})

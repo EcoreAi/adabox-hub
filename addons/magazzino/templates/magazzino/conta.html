@@ -1,0 +1,32 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Conta {{ inv.numero }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>{{ inv }}</h1><div class="sub"><a class="ui-link" href="{% url 'magazzino:inventari_dettaglio' inv.pk %}">Scheda</a> · {{ inv.get_stato_display }}{% if inv.ubicazione %} · {{ inv.ubicazione }}{% endif %}{% if inv.categoria %} · {{ inv.categoria }}{% endif %} · contate {{ contate }} righe su {{ righe|length }}</div></div>
+  {% if inv.stato == "conta" and puo_scrivere %}<div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="{% url 'magazzino:lettura_inventario' inv.pk %}">Conta con il lettore</a></div>{% endif %}
+</div>
+{% if inv.stato == "conta" %}
+<form method="post" class="ui-card is-revealed ui-section">{% csrf_token %}
+  <div class="ui-card-head"><div><div class="ui-card-title">Contato</div><div class="ui-card-sub">Lascia vuoto ciò che non hai contato. {% if cieca %}<a class="ui-link" href="?teorico=1">Mostra il teorico</a>{% else %}<a class="ui-link" href="?">Nascondi il teorico</a>{% endif %}</div></div></div>
+  <div class="ui-card-body"><input class="ui-input" placeholder="Cerca un prodotto…" aria-label="Cerca un prodotto" oninput="var q=this.value.toLowerCase();document.querySelectorAll('#ct-righe tr').forEach(function(t){t.hidden=q&&t.dataset.nome.indexOf(q)<0})"></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Prodotto</th><th>Lotto</th>{% if not cieca %}<th class="ui-num">Teorico</th>{% endif %}<th class="ui-num">Contato</th></tr></thead>
+  <tbody id="ct-righe">{% for r in righe %}<tr data-nome="{{ r.prodotto|lower }} {{ r.prodotto.codice_barre }}"><td>{{ r.prodotto }}</td><td>{{ r.lotto.codice|default:"—" }}</td>{% if not cieca %}<td class="ui-num">{{ r.teorico|floatformat:"-3g" }}</td>{% endif %}
+    <td class="ui-num"><input class="ui-input" name="c_{{ r.pk }}" value="{% if r.contato is not None %}{{ r.contato|floatformat:'-3' }}{% endif %}" inputmode="decimal" style="max-width:110px;text-align:right" aria-label="Contato di {{ r.prodotto }}"{% if not puo_scrivere %} disabled{% endif %}></td></tr>{% endfor %}</tbody></table></div>
+  {% if puo_scrivere %}<div class="ui-card-body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <button class="ui-btn ui-btn-secondary" type="submit" name="azione" value="salva">Salva il contato</button>
+    {% if perms.magazzino.add_movimento %}<label class="ut-check"><input type="checkbox" name="zero" value="1"> Ciò che non ho contato non c'è (va a zero)</label>
+    <button class="ui-btn ui-btn-primary" type="submit" name="azione" value="approva" onclick="return confirm('Approvare? Le differenze diventano rettifiche di magazzino.')">Approva e rettifica</button>{% endif %}
+  </div>{% endif %}
+</form>
+{% if puo_scrivere %}<form method="post" enctype="multipart/form-data" class="ui-card is-revealed ui-section">{% csrf_token %}<input type="hidden" name="azione" value="importa">
+  <div class="ui-card-body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><span>Importa il contato da un CSV <span class="ui-help">(colonne: codice o codice a barre; quantità)</span></span>
+    <input type="file" name="file" accept=".csv,text/csv" required aria-label="File CSV"><button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Importa</button></div>
+</form>{% endif %}
+{% else %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div><div class="ui-card-title">Differenze</div><div class="ui-card-sub">{% if inv.stato == "approvato" %}Approvato il {{ inv.approvato_il|date:"d/m/Y H:i" }} da {{ inv.approvato_da|default:"—" }} · valore delle rettifiche {{ valore|floatformat:2 }} €{% else %}Annullato: nessuna rettifica{% endif %}</div></div></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Prodotto</th><th>Lotto</th><th class="ui-num">Teorico</th><th class="ui-num">Contato</th><th class="ui-num">Rettifica</th><th class="ui-num">Valore</th></tr></thead>
+  <tbody>{% for r in righe %}{% if r.contato is not None %}<tr><td>{{ r.prodotto }}</td><td>{{ r.lotto.codice|default:"—" }}</td><td class="ui-num">{{ r.teorico|floatformat:"-3g" }}</td><td class="ui-num">{{ r.contato|floatformat:"-3g" }}</td>
+    <td class="ui-num">{{ r.rettifica|floatformat:"-3g"|default:"—" }}</td><td class="ui-num">{{ r.valore_rettifica|floatformat:2|default:"—" }}</td></tr>{% endif %}{% endfor %}</tbody></table></div>
+</section>
+{% endif %}
+{% endblock %}

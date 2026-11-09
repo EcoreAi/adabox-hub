@@ -5,7 +5,7 @@ from core.viste import Inline, ModelView, register, schede
 
 from . import operazioni
 from .models import Consegna, Magazzino, Movimento, Ricevimento, RigaConsegna, RigaRicevimento, Ubicazione
-from .models import Lotto
+from .models import Inventario, Lotto
 
 
 @register
@@ -217,3 +217,44 @@ class RicevimentoView(ModelView):
     leggi_codici.ai = False
     ricevi.short_description = "Ricevi la merce"
     ricevi.rischio = "irreversibile"
+
+
+@register
+class InventarioView(ModelView):
+    """Gli inventari: alla creazione si fotografa il teorico, poi si conta e si approva."""
+    model = Inventario
+    slug = "inventari"
+    company_field = "azienda"
+    list_display = ["numero", "data", "magazzino", "ubicazione", "categoria", "stato", "ciclica"]
+    list_filter = ["stato", "magazzino", "ciclica"]
+    search_fields = ["numero", "note"]
+    form_layout = [("Inventario", [("magazzino", "data"), ("ubicazione", "categoria"), "note"])]
+    readonly_fields = ["numero", "stato", "ciclica", "creato_da", "approvato_da", "approvato_il"]
+    buttons = ["conta", "annulla"]
+    ai_descrizione = "Gli inventari di magazzino: conta della merce, differenze e rettifiche."
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.creato_da = request.user
+        super().save_model(request, obj, form, change)
+        if not change:
+            from . import inventari
+            inventari.fotografa(obj)
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and (obj is None or obj.stato == obj.CONTA)
+
+    def get_buttons(self, request, obj):
+        return super().get_buttons(request, obj) if obj.stato == obj.CONTA else []
+
+    def conta(self, request, obj):
+        from django.shortcuts import redirect
+        return redirect("magazzino:inventario_conta", pk=obj.pk)
+    conta.short_description = "Conta"
+    conta.ai = False
+
+    def annulla(self, request, obj):
+        obj.stato = obj.ANNULLATO
+        obj.save(update_fields=["stato"])
+        return "Inventario annullato: nessuna rettifica."
+    annulla.short_description = "Annulla"

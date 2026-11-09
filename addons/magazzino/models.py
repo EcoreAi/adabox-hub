@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -338,3 +340,62 @@ class MetodoCosto(models.Model):
 
     def __str__(self):
         return f"{self.prodotto}: {self.get_metodo_display()}"
+
+
+class Inventario(AziendaMixin):
+    """Una conta della merce: alla creazione fotografa il teorico, poi si scrive (o si legge col codice) il contato,
+    e l'approvazione crea le rettifiche. Le righe non contate restano come sono."""
+    CONTA, APPROVATO, ANNULLATO = "conta", "approvato", "annullato"
+    STATI = [(CONTA, "In conta"), (APPROVATO, "Approvato"), (ANNULLATO, "Annullato")]
+    numero = models.CharField("numero", max_length=30, blank=True, editable=False, db_index=True)
+    magazzino = models.ForeignKey(Magazzino, on_delete=models.PROTECT, related_name="inventari", verbose_name="magazzino")
+    ubicazione = models.ForeignKey(Ubicazione, on_delete=models.PROTECT, null=True, blank=True, related_name="inventari",
+                                   verbose_name="solo l'ubicazione", help_text="vuoto = tutto il magazzino")
+    categoria = models.ForeignKey("prodotti.Categoria", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                                  verbose_name="solo la categoria")
+    data = models.DateField("data", default=timezone.localdate)
+    ciclica = models.BooleanField("conta ciclica", default=False, editable=False)
+    stato = models.CharField("stato", max_length=10, choices=STATI, default=CONTA, editable=False)
+    note = models.TextField("note", blank=True)
+    creato_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                                  verbose_name="creato da", editable=False)
+    approvato_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                                     verbose_name="approvato da", editable=False)
+    approvato_il = models.DateTimeField("approvato il", null=True, blank=True, editable=False)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "inventario"
+        verbose_name_plural = "inventari"
+        ordering = ["-data", "-pk"]
+
+    def __str__(self):
+        return f"Inventario {self.numero or self.pk} · {self.magazzino}"
+
+    def clean(self):
+        if self.ubicazione_id and self.magazzino_id and self.ubicazione.magazzino_id != self.magazzino_id:
+            raise ValidationError({"ubicazione": "L'ubicazione è di un altro magazzino."})
+
+
+class RigaInventario(models.Model):
+    inventario = models.ForeignKey(Inventario, on_delete=models.CASCADE, related_name="righe", verbose_name="inventario")
+    prodotto = models.ForeignKey("prodotti.Prodotto", on_delete=models.PROTECT, related_name="+", verbose_name="prodotto")
+    lotto = models.ForeignKey(Lotto, on_delete=models.PROTECT, null=True, blank=True, related_name="+", verbose_name="lotto")
+    teorico = models.DecimalField("teorico", max_digits=14, decimal_places=3, default=0, help_text="la giacenza quando è iniziata la conta")
+    contato = models.DecimalField("contato", max_digits=14, decimal_places=3, null=True, blank=True)
+    rettifica = models.DecimalField("rettifica", max_digits=14, decimal_places=3, null=True, blank=True, editable=False)
+    costo_unitario = models.DecimalField("costo unitario (€)", max_digits=14, decimal_places=4, null=True, blank=True, editable=False)
+
+    class Meta:
+        verbose_name = "riga d'inventario"
+        verbose_name_plural = "righe d'inventario"
+        ordering = ["prodotto__nome", "lotto__codice", "pk"]
+
+    @property
+    def differenza(self):
+        return None if self.contato is None else self.contato - self.teorico
+
+    @property
+    def valore_rettifica(self):
+        if self.rettifica is None or self.costo_unitario is None:
+            return None
+        return (self.rettifica * self.costo_unitario).quantize(Decimal("0.01"))

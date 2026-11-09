@@ -10,13 +10,16 @@
   </form>
   <video id="lc-video" playsinline muted hidden></video>
   <p id="lc-esito" class="lc-esito" role="status" aria-live="polite"></p>
-  <div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Prodotto</th>{% if tipo != "trasferimento" %}<th class="ui-num">Attesi</th>{% endif %}<th class="ui-num">Letti</th><th></th></tr></thead>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Prodotto</th>{% if tipo != "trasferimento" and tipo != "inventario" %}<th class="ui-num">Attesi</th>{% endif %}<th class="ui-num">Letti</th><th></th></tr></thead>
     <tbody id="lc-righe"></tbody></table></div>
 </div></section>
 <form method="post" id="lc-conferma" class="ui-card is-revealed ui-section">{% csrf_token %}
   <input type="hidden" name="letture" id="lc-letture">
   <div class="ui-card-body lc-riga">
-    {% if tipo == "trasferimento" %}
+    {% if tipo == "inventario" %}
+      <button class="ui-btn ui-btn-primary" type="submit">Aggiungi al contato</button>
+      <span class="ui-help">I pezzi letti si sommano a quelli già contati.</span>
+    {% elif tipo == "trasferimento" %}
       <label class="ui-label" for="lc-da">Da</label><select class="ui-input" id="lc-da" name="da" required>{% for v, nome in posti %}<option value="{{ v }}">{{ nome }}</option>{% endfor %}</select>
       <label class="ui-label" for="lc-a">A</label><select class="ui-input" id="lc-a" name="a" required>{% for v, nome in posti %}<option value="{{ v }}">{{ nome }}</option>{% endfor %}</select>
       <button class="ui-btn ui-btn-primary" type="submit">Sposta</button>
@@ -42,7 +45,7 @@ tr.is-troppi td{background:color-mix(in srgb,var(--ui-danger,#b91c1c) 10%,transp
 (function () {
   var righe = {}, ordine = [];
   JSON.parse(document.getElementById("lc-iniziali").textContent).forEach(function (r) { righe[r.id] = {nome: r.nome, attesi: r.attesi, letti: 0}; ordine.push(r.id); });
-  var conAttesi = "{{ tipo }}" !== "trasferimento";
+  var conAttesi = "{{ tipo }}" !== "trasferimento" && "{{ tipo }}" !== "inventario";
   var corpo = document.getElementById("lc-righe"), esito = document.getElementById("lc-esito"), campo = document.getElementById("lc-codice");
   function n(x) { return (Math.round(x * 1000) / 1000).toLocaleString("it-IT"); }
   function disegna() {

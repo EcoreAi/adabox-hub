@@ -31,3 +31,22 @@ def inventario(request, anno, mese, avvisi):
             + [["", "Totale", "", "", "", numero_csv(sum(r["valore"] for r in righe))]])
         if any(r["quantita"] < 0 for r in righe):
             avvisi.append("Inventario: ci sono prodotti con giacenza negativa, da rettificare.")
+
+
+
+def differenze_inventario(request, anno, mese, avvisi):
+    """Le rettifiche degli inventari approvati nel periodo, con il loro valore al costo di magazzino."""
+    from .models import Inventario, RigaInventario
+    if not request.user.has_perm("magazzino.view_inventario"):
+        return
+    inventari = queryset(request, Inventario).filter(stato=Inventario.APPROVATO, data__year=anno)
+    if mese:
+        inventari = inventari.filter(data__month=mese)
+    righe = (RigaInventario.objects.filter(inventario__in=inventari, rettifica__isnull=False).exclude(rettifica=0)
+             .select_related("inventario", "prodotto", "lotto").order_by("inventario__data", "inventario__pk", "prodotto__nome"))
+    if righe:
+        yield "magazzino/differenze-inventario.csv", foglio(
+            ["Inventario", "Data", "Codice", "Prodotto", "Lotto", "Teorico", "Contato", "Rettifica", "Costo unitario", "Valore"],
+            [[r.inventario.numero, r.inventario.data.strftime("%d/%m/%Y"), r.prodotto.codice, r.prodotto.nome, r.lotto.codice if r.lotto else "",
+              numero_csv(r.teorico), numero_csv(r.contato), numero_csv(r.rettifica), numero_csv(r.costo_unitario or 0),
+              numero_csv(r.valore_rettifica or 0)] for r in righe])

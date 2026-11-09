@@ -4,10 +4,11 @@
 <div class="ui-pagehead"><div><h1>Lettura codici</h1><div class="sub">Dal telefono o con un lettore: scegli che cosa stai facendo</div></div></div>
 <div class="lc-scelte">
   {% if trasferire %}<a class="lc-scelta" href="{% url 'magazzino:lettura_sposta' %}"><strong>Sposta merce</strong><span>leggi i pezzi, poi scegli da dove a dove</span></a>{% endif %}
+  {% for i in inventari %}<a class="lc-scelta" href="{% url 'magazzino:lettura_inventario' i.pk %}"><strong>Conta {{ i.numero }}</strong><span>{{ i.magazzino }}{% if i.ubicazione %} · {{ i.ubicazione }}{% endif %} · {{ i.data|date:"d/m/Y" }}</span></a>{% endfor %}
   {% for r in ricevimenti %}<a class="lc-scelta" href="{% url 'magazzino:lettura_documento' 'ricevimento' r.pk %}"><strong>Ricevi da {{ r.fornitore }}</strong><span>{{ r.data|date:"d/m/Y" }}{% if r.ddt_fornitore %} · DDT {{ r.ddt_fornitore }}{% endif %}{% if r.riferimento %} · {{ r.riferimento }}{% endif %}</span></a>{% endfor %}
   {% for c in consegne %}<a class="lc-scelta" href="{% url 'magazzino:lettura_documento' 'consegna' c.pk %}"><strong>Prepara per {{ c.cliente }}</strong><span>{{ c.data|date:"d/m/Y" }}{% if c.riferimento %} · {{ c.riferimento }}{% endif %}</span></a>{% endfor %}
 </div>
-{% if not ricevimenti and not consegne %}<p class="ui-help">Nessun ricevimento o consegna in bozza da leggere.</p>{% endif %}
+{% if not ricevimenti and not consegne and not inventari %}<p class="ui-help">Nessun ricevimento, consegna o conta aperta da leggere.</p>{% endif %}
 <style>
 .lc-scelte{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
 .lc-scelta{display:flex;flex-direction:column;gap:4px;padding:18px;border-radius:16px;background:var(--ui-surface-2);color:inherit;text-decoration:none;min-height:84px}
