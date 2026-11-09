@@ -1,0 +1,7 @@
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body"><div class="cm-tessere">
+  <div class="cm-tessera"><small>Ricambi</small><strong>{{ obj.ricambi|floatformat:2 }} €</strong></div>
+  <div class="cm-tessera"><small>Manodopera</small><strong>{{ obj.manodopera|floatformat:2 }} €</strong></div>
+  <div class="cm-tessera {% if obj.in_garanzia %}is-positivo{% endif %}"><small>Al cliente</small><strong>{% if obj.in_garanzia %}In garanzia{% else %}{{ obj.totale|floatformat:2 }} €{% endif %}</strong></div></div>
+  {% if obj.garanzia_fino_al %}<p class="sub" style="margin:0">Garanzia fino al {{ obj.garanzia_fino_al|date:"d/m/Y" }}{% if obj.recupero_fornitore %} · coperta anche dal fornitore: da recuperare{% endif %}.</p>{% endif %}
+  {% if obj.fattura_id %}<p style="margin:6px 0 0"><a class="ui-link" href="{% url 'fatturazione:fatture_dettaglio' obj.fattura_id %}">Fattura della riparazione</a></p>{% endif %}
+</div></section>

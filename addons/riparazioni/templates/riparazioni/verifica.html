@@ -1,0 +1,12 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Verifica garanzia · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Verifica garanzia</h1><div class="sub">Dal numero di serie: quando è stato consegnato e fino a quando è coperto</div></div></div>
+<div class="ui-card is-revealed ui-section"><form class="ui-filtri" method="get"><input class="ui-input" name="seriale" value="{{ seriale }}" placeholder="Numero di serie" autofocus aria-label="Numero di serie"><button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Verifica</button></form>
+{% if seriale %}<div class="ui-card-body">{% if esito %}
+  <p style="margin:0"><span class="ui-pill {% if esito.attiva %}ui-pill-success{% else %}ui-pill-danger{% endif %}">{% if esito.attiva %}In garanzia{% else %}Garanzia scaduta{% endif %}</span>
+  {{ esito.prodotto }} · consegnato il {{ esito.consegnato_il|date:"d/m/Y" }}{% if esito.consegna %} a {{ esito.consegna.cliente }} (DDT {{ esito.consegna.numero }}){% endif %} · garanzia fino al {{ esito.fino_al|date:"d/m/Y" }}{% if esito.fornitore_fino_al %} · fornitore fino al {{ esito.fornitore_fino_al|date:"d/m/Y" }}{% endif %}</p>
+  {% if esito.condizioni %}<p class="ui-help">{{ esito.condizioni }}</p>{% endif %}
+  {% if perms.riparazioni.add_riparazione and esito.consegna %}<p><a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'riparazioni:riparazioni_nuovo' %}?seriale={{ seriale|urlencode }}&prodotto={{ esito.prodotto.pk }}&cliente={{ esito.consegna.cliente_id }}">Apri una riparazione</a></p>{% endif %}
+{% else %}<p style="margin:0">Nessuna consegna con questo numero di serie, o il prodotto non ha una garanzia impostata.</p>{% endif %}</div>{% endif %}</div>
+{% endblock %}
