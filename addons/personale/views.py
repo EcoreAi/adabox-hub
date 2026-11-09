@@ -7,7 +7,7 @@ from core.colori import sicuro
 from core.viste import Inline, ModelView, register, schede
 
 from . import flusso
-from .models import Assenza, Dipendente, Posizione, Reparto, Timbratura, TipoAssenza, ContrattoLavoro, VoceRetributiva, DocumentoDipendente, RichiestaModifica
+from .models import Assenza, Dipendente, Posizione, Reparto, Timbratura, TipoAssenza, ContrattoLavoro, VoceRetributiva, DocumentoDipendente, RichiestaModifica, AssegnazioneTurno, TurnoLavoro
 
 
 @register
@@ -272,3 +272,25 @@ class RichiestaModificaView(ModelView):
 
     def has_change_permission(self, request, obj=None):
         return False if obj is not None else super().has_change_permission(request, obj)
+
+
+@register
+class TurnoView(ModelView):
+    model = TurnoLavoro
+    slug = "tipi-turno"
+    company_field = "azienda"
+    list_display = ["nome", "inizio", "fine", "pausa_minuti", "attivo"]
+    form_layout = [("Turno", [("nome", "colore"), ("inizio", "fine"), ("pausa_minuti", "attivo")])]
+    ai_descrizione = "I turni di lavoro tipo con orario e pausa."
+
+
+@register
+class AssegnazioneTurnoView(ModelView):
+    model = AssegnazioneTurno
+    slug = "turni-assegnati"
+    company_field = "azienda"
+    list_display = ["data", "dipendente", "turno", "nota"]
+    list_filter = ["turno", "dipendente"]
+    calendar_date = "data"
+    form_layout = [("Turno", [("dipendente", "data"), ("turno", "nota")])]
+    ai_descrizione = "I turni assegnati ai dipendenti giorno per giorno."

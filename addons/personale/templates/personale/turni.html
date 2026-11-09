@@ -1,0 +1,15 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Turni · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Turni</h1><div class="sub">Settimana dal {{ inizio|date:"d/m/Y" }} · le assenze approvate sono segnate, le ore si confrontano con il contratto</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary ui-btn-sm" href="?settimana={{ prima }}">‹ Settimana prima</a> <a class="ui-btn ui-btn-secondary ui-btn-sm" href="?settimana={{ dopo }}">Settimana dopo ›</a></div></div>
+{% if not turni %}<p class="ui-help">Prima crea i <a class="ui-link" href="{% url 'personale:tipi-turno_lista' %}">tipi di turno</a>.</p>{% endif %}
+<form method="post" class="ui-card is-revealed ui-section">{% csrf_token %}<input type="hidden" name="settimana" value="{{ inizio|date:'Y-m-d' }}">
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Persona</th>{% for g, n in giorni %}<th>{{ n }} {{ g|date:"d/m" }}</th>{% endfor %}<th class="ui-num">Ore</th></tr></thead>
+  <tbody>{% for r in righe %}<tr><td>{{ r.d }}</td>{% for c in r.celle %}<td{% if c.conflitto %} style="background:#fee2e2"{% elif c.assenza %} style="background:#f1f5f9"{% endif %}>
+      <select class="ui-input" name="t_{{ r.d.pk }}_{{ c.data|date:'Y-m-d' }}" style="min-width:110px" aria-label="Turno di {{ r.d }} il {{ c.data|date:'d/m' }}"><option value="">—</option>{% for t in turni %}<option value="{{ t.pk }}"{% if c.assegnato.turno_id == t.pk %} selected{% endif %}>{{ t.nome }}</option>{% endfor %}</select>
+      {% if c.assenza %}<div class="ui-help">{{ c.assenza.tipo }}{% if c.conflitto %} · in turno!{% endif %}</div>{% endif %}</td>{% endfor %}
+    <td class="ui-num">{% if r.oltre %}<span class="ui-pill ui-pill-danger" title="Oltre le {{ r.contratto }} ore del contratto">{{ r.ore }}</span>{% else %}{{ r.ore }}{% endif %} / {{ r.contratto|floatformat:"-1" }}</td></tr>{% endfor %}</tbody></table></div>
+  <div class="ui-card-body" style="display:flex;gap:10px"><button class="ui-btn ui-btn-primary" type="submit">Salva i turni</button><button class="ui-btn ui-btn-secondary" type="submit" name="azione" value="copia">Copia dalla settimana prima</button></div>
+</form>
+{% endblock %}

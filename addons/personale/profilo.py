@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 
 from core import allegati
 
-from . import contratti, saldi
+from . import contratti, saldi, turni
 from .models import Dipendente, DocumentoDipendente, RichiestaModifica
 
 
@@ -38,7 +38,7 @@ def profilo(request):
     oggi = timezone.localdate()
     contesto = {"io": io, "saldo": saldi.saldo(io, oggi.year), "anno": oggi.year, "contratto": contratti.in_vigore(io),
                 "assenze": io.assenze.select_related("tipo")[:8], "documenti": io.documenti.all()[:24],
-                "richieste": io.richieste_modifica.all()[:5]}
+                "richieste": io.richieste_modifica.all()[:5], "turni": turni.miei(io)}
     if apps.is_installed("spese"):
         from spese.models import NotaSpese
         contesto["note_spese"] = NotaSpese.objects.filter(dipendente=io).order_by("-pk")[:5]

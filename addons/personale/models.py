@@ -316,3 +316,42 @@ class RichiestaModifica(AziendaMixin):
     def clean(self):
         if not (self.email or self.telefono or self.altro.strip()):
             raise ValidationError("Scrivi che cosa va cambiato.")
+
+
+class TurnoLavoro(AziendaMixin):
+    nome = models.CharField("nome", max_length=60, help_text="es. Mattina, Pomeriggio, Notte")
+    inizio = models.TimeField("dalle")
+    fine = models.TimeField("alle")
+    pausa_minuti = models.PositiveSmallIntegerField("pausa (minuti)", default=0)
+    colore = models.CharField("colore", max_length=7, default="#2563eb")
+    attivo = models.BooleanField("attivo", default=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "turno"
+        verbose_name_plural = "turni"
+        ordering = ["inizio", "nome"]
+
+    def __str__(self):
+        return f"{self.nome} {self.inizio:%H:%M}–{self.fine:%H:%M}"
+
+    @property
+    def ore(self):
+        import datetime as dt
+        a = dt.datetime.combine(dt.date.today(), self.inizio)
+        b = dt.datetime.combine(dt.date.today(), self.fine)
+        if b <= a:
+            b += dt.timedelta(days=1)                 # turno che passa la mezzanotte
+        return Decimal((b - a).seconds - self.pausa_minuti * 60) / 3600
+
+
+class AssegnazioneTurno(AziendaMixin):
+    dipendente = models.ForeignKey(Dipendente, on_delete=models.CASCADE, related_name="turni", verbose_name="dipendente")
+    data = models.DateField("giorno")
+    turno = models.ForeignKey(TurnoLavoro, on_delete=models.PROTECT, related_name="assegnazioni", verbose_name="turno")
+    nota = models.CharField("nota", max_length=120, blank=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "turno assegnato"
+        verbose_name_plural = "turni assegnati"
+        ordering = ["data", "turno__inizio"]
+        constraints = [models.UniqueConstraint(fields=["dipendente", "data"], name="personale_un_turno_al_giorno")]

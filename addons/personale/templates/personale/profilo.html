@@ -12,6 +12,8 @@
   {% if ore_mese is not None %}<div class="cm-tessera"><small>Ore questo mese</small><strong>{{ ore_mese|floatformat:"-2" }}</strong></div>{% endif %}
   <div class="cm-tessera"><small>Contratto</small><strong>{% if contratto %}{{ contratto.get_tipo_display }}{% else %}—{% endif %}</strong></div>
 </div>
+{% if turni %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">I miei turni</div></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><tbody>{% for t in turni %}<tr><td>{{ t.data|date:"D d/m" }}</td><td><span class="ui-pill" style="background:{{ t.turno.colore }}22">{{ t.turno }}</span></td><td>{{ t.nota }}</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
 <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Il mio contratto</div></div><div class="ui-card-body">
   {% if contratto %}<p style="margin:0">{{ contratto.get_tipo_display }} dal {{ contratto.dal|date:"d/m/Y" }}{% if contratto.al %} al {{ contratto.al|date:"d/m/Y" }}{% endif %}{% if contratto.ccnl %} · CCNL {{ contratto.ccnl }}{% endif %}{% if contratto.livello %}, livello {{ contratto.livello }}{% endif %} · {{ contratto.ore_settimanali|floatformat:"-1" }} ore a settimana · {{ contratto.giorni_ferie_annui|floatformat:"-2" }} giorni di ferie l'anno{% if contratto.mensile %} · lordo mensile {{ contratto.mensile|floatformat:2 }} € su {{ contratto.mensilita }} mensilità{% endif %}</p>
   {% else %}<p class="sub" style="margin:0">Nessun contratto registrato.</p>{% endif %}</div></section>

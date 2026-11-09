@@ -1,7 +1,7 @@
 """Pagine del Personale."""
 from django.urls import path
 
-from . import pagine, profilo
+from . import pagine, profilo, turni
 
 urlpatterns = [path("mie/", pagine.mie, name="mie"),
                path("organigramma/", pagine.organigramma, name="organigramma"),
@@ -10,5 +10,6 @@ urlpatterns = [path("mie/", pagine.mie, name="mie"),
                path("presenze/", pagine.presenze_mese, name="presenze"),
                path("dipendenti/<int:pk>/pin/", pagine.imposta_pin, name="imposta_pin"),
                path("profilo/", profilo.profilo, name="profilo"),
+               path("turni/", turni.griglia, name="turni"),
                path("documento/<int:pk>/", profilo.documento, name="documento"),
                path("richieste/<int:pk>/decidi/", profilo.decidi, name="richiesta_decidi")]
