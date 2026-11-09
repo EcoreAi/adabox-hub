@@ -7,6 +7,8 @@ class CassaConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
 
     def ready(self):
+        from core import blocco
+        blocco.registra("cassa.MovimentoCassa", "data")
         from django.db.models.signals import post_save, pre_delete
 
         from core.registry import hooks

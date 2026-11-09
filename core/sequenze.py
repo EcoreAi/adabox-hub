@@ -20,8 +20,11 @@ def crea(voci, aziende=None):
     aziende = list(Azienda.objects.all()) if aziende is None else aziende
     for v in voci:
         for azienda in aziende:
-            Sequenza.objects.update_or_create(codice=v["codice"], azienda=azienda, defaults={
+            seq, nuova = Sequenza.objects.get_or_create(codice=v["codice"], azienda=azienda, defaults={
                 "formato": v["formato"], "azzera": v.get("azzera", Sequenza.MAI)})
+            if not nuova and not seq.personalizzata and (seq.formato, seq.azzera) != (v["formato"], v.get("azzera", Sequenza.MAI)):
+                seq.formato, seq.azzera = v["formato"], v.get("azzera", Sequenza.MAI)
+                seq.save(update_fields=["formato", "azzera"])
 
 
 def _riga(codice, azienda):

@@ -7,6 +7,10 @@ class FatturazioneConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
 
     def ready(self):
+        from core import blocco
+        blocco.registra("fatturazione.Fattura", "data")
+        blocco.registra("fatturazione.Incasso", "data", lambda i: i.scadenza.fattura.azienda)
+        blocco.registra("fatturazione.CreditoCliente", "data")
         from core.registry import hooks
         from vendite.segnali import ordine_annullato
 

@@ -1,0 +1,8 @@
+{% if perms.core.change_azienda %}<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Periodo chiuso</div><div class="ui-card-sub">{% if obj.chiuso_fino_al %}Chiuso fino al {{ obj.chiuso_fino_al|date:"d/m/Y" }}: fatture, incassi, pagamenti e movimenti con quelle date non si creano, non si spostano e non si cancellano{% else %}Nessun periodo chiuso{% endif %}</div></div></div>
+  <div class="ui-card-body"><form method="post" action="{% url 'core:periodo_chiuso' obj.pk %}" class="ui-filtri">{% csrf_token %}
+    <label class="sub" for="pc-data">Chiudi fino al</label><input class="ui-input" type="date" id="pc-data" name="data" value="{{ obj.chiuso_fino_al|date:'Y-m-d' }}" style="max-width:170px">
+    <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Salva</button>
+    {% if obj.chiuso_fino_al %}<button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit" name="data" value="">Riapri</button>{% endif %}
+    {% if perms.core.change_sequenza %}<a class="ui-link" href="{% url 'core:numerazioni' %}">Numerazioni dei documenti</a>{% endif %}</form></div>
+</section>{% endif %}

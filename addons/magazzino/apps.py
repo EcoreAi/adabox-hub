@@ -7,6 +7,8 @@ class MagazzinoConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
 
     def ready(self):
+        from core import blocco
+        blocco.registra("magazzino.Movimento", "data")
         """Collegamenti con vendite e acquisti, solo se sono installati: il magazzino non ne dipende."""
         from core.registry import hooks
 

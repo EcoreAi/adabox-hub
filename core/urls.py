@@ -1,6 +1,6 @@
 from django.urls import include, path
 
-from . import applicazioni, cerca, due_fattori_viste, utenti, views
+from . import applicazioni, cerca, due_fattori_viste, utenti, views, periodi
 from .viste import salvate as salvate_viste
 from .viste import allegati as allegati_viste
 from .viste import chatter as chatter_viste
@@ -35,6 +35,8 @@ urlpatterns = [
     path("ricerche/<int:pk>/elimina/", salvate_viste.elimina, name="ricerca_elimina"),
     path("ricerche/<int:pk>/predefinita/", salvate_viste.predefinita_vista, name="ricerca_predefinita"),
     path("impostazioni/", views.impostazioni, name="impostazioni"),
+    path("impostazioni/numerazioni/", periodi.numerazioni, name="numerazioni"),
+    path("aziende/<int:pk>/periodo-chiuso/", periodi.periodo_chiuso, name="periodo_chiuso"),
     path("kanban/nota/<int:pk>/", kanban_viste.nota, name="kanban_nota"),
     path("impostazioni/barra/", views.impostazioni_barra, name="impostazioni_barra"),
     path("profilo/le-mie-app/", views.le_mie_app, name="le_mie_app"),

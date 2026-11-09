@@ -26,6 +26,8 @@ class Azienda(ProprietaMixin):
     telefono = models.CharField("telefono", max_length=40, blank=True)
     logo = models.ImageField("logo", upload_to="aziende/", blank=True)
     attiva = models.BooleanField("attiva", default=True)
+    chiuso_fino_al = models.DateField("periodo chiuso fino al", null=True, blank=True, editable=False,
+                                      help_text="nessun documento nuovo, spostato o cancellato con una data fino a questa")
 
     class Meta:
         verbose_name = "azienda"
@@ -361,6 +363,8 @@ class Sequenza(models.Model):
     prossimo = models.PositiveIntegerField("prossimo numero", default=1)
     azzera = models.CharField("azzera", max_length=4, choices=[(MAI, "Mai"), (ANNO, "Ogni anno")], default=MAI)
     anno = models.PositiveSmallIntegerField("anno corrente", null=True, blank=True)
+    personalizzata = models.BooleanField("cambiata dall'azienda", default=False,
+                                         help_text="gli aggiornamenti dei moduli non toccano più formato e azzeramento")
 
     class Meta:
         verbose_name = "sequenza"

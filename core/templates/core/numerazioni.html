@@ -1,0 +1,14 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Numerazioni · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Numerazioni</h1><div class="sub">Come si numerano i documenti di {{ request.azienda }}: {anno}, {mese:02d}, {numero:04d}</div></div></div>
+<section class="ui-card is-revealed ui-section">{% if righe %}<div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Documento</th><th>Formato</th><th>Prossimo</th><th>Azzera</th><th>Prossimo numero</th><th></th></tr></thead>
+  <tbody>{% for s in righe %}<tr><form method="post">{% csrf_token %}<input type="hidden" name="sequenza" value="{{ s.pk }}">
+    <td>{{ s.codice }}{% if s.personalizzata %} <span class="ui-pill ui-pill-neutral">cambiata</span>{% endif %}</td>
+    <td><input class="ui-input" name="formato" value="{{ s.formato }}" maxlength="100" style="min-width:180px" aria-label="Formato di {{ s.codice }}"></td>
+    <td><input class="ui-input" name="prossimo" value="{{ s.prossimo }}" inputmode="numeric" style="max-width:90px" aria-label="Prossimo numero"></td>
+    <td><select class="ui-input" name="azzera" aria-label="Azzeramento"><option value="mai"{% if s.azzera == "mai" %} selected{% endif %}>Mai</option><option value="anno"{% if s.azzera == "anno" %} selected{% endif %}>Ogni anno</option></select></td>
+    <td><strong>{{ s.anteprima }}</strong></td><td><button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Salva</button></td></form></tr>{% endfor %}</tbody></table></div>
+  {% else %}<div class="ui-card-body"><p class="sub" style="margin:0">Nessuna numerazione dai moduli installati.</p></div>{% endif %}</section>
+<p class="ui-help">Una numerazione cambiata qui resta com'è anche quando i moduli si aggiornano. Abbassare il numero può creare doppioni: fallo solo se sai che quei numeri non esistono.</p>
+{% endblock %}
