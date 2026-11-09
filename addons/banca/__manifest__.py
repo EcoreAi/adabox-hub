@@ -1,7 +1,7 @@
 {
     "name": "Banca",
     "summary": "Estratti conto importati o letti in automatico dalla banca, abbinati a fatture e fornitori: gli incassi si registrano con un clic, senza contabilità",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Contabilità",
     "depends": ["sdi"],
@@ -15,6 +15,7 @@
         {"label": "Movimenti", "url_name": "banca:movimenti_lista", "permission": "banca.view_movimentobanca"},
         {"label": "Importa estratto", "url_name": "banca:importa", "permission": "banca.add_importazione"},
         {"label": "Conti", "url_name": "banca:conti_lista", "permission": "banca.view_conto"},
+        {"label": "Regole dei movimenti", "url_name": "banca:regole_lista", "permission": "banca.view_regolamovimento"},
         {"label": "Lettura automatica", "url_name": "banca:aggregatori_lista", "permission": "banca.change_aggregatore"},
     ],
     "cron": [{"nome": "Lettura automatica dei conti", "funzione": "banca.sincronia.giro", "ogni": "6h"}],

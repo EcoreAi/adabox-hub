@@ -71,8 +71,9 @@ class Importazione(AziendaMixin):
 
 
 class MovimentoBanca(AziendaMixin):
-    DA_ABBINARE, PARZIALE, ABBINATO, IGNORATO = "da_abbinare", "parziale", "abbinato", "ignorato"
-    STATI = [(DA_ABBINARE, "Da abbinare"), (PARZIALE, "Abbinato in parte"), (ABBINATO, "Abbinato"), (IGNORATO, "Ignorato")]
+    DA_ABBINARE, PARZIALE, ABBINATO, IGNORATO, CLASSIFICATO = "da_abbinare", "parziale", "abbinato", "ignorato", "classificato"
+    STATI = [(DA_ABBINARE, "Da abbinare"), (PARZIALE, "Abbinato in parte"), (ABBINATO, "Abbinato"), (IGNORATO, "Ignorato"),
+             (CLASSIFICATO, "Classificato senza documento")]
     conto = models.ForeignKey(Conto, on_delete=models.CASCADE, related_name="movimenti", verbose_name="conto")
     importazione = models.ForeignKey(Importazione, on_delete=models.SET_NULL, null=True, blank=True, related_name="movimenti", verbose_name="importazione")
     data = models.DateField("data")
@@ -84,6 +85,11 @@ class MovimentoBanca(AziendaMixin):
     riferimento = models.CharField("riferimento della banca", max_length=120, blank=True)
     impronta = models.CharField("impronta", max_length=64, editable=False)
     stato = models.CharField("stato", max_length=12, choices=STATI, default=DA_ABBINARE, editable=False, db_index=True)
+    categoria = models.CharField("categoria", max_length=80, blank=True, editable=False,
+                                 help_text="per i movimenti senza fattura: commissioni, F24, stipendi, utenze…")
+    codice_studio = models.CharField("conto per lo studio", max_length=40, blank=True, editable=False)
+    regola = models.ForeignKey("RegolaMovimento", on_delete=models.SET_NULL, null=True, blank=True, related_name="movimenti",
+                               verbose_name="regola", editable=False)
 
     class Meta(AziendaMixin.Meta):
         verbose_name = "movimento"
@@ -182,3 +188,54 @@ class CollegamentoConto(AziendaMixin):
 
     def __str__(self):
         return f"{self.conto} · {self.nome_istituto or self.istituto}"
+
+
+class RegolaMovimento(AziendaMixin):
+    """Classifica da sola i movimenti senza fattura (commissioni, F24, stipendi, utenze): se la descrizione o la
+    controparte contengono il testo, e segno e importo sono quelli indicati, il movimento prende la categoria e il
+    conto per lo studio e non chiede più di essere abbinato. Vince la prima regola in ordine."""
+    ENTRATE, USCITE, TUTTI = "entrate", "uscite", "tutti"
+    SEGNI = [(USCITE, "Uscite"), (ENTRATE, "Entrate"), (TUTTI, "Entrate e uscite")]
+    nome = models.CharField("nome", max_length=80, help_text="es. Commissioni bancarie")
+    descrizione_contiene = models.CharField("la descrizione contiene", max_length=200, blank=True,
+                                            help_text="più testi separati da | valgono in alternativa, es. COMMISSIONI|SPESE TENUTA")
+    controparte_contiene = models.CharField("la controparte contiene", max_length=120, blank=True)
+    iban_controparte = models.CharField("IBAN della controparte", max_length=34, blank=True)
+    segno = models.CharField("movimenti", max_length=8, choices=SEGNI, default=USCITE)
+    importo_da = models.DecimalField("importo da", max_digits=14, decimal_places=2, null=True, blank=True, help_text="in valore assoluto")
+    importo_a = models.DecimalField("importo fino a", max_digits=14, decimal_places=2, null=True, blank=True)
+    categoria = models.CharField("categoria", max_length=80, help_text="es. Commissioni bancarie, F24, Stipendi, Utenze")
+    codice_studio = models.CharField("conto per lo studio", max_length=40, blank=True, help_text="il conto del piano dello studio, se lo conosci")
+    ordine = models.PositiveIntegerField("ordine", default=10)
+    attiva = models.BooleanField("attiva", default=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "regola dei movimenti"
+        verbose_name_plural = "regole dei movimenti"
+        ordering = ["ordine", "pk"]
+
+    def __str__(self):
+        return self.nome
+
+    def clean(self):
+        if not (self.descrizione_contiene or self.controparte_contiene or self.iban_controparte):
+            raise ValidationError("Indica almeno un testo della descrizione, della controparte o un IBAN.")
+        if self.importo_da is not None and self.importo_a is not None and self.importo_a < self.importo_da:
+            raise ValidationError({"importo_a": "Deve essere almeno pari all'importo da."})
+        self.iban_controparte = normalizza_iban(self.iban_controparte)
+
+    def corrisponde(self, m):
+        if self.segno == self.ENTRATE and m.importo <= 0 or self.segno == self.USCITE and m.importo >= 0:
+            return False
+        valore = abs(m.importo)
+        if self.importo_da is not None and valore < self.importo_da or self.importo_a is not None and valore > self.importo_a:
+            return False
+        if self.descrizione_contiene:
+            testo = (m.descrizione or "").upper()
+            if not any(p.strip().upper() in testo for p in self.descrizione_contiene.split("|") if p.strip()):
+                return False
+        if self.controparte_contiene and self.controparte_contiene.strip().upper() not in (m.controparte or "").upper():
+            return False
+        if self.iban_controparte and normalizza_iban(self.iban_controparte) != normalizza_iban(m.iban_controparte):
+            return False
+        return True

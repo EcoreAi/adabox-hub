@@ -60,6 +60,8 @@ def salva(conto, estratto, nome_file="", utente=None):
     MovimentoBanca.objects.bulk_create(nuovi)
     esame.nuovi = len(nuovi)
     esame.save(update_fields=["nuovi", "doppi"])
+    from . import classifica
+    classifica.applica(conto.azienda, MovimentoBanca.objects.filter(importazione=esame))
     if estratto.saldo is not None and (conto.saldo_al is None or (estratto.saldo_al and estratto.saldo_al >= conto.saldo_al)):
         conto.saldo, conto.saldo_al = estratto.saldo, estratto.saldo_al
         conto.save(update_fields=["saldo", "saldo_al"])
@@ -160,7 +162,7 @@ def e_sicura(lista):
 def _aggiorna_stato(movimento):
     abbinato = movimento.abbinato
     if abbinato <= 0:
-        if movimento.stato != MovimentoBanca.IGNORATO:
+        if movimento.stato not in (MovimentoBanca.IGNORATO, MovimentoBanca.CLASSIFICATO):
             movimento.stato = MovimentoBanca.DA_ABBINARE
     else:
         movimento.stato = MovimentoBanca.ABBINATO if abbinato >= abs(movimento.importo) else MovimentoBanca.PARZIALE
@@ -176,8 +178,8 @@ def _passiva_cambiata(fattura):
 def abbina(movimento, chiavi, utente=None):
     """Copre le scadenze scelte, nell'ordine, finché il movimento basta. Un residuo resta da abbinare, mai un incasso in più."""
     movimento = MovimentoBanca.objects.select_for_update().select_related("conto").get(pk=movimento.pk)
-    if movimento.stato == MovimentoBanca.IGNORATO:
-        raise ValidationError("Questo movimento è ignorato: ripristinalo prima di abbinarlo.")
+    if movimento.stato in (MovimentoBanca.IGNORATO, MovimentoBanca.CLASSIFICATO):
+        raise ValidationError("Questo movimento è ignorato o classificato: ripristinalo prima di abbinarlo.")
     resto = movimento.da_coprire
     if resto <= 0:
         raise ValidationError("Questo movimento è già tutto abbinato.")
@@ -245,7 +247,7 @@ def candidati_uscita(azienda, importo, data=None, giorni=45):
     from django.utils import timezone
     data = data or timezone.localdate()
     movimenti = (MovimentoBanca.objects.filter(azienda=azienda, importo__lt=0, data__range=(data - timedelta(days=giorni), data + timedelta(days=giorni)))
-                 .exclude(stato__in=(MovimentoBanca.IGNORATO, MovimentoBanca.ABBINATO)).select_related("conto"))
+                 .exclude(stato__in=(MovimentoBanca.IGNORATO, MovimentoBanca.ABBINATO, MovimentoBanca.CLASSIFICATO)).select_related("conto"))
     adatti = [m for m in movimenti if m.da_coprire >= importo]
     return sorted(adatti, key=lambda m: (abs(m.importo) != importo, abs((m.data - data).days)))[:10]
 
@@ -255,8 +257,8 @@ def abbina_documento(movimento, documento, importo, utente=None):
     """Il movimento salda `importo` di un documento di un altro modulo (es. il rimborso di una nota spese)."""
     from django.contrib.contenttypes.models import ContentType
     movimento = MovimentoBanca.objects.select_for_update().get(pk=movimento.pk)
-    if movimento.stato == MovimentoBanca.IGNORATO:
-        raise ValidationError("Questo movimento è ignorato: ripristinalo prima di abbinarlo.")
+    if movimento.stato in (MovimentoBanca.IGNORATO, MovimentoBanca.CLASSIFICATO):
+        raise ValidationError("Questo movimento è ignorato o classificato: ripristinalo prima di abbinarlo.")
     if importo <= 0 or movimento.da_coprire < importo:
         raise ValidationError(f"Il movimento non copre {importo} €.")
     a = Abbinamento.objects.create(movimento=movimento, importo=importo, utente=utente,
@@ -307,6 +309,6 @@ def ignora(movimento):
 
 @transaction.atomic
 def ripristina(movimento):
-    movimento.stato = MovimentoBanca.DA_ABBINARE
-    movimento.save(update_fields=["stato"])
+    movimento.stato, movimento.categoria, movimento.codice_studio, movimento.regola = MovimentoBanca.DA_ABBINARE, "", "", None
+    movimento.save(update_fields=["stato", "categoria", "codice_studio", "regola"])
     _aggiorna_stato(movimento)

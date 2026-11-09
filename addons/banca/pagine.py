@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST
 from core.dashboard import queryset
 
 from . import abbina as motore, estratti, memoria
-from .models import Abbinamento, Conto, MovimentoBanca
+from .models import Abbinamento, Conto, MovimentoBanca, RegolaMovimento
 
 PER_PAGINA = 40
 PERMESSO_ABBINA = "banca.add_abbinamento"
@@ -44,7 +44,13 @@ def riconcilia(request):
     return render(request, "banca/riconcilia.html", {
         "schede": schede, "conti": conti, "conto": conto, "totale": tutti.count(), "sicuri": sicuri,
         "entrate": tutti.filter(importo__gt=0).aggregate(t=Sum("importo"))["t"] or 0, "uscite": tutti.filter(importo__lt=0).aggregate(t=Sum("importo"))["t"] or 0,
-        "puo_abbinare": request.user.has_perm(PERMESSO_ABBINA)})
+        "puo_abbinare": request.user.has_perm(PERMESSO_ABBINA), "categorie": _categorie(request),
+        "regole": queryset(request, RegolaMovimento).filter(attiva=True).exists()})
+
+
+def _categorie(request):
+    from . import classifica as motore_classifica
+    return motore_classifica.categorie(request.azienda) if getattr(request, "azienda", None) else []
 
 
 @login_required
@@ -129,6 +135,31 @@ def ignora(request, pk):
         motore.ignora(_movimento(request, pk))
     except ValidationError as e:
         messages.error(request, " ".join(e.messages))
+    return _ritorno(request)
+
+
+@login_required
+@permission_required(PERMESSO_ABBINA, raise_exception=True)
+@require_POST
+def classifica(request, pk):
+    from . import classifica as motore_classifica
+    try:
+        regola = motore_classifica.classifica(_movimento(request, pk), request.POST.get("categoria", ""), request.POST.get("codice", "").strip(),
+                                              request.POST.get("regola") == "1")
+    except ValidationError as e:
+        messages.error(request, " ".join(e.messages))
+    else:
+        messages.success(request, "Movimento classificato." + (f" Nata la regola «{regola}» per i prossimi uguali." if regola else ""))
+    return _ritorno(request)
+
+
+@login_required
+@permission_required(PERMESSO_ABBINA, raise_exception=True)
+@require_POST
+def applica_regole(request):
+    from . import classifica as motore_classifica
+    fatti = motore_classifica.applica(request.azienda)
+    messages.success(request, f"Movimenti classificati dalle regole: {fatti}.")
     return _ritorno(request)
 
 

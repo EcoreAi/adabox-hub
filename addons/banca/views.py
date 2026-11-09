@@ -3,7 +3,7 @@ from django import forms
 from core import cifratura
 from core.viste import ModelView, register
 
-from .models import Aggregatore, CollegamentoConto, Conto, MovimentoBanca
+from .models import Aggregatore, CollegamentoConto, Conto, MovimentoBanca, RegolaMovimento
 
 
 @register
@@ -23,8 +23,8 @@ class MovimentoView(ModelView):
     """I movimenti arrivano dalla banca: si guardano e si abbinano, non si scrivono a mano."""
     model = MovimentoBanca
     slug = "movimenti"
-    list_display = ["data", "conto", "importo", "controparte", "descrizione", "stato"]
-    list_filter = ["stato", "conto", "data"]
+    list_display = ["data", "conto", "importo", "controparte", "descrizione", "stato", "categoria"]
+    list_filter = ["stato", "conto", "data", "categoria"]
     search_fields = ["descrizione", "controparte", "riferimento", "iban_controparte"]
     form_layout = [("MovimentoBanca", [("data", "valuta"), ("conto", "importo"), ("controparte", "iban_controparte"), "riferimento", "descrizione"])]
     readonly_fields = ["data", "valuta", "conto", "importo", "controparte", "iban_controparte", "riferimento", "descrizione", "stato"]
@@ -114,3 +114,17 @@ class CollegamentoView(ModelView):
 
     def has_change_permission(self, request, obj=None):
         return False if obj is not None else super().has_change_permission(request, obj)
+
+
+@register
+class RegolaMovimentoView(ModelView):
+    """Le regole che classificano da sole i movimenti senza fattura, con la categoria e il conto per lo studio."""
+    model = RegolaMovimento
+    slug = "regole"
+    company_field = "azienda"
+    list_display = ["ordine", "nome", "categoria", "codice_studio", "segno", "descrizione_contiene", "controparte_contiene", "attiva"]
+    list_filter = ["attiva", "segno"]
+    search_fields = ["nome", "categoria", "descrizione_contiene", "controparte_contiene"]
+    form_layout = [("Quando", [("descrizione_contiene", "controparte_contiene"), ("iban_controparte", "segno"), ("importo_da", "importo_a")]),
+                   ("Allora", [("nome", "categoria"), ("codice_studio", "ordine"), "attiva"])]
+    ai_descrizione = "Le regole che classificano i movimenti bancari senza fattura (commissioni, F24, stipendi) con categoria e conto dello studio."

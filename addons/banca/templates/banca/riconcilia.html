@@ -1,5 +1,7 @@
 {% extends 'core/base_app.html' %}
-{% block title %}Da abbinare · {{ theme.brand }}{% endblock %}
+{% block title %}Da abbinare · {{ theme.brand }}<datalist id="bn-categorie">{% for c in categorie %}<option value="{{ c }}">{% endfor %}</datalist>
+<style>.bn-classifica{margin-top:8px}.bn-classifica form{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}.bn-classifica .ui-input{max-width:240px}</style>
+{% endblock %}
 {% block app_content %}
 <div class="ui-pagehead"><div><h1>Da abbinare</h1><div class="sub">Conferma a quale fattura corrisponde ogni movimento: l'incasso si registra da solo</div></div>
   <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-primary" href="{% url 'banca:importa' %}">Importa estratto</a></div></div>
@@ -9,14 +11,21 @@
   <div class="cm-tessera"><small>Uscite</small><strong>{{ uscite|floatformat:2 }} €</strong></div>
   <div class="cm-tessera"><small>Abbinamenti sicuri</small><strong>{{ sicuri }}</strong></div>
 </div>
-{% if conti|length > 1 or sicuri %}<div class="bn-barra">{% if conti|length > 1 %}<form method="get"><select class="ui-input" name="conto" aria-label="Conto" onchange="this.form.submit()"><option value="">Tutti i conti</option>{% for c in conti %}<option value="{{ c.pk }}"{% if conto.pk == c.pk %} selected{% endif %}>{{ c }}</option>{% endfor %}</select></form>{% endif %}
+{% if conti|length > 1 or sicuri or regole %}<div class="bn-barra">{% if conti|length > 1 %}<form method="get"><select class="ui-input" name="conto" aria-label="Conto" onchange="this.form.submit()"><option value="">Tutti i conti</option>{% for c in conti %}<option value="{{ c.pk }}"{% if conto.pk == c.pk %} selected{% endif %}>{{ c }}</option>{% endfor %}</select></form>{% endif %}
+  {% if regole and puo_abbinare %}<form method="post" action="{% url 'banca:applica_regole' %}">{% csrf_token %}<input type="hidden" name="ritorno" value="{{ request.get_full_path }}"><button class="ui-btn ui-btn-secondary" type="submit">Applica le regole</button></form>{% endif %}
   {% if sicuri and puo_abbinare %}<form method="post" action="{% url 'banca:abbina_sicuri' %}">{% csrf_token %}{% if conto %}<input type="hidden" name="conto" value="{{ conto.pk }}">{% endif %}<input type="hidden" name="ritorno" value="{{ request.get_full_path }}"><button class="ui-btn ui-btn-primary" type="submit" title="Solo i movimenti con numero e importo giusti e un'unica fattura possibile">Conferma i {{ sicuri }} sicuri</button></form>{% endif %}</div>{% endif %}
 {% for s in schede %}<article class="ui-card is-revealed ui-section bn-scheda">
   <div class="bn-movimento"><strong class="{% if s.m.importo > 0 %}bn-entra{% endif %}">{% if s.m.importo > 0 %}+{% endif %}{{ s.m.importo|floatformat:2 }} €</strong>
     <div class="sub">{{ s.m.data|date:"d/m/Y" }} · {{ s.m.conto }}{% if s.m.controparte %} · {{ s.m.controparte }}{% endif %}</div>
     <p>{{ s.m.descrizione|truncatechars:220 }}</p>
     {% if s.m.stato == 'parziale' %}<span class="ui-pill ui-pill-warn">Restano {{ s.m.da_coprire|floatformat:2 }} € da abbinare</span>{% endif %}
-    {% if puo_abbinare %}<div class="bn-azioni"><a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'banca:scegli' s.m.pk %}">Cerca a mano</a>{% if s.m.stato == 'da_abbinare' %}<form method="post" action="{% url 'banca:ignora' s.m.pk %}">{% csrf_token %}<input type="hidden" name="ritorno" value="{{ request.get_full_path }}"><button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit" title="Commissioni, stipendi, F24: restano nei movimenti ma non chiedono più di essere abbinati">Ignora</button></form>{% endif %}</div>{% endif %}
+    {% if puo_abbinare %}<div class="bn-azioni"><a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'banca:scegli' s.m.pk %}">Cerca a mano</a>{% if s.m.stato == 'da_abbinare' %}<form method="post" action="{% url 'banca:ignora' s.m.pk %}">{% csrf_token %}<input type="hidden" name="ritorno" value="{{ request.get_full_path }}"><button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit" title="Restano nei movimenti ma non chiedono più di essere abbinati">Ignora</button></form>{% endif %}</div>
+    {% if s.m.stato == 'da_abbinare' %}<details class="bn-classifica"><summary class="ui-link">Senza fattura? Classificalo</summary>
+      <form method="post" action="{% url 'banca:classifica' s.m.pk %}">{% csrf_token %}<input type="hidden" name="ritorno" value="{{ request.get_full_path }}">
+        <input class="ui-input" name="categoria" list="bn-categorie" placeholder="Categoria, es. Commissioni bancarie" required aria-label="Categoria">
+        <input class="ui-input" name="codice" placeholder="Conto per lo studio (facoltativo)" maxlength="40" aria-label="Conto per lo studio">
+        <label class="ut-check"><input type="checkbox" name="regola" value="1" checked> Fai così anche con i prossimi uguali</label>
+        <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Classifica</button></form></details>{% endif %}{% endif %}
   </div>
   <div class="bn-proposte">{% for p in s.proposte %}<form method="post" action="{% url 'banca:abbina' s.m.pk %}" class="bn-proposta{% if s.sicura and forloop.first %} is-sicura{% endif %}">{% csrf_token %}<input type="hidden" name="scadenza" value="{{ p.chiave }}"><input type="hidden" name="ritorno" value="{{ request.get_full_path }}">
       <div><div class="bn-doc">{{ p.documento }} <span>{{ p.controparte }}</span></div><div class="sub">Da {% if p.passiva %}pagare{% else %}incassare{% endif %} {{ p.residuo|floatformat:2 }} € · scadenza {{ p.scadenza.data|date:"d/m/Y"|default:"—" }}</div>
