@@ -5,7 +5,7 @@ from core.viste import Inline, ModelView, register, schede
 
 from . import operazioni
 from .models import Consegna, Magazzino, Movimento, Ricevimento, RigaConsegna, RigaRicevimento, Ubicazione
-from .models import Inventario, Lotto, Reso, RigaReso, ScortaMagazzino
+from .models import CostoAccessorio, Inventario, Lotto, Reso, RigaReso, ScortaMagazzino
 
 
 @register
@@ -398,3 +398,53 @@ class ResoView(ModelView):
         return redirect("fatturazione:fatture_dettaglio", pk=nota.pk)
     nota_di_credito.short_description = "Nota di credito"
     nota_di_credito.permission = "fatturazione.add_fattura"
+
+
+@register
+class CostoAccessorioView(ModelView):
+    """Trasporti, dazi e simili ripartiti sulla merce dei ricevimenti: il costo di magazzino si ricalcola."""
+    model = CostoAccessorio
+    slug = "accessori"
+    company_field = "azienda"
+    list_display = ["data", "descrizione", "fornitore", "importo", "criterio", "stato"]
+    list_filter = ["stato", "criterio"]
+    form_layout = [("Costo", [("descrizione", "data"), ("fornitore", "importo"), "criterio", "ricevimenti"])]
+    buttons = ["applica", "annulla"]
+    ai_descrizione = "I costi accessori di acquisto (trasporti, dazi) ripartiti sul costo della merce ricevuta."
+
+    def get_form_class(self, request=None):
+        classe = super().get_form_class(request)
+
+        class Form(classe):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                if "ricevimenti" in self.fields:
+                    self.fields["ricevimenti"].queryset = self.fields["ricevimenti"].queryset.filter(stato="fatto")
+        return Form
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and (obj is None or obj.stato == obj.BOZZA)
+
+    def get_buttons(self, request, obj):
+        return [b for b in super().get_buttons(request, obj) if (b[0] == "applica") == (obj.stato == obj.BOZZA)]
+
+    def applica(self, request, obj):
+        from . import accessori
+        try:
+            righe = accessori.applica(obj)
+        except ValidationError as e:
+            return " ".join(e.messages)
+        return f"Ripartito su {len(righe)} carichi: i costi di magazzino sono ricalcolati."
+    applica.short_description = "Applica al costo della merce"
+    applica.permission = "magazzino.add_movimento"
+
+    def annulla(self, request, obj):
+        from . import accessori
+        try:
+            accessori.annulla(obj)
+        except ValidationError as e:
+            return " ".join(e.messages)
+        return "Annullato: i costi della merce sono tornati quelli di prima."
+    annulla.short_description = "Annulla la ripartizione"
+    annulla.permission = "magazzino.add_movimento"
+    annulla.rischio = "irreversibile"

@@ -1,0 +1,5 @@
+{% load magazzino %}{% ripartizione_costo obj as r %}{% if r %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">{% if obj.stato == "applicato" %}Ripartizione applicata{% else %}Anteprima della ripartizione{% endif %}</div></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Prodotto</th><th class="ui-num">Quantità</th><th class="ui-num">Quota</th><th class="ui-num">Per unità</th></tr></thead>
+  <tbody>{% for x in r %}<tr><td>{{ x.prodotto }}</td><td class="ui-num">{{ x.quantita|floatformat:"-3" }}</td><td class="ui-num">{{ x.quota|floatformat:2 }} €</td><td class="ui-num">{{ x.unita|floatformat:4 }} €</td></tr>{% endfor %}</tbody></table></div>
+</section>{% endif %}

@@ -518,3 +518,38 @@ class RigaReso(models.Model):
     def clean(self):
         if self.quantita is not None and self.quantita <= 0:
             raise ValidationError({"quantita": "Scrivi quanti pezzi rientrano."})
+
+
+class CostoAccessorio(AziendaMixin):
+    """Trasporto, dazi, assicurazione di uno o più ricevimenti: si ripartiscono sul costo della merce arrivata (per
+    valore, quantità o peso) e il costo di magazzino si ricalcola. Si annulla tornando ai costi di prima."""
+    BOZZA, APPLICATO = "bozza", "applicato"
+    VALORE, QUANTITA, PESO = "valore", "quantita", "peso"
+    CRITERI = [(VALORE, "In proporzione al valore"), (QUANTITA, "In proporzione alla quantità"), (PESO, "In proporzione al peso")]
+    descrizione = models.CharField("descrizione", max_length=200, help_text="es. Trasporto del container di marzo")
+    fornitore = models.ForeignKey("contatti.Contatto", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                                  verbose_name="fornitore del servizio")
+    data = models.DateField("data", default=timezone.localdate)
+    importo = models.DecimalField("importo (€)", max_digits=12, decimal_places=2)
+    criterio = models.CharField("ripartizione", max_length=10, choices=CRITERI, default=VALORE)
+    ricevimenti = models.ManyToManyField(Ricevimento, related_name="costi_accessori", verbose_name="ricevimenti")
+    stato = models.CharField("stato", max_length=10, choices=[(BOZZA, "Da applicare"), (APPLICATO, "Applicato")], default=BOZZA, editable=False)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "costo accessorio"
+        verbose_name_plural = "costi accessori"
+        ordering = ["-data", "-pk"]
+
+    def __str__(self):
+        return self.descrizione
+
+
+class RipartizioneCosto(models.Model):
+    costo = models.ForeignKey(CostoAccessorio, on_delete=models.CASCADE, related_name="ripartizioni", verbose_name="costo")
+    movimento = models.ForeignKey(Movimento, on_delete=models.CASCADE, related_name="+", verbose_name="movimento")
+    quota = models.DecimalField("quota (€)", max_digits=12, decimal_places=2)
+    costo_prima = models.DecimalField("costo unitario di prima", max_digits=14, decimal_places=4, null=True)
+
+    class Meta:
+        verbose_name = "ripartizione"
+        verbose_name_plural = "ripartizioni"

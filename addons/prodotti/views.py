@@ -11,7 +11,7 @@ class ProdottoView(ModelView):
     list_filter = ["tipo", "categoria", "aliquota_iva", "attivo"]
     search_fields = ["nome", "codice", "codice_barre", "descrizione_vendita", "confezioni__codice_barre"]
     form_layout = [
-        ("Prodotto", [("nome", "codice"), ("tipo", "categoria"), ("unita", "codice_barre"), ("unita_vendita", "unita_acquisto"), "attivo"]),
+        ("Prodotto", [("nome", "codice"), ("tipo", "categoria"), ("unita", "codice_barre"), ("unita_vendita", "unita_acquisto"), ("peso", "attivo")]),
         ("Prezzi", [("prezzo_vendita", "costo"), "aliquota_iva"]),
         ("Altro", ["descrizione_vendita", ("scorta_minima", "kit"), "@proprieta"]),
     ]

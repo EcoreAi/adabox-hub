@@ -67,3 +67,20 @@ def kit_prodotto(prodotto):
         return None
     componenti = [{"c": c, "giacenza": giacenza(c.componente)} for c in prodotto.componenti.select_related("componente")]
     return {"disponibili": disponibili_kit(prodotto), "componenti": componenti}
+
+
+@register.simple_tag
+def ripartizione_costo(costo):
+    from decimal import Decimal
+
+    from django.core.exceptions import ValidationError
+
+    from magazzino import accessori
+    if costo.stato == costo.APPLICATO:
+        righe = [(r.movimento, None, r.quota) for r in costo.ripartizioni.select_related("movimento__prodotto")]
+    else:
+        try:
+            righe = accessori.anteprima(costo)
+        except ValidationError:
+            return []
+    return [{"prodotto": m.prodotto, "quantita": m.quantita, "quota": q, "unita": q / Decimal(m.quantita)} for m, _, q in righe]

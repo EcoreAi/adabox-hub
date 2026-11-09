@@ -99,6 +99,7 @@ class Prodotto(AziendaMixin, ProprietaMixin):
     aliquota_iva = models.ForeignKey("fiscale.AliquotaIva", on_delete=models.PROTECT, default=aliquota_predefinita,
                                      verbose_name="aliquota IVA")
     codice_barre = models.CharField("codice a barre", max_length=40, blank=True)
+    peso = models.DecimalField("peso unitario (kg)", max_digits=10, decimal_places=3, null=True, blank=True)
     descrizione_vendita = models.TextField("descrizione per i documenti", blank=True)
     scorta_minima = models.DecimalField("scorta minima", max_digits=12, decimal_places=3, default=0)
     kit = models.BooleanField("kit", default=False,
