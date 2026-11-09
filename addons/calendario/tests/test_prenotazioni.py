@@ -97,6 +97,10 @@ def test_pagina_pubblica_e_annullamento(client, tipo, settings):
     assert p.stato == Prenotazione.ANNULLATA and p.evento is None and "annullato" in r.content.decode()
     assert any("annullato" in m.subject for m in mail.outbox)          # l'operatore è avvisato
     assert client.get("/calendario/prenotazione/falso/").status_code == 400
+    # le pagine interne: tipo e prenotazione annullata
+    client.force_login(User.objects.create_superuser("root", "r@x.it", "x"))
+    for interna in [f"/calendario/tipi-appuntamento/{tipo.pk}/", f"/calendario/prenotazioni/{p.pk}/", "/calendario/prenotazioni/"]:
+        assert client.get(interna).status_code == 200, interna
     tipo.attivo = False
     tipo.save()
     assert client.get(url).status_code == 404

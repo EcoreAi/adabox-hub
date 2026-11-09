@@ -106,9 +106,10 @@ class PrenotazioneView(ModelView):
     list_group_by = ["tipo", "operatore", "inizio:mese"]
     graph = {"tipi": ["barre", "linee"], "misure": ["count"], "per": ["inizio:mese", "tipo", "operatore"]}
     chatter = True
+    buttons = ["annulla"]
 
     def get_buttons(self, request, obj):
-        return ["annulla"] if obj and obj.stato == Prenotazione.CONFERMATA else []
+        return super().get_buttons(request, obj) if obj and obj.stato == Prenotazione.CONFERMATA else []
 
     def annulla(self, request, obj):
         prenotazioni.annulla(obj, da_cliente=False)
