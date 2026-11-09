@@ -113,8 +113,10 @@ def _pulisci_collegati(contatto, tolti):
     for rel in contatto._meta.related_objects:
         modello = rel.related_model
         if rel.many_to_many:
-            getattr(contatto, rel.get_accessor_name()).clear()
-            tolti.append(f"collegamenti con {modello._meta.verbose_name_plural}")
+            # Sulla tabella di collegamento e non con l'accessor: con related_name="+" l'accessor non esiste.
+            n, _ = rel.through._default_manager.filter(**{rel.field.m2m_reverse_field_name(): contatto}).delete()
+            if n:
+                tolti.append(f"collegamenti con {modello._meta.verbose_name_plural}")
             continue
         if not rel.one_to_many or getattr(rel, "on_delete", None) is models.PROTECT or modello is Consenso:
             continue
