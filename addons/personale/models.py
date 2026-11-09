@@ -204,3 +204,60 @@ class Timbratura(AziendaMixin):
 
     def __str__(self):
         return f"{self.dipendente} · {self.get_verso_display()} {timezone.localtime(self.il):%d/%m %H:%M}"
+
+
+class ContrattoLavoro(AziendaMixin):
+    """Il contratto di un dipendente in un periodo: tipo, CCNL e livello, orario, ferie e permessi annui, retribuzione.
+    Quello in vigore aggiorna i dati del dipendente su cui contano saldi e presenze. Dati riservati alle Risorse umane."""
+    dipendente = models.ForeignKey(Dipendente, on_delete=models.CASCADE, related_name="contratti", verbose_name="dipendente")
+    tipo = models.CharField("tipo", max_length=15, choices=Dipendente.CONTRATTI, default="indeterminato")
+    ccnl = models.CharField("CCNL", max_length=120, blank=True, help_text="es. Commercio e terziario")
+    livello = models.CharField("livello", max_length=30, blank=True)
+    mansione = models.CharField("mansione", max_length=120, blank=True)
+    dal = models.DateField("dal")
+    al = models.DateField("al", null=True, blank=True, help_text="vuoto = a tempo indeterminato")
+    ore_settimanali = models.DecimalField("ore settimanali", max_digits=4, decimal_places=1, default=Decimal(40))
+    giorni_ferie_annui = models.DecimalField("ferie annue (giorni)", max_digits=5, decimal_places=2, default=Decimal(26))
+    ore_permesso_annue = models.DecimalField("permessi annui (ore)", max_digits=6, decimal_places=2, default=Decimal(32))
+    retribuzione_annua = models.DecimalField("retribuzione lorda annua (€)", max_digits=12, decimal_places=2, null=True, blank=True)
+    mensilita = models.PositiveSmallIntegerField("mensilità", default=13)
+    note = models.TextField("note", blank=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "contratto di lavoro"
+        verbose_name_plural = "contratti di lavoro"
+        ordering = ["-dal", "-pk"]
+
+    def __str__(self):
+        return f"{self.dipendente} · {self.get_tipo_display()} dal {self.dal:%d/%m/%Y}"
+
+    def clean(self):
+        if self.dal and self.al and self.al < self.dal:
+            raise ValidationError({"al": "La fine viene dopo l'inizio."})
+        if self.tipo == "determinato" and not self.al:
+            raise ValidationError({"al": "Un contratto a tempo determinato ha una scadenza."})
+        if self.dipendente_id and self.dal:
+            sovrapposti = ContrattoLavoro.objects.filter(dipendente_id=self.dipendente_id).exclude(pk=self.pk).filter(
+                models.Q(al__isnull=True) | models.Q(al__gte=self.dal))
+            if self.al:
+                sovrapposti = sovrapposti.filter(dal__lte=self.al)
+            if sovrapposti.exists():
+                raise ValidationError("Il periodo si sovrappone a un altro contratto: chiudi prima quello (indica la sua fine).")
+
+    @property
+    def mensile(self):
+        return (self.retribuzione_annua / self.mensilita).quantize(Decimal("0.01")) if self.retribuzione_annua and self.mensilita else None
+
+
+class VoceRetributiva(models.Model):
+    """Una voce della busta paga prevista dal contratto: superminimo, indennità, buoni pasto…"""
+    FISSA, VARIABILE = "fissa", "variabile"
+    contratto = models.ForeignKey(ContrattoLavoro, on_delete=models.CASCADE, related_name="voci", verbose_name="contratto")
+    nome = models.CharField("voce", max_length=100)
+    importo = models.DecimalField("importo mensile (€)", max_digits=10, decimal_places=2)
+    tipo = models.CharField("tipo", max_length=10, choices=[(FISSA, "Fissa"), (VARIABILE, "Variabile")], default=FISSA)
+
+    class Meta:
+        verbose_name = "voce retributiva"
+        verbose_name_plural = "voci retributive"
+        ordering = ["pk"]

@@ -18,4 +18,17 @@ def voci(request, dal, oggi):
         voce(OGGI, assenti.count(), "collega assente oggi", "colleghi assenti oggi", reverse("personale:assenze_calendario"), dettagli=dettagli_di(assenti, lambda a: f"{a.dipendente} · {a.tipo}")),
         voce(NOVITA, mie.count(), "tua richiesta di assenza decisa", "tue richieste di assenza decise", reverse("personale:mie"),
              dettagli=dettagli_di(mie, lambda a: f"{a.get_stato_display()} · {a.tipo} dal {a.dal:%d/%m}")),
+        _contratti(request, oggi),
     ]
+
+
+def _contratti(request, oggi):
+    """I contratti in scadenza nei prossimi 30 giorni, a chi vede i contratti."""
+    from . import contratti
+    from .models import ContrattoLavoro
+    if not request.user.has_perm("personale.view_contrattolavoro"):
+        return voce(ATTENZIONE, 0, "contratto in scadenza", "contratti in scadenza")
+    scadono = contratti.in_scadenza(queryset(request, ContrattoLavoro), oggi)
+    return voce(ATTENZIONE, len(scadono), "contratto in scadenza", "contratti in scadenza", reverse("personale:contratti_lista"),
+                dettagli=[(f"{c.dipendente} · {c.get_tipo_display()} fino al {c.al:%d/%m/%Y}", reverse("personale:contratti_dettaglio", args=[c.pk]))
+                          for c in scadono[:5]])

@@ -4,10 +4,10 @@ from django.db.models import Q
 from django.shortcuts import redirect
 
 from core.colori import sicuro
-from core.viste import ModelView, register, schede
+from core.viste import Inline, ModelView, register, schede
 
 from . import flusso
-from .models import Assenza, Dipendente, Posizione, Reparto, Timbratura, TipoAssenza
+from .models import Assenza, Dipendente, Posizione, Reparto, Timbratura, TipoAssenza, ContrattoLavoro, VoceRetributiva
 
 
 @register
@@ -219,3 +219,20 @@ class AssenzaView(ModelView):
         return f"Richieste approvate: {n}."
     approva_selezionate.short_description = "Approva"
     approva_selezionate.permission = "view"
+
+
+@register
+class ContrattoLavoroView(ModelView):
+    """I contratti dei dipendenti: storico, condizioni, retribuzione. Quello in vigore aggiorna orario e ferie."""
+    model = ContrattoLavoro
+    slug = "contratti"
+    company_field = "azienda"
+    list_display = ["dipendente", "tipo", "ccnl", "livello", "dal", "al", "ore_settimanali"]
+    list_filter = ["tipo", "dipendente"]
+    search_fields = ["dipendente__nome", "dipendente__cognome", "ccnl", "livello", "mansione"]
+    form_layout = [("Contratto", [("dipendente", "tipo"), ("dal", "al"), ("ccnl", "livello"), "mansione"]),
+                   ("Orario e ferie", [("ore_settimanali", "giorni_ferie_annui"), "ore_permesso_annue"]),
+                   ("Retribuzione", [("retribuzione_annua", "mensilita"), "note"])]
+    inlines = [Inline(VoceRetributiva, "contratto", ["nome", "importo", "tipo"], titolo="Voci retributive", extra=0)]
+    api = False                   # dati riservati: niente API
+    ai_descrizione = "I contratti di lavoro dei dipendenti, dati riservati alle risorse umane."

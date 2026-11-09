@@ -1,0 +1,7 @@
+{% load personale_contratti %}{% contratti_dipendente obj as cc %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Contratti</div><div class="ui-card-sub">{% if cc.vigore %}In vigore: {{ cc.vigore.get_tipo_display }}{% if cc.vigore.ccnl %} · {{ cc.vigore.ccnl }}{% endif %}{% if cc.vigore.livello %} {{ cc.vigore.livello }}{% endif %}{% if cc.vigore.al %} fino al {{ cc.vigore.al|date:"d/m/Y" }}{% endif %}{% else %}Nessun contratto in vigore{% endif %}</div></div>
+    {% if perms.personale.add_contrattolavoro %}<a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'personale:contratti_nuovo' %}?dipendente={{ obj.pk }}">Nuovo contratto</a>{% endif %}</div>
+  {% if cc.tutti %}<div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Periodo</th><th>Tipo</th><th>CCNL e livello</th><th class="ui-num">Ore</th><th class="ui-num">Lordo mensile</th></tr></thead>
+  <tbody>{% for c in cc.tutti %}<tr><td><a class="ui-link" href="{% url 'personale:contratti_dettaglio' c.pk %}">{{ c.dal|date:"d/m/Y" }} – {{ c.al|date:"d/m/Y"|default:"…" }}</a></td><td>{{ c.get_tipo_display }}</td><td>{{ c.ccnl|default:"—" }} {{ c.livello }}</td><td class="ui-num">{{ c.ore_settimanali|floatformat:"-1" }}</td><td class="ui-num">{{ c.mensile|floatformat:2|default:"—" }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+</section>
