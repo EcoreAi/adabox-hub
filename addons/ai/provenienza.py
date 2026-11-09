@@ -19,6 +19,73 @@ ESTERNO = re.compile(r"mcp\d+_")                       # gli strumenti dei siste
 
 def _origine(nome):
     return "esterni" if nome and ESTERNO.match(nome) else FUORI_DAL_GESTIONALE.get(nome)
+
+
+# ---------- le fonti consultate, da mostrare sotto la risposta
+
+# strumenti che non leggono dati (orientarsi, preparare una scrittura): non sono fonti
+NON_FONTI = {"data_e_ora", "app_disponibili", "elenco_viste", "descrivi_vista", "crea_record", "modifica_record", "elimina_record",
+             "esegui_bottone", "esegui_azione", "pianifica_attivita", "crea_pianificata", "elenco_pianificate", "ricorda",
+             "scrivi_documento", "modifica_documento", "riassunto", "elenco_esperti", "classifica"}
+SUI_RECORD = {"cerca_record": "ricerca", "leggi_record": "record", "aggrega_record": "totali", "grafico": "grafico",
+              "tabella": "tabella", "previsione": "previsione"}
+MAX_FONTI = 30
+
+
+def _vista(nome):
+    """(etichetta, url della lista) di una vista «modulo.slug», o (nome, "") se non si trova."""
+    from django.urls import NoReverseMatch, reverse
+
+    from core.viste import registry
+    modulo, _, slug = (nome or "").partition(".")
+    vista = next((v for v in registry.viste_di(modulo) if v.slug == slug), None)
+    if vista is None:
+        return nome, ""
+    try:
+        url = reverse(f"{modulo}:{slug}_lista")
+    except NoReverseMatch:
+        url = ""
+    return str(vista.model._meta.verbose_name_plural).capitalize(), url
+
+
+def _breve(valore, n=80):
+    testo = valore if isinstance(valore, str) else ", ".join(f"{k}: {v}" for k, v in valore.items()) if isinstance(valore, dict) else str(valore)
+    return testo if len(testo) <= n else testo[:n - 1] + "…"
+
+
+def fonte(nome, argomenti):
+    """{origine, titolo, dettaglio, url} di una lettura riuscita, o None se lo strumento non legge dati."""
+    argomenti = argomenti if isinstance(argomenti, dict) else {}
+    if nome in NON_FONTI or not nome:
+        return None
+    origine = _origine(nome) or "gestionale"
+    if nome in SUI_RECORD:
+        titolo, url = _vista(argomenti.get("vista"))
+        dettaglio = SUI_RECORD[nome]
+        if nome == "leggi_record" and argomenti.get("id") is not None:
+            dettaglio = f"record n. {argomenti['id']}"
+        elif nome == "grafico" and argomenti.get("titolo"):
+            dettaglio = f"grafico «{_breve(argomenti['titolo'], 60)}»"
+        if argomenti.get("filtri"):
+            dettaglio += f" · filtri: {_breve(argomenti['filtri'], 60)}"
+        return {"origine": origine, "titolo": titolo, "dettaglio": dettaglio, "url": url}
+    if nome == "cerca_web":
+        return {"origine": origine, "titolo": "Ricerca sul web", "dettaglio": _breve(argomenti.get("query", "")), "url": ""}
+    if nome == "leggi_pagina":
+        url = str(argomenti.get("url", ""))
+        dominio = re.sub(r"^https?://(www\.)?", "", url).split("/")[0]
+        return {"origine": origine, "titolo": dominio or "Pagina web", "dettaglio": _breve(url, 90),
+                "url": url if url.startswith(("http://", "https://")) else ""}
+    if nome == "cerca_conoscenza":
+        return {"origine": origine, "titolo": "Documenti e note", "dettaglio": _breve(argomenti.get("domanda", "")), "url": ""}
+    if nome in ("leggi_allegato", "leggi_foglio", "leggi_immagine"):
+        return {"origine": origine, "titolo": "Allegato", "dettaglio": f"n. {argomenti['id']}" if "id" in argomenti else "", "url": ""}
+    if nome in ("leggi_documento", "leggi_documento_chat"):
+        return {"origine": origine, "titolo": "Documento", "dettaglio": f"n. {argomenti['id']}" if "id" in argomenti else "", "url": ""}
+    if origine == "esterni":
+        return {"origine": origine, "titolo": "Sistema esterno", "dettaglio": ESTERNO.sub("", nome).replace("_", " "), "url": ""}
+    valori = [v for v in argomenti.values() if isinstance(v, (str, int, float)) and str(v).strip()]
+    return {"origine": origine, "titolo": nome.replace("_", " ").capitalize(), "dettaglio": _breve(", ".join(map(str, valori))), "url": ""}
 # «13 settimane», «3 mesi», «2 ore»: parametri della domanda o del periodo, non dati da verificare
 UNITA_DI_TEMPO = re.compile(r"\s*(?:secondi|minut[oi]|or[ae]\b|giorn[oi]|settiman[ae]|mes[ei]|trimestr[ei]|"
                             r"semestr[ei]|ann[oi])", re.IGNORECASE)
@@ -66,9 +133,10 @@ def _trovato(valore, fonti):
     return False
 
 
-def calcola(turno, testo, protetti=0):
+def calcola(turno, testo, protetti=0, segnaposto=None):
+    """La provenienza della risposta. `segnaposto`: quelli usati nel turno (i valori restano solo nella conversazione)."""
     eventi = list(Evento.objects.filter(turno=turno).order_by("pk"))
-    strumenti, letture, fonti, nomi = [], 0, [], {}
+    strumenti, letture, fonti, nomi, chiamate_per_id, consultate = [], 0, [], {}, {}, []
     fuori = {"web": 0, "allegati": 0, "esterni": 0, "documento": 0}
     for ev in eventi:
         if ev.tipo == Evento.UTENTE:
@@ -77,9 +145,14 @@ def calcola(turno, testo, protetti=0):
             chiamate = [b for b in ev.dati.get("blocchi", []) if b["tipo"] == "strumento"]
             strumenti += [b["nome"] for b in chiamate]
             nomi.update({b.get("id"): b["nome"] for b in chiamate})
+            chiamate_per_id.update({b.get("id"): b for b in chiamate})
         elif ev.tipo == Evento.STRUMENTO:
             for r in ev.dati.get("risultati", []):
                 if not r.get("errore"):
+                    chiamata = chiamate_per_id.get(r.get("id"), {})
+                    f = fonte(chiamata.get("nome"), chiamata.get("argomenti"))
+                    if f and f not in consultate and len(consultate) < MAX_FONTI:
+                        consultate.append(f)
                     origine = _origine(nomi.get(r.get("id")))
                     if origine:
                         fuori[origine] += 1
@@ -97,5 +170,6 @@ def calcola(turno, testo, protetti=0):
     else:
         esito = "parziale" if non_verificati else "verificato"
     return {"esito": esito, "strumenti": sorted(set(strumenti)), "letture": letture, "letture_web": fuori["web"], "letture_allegati": fuori["allegati"],
-            "letture_esterne": fuori["esterni"], "pii": protetti,
+            "letture_esterne": fuori["esterni"], "pii": len(segnaposto) if segnaposto is not None else protetti,
+            "segnaposto": sorted(segnaposto or []), "fonti": consultate,
             "non_verificati": non_verificati[:MAX_SEGNALATI], "n_non_verificati": len(non_verificati)}

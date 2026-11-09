@@ -286,13 +286,54 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-rail-sep { width: 24px; height: 1px; margin: 6px 0; border: 0; background: var(--ui-border); }
 
 /* ---------- provenienza sotto la risposta ---------- */
-.ai-provenienza { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
+.ai-provenienza { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
 .ai-badge { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 9px; border-radius: 11px; font-size: 11.5px; font-weight: 600; cursor: default; }
 .ai-badge.is-ok { background: var(--ui-success-tint); color: #1f7a3a; }
 .ai-badge.is-avviso { background: var(--ui-warning-tint); color: #b46300; }
 .ai-badge.is-neutro { background: var(--ui-surface-2); color: var(--ui-text-2); }
 .ai-badge.is-protetto { background: var(--ui-primary-tint); color: var(--ui-primary); }
 .ai-badge-meta { font-size: 11px; color: var(--ui-text-3); }
+/* chip che si aprono con una card di dettaglio (fonti, dati protetti, token): la card sta sotto la riga, larga quanto la risposta */
+.ai-pv { position: static; }
+.ai-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 11px; list-style: none;
+  border: 1px solid var(--ui-border); border-radius: 13px; background: var(--ui-surface); color: var(--ui-text-2);
+  font-size: 12px; font-weight: 500; cursor: pointer; user-select: none;
+  transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out), color 160ms var(--ease-out);
+}
+.ai-chip::-webkit-details-marker { display: none; }
+.ai-chip svg { width: 13px; height: 13px; flex: none; }
+.ai-chip:hover, .ai-pv[open] > .ai-chip { border-color: var(--ui-primary); color: var(--ui-primary); background: var(--ui-primary-tint); }
+.ai-chip:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+.ai-chip.is-ok { color: #1f7a3a; }
+.ai-chip.is-avviso { color: #b46300; border-color: var(--ui-warning-tint); background: var(--ui-warning-tint); }
+.ai-chip.is-protetto { color: var(--ui-primary); }
+.ai-chip.is-meta { font-variant-numeric: tabular-nums; }
+.ai-pv-card {
+  position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 20; max-height: 340px; overflow: auto;
+  padding: 12px 14px; background: var(--ui-surface-2); border: 1px solid var(--ui-border); border-radius: 10px;
+  box-shadow: var(--shadow-dropdown); font-size: 12.5px; color: var(--ui-text);
+  animation: ai-pv-apri 160ms var(--ease-out);
+}
+@keyframes ai-pv-apri { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.ai-pv-nota { margin: 0 0 8px; color: var(--ui-text-2); }
+.ai-pv-nota:last-child { margin-bottom: 0; }
+.ai-pv-tabella { width: 100%; border-collapse: collapse; }
+.ai-pv-tabella th { text-align: left; font-weight: 600; color: var(--ui-text-2); padding: 4px 12px 4px 0; }
+.ai-pv-tabella td { padding: 4px 12px 4px 0; border-top: 1px solid var(--ui-border); }
+.ai-pv-tabella thead + tbody tr:first-child td { border-top: 0; }
+.ai-pv-tabella code { font-size: 11.5px; }
+.ai-pv-numeri th { width: 40%; border-top: 1px solid var(--ui-border); }
+.ai-pv-numeri tr:first-child th, .ai-pv-numeri tr:first-child td { border-top: 0; }
+.ai-pv-numeri td { font-variant-numeric: tabular-nums; }
+.ai-pv-numeri small, .ai-pv-fonti small { color: var(--ui-text-3); }
+.ai-pv-fonti { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ai-pv-fonti li { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; }
+.ai-pv-origine { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; padding: 1px 6px; border-radius: 6px;
+  background: var(--ui-success-tint); color: #1f7a3a; }
+.ai-pv-origine.is-web { background: var(--ui-warning-tint); color: #b46300; }
+.ai-pv-origine.is-allegati, .ai-pv-origine.is-documento, .ai-pv-origine.is-esterni { background: var(--ui-surface); color: var(--ui-text-2); }
+@media (prefers-reduced-motion: reduce) { .ai-pv-card { animation: none; } .ai-chip { transition: none; } }
 
 /* allegati, azioni sui messaggi, voto, ricerca nelle chat */
 .ai-allegati { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0; padding: 0; }

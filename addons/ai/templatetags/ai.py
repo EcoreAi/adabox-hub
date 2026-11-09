@@ -54,11 +54,37 @@ def righe_con_link(dati):
 
 @register.filter
 def provenienza(messaggio):
-    """La provenienza calcolata a fine turno di una risposta dell'assistente ({} se non c'è)."""
+    """La provenienza calcolata a fine turno di una risposta dell'assistente ({} se non c'è), con i dettagli da aprire:
+    i dati personali protetti (tipo, valore, segnaposto: i valori dalla conversazione, che li ha già) e i token."""
     if getattr(messaggio, "ruolo", "") != "assistente" or not messaggio.turno_id:
         return {}
     turno = messaggio.turno
-    return {**(turno.provenienza or {}), "modello": turno.modello, "costo": turno.costo} if turno.provenienza else {}
+    if not turno.provenienza:
+        return {}
+    pv = {**turno.provenienza, "modello": turno.modello, "costo": turno.costo}
+    mappa = getattr(messaggio.conversazione, "segnaposto", None) or {}
+    pv["protetti"] = [{"tipo": tipo_dato(s), "valore": mappa[s], "segnaposto": s} for s in pv.get("segnaposto") or [] if s in mappa]
+    uso = turno.uso or {}
+    if uso:
+        cache = int(uso.get("cache_lettura") or 0) + int(uso.get("cache_scrittura") or 0)
+        pv["token"] = {"entrata": int(uso.get("input") or 0) + cache, "cache": cache, "uscita": int(uso.get("output") or 0),
+                       "passi": turno.passi}
+    return pv
+
+
+TIPI_DATO = {"FULLNAME": "Nome", "USERNAME": "Nome utente", "ORG": "Organizzazione", "CITY": "Città", "PROVINCE": "Provincia",
+             "EMAIL": "Email", "TELEPHONENUM": "Telefono", "CREDITCARDNUMBER": "Carta di credito", "IBAN": "IBAN",
+             "CF": "Codice fiscale", "PIVA": "Partita IVA", "IPADDR": "Indirizzo IP", "POD": "Codice POD", "PDR": "Codice PDR",
+             "DEVICE_ID": "Codice dispositivo", "EMPLOYEE_ID": "Matricola", "ID_DOC": "Documento d'identità",
+             "BUSINESS_CODE": "Codice aziendale", "SECRET": "Dato riservato", "TARGA": "Targa", "CATASTO": "Dati catastali",
+             "BUILDINGNUM": "Numero civico", "ZIPCODE": "CAP", "DOCID": "Numero di documento", "DATE": "Data", "TIME": "Ora",
+             "AMOUNT": "Importo", "AGE": "Età", "STREET": "Via", "ADDRESS": "Indirizzo"}
+
+
+def tipo_dato(segnaposto):
+    """«[FULLNAME_1]» → «Nome»; un'etichetta che non conosciamo resta leggibile («[TAX_ID_2]» → «Tax id»)."""
+    etichetta = segnaposto.strip("[]").rsplit("_", 1)[0]
+    return TIPI_DATO.get(etichetta, etichetta.replace("_", " ").capitalize())
 
 
 @register.filter

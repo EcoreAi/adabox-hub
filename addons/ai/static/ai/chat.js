@@ -685,6 +685,19 @@
   mostraAscolta();
 
   decora();
+  // card di dettaglio sotto la risposta (fonti, dati protetti, token): una aperta alla volta, Esc o clic fuori le chiude
+  document.addEventListener('toggle', (e) => {
+    const aperta = e.target;
+    if (!aperta.matches || !aperta.matches('.ai-pv') || !aperta.open) return;
+    document.querySelectorAll('.ai-pv[open]').forEach((d) => { if (d !== aperta) d.open = false; });
+  }, true);
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.ai-pv')) document.querySelectorAll('.ai-pv[open]').forEach((d) => { d.open = false; });
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') document.querySelectorAll('.ai-pv[open]').forEach((d) => { d.open = false; });
+  });
+
   aggiorna();
   inFondo();
   seguiInCorso();
