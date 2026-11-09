@@ -2,25 +2,26 @@
 {% block title %}Giacenze · {{ theme.brand }}{% endblock %}
 {% block app_content %}
 <div class="ui-pagehead">
-  <div><h1>Giacenze</h1><div class="sub">{{ righe|length }} prodotti{% if request.GET.sotto_scorta %} sotto scorta{% endif %} · previsto = giacenza + in arrivo − impegnato nelle consegne aperte</div></div>
-  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-primary" href="{% url 'magazzino:movimenti_nuovo' %}"><svg><use href="#icon-plus"/></svg> Rettifica</a></div>
+  <div><h1>Giacenze{% if passato %} al {{ giorno|date:"d/m/Y" }}{% endif %}</h1><div class="sub">{{ righe|length }} prodotti{% if request.GET.sotto_scorta %} sotto scorta{% endif %}{% if not passato %} · previsto = giacenza + in arrivo − impegnato nelle consegne aperte{% endif %}</div></div>
+  <div class="ui-pagehead-actions">{% if csv %}<a class="ui-btn ui-btn-secondary" href="?{{ request.GET.urlencode }}&formato=csv">Esporta CSV</a> {% endif %}<a class="ui-btn ui-btn-primary" href="{% url 'magazzino:movimenti_nuovo' %}"><svg><use href="#icon-plus"/></svg> Rettifica</a></div>
 </div>
 <div class="ui-card is-revealed">
   <form class="ui-filtri" method="get">
     <div class="ui-search ui-filtri-q"><svg><use href="#icon-search"/></svg><input class="ui-input" type="search" name="q" value="{{ request.GET.q }}" placeholder="Cerca un prodotto…" aria-label="Cerca"></div>
     <label class="ui-checkbox-row" style="padding-top:0;"><input type="checkbox" class="ui-checkbox" name="sotto_scorta" value="1" onchange="this.form.submit()"{% if request.GET.sotto_scorta %} checked{% endif %}> Solo sotto scorta</label>
+    <label class="sub" for="gc-data">al</label><input class="ui-input" type="date" id="gc-data" name="data" value="{{ giorno|date:'Y-m-d' }}" style="max-width:170px">
     <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Filtra</button>
   </form>
   {% if righe %}
   <div class="ui-table-wrap"><table class="ui-table is-revealed">
-    <thead><tr><th>Prodotto</th>{% for m in magazzini %}<th class="ui-num">{{ m }}</th>{% endfor %}<th class="ui-num">Totale</th><th class="ui-num">Impegnato</th><th class="ui-num">In arrivo</th><th class="ui-num">Previsto</th><th class="ui-num">Scorta minima</th></tr></thead>
+    <thead><tr><th>Prodotto</th>{% for m in magazzini %}<th class="ui-num">{{ m }}</th>{% endfor %}<th class="ui-num">Totale</th>{% if not passato %}<th class="ui-num">Impegnato</th><th class="ui-num">In arrivo</th><th class="ui-num">Previsto</th><th class="ui-num">Scorta minima</th>{% endif %}</tr></thead>
     <tbody>{% for r in righe %}<tr>
       <td><a class="ui-link" href="{% url 'magazzino:movimenti_lista' %}?f_prodotto={{ r.prodotto.pk }}">{{ r.prodotto }}</a></td>
       {% for q in r.per_magazzino %}<td class="ui-num">{{ q|floatformat:"-3" }}</td>{% endfor %}
       <td class="ui-num"><strong>{{ r.totale|floatformat:"-3" }}</strong> {{ r.prodotto.unita }}</td>
-      <td class="ui-num">{{ r.impegnato|floatformat:"-3" }}</td><td class="ui-num">{{ r.in_arrivo|floatformat:"-3" }}</td>
+      {% if not passato %}<td class="ui-num">{{ r.impegnato|floatformat:"-3" }}</td><td class="ui-num">{{ r.in_arrivo|floatformat:"-3" }}</td>
       <td class="ui-num"><strong>{{ r.previsto|floatformat:"-3" }}</strong></td>
-      <td class="ui-num">{% if r.sotto_scorta %}<span class="ui-pill ui-pill-danger" title="{% if r.sotto_magazzino %}Sotto la scorta in {{ r.sotto_magazzino|join:', ' }}{% endif %}">sotto scorta{% if r.sotto_magazzino %} in {{ r.sotto_magazzino|join:", " }}{% endif %}</span> {% endif %}{{ r.prodotto.scorta_minima|floatformat:"-3" }}</td>
+      <td class="ui-num">{% if r.sotto_scorta %}<span class="ui-pill ui-pill-danger" title="{% if r.sotto_magazzino %}Sotto la scorta in {{ r.sotto_magazzino|join:', ' }}{% endif %}">sotto scorta{% if r.sotto_magazzino %} in {{ r.sotto_magazzino|join:", " }}{% endif %}</span> {% endif %}{{ r.prodotto.scorta_minima|floatformat:"-3" }}</td>{% endif %}
     </tr>{% endfor %}</tbody>
   </table></div>
   {% else %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun prodotto da mostrare.</p></div></div>{% endif %}

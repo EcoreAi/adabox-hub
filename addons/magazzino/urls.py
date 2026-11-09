@@ -6,6 +6,7 @@ from . import conta, lettura, pagine, prelievo
 urlpatterns = [
     path("giacenze/", pagine.giacenze, name="giacenze"),
     path("valore/", pagine.valore, name="valore"),
+    path("anzianita/", pagine.anzianita, name="anzianita"),
     path("trasferisci/", pagine.trasferisci, name="trasferisci"),
     path("lettura/", lettura.inizio, name="lettura"),
     path("lettura/codice/", lettura.codice, name="lettura_codice"),

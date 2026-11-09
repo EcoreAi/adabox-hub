@@ -1,0 +1,15 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Anzianità del magazzino · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Anzianità del magazzino</h1><div class="sub">Da quanto è ferma la merce: la giacenza di oggi attribuita agli ultimi carichi</div></div>
+  {% if csv %}<div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="?formato=csv">Esporta CSV</a></div>{% endif %}
+</div>
+<div class="ui-card is-revealed ui-section"><div class="ui-card-body"><div class="cm-tessere">{% for nome, valore in totali %}
+  <div class="cm-tessera"><small>{{ nome|capfirst }}</small><strong>{{ valore|floatformat:2 }} €</strong></div>{% endfor %}</div></div>
+  {% if righe %}<div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Prodotto</th><th class="ui-num">Giacenza</th>{% for f in fasce %}<th class="ui-num">{{ f|capfirst }}</th>{% endfor %}<th class="ui-num">Valore</th></tr></thead>
+  <tbody>{% for r in righe %}<tr><td><a class="ui-link" href="{% url 'magazzino:movimenti_lista' %}?f_prodotto={{ r.prodotto.pk }}">{{ r.prodotto }}</a></td><td class="ui-num">{{ r.quantita|floatformat:"-3" }} {{ r.prodotto.unita }}</td>
+    {% for q in r.fasce %}<td class="ui-num">{% if q %}{{ q|floatformat:"-3" }}{% else %}<span class="sub">—</span>{% endif %}</td>{% endfor %}<td class="ui-num">{{ r.valore|floatformat:2 }} €</td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessuna merce in giacenza.</p></div></div>{% endif %}
+</div>
+{% endblock %}

@@ -9,17 +9,20 @@ from prodotti.models import Prodotto
 from .models import Magazzino, Movimento
 
 
-def situazione(request, solo_sotto_scorta=False, cerca=""):
+def situazione(request, solo_sotto_scorta=False, cerca="", alla=None):
     prodotti = queryset(request, Prodotto).filter(tipo=Prodotto.BENE, attivo=True).select_related("unita")
     if cerca:
         prodotti = prodotti.filter(nome__icontains=cerca) | prodotti.filter(codice__icontains=cerca)
     magazzini = list(queryset(request, Magazzino))
     saldi = {}
-    for r in (queryset(request, Movimento).values("prodotto", "magazzino").annotate(t=Sum("quantita"))):
+    movimenti = queryset(request, Movimento)
+    if alla is not None:
+        movimenti = movimenti.filter(data__lte=alla)
+    for r in (movimenti.values("prodotto", "magazzino").annotate(t=Sum("quantita"))):
         saldi[(r["prodotto"], r["magazzino"])] = r["t"]
     from .models import ScortaMagazzino, impegni_e_arrivi
     azienda = getattr(request, "azienda", None)
-    impegni, arrivi = impegni_e_arrivi(azienda) if azienda else ({}, {})
+    impegni, arrivi = impegni_e_arrivi(azienda) if azienda and alla is None else ({}, {})
     scorte = {}
     for sc in queryset(request, ScortaMagazzino):
         scorte[(sc.prodotto_id, sc.magazzino_id)] = sc.punto_riordino
@@ -43,8 +46,81 @@ def situazione(request, solo_sotto_scorta=False, cerca=""):
 @login_required
 @permission_required("magazzino.view_movimento", raise_exception=True)
 def giacenze(request):
-    magazzini, righe = situazione(request, request.GET.get("sotto_scorta") == "1", request.GET.get("q", "").strip())
-    return render(request, "magazzino/giacenze.html", {"magazzini": magazzini, "righe": righe})
+    """Giacenze di oggi con il previsto, oppure a una data passata (solo le quantità); CSV con le stesse colonne."""
+    from django.utils import timezone
+    giorno, alla = _alla(request)
+    passato = giorno < timezone.localdate()
+    magazzini, righe = situazione(request, request.GET.get("sotto_scorta") == "1", request.GET.get("q", "").strip(),
+                                  alla if passato else None)
+    if passato:
+        righe = [r for r in righe if r["totale"]]
+    if request.GET.get("formato") == "csv" and _csv_disponibile():
+        from django.http import HttpResponse
+
+        from fatturazione.commercialista import foglio
+        n = lambda v: f"{v:.3f}".replace(".", ",")  # noqa: E731
+        testata = ["Codice", "Prodotto", "Unità", *[m.nome for m in magazzini], "Totale"] + ([] if passato else ["Impegnato", "In arrivo", "Previsto", "Scorta minima"])
+        dati = [[r["prodotto"].codice, r["prodotto"].nome, str(r["prodotto"].unita), *[n(q) for q in r["per_magazzino"]], n(r["totale"])]
+                + ([] if passato else [n(r["impegnato"]), n(r["in_arrivo"]), n(r["previsto"]), n(r["prodotto"].scorta_minima)]) for r in righe]
+        risposta = HttpResponse(foglio(testata, dati), content_type="text/csv; charset=utf-8")
+        risposta["Content-Disposition"] = f'attachment; filename="giacenze-{giorno:%Y-%m-%d}.csv"'
+        return risposta
+    return render(request, "magazzino/giacenze.html", {"magazzini": magazzini, "righe": righe, "giorno": giorno, "passato": passato,
+                                                        "csv": _csv_disponibile()})
+
+
+FASCE = [(30, "fino a 30 giorni"), (90, "31–90"), (180, "91–180"), (365, "181–365"), (None, "oltre un anno")]
+
+
+def anzianita_di(prodotti, oggi):
+    """[{prodotto, quantita, fasce: [q per fascia], valore, piu_vecchio}]: la giacenza di oggi attribuita agli ultimi
+    carichi (chi entra per primo esce per primo), così si vede da quanto è ferma la merce. Trasferimenti esclusi."""
+    from . import costi
+    righe = []
+    for p in prodotti:
+        giacenza = Movimento.objects.filter(prodotto=p).aggregate(t=Sum("quantita"))["t"] or 0
+        if giacenza <= 0:
+            continue
+        resto, fasce, piu_vecchio = giacenza, [0] * len(FASCE), None
+        for m in Movimento.objects.filter(prodotto=p, quantita__gt=0).exclude(tipo=Movimento.TRASFERIMENTO).order_by("-data", "-pk"):
+            presa = min(resto, m.quantita)
+            from django.utils import timezone
+            giorni = (oggi - timezone.localtime(m.data).date()).days
+            indice = next(i for i, (limite, _) in enumerate(FASCE) if limite is None or giorni <= limite)
+            fasce[indice] += presa
+            piu_vecchio = m.data
+            resto -= presa
+            if resto <= 0:
+                break
+        if resto > 0:                                       # senza carichi abbastanza: la parte che resta è la più vecchia
+            fasce[-1] += resto
+        costo = costi.costo_corrente(p)
+        righe.append({"prodotto": p, "quantita": giacenza, "fasce": fasce, "valore": costi.q2(giacenza * costo), "piu_vecchio": piu_vecchio,
+                      "costo": costo})
+    return righe
+
+
+@login_required
+@permission_required("magazzino.view_movimento", raise_exception=True)
+def anzianita(request):
+    from django.utils import timezone
+    oggi = timezone.localdate()
+    prodotti = queryset(request, Prodotto).filter(tipo=Prodotto.BENE).select_related("unita").order_by("nome")
+    righe = anzianita_di(prodotti, oggi)
+    totali = [sum((r["fasce"][i] * r["costo"] for r in righe), 0) for i in range(len(FASCE))]
+    if request.GET.get("formato") == "csv" and _csv_disponibile():
+        from django.http import HttpResponse
+
+        from fatturazione.commercialista import foglio
+        n = lambda v, d=3: f"{v:.{d}f}".replace(".", ",")  # noqa: E731
+        risposta = HttpResponse(foglio(["Codice", "Prodotto", "Giacenza", *[nome for _, nome in FASCE], "Valore", "Carico più vecchio"],
+                                       [[r["prodotto"].codice, r["prodotto"].nome, n(r["quantita"]), *[n(q) for q in r["fasce"]], n(r["valore"], 2),
+                                         r["piu_vecchio"].strftime("%d/%m/%Y") if r["piu_vecchio"] else ""] for r in righe]),
+                                content_type="text/csv; charset=utf-8")
+        risposta["Content-Disposition"] = f'attachment; filename="anzianita-magazzino-{oggi:%Y-%m-%d}.csv"'
+        return risposta
+    return render(request, "magazzino/anzianita.html", {"righe": righe, "fasce": [nome for _, nome in FASCE],
+                                                         "totali": [(FASCE[i][1], t) for i, t in enumerate(totali)], "csv": _csv_disponibile()})
 
 
 def _alla(request):
