@@ -66,12 +66,17 @@ def spedisci(consegna, utente=None):
     if not righe:
         raise ValidationError("La consegna non ha righe.")
     parti = parti_da_scaricare(righe)
+    from . import qualita_merce
+    mancano = qualita_merce.mancanti_per_spedire(consegna)
+    if mancano:
+        raise ValidationError("Prima della spedizione mancano i controlli qualità: " + ", ".join(f"{c.punto} su {c.prodotto}" for c in mancano))
     if not _negativa_ammessa(consegna.azienda):
         bisogno = {}
         for p in parti:
             bisogno[p.prodotto] = bisogno.get(p.prodotto, Decimal(0)) + Decimal(p.quantita)
-        mancanti = [f"{prodotto} (disponibili {giacenza(prodotto, consegna.magazzino)})"
-                    for prodotto, q in bisogno.items() if giacenza(prodotto, consegna.magazzino) < q]
+        from .models import in_quarantena
+        disponibile = {p: giacenza(p, consegna.magazzino) - in_quarantena(p, consegna.magazzino) for p in bisogno}
+        mancanti = [f"{prodotto} (disponibili {disponibile[prodotto]})" for prodotto, q in bisogno.items() if disponibile[prodotto] < q]
         if mancanti:
             raise ValidationError("Merce insufficiente: " + ", ".join(mancanti))
     ct = ContentType.objects.get_for_model(Consegna)
@@ -123,6 +128,8 @@ def ricevi(ricevimento, utente=None):
                                      object_id=ricevimento.pk, costo_unitario=costo)
     ricevimento.stato = Ricevimento.FATTO
     ricevimento.save(update_fields=["stato"])
+    from . import qualita_merce
+    qualita_merce.dopo_il_ricevimento(ricevimento)
 
 
 def costi_ordine(ricevimento):
@@ -180,6 +187,8 @@ def segna_pronta(consegna, utente=None):
         raise ValidationError("Si segna pronta solo una consegna da spedire.")
     consegna.stato = Consegna.PRONTO
     consegna.save(update_fields=["stato"])
+    from . import qualita_merce
+    qualita_merce.mancanti_per_spedire(consegna)                 # i controlli prima della spedizione nascono qui
 
 
 @transaction.atomic

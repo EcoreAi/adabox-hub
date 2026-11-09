@@ -5,7 +5,7 @@ from core.viste import Inline, ModelView, register, schede
 
 from . import operazioni
 from .models import Consegna, Magazzino, Movimento, Ricevimento, RigaConsegna, RigaRicevimento, Ubicazione
-from .models import CostoAccessorio, Inventario, Lotto, Reso, RigaReso, ScortaMagazzino
+from .models import ControlloQualita, CostoAccessorio, Inventario, NonConformita, PuntoControllo, Lotto, Reso, RigaReso, ScortaMagazzino
 
 
 @register
@@ -163,6 +163,8 @@ class ConsegnaView(ModelView):
     fattura_differita.short_description = "Crea fattura differita"
 
     def spedisci(self, request, obj):
+        from . import qualita_merce
+        qualita_merce.mancanti_per_spedire(obj)                  # fuori dalla spedizione: i controlli restano anche se si ferma
         return _bottone(request, operazioni.spedisci, obj, lambda c: f"Consegna spedita con il DDT {c.numero}.")
     spedisci.short_description = "Spedisci (emetti DDT)"
     spedisci.rischio = "irreversibile"
@@ -448,3 +450,70 @@ class CostoAccessorioView(ModelView):
     annulla.short_description = "Annulla la ripartizione"
     annulla.permission = "magazzino.add_movimento"
     annulla.rischio = "irreversibile"
+
+
+@register
+class PuntoControlloView(ModelView):
+    model = PuntoControllo
+    slug = "punti-controllo"
+    company_field = "azienda"
+    list_display = ["nome", "fase", "prodotto", "categoria", "attivo"]
+    list_filter = ["fase", "attivo"]
+    form_layout = [("Punto di controllo", [("nome", "fase"), ("prodotto", "categoria"), "istruzioni", "attivo"])]
+    ai_descrizione = "I punti di controllo qualità della merce, al ricevimento o prima della spedizione."
+
+
+@register
+class ControlloQualitaView(ModelView):
+    """I controlli da fare e fatti: superato libera la merce dalla quarantena, respinto apre la non conformità."""
+    model = ControlloQualita
+    slug = "controlli"
+    company_field = "azienda"
+    list_display = ["punto", "prodotto", "quantita", "ricevimento", "consegna", "esito", "controllato_il"]
+    list_filter = ["esito", "punto"]
+    form_layout = [("Controllo", [("punto", "prodotto"), ("quantita", "lotto"), "nota"])]
+    readonly_fields = ["punto", "prodotto", "quantita", "lotto", "ricevimento", "consegna", "esito", "controllato_da", "controllato_il"]
+    buttons = ["supera", "respingi"]
+    ai_descrizione = "I controlli qualità della merce con il loro esito."
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and (obj is None or obj.esito == obj.DA_FARE)
+
+    def get_buttons(self, request, obj):
+        return super().get_buttons(request, obj) if obj.esito == obj.DA_FARE else []
+
+    def supera(self, request, obj):
+        from . import qualita_merce
+        try:
+            qualita_merce.registra(obj, ControlloQualita.SUPERATO, request.user, obj.nota)
+        except ValidationError as e:
+            return " ".join(e.messages)
+        return "Controllo superato" + (": la merce è in giacenza." if obj.ricevimento_id else ".")
+    supera.short_description = "Superato"
+
+    def respingi(self, request, obj):
+        from . import qualita_merce
+        try:
+            qualita_merce.registra(obj, ControlloQualita.RESPINTO, request.user, obj.nota)
+        except ValidationError as e:
+            return " ".join(e.messages) + " (scrivilo nelle note con «Modifica»)"
+        return "Respinto: la merce resta in quarantena e la non conformità è aperta."
+    respingi.short_description = "Respinto"
+
+
+@register
+class NonConformitaView(ModelView):
+    model = NonConformita
+    slug = "non-conformita"
+    company_field = "azienda"
+    list_display = ["creata", "fornitore", "prodotto", "quantita", "stato"]
+    list_filter = ["stato", "fornitore"]
+    form_layout = [("Non conformità", [("fornitore", "prodotto"), ("quantita", "stato"), "descrizione", "soluzione"])]
+    readonly_fields = ["controllo", "creata"]
+    ai_descrizione = "Le non conformità della merce respinta ai controlli, per fornitore."
+
+    def has_add_permission(self, request):
+        return False

@@ -39,6 +39,8 @@ class Ubicazione(AziendaMixin):
     nome = models.CharField("descrizione", max_length=80, blank=True, help_text="es. Scaffale 1, ripiano 3")
     predefinita = models.BooleanField("predefinita", default=False,
                                       help_text="dove vanno i carichi e da dove partono le uscite senza ubicazione")
+    quarantena = models.BooleanField("quarantena", default=False,
+                                     help_text="la merce qui aspetta il controllo qualità: non esce con le consegne")
     attiva = models.BooleanField("attiva", default=True)
 
     class Meta(AziendaMixin.Meta):
@@ -197,7 +199,7 @@ class Movimento(AziendaMixin):
 def ubicazione_di_prelievo(prodotto, magazzino, lotto=None):
     """Da dove esce la merce se nessuno lo dice: l'ubicazione che ne ha di più, altrimenti la predefinita."""
     filtro = {"lotto": lotto} if lotto is not None else {}
-    saldi = (Movimento.objects.filter(prodotto=prodotto, magazzino=magazzino, ubicazione__isnull=False, **filtro)
+    saldi = (Movimento.objects.filter(prodotto=prodotto, magazzino=magazzino, ubicazione__isnull=False, ubicazione__quarantena=False, **filtro)
              .values("ubicazione").annotate(t=Sum("quantita")).filter(t__gt=0).order_by("-t"))
     primo = saldi.first()
     return Ubicazione.objects.get(pk=primo["ubicazione"]) if primo else Ubicazione.predefinita_di(magazzino)
@@ -553,3 +555,84 @@ class RipartizioneCosto(models.Model):
     class Meta:
         verbose_name = "ripartizione"
         verbose_name_plural = "ripartizioni"
+
+
+
+def in_quarantena(prodotto, magazzino=None):
+    qs = Movimento.objects.filter(prodotto=prodotto, ubicazione__quarantena=True)
+    if magazzino is not None:
+        qs = qs.filter(magazzino=magazzino)
+    return qs.aggregate(t=Sum("quantita"))["t"] or 0
+
+
+class PuntoControllo(AziendaMixin):
+    """Che cosa controllare, su quali prodotti e quando: al ricevimento (la merce resta in quarantena finché non passa)
+    o prima della spedizione (la consegna non parte senza il controllo superato)."""
+    RICEVIMENTO, CONSEGNA = "ricevimento", "consegna"
+    nome = models.CharField("nome", max_length=120, help_text="es. Integrità degli imballi, Misura del diametro")
+    fase = models.CharField("quando", max_length=12, choices=[(RICEVIMENTO, "Al ricevimento"), (CONSEGNA, "Prima della spedizione")],
+                            default=RICEVIMENTO)
+    prodotto = models.ForeignKey("prodotti.Prodotto", on_delete=models.CASCADE, null=True, blank=True, related_name="+", verbose_name="prodotto")
+    categoria = models.ForeignKey("prodotti.Categoria", on_delete=models.CASCADE, null=True, blank=True, related_name="+",
+                                  verbose_name="categoria", help_text="vale se non c'è il prodotto; vuoti entrambi = tutti i beni")
+    istruzioni = models.TextField("come si controlla", blank=True)
+    attivo = models.BooleanField("attivo", default=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "punto di controllo"
+        verbose_name_plural = "punti di controllo"
+        ordering = ["fase", "nome"]
+
+    def __str__(self):
+        return self.nome
+
+    def vale_per(self, prodotto):
+        if self.prodotto_id:
+            return self.prodotto_id == prodotto.pk
+        return self.categoria_id is None or self.categoria_id == prodotto.categoria_id
+
+
+class ControlloQualita(AziendaMixin):
+    DA_FARE, SUPERATO, RESPINTO = "da_fare", "superato", "respinto"
+    ESITI = [(DA_FARE, "Da fare"), (SUPERATO, "Superato"), (RESPINTO, "Respinto")]
+    punto = models.ForeignKey(PuntoControllo, on_delete=models.PROTECT, related_name="controlli", verbose_name="punto di controllo")
+    prodotto = models.ForeignKey("prodotti.Prodotto", on_delete=models.PROTECT, related_name="+", verbose_name="prodotto")
+    quantita = models.DecimalField("quantità", max_digits=12, decimal_places=3)
+    lotto = models.ForeignKey(Lotto, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="lotto")
+    ricevimento = models.ForeignKey(Ricevimento, on_delete=models.CASCADE, null=True, blank=True, related_name="controlli", verbose_name="ricevimento")
+    consegna = models.ForeignKey(Consegna, on_delete=models.CASCADE, null=True, blank=True, related_name="controlli", verbose_name="consegna")
+    esito = models.CharField("esito", max_length=10, choices=ESITI, default=DA_FARE, editable=False)
+    nota = models.TextField("note", blank=True)
+    controllato_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                                       verbose_name="controllato da", editable=False)
+    controllato_il = models.DateTimeField("controllato il", null=True, blank=True, editable=False)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "controllo qualità"
+        verbose_name_plural = "controlli qualità"
+        ordering = ["esito", "-pk"]
+
+    def __str__(self):
+        return f"{self.punto} · {self.prodotto}"
+
+
+class NonConformita(AziendaMixin):
+    """Merce respinta al controllo: legata al fornitore (pesa nella sua pagella) e da chiudere con reso, sconto o scarto."""
+    APERTA, CHIUSA = "aperta", "chiusa"
+    controllo = models.OneToOneField(ControlloQualita, on_delete=models.CASCADE, related_name="non_conformita", verbose_name="controllo")
+    fornitore = models.ForeignKey("contatti.Contatto", on_delete=models.SET_NULL, null=True, blank=True, related_name="non_conformita",
+                                  verbose_name="fornitore")
+    prodotto = models.ForeignKey("prodotti.Prodotto", on_delete=models.PROTECT, related_name="+", verbose_name="prodotto")
+    quantita = models.DecimalField("quantità", max_digits=12, decimal_places=3)
+    descrizione = models.TextField("che cosa non va")
+    stato = models.CharField("stato", max_length=8, choices=[(APERTA, "Aperta"), (CHIUSA, "Chiusa")], default=APERTA)
+    soluzione = models.TextField("come si è chiusa", blank=True, help_text="es. resa al fornitore, nota di credito, scartata")
+    creata = models.DateTimeField("aperta il", auto_now_add=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "non conformità"
+        verbose_name_plural = "non conformità"
+        ordering = ["stato", "-creata"]
+
+    def __str__(self):
+        return f"Non conformità {self.prodotto} · {self.fornitore or '—'}"

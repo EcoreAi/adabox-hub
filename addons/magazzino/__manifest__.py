@@ -1,7 +1,7 @@
 {
     "name": "Magazzino",
     "summary": "Giacenze, movimenti, consegne con DDT, ricevimenti e scorte minime",
-    "version": "1.12.1",
+    "version": "1.13.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Magazzino",
     "depends": ["prodotti", "contatti"],
@@ -19,6 +19,9 @@
         {"label": "Consegne", "url_name": "magazzino:consegne_lista", "permission": "magazzino.view_consegna"},
         {"label": "Ricevimenti", "url_name": "magazzino:ricevimenti_lista", "permission": "magazzino.view_ricevimento"},
         {"label": "Resi", "url_name": "magazzino:resi_lista", "permission": "magazzino.view_reso"},
+        {"label": "Controlli qualità", "url_name": "magazzino:controlli_lista", "permission": "magazzino.view_controlloqualita"},
+        {"label": "Non conformità", "url_name": "magazzino:non-conformita_lista", "permission": "magazzino.view_nonconformita"},
+        {"label": "Punti di controllo", "url_name": "magazzino:punti-controllo_lista", "permission": "magazzino.change_puntocontrollo"},
         {"label": "Movimenti", "url_name": "magazzino:movimenti_lista", "permission": "magazzino.view_movimento"},
         {"label": "Valore di magazzino", "url_name": "magazzino:valore", "permission": "magazzino.view_movimento"},
         {"label": "Costi accessori", "url_name": "magazzino:accessori_lista", "permission": "magazzino.view_costoaccessorio"},
