@@ -1,0 +1,20 @@
+{% extends 'theme/base_pubblica.html' %}
+{% block title %}Appuntamento · {{ theme.brand }}{% endblock %}
+{% block public_content %}
+<div class="vn-pagina df-sfondo"><div class="vn-foglio df-entra">
+{% if invalido %}<div class="vn-esito"><h1>Link non valido</h1><p>Il link non è corretto o è scaduto.</p></div>
+{% else %}
+  <header class="vn-testa"><div><small>{{ p.azienda }}</small><h1>{{ p.tipo.nome }}</h1>
+    <p>{{ p.inizio|date:"l d F Y" }} alle {{ p.inizio|time:"H:i" }}{% if p.tipo.luogo %} · {{ p.tipo.luogo }}{% endif %}</p>
+    <p>Per {{ p.nome }}{% if p.operatore %} · con {{ p.operatore.get_full_name|default:p.operatore.username }}{% endif %}</p></div></header>
+  {% if esito %}<div class="vn-esito vn-ok"><p>{{ esito }}</p></div>{% endif %}
+  {% if p.stato == "annullata" %}<div class="vn-esito"><p>Questo appuntamento è annullato. <a href="{% url 'calendario:prenota' p.tipo.codice %}">Prenotane un altro</a>.</p></div>
+  {% elif passata %}<div class="vn-esito"><p>L'appuntamento è già passato.</p></div>
+  {% else %}
+  <form method="post" class="vn-risposta">{% csrf_token %}<h2>Non puoi venire?</h2>
+    <label>Motivo (facoltativo) <textarea class="ui-input" name="motivo" rows="2"></textarea></label>
+    <button class="ui-btn ui-btn-secondary" name="azione" value="annulla">Annulla l'appuntamento</button></form>
+  {% endif %}
+{% endif %}
+</div></div>
+{% endblock %}

@@ -1,7 +1,7 @@
 {
     "name": "Calendario",
     "summary": "Appuntamenti e riunioni con inviti, promemoria e file .ics",
-    "version": "1.0.2",
+    "version": "1.1.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": ["contatti"],
@@ -13,14 +13,18 @@
     "menu": [
         {"label": "Calendario", "url_name": "calendario:eventi_calendario", "permission": "calendario.view_evento"},
         {"label": "Eventi", "url_name": "calendario:eventi_lista", "permission": "calendario.view_evento"},
+        {"label": "Prenotazioni", "url_name": "calendario:prenotazioni_lista", "permission": "calendario.view_prenotazione"},
+        {"label": "Tipi di appuntamento", "url_name": "calendario:tipi-appuntamento_lista", "permission": "calendario.change_tipoappuntamento"},
     ],
     "groups": {
         "Calendario / Utente": ["calendario.view_evento", "calendario.add_evento", "calendario.change_evento",
-                                "calendario.delete_evento"],
+                                "calendario.delete_evento", "calendario.view_prenotazione",
+                                "calendario.change_prenotazione", "calendario.view_tipoappuntamento"],
         "Calendario / Responsabile": ["calendario.*"],
     },
     "demo": ["data/demo.json"],
     "hooks": "calendario.hooks",
     "ai": "calendario.ai",
-    "cron": [{"nome": "Promemoria eventi", "funzione": "calendario.lavori.promemoria", "ogni": "5m"}],
+    "cron": [{"nome": "Promemoria eventi", "funzione": "calendario.lavori.promemoria", "ogni": "5m"},
+             {"nome": "Promemoria prenotazioni", "funzione": "calendario.prenotazioni.promemoria_clienti", "ogni": "5m"}],
 }

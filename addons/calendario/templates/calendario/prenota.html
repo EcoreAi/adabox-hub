@@ -1,0 +1,28 @@
+{% extends 'theme/base_pubblica.html' %}
+{% block title %}{{ tipo.nome }} · {{ theme.brand }}{% endblock %}
+{% block public_content %}
+<div class="vn-pagina df-sfondo"><div class="vn-foglio df-entra">
+  <header class="vn-testa"><div><small>{{ tipo.azienda }}</small><h1>{{ tipo.nome }}</h1>
+    <p>{{ tipo.durata }} minuti{% if tipo.luogo %} · {{ tipo.luogo }}{% endif %}</p>
+    {% if tipo.descrizione %}<p>{{ tipo.descrizione|linebreaksbr }}</p>{% endif %}</div></header>
+  {% if errore %}<div class="vn-esito vn-avviso"><p>{{ errore }}</p></div>{% endif %}
+  {% if not giorni %}<div class="vn-esito"><p>Al momento non ci sono orari liberi. Riprova più avanti.</p></div>
+  {% else %}
+  <section><h2>Scegli il giorno</h2>
+    <p class="cal-giorni">{% for g in giorni %}<a class="ui-btn {% if g == scelto %}ui-btn-primary{% else %}ui-btn-secondary{% endif %}" href="?giorno={{ g|date:'Y-m-d' }}">{{ g|date:"D d/m" }}</a> {% endfor %}</p>
+  </section>
+  <form method="post" class="vn-risposta">{% csrf_token %}<input type="hidden" name="giorno" value="{{ scelto|date:'Y-m-d' }}">
+    <h2>Orario del {{ scelto|date:"l d F" }}</h2>
+    <p class="cal-orari">{% for o in orari %}<label class="ui-btn ui-btn-secondary"><input type="radio" name="inizio" value="{{ o.isoformat }}" required {% if dati.inizio == o.isoformat %}checked{% endif %}> {{ o|time:"H:i" }}</label> {% endfor %}</p>
+    <h2>I tuoi dati</h2>
+    <label>Nome e cognome <input class="ui-input" name="nome" maxlength="200" required value="{{ dati.nome|default:'' }}"></label>
+    <label>Email <input class="ui-input" type="email" name="email" required value="{{ dati.email|default:'' }}"></label>
+    <label>Telefono <input class="ui-input" name="telefono" maxlength="40" value="{{ dati.telefono|default:'' }}"></label>
+    <label>Azienda <input class="ui-input" name="societa" maxlength="200" value="{{ dati.societa|default:'' }}"></label>
+    <label>Note <textarea class="ui-input" name="note" rows="3">{{ dati.note|default:'' }}</textarea></label>
+    <input type="text" name="sito" value="" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
+    <button class="ui-btn ui-btn-primary">Prenota</button>
+  </form>
+  {% endif %}
+</div></div>
+{% endblock %}

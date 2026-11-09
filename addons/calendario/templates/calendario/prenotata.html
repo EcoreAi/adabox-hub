@@ -1,0 +1,10 @@
+{% extends 'theme/base_pubblica.html' %}
+{% block title %}Prenotazione confermata · {{ theme.brand }}{% endblock %}
+{% block public_content %}
+<div class="vn-pagina df-sfondo"><div class="vn-foglio df-entra"><div class="vn-esito vn-ok">
+  <h1>Prenotazione confermata</h1>
+  <p>{{ tipo.nome }}, {{ p.inizio|date:"l d F Y" }} alle {{ p.inizio|time:"H:i" }}{% if tipo.luogo %}, {{ tipo.luogo }}{% endif %}.</p>
+  <p>Ti abbiamo mandato la conferma a {{ p.email }} con l'appuntamento da aggiungere al calendario.</p>
+  <p><a href="{{ link }}">Per annullare usa questo link</a>, lo trovi anche nell'email.</p>
+</div></div></div>
+{% endblock %}

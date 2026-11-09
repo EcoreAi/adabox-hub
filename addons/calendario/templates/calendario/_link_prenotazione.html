@@ -1,0 +1,6 @@
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Pagina di prenotazione</div>
+    <div class="ui-card-sub">Il link da mettere sul sito, nelle email o nella firma.</div></div></div>
+  <div class="ui-card-body"><p><a href="{% url 'calendario:prenota' obj.codice %}" target="_blank">{{ request.scheme }}://{{ request.get_host }}{% url 'calendario:prenota' obj.codice %}</a>
+    {% if not obj.attivo %}<span class="ui-help">(non attivo: la pagina non si apre)</span>{% endif %}</p></div>
+</section>
