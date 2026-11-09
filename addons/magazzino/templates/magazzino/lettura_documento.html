@@ -24,8 +24,11 @@
       <label class="ui-label" for="lc-a">A</label><select class="ui-input" id="lc-a" name="a" required>{% for v, nome in posti %}<option value="{{ v }}">{{ nome }}</option>{% endfor %}</select>
       <button class="ui-btn ui-btn-primary" type="submit">Sposta</button>
     {% else %}
-      <label class="ut-check"><input type="checkbox" name="togli" value="1"> Togli le righe non lette</label>
-      <button class="ui-btn ui-btn-secondary" type="submit" name="chiudi" value="0">Salva le quantità</button>
+      <label class="ut-check"><input type="radio" name="resto" value="" checked onchange="lcResto(this)"> Le quantità lette sostituiscono quelle del documento</label>
+      <label class="ut-check"><input type="radio" name="resto" value="residuo" onchange="lcResto(this)"> Il resto va in un nuovo documento, da evadere dopo</label>
+      <label class="ut-check" id="lc-togli"><input type="checkbox" name="togli" value="1"> Togli le righe non lette</label>
+      <input type="hidden" name="residuo" id="lc-residuo" value="0">
+      <button class="ui-btn ui-btn-secondary" type="submit" name="chiudi" value="0">{% if tipo == "consegna" %}Salva: merce pronta{% else %}Salva le quantità{% endif %}</button>
       <button class="ui-btn ui-btn-primary" type="submit" name="chiudi" value="1">{% if tipo == "ricevimento" %}Salva e ricevi{% else %}Salva e spedisci{% endif %}</button>
     {% endif %}
   </div>
@@ -42,6 +45,7 @@ tr.is-troppi td{background:color-mix(in srgb,var(--ui-danger,#b91c1c) 10%,transp
 .lc-piu{display:inline-flex;gap:4px}
 </style>
 <script>
+function lcResto(el) { document.getElementById("lc-residuo").value = el.value === "residuo" ? "1" : "0"; document.getElementById("lc-togli").hidden = el.value === "residuo"; }
 (function () {
   var righe = {}, ordine = [];
   JSON.parse(document.getElementById("lc-iniziali").textContent).forEach(function (r) { righe[r.id] = {nome: r.nome, attesi: r.attesi, letti: 0}; ordine.push(r.id); });

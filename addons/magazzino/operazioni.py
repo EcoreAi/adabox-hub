@@ -60,7 +60,7 @@ def colli_suggeriti(consegna):
 def spedisci(consegna, utente=None):
     """DDT numerato e scarico di ogni riga (dei componenti, per i kit). Senza giacenze negative ammesse, controlla la
     disponibilità. Se i colli sono rimasti quelli di partenza, li suggeriscono le confezioni."""
-    if consegna.stato != Consegna.BOZZA:
+    if consegna.stato not in Consegna.APERTI:
         raise ValidationError("La consegna non è da spedire.")
     righe = list(consegna.righe.select_related("prodotto"))
     if not righe:
@@ -171,3 +171,84 @@ def trasferisci(prodotto, quantita, da_magazzino, a_magazzino, da_ubicazione=Non
     entrata = Movimento.objects.create(magazzino=a_magazzino, ubicazione=a_ubicazione,
                                        quantita=quantita, **comuni)
     return uscita, entrata
+
+
+
+def segna_pronta(consegna, utente=None):
+    """La merce è preparata (prelevata e imballata): resta modificabile finché non si spedisce."""
+    if consegna.stato != Consegna.BOZZA:
+        raise ValidationError("Si segna pronta solo una consegna da spedire.")
+    consegna.stato = Consegna.PRONTO
+    consegna.save(update_fields=["stato"])
+
+
+@transaction.atomic
+def dividi(documento, quantita):
+    """Evasione parziale: le righe del documento tengono le `quantita` indicate ({riga_id: q}, mancante = tutto) e il
+    resto va in un documento nuovo da evadere dopo, con la stessa origine (l'ordine). Restituisce il residuo, o None."""
+    if documento.stato not in documento.APERTI:
+        raise ValidationError("Si divide solo un documento ancora aperto.")
+    restano = []
+    for r in documento.righe.all():
+        tenuta = Decimal(quantita.get(r.pk, r.quantita))
+        if tenuta < 0 or tenuta > r.quantita:
+            raise ValidationError(f"{r.prodotto}: si tengono fra 0 e {r.quantita:g} pezzi.")
+        if tenuta < r.quantita:
+            restano.append((r, r.quantita - tenuta, tenuta))
+    if not restano:
+        return None
+    if all(tenuta == 0 for _, _, tenuta in restano) and len(restano) == documento.righe.count():
+        raise ValidationError("Non resterebbe niente da evadere adesso: lascia il documento com'è.")
+    residuo = type(documento).objects.get(pk=documento.pk)
+    residuo.pk = residuo.id = None
+    residuo._state.adding = True
+    residuo.stato = documento.BOZZA
+    if isinstance(documento, Consegna):
+        residuo.numero = ""
+    residuo.note = (f"Residuo di {documento}. " + (documento.note or "")).strip()
+    residuo.save()
+    for r, resto, tenuta in restano:
+        nuova = type(r).objects.get(pk=r.pk)
+        nuova.pk = nuova.id = None
+        nuova._state.adding = True
+        nuova.quantita, nuova.lotti = resto, ""
+        setattr(nuova, "consegna" if isinstance(documento, Consegna) else "ricevimento", residuo)
+        nuova.save()
+        if tenuta:
+            r.quantita = tenuta
+            r.save(update_fields=["quantita"])
+        else:
+            r.delete()
+    return residuo
+
+
+@transaction.atomic
+def storna(documento, utente=None):
+    """Annulla un documento già fatto con i movimenti opposti allo stesso costo. Una consegna già in fattura non si
+    storna (prima la nota di credito); un ricevimento non si storna se la merce non c'è più e le giacenze negative
+    non sono ammesse."""
+    if documento.stato != documento.FATTO:
+        raise ValidationError("Si storna solo un documento già spedito o ricevuto.")
+    if isinstance(documento, Consegna) and documento.numero:
+        from django.apps import apps
+        if apps.is_installed("fatturazione"):
+            from fatturazione.models import RiferimentoDDT
+            fatture = RiferimentoDDT.objects.filter(numero=documento.numero, data=documento.data,
+                                                     fattura__azienda=documento.azienda).exclude(fattura__stato="annullata")
+            if fatture.exists():
+                raise ValidationError(f"Il DDT {documento.numero} è nella {fatture.first().fattura}: prima fai la nota di credito.")
+    ct = ContentType.objects.get_for_model(type(documento))
+    movimenti = list(Movimento.objects.filter(content_type=ct, object_id=documento.pk).select_related("prodotto"))
+    if isinstance(documento, Ricevimento) and not _negativa_ammessa(documento.azienda):
+        mancanti = [str(m.prodotto) for m in movimenti if giacenza(m.prodotto, m.magazzino, m.ubicazione, m.lotto) < m.quantita]
+        if mancanti:
+            raise ValidationError("La merce non c'è più tutta: " + ", ".join(mancanti))
+    for m in movimenti:
+        Movimento.objects.create(azienda=m.azienda, prodotto=m.prodotto, magazzino=m.magazzino, ubicazione=m.ubicazione, lotto=m.lotto,
+                                 quantita=-m.quantita, tipo=Movimento.CARICO if m.quantita < 0 else Movimento.SCARICO,
+                                 causale=f"Storno di {documento}"[:200], utente=utente, content_type=ct, object_id=documento.pk,
+                                 costo_unitario=(m.costo_unitario if m.costo_unitario is not None else costi.costo_corrente(m.prodotto))
+                                 if m.quantita < 0 else None)
+    documento.stato = documento.ANNULLATO
+    documento.save(update_fields=["stato"])
+    return len(movimenti)

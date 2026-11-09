@@ -91,8 +91,8 @@ def _bottone(request, funzione, obj, messaggio):
 
 def _leggi(obj, tipo):
     from django.shortcuts import redirect
-    if obj.stato != obj.BOZZA:
-        return "Il documento non è più in bozza."
+    if obj.stato not in obj.APERTI:
+        return "Il documento non è più da evadere."
     return redirect("magazzino:lettura_documento", tipo=tipo, pk=obj.pk)
 
 
@@ -111,10 +111,10 @@ class ConsegnaView(ModelView):
     kanban_group = "stato"
     kanban_fields = ["cliente", "data", "riferimento"]
     kanban_ricco = True
-    kanban_colori = {"bozza": "azzurro", "fatto": "verde", "annullato": "grigio"}
+    kanban_colori = {"bozza": "azzurro", "pronto": "viola", "fatto": "verde", "annullato": "grigio"}
     chatter = True
     tracked_fields = ["stato"]
-    buttons = ["leggi_codici", "spedisci", "annulla"]
+    buttons = ["leggi_codici", "pronta", "spedisci", "annulla", "storna"]
     actions = ["fattura_differita"]
     reports = [{"nome": "DDT", "template": "magazzino/report/ddt.html", "colonne": [("codice", "Codice articolo"), ("um", "Unità di misura")]}]
     api = True
@@ -124,7 +124,8 @@ class ConsegnaView(ModelView):
         return qs.select_related("cliente")
 
     def kanban_scheda(self, request, obj):
-        esito = {"fatto": (*schede.FATTO, "Spedita"), "annullato": (*schede.FERMO, "Annullato")}.get(obj.stato) or ("azzurro", "icon-calendar", "Da spedire")
+        esito = {"fatto": (*schede.FATTO, "Spedita"), "annullato": (*schede.FERMO, "Annullato"),
+                 "pronto": ("viola", "icon-check", "Pronta")}.get(obj.stato) or ("azzurro", "icon-calendar", "Da spedire")
         return schede.scheda(esito, sottotitolo=obj.cliente.nome, righe=[r for r in (f"Del {obj.data:%d/%m/%Y}", obj.riferimento) if r])
 
     def col_documento(self, obj):
@@ -132,10 +133,15 @@ class ConsegnaView(ModelView):
     col_documento.short_description = "Documento"
 
     def has_change_permission(self, request, obj=None):
-        return super().has_change_permission(request, obj) and (obj is None or obj.stato == Consegna.BOZZA)
+        return super().has_change_permission(request, obj) and (obj is None or obj.stato in Consegna.APERTI)
 
     def get_buttons(self, request, obj):
-        return super().get_buttons(request, obj) if obj.stato == Consegna.BOZZA else []
+        tutti = super().get_buttons(request, obj)
+        if obj.stato == Consegna.FATTO:
+            return [b for b in tutti if b[0] == "storna"]
+        if obj.stato == Consegna.ANNULLATO:
+            return []
+        return [b for b in tutti if b[0] != "storna" and not (b[0] == "pronta" and obj.stato == Consegna.PRONTO)]
 
     def get_actions(self, request):
         azioni = super().get_actions(request)
@@ -160,8 +166,18 @@ class ConsegnaView(ModelView):
     spedisci.short_description = "Spedisci (emetti DDT)"
     spedisci.rischio = "irreversibile"
 
+    def pronta(self, request, obj):
+        return _bottone(request, operazioni.segna_pronta, obj, lambda c: "Consegna pronta: merce preparata, da spedire.")
+    pronta.short_description = "Segna pronta"
+
+    def storna(self, request, obj):
+        return _bottone(request, operazioni.storna, obj, lambda c: "Consegna stornata: la merce è tornata a magazzino.")
+    storna.short_description = "Storna"
+    storna.rischio = "irreversibile"
+    storna.permission = "magazzino.add_movimento"
+
     def annulla(self, request, obj):
-        if obj.stato != Consegna.BOZZA:
+        if obj.stato not in Consegna.APERTI:
             return "Solo una consegna da spedire si annulla."
         obj.stato = Consegna.ANNULLATO
         obj.save(update_fields=["stato"])
@@ -191,7 +207,7 @@ class RicevimentoView(ModelView):
     kanban_colori = {"bozza": "azzurro", "fatto": "verde", "annullato": "grigio"}
     chatter = True
     tracked_fields = ["stato"]
-    buttons = ["leggi_codici", "ricevi"]
+    buttons = ["leggi_codici", "ricevi", "annulla", "storna"]
     api = True
 
 
@@ -206,7 +222,24 @@ class RicevimentoView(ModelView):
         return super().has_change_permission(request, obj) and (obj is None or obj.stato == Ricevimento.BOZZA)
 
     def get_buttons(self, request, obj):
-        return super().get_buttons(request, obj) if obj.stato == Ricevimento.BOZZA else []
+        tutti = super().get_buttons(request, obj)
+        if obj.stato == Ricevimento.FATTO:
+            return [b for b in tutti if b[0] == "storna"]
+        return [b for b in tutti if b[0] != "storna"] if obj.stato == Ricevimento.BOZZA else []
+
+    def annulla(self, request, obj):
+        if obj.stato != Ricevimento.BOZZA:
+            return "Solo un ricevimento da ricevere si annulla."
+        obj.stato = Ricevimento.ANNULLATO
+        obj.save(update_fields=["stato"])
+        return "Ricevimento annullato."
+    annulla.short_description = "Annulla"
+
+    def storna(self, request, obj):
+        return _bottone(request, operazioni.storna, obj, lambda r: "Ricevimento stornato: la merce è uscita dal magazzino.")
+    storna.short_description = "Storna"
+    storna.rischio = "irreversibile"
+    storna.permission = "magazzino.add_movimento"
 
     def ricevi(self, request, obj):
         return _bottone(request, operazioni.ricevi, obj, lambda r: "Merce ricevuta e caricata a magazzino.")

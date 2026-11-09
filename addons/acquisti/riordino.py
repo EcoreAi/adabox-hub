@@ -31,7 +31,7 @@ def _quantita(azienda):
     richieste = _per_prodotto(RigaAcquisto.objects.filter(
         ordine__azienda=azienda, prodotto__isnull=False,
         ordine__stato__in=[OrdineAcquisto.BOZZA, OrdineAcquisto.INVIATO, OrdineAcquisto.DA_APPROVARE], ordine__gara=None))
-    impegni = _per_prodotto(RigaConsegna.objects.filter(consegna__azienda=azienda, consegna__stato=Consegna.BOZZA))
+    impegni = _per_prodotto(RigaConsegna.objects.filter(consegna__azienda=azienda, consegna__stato__in=Consegna.APERTI))
     return giacenze, arrivo, richieste, impegni
 
 

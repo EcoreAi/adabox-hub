@@ -216,7 +216,8 @@ def giacenza(prodotto, magazzino=None, ubicazione=None, lotto=None):
 
 class DocumentoMagazzino(AziendaMixin):
     """Parte comune di consegne e ricevimenti: magazzino, data, origine (ordine) e stato."""
-    BOZZA, FATTO, ANNULLATO = "bozza", "fatto", "annullato"
+    BOZZA, PRONTO, FATTO, ANNULLATO = "bozza", "pronto", "fatto", "annullato"
+    APERTI = (BOZZA, PRONTO)                       # ancora da spedire o ricevere: si modificano
     magazzino = models.ForeignKey(Magazzino, on_delete=models.PROTECT, verbose_name="magazzino")
     data = models.DateField("data", default=timezone.localdate)
     riferimento = models.CharField("riferimento", max_length=60, blank=True, help_text="es. numero dell'ordine")
@@ -231,7 +232,7 @@ class DocumentoMagazzino(AziendaMixin):
 
 
 class Consegna(DocumentoMagazzino):
-    STATI = [(DocumentoMagazzino.BOZZA, "Da spedire"), (DocumentoMagazzino.FATTO, "Spedita"),
+    STATI = [(DocumentoMagazzino.BOZZA, "Da spedire"), (DocumentoMagazzino.PRONTO, "Pronta"), (DocumentoMagazzino.FATTO, "Spedita"),
              (DocumentoMagazzino.ANNULLATO, "Annullata")]
     CAUSALI = [("vendita", "Vendita"), ("conto_visione", "Conto visione"), ("reso", "Reso"),
                ("riparazione", "Riparazione"), ("omaggio", "Omaggio")]

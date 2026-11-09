@@ -231,7 +231,7 @@ def crea_reso(ordine, utente=None):
     """Un documento di reso (consegna con DDT) verso il fornitore con la merce arrivata; si corregge prima di spedire."""
     from magazzino import collegamenti
     from magazzino.models import Consegna, Magazzino, Ricevimento, RigaConsegna
-    aperto = collegamenti.di(ordine, Consegna).filter(stato=Consegna.BOZZA).first()
+    aperto = collegamenti.di(ordine, Consegna).filter(stato__in=Consegna.APERTI).first()
     if aperto is not None:
         return aperto
     arrivati = [g for g in righe(ordine) if g["a_magazzino"] and g["netto"] > 0]

@@ -9,7 +9,7 @@ from core.dashboard import queryset
 def kpi(request):
     _, sotto = situazione(request, solo_sotto_scorta=True)
     return {"kpi": [{"valore": len(sotto), "etichetta": "prodotti sotto scorta"},
-                    {"valore": queryset(request, Consegna).filter(stato=Consegna.BOZZA).count(), "etichetta": "consegne da spedire"},
+                    {"valore": queryset(request, Consegna).filter(stato__in=Consegna.APERTI).count(), "etichetta": "consegne da spedire"},
                     {"valore": queryset(request, Ricevimento).filter(stato=Ricevimento.BOZZA).count(),
                      "etichetta": "ricevimenti attesi"}],
             "grafici": [{"titolo": "Prodotti sotto scorta", "tipo": "barre",

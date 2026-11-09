@@ -28,7 +28,7 @@ def inizio(request):
     return render(request, "magazzino/lettura.html", {
         "ricevimenti": queryset(request, Ricevimento).filter(stato=Ricevimento.BOZZA).select_related("fornitore").order_by("data", "pk")[:50]
         if request.user.has_perm("magazzino.change_ricevimento") else [],
-        "consegne": queryset(request, Consegna).filter(stato=Consegna.BOZZA).select_related("cliente").order_by("data", "pk")[:50]
+        "consegne": queryset(request, Consegna).filter(stato__in=Consegna.APERTI).select_related("cliente").order_by("data", "pk")[:50]
         if request.user.has_perm("magazzino.change_consegna") else [],
         "trasferire": request.user.has_perm("magazzino.add_movimento"),
         "inventari": queryset(request, Inventario).filter(stato=Inventario.CONTA).select_related("magazzino").order_by("data", "pk")[:20]
@@ -95,6 +95,35 @@ def applica(documento, letture, togli_non_letti=False):
     return differenze
 
 
+def residuo(documento, letture):
+    """Evasione parziale dalla lettura: ogni riga tiene i pezzi letti (distribuiti sulle righe dello stesso prodotto) e
+    il resto va in un documento nuovo. I prodotti in più si aggiungono (solo nel ricevimento)."""
+    restano, tenute = dict(letture), {}
+    for r in documento.righe.order_by("pk"):
+        letto = restano.get(r.prodotto_id, Decimal(0))
+        tenuta = min(letto, Decimal(r.quantita))
+        tenute[r.pk] = tenuta
+        restano[r.prodotto_id] = letto - tenuta
+    extra = {k: v for k, v in restano.items() if v > 0}
+    nuovo = operazioni.dividi(documento, tenute)
+    if extra:
+        _aggiungi(documento, extra)
+    return nuovo
+
+
+def _aggiungi(documento, extra):
+    if not isinstance(documento, Ricevimento):
+        nomi = ", ".join(str(p) for p in Prodotto.objects.filter(pk__in=extra))
+        raise ValidationError(f"Nella consegna non ci sono, o ne hai letti più del previsto: {nomi}.")
+    for p in Prodotto.objects.filter(pk__in=extra):
+        riga = documento.righe.filter(prodotto=p).first()
+        if riga:
+            riga.quantita += extra[p.pk]
+            riga.save(update_fields=["quantita"])
+        else:
+            RigaRicevimento.objects.create(ricevimento=documento, prodotto=p, quantita=extra[p.pk])
+
+
 @login_required
 def documento(request, tipo, pk):
     if tipo not in TIPI:
@@ -104,12 +133,20 @@ def documento(request, tipo, pk):
         raise PermissionDenied
     doc = get_object_or_404(queryset(request, modello), pk=pk)
     dettaglio = reverse(f"magazzino:{'ricevimenti' if tipo == 'ricevimento' else 'consegne'}_dettaglio", args=[doc.pk])
-    if doc.stato != modello.BOZZA:
+    if doc.stato not in modello.APERTI:
         messages.warning(request, "Il documento non è più in bozza.")
         return redirect(dettaglio)
     if request.method == "POST":
+        nuovo = None
         try:
-            differenze = applica(doc, _letture(request), request.POST.get("togli") == "1")
+            with transaction.atomic():
+                if request.POST.get("residuo") == "1":
+                    nuovo = residuo(doc, _letture(request))
+                    differenze = [f"il resto è in un nuovo documento ({nuovo})"] if nuovo else []
+                else:
+                    differenze = applica(doc, _letture(request), request.POST.get("togli") == "1")
+                if tipo == "consegna" and request.POST.get("chiudi") != "1" and doc.stato == Consegna.BOZZA:
+                    operazioni.segna_pronta(doc)
             if request.POST.get("chiudi") == "1":
                 if tipo == "ricevimento":
                     operazioni.ricevi(doc, request.user)
