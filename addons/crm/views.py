@@ -8,7 +8,7 @@ from contatti.models import Contatto
 from core.colori import iniziali, tinta_persona
 from core.viste import ModelView, register
 
-from .models import EtichettaCrm, FaseCrm, ModuloWeb, MotivoPerdita, Opportunita
+from .models import EtichettaCrm, FaseCrm, ModuloWeb, MotivoPerdita, Opportunita, ObiettivoVendita, TeamVendita
 
 GIORNI_URGENZA = 7
 
@@ -61,7 +61,7 @@ class OpportunitaView(ModelView):
              "per": ["fase", "commerciale", "stato", "chiusura_prevista:mese"]}
     chatter = True
     tracked_fields = ["fase", "stato", "valore_atteso", "probabilita", "commerciale", "chiusura_prevista"]
-    actions = ["assegna_a_me"]
+    actions = ["assegna_a_me", "riassegna_nel_team"]
     buttons = ["segna_vinta", "segna_persa", "riapri", "crea_contatto"]
     api = True
 
@@ -101,6 +101,19 @@ class OpportunitaView(ModelView):
         n = queryset.update(commerciale=request.user)
         return f"Opportunità assegnate a te: {n}."
     assegna_a_me.short_description = "Assegna a me"
+
+    def riassegna_nel_team(self, request, queryset):
+        """Al team del primo responsabile o membro che è l'utente; altrimenti al primo team attivo."""
+        from .models import TeamVendita
+        from .risultati import riassegna_nel_team
+        team = (TeamVendita.objects.filter(azienda=request.azienda, responsabile=request.user, attivo=True).first()
+                or TeamVendita.objects.filter(azienda=request.azienda, membri=request.user, attivo=True).first()
+                or TeamVendita.objects.filter(azienda=request.azienda, attivo=True).first())
+        if team is None:
+            return "Nessun team di vendita: crealo prima."
+        dati = riassegna_nel_team(list(queryset.filter(stato=Opportunita.APERTA)), team)
+        return f"Riassegnate nel team {team}: " + (", ".join(f"{u.get_full_name() or u.username} {n}" for u, n in dati.items()) or "nessuna") + "."
+    riassegna_nel_team.short_description = "Riassegna nel team (a chi ha meno lavoro)"
 
     def _salva(self, request, obj):
         from core import chatter
@@ -176,3 +189,24 @@ class ModuloWebView(ModelView):
                    ("Chi lo riceve", [("commerciale", "etichetta")]),
                    ("Testi", ["grazie", "privacy_url"])]
     company_field = "azienda"
+
+
+@register
+class TeamVenditaView(ModelView):
+    model = TeamVendita
+    slug = "team"
+    company_field = "azienda"
+    list_display = ["nome", "responsabile", "attivo"]
+    form_layout = [("Team", [("nome", "responsabile"), "membri", "attivo"])]
+    ai_descrizione = "I team di vendita con responsabile e membri."
+
+
+@register
+class ObiettivoVenditaView(ModelView):
+    model = ObiettivoVendita
+    slug = "obiettivi"
+    company_field = "azienda"
+    list_display = ["utente", "team", "dal", "al", "importo", "numero"]
+    list_filter = ["team", "utente"]
+    form_layout = [("Obiettivo", [("utente", "team"), ("dal", "al"), ("importo", "numero")])]
+    ai_descrizione = "Gli obiettivi di vendita per persona o team e periodo."

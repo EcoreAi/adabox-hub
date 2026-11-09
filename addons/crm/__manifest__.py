@@ -1,7 +1,7 @@
 {
     "name": "CRM",
     "summary": "Opportunità commerciali in pipeline, dal primo contatto al contratto",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Vendite",
     "depends": ["contatti"],
@@ -14,6 +14,9 @@
         {"label": "Pipeline", "url_name": "crm:opportunita_kanban", "permission": "crm.view_opportunita"},
         {"label": "Opportunità", "url_name": "crm:opportunita_lista", "permission": "crm.view_opportunita"},
         {"label": "Analisi", "url_name": "crm:opportunita_grafico", "permission": "crm.view_opportunita"},
+        {"label": "Obiettivi e risultati", "url_name": "crm:risultati", "permission": "crm.view_opportunita"},
+        {"label": "Obiettivi", "url_name": "crm:obiettivi_lista", "permission": "crm.view_obiettivovendita"},
+        {"label": "Team di vendita", "url_name": "crm:team_lista", "permission": "crm.change_teamvendita"},
         {"label": "Fasi", "url_name": "crm:fasi_lista", "permission": "crm.change_fasecrm"},
         {"label": "Moduli del sito", "url_name": "crm:moduli_lista", "permission": "crm.change_moduloweb"},
     ],

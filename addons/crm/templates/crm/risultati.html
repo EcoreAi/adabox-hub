@@ -1,0 +1,26 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Obiettivi e risultati · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Obiettivi e risultati</h1><div class="sub">Opportunità chiuse nel periodo, pipeline aperta di oggi</div></div></div>
+<div class="ui-card is-revealed ui-section"><form class="ui-filtri" method="get">
+  <label class="sub" for="rs-dal">dal</label><input class="ui-input" type="date" id="rs-dal" name="dal" value="{{ dal|date:'Y-m-d' }}" style="max-width:170px">
+  <label class="sub" for="rs-al">al</label><input class="ui-input" type="date" id="rs-al" name="al" value="{{ al|date:'Y-m-d' }}" style="max-width:170px">
+  <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Mostra</button></form>
+  <div class="ui-card-body"><div class="cm-tessere">
+    <div class="cm-tessera"><small>Vinto</small><strong>{{ totale.vinto|floatformat:2 }} €</strong></div>
+    <div class="cm-tessera"><small>Vinte e perse</small><strong>{{ totale.vinte }} · {{ totale.perse }}</strong></div>
+    <div class="cm-tessera"><small>Tasso di vittoria</small><strong>{% if totale.tasso is not None %}{{ totale.tasso }}%{% else %}—{% endif %}</strong></div>
+    <div class="cm-tessera"><small>Durata media</small><strong>{% if totale.durata is not None %}{{ totale.durata }} giorni{% else %}—{% endif %}</strong></div>
+  </div></div></div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Per persona</div></div>
+  {% if persone %}<div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Persona</th><th class="ui-num">Obiettivo</th><th class="ui-num">Vinto</th><th class="ui-num">Raggiunto</th><th class="ui-num">Vinte</th><th class="ui-num">Perse</th><th class="ui-num">Tasso</th><th class="ui-num">Durata media</th><th class="ui-num">Pipeline ponderata</th></tr></thead>
+  <tbody>{% for r in persone %}<tr><td>{{ r.chi.get_full_name|default:r.chi.username }}</td><td class="ui-num">{{ r.obiettivo|floatformat:2 }}</td><td class="ui-num">{{ r.vinto|floatformat:2 }}</td><td class="ui-num">{% if r.raggiunto is not None %}{{ r.raggiunto }}%{% else %}—{% endif %}</td>
+    <td class="ui-num">{{ r.vinte }}</td><td class="ui-num">{{ r.perse }}</td><td class="ui-num">{% if r.tasso is not None %}{{ r.tasso }}%{% else %}—{% endif %}</td><td class="ui-num">{% if r.durata is not None %}{{ r.durata }} gg{% else %}—{% endif %}</td><td class="ui-num">{{ r.pipeline|floatformat:2 }}</td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<div class="ui-card-body"><p class="sub" style="margin:0">Nessuna opportunità con un commerciale nel periodo.</p></div>{% endif %}</section>
+{% if team %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Per team</div></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Team</th><th class="ui-num">Obiettivo</th><th class="ui-num">Vinto</th><th class="ui-num">Raggiunto</th><th class="ui-num">Vinte</th><th class="ui-num">Perse</th><th class="ui-num">Tasso</th><th class="ui-num">Durata media</th></tr></thead>
+  <tbody>{% for r in team %}<tr><td>{{ r.chi }}</td><td class="ui-num">{{ r.obiettivo|floatformat:2 }}</td><td class="ui-num">{{ r.vinto|floatformat:2 }}</td><td class="ui-num">{% if r.raggiunto is not None %}{{ r.raggiunto }}%{% else %}—{% endif %}</td>
+    <td class="ui-num">{{ r.vinte }}</td><td class="ui-num">{{ r.perse }}</td><td class="ui-num">{% if r.tasso is not None %}{{ r.tasso }}%{% else %}—{% endif %}</td><td class="ui-num">{% if r.durata is not None %}{{ r.durata }} gg{% else %}—{% endif %}</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
+{% if motivi %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Motivi di perdita</div></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><tbody>{% for m in motivi %}<tr><td>{{ m.motivo }}</td><td class="ui-num">{{ m.n }}</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
+{% endblock %}

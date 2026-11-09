@@ -88,6 +88,8 @@ class Opportunita(AziendaMixin, ProprietaMixin):
                                        verbose_name="motivo di perdita")
     note = models.TextField("note", blank=True)
     origine = models.CharField("origine", max_length=100, blank=True, help_text="da dove è arrivata, es. «Modulo del sito: Contatti»")
+    team = models.ForeignKey("TeamVendita", on_delete=models.SET_NULL, null=True, blank=True, related_name="opportunita", verbose_name="team")
+    creata_il = models.DateField("creata il", default=timezone.localdate, editable=False)
 
     class Meta(AziendaMixin.Meta):
         verbose_name = "opportunità"
@@ -115,6 +117,8 @@ class Opportunita(AziendaMixin, ProprietaMixin):
 
     def save(self, *args, **kwargs):
         self.applica_fase()
+        if self.team_id is None and self.commerciale_id and self._state.adding:     # il team del commerciale
+            self.team = TeamVendita.objects.filter(azienda_id=self.azienda_id, membri=self.commerciale_id, attivo=True).first()
         if kwargs.get("update_fields") is not None and "fase" in kwargs["update_fields"]:
             kwargs["update_fields"] = set(kwargs["update_fields"]) | {"stato", "probabilita", "chiusa_il"}
         super().save(*args, **kwargs)
@@ -166,3 +170,45 @@ class ModuloWeb(AziendaMixin):
 
     def elenco_domini(self):
         return [d.strip().rstrip("/").lower() for d in self.domini.splitlines() if d.strip()]
+
+
+class TeamVendita(AziendaMixin):
+    nome = models.CharField("nome", max_length=80)
+    responsabile = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                                     verbose_name="responsabile")
+    membri = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="team_vendita", verbose_name="membri")
+    attivo = models.BooleanField("attivo", default=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "team di vendita"
+        verbose_name_plural = "team di vendita"
+        ordering = ["nome"]
+
+    def __str__(self):
+        return self.nome
+
+
+class ObiettivoVendita(AziendaMixin):
+    """Quanto vincere in un periodo: per una persona o per un team."""
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name="obiettivi_vendita",
+                               verbose_name="persona")
+    team = models.ForeignKey(TeamVendita, on_delete=models.CASCADE, null=True, blank=True, related_name="obiettivi", verbose_name="team")
+    dal = models.DateField("dal")
+    al = models.DateField("al")
+    importo = models.DecimalField("valore da vincere (€)", max_digits=14, decimal_places=2)
+    numero = models.PositiveIntegerField("opportunità da vincere", null=True, blank=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "obiettivo di vendita"
+        verbose_name_plural = "obiettivi di vendita"
+        ordering = ["-dal"]
+
+    def __str__(self):
+        return f"Obiettivo di {self.utente or self.team} dal {self.dal:%d/%m/%Y}"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if (self.utente_id is None) == (self.team_id is None):
+            raise ValidationError("Indica la persona oppure il team.")
+        if self.dal and self.al and self.al < self.dal:
+            raise ValidationError({"al": "La fine viene dopo l'inizio."})
