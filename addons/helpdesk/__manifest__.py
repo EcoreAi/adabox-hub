@@ -13,7 +13,7 @@
     "menu": [
         {"label": "Ticket", "url_name": "helpdesk:ticket_kanban", "permission": "helpdesk.view_ticket"},
         {"label": "Elenco", "url_name": "helpdesk:ticket_lista", "permission": "helpdesk.view_ticket"},
-        {"label": "Analisi", "url_name": "helpdesk:ticket_grafico", "permission": "helpdesk.view_ticket"},
+        {"label": "Grafico", "url_name": "helpdesk:ticket_grafico", "permission": "helpdesk.view_ticket"},
         {"label": "Guida", "url_name": "helpdesk:articoli_lista", "permission": "helpdesk.view_articolo"},
         {"label": "Valutazioni", "url_name": "helpdesk:valutazioni_lista", "permission": "helpdesk.view_valutazione"},
         {"label": "Team", "url_name": "helpdesk:team_lista", "permission": "helpdesk.change_team"},

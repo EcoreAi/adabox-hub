@@ -27,7 +27,7 @@ from .models import (Azienda, CampoPersonalizzato, EmailRicevuta, Lavoro, Modulo
                      ModelloStampa, PermessoCampo, RegolaRiga, Ruolo, TokenApi,
                      CatenaApprovazione, DecisioneApprovazione, Delega, PassoApprovazione, ReportPianificato,
                      IscrizionePush, RichiestaApprovazione)
-from .registry import modules, pacchetti, sincronia
+from .registry import hooks, modules, pacchetti, sincronia
 from .signals import crea_profilo
 from .viste import Inline, ModelView, register
 from .viste import registry as registry_viste
@@ -552,7 +552,9 @@ def impostazioni_barra(request):
     manifest = modules.manifests_attivi()
     spenti = modules.disattivati()
     nomi = modules.etichette()
-    tutte = [(barra.DASHBOARD, "Dashboard"), *((slug, nomi.get(slug) or m.nav_label or m.name) for slug, m in manifest.items() if m.application and slug not in spenti)]
+    dentro = hooks.parti_dashboard()
+    tutte = [(barra.DASHBOARD, "Dashboard"), *((slug, nomi.get(slug) or m.nav_label or m.name) for slug, m in manifest.items()
+                                              if m.application and slug not in spenti and slug not in dentro)]
     if request.method == "POST":
         if request.POST.get("ripristina"):
             Parametro.objects.filter(chiave=barra.CHIAVE, azienda__isnull=True).delete()
@@ -571,7 +573,8 @@ def impostazioni_barra(request):
 @login_required
 def le_mie_app(request):
     """Ognuno decide per sé: che cosa sta nella barra, in che ordine, che cosa nascondere. Le altre restano in «Altre»."""
-    tutte = [(barra.DASHBOARD, "Dashboard"), *((a["slug"], a["nav_label"]) for a in modules.app_visibili(request.user))]
+    tutte = [(barra.DASHBOARD, "Dashboard"), *((a["slug"], a["nav_label"]) for a in modules.app_visibili(request.user)
+                                              if a["slug"] not in hooks.parti_dashboard())]
     profilo = crea_profilo(request.user)
     if request.method == "POST":
         ripristina = bool(request.POST.get("ripristina"))

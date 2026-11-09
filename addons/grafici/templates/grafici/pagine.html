@@ -1,13 +1,19 @@
 {% extends 'core/base_app.html' %}
 {% load tema static %}
-{% block title %}Pagine · Analisi · {{ theme.brand }}{% endblock %}
+{% block title %}Statistiche · Dashboard · {{ theme.brand }}{% endblock %}
 {% block app_content %}
 <div class="ui-pagehead">
-  <div><h1>Analisi</h1><div class="sub">Le tue pagine di grafici e KPI: ognuna è una scheda della dashboard</div></div>
-  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'core:dashboard' %}">Dashboard</a><a class="ui-btn ui-btn-secondary" href="{% url 'grafici:salvati_lista' %}">Grafici salvati</a>{% if perms.grafici.add_grafico %}<a class="ui-btn ui-btn-primary" href="{% url 'grafici:costruttore' %}"><svg><use href="#icon-plus"/></svg> Nuovo grafico</a>{% endif %}</div>
+  <div><h1>Statistiche</h1><div class="sub">Esplora i dati delle app, costruisci grafici e appuntali sulle schede della dashboard</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="{% url 'grafici:salvati_lista' %}">Grafici salvati</a>{% if perms.grafici.add_grafico %}<a class="ui-btn ui-btn-primary" href="{% url 'grafici:costruttore' %}"><svg><use href="#icon-plus"/></svg> Nuovo grafico</a>{% endif %}</div>
 </div>
-{% include "grafici/_schede.html" with scheda_attiva="" %}
+{% include "grafici/_schede.html" with scheda_attiva="statistiche" %}
 <div class="an-gestione">
+  {% if grafici_app %}
+  <section class="ui-card is-revealed">
+    <div class="ui-card-head"><div><div class="ui-card-title">Grafici delle app</div><div class="ui-card-sub">Le liste viste come grafico: filtra, raggruppa e salva quello che ti serve in una scheda</div></div></div>
+    <div class="ui-card-body"><ul class="an-elenco">{% for a in grafici_app %}{% for v in a.voci %}<li><a href="{{ v.url }}">{% if "/" in a.icona %}<img src="{% static a.icona %}" alt="" width="18" height="18">{% else %}<svg><use href="#icon-{{ a.icona|default:'bar-chart' }}"/></svg>{% endif %}<strong>{{ a.app }}</strong><small>{{ v.label }}</small></a></li>{% endfor %}{% endfor %}</ul></div>
+  </section>
+  {% endif %}
   <section class="ui-card is-revealed">
     <div class="ui-card-head"><div><div class="ui-card-title">Le tue pagine</div><div class="ui-card-sub">{{ libere|length }} liber{{ libere|length|pluralize:"a,e" }} · {{ app_pagine|length }} sched{{ app_pagine|length|pluralize:"a,e" }} di app personalizzat{{ app_pagine|length|pluralize:"a,e" }}</div></div></div>
     <div class="ui-card-body">

@@ -13,7 +13,7 @@
     "menu": [
         {"label": "Preventivi e ordini", "url_name": "vendite:ordini_lista", "permission": "vendite.view_ordinevendita"},
         {"label": "Pipeline", "url_name": "vendite:ordini_kanban", "permission": "vendite.view_ordinevendita"},
-        {"label": "Analisi", "url_name": "vendite:ordini_grafico", "permission": "vendite.view_ordinevendita"},
+        {"label": "Grafico", "url_name": "vendite:ordini_grafico", "permission": "vendite.view_ordinevendita"},
         {"label": "Regole di sconto", "url_name": "vendite:sconti_lista", "permission": "vendite.view_regolasconto"},
         {"label": "Modelli di preventivo", "url_name": "vendite:modelli_lista", "permission": "vendite.view_modellopreventivo"},
     ],

@@ -39,8 +39,12 @@ def scrivi(fisse, quante, nascoste=()):
 
 
 def voci(apps):
-    """(voci delle app, voce della Dashboard) da `modules.app_visibili`: le stesse per la barra e per la prima pagina."""
-    voci_app = [{"label": a["nav_label"], "url_name": a["url_name"], "slug": a["slug"], "categoria": a["category"]} for a in apps]
+    """(voci delle app, voce della Dashboard) da `modules.app_visibili`: le stesse per la barra e per la prima pagina.
+    Le app che sono parte della dashboard (hooks.parte_della_dashboard) non hanno una voce loro: si aprono dalle schede."""
+    from .registry import hooks
+    dentro = hooks.parti_dashboard()
+    voci_app = [{"label": a["nav_label"], "url_name": a["url_name"], "slug": a["slug"], "categoria": a["category"]}
+                for a in apps if a["slug"] not in dentro]
     return voci_app, {"label": "Dashboard", "url_name": "core:dashboard", "slug": DASHBOARD, "categoria": "Direzione"}
 
 

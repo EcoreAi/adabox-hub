@@ -55,7 +55,7 @@ def test_il_motore_del_kernel_calcola_una_specifica_anche_con_i_filtri_della_lis
 @pytest.mark.django_db
 def test_la_dashboard_mostra_le_schede_e_il_modulo_spento_le_toglie(client, superuser, attivita, monkeypatch):
     html = client.get(reverse("core:dashboard")).content.decode()
-    assert 'class="an-schede"' in html and "Panoramica" in html and reverse("grafici:pagina_app", args=["todo"]) in html
+    assert 'class="an-schede"' in html and ">Dashboard<" in html and reverse("grafici:pagina_app", args=["todo"]) in html
     monkeypatch.setattr(modules, "disattivati", lambda: frozenset({"grafici"}))
     assert "an-schede" not in client.get(reverse("core:dashboard")).content.decode()
 

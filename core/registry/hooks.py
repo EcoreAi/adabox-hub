@@ -9,6 +9,7 @@ _azioni = defaultdict(list)    # "chiave" -> [dict(template, order, permission)]
 _widget = []                   # [dict(funzione, modulo, permission)] altri widget per la libreria della dashboard
 _portale = []                  # prefissi degli indirizzi che i clienti del portale possono aprire
 _pagine_app = []               # pagine che un modulo aggiunge dentro le altre app (es. «Aree di lavoro» dell'assistente)
+_parti_dashboard = set()       # app le cui pagine sono schede della dashboard (es. Analisi)
 
 
 def _chiave(model):
@@ -70,6 +71,16 @@ def sezione_dashboard(template, order=100, permission=None):
 
 def sezioni_dashboard(request):
     return _visibili(_dashboard, request)
+
+
+def parte_della_dashboard(app):
+    """Da chiamare nel ready() dell'app: le sue pagine sono schede della dashboard. Non ha una voce sua nella barra in alto,
+    e nelle sue pagine l'header resta quello della Dashboard (voce evidenziata, niente sottomenu dell'app)."""
+    _parti_dashboard.add(app)
+
+
+def parti_dashboard():
+    return frozenset(_parti_dashboard)
 
 
 def widget_dashboard(funzione, modulo, permission=None):
