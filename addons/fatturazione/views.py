@@ -9,7 +9,7 @@ from core import azienda as azienda_corrente
 from core.viste import Inline, ModelView, register, schede
 
 from . import fatturapa, operazioni
-from .models import CassaPrevidenziale, CreditoCliente, DatiFiscali, Fattura, Incasso, RigaFattura, RiferimentoDDT, Ritenuta, Scadenza
+from .models import CassaPrevidenziale, CreditoCliente, DatiFiscali, DichiarazioneIntento, PosizioneFiscale, RegolaPosizione, Fattura, Incasso, RigaFattura, RiferimentoDDT, Ritenuta, Scadenza
 
 
 def euro(valore):
@@ -317,3 +317,35 @@ class CreditoClienteView(ModelView):
 
     def has_delete_permission(self, request, obj=None):
         return super().has_delete_permission(request, obj) and (obj is None or not obj.utilizzi.exists())
+
+
+@register
+class PosizioneFiscaleView(ModelView):
+    """Come cambiano le aliquote per certi clienti (UE con partita IVA, fuori UE, casi assegnati a mano)."""
+    model = PosizioneFiscale
+    slug = "posizioni"
+    list_display = ["nome", "ambito", "attiva"]
+    form_layout = [("Posizione", [("nome", "ambito"), "attiva", "note"])]
+    inlines = [Inline(RegolaPosizione, "posizione", ["tipo_prodotto", "da_aliquota", "a_aliquota"], titolo="Regole")]
+    ai_descrizione = "Le posizioni fiscali: per quali clienti le aliquote dei prodotti diventano altre (cessioni UE, esportazioni)."
+
+
+@register
+class DichiarazioneIntentoView(ModelView):
+    """Le dichiarazioni d'intento degli esportatori abituali: fino al plafond le loro fatture vanno in N3.5."""
+    model = DichiarazioneIntento
+    slug = "dichiarazioni"
+    company_field = "azienda"
+    list_display = ["cliente", "protocollo", "dal", "al", "plafond", "utilizzato", "residuo"]
+    list_filter = ["cliente"]
+    search_fields = ["cliente__nome", "protocollo"]
+    form_layout = [("Dichiarazione", [("cliente", "protocollo"), ("data_protocollo", "plafond"), ("dal", "al"), "note"])]
+    ai_descrizione = "Le dichiarazioni d'intento dei clienti esportatori abituali con plafond, utilizzato e residuo."
+
+    def col_utilizzato(self, obj):
+        return f"{obj.utilizzato:.2f} €".replace(".", ",")
+    col_utilizzato.short_description = "Utilizzato"
+
+    def col_residuo(self, obj):
+        return f"{obj.residuo:.2f} €".replace(".", ",")
+    col_residuo.short_description = "Residuo"

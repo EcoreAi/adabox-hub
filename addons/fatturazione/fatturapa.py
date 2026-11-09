@@ -271,6 +271,12 @@ def genera(fattura):
             _sub(linea, "Ritenuta", "SI")
         if r.aliquota.natura:
             _sub(linea, "Natura", r.aliquota.natura)
+        if r.aliquota.natura == "N3.5" and fattura.dichiarazione_intento_id:      # protocollo della dichiarazione d'intento
+            d = fattura.dichiarazione_intento
+            altri = _sub(linea, "AltriDatiGestionali")
+            _sub(altri, "TipoDato", "INTENTO")
+            _sub(altri, "RiferimentoTesto", d.protocollo[:60])
+            _sub(altri, "RiferimentoData", d.data_protocollo.isoformat())
     for g in fattura.riepilogo_iva():
         al = g["aliquota"]
         riep = _sub(beni, "DatiRiepilogo")

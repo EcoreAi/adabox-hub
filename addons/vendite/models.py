@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.conf import settings
+from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
@@ -129,10 +130,17 @@ class RigaVendita(models.Model):
         if self.prodotto_id:
             if not self.descrizione:
                 self.descrizione = (self.prodotto.descrizione_vendita or self.prodotto.nome)[:250]
-            if self.prezzo is None:                    # il listino è per unità del prodotto: riportato all'unità della riga
+            dal_listino = self.prezzo is None
+            if dal_listino:                            # il listino è per unità del prodotto: riportato all'unità della riga
                 self.prezzo = prezzo(self.prodotto, self.ordine.listino, self.quantita_base) * self.per_unita
+                if self.ordine.listino_id and self.ordine.listino.iva_inclusa and apps.is_installed("fatturazione"):
+                    from fatturazione.posizioni import scorporo
+                    self.prezzo = scorporo(self.prezzo, self.prodotto.aliquota_iva)
             if self.aliquota_id is None:
                 self.aliquota = self.prodotto.aliquota_iva
+                if apps.is_installed("fatturazione"):      # posizione fiscale e dichiarazione d'intento del cliente
+                    from fatturazione.posizioni import aliquota_per
+                    self.aliquota = aliquota_per(self.ordine.cliente, self.prodotto, self.aliquota, self.ordine.data)
         if self.aliquota_id is None:
             self.aliquota = AliquotaIva.objects.filter(codice="22").first()
         self.prezzo = self.prezzo if self.prezzo is not None else Decimal(0)

@@ -71,6 +71,7 @@ def emetti(fattura):
     errori = controlla(fattura)
     if errori:
         raise ValidationError(errori)
+    _dichiarazione(fattura)
     _addebita_bollo(fattura)
     numero = sequenze.prossimo("fatturazione.autofattura" if fattura.autofattura else "fatturazione.fattura", fattura.azienda)
     fattura.numero, fattura.stato, fattura.emessa_il = numero, Fattura.EMESSA, timezone.now()
@@ -85,6 +86,26 @@ def emetti(fattura):
         if fattura.tipo == Fattura.NOTA_CREDITO and fattura.fattura_origine_id:
             _compensa(fattura)
     return fattura
+
+
+def _dichiarazione(fattura):
+    """Le righe in N3.5 si legano alla dichiarazione d'intento valida del cliente, se c'è, entro il suo plafond."""
+    from .posizioni import dichiarazione_attiva
+    n35 = sum((r.importo for r in fattura.righe.select_related("aliquota") if r.aliquota and r.aliquota.natura == "N3.5"), Decimal(0))
+    if not n35:
+        return
+    if fattura.tipo == Fattura.NOTA_CREDITO:
+        if fattura.fattura_origine_id and fattura.fattura_origine.dichiarazione_intento_id:
+            fattura.dichiarazione_intento_id = fattura.fattura_origine.dichiarazione_intento_id
+            fattura.save(update_fields=["dichiarazione_intento"])
+        return
+    d = dichiarazione_attiva(fattura.cliente, fattura.data, fattura.azienda)
+    if d is None:
+        return
+    if n35 > d.residuo:
+        raise ValidationError(f"La {d} ha ancora {d.residuo:.2f} € di plafond: questa fattura ne usa {n35:.2f}.")
+    fattura.dichiarazione_intento = d
+    fattura.save(update_fields=["dichiarazione_intento"])
 
 
 def _addebita_bollo(fattura):

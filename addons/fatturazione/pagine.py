@@ -78,3 +78,23 @@ def usa_credito(request, pk):
     else:
         messages.success(request, f"Usati {sum(i.importo for i in incassi):.2f} € del credito del cliente.")
     return redirect("fatturazione:fatture_dettaglio", pk=pk)
+
+
+
+@login_required
+@require_POST
+@permission_required("fatturazione.change_fattura", raise_exception=True)
+def posizione_contatto(request, pk):
+    """La posizione fiscale scelta per il cliente: «auto» torna a quella automatica, «nessuna» la toglie."""
+    from contatti.models import Contatto
+
+    from .models import PosizioneContatto, PosizioneFiscale
+    contatto = get_object_or_404(queryset(request, Contatto), pk=pk)
+    scelta = request.POST.get("posizione", "auto")
+    if scelta == "auto":
+        PosizioneContatto.objects.filter(contatto=contatto).delete()
+    else:
+        posizione = PosizioneFiscale.objects.filter(pk=scelta).first() if scelta.isdigit() else None
+        PosizioneContatto.objects.update_or_create(contatto=contatto, defaults={"azienda": contatto.azienda, "posizione": posizione})
+    messages.success(request, "Posizione fiscale aggiornata: vale per le prossime righe.")
+    return redirect("contatti:contatti_dettaglio", pk=contatto.pk)

@@ -337,10 +337,20 @@ class ResoView(ModelView):
     readonly_fields = ["numero", "stato", "rientrato_il"]
     inlines = [Inline(RigaReso, "reso", ["prodotto", "quantita", "esito", "lotti"], titolo="Merce resa")]
     kanban_group = "stato"
+    kanban_ricco = True
+    kanban_colori = {"richiesto": "azzurro", "autorizzato": "viola", "rientrato": "indaco", "chiuso": "verde", "rifiutato": "grigio"}
     chatter = True
     tracked_fields = ["stato"]
     buttons = ["autorizza", "rientra", "nota_di_credito", "rifiuta"]
     ai_descrizione = "I resi dei clienti (RMA): motivo, merce resa, esito dell'ispezione, rientro e nota di credito."
+
+    def kanban_queryset(self, qs):
+        return qs.select_related("cliente")
+
+    def kanban_scheda(self, request, obj):
+        esito = {"chiuso": (*schede.FATTO, "Chiuso"), "rifiutato": (*schede.FERMO, "Rifiutato")}.get(obj.stato) or (
+            "azzurro", "icon-calendar", obj.get_stato_display())
+        return schede.scheda(esito, sottotitolo=obj.cliente.nome, righe=[f"Del {obj.data:%d/%m/%Y}", obj.get_motivo_display()])
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)

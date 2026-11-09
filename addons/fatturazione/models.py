@@ -86,6 +86,8 @@ class Fattura(AziendaMixin, ProprietaMixin):
     cig = models.CharField("CIG", max_length=15, blank=True)
     cup = models.CharField("CUP", max_length=15, blank=True)
     commessa = models.CharField("codice commessa", max_length=100, blank=True)
+    dichiarazione_intento = models.ForeignKey("DichiarazioneIntento", on_delete=models.PROTECT, null=True, blank=True,
+                                              related_name="fatture", verbose_name="dichiarazione d'intento", editable=False)
     bollo_modo = models.CharField("imposta di bollo", max_length=4, default=BOLLO_AUTO, blank=True,
                                   choices=[(BOLLO_AUTO, "Automatica (oltre 77,47 € senza IVA)"), (BOLLO_SI, "Sempre"),
                                            (BOLLO_NO, "Mai")])
@@ -238,7 +240,8 @@ class RigaFattura(models.Model):
             if self.prezzo is None:
                 self.prezzo = self.prodotto.prezzo_vendita * self.per_unita
             if self.aliquota_id is None:
-                self.aliquota = self.prodotto.aliquota_iva
+                from .posizioni import aliquota_per
+                self.aliquota = aliquota_per(self.fattura.cliente, self.prodotto, self.prodotto.aliquota_iva, self.fattura.data)
         if self.aliquota_id is None:
             self.aliquota = AliquotaIva.objects.filter(codice="22").first()
         self.prezzo = self.prezzo if self.prezzo is not None else Decimal(0)
@@ -400,3 +403,95 @@ class CreditoCliente(AziendaMixin):
         from django.core.exceptions import ValidationError
         if self.importo is not None and self.importo <= 0:
             raise ValidationError({"importo": "L'importo deve essere positivo."})
+
+
+class PosizioneFiscale(models.Model):
+    """Come cambiano le aliquote per certi clienti: cessioni UE a soggetti IVA, esportazioni, casi particolari.
+    «Automatica» la applica da sola in base a nazione e partita IVA del cliente; altrimenti si assegna al cliente."""
+    NESSUNA, UE_B2B, EXTRA_UE = "", "ue_b2b", "extra_ue"
+    AMBITI = [(NESSUNA, "Solo ai clienti a cui la assegni"), (UE_B2B, "Automatica: clienti UE con partita IVA"),
+              (EXTRA_UE, "Automatica: clienti fuori dall'UE")]
+    nome = models.CharField("nome", max_length=80, unique=True)
+    ambito = models.CharField("si applica", max_length=10, choices=AMBITI, default=NESSUNA, blank=True)
+    note = models.TextField("note", blank=True, help_text="es. il riferimento normativo da ricordare")
+    attiva = models.BooleanField("attiva", default=True)
+
+    class Meta:
+        verbose_name = "posizione fiscale"
+        verbose_name_plural = "posizioni fiscali"
+        ordering = ["nome"]
+
+    def __str__(self):
+        return self.nome
+
+
+class RegolaPosizione(models.Model):
+    """Dentro la posizione: un'aliquota (o tutte le imponibili) diventa un'altra, per i beni, i servizi o entrambi."""
+    TUTTI, BENI, SERVIZI = "tutti", "bene", "servizio"
+    TIPI = [(TUTTI, "Beni e servizi"), (BENI, "Beni"), (SERVIZI, "Servizi")]
+    posizione = models.ForeignKey(PosizioneFiscale, on_delete=models.CASCADE, related_name="regole", verbose_name="posizione")
+    tipo_prodotto = models.CharField("per", max_length=8, choices=TIPI, default=TUTTI)
+    da_aliquota = models.ForeignKey("fiscale.AliquotaIva", on_delete=models.PROTECT, null=True, blank=True, related_name="+",
+                                    verbose_name="aliquota di partenza", help_text="vuoto = qualsiasi aliquota con IVA")
+    a_aliquota = models.ForeignKey("fiscale.AliquotaIva", on_delete=models.PROTECT, related_name="+", verbose_name="diventa")
+
+    class Meta:
+        verbose_name = "regola della posizione"
+        verbose_name_plural = "regole della posizione"
+        ordering = ["pk"]
+
+
+class PosizioneContatto(AziendaMixin):
+    """La posizione fiscale scelta per un cliente: vince su quella automatica."""
+    contatto = models.OneToOneField("contatti.Contatto", on_delete=models.CASCADE, related_name="posizione_fiscale",
+                                    verbose_name="cliente")
+    posizione = models.ForeignKey(PosizioneFiscale, on_delete=models.PROTECT, null=True, blank=True, related_name="contatti",
+                                  verbose_name="posizione", help_text="vuoto = nessuna, anche se sarebbe automatica")
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "posizione fiscale del cliente"
+        verbose_name_plural = "posizioni fiscali dei clienti"
+
+    def __str__(self):
+        return f"{self.contatto} · {self.posizione or 'nessuna'}"
+
+
+class DichiarazioneIntento(AziendaMixin):
+    """La dichiarazione d'intento di un esportatore abituale: fino al plafond le sue fatture vanno in N3.5 senza IVA,
+    con il protocollo nell'XML."""
+    cliente = models.ForeignKey("contatti.Contatto", on_delete=models.PROTECT, related_name="dichiarazioni_intento", verbose_name="cliente")
+    protocollo = models.CharField("protocollo di ricezione", max_length=30, help_text="es. 24123456789012345-000001")
+    data_protocollo = models.DateField("data del protocollo")
+    dal = models.DateField("valida dal")
+    al = models.DateField("valida fino al", help_text="di solito il 31 dicembre dell'anno")
+    plafond = models.DecimalField("importo (plafond)", max_digits=14, decimal_places=2,
+                                  help_text="quanto il cliente può acquistare senza IVA con questa dichiarazione")
+    note = models.TextField("note", blank=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "dichiarazione d'intento"
+        verbose_name_plural = "dichiarazioni d'intento"
+        ordering = ["-dal", "-pk"]
+
+    def __str__(self):
+        return f"Dichiarazione {self.protocollo} di {self.cliente}"
+
+    @property
+    def utilizzato(self):
+        """L'imponibile in N3.5 delle fatture emesse con questa dichiarazione (le note di credito lo riducono)."""
+        totale = Decimal(0)
+        for f in self.fatture.filter(stato=Fattura.EMESSA).prefetch_related("righe__aliquota"):
+            segno = -1 if f.tipo == Fattura.NOTA_CREDITO else 1
+            totale += segno * sum((r.importo for r in f.righe.all() if r.aliquota and r.aliquota.natura == "N3.5"), Decimal(0))
+        return totale
+
+    @property
+    def residuo(self):
+        return self.plafond - self.utilizzato
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.dal and self.al and self.al < self.dal:
+            raise ValidationError({"al": "La fine viene dopo l'inizio."})
+        if self.plafond is not None and self.plafond <= 0:
+            raise ValidationError({"plafond": "Il plafond deve essere positivo."})

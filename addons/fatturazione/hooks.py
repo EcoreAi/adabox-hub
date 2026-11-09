@@ -7,7 +7,33 @@ from django.utils import timezone
 from core.models import Azienda
 
 
+POSIZIONI = [  # nome, ambito, [(tipo prodotto, natura di arrivo)]
+    ("Cliente UE con partita IVA", "ue_b2b", [("bene", "N3.2"), ("servizio", "N2.1")]),
+    ("Cliente fuori dall'UE", "extra_ue", [("bene", "N3.1"), ("servizio", "N2.1")]),
+]
+
+
+def posizioni_predefinite():
+    """Le due posizioni automatiche (cessioni UE, esportazioni), se mancano: dopo le fixture delle aliquote."""
+    from fiscale.models import AliquotaIva
+
+    from .models import PosizioneFiscale, RegolaPosizione
+    for nome, ambito, regole in POSIZIONI:
+        if PosizioneFiscale.objects.filter(ambito=ambito).exists():
+            continue
+        p = PosizioneFiscale.objects.create(nome=nome, ambito=ambito, note="Controlla con il commercialista che le nature vadano bene per i tuoi casi.")
+        for tipo, natura in regole:
+            arrivo = AliquotaIva.objects.filter(natura=natura).order_by("pk").first()
+            if arrivo is not None:
+                RegolaPosizione.objects.create(posizione=p, tipo_prodotto=tipo, a_aliquota=arrivo)
+
+
+def post_upgrade(modulo, da=""):
+    posizioni_predefinite()
+
+
 def post_install(modulo):
+    posizioni_predefinite()
     Group.objects.get(name="Fatturazione / Utente").user_set.add(*User.objects.filter(is_active=True))
 
 

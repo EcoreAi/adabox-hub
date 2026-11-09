@@ -139,6 +139,8 @@ class Prodotto(AziendaMixin, ProprietaMixin):
 class Listino(AziendaMixin):
     nome = models.CharField("nome", max_length=80)
     attivo = models.BooleanField("attivo", default=True)
+    iva_inclusa = models.BooleanField("prezzi IVA inclusa", default=False,
+                                      help_text="es. un listino al pubblico: sui documenti il prezzo si scorpora con l'aliquota della riga")
     note = models.TextField("note", blank=True)
 
     class Meta(AziendaMixin.Meta):

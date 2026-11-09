@@ -52,7 +52,7 @@ class ListinoView(ModelView):
     model = Listino
     slug = "listini"
     list_display = ["nome", "attivo"]
-    form_layout = [("Listino", ["nome", "attivo", "note"])]
+    form_layout = [("Listino", ["nome", ("attivo", "iva_inclusa"), "note"])]
     company_field = "azienda"
     inlines = [Inline(PrezzoListino, "listino", ["prodotto", "quantita_minima", "prezzo"], titolo="Prezzi")]
     api = True

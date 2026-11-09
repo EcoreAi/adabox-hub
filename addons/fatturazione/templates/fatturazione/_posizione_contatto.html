@@ -1,0 +1,10 @@
+{% load fatturazione_extra %}{% posizione_contatto obj as p %}{% if p %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Fiscale</div><div class="ui-card-sub">Aliquote sulle sue fatture: {% if p.dichiarazione %}dichiarazione d'intento attiva, N3.5 fino al plafond{% elif p.posizione %}posizione «{{ p.posizione }}»{% if p.automatica %} (automatica){% endif %}{% else %}quelle dei prodotti{% endif %}</div></div></div>
+  <div class="ui-card-body">
+    {% if perms.fatturazione.change_fattura %}<form method="post" action="{% url 'fatturazione:posizione_contatto' obj.pk %}" class="ui-filtri">{% csrf_token %}
+      <select class="ui-input" name="posizione" aria-label="Posizione fiscale"><option value="auto"{% if not p.scelta %} selected{% endif %}>Automatica (da nazione e partita IVA)</option><option value="nessuna"{% if p.scelta and not p.posizione %} selected{% endif %}>Nessuna</option>{% for x in p.tutte %}<option value="{{ x.pk }}"{% if p.scelta and p.posizione.pk == x.pk %} selected{% endif %}>{{ x }}</option>{% endfor %}</select>
+      <button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Salva</button></form>{% endif %}
+    {% for d in p.dichiarazioni %}<div class="ui-allegato"><a class="ui-link" href="{% url 'fatturazione:dichiarazioni_dettaglio' d.pk %}">{{ d.protocollo }}</a> <span class="ui-allegato-info">dal {{ d.dal|date:"d/m/Y" }} al {{ d.al|date:"d/m/Y" }} · plafond {{ d.plafond|floatformat:2 }} € · residuo {{ d.residuo|floatformat:2 }} €</span></div>{% endfor %}
+  </div>
+</section>{% endif %}

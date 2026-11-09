@@ -18,9 +18,9 @@ def _viste():
 
 @pytest.mark.django_db
 def test_ogni_vista_risponde_tranne_quelle_con_segreti(client, superuser):
-    cache.clear()
     provate = 0
     for v in _viste():
+        cache.clear()                                    # sono più delle richieste ammesse al minuto: il limite non è in prova qui
         nome = f"{v.modulo}.{v.slug}"
         r = client.get(f"/api/v1/{v.modulo}/{v.slug}/")
         if nome in SENZA_API:
