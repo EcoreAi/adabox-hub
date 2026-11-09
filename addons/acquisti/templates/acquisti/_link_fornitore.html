@@ -1,0 +1,4 @@
+{% load acquisti %}{% if obj.stato != "annullato" %}<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <span class="sub">Link per il fornitore (conferma, ritardi, DDT e fatture), già nell'email dell'ordine:</span>
+  <a class="ui-link" href="{% link_fornitore obj %}" target="_blank" rel="noopener">apri la sua pagina</a>
+</div></section>{% endif %}

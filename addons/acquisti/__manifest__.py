@@ -1,7 +1,7 @@
 {
     "name": "Acquisti",
     "summary": "Ordini ai fornitori con listini, gare, contratti quadro, approvazioni, riordino, riscontro con merce e fatture, resi e valutazione dei fornitori",
-    "version": "1.3.1",
+    "version": "1.4.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Acquisti",
     "depends": ["prodotti", "contatti"],
@@ -51,8 +51,9 @@
     "email": [
         {"codice": "acquisti.ordine", "nome": "Invio dell'ordine al fornitore", "gruppo": "Acquisti",
          "oggetto": "Ordine {{ numero }} — {{ azienda }}",
-         "corpo": "Gentile {{ fornitore }},\nin allegato il nostro ordine {{ numero }}.\n\nCordiali saluti\n{{ azienda }}",
+         "corpo": "Gentile {{ fornitore }},\nin allegato il nostro ordine {{ numero }}.\nDa qui può confermarlo con la data di consegna, segnalare un ritardo e caricare DDT o fattura: {{ link_fornitore }}\n\nCordiali saluti\n{{ azienda }}",
          "campi": {"numero": ["Numero", "OA/2026/0003"], "fornitore": ["Nome del fornitore", "Grossista Spa"],
-                    "data": ["Data", "02/11/2026"], "totale": ["Totale", "480,00 €"]}},
+                    "data": ["Data", "02/11/2026"], "totale": ["Totale", "480,00 €"],
+                    "link_fornitore": ["Link per il fornitore (conferma, ritardi, documenti)", "https://hub.example.it/acquisti/fornitore/…/"]}},
     ],
 }

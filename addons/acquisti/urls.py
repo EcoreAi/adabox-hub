@@ -1,10 +1,11 @@
 """Pagine proprie degli Acquisti, oltre alle viste dei modelli."""
 from django.urls import path
 
-from . import pagine
+from . import fornitore, pagine
 
 urlpatterns = [
     path("riordino/", pagine.riordino, name="riordino"),
+    path("fornitore/<str:token>/", fornitore.pagina, name="fornitore"),
     path("riordino/crea/", pagine.riordino_crea, name="riordino_crea"),
     path("valutazione/", pagine.valutazione, name="valutazione"),
     path("gare/<int:pk>/aggiudica/<int:ordine>/", pagine.aggiudica, name="aggiudica"),

@@ -1,0 +1,36 @@
+{% extends 'theme/base_pubblica.html' %}
+{% block title %}{% if ordine %}Ordine {{ ordine.numero }}{% else %}Ordine{% endif %} · {{ theme.brand }}{% endblock %}
+{% block public_content %}
+<div class="vn-pagina df-sfondo"><div class="vn-foglio df-entra">
+{% if invalido %}<div class="vn-esito"><h1>Link non valido</h1><p>Il link non è corretto, è scaduto o l'ordine è stato annullato. Chiedi a chi ti ha mandato l'ordine.</p></div>
+{% else %}
+  <header class="vn-testa"><div><small>{{ ordine.azienda }}</small><h1>Ordine {{ ordine.numero }}</h1>
+    <p>Per {{ ordine.fornitore }} · del {{ ordine.data|date:"d/m/Y" }}{% if ordine.consegna_prevista %} · consegna prevista il {{ ordine.consegna_prevista|date:"d/m/Y" }}{% endif %}</p>
+    {% if ordine.consegna_a %}<p><strong>Spedire direttamente a:</strong> {{ ordine.consegna_a }}, {{ ordine.indirizzo_consegna }}</p>{% endif %}</div>
+    <div class="vn-totale"><small>Totale</small><strong>{{ ordine.totale|floatformat:2 }} €</strong></div></header>
+  {% if esito %}<div class="vn-esito vn-ok"><p>{{ esito }}</p></div>{% endif %}
+  {% if errore %}<div class="vn-esito vn-avviso"><p>{{ errore }}</p></div>{% endif %}
+  <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>Descrizione</th><th class="num">Quantità</th><th class="num">Prezzo</th><th class="num">Importo</th></tr></thead>
+  <tbody>{% for r in righe %}<tr><td>{% if r.codice_fornitore %}{{ r.codice_fornitore }} · {% endif %}{{ r.descrizione }}</td><td class="num">{{ r.quantita|floatformat:"-3" }} {{ r.unita|default:"" }}</td><td class="num">{{ r.prezzo|floatformat:2 }} €</td><td class="num">{{ r.importo|floatformat:2 }} €</td></tr>{% endfor %}</tbody></table></div>
+  {% if ordine.note %}<p class="vn-nota">{{ ordine.note|linebreaksbr }}</p>{% endif %}
+  <section class="vn-risposta">
+    <form method="post">{% csrf_token %}<h2>Conferma l'ordine</h2>
+      <label>Il tuo nome <input class="ui-input" name="nome" maxlength="120"></label>
+      <label>Consegna prevista <input class="ui-input" type="date" name="data" min="{{ oggi|date:'Y-m-d' }}" required></label>
+      <label>Vostro riferimento <input class="ui-input" name="riferimento" maxlength="100"></label>
+      <label>Note <textarea class="ui-input" name="nota" rows="2"></textarea></label>
+      <button class="ui-btn ui-btn-primary" name="azione" value="conferma">Confermo</button></form>
+    <form method="post">{% csrf_token %}<h2>Segnala un ritardo</h2>
+      <label>Il tuo nome <input class="ui-input" name="nome" maxlength="120"></label>
+      <label>Nuova data <input class="ui-input" type="date" name="data" required></label>
+      <label>Motivo <textarea class="ui-input" name="nota" rows="2"></textarea></label>
+      <button class="ui-btn ui-btn-secondary" name="azione" value="ritardo">Segnala</button></form>
+    <form method="post" enctype="multipart/form-data">{% csrf_token %}<h2>Carica DDT o fattura</h2>
+      <label>Il tuo nome <input class="ui-input" name="nome" maxlength="120"></label>
+      <label>Documento <select class="ui-input" name="tipo"><option value="ddt">DDT</option><option value="fattura">Fattura</option><option value="altro">Altro</option></select></label>
+      <label>File <input type="file" name="file" required></label>
+      <button class="ui-btn ui-btn-secondary" name="azione" value="documento">Carica</button></form>
+  </section>
+{% endif %}
+</div></div>
+{% endblock %}

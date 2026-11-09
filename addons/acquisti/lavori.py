@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from core import chatter, modelli_email, report
 from core.viste.gruppi import numero
 
+from . import fornitore
 from .models import OrdineAcquisto
 
 
@@ -14,7 +15,7 @@ def invia(ordine_id, utente_id=None):
     richiesta = type("Richiesta", (), {"user": utente, "azienda": ordine.azienda})()
     email = modelli_email.messaggio("acquisti.ordine", ordine.azienda, {
         "numero": str(ordine), "fornitore": ordine.fornitore.nome, "data": f"{ordine.data:%d/%m/%Y}",
-        "totale": f"{numero(ordine.totale)} €"}, [ordine.fornitore.email])
+        "totale": f"{numero(ordine.totale)} €", "link_fornitore": fornitore.link(ordine)}, [ordine.fornitore.email])
     try:
         email.attach(f"{ordine}".replace("/", "-") + ".pdf",
                      report.pdf(report.html(registry.per_modello(OrdineAcquisto), richiesta, [ordine], 0)),

@@ -10,6 +10,7 @@ class AcquistiConfig(AppConfig):
         from core.registry import hooks
         hooks.sezione_dettaglio("acquisti.OrdineAcquisto", "acquisti/_approvazioni.html", order=5)
         hooks.sezione_dettaglio("acquisti.OrdineAcquisto", "acquisti/_riscontro.html", order=10)
+        hooks.sezione_dettaglio("acquisti.OrdineAcquisto", "acquisti/_link_fornitore.html", order=12)
         hooks.sezione_dettaglio("acquisti.Gara", "acquisti/_confronto.html", order=5)
         hooks.sezione_dettaglio("acquisti.ContrattoQuadro", "acquisti/_residui.html", order=5)
         hooks.sezione_dettaglio("contatti.Contatto", "acquisti/_fornitore.html", order=30,

@@ -95,3 +95,9 @@ def ordini_di_fattura(fattura):
 @register.simple_tag
 def confronto_fattura(fattura):
     return riscontro.confronto_righe(fattura)
+
+
+@register.simple_tag
+def link_fornitore(ordine):
+    from acquisti import fornitore
+    return fornitore.link(ordine)
