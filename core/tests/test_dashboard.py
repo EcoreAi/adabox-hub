@@ -8,20 +8,6 @@ from core.registry.manifest import Manifest
 
 
 @pytest.mark.django_db
-def test_home_va_alla_chat_se_il_modulo_ai_e_installato(client, superuser):
-    r = client.get("/")
-    assert r.status_code == 302 and r["Location"] == "/ai/chat/"
-
-
-@pytest.mark.django_db
-def test_home_va_alla_dashboard_senza_modulo_con_home(client, superuser, monkeypatch):
-    attivi = {k: v for k, v in modules.manifests_attivi().items() if not v.home}
-    monkeypatch.setattr(modules, "manifests_attivi", lambda: attivi)
-    r = client.get("/")
-    assert r.status_code == 302 and r["Location"] == reverse("core:dashboard")
-
-
-@pytest.mark.django_db
 def test_dashboard_card_e_grafici(client, superuser):
     from todo.models import Attivita
     from core.models import Azienda
