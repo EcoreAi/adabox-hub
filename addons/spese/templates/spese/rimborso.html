@@ -12,6 +12,13 @@
       <label class="sp-movimento"><input type="radio" name="movimento" value=""{% if not movimenti %} checked{% endif %}> <span>Nessuno{% if not movimenti %}: non c'è un movimento in uscita adatto negli ultimi 45 giorni{% else %}, lo abbino dopo{% endif %}</span></label>
     </fieldset>
     {% endif %}
+    {% if casse %}
+    <fieldset class="ui-field"><legend class="ui-label">Pagata in contanti</legend>
+      {% for c in casse %}<label class="sp-movimento"><input type="radio" name="cassa" value="{{ c.pk }}"> <span>Dalla {{ c }} <span class="ui-help">saldo {{ c.saldo|floatformat:2 }} €</span></span></label>{% endfor %}
+      <label class="sp-movimento"><input type="radio" name="cassa" value="" checked> <span>No</span></label>
+      <p class="ui-help">Se la paghi dalla cassa, l'uscita si registra lì e il movimento bancario non serve.</p>
+    </fieldset>
+    {% endif %}
     <div class="ui-field"><label class="ui-label" for="data">Rimborsata il</label>
       <input class="ui-input" type="date" id="data" name="data" value="{{ oggi|date:'Y-m-d' }}">
       {% if movimenti %}<p class="ui-help">Se scegli un movimento, vale la sua data quando lasci vuoto questo campo.</p>{% endif %}</div>

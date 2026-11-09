@@ -1,0 +1,19 @@
+{% load cassa %}{% riepilogo_cassa obj as r %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Contanti</div><div class="ui-card-sub">{% if r.chiusura %}Ultima chiusura il {{ r.chiusura.data|date:"d/m/Y" }} con {{ r.chiusura.contato|floatformat:2 }} € contati{% else %}Mai chiusa: si parte dal saldo iniziale{% endif %}</div></div>
+    <div>{% if perms.cassa.add_movimentocassa %}<a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'cassa:movimenti_nuovo' %}?cassa={{ obj.pk }}">Nuovo movimento</a>{% endif %}
+    {% if perms.cassa.add_chiusuracassa %}<a class="ui-btn ui-btn-primary ui-btn-sm" href="{% url 'cassa:chiudi' obj.pk %}">Chiudi la cassa</a>{% endif %}</div></div>
+  <div class="ui-card-body">
+    <div class="cm-tessere">
+      <div class="cm-tessera"><small>Saldo atteso</small><strong>{{ r.saldo|floatformat:2 }} €</strong></div>
+      <div class="cm-tessera"><small>Entrate da chiudere</small><strong>{{ r.entrate|floatformat:2 }} €</strong></div>
+      <div class="cm-tessera"><small>Uscite da chiudere</small><strong>{{ r.uscite|floatformat:2 }} €</strong></div>
+      <div class="cm-tessera"><small>Movimenti da chiudere</small><strong>{{ r.da_chiudere }}</strong></div>
+    </div>
+    {% if r.movimenti %}<div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Data</th><th>Causale</th><th>Descrizione</th><th class="num">Importo</th><th></th></tr></thead>
+    <tbody>{% for m in r.movimenti %}<tr><td>{{ m.data|date:"d/m/Y" }}</td><td>{{ m.get_causale_display }}</td>
+      <td><a class="ui-link" href="{% url 'cassa:movimenti_dettaglio' m.pk %}">{{ m.descrizione|default:"—" }}</a>{% if m.controparte %} · {{ m.controparte }}{% endif %}</td>
+      <td class="num">{{ m.importo|floatformat:2 }} €</td><td>{% if m.chiusura_id %}<span class="ui-pill ui-pill-neutral">Chiuso</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+    {% else %}<p class="sub" style="margin:0">Nessun movimento negli ultimi 30 giorni.</p>{% endif %}
+  </div>
+</section>

@@ -66,6 +66,14 @@ def fattura_eliminata(sender, instance, **kwargs):
 
 # ---------- rimborso abbinato alla banca
 
+def casse_per(request):
+    """Le casse attive dell'azienda, se c'è il modulo Cassa: un rimborso si può pagare in contanti."""
+    if not apps.is_installed("cassa"):
+        return []
+    from cassa.operazioni import casse_attive
+    return list(casse_attive(getattr(request, "azienda", None)))
+
+
 def banca_disponibile():
     return apps.is_installed("banca")
 

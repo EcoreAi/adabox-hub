@@ -58,6 +58,7 @@ def rimborso(request, pk):
         messages.error(request, "Si rimborsa solo una nota approvata.")
         return redirect("spese:note_dettaglio", pk=nota.pk)
     movimenti = riaddebito.movimenti_per(nota) if request.user.has_perm("banca.view_movimentobanca") else []
+    casse = riaddebito.casse_per(request) if request.user.has_perm("cassa.add_movimentocassa") else []
     for m in movimenti:
         m.esatto = abs(m.importo) == nota.totale                 # l'importo esatto si propone già scelto
     if request.method == "POST":
@@ -66,8 +67,16 @@ def rimborso(request, pk):
         except ValueError:
             data = None
         scelto = next((m for m in movimenti if str(m.pk) == request.POST.get("movimento")), None)
+        cassa = next((c for c in casse if str(c.pk) == request.POST.get("cassa")), None)
         try:
             with transaction.atomic():
+                if cassa is not None:                                    # pagata in contanti dalla cassa
+                    from cassa import operazioni as cassa_op
+                    from cassa.models import MovimentoCassa
+                    data = data or timezone.localdate()
+                    cassa_op.registra(cassa, nota.totale, MovimentoCassa.RIMBORSO, data=data, descrizione=f"{nota}",
+                                      controparte=str(nota.dipendente)[:120], utente=request.user, documento=nota)
+                    scelto = None
                 if scelto is not None:
                     from banca import abbina
                     abbina.abbina_documento(scelto, nota, nota.totale, request.user)
@@ -76,7 +85,8 @@ def rimborso(request, pk):
         except ValidationError as e:
             messages.error(request, " ".join(e.messages))
             return redirect("spese:rimborso", pk=nota.pk)
-        messages.success(request, f"{nota} rimborsata" + (f", abbinata al movimento del {scelto.data:%d/%m/%Y}." if scelto else "."))
+        messages.success(request, f"{nota} rimborsata" + (f", abbinata al movimento del {scelto.data:%d/%m/%Y}." if scelto else
+                                                           f", in contanti da {cassa}." if cassa else "."))
         return redirect("spese:note_dettaglio", pk=nota.pk)
     return render(request, "spese/rimborso.html", {"nota": nota, "movimenti": movimenti, "oggi": timezone.localdate(),
-                                                   "banca": riaddebito.banca_disponibile()})
+                                                   "banca": riaddebito.banca_disponibile(), "casse": casse})

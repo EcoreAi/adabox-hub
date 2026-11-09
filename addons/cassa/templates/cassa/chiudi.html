@@ -1,0 +1,25 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Chiudi {{ cassa }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Chiudi la cassa</h1><div class="sub"><a class="ui-link" href="{% url 'cassa:casse_dettaglio' cassa.pk %}">{{ cassa }}</a> · conta i contanti e confrontali con il saldo atteso</div></div></div>
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-body">
+    <div class="cm-tessere">
+      <div class="cm-tessera"><small>Apertura</small><strong>{{ apertura|floatformat:2 }} €</strong></div>
+      <div class="cm-tessera"><small>Saldo atteso al {{ data|date:"d/m/Y" }}</small><strong>{{ atteso|floatformat:2 }} €</strong></div>
+      <div class="cm-tessera"><small>Movimenti da chiudere</small><strong>{{ aperti|length }}</strong></div>
+    </div>
+    <form method="post" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;align-items:end">{% csrf_token %}
+      <div class="ui-form-group"><label class="ui-label" for="cs-data">Chiusura al</label><input class="ui-input" type="date" id="cs-data" name="data" value="{{ data|date:'Y-m-d' }}"{% if precedente %} min="{{ precedente.data|date:'Y-m-d' }}"{% endif %}></div>
+      <div class="ui-form-group"><label class="ui-label" for="cs-contato">Contanti contati (€)</label><input class="ui-input" id="cs-contato" name="contato" inputmode="decimal" value="{{ contato }}" required autofocus></div>
+      <div class="ui-form-group"><label class="ui-label" for="cs-nota">Nota</label><input class="ui-input" id="cs-nota" name="nota" value="{{ nota }}" maxlength="300" placeholder="es. il motivo di una differenza"></div>
+      <div><button type="submit" class="ui-btn ui-btn-primary">Chiudi</button></div>
+    </form>
+    <p class="ui-help">Una differenza si registra come movimento «Differenza di cassa». Dopo la chiusura i movimenti fino a quella data non si cambiano più; l'ultima chiusura si può annullare.</p>
+  </div>
+</section>
+{% if aperti %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Movimenti che entrano nella chiusura</div></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Data</th><th>Causale</th><th>Descrizione</th><th class="num">Importo</th></tr></thead>
+  <tbody>{% for m in aperti %}<tr><td>{{ m.data|date:"d/m/Y" }}</td><td>{{ m.get_causale_display }}</td><td>{{ m.descrizione|default:"—" }}</td><td class="num">{{ m.importo|floatformat:2 }} €</td></tr>{% endfor %}</tbody></table></div>
+</section>{% endif %}
+{% endblock %}
