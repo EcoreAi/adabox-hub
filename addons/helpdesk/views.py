@@ -1,6 +1,7 @@
 from django.db.models import Avg, Count
 from django.utils import timezone
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 from core import chatter
 from core.viste import ModelView, register, schede
@@ -181,7 +182,7 @@ class ArticoloView(ModelView):
 
     def col_stato(self, obj):
         if not obj.pubblicato:
-            return format_html('<span class="ui-pill ui-pill-neutral">Bozza</span>')
+            return mark_safe('<span class="ui-pill ui-pill-neutral">Bozza</span>')
         return format_html('<span class="ui-pill {}">{}</span>', "ui-pill-ok" if obj.pubblico else "ui-pill-info",
                            "Online" if obj.pubblico else "Solo clienti")
     col_stato.short_description = "Stato"

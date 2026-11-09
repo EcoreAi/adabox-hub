@@ -1,5 +1,5 @@
 from django.utils import timezone
-from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 from core.viste import ModelView, register
 from progetti.models import Compito, progetti_visibili
@@ -31,10 +31,10 @@ class RigaOreView(ModelView):
 
     def col_stato(self, obj):
         if obj.bloccata:
-            return format_html('<span class="ui-pill ui-pill-info">Fatturata</span>')
+            return mark_safe('<span class="ui-pill ui-pill-info">Fatturata</span>')
         if obj.approvata:
-            return format_html('<span class="ui-pill ui-pill-ok">Approvata</span>')
-        return format_html('<span class="ui-pill ui-pill-neutral">Da approvare</span>')
+            return mark_safe('<span class="ui-pill ui-pill-ok">Approvata</span>')
+        return mark_safe('<span class="ui-pill ui-pill-neutral">Da approvare</span>')
     col_stato.short_description = "Stato"
 
     def has_change_permission(self, request, obj=None):

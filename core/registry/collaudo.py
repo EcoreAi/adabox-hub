@@ -68,6 +68,7 @@ def collauda(slug, info):
             shutil.copy(base / "conftest.py", addons / "conftest.py")
             passi.append(("test", [sys.executable, "-m", "pytest", str(test), "-q", "-m", "not slow",
                                    "-c", str(base / "pytest.ini"), "--rootdir", str(addons), "-p", "no:cacheprovider",
+                                   "--disable-warnings",            # nel dettaglio servono i test falliti, non gli avvisi
                                    "-o", f"env=ADDONS_FORCE={','.join(reversed(moduli))}"], env))
         passi.append(("disinstalla", manage + ["modulo", "disinstalla", slug, "--elimina-dati", "--si"], env))
         for nome, comando, ambiente in passi:
