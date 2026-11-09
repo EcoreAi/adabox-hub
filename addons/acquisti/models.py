@@ -183,6 +183,11 @@ class OrdineAcquisto(AziendaMixin, ProprietaMixin):
     buyer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
                               related_name="ordini_acquisto", verbose_name="buyer")
     riferimento_fornitore = models.CharField("riferimento del fornitore", max_length=100, blank=True)
+    consegna_a = models.ForeignKey("contatti.Contatto", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                                   verbose_name="spedire a (triangolazione)", help_text="il fornitore spedisce direttamente a questo cliente")
+    indirizzo_consegna = models.TextField("indirizzo di consegna", blank=True)
+    ordine_vendita_id = models.PositiveBigIntegerField("ordine di vendita", null=True, blank=True, editable=False)
+    spedito_il = models.DateField("spedito al cliente il", null=True, blank=True, editable=False)
     note = models.TextField("note per il fornitore", blank=True)
     imponibile = models.DecimalField("imponibile", max_digits=14, decimal_places=2, default=0, editable=False)
     imposta = models.DecimalField("IVA", max_digits=14, decimal_places=2, default=0, editable=False)

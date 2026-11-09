@@ -25,6 +25,7 @@ class OrdineAcquistoView(ModelView):
     search_fields = ["numero", "fornitore__nome", "riferimento_fornitore"]
     form_layout = [("Ordine", [("fornitore", "buyer"), ("data", "consegna_prevista"), "termine_pagamento",
                                ("riferimento_fornitore", "contratto")]),
+                   ("Triangolazione", ["consegna_a", "indirizzo_consegna"]),
                    ("Note", ["note", "@proprieta"])]
     readonly_fields = ["numero", "stato", "confermato_il"]
     company_field = "azienda"
@@ -41,7 +42,7 @@ class OrdineAcquistoView(ModelView):
     graph = {"tipi": ["barre", "torta"], "misure": ["sum:totale", "count"], "per": ["data:mese", "fornitore", "stato"]}
     chatter = True
     tracked_fields = operazioni.CAMPI_TRACCIATI
-    buttons = ["invia", "conferma", "approva", "rifiuta", "ricevi_residuo", "rendi", "annulla"]
+    buttons = ["invia", "conferma", "approva", "rifiuta", "ricevi_residuo", "rendi", "spedito", "annulla"]
     reports = [{"nome": "Stampa", "template": "acquisti/report/ordine.html",
                 "colonne": [("prezzo", "Prezzo unitario"), ("sconto", "Sconto"), ("iva", "IVA"), ("importo", "Importo di riga")]}]
     api = True
@@ -98,7 +99,18 @@ class OrdineAcquistoView(ModelView):
                 stato = riscontro.riepilogo(obj)
                 ammessi |= {"ricevi_residuo"} if stato["ha_residuo"] and stato["ha_netto"] else set()
                 ammessi |= {"rendi"} if stato["ha_netto"] else set()
+            if obj.consegna_a_id and not obj.spedito_il:
+                ammessi |= {"spedito"}
         return [(n, e) for n, e in super().get_buttons(request, obj) if n in ammessi]
+
+    def spedito(self, request, obj):
+        from . import triangolazione
+        try:
+            triangolazione.segna_spedito(obj, request.user)
+        except ValidationError as e:
+            return " ".join(e.messages)
+        return f"Segnato: il fornitore ha spedito a {obj.consegna_a}."
+    spedito.short_description = "Spedito al cliente"
 
     def invia(self, request, obj):
         try:

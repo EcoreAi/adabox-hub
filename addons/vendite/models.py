@@ -105,6 +105,8 @@ class RigaVendita(models.Model):
                                  verbose_name="IVA")
     importo = models.DecimalField("importo", max_digits=14, decimal_places=2, default=0, editable=False)
     opzionale = models.BooleanField("opzionale", default=False, help_text="non conta nel totale finché il cliente non la sceglie")
+    diretta = models.BooleanField("spedisce il fornitore", default=False,
+                                  help_text="triangolazione: alla conferma nasce l'ordine al fornitore, che spedisce al cliente; il magazzino non si muove")
     scelta = models.BooleanField("scelta dal cliente", default=False, editable=False)
 
     class Meta:

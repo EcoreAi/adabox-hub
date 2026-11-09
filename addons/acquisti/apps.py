@@ -16,6 +16,11 @@ class AcquistiConfig(AppConfig):
                                 permission="acquisti.view_vocelistino")
         hooks.sezione_dettaglio("prodotti.Prodotto", "acquisti/_prodotto.html", order=30,
                                 permission="acquisti.view_vocelistino")
+        if apps.is_installed("vendite"):                # triangolazione: le righe «spedisce il fornitore»
+            from vendite.segnali import ordine_confermato
+
+            from . import triangolazione
+            ordine_confermato.connect(triangolazione.da_vendita, dispatch_uid="acquisti.triangolazione")
         if apps.is_installed("sdi"):                    # lo SDI è facoltativo: senza, le fatture non si collegano
             from django.db.models.signals import post_delete
             from sdi.models import FatturaPassiva

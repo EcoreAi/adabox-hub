@@ -10,7 +10,8 @@ from .models import Consegna, Magazzino, Ricevimento, RigaConsegna, RigaRicevime
 
 def consegna_da_ordine(sender, ordine, utente=None, **kwargs):
     """Una consegna da spedire con i beni dell'ordine di vendita (i servizi non si consegnano)."""
-    righe = [r for r in ordine.righe.select_related("prodotto") if r.prodotto_id and r.prodotto.tipo == "bene"]
+    righe = [r for r in ordine.righe.select_related("prodotto") if r.prodotto_id and r.prodotto.tipo == "bene"
+             and not getattr(r, "diretta", False)]          # le righe in triangolazione le spedisce il fornitore
     if not righe:
         return None
     consegna = Consegna.objects.create(
@@ -24,6 +25,8 @@ def consegna_da_ordine(sender, ordine, utente=None, **kwargs):
 
 
 def ricevimento_da_ordine(sender, ordine, utente=None, **kwargs):
+    if getattr(ordine, "consegna_a_id", None):              # triangolazione: la merce va dal fornitore al cliente
+        return None
     righe = [r for r in ordine.righe.select_related("prodotto") if r.prodotto_id and r.prodotto.tipo == "bene"]
     if not righe:
         return None
