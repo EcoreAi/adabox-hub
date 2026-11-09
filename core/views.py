@@ -86,18 +86,16 @@ def voci_kernel(user):
 
 @login_required
 def home(request):
-    """La prima pagina: quella dichiarata da un modulo installato (`home` nel manifest, es. la chat AI),
-    altrimenti la dashboard."""
+    """La prima pagina (anche dopo il login): la prima voce della barra in alto come la vede l'utente. Senza scelte
+    è la prima app di NAV_APP_IN_TESTA (di norma la chat AI), altrimenti la Dashboard."""
     from .middleware import esterno
     if esterno(request.user):
         return redirect(settings.PORTALE_HOME)
-    spenti = modules.disattivati()
-    for slug, m in modules.manifests_attivi().items():
-        if m.home and slug not in spenti:
-            try:
-                return redirect(reverse(m.home))
-            except NoReverseMatch:
-                continue
+    for nome in barra.prima_pagina(request.user, modules.app_visibili(request.user)):
+        try:
+            return redirect(reverse(nome))
+        except NoReverseMatch:
+            continue
     return redirect("core:dashboard")
 
 

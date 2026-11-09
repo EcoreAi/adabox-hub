@@ -117,8 +117,9 @@ def test_senza_permesso(client, db):
     assert client.get("/ai/chat/").status_code == 403
 
 
-def test_manifest_dichiara_la_home():
-    assert manifest.leggi(Path(ai.__file__).parent).home == "ai:chat"
+def test_la_chat_e_la_prima_pagina_di_default(client, superuser):
+    """Per NAV_APP_IN_TESTA la chat è la prima voce della barra, e la prima pagina segue la barra."""
+    assert client.get("/")["Location"] == "/ai/chat/"
 
 
 def test_impostazioni_raggiungibili_dalla_chat(client, utente):

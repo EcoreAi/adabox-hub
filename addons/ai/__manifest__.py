@@ -9,7 +9,6 @@
     "application": True,
     "nav_label": "Chat",
     "icon": "ai/icon.svg",
-    "home": "ai:chat",
     "menu": [
         {"label": "Chat", "url_name": "ai:chat", "permission": "ai.view_conversazione"},
         {"label": "Pianificate", "url_name": "ai:pianificate_lista", "permission": "ai.view_pianificata"},

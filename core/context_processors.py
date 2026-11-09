@@ -13,9 +13,8 @@ def piattaforma(request):
         return {"theme": base, "sandbox": sandbox}
     apps = modules.app_visibili(request.user)
     corrente = modules.app_corrente(request, apps)
-    voci_app = [{"label": a["nav_label"], "url_name": a["url_name"], "slug": a["slug"], "categoria": a["category"]} for a in apps]
+    voci_app, dashboard = barra.voci(apps)
     in_testa, resto = barra.in_testa(voci_app)             # es. l'assistente AI: di norma per primo
-    dashboard = {"label": "Dashboard", "url_name": "core:dashboard", "slug": barra.DASHBOARD, "categoria": "Direzione"}
     nav = [*in_testa, dashboard, *resto]
     da_fare = attivita.da_fare_oggi(request.user)
     coda = [{"label": f"Attività · {da_fare}", "url_name": "core:attivita"}] if da_fare else []

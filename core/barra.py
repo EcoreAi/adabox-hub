@@ -38,6 +38,19 @@ def scrivi(fisse, quante, nascoste=()):
         "valore": {"fisse": list(fisse), "quante": max(1, min(MASSIMO, int(quante))), "nascoste": list(nascoste), "completa": True}})
 
 
+def voci(apps):
+    """(voci delle app, voce della Dashboard) da `modules.app_visibili`: le stesse per la barra e per la prima pagina."""
+    voci_app = [{"label": a["nav_label"], "url_name": a["url_name"], "slug": a["slug"], "categoria": a["category"]} for a in apps]
+    return voci_app, {"label": "Dashboard", "url_name": "core:dashboard", "slug": DASHBOARD, "categoria": "Direzione"}
+
+
+def prima_pagina(utente, apps):
+    """Il nome URL della prima voce della barra come la vede l'utente (la sua scelta o quella dell'azienda)."""
+    voci_app, dashboard = voci(apps)
+    principali, _ = componi(voci_app, dashboard, per_utente(utente))
+    return [v["url_name"] for v in principali] or [dashboard["url_name"]]
+
+
 def componi(voci_app, dashboard, scelta, corrente=None):
     """(barra, altre) come le vede l'utente. Con una scelta completa ogni voce sta dove è stata messa, Chat e Dashboard
     comprese; altrimenti quelle restano per prime. Le nascoste escono da entrambe, tranne l'app in cui si trova."""

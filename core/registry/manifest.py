@@ -67,7 +67,7 @@ class Manifest:
     email: list = field(default_factory=list)   # modelli delle email che l'azienda può personalizzare
     dashboard: str | None = None
     riepilogo: str | None = None           # funzione voci(request, dal, oggi) del riepilogo giornaliero
-    home: str | None = None
+    home: str | None = None                       # non più usata: la prima pagina segue la barra (core.barra.prima_pagina)
 
 
 def versione_tupla(v):
