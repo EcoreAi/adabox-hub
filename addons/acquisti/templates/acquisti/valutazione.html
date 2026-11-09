@@ -10,7 +10,7 @@
   </form>
   {% if righe %}
   <div class="ui-table-wrap"><table class="ui-table is-revealed">
-    <thead><tr><th>Fornitore</th><th class="ui-num">Ordini</th><th class="ui-num">Imponibile</th><th class="ui-num" title="Ordini arrivati completi entro la data prevista, sui consegnati o scaduti">Puntualità</th><th class="ui-num" title="Quantità arrivata al netto dei resi, sull'ordinato">Completezza</th><th class="ui-num" title="Dalla conferma all'ultimo ricevimento">Giorni medi</th><th class="ui-num" title="Quantità rese sull'arrivato">Resi</th><th class="ui-num" title="Ordini fatturati in linea con la merce, entro la tolleranza">Fatture coerenti</th></tr></thead>
+    <thead><tr><th>Fornitore</th><th class="ui-num">Ordini</th><th class="ui-num">Imponibile</th><th class="ui-num" title="Ordini arrivati completi entro la data prevista, sui consegnati o scaduti">Puntualità</th><th class="ui-num" title="Quantità arrivata al netto dei resi, sull'ordinato">Completezza</th><th class="ui-num" title="Dalla conferma all'ultimo ricevimento">Giorni medi</th><th class="ui-num" title="Quantità rese sull'arrivato">Resi</th><th class="ui-num" title="Ordini fatturati in linea con la merce, entro la tolleranza">Fatture coerenti</th><th class="ui-num" title="Prezzo netto pagato rispetto al suo listino (pesato sul valore)">Prezzo vs listino</th><th class="ui-num" title="Prezzo netto pagato rispetto al più basso degli altri fornitori a listino">Prezzo vs altri</th></tr></thead>
     <tbody>{% for r in righe %}<tr>
       <td><a class="ui-link" href="{% url 'acquisti:ordini_lista' %}?f_fornitore={{ r.fornitore.pk }}">{{ r.fornitore }}</a></td>
       <td class="ui-num">{{ r.ordini }}</td><td class="ui-num">{{ r.valore|floatformat:2 }} €</td>
@@ -18,7 +18,7 @@
       <td class="ui-num">{% if r.completezza is None %}–{% else %}{{ r.completezza }}%{% endif %}</td>
       <td class="ui-num">{{ r.giorni|default_if_none:"–" }}</td>
       <td class="ui-num">{% if r.resi is None %}–{% else %}{{ r.resi }}%{% endif %}</td>
-      <td class="ui-num">{% if r.fatture is None %}–{% else %}{{ r.fatture }}%{% endif %}</td>
+      <td class="ui-num">{% if r.fatture is None %}–{% else %}{{ r.fatture }}%{% endif %}</td><td class="ui-num">{% if r.vs_listino is None %}–{% else %}{% if r.vs_listino > 0 %}+{% endif %}{{ r.vs_listino }}%{% endif %}</td><td class="ui-num">{% if r.vs_migliore is None %}–{% else %}{% if r.vs_migliore > 0 %}+{% endif %}{{ r.vs_migliore }}%{% endif %}</td>
     </tr>{% endfor %}</tbody>
   </table></div>
   {% else %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun ordine confermato nel periodo.</p></div></div>{% endif %}

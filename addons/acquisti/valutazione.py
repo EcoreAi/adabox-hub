@@ -74,12 +74,41 @@ def schede(azienda, dal, al):
             g["fatture"] += 1
             valore_atteso = o.imponibile * min(netto / ordinato, Decimal(1)) if ordinato else o.imponibile
             g["fatture_ok"] += abs(fatturato[o.pk] - valore_atteso) <= valore_atteso * tolleranza / 100
+    prezzi = _prezzi(azienda, id_ordini)
     righe = []
-    for g in gruppi.values():
+    for fid, g in gruppi.items():
+        p = prezzi.get(fid, {})
         righe.append({"fornitore": g["fornitore"], "ordini": g["ordini"], "valore": g["valore"],
+                      "vs_listino": p.get("listino"), "vs_migliore": p.get("migliore"),
                       "puntualita": _percento(g["in_tempo"], g["misurati"]), "misurati": g["misurati"],
                       "completezza": min(_percento(g["arrivato"] - g["reso"], g["ordinato"]) or 0, 100) if g["ordinato"] else None,
                       "giorni": round(sum(g["giorni"]) / len(g["giorni"])) if g["giorni"] else None,
                       "resi": _percento(g["reso"], g["arrivato"]),
                       "fatture": _percento(g["fatture_ok"], g["fatture"])})
     return sorted(righe, key=lambda r: -r["valore"])
+
+
+
+def _prezzi(azienda, id_ordini):
+    """{fornitore: {listino, migliore}}: di quanto, in percentuale e pesato sul valore, il prezzo netto pagato si scosta
+    dal listino del fornitore stesso e dal prezzo più basso che gli altri fornitori hanno a listino per lo stesso prodotto."""
+    from .models import VoceListino
+    voci = defaultdict(list)
+    for v in VoceListino.objects.filter(azienda=azienda).order_by("quantita_minima"):
+        voci[v.prodotto_id].append(v)
+    somme = defaultdict(lambda: {"listino": [Decimal(0), Decimal(0)], "migliore": [Decimal(0), Decimal(0)]})
+    for r in RigaAcquisto.objects.filter(ordine__in=id_ordini, prodotto__isnull=False).select_related("ordine", "prodotto", "unita"):
+        if not r.prezzo or not r.quantita:
+            continue
+        netto = r.prezzo * (100 - r.sconto) / 100 / (r.per_unita or 1)
+        peso = netto * (r.quantita_base or r.quantita)
+        proprie = [v for v in voci.get(r.prodotto_id, []) if v.fornitore_id == r.ordine.fornitore_id]
+        altre = [v.prezzo for v in voci.get(r.prodotto_id, []) if v.fornitore_id != r.ordine.fornitore_id]
+        s = somme[r.ordine.fornitore_id]
+        if proprie and proprie[0].prezzo:
+            s["listino"][0] += (netto - proprie[0].prezzo) / proprie[0].prezzo * peso
+            s["listino"][1] += peso
+        if altre and min(altre):
+            s["migliore"][0] += (netto - min(altre)) / min(altre) * peso
+            s["migliore"][1] += peso
+    return {f: {k: (round(v[0] * 100 / v[1], 1) if v[1] else None) for k, v in s.items()} for f, s in somme.items()}
