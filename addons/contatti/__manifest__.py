@@ -1,7 +1,7 @@
 {
     "name": "Contatti",
     "summary": "Anagrafica di aziende e persone: clienti, fornitori, recapiti e dati fiscali",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Anagrafiche",
     "depends": [],
@@ -12,15 +12,18 @@
     "menu": [
         {"label": "Contatti", "url_name": "contatti:contatti_lista", "permission": "contatti.view_contatto"},
         {"label": "Categorie", "url_name": "contatti:categorie_lista", "permission": "contatti.view_categoria"},
+        {"label": "Segmenti", "url_name": "contatti:segmenti_lista", "permission": "contatti.view_segmento"},
     ],
     "groups": {
         "Contatti / Utente": ["contatti.view_contatto", "contatti.add_contatto", "contatti.change_contatto",
                               "contatti.view_categoria", "contatti.view_indirizzocontatto", "contatti.add_indirizzocontatto",
-                              "contatti.change_indirizzocontatto", "contatti.delete_indirizzocontatto"],
+                              "contatti.change_indirizzocontatto", "contatti.delete_indirizzocontatto",
+                              "contatti.view_segmento"],
         "Contatti / Responsabile": ["contatti.*"],
     },
     "data": ["data/categorie.json"],
     "demo": ["data/demo.json"],
     "hooks": "contatti.hooks",
+    "cron": [{"nome": "Classi ABC e segmenti", "funzione": "contatti.segmenti.ricalcola", "ogni": "1d", "alle": "03:30"}],
     "sequences": [{"codice": "contatti.contatto", "formato": "C{numero:05d}"}],
 }

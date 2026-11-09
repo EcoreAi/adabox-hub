@@ -60,6 +60,10 @@ class Contatto(AziendaMixin, ProprietaMixin):
                                       help_text="oltre il fido l'ordine non si conferma; altrimenti si avvisa soltanto")
     note = models.TextField("note", blank=True)
     attivo = models.BooleanField("attivo", default=True)
+    classe_abc = models.CharField("classe ABC", max_length=1, blank=True, editable=False,
+                                  choices=[("A", "A (primo 80% del fatturato)"), ("B", "B (fino al 95%)"), ("C", "C (il resto)")],
+                                  help_text="dal fatturato degli ultimi 12 mesi, ricalcolata ogni notte")
+    fatturato_12_mesi = models.DecimalField("fatturato ultimi 12 mesi", max_digits=14, decimal_places=2, default=0, editable=False)
 
     class Meta(AziendaMixin.Meta):
         verbose_name = "contatto"
@@ -147,3 +151,49 @@ class IndirizzoContatto(AziendaMixin):
         if contatto is None:
             return None
         return cls.objects.filter(contatto=contatto, tipo=tipo).order_by("-predefinito", "pk").first()
+
+
+class Segmento(AziendaMixin):
+    """Una lista di contatti con regole salvate, ricalcolata da sola: per liste, filtri, automazioni."""
+    nome = models.CharField("nome", max_length=80)
+    descrizione = models.TextField("descrizione", blank=True)
+    solo_clienti = models.BooleanField("solo clienti", default=True)
+    solo_fornitori = models.BooleanField("solo fornitori", default=False)
+    tipo = models.CharField("tipo", max_length=10, choices=Contatto.TIPI, blank=True)
+    categorie = models.ManyToManyField(Categoria, blank=True, related_name="+", verbose_name="con una di queste categorie")
+    province = models.CharField("province", max_length=200, blank=True, help_text="sigle separate da virgola, es. MI, MB, CO")
+    nazione = models.CharField("nazione", max_length=2, blank=True)
+    responsabile = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                     related_name="+", verbose_name="con responsabile")
+    classi = models.CharField("classi ABC", max_length=3, blank=True, help_text="es. A oppure AB")
+    fatturato_minimo = models.DecimalField("fatturato 12 mesi da (€)", max_digits=14, decimal_places=2, null=True, blank=True)
+    fatturato_massimo = models.DecimalField("fatturato 12 mesi fino a (€)", max_digits=14, decimal_places=2, null=True, blank=True)
+    acquisto_entro = models.PositiveIntegerField("ha comprato negli ultimi (giorni)", null=True, blank=True)
+    inattivo_da = models.PositiveIntegerField("non compra da almeno (giorni)", null=True, blank=True,
+                                              help_text="clienti dormienti: nessuna fattura in questo periodo")
+    aggiunti = models.ManyToManyField(Contatto, blank=True, related_name="+", verbose_name="aggiunti a mano")
+    esclusi = models.ManyToManyField(Contatto, blank=True, related_name="+", verbose_name="esclusi a mano")
+    membri = models.ManyToManyField(Contatto, blank=True, related_name="segmenti", editable=False, verbose_name="contatti")
+    numero = models.PositiveIntegerField("contatti", default=0, editable=False)
+    ricalcolato_il = models.DateTimeField("ricalcolato il", null=True, blank=True, editable=False)
+    attivo = models.BooleanField("attivo", default=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "segmento"
+        verbose_name_plural = "segmenti"
+        ordering = ["nome"]
+
+    def __str__(self):
+        return self.nome
+
+    def clean(self):
+        if self.classi and set(self.classi.upper()) - set("ABC"):
+            raise ValidationError({"classi": "Solo le lettere A, B e C."})
+        self.classi = "".join(sorted(set(self.classi.upper())))
+
+
+# condizioni in più per le regole delle automazioni (vedi automazioni.catalogo._generici)
+Contatto.condizioni_automazioni = {
+    "segmenti": ("Segmenti", "testo", lambda o: ", ".join(o.segmenti.values_list("nome", flat=True))),
+    "fatturato_12_mesi": ("Fatturato ultimi 12 mesi", "numero", lambda o: o.fatturato_12_mesi),
+}

@@ -6,7 +6,7 @@ from core.viste import ModelView, register
 
 from . import validatori, vies
 
-from .models import Categoria, Contatto, IndirizzoContatto
+from .models import Categoria, Contatto, IndirizzoContatto, Segmento
 
 COLORI_TIPO = {Contatto.AZIENDA: "azzurro", Contatto.PERSONA: "viola"}
 
@@ -29,7 +29,7 @@ class ContattoView(ModelView):
     model = Contatto
     slug = "contatti"
     list_display = ["nome", "codice", "tipo", "citta", "telefono", "email"]
-    list_filter = ["tipo", "cliente", "fornitore", "categorie", "responsabile"]
+    list_filter = ["tipo", "cliente", "fornitore", "categorie", "responsabile", "segmenti", "classe_abc"]
     search_fields = ["nome", "codice", "email", "partita_iva", "codice_fiscale", "citta"]
     ordering = ["nome"]
     form_layout = [
@@ -124,3 +124,40 @@ class IndirizzoView(ModelView):
                                   "predefinito"])]
     company_field = "azienda"
     ai_descrizione = "Gli indirizzi di consegna, fatturazione e delle sedi operative dei contatti."
+
+
+@register
+class SegmentoView(ModelView):
+    """Liste di contatti con regole salvate: si ricalcolano ogni notte o con il bottone."""
+    model = Segmento
+    slug = "segmenti"
+    company_field = "azienda"
+    list_display = ["nome", "numero", "ricalcolato_il", "attivo"]
+    list_filter = ["attivo"]
+    search_fields = ["nome", "descrizione"]
+    form_layout = [("Segmento", [("nome", "attivo"), "descrizione"]),
+                   ("Chi", [("solo_clienti", "solo_fornitori"), ("tipo", "responsabile"), "categorie", ("province", "nazione")]),
+                   ("Fatturato e acquisti", [("classi", "fatturato_minimo", "fatturato_massimo"), ("acquisto_entro", "inattivo_da")]),
+                   ("A mano", ["aggiunti", "esclusi"])]
+    buttons = ["ricalcola", "apri_contatti"]
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)          # salva anche categorie, aggiunti ed esclusi
+        from . import segmenti
+        segmenti.ricalcola_segmento(obj)
+
+    def ricalcola(self, request, obj):
+        from . import segmenti
+        if segmenti._fatture(obj.azienda_id) is not None:
+            segmenti.classi_abc(obj.azienda_id)
+        return f"Segmento ricalcolato: {segmenti.ricalcola_segmento(obj)} contatti."
+    ricalcola.short_description = "Ricalcola"
+    ricalcola.permission = "view"
+
+    def apri_contatti(self, request, obj):
+        from django.shortcuts import redirect
+        from django.urls import reverse
+        return redirect(reverse("contatti:contatti_lista") + f"?f_segmenti={obj.pk}")
+    apri_contatti.short_description = "Vedi i contatti"
+    apri_contatti.permission = "view"
+    apri_contatti.ai = False

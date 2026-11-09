@@ -310,6 +310,7 @@ def _generici(gia):
                                           [(k, str(t)) for k, t in f.flatchoices])
                 elif f.get_internal_type() == "BooleanField" and f.editable:
                     condizioni[f.name] = (str(f.verbose_name).capitalize(), "sino", (lambda n: lambda o: getattr(o, n))(f.name))
+            condizioni.update(getattr(v.model, "condizioni_automazioni", {}))     # condizioni proprie del modello
             utenti = [f.name for f in v.opts.concrete_fields if f.is_relation and f.related_model is not None
                       and f.related_model._meta.label == "auth.User" and f.editable]
             dominio = Dominio(codice, nome, v.modulo, {"record": ("Il record", "…"), "link_interno": ("Link interno", "https://…")},

@@ -24,7 +24,8 @@ def _campo(vista, nome):
 
 
 def _etichetta(f):
-    nome = str(f.verbose_name)
+    # le relazioni inverse (es. i segmenti di un contatto) non hanno verbose_name: si usa il plurale del modello
+    nome = str(getattr(f, "verbose_name", None) or f.related_model._meta.verbose_name_plural)
     return nome[:1].upper() + nome[1:]
 
 
@@ -39,7 +40,7 @@ def specifiche(vista, request):
                 "valore": request.GET.get(f"f_{nome}", "")}
         if isinstance(f, models.BooleanField):
             spec["opzioni"] = [("1", "Sì"), ("0", "No")]
-        elif f.choices:
+        elif getattr(f, "choices", None):          # le relazioni inverse non hanno choices
             spec["opzioni"] = [(str(k), v) for k, v in f.flatchoices]
         elif f.is_relation:
             qs = f.related_model._default_manager.all()
