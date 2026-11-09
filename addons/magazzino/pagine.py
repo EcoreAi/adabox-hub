@@ -17,14 +17,26 @@ def situazione(request, solo_sotto_scorta=False, cerca=""):
     saldi = {}
     for r in (queryset(request, Movimento).values("prodotto", "magazzino").annotate(t=Sum("quantita"))):
         saldi[(r["prodotto"], r["magazzino"])] = r["t"]
+    from .models import ScortaMagazzino, impegni_e_arrivi
+    azienda = getattr(request, "azienda", None)
+    impegni, arrivi = impegni_e_arrivi(azienda) if azienda else ({}, {})
+    scorte = {}
+    for sc in queryset(request, ScortaMagazzino):
+        scorte[(sc.prodotto_id, sc.magazzino_id)] = sc.punto_riordino
     righe = []
     for p in prodotti:
         per_magazzino = [saldi.get((p.pk, m.pk), 0) for m in magazzini]
         totale = sum(per_magazzino)
-        sotto = p.scorta_minima > 0 and totale < p.scorta_minima
+        impegnato = sum((impegni.get((p.pk, m.pk), 0) for m in magazzini), 0)
+        in_arrivo = sum((arrivi.get((p.pk, m.pk), 0) for m in magazzini), 0)
+        previsto = totale + in_arrivo - impegnato
+        sotto_magazzino = [m.nome for m in magazzini if (p.pk, m.pk) in scorte and
+                           saldi.get((p.pk, m.pk), 0) + arrivi.get((p.pk, m.pk), 0) - impegni.get((p.pk, m.pk), 0) < scorte[(p.pk, m.pk)]]
+        sotto = (p.scorta_minima > 0 and previsto < p.scorta_minima) or bool(sotto_magazzino)
         if solo_sotto_scorta and not sotto:
             continue
-        righe.append({"prodotto": p, "per_magazzino": per_magazzino, "totale": totale, "sotto_scorta": sotto})
+        righe.append({"prodotto": p, "per_magazzino": per_magazzino, "totale": totale, "sotto_scorta": sotto, "impegnato": impegnato,
+                      "in_arrivo": in_arrivo, "previsto": previsto, "sotto_magazzino": sotto_magazzino})
     return magazzini, righe
 
 

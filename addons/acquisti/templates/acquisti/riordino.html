@@ -12,8 +12,8 @@
   <div class="ui-table-wrap"><table class="ui-table is-revealed">
     <thead><tr><th></th><th>Prodotto</th><th class="ui-num">Giacenza</th><th class="ui-num">In arrivo</th><th class="ui-num">Impegnato</th><th class="ui-num">Previsto</th><th class="ui-num">Riordina sotto</th><th class="ui-num">Da ordinare</th><th>Fornitore</th><th class="ui-num">Prezzo</th></tr></thead>
     <tbody>{% for v in voci %}<tr>
-      <td>{% if puo_creare and v.fornitore %}<input type="checkbox" class="ui-checkbox" name="prodotto" value="{{ v.prodotto.pk }}" checked aria-label="Riordina {{ v.prodotto }}">{% endif %}</td>
-      <td><a class="ui-link" href="{% url 'prodotti:prodotti_dettaglio' v.prodotto.pk %}">{{ v.prodotto }}</a></td>
+      <td>{% if puo_creare and v.fornitore %}<input type="checkbox" class="ui-checkbox" name="prodotto" value="{{ v.chiave }}" checked aria-label="Riordina {{ v.prodotto }}">{% endif %}</td>
+      <td><a class="ui-link" href="{% url 'prodotti:prodotti_dettaglio' v.prodotto.pk %}">{{ v.prodotto }}</a>{% if v.magazzino %} <span class="ui-help">in {{ v.magazzino }}</span>{% endif %}</td>
       <td class="ui-num">{{ v.giacenza|floatformat:"-3" }}</td><td class="ui-num">{{ v.in_arrivo|floatformat:"-3" }}</td><td class="ui-num">{{ v.impegnato|floatformat:"-3" }}</td>
       <td class="ui-num"><strong>{{ v.previsto|floatformat:"-3" }}</strong></td><td class="ui-num">{{ v.punto|floatformat:"-3" }}</td>
       <td class="ui-num"><strong>{{ v.quantita|floatformat:"-3" }}</strong> {{ v.prodotto.unita }}</td>

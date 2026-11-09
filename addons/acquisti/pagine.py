@@ -44,8 +44,8 @@ def riordino(request):
 @require_POST
 def riordino_crea(request):
     azienda = _azienda(request)
-    scelti = {int(p) for p in request.POST.getlist("prodotto") if p.isdigit()}
-    voci = [v for v in motore.proposte(azienda) if v["prodotto"].pk in scelti]     # ricalcolate: mai quantità dal browser
+    scelti = set(request.POST.getlist("prodotto"))
+    voci = [v for v in motore.proposte(azienda) if v["chiave"] in scelti]     # ricalcolate: mai quantità dal browser
     ordini = motore.crea_richieste(azienda, voci, request.user)
     senza = sum(v["fornitore"] is None for v in voci)
     if ordini:

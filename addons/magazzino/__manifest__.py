@@ -1,7 +1,7 @@
 {
     "name": "Magazzino",
     "summary": "Giacenze, movimenti, consegne con DDT, ricevimenti e scorte minime",
-    "version": "1.8.0",
+    "version": "1.9.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Magazzino",
     "depends": ["prodotti", "contatti"],
@@ -21,6 +21,7 @@
         {"label": "Movimenti", "url_name": "magazzino:movimenti_lista", "permission": "magazzino.view_movimento"},
         {"label": "Valore di magazzino", "url_name": "magazzino:valore", "permission": "magazzino.view_movimento"},
         {"label": "Magazzini", "url_name": "magazzino:magazzini_lista", "permission": "magazzino.change_magazzino"},
+        {"label": "Scorte per magazzino", "url_name": "magazzino:scorte_lista", "permission": "magazzino.view_scortamagazzino"},
         {"label": "Ubicazioni", "url_name": "magazzino:ubicazioni_lista", "permission": "magazzino.view_ubicazione"},
         {"label": "Lotti e seriali", "url_name": "magazzino:lotti_lista", "permission": "magazzino.view_lotto"},
     ],

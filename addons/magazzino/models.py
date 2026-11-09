@@ -402,3 +402,51 @@ class RigaInventario(models.Model):
         if self.rettifica is None or self.costo_unitario is None:
             return None
         return (self.rettifica * self.costo_unitario).quantize(Decimal("0.01"))
+
+
+class ScortaMagazzino(AziendaMixin):
+    """Punto di riordino e obiettivo di un bene in un magazzino preciso (negozio, furgone, sede distaccata). Dove c'è,
+    il riordino ragiona su quel magazzino invece che sul totale."""
+    magazzino = models.ForeignKey(Magazzino, on_delete=models.CASCADE, related_name="scorte", verbose_name="magazzino")
+    prodotto = models.ForeignKey("prodotti.Prodotto", on_delete=models.CASCADE, related_name="scorte_magazzino",
+                                 limit_choices_to={"tipo": "bene"}, verbose_name="prodotto")
+    punto_riordino = models.DecimalField("riordina sotto", max_digits=12, decimal_places=3)
+    scorta_obiettivo = models.DecimalField("riporta a", max_digits=12, decimal_places=3)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "scorta per magazzino"
+        verbose_name_plural = "scorte per magazzino"
+        ordering = ["magazzino__nome", "prodotto__nome"]
+        constraints = [models.UniqueConstraint(fields=["magazzino", "prodotto"], name="magazzino_scorta_unica")]
+
+    def __str__(self):
+        return f"{self.prodotto} in {self.magazzino}"
+
+    def clean(self):
+        if self.punto_riordino is not None and self.punto_riordino < 0:
+            raise ValidationError({"punto_riordino": "Non può essere negativo."})
+        if None not in (self.punto_riordino, self.scorta_obiettivo) and self.scorta_obiettivo < self.punto_riordino:
+            raise ValidationError({"scorta_obiettivo": "Deve essere almeno pari al punto di riordino."})
+
+
+def impegni_e_arrivi(azienda):
+    """({(prodotto, magazzino): impegnato}, {(prodotto, magazzino): in arrivo}) da consegne aperte e ricevimenti da
+    ricevere; con gli Acquisti anche gli ordini ancora senza ricevimento, nel magazzino predefinito."""
+    from django.apps import apps
+    impegni, arrivi = {}, {}
+    for r in (RigaConsegna.objects.filter(consegna__azienda=azienda, consegna__stato__in=Consegna.APERTI)
+              .values("prodotto", "consegna__magazzino").annotate(t=Sum("quantita"))):
+        impegni[(r["prodotto"], r["consegna__magazzino"])] = r["t"]
+    for r in (RigaRicevimento.objects.filter(ricevimento__azienda=azienda, ricevimento__stato=Ricevimento.BOZZA)
+              .values("prodotto", "ricevimento__magazzino").annotate(t=Sum("quantita"))):
+        arrivi[(r["prodotto"], r["ricevimento__magazzino"])] = r["t"]
+    if apps.is_installed("acquisti"):
+        from acquisti.models import OrdineAcquisto, RigaAcquisto
+        predefinito = Magazzino.predefinito_per(azienda)
+        if predefinito is not None:
+            for r in (RigaAcquisto.objects.filter(ordine__azienda=azienda, prodotto__isnull=False, ordine__gara=None,
+                                                  ordine__stato__in=[OrdineAcquisto.BOZZA, OrdineAcquisto.INVIATO, OrdineAcquisto.DA_APPROVARE])
+                      .values("prodotto").annotate(t=Sum("quantita"))):
+                chiave = (r["prodotto"], predefinito.pk)
+                arrivi[chiave] = arrivi.get(chiave, 0) + r["t"]
+    return impegni, arrivi

@@ -5,7 +5,7 @@ from core.viste import Inline, ModelView, register, schede
 
 from . import operazioni
 from .models import Consegna, Magazzino, Movimento, Ricevimento, RigaConsegna, RigaRicevimento, Ubicazione
-from .models import Inventario, Lotto
+from .models import Inventario, Lotto, ScortaMagazzino
 
 
 @register
@@ -297,3 +297,16 @@ class InventarioView(ModelView):
         obj.save(update_fields=["stato"])
         return "Inventario annullato: nessuna rettifica."
     annulla.short_description = "Annulla"
+
+
+@register
+class ScortaMagazzinoView(ModelView):
+    """Scorta per magazzino: dove c'è, il riordino guarda quel magazzino invece del totale."""
+    model = ScortaMagazzino
+    slug = "scorte"
+    company_field = "azienda"
+    list_display = ["magazzino", "prodotto", "punto_riordino", "scorta_obiettivo"]
+    list_filter = ["magazzino"]
+    search_fields = ["prodotto__nome", "prodotto__codice"]
+    form_layout = [("Scorta", [("magazzino", "prodotto"), ("punto_riordino", "scorta_obiettivo")])]
+    ai_descrizione = "Punti di riordino e scorte obiettivo dei prodotti per singolo magazzino."
