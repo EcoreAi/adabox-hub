@@ -7,6 +7,7 @@ DEFAULTS = {
     "company_url": "",
     "version": "",
     "nav": [],
+    "theme_color": "#1e3a8a",   # barra del browser sul telefono e manifest dell'app installata
 }
 
 

@@ -1,0 +1,1 @@
+{% include "theme/partials/_logo.html" %}{# Favicon: di default il cubo del logo. Un tema che mette un'immagine nel logo sostituisce questo template con un SVG autonomo (con xmlns): si rende senza request. #}

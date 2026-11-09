@@ -3,16 +3,29 @@ from django.template.loader import render_to_string
 from django.views.decorators.cache import cache_control
 
 
+def colore_tema():
+    from django.conf import settings
+
+    from .context_processors import DEFAULTS
+    return {**DEFAULTS, **getattr(settings, "THEME", {})}["theme_color"]
+
+
 @cache_control(max_age=86400)
 def favicon(request):
-    """Lo stesso cubo del logo nell'header."""
-    svg = render_to_string("theme/partials/_logo.html").strip()          # il commento del template non esce
+    """theme/partials/_favicon.svg: di default lo stesso cubo del logo nell'header; un tema lo sostituisce."""
+    svg = render_to_string("theme/partials/_favicon.svg").strip()        # il commento del template non esce
     svg = svg.replace('<svg class="ui-logo-cubo"', '<svg xmlns="http://www.w3.org/2000/svg"', 1)
     return HttpResponse(svg, content_type="image/svg+xml")
 
 
 def _icona_png(lato):
-    """Il cubo del logo su fondo bianco, in PNG (le icone dell'app installata); disegnato con Pillow."""
+    """Le icone dell'app installata: theme/icona-<lato>.png tra gli statici se un tema la fornisce (un'app che
+    viene prima di theme in INSTALLED_APPS), altrimenti il cubo del logo su fondo bianco, disegnato con Pillow."""
+    from django.contrib.staticfiles import finders
+    trovata = finders.find(f"theme/icona-{lato}.png")
+    if trovata:
+        with open(trovata, "rb") as f:
+            return f.read()
     from io import BytesIO
 
     from PIL import Image, ImageDraw
@@ -47,7 +60,7 @@ def manifest(request):
     from django.urls import reverse
     brand = settings.THEME.get("brand", "adabox")
     dati = {"name": brand, "short_name": brand[:12], "lang": "it", "dir": "ltr",
-            "start_url": "/tasca/?da=app", "scope": "/", "display": "standalone", "background_color": "#ffffff", "theme_color": "#1e3a8a",
+            "start_url": "/tasca/?da=app", "scope": "/", "display": "standalone", "background_color": "#ffffff", "theme_color": colore_tema(),
             "description": "Il gestionale con l'assistente: attività, approvazioni, note spese e notifiche anche dal telefono.",
             "icons": [{"src": reverse("theme:icona", args=[192]), "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
                       {"src": reverse("theme:icona", args=[512]), "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}],
