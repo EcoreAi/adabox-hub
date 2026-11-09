@@ -1,0 +1,24 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Previsione delle vendite · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Previsione delle vendite</h1><div class="sub">Vinto più pipeline aperta ponderata, per mese di chiusura prevista{% if utente %} · {{ utente.get_full_name|default:utente.username }}{% endif %}</div></div></div>
+<div class="ui-card is-revealed ui-section"><form class="ui-filtri" method="get">
+  <select class="ui-input" name="utente" style="max-width:240px" aria-label="Commerciale"><option value="">Tutta l'azienda</option>{% for u in commerciali %}<option value="{{ u.pk }}" {% if utente and u.pk == utente.pk %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>{% endfor %}</select>
+  <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Mostra</button></form>
+  <div class="ui-card-body"><div class="cm-tessere">
+    <div class="cm-tessera"><small>Previsione {{ righe|length }} mesi</small><strong>{{ totale.previsione|floatformat:0 }} €</strong></div>
+    <div class="cm-tessera"><small>Già vinto</small><strong>{{ totale.vinto|floatformat:0 }} €</strong></div>
+    <div class="cm-tessera"><small>Pipeline</small><strong>{{ totale.pipeline|floatformat:0 }} €</strong></div>
+    <div class="cm-tessera"><small>Ponderato</small><strong>{{ totale.ponderato|floatformat:0 }} €</strong></div>
+  </div></div></div>
+<section class="ui-card is-revealed ui-section"><div class="ui-table-wrap"><table class="ui-table is-revealed">
+  <thead><tr><th>Mese</th><th class="ui-num">Aperte</th><th class="ui-num">Pipeline</th><th class="ui-num">Ponderato</th><th class="ui-num">Vinto</th><th class="ui-num">Calcolata</th><th class="ui-num">Previsione</th>{% if puo_rettificare %}<th>Rettifica</th>{% endif %}</tr></thead>
+  <tbody>{% for r in righe %}<tr><td>{{ r.mese|date:"F Y"|capfirst }}</td><td class="ui-num">{{ r.aperte }}</td><td class="ui-num">{{ r.pipeline|floatformat:0 }}</td><td class="ui-num">{{ r.ponderato|floatformat:0 }}</td><td class="ui-num">{{ r.vinto|floatformat:0 }}</td><td class="ui-num">{{ r.calcolata|floatformat:0 }}</td>
+    <td class="ui-num"><strong>{{ r.previsione|floatformat:0 }}</strong>{% if r.rettifica %}<br><small class="sub" title="{{ r.rettifica.nota }}">rettificata{% if r.rettifica.nota %}: {{ r.rettifica.nota|truncatechars:40 }}{% endif %}</small>{% endif %}</td>
+    {% if puo_rettificare %}<td><form method="post" class="ui-filtri">{% csrf_token %}<input type="hidden" name="mese" value="{{ r.mese|date:'Y-m-d' }}">{% if utente %}<input type="hidden" name="utente" value="{{ utente.pk }}">{% endif %}
+      <input class="ui-input" name="importo" inputmode="decimal" placeholder="€" value="{% if r.rettifica %}{{ r.rettifica.importo|floatformat:2 }}{% endif %}" style="max-width:110px" aria-label="Previsione rettificata">
+      <input class="ui-input" name="nota" placeholder="motivo" value="{{ r.rettifica.nota|default:'' }}" style="max-width:160px" aria-label="Motivo">
+      <button class="ui-btn ui-btn-secondary ui-btn-sm">Salva</button></form></td>{% endif %}</tr>{% endfor %}</tbody>
+  <tfoot><tr><th>Totale</th><th></th><th class="ui-num">{{ totale.pipeline|floatformat:0 }}</th><th class="ui-num">{{ totale.ponderato|floatformat:0 }}</th><th class="ui-num">{{ totale.vinto|floatformat:0 }}</th><th class="ui-num">{{ totale.calcolata|floatformat:0 }}</th><th class="ui-num">{{ totale.previsione|floatformat:0 }}</th>{% if puo_rettificare %}<th></th>{% endif %}</tr></tfoot>
+</table></div><div class="ui-card-body"><p class="sub" style="margin:0">Lascia vuoto l'importo e salva per tornare alla previsione calcolata.</p></div></section>
+{% endblock %}
