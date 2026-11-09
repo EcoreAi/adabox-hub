@@ -1,0 +1,13 @@
+{% if perms.banca.view_collegamentoconto %}{% with c=obj.collegamento_o_niente %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Lettura automatica dalla banca</div>
+    <div class="ui-card-sub">{% if c %}{{ c.nome_istituto|default:c.istituto }} · {{ c.get_stato_display }}{% if c.scade_il %} · consenso fino al {{ c.scade_il|date:"d/m/Y" }}{% endif %}{% else %}I movimenti arrivano da soli, senza caricare l'estratto{% endif %}</div></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      {% if c and c.stato == "attivo" and perms.banca.add_importazione %}<form method="post" action="{% url 'banca:collega_leggi' c.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-secondary ui-btn-sm" type="submit">Leggi adesso</button></form>{% endif %}
+      {% if perms.banca.add_collegamentoconto %}<a class="ui-btn ui-btn-{% if c and c.stato == 'attivo' %}ghost{% else %}primary{% endif %} ui-btn-sm" href="{% url 'banca:collega' obj.pk %}">{% if c %}Rinnova il consenso{% else %}Collega alla banca{% endif %}</a>{% endif %}
+      {% if c and perms.banca.delete_collegamentoconto %}<form method="post" action="{% url 'banca:scollega' c.pk %}" onsubmit="return confirm('Togliere il collegamento? I movimenti già letti restano.')">{% csrf_token %}<button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit">Scollega</button></form>{% endif %}
+    </div></div>
+  {% if c %}<div class="ui-card-body"><p class="sub" style="margin:0">{% if c.ultima_lettura %}Ultima lettura il {{ c.ultima_lettura|date:"d/m/Y H:i" }}.{% else %}Non ancora letto.{% endif %}
+    {% if c.stato == "in_attesa" %} Il consenso non è ancora arrivato: <a class="ui-link" href="{{ c.link_consenso }}">apri la pagina della banca</a>.{% endif %}</p>
+    {% if c.errore %}<p class="ui-help" style="color:var(--ui-danger,#b91c1c)">{{ c.errore }}</p>{% endif %}</div>{% endif %}
+</section>{% endwith %}{% endif %}

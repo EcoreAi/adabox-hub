@@ -38,6 +38,13 @@ class Conto(AziendaMixin):
     def __str__(self):
         return self.nome
 
+    @property
+    def collegamento_o_niente(self):
+        try:
+            return self.collegamento
+        except models.ObjectDoesNotExist:
+            return None
+
     def clean(self):
         self.iban = normalizza_iban(self.iban)
         if self.iban and not iban_valido(self.iban):
@@ -118,3 +125,58 @@ class Abbinamento(models.Model):
 
     def __str__(self):
         return f"{self.movimento}: {self.importo} €"
+
+
+class Aggregatore(AziendaMixin):
+    """Il servizio PSD2 che legge i conti al posto nostro (con il consenso del titolare, banca per banca).
+    Le chiavi si scrivono e si salvano cifrate, non si rileggono."""
+    GOCARDLESS, FINTO = "gocardless", "finto"
+    TIPI = [(GOCARDLESS, "GoCardless Bank Account Data"), (FINTO, "Simulato (prove e demo)")]
+    nome = models.CharField("nome", max_length=80, default="GoCardless")
+    tipo = models.CharField("servizio", max_length=12, choices=TIPI, default=GOCARDLESS)
+    secret_id = models.CharField("Secret ID", max_length=200, blank=True)
+    secret_key_cifrata = models.TextField(blank=True, editable=False)
+    attivo = models.BooleanField("attivo", default=True)
+    creato = models.DateTimeField("creato il", auto_now_add=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "servizio di lettura dei conti"
+        verbose_name_plural = "servizi di lettura dei conti"
+        ordering = ["pk"]
+
+    def __str__(self):
+        return self.nome
+
+    def secret_key(self):
+        from core import cifratura
+        return cifratura.decifra(self.secret_key_cifrata) if self.secret_key_cifrata else ""
+
+
+class CollegamentoConto(AziendaMixin):
+    """Il conto letto in automatico: il titolare dà il consenso sul sito della banca, poi i movimenti arrivano da soli
+    finché il consenso vale (di solito 90 o 180 giorni), poi va rinnovato."""
+    IN_ATTESA, ATTIVO, SCADUTO, ERRORE = "in_attesa", "attivo", "scaduto", "errore"
+    STATI = [(IN_ATTESA, "In attesa del consenso"), (ATTIVO, "Attivo"), (SCADUTO, "Consenso scaduto"), (ERRORE, "Errore")]
+    conto = models.OneToOneField(Conto, on_delete=models.CASCADE, related_name="collegamento", verbose_name="conto")
+    aggregatore = models.ForeignKey(Aggregatore, on_delete=models.CASCADE, related_name="collegamenti", verbose_name="servizio")
+    istituto = models.CharField("banca", max_length=120, help_text="il codice della banca presso il servizio")
+    nome_istituto = models.CharField("nome della banca", max_length=200, blank=True)
+    richiesta = models.CharField("richiesta di consenso", max_length=120, blank=True)
+    link_consenso = models.URLField("pagina del consenso", max_length=1000, blank=True)
+    conto_esterno = models.CharField("conto presso il servizio", max_length=120, blank=True)
+    stato = models.CharField("stato", max_length=10, choices=STATI, default=IN_ATTESA)
+    scade_il = models.DateField("consenso valido fino al", null=True, blank=True)
+    giorni_storico = models.PositiveSmallIntegerField("giorni di storico", default=90)
+    ultima_lettura = models.DateTimeField("ultima lettura", null=True, blank=True)
+    letto_fino_al = models.DateField("movimenti letti fino al", null=True, blank=True)
+    errore = models.CharField("ultimo errore", max_length=300, blank=True)
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                               verbose_name="collegato da")
+    creato = models.DateTimeField("creato il", auto_now_add=True)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "collegamento del conto"
+        verbose_name_plural = "collegamenti dei conti"
+
+    def __str__(self):
+        return f"{self.conto} · {self.nome_istituto or self.istituto}"

@@ -1,7 +1,7 @@
 {
     "name": "Banca",
-    "summary": "Estratti conto importati e abbinati a fatture e fornitori: gli incassi si registrano con un clic, senza contabilità",
-    "version": "1.1.0",
+    "summary": "Estratti conto importati o letti in automatico dalla banca, abbinati a fatture e fornitori: gli incassi si registrano con un clic, senza contabilità",
+    "version": "1.2.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Contabilità",
     "depends": ["sdi"],
@@ -15,9 +15,12 @@
         {"label": "Movimenti", "url_name": "banca:movimenti_lista", "permission": "banca.view_movimentobanca"},
         {"label": "Importa estratto", "url_name": "banca:importa", "permission": "banca.add_importazione"},
         {"label": "Conti", "url_name": "banca:conti_lista", "permission": "banca.view_conto"},
+        {"label": "Lettura automatica", "url_name": "banca:aggregatori_lista", "permission": "banca.change_aggregatore"},
     ],
+    "cron": [{"nome": "Lettura automatica dei conti", "funzione": "banca.sincronia.giro", "ogni": "6h"}],
     "groups": {
-        "Banca / Utente": ["banca.view_conto", "banca.view_movimentobanca", "banca.view_abbinamento", "banca.view_importazione"],
+        "Banca / Utente": ["banca.view_conto", "banca.view_movimentobanca", "banca.view_abbinamento", "banca.view_importazione",
+                           "banca.view_collegamentoconto"],
         "Banca / Responsabile": ["banca.*", "fatturazione.view_scadenza", "fatturazione.add_incasso", "fatturazione.delete_incasso",
                                  "sdi.view_scadenzapassiva", "sdi.change_scadenzapassiva"],
     },

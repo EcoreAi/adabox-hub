@@ -1,0 +1,15 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Collega {{ conto }} · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Collega il conto alla banca</h1><div class="sub"><a class="ui-link" href="{% url 'banca:conti_dettaglio' conto.pk %}">{{ conto }}</a> · {{ conto.iban }} · i movimenti arriveranno da soli</div></div></div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <p>Scegli la banca: si apre il suo sito, dove chi ha accesso al conto conferma il consenso alla lettura (non ai pagamenti). Il consenso dura di solito 90 giorni, poi va rinnovato da qui.</p>
+  <form method="post" style="display:flex;gap:12px;flex-wrap:wrap;align-items:end">{% csrf_token %}
+    <div class="ui-form-group" style="flex:1;min-width:240px"><label class="ui-label" for="bn-banca">Banca</label>
+      <input class="ui-input" id="bn-cerca" placeholder="Cerca la banca…" oninput="var q=this.value.toLowerCase();document.querySelectorAll('#bn-banca option').forEach(function(o){o.hidden=q&&o.text.toLowerCase().indexOf(q)<0})" style="margin-bottom:6px" aria-label="Cerca la banca">
+      <select class="ui-input" id="bn-banca" name="istituto" size="8" required>{% for b in banche %}<option value="{{ b.id }}">{{ b.name }}{% if b.bic %} · {{ b.bic }}{% endif %}</option>{% endfor %}</select></div>
+    <div><button type="submit" class="ui-btn ui-btn-primary">Vai alla banca</button></div>
+  </form>
+  <p class="ui-help">Servizio: {{ aggregatore }}. Leggiamo movimenti, saldo e IBAN del conto, nient'altro.</p>
+</div></section>
+{% endblock %}

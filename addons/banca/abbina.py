@@ -38,6 +38,13 @@ def importa(conto, contenuto, nome_file="", utente=None):
                                              f"non di «{conto}»: controlla il conto scelto.")
     if not estratto.righe and not estratto.scartate:
         raise estratti.EstrattoNonValido("Nel file non c'è nessun movimento.")
+    return salva(conto, estratto, nome_file, utente)
+
+
+@transaction.atomic
+def salva(conto, estratto, nome_file="", utente=None):
+    """I movimenti dell'estratto nel conto, senza doppioni (stessa impronta), e il saldo se è più recente. Per i file
+    e per la lettura automatica dalla banca."""
     esame = Importazione.objects.create(azienda=conto.azienda, conto=conto, nome_file=(nome_file or "")[:200], formato=estratto.formato,
                                         scartati=estratto.scartate, utente=utente)
     impronte = estratti.impronte(estratto.righe)
