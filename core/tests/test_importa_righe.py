@@ -45,3 +45,12 @@ def test_errori_con_riga(s):
     righe = [["Rossi", "Sito", "uno"]]
     _, _, errori = importa.esegui(s["vista"], s["r"], ["Cliente", "Descrizione", "Quantità"], righe, ["cliente", "riga.descrizione", "riga.quantita"], False)
     assert errori == [{"riga": 2, "campo": "Riga · quantita", "messaggio": "Inserisci un numero."}] and not OrdineVendita.objects.exists()
+
+
+def test_il_formset_non_cambia_i_campi_delle_righe(s):
+    """Il formset aggiunge il campo che collega la riga al documento: non deve restare nei campi dell'Inline,
+    o l'importazione dopo l'apertura di un form lo chiederebbe come obbligatorio."""
+    inline = s["vista"].inlines[0]
+    prima = list(inline.fields)
+    inline.formset_class(OrdineVendita, s["azienda"].pk)(instance=OrdineVendita())
+    assert inline.fields == prima and "ordine" not in inline.form_class(s["azienda"].pk).base_fields

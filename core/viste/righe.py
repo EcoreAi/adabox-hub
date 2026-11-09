@@ -18,15 +18,16 @@ class Inline:
 
     def formset_class(self, documento, azienda_id=None):
         from .base import _campo_form, form_per_azienda
-        form = form_per_azienda(modelform_factory(self.model, fields=self.fields, formfield_callback=_campo_form),
+        # copie della lista: il formset aggiunge il campo `fk` ai fields del form, e non deve finire in self.fields
+        form = form_per_azienda(modelform_factory(self.model, fields=list(self.fields), formfield_callback=_campo_form),
                                 azienda_id)
-        return inlineformset_factory(documento, self.model, form=form, fk_name=self.fk, fields=self.fields,
+        return inlineformset_factory(documento, self.model, form=form, fk_name=self.fk, fields=list(self.fields),
                                      extra=self.extra, can_delete=True)
 
     def form_class(self, azienda_id=None):
         """La form di una riga sola (per l'importazione di testata e righe)."""
         from .base import _campo_form, form_per_azienda
-        return form_per_azienda(modelform_factory(self.model, fields=self.fields, formfield_callback=_campo_form), azienda_id)
+        return form_per_azienda(modelform_factory(self.model, fields=list(self.fields), formfield_callback=_campo_form), azienda_id)
 
     def colonne(self):
         meta = self.model._meta
