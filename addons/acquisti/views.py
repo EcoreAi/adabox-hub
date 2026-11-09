@@ -7,7 +7,7 @@ from django.urls import reverse
 from core.viste import Inline, ModelView, register, schede
 
 from . import operazioni, riscontro
-from .models import (CondizioniFornitore, ContrattoQuadro, Gara, OrdineAcquisto, RegolaApprovazione, RegolaRiordino,
+from .models import (RegolaGruppo, CondizioniFornitore, ContrattoQuadro, Gara, OrdineAcquisto, RegolaApprovazione, RegolaRiordino,
                      RigaAcquisto, RigaContratto, RigaGara, VoceListino)
 
 
@@ -332,3 +332,15 @@ class GaraView(ModelView):
         return "Gara annullata con le sue richieste aperte."
     annulla_gara.short_description = "Annulla la gara"
     annulla_gara.rischio = "irreversibile"
+
+
+
+@register
+class RegolaGruppoView(ModelView):
+    """Le regole tra aziende del gruppo: la vendita confermata a un'azienda della stessa installazione crea
+    l'ordine al fornitore speculare nell'azienda che compra."""
+    model = RegolaGruppo
+    slug = "regole-gruppo"
+    list_display = ["venditrice", "acquirente", "conferma", "buyer", "attiva"]
+    list_filter = ["attiva", "venditrice", "acquirente"]
+    form_layout = [("Regola", [("venditrice", "acquirente"), ("conferma", "attiva"), "buyer"])]

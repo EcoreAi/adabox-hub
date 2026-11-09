@@ -1,7 +1,7 @@
 {
     "name": "Acquisti",
     "summary": "Ordini ai fornitori con listini, gare, contratti quadro, approvazioni, riordino, riscontro con merce e fatture, resi e valutazione dei fornitori",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Acquisti",
     "depends": ["prodotti", "contatti"],
@@ -21,6 +21,7 @@
         {"label": "Condizioni fornitori", "url_name": "acquisti:condizioni_lista", "permission": "acquisti.view_condizionifornitore"},
         {"label": "Regole di riordino", "url_name": "acquisti:regole-riordino_lista", "permission": "acquisti.view_regolariordino"},
         {"label": "Regole di approvazione", "url_name": "acquisti:approvazioni_lista", "permission": "acquisti.change_regolaapprovazione"},
+        {"label": "Regole tra aziende del gruppo", "url_name": "acquisti:regole-gruppo_lista", "permission": "acquisti.change_regolagruppo"},
     ],
     "groups": {
         "Acquisti / Buyer": ["acquisti.view_ordineacquisto", "acquisti.add_ordineacquisto",

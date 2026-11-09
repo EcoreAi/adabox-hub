@@ -22,6 +22,11 @@ class AcquistiConfig(AppConfig):
 
             from . import triangolazione
             ordine_confermato.connect(triangolazione.da_vendita, dispatch_uid="acquisti.triangolazione")
+            from vendite.segnali import ordine_annullato
+
+            from . import gruppo                         # ordini tra aziende del gruppo
+            ordine_confermato.connect(gruppo.da_vendita, dispatch_uid="acquisti.gruppo")
+            ordine_annullato.connect(gruppo.da_annullamento, dispatch_uid="acquisti.gruppo_annullato")
         if apps.is_installed("sdi"):                    # lo SDI è facoltativo: senza, le fatture non si collegano
             from django.db.models.signals import post_delete
             from sdi.models import FatturaPassiva

@@ -187,6 +187,8 @@ class OrdineAcquisto(AziendaMixin, ProprietaMixin):
                                    verbose_name="spedire a (triangolazione)", help_text="il fornitore spedisce direttamente a questo cliente")
     indirizzo_consegna = models.TextField("indirizzo di consegna", blank=True)
     ordine_vendita_id = models.PositiveBigIntegerField("ordine di vendita", null=True, blank=True, editable=False)
+    ordine_gruppo_id = models.PositiveBigIntegerField("ordine di vendita dell'azienda del gruppo", null=True, blank=True,
+                                                      editable=False, db_index=True)
     spedito_il = models.DateField("spedito al cliente il", null=True, blank=True, editable=False)
     note = models.TextField("note per il fornitore", blank=True)
     imponibile = models.DecimalField("imponibile", max_digits=14, decimal_places=2, default=0, editable=False)
@@ -388,3 +390,29 @@ class FatturaOrdine(models.Model):
         verbose_name_plural = "fatture dell'ordine"
         ordering = ["pk"]
         constraints = [models.UniqueConstraint(fields=["ordine", "fattura_id"], name="acquisti_fattura_ordine")]
+
+
+class RegolaGruppo(models.Model):
+    """Operazioni tra aziende della stessa installazione: quando `venditrice` conferma un ordine di vendita a un cliente
+    con la partita IVA di `acquirente`, in `acquirente` nasce l'ordine al fornitore speculare."""
+    venditrice = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, related_name="+", verbose_name="azienda che vende")
+    acquirente = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, related_name="+", verbose_name="azienda che compra")
+    conferma = models.BooleanField("conferma subito l'ordine al fornitore", default=True,
+                                   help_text="altrimenti resta una richiesta da confermare (con le approvazioni dell'azienda)")
+    buyer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                              verbose_name="buyer dell'ordine")
+    attiva = models.BooleanField("attiva", default=True)
+
+    class Meta:
+        verbose_name = "regola tra aziende del gruppo"
+        verbose_name_plural = "regole tra aziende del gruppo"
+        constraints = [models.UniqueConstraint(fields=["venditrice", "acquirente"], name="acquisti_regola_gruppo_unica")]
+
+    def __str__(self):
+        return f"{self.venditrice} → {self.acquirente}"
+
+    def clean(self):
+        if self.venditrice_id and self.venditrice_id == self.acquirente_id:
+            raise ValidationError({"acquirente": "Scegli un'altra azienda."})
+        if self.acquirente_id and not (self.acquirente.partita_iva or self.acquirente.codice_fiscale):
+            raise ValidationError({"acquirente": "L'azienda che compra non ha partita IVA né codice fiscale: non si riconosce come cliente."})
