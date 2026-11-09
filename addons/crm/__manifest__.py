@@ -1,7 +1,7 @@
 {
     "name": "CRM",
     "summary": "Opportunità commerciali in pipeline, dal primo contatto al contratto",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Vendite",
     "depends": ["contatti"],
@@ -28,6 +28,7 @@
     "data": ["data/iniziali.json"],
     "demo": ["data/demo.json"],
     "hooks": "crm.hooks",
+    "cron": [{"nome": "Punteggio delle opportunità", "funzione": "crm.punteggio.ricalcola", "ogni": "6h"}],
     "settings": [
         {"chiave": "probabilita_dalla_fase", "label": "Probabilità dalla fase", "tipo": "booleano", "default": True,
          "help": "Cambiando fase, la probabilità prende quella della fase"},

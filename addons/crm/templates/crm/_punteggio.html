@@ -1,0 +1,9 @@
+{% if obj.stato == "aperta" and obj.punteggio_il %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Punteggio{% if obj.punteggio is not None %}: {{ obj.punteggio }} su 100{% endif %}</div>
+    <div class="ui-card-sub">Probabilità di vincere stimata dalle trattative chiuse · calcolato il {{ obj.punteggio_il|date:"d/m/Y H:i" }}</div></div></div>
+  <div class="ui-card-body"><ul class="ui-elenco">{% for f in obj.punteggio_fattori %}
+    <li>{% if f.effetto > 0 %}<strong style="color:var(--success, #15803d)">+{{ f.effetto }}</strong>{% elif f.effetto < 0 %}<strong style="color:var(--danger, #b91c1c)">{{ f.effetto }}</strong>{% endif %} {{ f.fattore }}</li>
+  {% empty %}<li>Nessun fattore si discosta dalla media.</li>{% endfor %}</ul></div>
+</section>
+{% endif %}

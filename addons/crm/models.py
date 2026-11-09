@@ -90,6 +90,10 @@ class Opportunita(AziendaMixin, ProprietaMixin):
     origine = models.CharField("origine", max_length=100, blank=True, help_text="da dove è arrivata, es. «Modulo del sito: Contatti»")
     team = models.ForeignKey("TeamVendita", on_delete=models.SET_NULL, null=True, blank=True, related_name="opportunita", verbose_name="team")
     creata_il = models.DateField("creata il", default=timezone.localdate, editable=False)
+    punteggio = models.PositiveSmallIntegerField("punteggio", null=True, blank=True, editable=False,
+                                                 help_text="probabilità stimata di vincere (0-100) dallo storico vinte e perse")
+    punteggio_fattori = models.JSONField("fattori del punteggio", default=list, blank=True, editable=False)
+    punteggio_il = models.DateTimeField("punteggio calcolato il", null=True, blank=True, editable=False)
 
     class Meta(AziendaMixin.Meta):
         verbose_name = "opportunità"

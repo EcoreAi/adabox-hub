@@ -9,3 +9,4 @@ class CrmConfig(AppConfig):
     def ready(self):
         from core.registry import hooks
         hooks.sezione_dettaglio("crm.ModuloWeb", "crm/_codice_modulo.html", order=5)
+        hooks.sezione_dettaglio("crm.Opportunita", "crm/_punteggio.html", order=4)

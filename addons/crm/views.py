@@ -38,7 +38,7 @@ def _scadenza(o, oggi):
 class OpportunitaView(ModelView):
     model = Opportunita
     slug = "opportunita"
-    list_display = ["titolo", "cliente", "fase", "valore_atteso", "probabilita", "commerciale", "chiusura_prevista"]
+    list_display = ["titolo", "cliente", "fase", "valore_atteso", "probabilita", "punteggio", "commerciale", "chiusura_prevista"]
     list_filter = ["stato", "fase", "commerciale", "etichette", "priorita", "chiusura_prevista"]
     search_fields = ["titolo", "nome_contatto", "email", "contatto__nome"]
     form_layout = [
@@ -53,7 +53,7 @@ class OpportunitaView(ModelView):
     kanban_group = "fase"
     kanban_fields = ["valore_atteso", "contatto", "nome_contatto", "commerciale"]
     kanban_ricco = True
-    kanban_ordini = [("-valore_atteso", "Valore"), ("chiusura_prevista", "Chiusura prevista")]
+    kanban_ordini = [("-valore_atteso", "Valore"), ("chiusura_prevista", "Chiusura prevista"), ("-punteggio", "Punteggio")]
     kanban_ordine_chiuse = "-chiusa_il"
     calendar_date = "chiusura_prevista"
     calendar_color = "stato"
@@ -62,7 +62,7 @@ class OpportunitaView(ModelView):
     chatter = True
     tracked_fields = ["fase", "stato", "valore_atteso", "probabilita", "commerciale", "chiusura_prevista"]
     actions = ["assegna_a_me", "riassegna_nel_team"]
-    buttons = ["segna_vinta", "segna_persa", "riapri", "crea_contatto"]
+    buttons = ["segna_vinta", "segna_persa", "riapri", "crea_contatto", "ricalcola_punteggio"]
     api = True
 
     def col_cliente(self, obj):
@@ -81,6 +81,9 @@ class OpportunitaView(ModelView):
         scheda = {"accento": accento, "scadenza": {"icona": icona, "testo": testo}, "sottotitolo": self.col_cliente(obj),
                   "valore": self.col_valore_atteso(obj), "etichette": [(e.nome, e.colore) for e in obj.etichette.all()],
                   "barra": (obj.probabilita, f"Probabilità {obj.probabilita}%")}
+        if obj.punteggio is not None and obj.stato == Opportunita.APERTA:
+            colore = "verde" if obj.punteggio >= 60 else "azzurro" if obj.punteggio >= 30 else "grigio"
+            scheda["etichette"] = [(f"Punteggio {obj.punteggio}", colore)] + scheda["etichette"]
         if obj.priorita:
             scheda["stelle"] = (range(obj.priorita), range(3 - obj.priorita), obj.get_priorita_display())
         if obj.commerciale_id:
@@ -143,6 +146,14 @@ class OpportunitaView(ModelView):
         self._salva(request, obj)
         return f"«{obj}» riaperta."
     riapri.short_description = "Riapri"
+
+    def ricalcola_punteggio(self, request, obj):
+        from . import punteggio
+        punteggio.ricalcola(obj.azienda_id)
+        obj.refresh_from_db()
+        return f"Punteggio ricalcolato: {obj.punteggio}." if obj.punteggio is not None else "Storico insufficiente per il punteggio."
+    ricalcola_punteggio.short_description = "Ricalcola il punteggio"
+    ricalcola_punteggio.permission = "view"
 
     def crea_contatto(self, request, obj):
         if obj.contatto_id:
