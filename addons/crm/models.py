@@ -232,4 +232,7 @@ class RettificaPrevisione(AziendaMixin):
     class Meta(AziendaMixin.Meta):
         verbose_name = "rettifica della previsione"
         verbose_name_plural = "rettifiche della previsione"
-        constraints = [models.UniqueConstraint(fields=["azienda", "mese", "utente"], name="crm_rettifica_unica")]
+        constraints = [models.UniqueConstraint(fields=["azienda", "mese", "utente"], name="crm_rettifica_unica"),
+                       # con utente vuoto il vincolo sopra non vale (NULL è sempre diverso): una sola dell'azienda per mese
+                       models.UniqueConstraint(fields=["azienda", "mese"], condition=models.Q(utente__isnull=True),
+                                               name="crm_rettifica_azienda_unica")]

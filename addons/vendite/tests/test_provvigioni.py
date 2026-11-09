@@ -207,3 +207,35 @@ def test_il_commerciale_vede_solo_le_sue(client, s):
     client.post("/vendite/provvigioni/estratto/", {"utente": s["lia"].pk, "dal": OGGI.isoformat(), "al": OGGI.isoformat(),
                                                    "azione": "liquida"})
     assert not Provvigione.objects.filter(stato=Provvigione.LIQUIDATA).exists()   # liquidare spetta a chi gestisce
+
+
+def test_incasso_corretto_ricalcola_la_provvigione_da_liquidare(s):
+    _piano(s, maturazione=PianoProvvigioni.INCASSO)
+    o = _ordine(s)
+    operazioni.conferma(o)
+    fattura = fatture.da_ordine(o)
+    fatture.emetti(fattura)
+    fatture.incassa_fattura(Fattura.objects.get(pk=fattura.pk), D("610"))
+    incasso = Incasso.objects.get()
+    incasso.importo = D("1220")                                            # registrato male: era tutto
+    incasso.save()
+    p = Provvigione.objects.get()                                          # la stessa, ricalcolata
+    assert (p.base, p.importo, p.stato) == (D("1000.00"), D("50.00"), Provvigione.MATURATA)
+    incasso.importo = D("0")
+    incasso.save()
+    assert Provvigione.objects.get().stato == Provvigione.ANNULLATA
+
+
+def test_incasso_corretto_dopo_la_liquidazione_non_la_cambia(s):
+    _piano(s, maturazione=PianoProvvigioni.INCASSO)
+    o = _ordine(s)
+    operazioni.conferma(o)
+    fattura = fatture.da_ordine(o)
+    fatture.emetti(fattura)
+    fatture.incassa_fattura(Fattura.objects.get(pk=fattura.pk), D("610"))
+    provvigioni.liquida(s["lia"], s["azienda"].pk, OGGI, OGGI)
+    incasso = Incasso.objects.get()
+    incasso.importo = D("1220")
+    incasso.save()
+    p = Provvigione.objects.get()
+    assert (p.importo, p.stato) == (D("25.00"), Provvigione.LIQUIDATA)

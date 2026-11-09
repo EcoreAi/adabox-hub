@@ -84,3 +84,12 @@ def test_solo_chi_ha_il_permesso_rettifica(client, s):
     assert client.get("/crm/previsione/").status_code == 200
     client.post("/crm/previsione/", {"mese": datetime.date.today().replace(day=1).isoformat(), "importo": "100"})
     assert not RettificaPrevisione.objects.exists()
+
+
+def test_una_sola_rettifica_dell_azienda_per_mese(s):
+    from django.db import IntegrityError, transaction
+    mese = datetime.date(2026, 4, 1)
+    RettificaPrevisione.objects.create(azienda=s["azienda"], mese=mese, importo=D("1"))
+    with pytest.raises(IntegrityError), transaction.atomic():
+        RettificaPrevisione.objects.create(azienda=s["azienda"], mese=mese, importo=D("2"))
+    RettificaPrevisione.objects.create(azienda=s["azienda"], mese=mese, utente=s["anna"], importo=D("3"))   # di una persona: sì

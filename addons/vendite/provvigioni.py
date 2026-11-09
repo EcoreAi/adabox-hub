@@ -52,25 +52,33 @@ def da_annullamento(sender, ordine, utente=None, **kwargs):
 
 
 def da_incasso(sender, instance, created, raw=False, **kwargs):
-    """post_save dell'Incasso: matura la quota della provvigione pari alla quota incassata della fattura."""
-    if raw or not created or instance.importo <= 0:
+    """post_save dell'Incasso: matura la quota della provvigione pari alla quota incassata della fattura. Se l'incasso
+    si corregge, la sua provvigione ancora da liquidare si ricalcola (o si annulla, se non resta niente)."""
+    if raw:
         return
     fattura = instance.scadenza.fattura
     ordine = fattura.ordine
-    if ordine is None or fattura.totale <= 0:
+    if ordine is None:
         return
     piano = piano_per(ordine.commerciale, ordine.azienda_id, instance.data)
     if piano is None or piano.maturazione != PianoProvvigioni.INCASSO:
         return
-    base_fattura = fattura.imponibile
-    quota = min(Decimal(instance.importo) / fattura.totale, Decimal(1))
+    base = importo = Decimal(0)
     base_ordine, provv_ordine = calcola(ordine, piano)
-    if not base_ordine:
-        return
-    aliquota_media = provv_ordine / base_ordine                     # la provvigione media dell'ordine sul venduto
-    base = (base_fattura * quota).quantize(CENT, ROUND_HALF_UP)
-    importo = (base * aliquota_media).quantize(CENT, ROUND_HALF_UP)
-    if importo:
+    if instance.importo > 0 and fattura.totale > 0 and base_ordine:
+        quota = min(Decimal(instance.importo) / fattura.totale, Decimal(1))
+        aliquota_media = provv_ordine / base_ordine                 # la provvigione media dell'ordine sul venduto
+        base = (fattura.imponibile * quota).quantize(CENT, ROUND_HALF_UP)
+        importo = (base * aliquota_media).quantize(CENT, ROUND_HALF_UP)
+    esistente = None if created else Provvigione.objects.filter(incasso_id=instance.pk).exclude(stato=Provvigione.ANNULLATA).first()
+    if esistente is not None:
+        if esistente.stato != Provvigione.MATURATA:                 # già liquidata: resta com'era
+            return
+        if importo:
+            Provvigione.objects.filter(pk=esistente.pk).update(base=base, importo=importo, data=instance.data, piano=piano)
+        else:
+            Provvigione.objects.filter(pk=esistente.pk).update(stato=Provvigione.ANNULLATA)
+    elif importo:
         Provvigione.objects.create(azienda_id=ordine.azienda_id, utente=ordine.commerciale, piano=piano, ordine=ordine,
                                    data=instance.data, base=base, importo=importo, incasso_id=instance.pk,
                                    descrizione=f"Incasso fattura {fattura.numero} · {fattura.cliente}")
