@@ -21,3 +21,8 @@ class ConnettoriConfig(AppConfig):
 
             from . import sincronia
             post_save.connect(sincronia.contatto_salvato, sender=Contatto, dispatch_uid="connettori.contatto_salvato")
+        if apps.is_installed("crm"):
+            from crm.models import Opportunita
+
+            from . import sincronia
+            post_save.connect(sincronia.opportunita_salvata, sender=Opportunita, dispatch_uid="connettori.opportunita_salvata")

@@ -1,7 +1,7 @@
 {
     "name": "Connettori",
-    "summary": "Adabox accanto al software che hai già: avvisi firmati verso l'esterno e collegamenti ai record dei sistemi esterni",
-    "version": "1.1.0",
+    "summary": "Adabox accanto al software che hai già: avvisi firmati verso l'esterno, collegamenti ai record esterni e HubSpot (persone, aziende, opportunità)",
+    "version": "1.2.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Integrazioni",
     "depends": [],

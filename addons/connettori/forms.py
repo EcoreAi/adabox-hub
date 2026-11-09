@@ -12,12 +12,13 @@ class CollegamentoForm(forms.ModelForm):
 
     class Meta:
         model = CollegamentoEsterno
-        fields = ["sistema", "modalita", "comanda", "attivo"]
+        fields = ["sistema", "modalita", "comanda", "aziende", "opportunita", "attivo"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["nuovo_token"].help_text = ("Già inserito: lascia vuoto per non cambiarlo." if self.instance.pk and self.instance.token_cifrato
-                                                else "In HubSpot: Impostazioni, Integrazioni, App private; servono gli ambiti di lettura e scrittura dei contatti.")
+                                                else "In HubSpot: Impostazioni, Integrazioni, App private; servono gli ambiti di lettura e scrittura di "
+                                                     "contatti, aziende e trattative (crm.objects.contacts, companies, deals).")
 
     def clean(self):
         dati = super().clean()

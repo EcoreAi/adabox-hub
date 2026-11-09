@@ -8,10 +8,12 @@ from core.viste import ModelView, register
 from . import eventi, sincronia
 from .forms import CollegamentoForm
 from .models import CollegamentoEsterno, ConsegnaWebhook, RecordProva, RiferimentoEsterno, Webhook
+from .sistemi import hubspot
 from .sistemi import prova as sistema_di_prova
 from .sistemi.base import ErroreConnettore
 
 NOMI_DI_PROVA = ["Giulia Ferrari", "Marco Galli", "Sara Conti", "Luca Moretti", "Elena Rizzo", "Paolo Greco"]
+DITTE_DI_PROVA = ["Verdi Arredamenti Srl", "Officine Lombarde Spa", "Bianco Logistica Srl", "Studio Neri Associati"]
 
 
 @register
@@ -100,7 +102,8 @@ class CollegamentoView(ModelView):
     list_display = ["sistema", "modalita", "comanda", "attivo", "ultimo_giro", "ultimo_esito"]
     list_filter = ["sistema", "attivo"]
     form_class = CollegamentoForm
-    form_layout = [("Collegamento", [("sistema", "modalita"), "comanda", "attivo"]), ("Credenziali, solo per un collegamento vero", ["nuovo_token"])]
+    form_layout = [("Collegamento", [("sistema", "modalita"), "comanda", ("aziende", "opportunita"), "attivo"]),
+                   ("Credenziali, solo per un collegamento vero", ["nuovo_token"])]
     readonly_fields = ["ultimo_giro", "ultimo_esito"]
     company_field = "azienda"
     buttons = ["sincronizza", "verifica", "simula_nuovo", "simula_modifica"]
@@ -124,10 +127,20 @@ class CollegamentoView(ModelView):
             lavori.accoda("connettori.sincronia.giro", collegamento_id=obj.pk, azienda=obj.azienda, max_tentativi=3)
             return "Lettura accodata: l'esito compare qui sotto."
         from contatti.models import Contatto
-        voci = Contatto.objects.filter(azienda=obj.azienda, tipo=Contatto.PERSONA).exclude(email="").values_list("pk", flat=True)
+        persone = Contatto.objects.filter(azienda=obj.azienda, tipo=Contatto.PERSONA).exclude(email="")
+        aziende = Contatto.objects.filter(azienda=obj.azienda, tipo=Contatto.AZIENDA) if obj.aziende else Contatto.objects.none()
+        voci = list(aziende.values_list("pk", flat=True)) + list(persone.values_list("pk", flat=True))
         for pk in voci:
             lavori.accoda("connettori.sincronia.scrivi_fuori", collegamento_id=obj.pk, contatto_id=pk, azienda=obj.azienda, max_tentativi=5)
-        return f"Scrittura accodata per {len(voci)} contatti."
+        testo = f"Scrittura accodata per {len(voci)} contatti"
+        if obj.opportunita and sincronia.crm_attivo():
+            from crm.models import Opportunita
+            opportunita = list(Opportunita.objects.filter(azienda=obj.azienda).values_list("pk", flat=True))
+            for pk in opportunita:
+                lavori.accoda("connettori.sincronia.scrivi_opportunita", collegamento_id=obj.pk, opportunita_id=pk, azienda=obj.azienda,
+                              max_tentativi=5)
+            testo += f" e {len(opportunita)} opportunità"
+        return testo + "."
     sincronizza.short_description = "Sincronizza ora"
     sincronizza.ai = False
 
@@ -141,21 +154,42 @@ class CollegamentoView(ModelView):
     verifica.ai = False
 
     def simula_nuovo(self, request, obj):
+        """Sul sistema finto: una persona nuova e, se il collegamento le comprende, la sua azienda e un'opportunità."""
         if obj.modalita != CollegamentoEsterno.PROVA:
             return "Solo in prova."
         nome = random.choice(NOMI_DI_PROVA)
         primo, _, secondo = nome.partition(" ")
-        sistema_di_prova.scrivi(obj, {"firstname": primo, "lastname": secondo, "email": f"{primo}.{secondo}.{random.randint(100, 999)}@example.com".lower(),
-                                      "phone": f"+39 02 {random.randint(1000000, 9999999)}"})
-        return f"Contatto «{nome}» creato sul sistema finto: premi «Sincronizza ora»."
-    simula_nuovo.short_description = "Simula un contatto nuovo"
+        persona = sistema_di_prova.scrivi(obj, {"firstname": primo, "lastname": secondo,
+                                                "email": f"{primo}.{secondo}.{random.randint(100, 999)}@example.com".lower(),
+                                                "phone": f"+39 02 {random.randint(1000000, 9999999)}"})
+        cosa = [f"la persona «{nome}»"]
+        if obj.aziende:
+            ditta = random.choice(DITTE_DI_PROVA)
+            azienda = sistema_di_prova.scrivi(obj, {"name": ditta, "domain": f"{ditta.split()[0].lower()}.example.com", "city": "Milano"},
+                                              tipo=hubspot.AZIENDE)
+            sistema_di_prova.associa(obj, persona, azienda)
+            cosa.append(f"l'azienda «{ditta}»")
+        if obj.opportunita:
+            fase = random.choice(sistema_di_prova.FASI[:5])
+            trattativa = sistema_di_prova.scrivi(obj, {"dealname": f"Fornitura per {secondo}", "amount": str(random.randint(10, 90) * 100),
+                                                       "pipeline": "default", "dealstage": fase[0]}, tipo=hubspot.OPPORTUNITA)
+            sistema_di_prova.associa(obj, trattativa, azienda if obj.aziende else persona)
+            cosa.append("un'opportunità")
+        return f"Sul sistema finto: {', '.join(cosa)}. Premi «Sincronizza ora»."
+    simula_nuovo.short_description = "Simula un cliente nuovo"
     simula_nuovo.ai = False
 
     def simula_modifica(self, request, obj):
-        record = RecordProva.objects.filter(collegamento=obj).first() if obj.modalita == CollegamentoEsterno.PROVA else None
+        record = RecordProva.objects.filter(collegamento=obj, tipo=hubspot.CONTATTI).first() if obj.modalita == CollegamentoEsterno.PROVA else None
         if record is None:
             return "Nessun record da modificare."
         sistema_di_prova.scrivi(obj, {"jobtitle": random.choice(["Responsabile acquisti", "Titolare", "Amministrazione"])}, record.id_esterno)
+        trattativa = RecordProva.objects.filter(collegamento=obj, tipo=hubspot.OPPORTUNITA).first()
+        if trattativa is not None:
+            fasi = [f[0] for f in sistema_di_prova.FASI]          # avanza di una fase, fino a «vinta»
+            attuale = trattativa.proprieta.get("dealstage")
+            prossima = fasi[min(fasi.index(attuale) + 1 if attuale in fasi else 0, fasi.index("closedwon"))]
+            sistema_di_prova.scrivi(obj, {"dealstage": prossima}, trattativa.id_esterno, hubspot.OPPORTUNITA)
         return "Record modificato sul sistema finto: premi «Sincronizza ora»."
     simula_modifica.short_description = "Simula una modifica"
     simula_modifica.ai = False

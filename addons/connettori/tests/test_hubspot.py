@@ -205,7 +205,9 @@ def test_email_gia_presente_di_la_non_crea_un_doppione(adabox, azienda, django_c
     assert RecordProva.objects.count() == 1 and riferimenti.id_esterno(c, "hubspot") == r.id_esterno
 
 
-def test_senza_email_o_azienda_non_parte(adabox, azienda, django_capture_on_commit_callbacks):
+def test_senza_email_o_azienda_esclusa_non_parte(adabox, azienda, django_capture_on_commit_callbacks):
+    adabox.aziende = False
+    adabox.save()
     _salva(azienda, django_capture_on_commit_callbacks, nome="Senza email", tipo=Contatto.PERSONA)
     _salva(azienda, django_capture_on_commit_callbacks, nome="Rossi Srl", email="r@x.it", tipo=Contatto.AZIENDA)
     assert not RecordProva.objects.exists()
@@ -254,11 +256,12 @@ def test_dalla_pagina_si_prova_tutto(client, esterno, azienda):
     client.force_login(_root(azienda))
     base = f"/connettori/collegamenti/{esterno.pk}/"
     assert client.get(base).status_code == 200
-    assert client.post(base + "bottone/simula_nuovo/").status_code == 302 and RecordProva.objects.count() == 1
+    assert client.post(base + "bottone/simula_nuovo/").status_code == 302 and RecordProva.objects.count() == 3   # persona, azienda, opportunità
     assert client.post(base + "bottone/verifica/").status_code == 302
     assert client.post(base + "bottone/sincronizza/").status_code == 302
-    assert Contatto.objects.count() == 1
-    assert "Contatti collegati: 1" in client.get(base).content.decode()
+    persona = Contatto.objects.get(tipo=Contatto.PERSONA)
+    assert Contatto.objects.count() == 2 and persona.societa.tipo == Contatto.AZIENDA
+    assert "Collegati: 1 persone, 1 aziende" in client.get(base).content.decode()        # senza fasi del CRM l'opportunità si salta
     assert client.post(base + "bottone/simula_modifica/").status_code == 302
 
 

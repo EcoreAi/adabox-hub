@@ -125,19 +125,25 @@ class RiferimentoEsterno(AziendaMixin):
 
 
 class CollegamentoEsterno(AziendaMixin):
-    """Il legame di un'azienda con un sistema esterno: quale, con quale token e chi comanda sui contatti."""
+    """Il legame di un'azienda con un sistema esterno: quale, con quale token, che cosa passa (persone, aziende,
+    opportunità) e chi comanda."""
     HUBSPOT = "hubspot"
     SISTEMI = [(HUBSPOT, "HubSpot")]
     PROVA, VERA = "prova", "vera"
     MODALITA = [(PROVA, "Prova, senza uscire in rete"), (VERA, "Vera")]
     ESTERNO, ADABOX = "esterno", "adabox"
-    COMANDI = [(ESTERNO, "Il sistema esterno: i contatti arrivano qui"), (ADABOX, "Adabox: i contatti partono da qui")]
+    COMANDI = [(ESTERNO, "Il sistema esterno: i dati arrivano qui"), (ADABOX, "Adabox: i dati partono da qui")]
     sistema = models.CharField("sistema", max_length=20, choices=SISTEMI, default=HUBSPOT)
     modalita = models.CharField("modalità", max_length=8, choices=MODALITA, default=PROVA)
-    comanda = models.CharField("chi comanda sui contatti", max_length=8, choices=COMANDI, default=ESTERNO)
+    comanda = models.CharField("chi comanda", max_length=8, choices=COMANDI, default=ESTERNO)
     attivo = models.BooleanField("attivo", default=True)
     token_cifrato = models.TextField(blank=True, editable=False)
+    aziende = models.BooleanField("anche le aziende", default=True,
+                                  help_text="le aziende (companies) con le persone che ci lavorano")
+    opportunita = models.BooleanField("anche le opportunità", default=True,
+                                      help_text="le opportunità (deals) con fase, valore e chiusura prevista; serve il CRM")
     cursore = models.DateTimeField("letto fino a", null=True, blank=True, editable=False)
+    cursori = models.JSONField("letto fino a, per tipo", default=dict, blank=True, editable=False)
     ultimo_giro = models.DateTimeField("ultimo giro", null=True, blank=True, editable=False)
     ultimo_esito = models.CharField("ultimo esito", max_length=500, blank=True, editable=False)
     in_errore = models.BooleanField("in errore", default=False, editable=False)
@@ -158,12 +164,14 @@ class CollegamentoEsterno(AziendaMixin):
 class RecordProva(models.Model):
     """Un record del sistema esterno finto: fa le veci di HubSpot quando il collegamento è in prova."""
     collegamento = models.ForeignKey(CollegamentoEsterno, on_delete=models.CASCADE, related_name="record_prova")
+    tipo = models.CharField(max_length=20, default="contacts")
     id_esterno = models.CharField(max_length=40)
     proprieta = models.JSONField(default=dict)
+    associazioni = models.JSONField(default=dict)           # {"companies": ["12"], ...}
     modificato_ms = models.BigIntegerField(default=0, db_index=True)
 
     class Meta:
         verbose_name = "record di prova"
         verbose_name_plural = "record di prova"
         ordering = ["-modificato_ms", "pk"]
-        constraints = [models.UniqueConstraint(fields=["collegamento", "id_esterno"], name="connettori_record_prova_unico")]
+        constraints = [models.UniqueConstraint(fields=["collegamento", "tipo", "id_esterno"], name="connettori_record_prova_unico_tipo")]
