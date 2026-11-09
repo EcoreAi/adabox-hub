@@ -8,6 +8,9 @@
    Reset / base
    ============================================================ */
 * { box-sizing: border-box; }
+/* Lo spazio della barra di scorrimento è riservato sempre, anche nelle pagine che non scorrono (la chat): senza,
+   il contenuto centrato si sposta di mezza barra e l'header cambia posizione da una pagina all'altra. */
+html { scrollbar-gutter: stable; }
 
 body.ui-body {
   margin: 0;
