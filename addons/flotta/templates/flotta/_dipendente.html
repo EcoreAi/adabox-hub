@@ -1,0 +1,2 @@
+{% with veicoli=obj.veicoli.all %}{% if veicoli %}<section class="ui-card is-revealed ui-section"><div class="ui-card-body"><span class="sub">Veicoli assegnati:</span>
+  {% for v in veicoli %}<a class="ui-link" href="{% url 'flotta:veicoli_dettaglio' v.pk %}">{{ v }}</a>{% if v.uso_promiscuo %} (uso anche privato){% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</div></section>{% endif %}{% endwith %}

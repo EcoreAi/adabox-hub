@@ -1,0 +1,10 @@
+{% load flotta %}{% costi_veicolo obj as r %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Costi del {{ r.anno }}</div></div>
+  <div class="ui-card-body"><div class="cm-tessere">
+    <div class="cm-tessera"><small>Spese</small><strong>{{ r.costi|floatformat:2 }} €</strong></div>
+    <div class="cm-tessera"><small>Canoni</small><strong>{{ r.canoni|floatformat:2 }} €</strong></div>
+    <div class="cm-tessera"><small>Totale</small><strong>{{ r.totale|floatformat:2 }} €</strong></div></div>
+  {% if r.per_tipo %}<p class="sub" style="margin:0">{% for t, v in r.per_tipo %}{{ t }} {{ v|floatformat:2 }} €{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+  {% for nome, data, scaduta in r.scadenze %}<p style="margin:6px 0 0"><span class="ui-pill {% if scaduta %}ui-pill-danger{% else %}ui-pill-warn{% endif %}">{{ nome }}{% if data %} {{ data|date:"d/m/Y" }}{% endif %}</span></p>{% endfor %}
+  {% if perms.flotta.add_costoveicolo %}<p style="margin:10px 0 0"><a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'flotta:costi_nuovo' %}?veicolo={{ obj.pk }}">Registra un costo</a></p>{% endif %}</div>
+</section>

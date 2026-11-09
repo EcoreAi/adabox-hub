@@ -456,7 +456,7 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 
 | ID | Tier | Stato | Effort | Cosa costruire |
 |---|---|---|---|---|
-| HR-12 | Adv | MISSING | M | Veicoli assegnati ai dipendenti, contratti di leasing e assicurazione, scadenze (revisione, bollo), costi e chilometri, con avvisi. |
+| HR-12 | Adv | HAVE | M | Veicoli assegnati ai dipendenti, contratti di leasing e assicurazione, scadenze (revisione, bollo), costi e chilometri, con avvisi. | **Fatto il 2026-11-09**: modulo «Parco auto» con veicoli (targa, possesso, alimentazione, assegnatario e uso promiscuo, chilometri, scadenze di assicurazione, bollo, revisione e tagliando anche a km), contratti di noleggio e leasing con canone e Gantt, costi per tipo che aggiornano i km, costo annuo con i canoni, avvisi delle scadenze nel riepilogo, veicoli sulla scheda del dipendente.
 
 ### turni
 
@@ -770,7 +770,7 @@ Nessuna di queste esiste oggi: il nome è solo una proposta.
 | HR-09 | Paghe con regole nazionali, cedolini, scritture contabili | Adv | N/A | Nessun modello; fase7-sdi-personale-spese-design.md (Fuori scope: paghe e cedolini) | Esclusa per scelta dell'utente il 2026-11-05: le paghe restano al consulente del lavoro. Le presenze gli arrivano con l'esportazione di HR-03. |
 | HR-10 | Competenze, formazione online, certificazioni | Adv | MISSING | Nessun modello; ricerca su competenz, skill, certificaz, e-learning senza esiti in addons/personale, addons/capacita, addons/assistenza | Nulla sulle persone. addons/capacita/piano.py e addons/assistenza/instradamento.py assegnano senza considerare le competenze. |
 | HR-11 | Obiettivi e riconoscimenti | Adv | MISSING | Nessun modello; progetti.Sprint.obiettivo è solo un testo dello sprint | Nulla per le persone: nessun obiettivo misurabile né riconoscimento. |
-| HR-12 | Parco auto (veicoli, contratti, costi) | Adv | MISSING | Nessun modello; addons/spese/models.py (CategoriaSpesa.tariffa_km) copre solo il rimborso chilometrico | Nessuna anagrafica veicoli, assegnazione, contratti, scadenze o costi. |
+| HR-12 | Parco auto (veicoli, contratti, costi) | Adv | HAVE | Nessun modello; addons/spese/models.py (CategoriaSpesa.tariffa_km) copre solo il rimborso chilometrico | Nessuna anagrafica veicoli, assegnazione, contratti, scadenze o costi. Fatto il 2026-11-09: addons/flotta. |
 | HR-13 | Pianificazione dei turni | Adv | MISSING | Nessun modello; addons/capacita/models.py (Capacita) dà solo ore al giorno e sabato o domenica lavorati | Nessun turno, modello di turno, copertura per reparto né pubblicazione. capacita calcola date dei compiti, non chi lavora quando. |
 | HR-14 | Reception e gestione visitatori | Adv | HAVE | addons/reception (models.py Visita; servizi.py entra, esce, cancella_vecchie; pagine.py chiosco, presenti; tests/test_reception.py) | Fatto il 2026-11-08: chiosco per il tablet all'ingresso (nome, azienda, chi si incontra, informativa da accettare; uscita toccando il proprio nome, che mostra solo nome e iniziale), visite attese registrabili in anticipo, avviso a chi riceve per email e nella posta di Discuss tramite il chatter, lista dei presenti da stampare per l'evacuazione, cancellazione automatica dopo i giorni di conservazione. Niente stampa di badge né firma sul tablet |
 | HR-15 | Programmi di segnalazione candidati | Adv | N/A | Nessun modello | Esclusa il 2026-11-05 insieme alla selezione, su cui si appoggia. |
