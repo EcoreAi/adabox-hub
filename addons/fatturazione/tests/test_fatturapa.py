@@ -171,3 +171,13 @@ def test_registro_iva(client, superuser, scena):
     assert "539,97" in html and "-15,00" in html
     csv = client.get(f"/fatturazione/registro-iva/?anno={oggi.year}&mese=&formato=csv").content.decode()
     assert csv.startswith("Data;Numero") and csv.count("\n") == 4
+
+
+def test_codice_del_cliente_nella_linea(scena):
+    from prodotti.models import CodiceCliente
+    _, cliente, f = scena
+    monitor = f.righe.get(prodotto__nome="Monitor").prodotto
+    CodiceCliente.objects.create(prodotto=monitor, cliente=cliente, codice="RS-MON-27")
+    _, radice = _xml(f)
+    codici = radice.findall(".//DettaglioLinee")[0].findall("CodiceArticolo")
+    assert [(c.findtext("CodiceTipo"), c.findtext("CodiceValore")) for c in codici][-1] == ("CLIENTE", "RS-MON-27")

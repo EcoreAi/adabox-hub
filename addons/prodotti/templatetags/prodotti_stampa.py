@@ -16,3 +16,11 @@ def immagine_stampa(prodotto):
 def file_stampa(campo):
     """file:// di un campo immagine (es. le foto della galleria)."""
     return immagini.uri_file(campo.name if campo else "")
+
+
+@register.filter
+def codice_per(prodotto, cliente):
+    """Il codice con cui il cliente chiama il prodotto ('' se non ne ha uno)."""
+    from prodotti.models import codice_cliente
+    trovato = codice_cliente(prodotto, cliente)
+    return trovato.codice if trovato else ""

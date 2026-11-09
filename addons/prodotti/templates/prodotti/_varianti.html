@@ -1,0 +1,17 @@
+{% if obj.con_varianti %}{% with varianti=obj.varianti.all %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Varianti ({{ varianti|length }})</div></div>
+  {% if varianti %}
+  <div class="ui-table-wrap"><table class="ui-table is-revealed ui-righe">
+    <thead><tr><th></th><th>Codice</th><th>Variante</th><th>Codice a barre</th><th class="num">Prezzo</th><th>Attiva</th></tr></thead>
+    <tbody>{% for v in varianti %}<tr>
+      <td>{% if v.url_immagine %}<img class="ui-miniatura" src="{{ v.url_immagine }}?lato=64" alt="" loading="lazy">{% endif %}</td>
+      <td><a class="ui-link" href="{% url 'prodotti:prodotti_dettaglio' pk=v.pk %}">{{ v.codice }}</a></td>
+      <td>{{ v.nome_variante|default:v.nome }}</td><td>{{ v.codice_barre|default:"—" }}</td>
+      <td class="num">{{ v.prezzo_vendita|floatformat:2 }} €</td>
+      <td>{% if v.attivo %}<span class="ui-pill ui-pill-ok">Sì</span>{% else %}<span class="ui-pill ui-pill-neutral">No</span>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<div class="ui-card-body"><p class="ui-help">Nessuna variante: scegli attributi e valori, poi «Genera varianti».</p></div>{% endif %}
+</section>
+{% endwith %}{% endif %}

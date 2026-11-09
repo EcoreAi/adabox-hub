@@ -71,9 +71,48 @@ def prepara_riga(riga, verso="vendita"):
 
 
 def controlla_unita(riga):
-    """Errore di form se l'unità della riga non si converte in quella del prodotto."""
+    """Errore di form se il prodotto della riga è un modello con varianti o se l'unità della riga non si converte in
+    quella del prodotto."""
+    if riga.prodotto_id and riga.prodotto.con_varianti:
+        raise ValidationError({"prodotto": f"{riga.prodotto} ha varianti: scegli la variante (taglia, colore…)."})
     if riga.prodotto_id and riga.unita_id and not riga.unita.compatibile(riga.prodotto.unita):
         raise ValidationError({"unita": f"{riga.prodotto} si misura in {riga.prodotto.unita}: {riga.unita} non si converte."})
+
+
+class Attributo(models.Model):
+    """Ciò per cui le varianti di un prodotto si distinguono: taglia, colore, materiale."""
+    nome = models.CharField("nome", max_length=60, unique=True)
+    ordine = models.PositiveSmallIntegerField("ordine", default=0)
+
+    class Meta:
+        verbose_name = "attributo"
+        verbose_name_plural = "attributi"
+        ordering = ["ordine", "nome"]
+
+    def __str__(self):
+        return self.nome
+
+
+class ValoreAttributo(models.Model):
+    attributo = models.ForeignKey(Attributo, on_delete=models.CASCADE, related_name="valori", verbose_name="attributo")
+    nome = models.CharField("valore", max_length=60)
+    codice = models.CharField("sigla", max_length=12, blank=True, help_text="entra nel codice della variante (es. RO per Rosso); vuoto = il valore")
+    sovrapprezzo = models.DecimalField("sovrapprezzo (€)", max_digits=12, decimal_places=4, default=0,
+                                       help_text="si somma al prezzo del modello nelle varianti generate")
+    ordine = models.PositiveSmallIntegerField("ordine", default=0)
+
+    class Meta:
+        verbose_name = "valore dell'attributo"
+        verbose_name_plural = "valori"
+        ordering = ["attributo__ordine", "attributo__nome", "ordine", "pk"]
+        constraints = [models.UniqueConstraint(fields=["attributo", "nome"], name="prodotti_valore_unico")]
+
+    def __str__(self):
+        return f"{self.attributo}: {self.nome}"
+
+    @property
+    def sigla(self):
+        return (self.codice or self.nome).strip().upper().replace(" ", "")[:12]
 
 
 def aliquota_predefinita():
@@ -112,6 +151,15 @@ class Prodotto(AziendaMixin, ProprietaMixin):
     immagine = models.ImageField("immagine", upload_to=immagini.percorso, storage=immagini.storage, max_length=300,
                                  blank=True, validators=[immagini.valida],
                                  help_text="JPEG, PNG, WebP o GIF: si riduce da sola e perde i dati della fotocamera")
+    con_varianti = models.BooleanField("con varianti", default=False,
+                                       help_text="È il modello di più varianti (taglie, colori…): si vendono e si tengono a "
+                                                 "magazzino le varianti, non il modello")
+    variante_di = models.ForeignKey("self", on_delete=models.PROTECT, null=True, blank=True, related_name="varianti",
+                                    limit_choices_to={"con_varianti": True}, verbose_name="variante di")
+    valori = models.ManyToManyField(ValoreAttributo, blank=True, related_name="varianti", verbose_name="valori",
+                                    help_text="per una variante: i valori che la distinguono")
+    alternativi = models.ManyToManyField("self", blank=True, verbose_name="prodotti alternativi",
+                                         help_text="si possono proporre al posto di questo (vale nei due sensi)")
 
     class Meta(AziendaMixin.Meta):
         verbose_name = "prodotto"
@@ -121,11 +169,18 @@ class Prodotto(AziendaMixin, ProprietaMixin):
     def __str__(self):
         return f"[{self.codice}] {self.nome}" if self.codice else self.nome
 
+    CAMPI_COMUNI = ("categoria", "aliquota_iva", "unita_vendita", "unita_acquisto")    # dal modello alle varianti
+
     def save(self, *args, **kwargs):
         vecchio = immagini.prepara(self, "immagine")
         super().save(*args, **kwargs)
         if vecchio:
             transaction.on_commit(lambda: immagini.storage.delete(vecchio))
+        if self.con_varianti:
+            comuni = {f"{c}_id": getattr(self, f"{c}_id") for c in self.CAMPI_COMUNI}
+            if not self.attivo:
+                comuni["attivo"] = False
+            self.varianti.update(**comuni)
 
     @property
     def url_immagine(self):
@@ -153,6 +208,24 @@ class Prodotto(AziendaMixin, ProprietaMixin):
             raise ValidationError({"codice": "Esiste già un prodotto con questo codice."})
         if self.prezzo_vendita is not None and self.prezzo_vendita < 0:
             raise ValidationError({"prezzo_vendita": "Il prezzo non può essere negativo."})
+        if self.variante_di_id:
+            if self.con_varianti:
+                raise ValidationError({"variante_di": "Un modello con varianti non è a sua volta una variante."})
+            if self.variante_di_id == self.pk or not self.variante_di.con_varianti:
+                raise ValidationError({"variante_di": "Scegli un prodotto segnato «con varianti»."})
+            if self.variante_di.azienda_id != self.azienda_id:
+                raise ValidationError({"variante_di": "Il modello è di un'altra azienda."})
+        if self.con_varianti and self.kit:
+            raise ValidationError({"kit": "Un modello con varianti non è un kit: lo possono essere le sue varianti."})
+        if self.codice_barre and self.azienda_id:
+            uguale = codice_in_uso(self.azienda_id, self.codice_barre, escluso=self)
+            if uguale:
+                raise ValidationError({"codice_barre": f"Il codice a barre è già di {uguale}."})
+
+    @property
+    def nome_variante(self):
+        """«Rosso, M»: i valori della variante nell'ordine degli attributi ('' se non è una variante)."""
+        return ", ".join(v.nome for v in sorted(self.valori.all(), key=lambda v: (v.attributo.ordine, v.attributo.nome, v.ordine)))
 
 
 class ImmagineProdotto(models.Model):
@@ -185,6 +258,77 @@ def _cancella_file(sender, instance, **kwargs):
     nome = (instance.immagine if sender is Prodotto else instance.file).name
     if nome:
         transaction.on_commit(lambda: immagini.storage.delete(nome))
+
+
+class AttributoProdotto(models.Model):
+    """Su un modello con varianti: un attributo e i valori in cui esiste (es. Taglia: S, M, L)."""
+    prodotto = models.ForeignKey(Prodotto, on_delete=models.CASCADE, related_name="attributi", verbose_name="prodotto")
+    attributo = models.ForeignKey(Attributo, on_delete=models.PROTECT, related_name="+", verbose_name="attributo")
+    valori = models.ManyToManyField(ValoreAttributo, related_name="+", verbose_name="valori")
+
+    class Meta:
+        verbose_name = "attributo del prodotto"
+        verbose_name_plural = "attributi delle varianti"
+        ordering = ["attributo__ordine", "attributo__nome"]
+        constraints = [models.UniqueConstraint(fields=["prodotto", "attributo"], name="prodotti_attributo_unico")]
+
+    def __str__(self):
+        return f"{self.attributo} di {self.prodotto}"
+
+
+class CodiceBarre(models.Model):
+    """Altri codici a barre dello stesso articolo (EAN del produttore, vecchi codici, codici del distributore)."""
+    prodotto = models.ForeignKey(Prodotto, on_delete=models.CASCADE, related_name="codici_barre", verbose_name="prodotto")
+    codice = models.CharField("codice a barre", max_length=40)
+    nota = models.CharField("nota", max_length=80, blank=True, help_text="es. EAN del produttore")
+
+    class Meta:
+        verbose_name = "codice a barre"
+        verbose_name_plural = "altri codici a barre"
+        ordering = ["pk"]
+
+    def __str__(self):
+        return self.codice
+
+    def clean(self):
+        self.codice = (self.codice or "").strip()
+        if self.codice and self.prodotto_id:
+            uguale = codice_in_uso(self.prodotto.azienda_id, self.codice, escluso=self.prodotto)
+            if uguale:
+                raise ValidationError({"codice": f"Il codice a barre è già di {uguale}."})
+
+
+class CodiceCliente(models.Model):
+    """Come un cliente chiama l'articolo: il suo codice esce sui documenti che riceve e nella fattura elettronica."""
+    prodotto = models.ForeignKey(Prodotto, on_delete=models.CASCADE, related_name="codici_cliente", verbose_name="prodotto")
+    cliente = models.ForeignKey("contatti.Contatto", on_delete=models.CASCADE, related_name="codici_prodotto",
+                                verbose_name="cliente")
+    codice = models.CharField("codice del cliente", max_length=35)
+    descrizione = models.CharField("descrizione del cliente", max_length=200, blank=True)
+
+    class Meta:
+        verbose_name = "codice cliente"
+        verbose_name_plural = "codici dei clienti"
+        ordering = ["cliente__nome", "pk"]
+        constraints = [models.UniqueConstraint(fields=["prodotto", "cliente"], name="prodotti_codice_cliente_unico")]
+
+    def __str__(self):
+        return f"{self.codice} ({self.cliente})"
+
+
+def codice_cliente(prodotto, cliente):
+    """Il CodiceCliente di quel cliente per il prodotto, o None."""
+    if prodotto is None or cliente is None:
+        return None
+    return CodiceCliente.objects.filter(prodotto=prodotto, cliente=cliente).first()
+
+
+def codice_in_uso(azienda_id, codice, escluso=None):
+    """Il prodotto dell'azienda (diverso da `escluso`) che usa già quel codice a barre, principale o aggiuntivo."""
+    altri = Prodotto.objects.filter(azienda_id=azienda_id)
+    if escluso is not None and escluso.pk:
+        altri = altri.exclude(pk=escluso.pk)
+    return altri.filter(models.Q(codice_barre=codice) | models.Q(codici_barre__codice=codice)).first()
 
 
 class Listino(AziendaMixin):
@@ -275,7 +419,8 @@ def da_codice(azienda, codice):
     if not codice:
         return None
     prodotti = Prodotto.objects.filter(azienda=azienda, attivo=True)
-    p = prodotti.filter(codice_barre=codice).first() or prodotti.filter(codice=codice).first()
+    p = (prodotti.filter(codice_barre=codice).first() or prodotti.filter(codici_barre__codice=codice).first()
+         or prodotti.filter(codice=codice).first())
     if p is not None:
         return p, Decimal(1)
     c = Confezione.objects.filter(prodotto__in=prodotti, codice_barre=codice).select_related("prodotto").first()

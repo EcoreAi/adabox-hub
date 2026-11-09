@@ -216,10 +216,12 @@ def sconto_per(cliente, prodotto, quantita, data):
         return None
     regole = (RegolaSconto.objects.filter(azienda_id=cliente.azienda_id, attiva=True, quantita_minima__lte=quantita or 1)
               .filter(Q(cliente=cliente) | Q(cliente__isnull=True))
-              .filter(Q(prodotto=prodotto) | Q(prodotto__isnull=True))
+              .filter(Q(prodotto=prodotto) | Q(prodotto_id=prodotto.variante_di_id) | Q(prodotto__isnull=True))
               .filter(Q(categoria_id=prodotto.categoria_id) | Q(categoria__isnull=True))
               .filter(Q(dal__isnull=True) | Q(dal__lte=data), Q(al__isnull=True) | Q(al__gte=data)))
-    migliore = sorted(regole, key=lambda r: (r.cliente_id is not None, r.prodotto_id is not None, r.categoria_id is not None,
+    # una regola sulla variante vince su quella del suo modello, che vale per tutte le varianti
+    migliore = sorted(regole, key=lambda r: (r.cliente_id is not None, r.prodotto_id is not None, r.prodotto_id == prodotto.pk,
+                                             r.categoria_id is not None,
                                              r.quantita_minima, r.sconto), reverse=True)
     if migliore:
         return migliore[0].sconto

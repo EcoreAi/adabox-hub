@@ -1,4 +1,4 @@
-{% extends "core/report/base.html" %}
+{% extends "core/report/base.html" %}{% load prodotti_stampa %}
 {% block stile %}
   .intestatario { margin: 4mm 0 6mm auto; width: 80mm; padding: 3mm 4mm; border: 1px solid #e5e5ea; border-radius: 2mm; }
   table.righe { width: 100%; border-collapse: collapse; margin-top: 4mm; }
@@ -19,7 +19,7 @@
 <table class="righe">
   <thead><tr><th>Descrizione</th><th class="num col-quantita">Q.tà</th><th class="num col-prezzo">Prezzo</th><th class="num col-sconto">Sconto</th><th class="num col-iva">IVA</th><th class="num col-importo">Importo</th></tr></thead>
   <tbody>{% for r in obj.righe.all %}<tr>
-    <td>{{ r.descrizione }}</td><td class="num col-quantita">{{ r.quantita|floatformat:"-3" }}</td><td class="num col-prezzo">{{ r.prezzo|floatformat:2 }}</td>
+    <td>{{ r.descrizione }}{% if r.prodotto_id %}{% with cc=r.prodotto|codice_per:obj.cliente %}{% if cc %}<div style="font-size:8pt;color:#6e6e73;">Vostro codice {{ cc }}</div>{% endif %}{% endwith %}{% endif %}</td><td class="num col-quantita">{{ r.quantita|floatformat:"-3" }}</td><td class="num col-prezzo">{{ r.prezzo|floatformat:2 }}</td>
     <td class="num col-sconto">{% if r.sconto %}{{ r.sconto|floatformat:"-2" }}%{% endif %}</td><td class="num col-iva">{{ r.aliquota.codice }}</td><td class="num col-importo">{{ r.importo|floatformat:2 }}</td></tr>{% endfor %}</tbody>
 </table>
 <table class="totali">

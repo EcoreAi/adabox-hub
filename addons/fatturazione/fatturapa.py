@@ -9,6 +9,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from contatti.validatori import UE
+from prodotti.models import codice_cliente
 
 from .models import DatiFiscali, Fattura
 
@@ -256,6 +257,10 @@ def genera(fattura):
             cod = _sub(linea, "CodiceArticolo")
             _sub(cod, "CodiceTipo", "INTERNO")
             _sub(cod, "CodiceValore", r.prodotto.codice[:35])
+        if r.prodotto_id and (del_cliente := codice_cliente(r.prodotto, fattura.cliente)):
+            cod = _sub(linea, "CodiceArticolo")
+            _sub(cod, "CodiceTipo", "CLIENTE")
+            _sub(cod, "CodiceValore", del_cliente.codice[:35])
         _sub(linea, "Descrizione", r.descrizione[:1000] or "—")
         _sub(linea, "Quantita", _d(r.quantita, 3))
         if r.prodotto_id:

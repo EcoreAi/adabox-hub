@@ -1,4 +1,4 @@
-{% extends "core/report/base.html" %}
+{% extends "core/report/base.html" %}{% load prodotti_stampa %}
 {% block stile %}
   .parti { display: flex; gap: 6mm; margin: 4mm 0; } .parti > div { flex: 1; padding: 3mm 4mm; border: 1px solid #e5e5ea; border-radius: 2mm; }
   .parti h3 { margin: 0 0 1mm; font-size: 8pt; color: #6e6e73; text-transform: uppercase; }
@@ -15,7 +15,7 @@
   <div><h3>Trasporto</h3>Causale: {{ obj.get_causale_trasporto_display }}<br>A cura del {{ obj.get_trasporto_a_cura_display|lower }}{% if obj.vettore %} ({{ obj.vettore }}){% endif %}<br>Colli: {{ obj.colli }}{% if obj.peso %} · peso {{ obj.peso }} kg{% endif %} · {{ obj.aspetto_beni }}</div>
 </div>
 <table class="righe"><thead><tr><th class="col-codice">Codice</th><th>Descrizione</th><th class="num">Quantità</th><th class="col-um">U.M.</th></tr></thead>
-<tbody>{% for r in obj.righe.all %}<tr><td class="col-codice">{{ r.prodotto.codice }}</td><td>{{ r.descrizione }}</td><td class="num">{{ r.quantita|floatformat:"-3" }}</td><td class="col-um">{{ r.prodotto.unita }}</td></tr>{% endfor %}</tbody></table>
+<tbody>{% for r in obj.righe.all %}<tr><td class="col-codice">{{ r.prodotto.codice }}</td><td>{{ r.descrizione }}{% if r.prodotto_id %}{% with cc=r.prodotto|codice_per:obj.cliente %}{% if cc %}<div style="font-size:8pt;color:#6e6e73;">Vostro codice {{ cc }}</div>{% endif %}{% endwith %}{% endif %}</td><td class="num">{{ r.quantita|floatformat:"-3" }}</td><td class="col-um">{{ r.prodotto.unita }}</td></tr>{% endfor %}</tbody></table>
 {% if obj.note %}<p>{{ obj.note|linebreaksbr }}</p>{% endif %}
 <div class="firme"><div>Firma del conducente</div><div>Firma del destinatario</div></div>
 {% endblock %}
