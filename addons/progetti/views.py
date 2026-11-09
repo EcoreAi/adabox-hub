@@ -35,6 +35,7 @@ class DelProgettoVisibile(ModelView):
 class ProgettoView(ModelView):
     model = Progetto
     slug = "progetti"
+    gantt_inizio, gantt_fine, gantt_colore = "inizio", "fine", "stato"
     list_display = ["nome", "codice", "cliente", "responsabile", "stato", "fine"]
     list_filter = ["stato", "responsabile", "cliente"]
     search_fields = ["nome", "codice", "descrizione"]
@@ -215,6 +216,7 @@ class MilestoneView(DelProgettoVisibile):
 class SprintView(DelProgettoVisibile):
     model = Sprint
     slug = "sprint"
+    gantt_inizio, gantt_fine, gantt_colore = "inizio", "fine", "stato"
     list_display = ["nome", "progetto", "inizio", "fine", "stato"]
     list_filter = ["progetto", "stato"]
     search_fields = ["nome", "progetto__nome", "obiettivo"]

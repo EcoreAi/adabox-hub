@@ -58,6 +58,7 @@ class ModelloView(ModelView):
 class BudgetView(ModelView):
     model = Budget
     slug = "budget"
+    gantt_inizio, gantt_fine = "dal", "al"
     company_field = "azienda"
     list_display = ["voce", "nome", "dal", "al"]
     list_filter = ["voce"]

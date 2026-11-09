@@ -1,0 +1,36 @@
+{% extends 'core/base_app.html' %}
+{% block title %}{{ vista.verbose_name_plural|capfirst }} · Gantt · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>{{ vista.verbose_name_plural|capfirst }}</h1></div>
+  <div class="ui-pagehead-actions">{% include "core/vista/_selettore.html" %}
+    {% if puo_aggiungere %}<a class="ui-btn ui-btn-primary" href="{{ urls.nuovo }}"><svg><use href="#icon-plus"/></svg> Nuovo</a>{% endif %}</div>
+</div>
+<div class="ui-card is-revealed">{% include "core/vista/_filtri_semplici.html" %}</div>
+<div class="ui-card is-revealed" id="gantt">
+  <div class="ui-calendario-nav">
+    <a class="ui-btn ui-btn-secondary ui-btn-sm" href="{{ precedente }}" aria-label="Precedente">‹</a>
+    <a class="ui-btn ui-btn-secondary ui-btn-sm" href="{{ oggi_link }}">Oggi</a>
+    <a class="ui-btn ui-btn-secondary ui-btn-sm" href="{{ successivo }}" aria-label="Successivo">›</a>
+    <h2>{{ titolo }}</h2>
+  </div>
+  <div class="gt">
+    <div class="gt-riga gt-testa"><div class="gt-nome"></div><div class="gt-asse">{% for m in mesi %}<span style="width:{{ m.larghezza|stringformat:'s' }}%">{{ m.nome }}</span>{% endfor %}</div></div>
+    {% for b in barre %}<div class="gt-riga"><div class="gt-nome"><a class="ui-link" href="{% url vista.modulo|add:':'|add:vista.slug|add:'_dettaglio' pk=b.obj.pk %}">{{ b.obj }}</a></div>
+      <div class="gt-asse">{% if oggi is not None %}<i class="gt-oggi" style="left:{{ oggi|stringformat:'s' }}%"></i>{% endif %}
+        <a class="gt-barra ui-evento-c{{ b.colore }}{% if b.tagliata_prima %} is-prima{% endif %}{% if b.tagliata_dopo %} is-dopo{% endif %}" style="left:{{ b.sinistra|stringformat:'s' }}%;width:{{ b.larghezza|stringformat:'s' }}%"
+           href="{% url vista.modulo|add:':'|add:vista.slug|add:'_dettaglio' pk=b.obj.pk %}" title="{{ b.obj }}: {{ b.da|date:'d/m/Y' }} – {{ b.a|date:'d/m/Y'|default:'…' }}">{{ b.obj }}</a></div></div>
+    {% empty %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Niente in questo periodo.</p></div></div>{% endfor %}
+  </div>
+  {% if troppi %}<p class="ui-help" style="padding:0 16px 12px">Sono troppi: ne vedi i primi, usa i filtri.</p>{% endif %}
+</div>
+<style>
+.gt{overflow-x:auto;padding:0 12px 12px}.gt-riga{display:flex;align-items:center;min-height:34px;border-bottom:1px solid var(--ui-border,#e5e7eb)}
+.gt-nome{flex:0 0 220px;padding-right:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.gt-asse{position:relative;flex:1;min-width:480px;height:34px}
+.gt-testa .gt-asse{display:flex}.gt-testa .gt-asse span{font-size:.8em;color:var(--ui-text-2,#64748b);border-left:1px solid var(--ui-border,#e5e7eb);padding-left:4px;line-height:34px}
+.gt-barra{position:absolute;top:7px;height:20px;border-radius:6px;font-size:.75em;line-height:20px;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:inherit;text-decoration:none}
+.gt-barra.is-prima{border-top-left-radius:0;border-bottom-left-radius:0}.gt-barra.is-dopo{border-top-right-radius:0;border-bottom-right-radius:0}
+.gt-oggi{position:absolute;top:0;bottom:0;width:2px;background:var(--ui-danger,#dc2626);opacity:.6}
+@media (max-width:640px){.gt-nome{flex-basis:120px}}
+</style>
+{% endblock %}

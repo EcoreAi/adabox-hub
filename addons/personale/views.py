@@ -227,6 +227,7 @@ class ContrattoLavoroView(ModelView):
     """I contratti dei dipendenti: storico, condizioni, retribuzione. Quello in vigore aggiorna orario e ferie."""
     model = ContrattoLavoro
     slug = "contratti"
+    gantt_inizio, gantt_fine, gantt_colore = "dal", "al", "tipo"
     company_field = "azienda"
     list_display = ["dipendente", "tipo", "ccnl", "livello", "dal", "al", "ore_settimanali"]
     list_filter = ["tipo", "dipendente"]

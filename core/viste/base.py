@@ -60,6 +60,9 @@ class ModelView:
     kanban_colori = {}            # {valore della colonna: colore da core.colori}; senza, per posizione
     calendar_date = None          # vista calendario: campo data
     calendar_color = None         # campo con scelte che colora gli eventi
+    gantt_inizio = None           # vista Gantt: campo data d'inizio…
+    gantt_fine = None             # …e di fine (vuota = ancora in corso)
+    gantt_colore = None           # campo con scelte che colora le barre
     graph = None                  # vista grafico: {"tipi": [...], "misure": [...], "per": [...]}
     form_layout = None            # [("Sezione", ["campo", ("affiancato1", "affiancato2")]), ...]
     form_class = None
@@ -128,7 +131,7 @@ class ModelView:
 
     def get_urls_viste(self):
         """URL delle viste facoltative, solo se dichiarate."""
-        from . import calendario, grafico, kanban, pivot, stampa
+        from . import calendario, gantt, grafico, kanban, pivot, stampa
         s = self.slug
         urls = [path(f"{s}/pivot/", pivot.PivotView.as_view(vista=self), name=f"{s}_pivot")] if self.list_group_by else []
         if self.reports:
@@ -138,6 +141,8 @@ class ModelView:
             urls.append(path(f"{s}/grafico/", grafico.GraficoView.as_view(vista=self), name=f"{s}_grafico"))
         if self.calendar_date:
             urls.append(path(f"{s}/calendario/", calendario.CalendarioView.as_view(vista=self), name=f"{s}_calendario"))
+        if self.gantt_inizio and self.gantt_fine:
+            urls.append(path(f"{s}/gantt/", gantt.GanttView.as_view(vista=self), name=f"{s}_gantt"))
         if self.kanban_group:
             urls += [path(f"{s}/kanban/", kanban.KanbanView.as_view(vista=self), name=f"{s}_kanban"),
                      path(f"{s}/<int:pk>/sposta/", kanban.SpostaView.as_view(vista=self), name=f"{s}_sposta")]
@@ -147,6 +152,7 @@ class ModelView:
         """[(nome, etichetta, url)] delle viste dichiarate, per il selettore nella testata."""
         viste = [("lista", "Lista", self.url("lista"))]
         for nome, etichetta, attivo in [("kanban", "Kanban", self.kanban_group), ("calendario", "Calendario", self.calendar_date),
+                                        ("gantt", "Gantt", self.gantt_inizio and self.gantt_fine),
                                         ("grafico", "Grafico", self.graph), ("pivot", "Pivot", self.list_group_by)]:
             if attivo:
                 try:
