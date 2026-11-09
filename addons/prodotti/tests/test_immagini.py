@@ -99,8 +99,8 @@ def test_galleria_dal_form(client, superuser, dati):
     r = client.post(f"/prodotti/prodotti/{p.pk}/modifica/", {
         "nome": "Divano", "tipo": "bene", "unita": 1, "prezzo_vendita": "500", "costo": "0", "aliquota_iva": 1,
         "scorta_minima": "0", "attivo": "on",
-        "righe0-TOTAL_FORMS": "1", "righe0-INITIAL_FORMS": "0", "righe0-MIN_NUM_FORMS": "0", "righe0-MAX_NUM_FORMS": "1000",
-        "righe0-0-file": foto(), "righe0-0-didascalia": "Di lato", "righe0-0-ordine": "1"})
+        "righe2-TOTAL_FORMS": "1", "righe2-INITIAL_FORMS": "0", "righe2-MIN_NUM_FORMS": "0", "righe2-MAX_NUM_FORMS": "1000",
+        "righe2-0-file": foto(), "righe2-0-didascalia": "Di lato", "righe2-0-ordine": "1"})
     assert r.status_code == 302
     assert p.immagini.get().didascalia == "Di lato"
     assert client.get(p.immagini.get().file.url).status_code == 200

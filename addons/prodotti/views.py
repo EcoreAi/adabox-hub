@@ -31,12 +31,13 @@ class ProdottoView(ModelView):
         ("Varianti", [("con_varianti", "variante_di"), "valori"]),
         ("Altro", ["descrizione_vendita", ("scorta_minima", "kit"), "alternativi", "@proprieta"]),
     ]
-    inlines = [ImmaginiProdotto(ImmagineProdotto, "prodotto", ["file", "didascalia", "ordine"], titolo="Altre immagini", extra=0),
+    # i prefissi dei form sono per posizione (righe0, righe1…): le sezioni nuove vanno in fondo
+    inlines = [Inline(Confezione, "prodotto", ["nome", "quantita", "codice_barre", "peso"], titolo="Confezioni", extra=0),
+               Inline(ComponenteKit, "kit", ["componente", "quantita"], titolo="Componenti del kit", extra=0),
+               ImmaginiProdotto(ImmagineProdotto, "prodotto", ["file", "didascalia", "ordine"], titolo="Altre immagini", extra=0),
                Inline(AttributoProdotto, "prodotto", ["attributo", "valori"], titolo="Attributi delle varianti", extra=0),
                Inline(CodiceBarre, "prodotto", ["codice", "nota"], titolo="Altri codici a barre", extra=0),
-               Inline(CodiceCliente, "prodotto", ["cliente", "codice", "descrizione"], titolo="Codici dei clienti", extra=0),
-               Inline(Confezione, "prodotto", ["nome", "quantita", "codice_barre", "peso"], titolo="Confezioni", extra=0),
-               Inline(ComponenteKit, "kit", ["componente", "quantita"], titolo="Componenti del kit", extra=0)]
+               Inline(CodiceCliente, "prodotto", ["cliente", "codice", "descrizione"], titolo="Codici dei clienti", extra=0)]
     company_field = "azienda"
     sequence_field = ("codice", "prodotti.prodotto")
     list_group_by = ["tipo", "categoria", "aliquota_iva"]

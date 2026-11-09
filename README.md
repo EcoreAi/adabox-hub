@@ -190,7 +190,7 @@ con `core.mixins.ProprietaMixin` (valori nel JSON `proprieta`): compaiono nel fo
 | `timesheet` | progetti | ore su progetti e compiti, griglia settimanale, totali e analisi; ognuno vede le proprie ore |
 | `ai` | — | assistente agentico: chat in diretta (home se installata), catalogo di provider e modelli con profili per compito, strumenti con i permessi dell'utente, licenza e tetto di spesa |
 | `fiscale` | — | aliquote IVA con natura ed esigibilità, termini di pagamento a rate; calcolo di importi, riepilogo IVA e scadenze |
-| `prodotti` | fiscale | beni e servizi con codice, unità, IVA, costo e prezzo; listini a scaglioni di quantità |
+| `prodotti` | fiscale, contatti | beni e servizi con codice, unità, IVA, costo e prezzo; immagini e galleria, scheda e catalogo in PDF; varianti da attributi; più codici a barre, alternativi, codici dei clienti; listini a scaglioni di quantità |
 | `vendite` | prodotti, contatti | preventivi e ordini con righe, listini, sconti e IVA; stampa, invio per email, conferma |
 | `magazzino` | prodotti | movimenti e giacenze, consegne con DDT (scarico), ricevimenti (carico), rettifiche, scorte minime |
 | `acquisti` | prodotti, contatti | ordini ai fornitori con costi e IVA; stampa, invio, conferma |
