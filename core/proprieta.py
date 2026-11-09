@@ -43,6 +43,10 @@ def campo_form(d):
         return forms.ChoiceField(choices=[("", "—")] + d.elenco_scelte(), **comuni)
     if d.tipo == C.UTENTE:
         return forms.ModelChoiceField(queryset=get_user_model().objects.filter(is_active=True), **comuni)
+    if d.tipo == C.COLLEGAMENTO and d.collega_a_id:            # le scelte si limitano all'azienda come le altre FK
+        modello = d.collega_a.model_class()
+        if modello is not None:
+            return forms.ModelChoiceField(queryset=modello._default_manager.all(), **comuni)
     return forms.CharField(max_length=500, **comuni)
 
 
@@ -53,7 +57,7 @@ def in_json(d, valore):
         return valore.isoformat()
     if d.tipo == C.DECIMALE:
         return str(valore)
-    if d.tipo == C.UTENTE:
+    if d.tipo in (C.UTENTE, C.COLLEGAMENTO):
         return valore.pk if hasattr(valore, "pk") else int(valore)
     return valore
 
@@ -68,6 +72,9 @@ def da_json(d, valore):
             return Decimal(str(valore))
         if d.tipo == C.UTENTE:
             return get_user_model().objects.filter(pk=valore).first()
+        if d.tipo == C.COLLEGAMENTO and d.collega_a_id:
+            modello = d.collega_a.model_class()
+            return modello._default_manager.filter(pk=valore).first() if modello is not None else None
     except (ValueError, TypeError, InvalidOperation):
         return None
     return valore
@@ -86,6 +93,11 @@ def testo(d, obj):
         return valore.strftime("%d/%m/%Y")
     if d.tipo == C.UTENTE:
         return valore.get_full_name() or valore.username
+    if d.tipo == C.COLLEGAMENTO:
+        azienda_obj = getattr(obj, "azienda_id", None)
+        if hasattr(valore, "azienda_id") and azienda_obj is not None and valore.azienda_id != azienda_obj:
+            return VUOTO                                          # mai un record di un'altra azienda
+        return str(valore)
     return str(valore)
 
 

@@ -612,7 +612,7 @@ class CampoPersonalizzatoView(ModelView):
     search_fields = ["label", "nome"]
     ordering = ["modello", "ordine", "pk"]
     form_class = CampoPersonalizzatoForm
-    form_layout = [("Campo", ["modello", ("label", "nome"), ("tipo", "ordine"), "scelte", "aiuto"]),
+    form_layout = [("Campo", ["modello", ("label", "nome"), ("tipo", "ordine"), "scelte", "collega_a", "aiuto"]),
                    ("Comportamento", [("obbligatorio", "in_lista", "filtrabile"), "azienda"])]
 
 

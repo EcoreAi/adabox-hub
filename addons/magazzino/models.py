@@ -8,7 +8,7 @@ from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
 
-from core.mixins import AziendaMixin
+from core.mixins import AziendaMixin, ProprietaMixin
 
 
 class Magazzino(AziendaMixin):
@@ -214,7 +214,7 @@ def giacenza(prodotto, magazzino=None, ubicazione=None, lotto=None):
     return qs.aggregate(t=Sum("quantita"))["t"] or 0
 
 
-class DocumentoMagazzino(AziendaMixin):
+class DocumentoMagazzino(AziendaMixin, ProprietaMixin):
     """Parte comune di consegne e ricevimenti: magazzino, data, origine (ordine) e stato."""
     BOZZA, PRONTO, FATTO, ANNULLATO = "bozza", "pronto", "fatto", "annullato"
     APERTI = (BOZZA, PRONTO)                       # ancora da spedire o ricevere: si modificano

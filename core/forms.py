@@ -57,7 +57,7 @@ class CampoPersonalizzatoForm(forms.ModelForm):
     """Il modello si sceglie solo tra quelli che accettano campi personalizzati."""
     class Meta:
         model = CampoPersonalizzato
-        fields = ["modello", "label", "nome", "tipo", "scelte", "aiuto", "obbligatorio", "in_lista", "filtrabile",
+        fields = ["modello", "label", "nome", "tipo", "scelte", "collega_a", "aiuto", "obbligatorio", "in_lista", "filtrabile",
                   "ordine", "azienda"]
 
     def __init__(self, *args, **kwargs):
@@ -69,3 +69,13 @@ class CampoPersonalizzatoForm(forms.ModelForm):
         modelli = [m for m in apps.get_models() if proprieta.accetta(m)]
         self.fields["modello"].queryset = ContentType.objects.filter(
             pk__in=[ContentType.objects.get_for_model(m).pk for m in modelli])
+        from .viste import registry
+        con_vista = {v.model for vv in registry._viste.values() for v in vv}
+        self.fields["collega_a"].queryset = ContentType.objects.filter(
+            pk__in=[ContentType.objects.get_for_model(m).pk for m in con_vista]).order_by("app_label", "model")
+
+    def clean(self):
+        dati = super().clean()
+        if dati.get("tipo") == CampoPersonalizzato.COLLEGAMENTO and not dati.get("collega_a"):
+            self.add_error("collega_a", "Scegli a quale tipo di record si collega.")
+        return dati

@@ -201,6 +201,8 @@ def scheda(request, slug):
     return render(request, "core/applicazione.html", {
         "v": voce, "con_permessi": bool(manifest.groups), "righe_ruoli": righe_ruoli, "persone": persone, "livelli": ruoli.LIVELLI, "spiegazioni": SPIEGAZIONI,
         "comune": Modulo.objects.filter(slug=slug, comune=True).exists(), "applicazione": manifest.application,
+        "voci_menu": _voci_menu(slug, manifest, request.GET.get("ruolo")), "ruoli_menu": Ruolo.objects.all(),
+        "ruolo_menu": request.GET.get("ruolo", ""),
         "dipartimenti": [{"d": d, "scelto": d.tutte or slug in d.app, "tutte": d.tutte} for d in Dipartimento.objects.all()],
         "portata_da": [d for d in Dipartimento.objects.all() if not d.tutte and slug not in d.app and slug in dipartimenti.con_dipendenze(d.app)]})
 
@@ -237,6 +239,38 @@ def nome(request, slug):
     messages.success(request, f"Nel menu ora si chiama «{nuovo}»." if nuovo else f"Nel menu torna a chiamarsi «{voce['nome_originale']}».")
     return redirect("core:applicazione", slug=slug)
 
+
+
+def _voci_menu(slug, manifest, ruolo):
+    from .models import VoceMenu
+    ruolo_id = int(ruolo) if ruolo and ruolo.isdigit() else None
+    cambi = {v.url_name: v for v in VoceMenu.objects.filter(modulo=slug, ruolo_id=ruolo_id)}
+    return [{"url_name": v["url_name"], "originale": v["label"], "cambio": cambi.get(v["url_name"]), "posizione": i * 10}
+            for i, v in enumerate(manifest.menu)]
+
+
+@login_required
+@permission_required("core.change_modulo", raise_exception=True)
+@require_POST
+def menu_app(request, slug):
+    """Nome, posizione e visibilità delle voci di menu interne dell'app, per tutti o per un ruolo."""
+    from .models import VoceMenu
+    voce, manifest = _gestibile(slug)
+    ruolo = Ruolo.objects.filter(pk=request.POST.get("ruolo")).first() if request.POST.get("ruolo", "").isdigit() else None
+    for i, v in enumerate(manifest.menu):
+        chiave = v["url_name"]
+        etichetta = " ".join(request.POST.get(f"nome_{i}", "").split())[:60]
+        etichetta = "" if etichetta == v["label"] else etichetta
+        nascosta = request.POST.get(f"nascosta_{i}") == "1"
+        testo = request.POST.get(f"ordine_{i}", "").strip()
+        ordine = int(testo) if testo.isdigit() and int(testo) != i * 10 else None
+        if etichetta or nascosta or ordine is not None:
+            VoceMenu.objects.update_or_create(modulo=slug, url_name=chiave, ruolo=ruolo,
+                                              defaults={"etichetta": etichetta, "nascosta": nascosta, "ordine": ordine})
+        else:
+            VoceMenu.objects.filter(modulo=slug, url_name=chiave, ruolo=ruolo).delete()
+    messages.success(request, "Voci di menu salvate" + (f" per il ruolo {ruolo}." if ruolo else " per tutti."))
+    return redirect(f"{redirect('core:applicazione', slug=slug).url}{'?ruolo=' + str(ruolo.pk) if ruolo else ''}")
 
 
 @login_required

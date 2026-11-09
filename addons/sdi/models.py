@@ -3,7 +3,7 @@ import uuid
 from django.db import models
 from django.utils import timezone
 
-from core.mixins import AziendaMixin
+from core.mixins import AziendaMixin, ProprietaMixin
 from core.storage import StoragePrivato
 
 
@@ -67,7 +67,7 @@ class NotificaSdi(models.Model):
         return f"{self.get_tipo_display()} · {self.file_fattura or self.nome_file}"
 
 
-class FatturaPassiva(AziendaMixin):
+class FatturaPassiva(AziendaMixin, ProprietaMixin):
     """Fattura ricevuta da un fornitore tramite lo SDI (o caricata a mano), letta dal suo XML."""
     DA_VERIFICARE, REGISTRATA, CONTESTATA = "da_verificare", "registrata", "contestata"
     STATI = [(DA_VERIFICARE, "Da verificare"), (REGISTRATA, "Registrata"), (CONTESTATA, "Contestata")]

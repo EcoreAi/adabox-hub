@@ -522,15 +522,17 @@ class AttivitaPianificata(models.Model):
 
 class CampoPersonalizzato(models.Model):
     """Campo aggiunto dal cliente a un modello con ProprietaMixin, per tutte le aziende o per una sola."""
-    TESTO, INTERO, DECIMALE, BOOLEANO, DATA, SCELTA, UTENTE = (
-        "testo", "intero", "decimale", "booleano", "data", "scelta", "utente")
+    TESTO, INTERO, DECIMALE, BOOLEANO, DATA, SCELTA, UTENTE, COLLEGAMENTO = (
+        "testo", "intero", "decimale", "booleano", "data", "scelta", "utente", "record")
     TIPI = [(TESTO, "Testo"), (INTERO, "Numero intero"), (DECIMALE, "Numero decimale"), (BOOLEANO, "Sì/No"),
-            (DATA, "Data"), (SCELTA, "Scelta da elenco"), (UTENTE, "Utente")]
+            (DATA, "Data"), (SCELTA, "Scelta da elenco"), (UTENTE, "Utente"), (COLLEGAMENTO, "Collegamento a un record")]
     modello = models.ForeignKey(ContentType, on_delete=models.CASCADE, verbose_name="modello")
     nome = models.SlugField("nome tecnico", max_length=40, help_text="minuscole, cifre e _ (es. codice_cliente)")
     label = models.CharField("etichetta", max_length=80)
     tipo = models.CharField("tipo", max_length=10, choices=TIPI, default=TESTO)
     scelte = models.TextField("scelte", blank=True, help_text="una per riga: valore|etichetta (solo per le scelte)")
+    collega_a = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True, related_name="+",
+                                  verbose_name="collega a", help_text="solo per i collegamenti: il tipo di record (es. contatto, progetto)")
     aiuto = models.CharField("testo di aiuto", max_length=200, blank=True)
     obbligatorio = models.BooleanField("obbligatorio", default=False)
     in_lista = models.BooleanField("mostra nella lista", default=False)
@@ -871,3 +873,22 @@ class IscrizionePush(models.Model):
 
     def __str__(self):
         return f"{self.utente} · {self.dispositivo or 'dispositivo'}"
+
+
+class VoceMenu(models.Model):
+    """Una voce di menu interna di un'app, cambiata dall'istanza: nome, posizione, nascosta. Per tutti o per un ruolo."""
+    modulo = models.CharField("app", max_length=60)
+    url_name = models.CharField("voce", max_length=120)
+    ruolo = models.ForeignKey("Ruolo", on_delete=models.CASCADE, null=True, blank=True, related_name="+", verbose_name="ruolo",
+                              help_text="vuoto = per tutti")
+    etichetta = models.CharField("nome", max_length=60, blank=True, help_text="vuoto = quello del modulo")
+    ordine = models.PositiveSmallIntegerField("posizione", null=True, blank=True)
+    nascosta = models.BooleanField("nascosta", default=False)
+
+    class Meta:
+        verbose_name = "voce di menu"
+        verbose_name_plural = "voci di menu"
+        constraints = [models.UniqueConstraint(fields=["modulo", "url_name", "ruolo"], name="core_vocemenu_unica")]
+
+    def __str__(self):
+        return f"{self.modulo} · {self.url_name}"

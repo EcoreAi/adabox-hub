@@ -207,6 +207,28 @@ def _voce_visibile(user, voce):
     return user.is_superuser or not voce.get("permission") or user.has_perm(voce["permission"])
 
 
+def voci_cambiate(user):
+    """{(app, url_name): VoceMenu} che valgono per l'utente: quelle del suo ruolo vincono su quelle per tutti."""
+    from django.db import DatabaseError
+
+    from core.models import VoceMenu
+    try:
+        ruolo_id = getattr(getattr(user, "profilo", None), "ruolo_id", None)
+        cambi = {}
+        for v in VoceMenu.objects.filter(models_q_ruolo(ruolo_id)).order_by("ruolo_id"):
+            chiave = (v.modulo, v.url_name)
+            if v.ruolo_id is not None or chiave not in cambi:
+                cambi[chiave] = v
+        return cambi
+    except DatabaseError:
+        return {}
+
+
+def models_q_ruolo(ruolo_id):
+    from django.db.models import Q
+    return Q(ruolo__isnull=True) | Q(ruolo_id=ruolo_id) if ruolo_id else Q(ruolo__isnull=True)
+
+
 def app_visibili(user):
     """App installate (application=True), ammesse dai dipartimenti dell'utente, con almeno una voce di menu permessa.
     [{slug, label, summary, icon, url_name, url, menu: [{label, url_name, url}], settings_url}]"""
@@ -217,17 +239,24 @@ def app_visibili(user):
     apps = []
     spenti = disattivati()
     nomi = etichette()
+    cambi = voci_cambiate(user)
     for slug, m in manifests_attivi().items():
         if not m.application or slug in spenti or not dipartimenti.ammessa(user, slug):
             continue
         menu = []
-        for voce in m.menu:
+        for posizione, voce in enumerate(m.menu):
             if not _voce_visibile(user, voce):
                 continue
+            cambio = cambi.get((slug, voce["url_name"]))
+            if cambio is not None and cambio.nascosta:
+                continue
             try:
-                menu.append({"label": voce["label"], "url_name": voce["url_name"], "url": reverse(voce["url_name"])})
+                menu.append({"label": (cambio.etichetta if cambio and cambio.etichetta else voce["label"]), "url_name": voce["url_name"],
+                             "url": reverse(voce["url_name"]),
+                             "_ordine": cambio.ordine if cambio and cambio.ordine is not None else posizione * 10})
             except NoReverseMatch:
                 log.warning("%s: voce di menu %r con url_name non risolvibile", slug, voce["url_name"])
+        menu.sort(key=lambda v: v.pop("_ordine"))
         if not menu:
             continue
         impostazioni = None

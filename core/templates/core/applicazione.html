@@ -13,6 +13,16 @@
     {% if v.nome != v.nome_originale %}<span class="ui-help">Il nome del modulo è «{{ v.nome_originale }}»: lascia vuoto per tornare a quello.</span>{% endif %}
   </form></div>
 </section>
+{% if voci_menu and perms.core.change_modulo %}<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Voci del menu</div><div class="ui-card-sub">Nome, posizione e voci nascoste, per tutti o per un ruolo (quelle del ruolo vincono)</div></div>
+    <form method="get" class="ui-filtri"><select class="ui-input" name="ruolo" onchange="this.form.submit()" aria-label="Per chi"><option value="">Per tutti</option>{% for r in ruoli_menu %}<option value="{{ r.pk }}"{% if ruolo_menu == r.pk|stringformat:"s" %} selected{% endif %}>Ruolo {{ r.nome }}</option>{% endfor %}</select></form></div>
+  <form method="post" action="{% url 'core:applicazione_menu' v.slug %}">{% csrf_token %}<input type="hidden" name="ruolo" value="{{ ruolo_menu }}">
+    <div class="ui-table-wrap"><table class="ui-table is-revealed"><thead><tr><th>Voce del modulo</th><th>Nome nel menu</th><th>Posizione</th><th>Nascosta</th></tr></thead>
+    <tbody>{% for x in voci_menu %}<tr><td>{{ x.originale }}</td><td><input class="ui-input" name="nome_{{ forloop.counter0 }}" value="{{ x.cambio.etichetta|default:'' }}" placeholder="{{ x.originale }}" maxlength="60" aria-label="Nome di {{ x.originale }}"></td>
+      <td><input class="ui-input" name="ordine_{{ forloop.counter0 }}" value="{% if x.cambio.ordine is not None %}{{ x.cambio.ordine }}{% else %}{{ x.posizione }}{% endif %}" inputmode="numeric" style="max-width:80px" aria-label="Posizione di {{ x.originale }}"></td>
+      <td><input type="checkbox" class="ui-checkbox" name="nascosta_{{ forloop.counter0 }}" value="1"{% if x.cambio.nascosta %} checked{% endif %} aria-label="Nascondi {{ x.originale }}"></td></tr>{% endfor %}</tbody></table></div>
+    <div class="ui-card-body"><button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Salva le voci</button> <span class="ui-help">Nascondere una voce non toglie il permesso: la pagina resta raggiungibile a chi può.</span></div></form>
+</section>{% endif %}
 {% if applicazione %}<section class="ui-card is-revealed ui-section">
   <div class="ui-card-head"><div><div class="ui-card-title">Dipartimenti</div><div class="ui-card-sub">Chi è in un dipartimento vede solo le sue app e quelle comuni; chi non ne ha vede tutto quello che il ruolo consente</div></div></div>
   <div class="ui-card-body">{% if perms.core.change_dipartimento %}<form method="post" action="{% url 'core:applicazione_dipartimenti' v.slug %}" class="dp-app">{% csrf_token %}
