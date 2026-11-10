@@ -2,7 +2,11 @@
 Ed25519 con le chiavi fidate del kernel (le stesse dei pacchetti) e arriva dal portale o da un file.
 
 {"licenza": {"prodotto": "adabox-hub", "cliente": ..., "istanza": ..., "piano": ..., "moduli": ["crm", ...],
-             "utenti": 25, "emessa": "<ISO>", "scadenza": "AAAA-MM-GG", "grazia_giorni": 30}, "firma": "<base64>"}
+             "utenti": 25, "emessa": "<ISO>", "scadenza": "AAAA-MM-GG", "grazia_giorni": 30,
+             "funzioni": {"ai": ["ricerca_web", ...]}}, "firma": "<base64>"}
+
+"funzioni" (facoltativo) restringe le funzioni attivabili di un modulo (core.funzioni): un modulo che non compare
+ha tutte le sue funzioni.
 
 Vale solo con LICENZA_OBBLIGATORIA: senza licenza valida i moduli restano spenti; dopo la scadenza, finita la grazia,
 l'istanza è in sola lettura. È un deterrente, non un muro: chi ha accesso root al server può togliere anche il
@@ -35,6 +39,7 @@ class Stato:
     grazia_giorni: int = GRAZIA_PREDEFINITA
     suite: tuple = ()                                    # ({slug, nome, moduli: frozenset, utenti}, ...) comprate dall'istanza
     comuni: frozenset = field(default_factory=frozenset)  # le app del piano base: di tutti i dipartimenti
+    funzioni: dict = field(default_factory=dict)          # {slug: frozenset} dei moduli con le funzioni ristrette
 
     @property
     def scaduta(self):
@@ -80,7 +85,8 @@ def _leggi(testo, chiavi):
                      piano=str(contenuto.get("piano", "")), moduli=frozenset(contenuto.get("moduli") or []),
                      utenti=int(contenuto.get("utenti") or 0), emessa=str(contenuto.get("emessa", "")), scadenza=scadenza,
                      grazia_giorni=int(contenuto.get("grazia_giorni", GRAZIA_PREDEFINITA)),
-                     suite=_suite(contenuto.get("suite")), comuni=frozenset(contenuto.get("comuni") or []))
+                     suite=_suite(contenuto.get("suite")), comuni=frozenset(contenuto.get("comuni") or []),
+                     funzioni=_funzioni(contenuto.get("funzioni")))
     except (KeyError, ValueError, TypeError):
         return Stato(False, "La licenza non ha dati validi.")
 
@@ -94,6 +100,14 @@ def _suite(voci):
                               "moduli": frozenset(m for m in v.get("moduli") or [] if isinstance(m, str)),
                               "utenti": v["utenti"] if isinstance(v.get("utenti"), int) and v["utenti"] > 0 else 0})
     return tuple(risultato)
+
+
+def _funzioni(voci):
+    """{slug: frozenset} dalla licenza, solo le voci scritte bene: una voce strana non invalida la licenza."""
+    if not isinstance(voci, dict):
+        return {}
+    return {slug: frozenset(f for f in lista if isinstance(f, str))
+            for slug, lista in voci.items() if isinstance(slug, str) and isinstance(lista, list)}
 
 
 def leggi(testo):

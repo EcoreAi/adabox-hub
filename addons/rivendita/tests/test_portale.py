@@ -235,3 +235,28 @@ def test_suite_dal_catalogo_alla_licenza(client, superuser, scena):
     risposta = _post(client, token).json()
     assert risposta["suite_rifiutate"] == ["marketing"] and risposta["rifiutate"] == []
     assert client.get(reverse("rivendita:suite_lista")).status_code == 200
+
+
+@pytest.mark.django_db
+def test_funzioni_dal_manifest_al_piano_e_alla_licenza(client, scena, portale, tmp_path):
+    istanza, token = scena
+    funzioni = [{"chiave": "web", "label": "Ricerca sul web"}, {"chiave": "memoria", "label": "Memoria", "help": "ricorda"},
+                {"chiave": "voce", "label": "Voce"}]
+    _pubblica(tmp_path, portale, "extra", version="1.1.0", depends=["base"], funzioni=funzioni)
+    extra = ModuloVendibile.objects.get(slug="extra")
+    assert list(extra.funzioni_attivabili.values_list("chiave", "nome", "spiegazione")) == [
+        ("web", "Ricerca sul web", ""), ("memoria", "Memoria", "ricorda"), ("voce", "Voce", "")]
+
+    def funzioni_in_licenza():
+        testo, _ = sincronia._verifica(_post(client, token).json())
+        return licenza.leggi(testo).funzioni
+
+    assert funzioni_in_licenza() == {}                       # piano senza restrizioni: la chiave non c'è, tutte le funzioni
+    istanza.piano.moduli_a_funzioni.add(extra)
+    assert funzioni_in_licenza() == {"extra": frozenset()}   # a funzioni scelte, nessuna scelta: solo la base
+    istanza.piano.funzioni.add(extra.funzioni_attivabili.get(chiave="memoria"))
+    istanza.funzioni_extra.add(extra.funzioni_attivabili.get(chiave="web"))
+    assert funzioni_in_licenza() == {"extra": frozenset({"memoria", "web"})}
+    # tolta dal manifest, la funzione sparisce anche dal piano
+    _pubblica(tmp_path, portale, "extra", version="1.2.0", depends=["base"], funzioni=funzioni[1:])
+    assert funzioni_in_licenza() == {"extra": frozenset({"memoria"})}

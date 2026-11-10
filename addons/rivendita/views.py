@@ -14,7 +14,7 @@ class IstanzeView(ModelView):
     list_filter = ["piano", "ospitata", "attiva", "scadenza"]
     search_fields = ["cliente", "email", "url"]
     form_layout = [("Cliente", [("cliente", "email"), ("url", "ospitata")]),
-                   ("Licenza", [("piano", "scadenza"), ("utenti", "grazia_giorni"), "suite", "moduli_extra", "attiva"]),
+                   ("Licenza", [("piano", "scadenza"), ("utenti", "grazia_giorni"), "suite", "moduli_extra", "funzioni_extra", "attiva"]),
                    ("Stato", [("ultimo_contatto", "utenti_attivi"), "codice"]), ("Note", ["note"])]
     readonly_fields = ["ultimo_contatto", "utenti_attivi", "codice"]
     list_group_by = ["piano", "ospitata", "scadenza:mese"]
@@ -91,7 +91,8 @@ class PianiView(ModelView):
     list_display = ["nome", "prezzo_mese", "utenti", "attivo"]
     list_filter = ["attivo"]
     search_fields = ["nome"]
-    form_layout = [("Piano", [("nome", "attivo"), ("prezzo_mese", "utenti"), "moduli", "descrizione"])]
+    form_layout = [("Piano", [("nome", "attivo"), ("prezzo_mese", "utenti"), "moduli", "descrizione"]),
+                   ("Funzioni dei moduli", ["moduli_a_funzioni", "funzioni"])]
 
 
 @register

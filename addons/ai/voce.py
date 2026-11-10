@@ -34,7 +34,8 @@ def url_locale():
 
 
 def accesa(azienda):
-    return azienda is not None and bool(parametri.leggi("ai.voce", azienda))
+    from . import funzioni
+    return azienda is not None and funzioni.attiva("voce") and bool(parametri.leggi("ai.voce", azienda))
 
 
 def dettatura_disponibile(azienda):

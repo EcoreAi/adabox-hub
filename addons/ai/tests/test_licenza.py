@@ -38,7 +38,7 @@ def _licenza(chiavi, **dati):
 
 def test_licenza_valida_scaduta_manomessa(db, chiavi):
     stato = licenza.leggi(_licenza(chiavi))
-    assert stato.valida and stato.cliente == "Rossi Srl" and stato.funzioni == ["chat"]
+    assert stato.valida and stato.cliente == "Rossi Srl" and stato.funzioni is None   # formato di prima: tutte
     scaduta = licenza.leggi(_licenza(chiavi, scadenza=(OGGI - datetime.timedelta(days=1)).isoformat()))
     assert not scaduta.valida and "scaduta" in scaduta.motivo
     manomessa = json.loads(_licenza(chiavi))
@@ -55,8 +55,9 @@ def test_licenza_valida_scaduta_manomessa(db, chiavi):
 def test_senza_licenza_l_assistente_non_risponde(db, chiavi):
     with pytest.raises(ErroreModello, match="non è attivo"):
         limiti.verifica()
-    Licenza.objects.create(testo=_licenza(chiavi, funzioni=["chat"]))
-    limiti.verifica()
+    Licenza.objects.create(testo=_licenza(chiavi, funzioni=["memoria"]))
+    limiti.verifica()                                   # la chat è sempre compresa
+    limiti.verifica(funzione="memoria")
     with pytest.raises(ErroreModello, match="non è compresa"):
         limiti.verifica(funzione="conoscenza")
 
@@ -115,7 +116,7 @@ def test_pagina_licenza_e_comando(client, superuser, chiavi, tmp_path):
     r = client.post("/ai/licenza/", {"file": SimpleUploadedFile("licenza.json", uscita.read_bytes())}, follow=True)
     assert "Licenza di Bianchi Spa caricata" in r.content.decode()
     stato = licenza.attuale()
-    assert stato.valida and stato.utenti == 5 and "chat" in stato.funzioni
+    assert stato.valida and stato.utenti == 5 and stato.funzioni is None      # senza --funzioni: tutte
     r = client.post("/ai/licenza/", {"file": SimpleUploadedFile("x.json", b"{}")}, follow=True)
     assert "non caricata" in r.content.decode() and Licenza.objects.count() == 1
 

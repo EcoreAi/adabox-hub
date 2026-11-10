@@ -17,7 +17,7 @@ from django.utils import timezone
 from core import licenza
 from core.registry import pacchetti
 
-from .models import Istanza, ModuloVendibile, Pacchetto, Richiesta, Suite
+from .models import FunzioneVendibile, Istanza, ModuloVendibile, Pacchetto, Richiesta, Suite
 from .schede import SCHEDE
 
 
@@ -62,6 +62,7 @@ def pubblica(percorso_zip, nome_file=""):
         "nome": m.get("nav_label") or m.get("name", esito.slug), "riassunto": (m.get("summary") or "")[:300], "categoria": m.get("category", ""),
         "application": bool(m.get("application")), "icona": _icona(percorso_zip, esito.slug, m)})
     applica_scheda(modulo)
+    allinea_funzioni(modulo, m.get("funzioni") or [])
     nome = nome_file or percorso_zip.name
     p = Pacchetto.objects.filter(modulo=modulo, versione=esito.versione).first() or Pacchetto(modulo=modulo, versione=esito.versione)
     if p.pk and p.file:
@@ -81,6 +82,28 @@ def applica_scheda(modulo):
     if descrizione and not modulo.descrizione:
         modulo.descrizione, modulo.funzioni = descrizione, "\n".join(funzioni)
         modulo.save(update_fields=["descrizione", "funzioni"])
+
+
+def allinea_funzioni(modulo, voci):
+    """Le funzioni attivabili del modulo come nel manifest del pacchetto: quelle tolte spariscono anche dai piani."""
+    chiavi = []
+    for ordine, v in enumerate(voci):
+        if isinstance(v, dict) and isinstance(v.get("chiave"), str) and v["chiave"]:
+            FunzioneVendibile.objects.update_or_create(modulo=modulo, chiave=v["chiave"], defaults={
+                "nome": str(v.get("label") or v["chiave"])[:120], "spiegazione": str(v.get("help") or "")[:300], "ordine": ordine})
+            chiavi.append(v["chiave"])
+    modulo.funzioni_attivabili.exclude(chiave__in=chiavi).delete()
+
+
+def funzioni_di(istanza, moduli):
+    """{slug: [chiavi]} per la licenza: dei moduli che il piano ha «a funzioni scelte», quelle del piano più quelle in più
+    dell'istanza. Gli altri moduli non compaiono, e sull'istanza hanno tutte le funzioni."""
+    ristretti = set(istanza.piano.moduli_a_funzioni.values_list("slug", flat=True)) & set(moduli)
+    risultato = {slug: set() for slug in ristretti}
+    for qs in (istanza.piano.funzioni, istanza.funzioni_extra):
+        for slug, chiave in qs.filter(modulo__slug__in=ristretti).values_list("modulo__slug", "chiave"):
+            risultato[slug].add(chiave)
+    return {slug: sorted(chiavi) for slug, chiavi in sorted(risultato.items())}
 
 
 def moduli_di(istanza):
@@ -118,6 +141,8 @@ def licenza_di(istanza):
     suite = suite_di(istanza)
     if suite:                                          # senza suite la licenza resta com'era: le istanze vecchie la leggono uguale
         dati.update(suite=suite, comuni=comuni_di(istanza))
+    if funzioni := funzioni_di(istanza, dati["moduli"]):   # come sopra: senza restrizioni la chiave non c'è
+        dati["funzioni"] = funzioni
     return licenza.firma(dati, chiave_privata())
 
 

@@ -34,6 +34,7 @@ class Strumento:
     # descrive senza toccare nulla; la funzione gira solo alla conferma dell'utente (ai.proposte)
     anteprima: object = None
     disponibile: object = None                          # funzione() -> bool: es. solo se il suo servizio è configurato
+    funzione_licenza: str = ""                          # funzione dell'assistente che lo comprende (ai.funzioni)
 
     def definizione(self):
         return {"nome": self.nome, "descrizione": self.descrizione, "schema": self.schema}
@@ -59,15 +60,19 @@ def registra(strumento):
 def disponibili(utente, ambito="", azienda=None):
     """Gli strumenti che l'utente può usare (in ordine stabile per la cache del prefisso). Con l'azienda anche quelli
     dei sistemi esterni (MCP) che ha acceso, ma non nelle chat limitate a un'app."""
+    from core import funzioni
     from core.registry.modules import disattivati
 
+    from .. import funzioni as funzioni_ai
     from . import app
     app.carica()
     spenti = disattivati()
+    comprese = funzioni.comprese("ai")                  # None = tutte
     interni = [s for _, s in sorted(_registro.items())
             if (s.permesso is None or utente.has_perm(s.permesso)) and (not ambito or not s.app or s.app == ambito)
-            and s.app not in spenti and (s.disponibile is None or s.disponibile())]
-    if ambito or azienda is None:
+            and s.app not in spenti and (comprese is None or funzioni_ai.di_strumento(s) in comprese | {""})
+            and (s.disponibile is None or s.disponibile())]
+    if ambito or azienda is None or (comprese is not None and "mcp" not in comprese):
         return interni
     from .. import mcp
     return interni + sorted(mcp.strumenti(utente, azienda), key=lambda s: s.nome)

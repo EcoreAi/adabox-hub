@@ -331,6 +331,9 @@ def dovuta(scelta, ultima, adesso):
 
 def indicizza_cron():
     """Chiamata dal worker ogni 5 minuti: indicizza solo quando lo dice l'impostazione «Indicizzazione programmata»."""
+    from . import funzioni
+    if not funzioni.attiva("conoscenza"):
+        return "saltata: ricerca nei documenti non compresa nella licenza"
     scelta = intervallo()
     if not dovuta(scelta, _ultima_esecuzione(), timezone.now()):
         return f"saltata: impostazione «{scelta}»"

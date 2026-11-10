@@ -1,5 +1,15 @@
 {% extends 'core/base_app.html' %}
 {% block title %}Licenza dell'assistente · {{ theme.brand }}{% endblock %}
+{% block head_extra %}<style>
+.ai-funzioni-licenza{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.ai-funzioni-licenza li{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--ui-border);border-radius:8px}
+.ai-funzioni-licenza li>span{width:1.2em;flex:none;color:var(--ui-success);font-weight:600}
+.ai-funzioni-licenza li>div{flex:1;min-width:0}
+.ai-funzioni-licenza small{display:block;color:var(--ui-text-2)}
+.ai-funzioni-licenza .is-esclusa{color:var(--ui-text-3)}
+.ai-funzioni-licenza .is-esclusa>span{color:var(--ui-text-3)}
+.ai-funzioni-licenza em{font-style:normal;font-size:.85em;white-space:nowrap}
+</style>{% endblock %}
 {% block app_content %}
 <div class="ui-pagehead"><div><h1>Licenza dell'assistente</h1>
   <div class="sub">{% if stato.valida %}{% if stato.sviluppo %}Licenza di sviluppo (AI_LICENZA_SVILUPPO){% else %}Valida fino al {{ stato.scadenza|date:"d/m/Y" }}{% endif %}{% else %}Non attiva: {{ stato.motivo }}{% endif %}</div></div></div>
@@ -7,10 +17,14 @@
   <dl class="ui-totali-documento" style="justify-content:start;border:0;padding:0;">
     <div><dt>Cliente</dt><dd>{{ stato.cliente|default:"—" }}</dd></div>
     <div><dt>Utenti al mese</dt><dd>{% if stato.utenti %}{{ utenti_mese }} su {{ stato.utenti }}{% else %}{{ utenti_mese }} (senza limite){% endif %}</dd></div>
-    <div><dt>Funzioni</dt><dd>{{ stato.funzioni|join:", "|default:"—" }}</dd></div>
     {% if tetto is not None %}<div><dt>Spesa del mese</dt><dd>{{ spesa|floatformat:2 }} ${% if tetto %} su {{ tetto }} ${% else %} (senza tetto){% endif %}</dd></div>{% endif %}
   </dl>
 </div></section>
+{% if stato.valida %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Funzioni comprese</div></div>
+  <div class="ui-card-body"><ul class="ai-funzioni-licenza">{% for f in funzioni_licenza %}
+    <li class="{% if f.compresa %}is-compresa{% else %}is-esclusa{% endif %}"><span>{% if f.compresa %}✓{% else %}—{% endif %}</span>
+      <div><strong>{{ f.label }}</strong>{% if f.help %}<small>{{ f.help }}</small>{% endif %}</div>{% if not f.compresa %}<em>non compresa</em>{% endif %}</li>
+  {% endfor %}</ul><p class="ui-help">Per aggiungere una funzione al piano contatta ICHNOBYTE: arriva con la licenza, senza installare nulla.</p></div></section>{% endif %}
 <section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Carica un file di licenza</div></div>
   <div class="ui-card-body"><form method="post" enctype="multipart/form-data">{% csrf_token %}
     <input class="ui-input" type="file" name="file" accept=".json,application/json" required aria-label="File di licenza">

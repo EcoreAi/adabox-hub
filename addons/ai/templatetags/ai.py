@@ -120,7 +120,8 @@ def campi_scrivi_con_ada():
 def progetti_del_record(context, obj, vista=None):
     """Per la sezione nel dettaglio di un record: (progetti collegati, progetti dell'utente da collegare, tipo di record)."""
     request = context.get("request")
-    if request is None or obj is None or getattr(vista, "modulo", "") == "ai":
+    from .. import funzioni
+    if request is None or obj is None or getattr(vista, "modulo", "") == "ai" or not funzioni.attiva("aree_di_lavoro"):
         return None
     from django.contrib.contenttypes.models import ContentType
 

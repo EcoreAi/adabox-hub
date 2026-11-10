@@ -19,7 +19,7 @@ from core.models import Allegato
 from core import barra
 from core.registry import modules
 
-from . import allegati_chat, aree, catalogo, collegamenti, documenti_chat, motore, ricerca, suggerimenti, voce
+from . import allegati_chat, aree, catalogo, collegamenti, documenti_chat, funzioni, motore, ricerca, suggerimenti, voce
 from .strumenti.registro import ErroreStrumento
 from .models import Artifact, CollegamentoProgetto, Conversazione, DocumentoChat, VersioneDocumento, MessaggioChat, ProgettoChat, Proposta, Turno, ValutazioneRisposta
 
@@ -74,7 +74,10 @@ def _fornitore_immagini(azienda):
 def livelli_modello(azienda):
     """[(livello, modello)] della scelta in chat: «standard» è Veloce, «max» è Avanzato. Valgono i modelli con il
     livello assegnato; se nessuno ne ha uno, Veloce è il più economico dei sceglibili e Avanzato il più caro.
-    Con Automatico: Veloce, poi Avanzato, poi la catena del profilo della chat (catalogo.automatico)."""
+    Con Automatico: Veloce, poi Avanzato, poi la catena del profilo della chat (catalogo.automatico).
+    Senza la funzione «piu_modelli» niente scelta: risponde il modello degli amministratori."""
+    if not funzioni.attiva("piu_modelli"):
+        return []
     disponibili = [m for m, _ in catalogo.sceglibili(azienda)]
     assegnati = {m.livello_chat: m for m in disponibili if m.livello_chat}
     if assegnati:
@@ -116,15 +119,20 @@ def _avviso_spesa(request):
 def chat(request, pk=None, progetto=None):
     """La chat: una conversazione, una chat nuova, oppure la pagina di un progetto (le sue chat, documenti, grafici,
     file e la casella per una chat nuova nel progetto)."""
+    if progetto is not None and not funzioni.attiva("aree_di_lavoro"):
+        raise Http404("Aree di lavoro non comprese nella licenza.")
     azienda = getattr(request, "azienda", None)
     sola_lettura = False
     conversazione = _mie(request).filter(pk=pk).first() if pk else None
     if pk and conversazione is None:                 # una chat condivisa da un altro membro di un'area: si legge soltanto
+        if not funzioni.attiva("aree_di_lavoro"):
+            raise Http404
         conversazione = get_object_or_404(Conversazione.objects.filter(condivisa=True, nascosta=False, progetto__in=aree.visibili(request.user, azienda))
                                           .select_related("progetto", "utente"), pk=pk)
         sola_lettura = True
     mie = _mie(request)
-    progetti = _progetti_con_recenti(request, azienda)
+    con_aree = funzioni.attiva("aree_di_lavoro")             # senza: le chat stanno nell'area personale, che non si vede
+    progetti = _progetti_con_recenti(request, azienda) if con_aree else []
     progetto_aperto = None
     if progetto is not None:
         progetto_aperto = _mio_progetto(request, progetto)
@@ -141,13 +149,13 @@ def chat(request, pk=None, progetto=None):
     progetto_nuova = (progetto_aperto or _mio_progetto(request, request.GET.get("progetto")) or area_corrente) if conversazione is None else None
     return render(request, "ai/chat.html", {
         "sola_lettura": sola_lettura, "autore_chat": aree.nome(conversazione.utente) if sola_lettura else "",
-        "puo_condividere": bool(conversazione and not sola_lettura and conversazione.progetto_id),
+        "puo_condividere": bool(con_aree and conversazione and not sola_lettura and conversazione.progetto_id),
         "documento": aperto, "versioni": aperto.versioni.all()[:20] if aperto else [],
         "conversazione": conversazione, "ambito": ambito, "turno": in_corso, "avviso_spesa": _avviso_spesa(request),
         "messaggi": conversazione.messaggi.all() if conversazione else [],
         "storico": mie[:50], "preferite": mie.filter(preferita=True)[:50],
         "salvati": _salvati(request), "ricevuti": _ricevuti(request),
-        "pannelli_sinistra": PANNELLI_SINISTRA,
+        "pannelli_sinistra": [p for p in PANNELLI_SINISTRA if con_aree or p[0] != "progetti"],
         "app": app, "suggerimenti": suggerimenti.per(), "suggerimenti_per_app": suggerimenti.tutti(),
         "progetti": progetti, "progetto_aperto": progetto_aperto, "area_corrente": area_corrente,
         "gestisco_area": bool(progetto_aperto and progetto_aperto.utente_id == request.user.pk),
@@ -263,7 +271,7 @@ def invia(request, pk=None):
     elif "ambito" in request.POST and ambito != conversazione.ambito:     # app cambiata dal bottone «App»
         conversazione.ambito = ambito
         conversazione.save(update_fields=["ambito"])
-    if "modello" in request.POST:                        # vuoto = quello degli amministratori
+    if "modello" in request.POST and funzioni.attiva("piu_modelli"):   # vuoto = quello degli amministratori
         ammessi_modelli = {str(m.pk): m for m, _ in catalogo.sceglibili(getattr(request, "azienda", None))}
         scelto = ammessi_modelli.get(request.POST["modello"])
         if conversazione.modello_id != getattr(scelto, "pk", None):
@@ -328,6 +336,7 @@ def modifica_messaggio(request, pk):
 
 @require_POST
 @login_required
+@funzioni.richiede("aree_di_lavoro")
 def sposta(request, pk):
     """In un progetto o fuori. Vale dal messaggio successivo."""
     c = get_object_or_404(_mie(request), pk=pk)
@@ -341,6 +350,7 @@ def sposta(request, pk):
 
 @require_POST
 @login_required
+@funzioni.richiede("aree_di_lavoro")
 def area_corrente(request):
     """Cambia l'area su cui si lavora (dalla tendina sopra la chat nuova o dalla colonna di sinistra)."""
     area = _mio_progetto(request, request.POST.get("area"))
@@ -462,9 +472,13 @@ def pagina_licenza(request):
         else:
             messages.error(request, f"Licenza non caricata: {stato.motivo}")
         return redirect("ai:licenza")
+    from core import funzioni as core_funzioni
     azienda = getattr(request, "azienda", None)
+    stato = licenza.attuale()
     return render(request, "ai/licenza.html", {
-        "stato": licenza.attuale(), "spesa": limiti.spesa_mese(azienda) if azienda else None,
+        "stato": stato, "funzioni_licenza": [{**f, "compresa": stato.funzioni is None or f["chiave"] in stato.funzioni}
+                                             for f in core_funzioni.catalogo("ai")],
+        "spesa": limiti.spesa_mese(azienda) if azienda else None,
         "tetto": limiti.tetto(azienda) if azienda else None, "utenti_mese": len(limiti.utenti_del_mese())})
 
 
@@ -603,6 +617,7 @@ def salva_artifact(request, pk):
 @require_POST
 @login_required
 @permission_required("ai.change_servermcp", raise_exception=True)
+@funzioni.richiede("mcp")
 def strumenti_mcp(request, pk):
     """Quali strumenti del server sono accesi, e quali sono di sola lettura (senza conferma dell'utente)."""
     from .models import ServerMCP
@@ -712,6 +727,7 @@ def scarica_documento(request, pk, formato):
 @require_POST
 @login_required
 @permission_required("ai.add_conversazione", raise_exception=True)
+@funzioni.richiede("voce")
 def trascrivi_voce(request):
     """L'audio del microfono in testo, con Whisper sui nostri server: il testo torna nel campo, da rileggere."""
     azienda = getattr(request, "azienda", None)
@@ -731,6 +747,7 @@ def _messaggio_da_leggere(request, pk):
 
 @login_required
 @permission_required("ai.view_conversazione", raise_exception=True)
+@funzioni.richiede("voce")
 def parti_voce(request, pk):
     m = _messaggio_da_leggere(request, pk)
     if voce.servizio_per(getattr(request, "azienda", None)) is None:
@@ -740,6 +757,7 @@ def parti_voce(request, pk):
 
 @login_required
 @permission_required("ai.view_conversazione", raise_exception=True)
+@funzioni.richiede("voce")
 def audio_voce(request, pk, parte):
     m = _messaggio_da_leggere(request, pk)
     servizio = voce.servizio_per(getattr(request, "azienda", None))
@@ -831,6 +849,7 @@ def esito_scrittura(request, pk):
 @require_POST
 @login_required
 @permission_required("ai.view_conversazione", raise_exception=True)
+@funzioni.richiede("aree_di_lavoro")
 def carica_archivio(request, pk):
     """File o una cartella intera dal PC, dall'albero del progetto: nella cartella dei Documenti collegata (sottocartelle
     comprese) se c'è, altrimenti tra i file del progetto."""
@@ -904,6 +923,7 @@ def salva_documenti(request, tipo, pk):
 
 @login_required
 @permission_required("ai.view_conversazione", raise_exception=True)
+@funzioni.richiede("aree_di_lavoro")
 def albero_progetto(request, pk):
     """Le sottocartelle di un progetto nella colonna di sinistra: chat, documenti, grafici e tabelle, file, con i comandi
     per caricare ed eliminare."""
@@ -992,6 +1012,7 @@ def elimina_elemento(request, tipo, pk):
 
 @login_required
 @permission_required("ai.change_progettochat", raise_exception=True)
+@funzioni.richiede("aree_di_lavoro")
 def cerca_collegamento(request, pk):
     """I record che l'utente vede, da collegare al progetto (come «Cerca ovunque»)."""
     progetto = _area_gestita(request, pk)
@@ -1005,6 +1026,7 @@ def cerca_collegamento(request, pk):
 @require_POST
 @login_required
 @permission_required("ai.change_progettochat", raise_exception=True)
+@funzioni.richiede("aree_di_lavoro")
 def collega(request, pk):
     """Collega un record al progetto, se l'utente lo vede. Da dove si è partiti (progetto o record) si torna lì."""
     progetto = _area_gestita(request, pk)
@@ -1024,6 +1046,7 @@ def collega(request, pk):
 @require_POST
 @login_required
 @permission_required("ai.change_progettochat", raise_exception=True)
+@funzioni.richiede("aree_di_lavoro")
 def scollega(request, pk, collegamento):
     progetto = _area_gestita(request, pk)
     if progetto is None:
@@ -1036,6 +1059,7 @@ def scollega(request, pk, collegamento):
 @require_POST
 @login_required
 @permission_required("ai.change_conversazione", raise_exception=True)
+@funzioni.richiede("aree_di_lavoro")
 def condividi_chat(request, pk):
     """Una propria chat di un'area di lavoro: condivisa con gli altri membri (in sola lettura) o di nuovo privata."""
     c = get_object_or_404(_mie(request), pk=pk, progetto__isnull=False)
@@ -1068,6 +1092,7 @@ def catalogo_provider(request, pk):
 @require_POST
 @login_required
 @permission_required("ai.add_progettochat", raise_exception=True)
+@funzioni.richiede("aree_di_lavoro")
 def area_da_record(request, ct, pk):
     """Un'area di lavoro nuova per un record (un progetto, un cliente…): collegata al record, con i colleghi che il
     record cita (responsabile, membri) già dentro; chi l'ha creata li cambia quando vuole."""
@@ -1095,11 +1120,12 @@ def _aree_dell_app(request, slug):
 def mostra_aree_nell_app(request, slug):
     """La voce c'è per chi usa le aree di lavoro: da lì si collega anche la prima."""
     user = getattr(request, "user", None)
-    return bool(user and user.is_authenticated and user.has_perm("ai.view_progettochat"))
+    return bool(user and user.is_authenticated and user.has_perm("ai.view_progettochat")) and funzioni.attiva("aree_di_lavoro")
 
 
 @login_required
 @permission_required("ai.view_progettochat", raise_exception=True)
+@funzioni.richiede("aree_di_lavoro")
 def aree_dell_app(request):
     """«Aree di lavoro» dentro un'app (CRM, Progetti…): le aree collegate a quell'app con quello che ci è nato."""
     from django.apps import apps as django_apps
@@ -1119,6 +1145,7 @@ def aree_dell_app(request):
 @require_POST
 @login_required
 @permission_required("ai.change_progettochat", raise_exception=True)
+@funzioni.richiede("aree_di_lavoro")
 def collega_app(request, pk):
     """Collega o scollega un'app a un'area (solo chi l'ha creata), dalla pagina «Aree di lavoro» dell'app o dall'area."""
     from core.registry import modules

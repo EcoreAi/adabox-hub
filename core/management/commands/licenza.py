@@ -24,6 +24,9 @@ class Command(BaseCommand):
         p.add_argument("--utenti", type=int, default=0, help="tetto di utenti attivi (0 = senza tetto)")
         p.add_argument("--scadenza", required=True, help="AAAA-MM-GG")
         p.add_argument("--grazia", type=int, default=licenza.GRAZIA_PREDEFINITA, help="giorni dopo la scadenza prima della sola lettura")
+        p.add_argument("--funzioni", action="append", default=[], metavar="MODULO=CHIAVI",
+                       help="funzioni comprese di un modulo, es. ai=memoria,ricerca_web (ripetibile; «ai=» = nessuna). "
+                            "I moduli non indicati le hanno tutte")
         p.add_argument("--uscita", default="licenza.json")
         p = sub.add_parser("carica", help="carica un file di licenza su questa istanza")
         p.add_argument("file")
@@ -40,11 +43,22 @@ class Command(BaseCommand):
             return
         self.stdout.write(f"cliente: {s.cliente} · piano: {s.piano or '-'} · scadenza: {s.scadenza} · utenti: {s.utenti or 'senza tetto'}")
         self.stdout.write("moduli: " + ", ".join(sorted(s.moduli)))
+        for slug, chiavi in sorted(s.funzioni.items()):
+            self.stdout.write(f"funzioni di {slug}: {', '.join(sorted(chiavi)) or 'nessuna'}")
 
-    def _firma(self, firma, cliente, istanza, piano, moduli, utenti, scadenza, grazia, uscita, **_):
-        file = licenza.firma({"cliente": cliente, "istanza": istanza, "piano": piano, "utenti": utenti, "scadenza": scadenza,
-                              "grazia_giorni": grazia, "emessa": timezone.now().isoformat(timespec="seconds"),
-                              "moduli": sorted(m.strip() for m in moduli.split(",") if m.strip())}, pacchetti.carica_privata(firma))
+    def _firma(self, firma, cliente, istanza, piano, moduli, utenti, scadenza, grazia, uscita, funzioni=(), **_):
+        dati = {"cliente": cliente, "istanza": istanza, "piano": piano, "utenti": utenti, "scadenza": scadenza,
+                "grazia_giorni": grazia, "emessa": timezone.now().isoformat(timespec="seconds"),
+                "moduli": sorted(m.strip() for m in moduli.split(",") if m.strip())}
+        per_modulo = {}
+        for voce in funzioni:
+            slug, uguale, chiavi = voce.partition("=")
+            if not uguale or not slug.strip():
+                raise CommandError(f"--funzioni {voce!r}: atteso modulo=chiave1,chiave2")
+            per_modulo[slug.strip()] = sorted(c.strip() for c in chiavi.split(",") if c.strip())
+        if per_modulo:
+            dati["funzioni"] = per_modulo
+        file = licenza.firma(dati, pacchetti.carica_privata(firma))
         Path(uscita).write_text(json.dumps(file, ensure_ascii=False, indent=1))
         self.stdout.write(self.style.SUCCESS(f"Licenza scritta in {uscita}"))
 

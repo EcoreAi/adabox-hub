@@ -16,13 +16,14 @@ PERM_RE = re.compile(r"^[a-z][a-z0-9_]*\.([a-z_][a-z0-9_]*|\*)$")
 DOTTED_RE = re.compile(r"^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)*$")
 CHIAVI = {"su_misura", "name", "summary", "version", "author", "category", "depends", "min_core", "application",
           "icon", "nav_label", "menu", "groups", "data", "demo", "hooks", "ai", "settings_url", "cron", "settings", "sequences",
-          "dashboard", "home", "menu_profilo", "email", "riepilogo"}
+          "dashboard", "home", "menu_profilo", "email", "riepilogo", "funzioni"}
 OBBLIGATORIE = {"name", "version", "min_core"}
-CHIAVI_MENU = {"label", "url_name", "permission"}
+CHIAVI_MENU = {"label", "url_name", "permission", "funzione"}
 CHIAVI_MENU_PROFILO = {"label", "url_name", "permission", "icon", "conteggio"}
 ICONA_RE = re.compile(r"^[a-z][a-z0-9-]{0,30}$")
 CHIAVI_CRON = {"nome", "funzione", "ogni", "alle"}
-CHIAVI_SETTING = {"chiave", "label", "tipo", "default", "per_azienda", "help", "scelte"}
+CHIAVI_SETTING = {"chiave", "label", "tipo", "default", "per_azienda", "help", "scelte", "funzione"}
+CHIAVI_FUNZIONE = {"chiave", "label", "help"}
 CHIAVI_SEQUENZA = {"codice", "formato", "azzera"}
 CHIAVI_EMAIL = {"codice", "nome", "gruppo", "oggetto", "corpo", "campi", "obbligatori"}
 TIPI_PARAMETRO = {"testo", "intero", "decimale", "booleano", "scelta", "data"}
@@ -67,6 +68,9 @@ class Manifest:
     email: list = field(default_factory=list)   # modelli delle email che l'azienda può personalizzare
     dashboard: str | None = None
     riepilogo: str | None = None           # funzione voci(request, dal, oggi) del riepilogo giornaliero
+    # funzioni attivabili dalla licenza (core.funzioni): [{chiave, label, help}]; le voci di menu e le impostazioni
+    # con "funzione" spariscono quando la licenza non la comprende
+    funzioni: list = field(default_factory=list)
     home: str | None = None                       # non più usata: la prima pagina segue la barra (core.barra.prima_pagina)
 
 
@@ -168,6 +172,26 @@ def _settings(errori, valore):
         if "per_azienda" in v and not isinstance(v["per_azienda"], bool):
             errori.append(f"settings: per_azienda di {v.get('chiave')!r} deve essere True o False")
     _unici(errori, "settings", voci, "chiave")
+
+
+def _funzioni(errori, valore):
+    voci = _lista_di_dict(errori, "funzioni", valore, CHIAVI_FUNZIONE)
+    for v in voci:
+        if not (isinstance(v.get("chiave"), str) and NOME_RE.match(v["chiave"])):
+            errori.append(f"funzioni: chiave {v.get('chiave')!r} non valida")
+        if not isinstance(v.get("label"), str) or not v.get("label"):
+            errori.append(f"funzioni: {v.get('chiave')!r} senza label")
+        if "help" in v and not isinstance(v["help"], str):
+            errori.append(f"funzioni: help di {v.get('chiave')!r} deve essere testo")
+    _unici(errori, "funzioni", voci, "chiave")
+    return {v.get("chiave") for v in voci}
+
+
+def _riferimenti_funzione(errori, sezione, voci, dichiarate):
+    """Le voci con "funzione" devono nominarne una del catalogo del modulo."""
+    for v in voci if isinstance(voci, list) else []:
+        if isinstance(v, dict) and "funzione" in v and v["funzione"] not in dichiarate:
+            errori.append(f"{sezione}: funzione {v['funzione']!r} non dichiarata in funzioni")
 
 
 def _sequenze(errori, valore):
@@ -293,6 +317,9 @@ def valida(dati, slug, cartella):
     _cron(errori, dati.get("cron", []))
     _settings(errori, dati.get("settings", []))
     _sequenze(errori, dati.get("sequences", []))
+    dichiarate = _funzioni(errori, dati.get("funzioni", []))
+    _riferimenti_funzione(errori, "menu", menu, dichiarate)
+    _riferimenti_funzione(errori, "settings", dati.get("settings", []), dichiarate)
     _email(errori, dati.get("email", []))
     dash = dati.get("dashboard")
     if dash is not None and not (isinstance(dash, str) and DOTTED_RE.match(dash) and "." in dash):

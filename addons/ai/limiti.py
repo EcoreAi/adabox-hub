@@ -38,7 +38,7 @@ def verifica(azienda=None, utente=None, funzione="chat"):
     stato = licenza.attuale()
     if not stato.valida:
         raise ErroreModello("LIMITE", f"L'assistente non è attivo: {stato.motivo} Contatta l'amministratore.")
-    if funzione not in stato.funzioni:
+    if funzione != "chat" and stato.funzioni is not None and funzione not in stato.funzioni:
         raise ErroreModello("LIMITE", "Questa funzione dell'assistente non è compresa nella licenza.")
     if stato.utenti and utente is not None:
         attivi = utenti_del_mese()

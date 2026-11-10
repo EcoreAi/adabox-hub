@@ -1,7 +1,7 @@
 {
     "name": "Rivendita",
     "summary": "Il portale di chi vende adabox: clienti e istanze, piani, suite per dipartimento, moduli pubblicati, licenze firmate e richieste dal catalogo",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Direzione",
     "depends": [],

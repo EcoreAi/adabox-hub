@@ -505,7 +505,8 @@ def impostazioni(request):
             form.salva()
             messages.success(request, f"Impostazioni di {manifest[slug].name} salvate.")
             return redirect(f"{reverse('core:impostazioni')}#{slug}")
-        schede.append({"slug": slug, "nome": manifest[slug].name, "form": form})
+        if form.fields:                                    # tutte di funzioni non comprese: niente scheda
+            schede.append({"slug": slug, "nome": manifest[slug].name, "form": form})
     return render(request, "core/impostazioni.html", {"schede": schede, "obblighi": due_fattori.OBBLIGHI,
                                                       "obbligo": due_fattori.leggi_obbligo()})
 

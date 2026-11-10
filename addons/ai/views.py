@@ -113,6 +113,7 @@ class ConsumiView(ModelView):
 
 @register
 class PianificataView(ModelView):
+    funzione = "pianificate"
     """Le attività che l'assistente esegue da solo: ognuno vede le proprie, gli amministratori tutte."""
     model = Pianificata
     tra_aziende = True
@@ -187,6 +188,7 @@ class PianificataView(ModelView):
 
 @register
 class RegistroModificheView(ModelView):
+    funzione = "scritture"
     """Registro delle modifiche proposte dall'assistente: chi, cosa, quando, esito (solo lettura)."""
     model = Proposta
     storico = False
@@ -215,6 +217,7 @@ class RegistroModificheView(ModelView):
 
 @register
 class AssistenteView(ModelView):
+    funzione = "assistenti"
     """Assistenti configurabili: istruzioni, strumenti e modello propri; quello di un'app risponde nelle chat
     limitate a quell'app e fa da esperto per gli altri."""
     model = Assistente
@@ -269,6 +272,7 @@ class _SoloMie(ModelView):
 
 @register
 class MemoriaView(_SoloMie):
+    funzione = "memoria"
     """Ciò che Ada ricorda di te in questa azienda: lo vedi tutto, lo cancelli quando vuoi."""
     model = MemoriaUtente
     slug = "memoria"
@@ -281,6 +285,7 @@ class MemoriaView(_SoloMie):
 
 @register
 class ProgettoChatView(_SoloMie):
+    funzione = "aree_di_lavoro"
     """Chat raggruppate con istruzioni e file comuni."""
     model = ProgettoChat
     slug = "progetti"
@@ -337,6 +342,7 @@ class ProgettoChatView(_SoloMie):
 
 @register
 class ServerMCPView(ModelView):
+    funzione = "mcp"
     """I sistemi esterni di cui Ada usa gli strumenti. Gli strumenti si accendono uno per uno, dopo averli letti."""
     model = ServerMCP
     api = False                   # contiene segreti o credenziali: niente API
@@ -372,6 +378,7 @@ class ServerMCPView(ModelView):
 
 @register
 class ServizioVoceView(ModelView):
+    funzione = "voce"
     """I servizi che leggono le risposte ad alta voce: Kokoro in locale o un fornitore cloud con la sua chiave."""
     model = ServizioVoce
     api = False                   # contiene segreti o credenziali: niente API

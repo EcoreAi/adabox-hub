@@ -24,8 +24,8 @@
             aria-controls="ai-pannello-sinistra" data-tip="{{ etichetta }}" aria-label="{{ etichetta }}"><svg><use href="#{{ icona }}"/></svg></button>
     {% endfor %}
     <span class="ai-rail-spazio"></span>
-    {% if perms.ai.view_memoriautente %}<a class="ai-rail-btn" href="{% url 'ai:memoria_lista' %}" data-tip="Memoria: ciò che Ada ricorda di te" aria-label="Memoria"><svg><use href="#ai-scintilla"/></svg></a>{% endif %}
-    {% if perms.ai.view_pianificata %}<a class="ai-rail-btn" href="{% url 'ai:pianificate_lista' %}" data-tip="Attività pianificate" aria-label="Attività pianificate"><svg><use href="#ai-sveglia"/></svg></a>{% endif %}
+    {% if perms.ai.view_memoriautente and funzioni.ai.memoria %}<a class="ai-rail-btn" href="{% url 'ai:memoria_lista' %}" data-tip="Memoria: ciò che Ada ricorda di te" aria-label="Memoria"><svg><use href="#ai-scintilla"/></svg></a>{% endif %}
+    {% if perms.ai.view_pianificata and funzioni.ai.pianificate %}<a class="ai-rail-btn" href="{% url 'ai:pianificate_lista' %}" data-tip="Attività pianificate" aria-label="Attività pianificate"><svg><use href="#ai-sveglia"/></svg></a>{% endif %}
     {% if perms.ai.change_provider %}<a class="ai-rail-btn" href="{% url 'ai:provider_lista' %}" data-tip="Impostazioni dell'assistente: provider, chiavi API, modelli, profili" aria-label="Impostazioni dell'assistente"><svg><use href="#icon-tool"/></svg></a>{% endif %}
   </nav>
   <aside class="ai-pannello" id="ai-pannello-sinistra" hidden>

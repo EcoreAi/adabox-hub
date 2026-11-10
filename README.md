@@ -60,6 +60,7 @@ Un'app minima non scrive né viste né template: bastano modello, `ModelView` e 
    ```
    Lo slug (`^[a-z][a-z0-9_]{1,30}$`) è il nome della cartella e del pacchetto. Chiavi
    sconosciute sono un errore. `python manage.py modulo verifica addons/<slug>` lo valida.
+   Le parti che un piano può comprendere o no si dichiarano in `"funzioni"` (vedi «Funzioni attivabili dei moduli»).
 2. **Pacchetto Django** — `__init__.py`, `apps.py`, `models.py`, `migrations/`. I modelli
    per azienda ereditano `core.mixins.AziendaMixin`; quelli condivisi (tag, tipi) no.
    Le migrazioni si generano con `ADDONS_FORCE=<slug> python manage.py makemigrations <slug>`
@@ -345,6 +346,10 @@ completate.
     `python manage.py ai_licenza --chiave privata.pem --cliente ... --scadenza AAAA-MM-GG --utenti N`;
   - la firma si verifica con `MODULI_CHIAVI_FIDATE`, le stesse chiavi dei pacchetti;
   - in sviluppo `AI_LICENZA_SVILUPPO=True` simula una licenza;
+  - le **funzioni** comprese (`--funzioni memoria,ricerca_web`; senza, tutte) decidono la versione dell'assistente:
+    scelta del modello, ricerca sul web, memoria, aree di lavoro, pianificate, ricerca nei documenti, modifiche ai
+    dati, documenti, grafici, assistenti ed esperti, previsioni, MCP, voce. Ciò che ognuna spegne è in
+    `addons/ai/funzioni.py`; la pagina `/ai/licenza/` le elenca. Vedi «Funzioni attivabili dei moduli»;
   - il tetto di spesa mensile per azienda (default 50 $) e la soglia dell'avviso agli amministratori stanno in
     `/impostazioni/`. I consumi di ogni chiamata sono in `/ai/consumi/`.
 - **Come funziona**:
@@ -501,6 +506,8 @@ questa, o l'ospitare l'istanza senza dare accesso al server. Licenza e firme son
 1. `MODULI_CHIAVE_PRIVATA=/percorso/chiave.pem` nel suo `.env` (firma licenze e cataloghi; da `modulo chiavi`).
 2. `manage.py rivendita_pubblica --tutti`, o «Carica un pacchetto», mette in vendita i moduli (zip firmati, nell'archivio privato).
 3. **Piani** con le loro app e il prezzo, poi un'**Istanza** per ogni cliente: piano, moduli in più, utenti, scadenza. «Genera il token» lo mostra una volta sola.
+   Un piano può comprendere solo alcune **funzioni** di un modulo (es. l'assistente senza ricerca sul web né aree di
+   lavoro): «moduli con le funzioni scelte» e «funzioni comprese»; l'istanza può averne in più. Vedi sotto.
 4. Le **Richieste** dei clienti si approvano con un bottone: il modulo passa nella licenza dell'istanza.
 
 **Dalla parte del cliente**, l'immagine contiene kernel e tema, nessun modulo: `docker build -f deploy/Dockerfile.cliente -t adabox_hub_cliente:<versione> .`,
@@ -528,6 +535,27 @@ descrizione, con «Informazioni», «Guarda la demo» (`url_demo` del modulo o `
 menu» vale per tutti; ognuno può scegliere il suo da «Le mie app nel menu». Il Global Admin ha `/moduli/` (licenza,
 caricamento, installazione). Senza portale: `manage.py licenza firma --firma chiave.pem --cliente … --moduli crm,contatti
 --scadenza AAAA-MM-GG` crea il file da caricare in `/moduli/` o con `manage.py licenza carica`; i pacchetti si caricano a mano.
+
+## Funzioni attivabili dei moduli
+
+Per vendere versioni diverse dello stesso modulo (l'assistente «base» e quello completo) non serve dividerlo: il
+modulo dichiara le sue funzioni e la licenza dice quali sono comprese (`core/funzioni.py`).
+
+- **Nel manifest**: `"funzioni": [{"chiave": "ricerca_web", "label": "Ricerca sul web", "help": "…"}]`; le voci di
+  `menu` e di `settings` con `"funzione": "ricerca_web"` spariscono quando non è compresa (le impostazioni non si
+  vedono e non si salvano). Serve il kernel 1.1 (`"min_core": "1.1"`).
+- **Nel codice**: `ModelView.funzione = "memoria"` chiude la vista anche ai superutenti; `funzioni.attiva("ai",
+  "memoria")` nei punti che contano (strumenti, prompt, lavori pianificati); `{% if funzioni.ai.memoria %}` nei
+  template. Nascondere un bottone non basta: il controllo va anche dove si esegue.
+- **Nella licenza**: `"funzioni": {"ai": ["memoria", "ricerca_web"]}`. Un modulo che non compare, o un'istanza senza
+  licenza, ha tutte le funzioni: le licenze e i piani di prima non cambiano. Senza portale:
+  `manage.py licenza firma … --funzioni ai=memoria,ricerca_web` (`ai=` = nessuna).
+- **Sul portale**: alla pubblicazione di un pacchetto le funzioni del manifest diventano «funzioni attivabili» del
+  modulo. Nel piano si segnano i «moduli con le funzioni scelte» (anche con nessuna funzione: solo la base) e le
+  «funzioni comprese»; l'istanza aggiunge le sue «funzioni in più». La licenza arriva all'istanza alla
+  sincronizzazione oraria: una funzione si accende o si spegne senza installare nulla.
+- **I limiti**: come per i moduli è un deterrente, perché il codice delle funzioni spente è sul server. Una parte da
+  proteggere davvero va in un modulo a sé, che sul server del cliente non arriva.
 
 ## Le istanze ospitate da noi
 

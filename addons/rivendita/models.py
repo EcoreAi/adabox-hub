@@ -39,6 +39,25 @@ class ModuloVendibile(models.Model):
         return max(pacchetti, key=lambda p: versione_tupla(p.versione), default=None)
 
 
+class FunzioneVendibile(models.Model):
+    """Una funzione attivabile di un modulo (core.funzioni), dal manifest del suo ultimo pacchetto: il piano e l'istanza
+    scelgono quali comprendere, e vanno in licenza."""
+    modulo = models.ForeignKey(ModuloVendibile, on_delete=models.CASCADE, related_name="funzioni_attivabili", verbose_name="modulo")
+    chiave = models.CharField("chiave", max_length=40)
+    nome = models.CharField("nome", max_length=120)
+    spiegazione = models.CharField("spiegazione", max_length=300, blank=True)
+    ordine = models.PositiveSmallIntegerField("ordine", default=0)
+
+    class Meta:
+        verbose_name = "funzione attivabile"
+        verbose_name_plural = "funzioni attivabili"
+        ordering = ["modulo__nome", "ordine"]
+        constraints = [models.UniqueConstraint(fields=["modulo", "chiave"], name="rivendita_funzione_unica")]
+
+    def __str__(self):
+        return f"{self.modulo.nome} · {self.nome}"
+
+
 class Pacchetto(models.Model):
     """Una versione di un modulo: lo zip firmato che le istanze licenziate scaricano."""
     modulo = models.ForeignKey(ModuloVendibile, on_delete=models.CASCADE, related_name="pacchetti", verbose_name="modulo")
@@ -70,6 +89,10 @@ class Piano(models.Model):
     utenti = models.PositiveIntegerField("utenti inclusi", default=0, help_text="0 = senza tetto")
     prezzo_mese = models.DecimalField("prezzo al mese (€)", max_digits=9, decimal_places=2, default=0)
     attivo = models.BooleanField("attivo", default=True)
+    moduli_a_funzioni = models.ManyToManyField(
+        ModuloVendibile, blank=True, related_name="piani_a_funzioni", verbose_name="moduli con le funzioni scelte",
+        help_text="di questi moduli il piano comprende solo le funzioni scelte qui sotto (anche nessuna); gli altri le hanno tutte")
+    funzioni = models.ManyToManyField(FunzioneVendibile, blank=True, related_name="piani", verbose_name="funzioni comprese")
 
     class Meta:
         verbose_name = "piano"
@@ -114,6 +137,8 @@ class Istanza(models.Model):
     piano = models.ForeignKey(Piano, on_delete=models.PROTECT, related_name="istanze", verbose_name="piano")
     moduli_extra = models.ManyToManyField(ModuloVendibile, blank=True, related_name="istanze_extra", verbose_name="moduli in più")
     suite = models.ManyToManyField(Suite, blank=True, related_name="istanze", verbose_name="suite comprate")
+    funzioni_extra = models.ManyToManyField(FunzioneVendibile, blank=True, related_name="istanze", verbose_name="funzioni in più",
+                                            help_text="oltre a quelle del piano, per i moduli con le funzioni scelte")
     utenti = models.PositiveIntegerField("utenti", null=True, blank=True, help_text="vuoto = quelli del piano; 0 = senza tetto")
     scadenza = models.DateField("scadenza della licenza")
     grazia_giorni = models.PositiveSmallIntegerField("giorni di grazia", default=30, help_text="dopo la scadenza, prima della sola lettura")

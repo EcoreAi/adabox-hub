@@ -227,7 +227,9 @@ def esegui(turno_id):
             profilo = catalogo.profilo_per(turno.compito, turno.azienda, conversazione.ambito)
             anelli = (catalogo.automatico(profilo, turno.azienda) if profilo.compito == "chat"
                       else catalogo.catena(profilo, turno.azienda))
-        catena = catalogo.con_scelta(anelli, conversazione.modello, turno.azienda)
+        from .. import funzioni
+        scelto = conversazione.modello if funzioni.attiva("piu_modelli") else None
+        catena = catalogo.con_scelta(anelli, scelto, turno.azienda)
         from ..strumenti import web
         ammessi = {s.nome: s for s in assistenti.filtra_strumenti(
             web.filtra(strumenti.disponibili(utente, conversazione.ambito, turno.azienda), turno.azienda, turno.web), assistente, esperto=turno.compito == "esperto")}
