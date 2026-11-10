@@ -19,3 +19,6 @@ dist/
 docker-compose.override.yml
 addons/dati_demo.json
 /volumes/
+
+# copie del .env fatte a mano prima di cambiarlo
+.env.bak*
