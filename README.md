@@ -682,6 +682,11 @@ installato prima del backup va tolta a mano) e riavvia.
   partono solo con `DEBUG=False`.
 - Con `DEBUG=False` Django non serve gli static: esegui `python manage.py collectstatic`
   e fai servire `STATIC_ROOT` (`staticfiles/`) da nginx.
+- I file statici hanno l'**impronta del contenuto** nel nome (`admin.2fc99f62e4df.css`, `core.storage.StaticConImpronta`):
+  dopo un aggiornamento, anche di Django, il browser scarica i file nuovi invece di usare quelli in cache, e nginx
+  tiene un anno quelli con l'impronta (`deploy/nginx.conf`). Vale per i file che `collectstatic` ha messo nel manifest,
+  di default con `DEBUG=False`; in sviluppo dietro nginx si accende con `STATIC_IMPRONTA=True` (dopo ogni modifica a un
+  CSS o JS serve `collectstatic`). I file restano anche col nome originale, per chi li chiama per nome.
 - `check --deploy` con la configurazione di default segnala solo `security.W004` (HSTS)
   e `security.W008` (SSL redirect): sono spenti di proposito finché il 443 non è verificato,
   poi si accendono con `SECURE_HSTS_SECONDS` e `SECURE_SSL_REDIRECT` in `.env`.
