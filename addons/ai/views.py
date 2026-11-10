@@ -2,8 +2,8 @@ from core import cifratura
 from core.viste import Inline, ModelView, register
 
 from .forms import AssistenteForm, ChiaveAziendaForm, PianificataForm, ProgettoChatForm, ProviderForm, ServerMCPForm, ServizioVoceForm
-from .models import (AnelloCatena, Assistente, ChiaveAzienda, Modello, Pianificata, Profilo, Proposta, Provider, MemoriaUtente, ProgettoChat, ServerMCP, ServizioVoce, ValutazioneRisposta,
-                     Turno)
+from .models import (AnelloCatena, Assistente, ChiaveAzienda, Modello, Pianificata, Profilo, Proposta, Provider, MemoriaUtente, ProgettoChat, ServerMCP, ServizioVoce, StrumentoSpento,
+                     ValutazioneRisposta, Turno)
 
 
 @register
@@ -414,3 +414,27 @@ class ServizioVoceView(ModelView):
         return "Prova riuscita: il servizio legge in italiano e in inglese."
     prova.short_description = "Prova il servizio"
     prova.ai = False
+
+
+@register
+class StrumentiSpentiView(ModelView):
+    """Gli strumenti spenti a mano, in sola lettura: si spengono e riaccendono dalla pagina «Strumenti». La vista c'è
+    perché i cambi finiscano nel registro delle modifiche."""
+    model = StrumentoSpento
+    api = False
+    slug = "strumenti_spenti"
+    list_display = ["nome", "azienda", "spento_da", "spento_il"]
+    list_filter = ["azienda"]
+    search_fields = ["nome"]
+    readonly_fields = ["nome", "azienda", "spento_da", "spento_il"]
+    form_layout = [("Strumento spento", [("nome", "azienda"), ("spento_da", "spento_il")])]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+

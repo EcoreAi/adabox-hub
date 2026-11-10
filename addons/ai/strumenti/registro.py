@@ -63,15 +63,17 @@ def disponibili(utente, ambito="", azienda=None):
     from core import funzioni
     from core.registry.modules import disattivati
 
+    from .. import elenco_strumenti
     from .. import funzioni as funzioni_ai
     from . import app
     app.carica()
     spenti = disattivati()
     comprese = funzioni.comprese("ai")                  # None = tutte
+    a_mano = elenco_strumenti.spenti(azienda)           # spenti dalla pagina «Strumenti»
     interni = [s for _, s in sorted(_registro.items())
             if (s.permesso is None or utente.has_perm(s.permesso)) and (not ambito or not s.app or s.app == ambito)
             and s.app not in spenti and (comprese is None or funzioni_ai.di_strumento(s) in comprese | {""})
-            and (s.disponibile is None or s.disponibile())]
+            and s.nome not in a_mano and (s.disponibile is None or s.disponibile())]
     if ambito or azienda is None or (comprese is not None and "mcp" not in comprese):
         return interni
     from .. import mcp

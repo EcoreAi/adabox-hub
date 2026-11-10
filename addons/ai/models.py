@@ -698,3 +698,26 @@ class AreaCorrente(models.Model):
         verbose_name = "area corrente"
         verbose_name_plural = "aree correnti"
         constraints = [models.UniqueConstraint(fields=["utente", "azienda"], name="ai_area_corrente_unica")]
+
+
+class StrumentoSpento(models.Model):
+    """Uno strumento dell'assistente spento a mano (pagina «Strumenti»): per tutta l'istanza (azienda vuota, solo il
+    Global Admin) o per un'azienda. Spegnere toglie e basta: uno strumento fuori licenza non si riaccende da qui."""
+    nome = models.CharField("strumento", max_length=80)
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, related_name="+",
+                                verbose_name="azienda", help_text="vuota = per tutta l'istanza")
+    spento_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                  related_name="+", verbose_name="spento da")
+    spento_il = models.DateTimeField("spento il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "strumento spento"
+        verbose_name_plural = "strumenti spenti"
+        ordering = ["nome"]
+        constraints = [
+            models.UniqueConstraint(fields=["nome", "azienda"], name="ai_strumento_spento_azienda"),
+            models.UniqueConstraint(fields=["nome"], condition=models.Q(azienda__isnull=True), name="ai_strumento_spento_istanza"),
+        ]
+
+    def __str__(self):
+        return f"{self.nome} · {self.azienda or 'tutta l’istanza'}"

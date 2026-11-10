@@ -55,4 +55,5 @@ urlpatterns = [
     path("proposta/<int:pk>/conferma/", pagine.conferma_proposta, name="conferma_proposta"),
     path("proposta/<int:pk>/annulla/", pagine.annulla_proposta, name="annulla_proposta"),
     path("licenza/", pagine.pagina_licenza, name="licenza"),
+    path("strumenti/", pagine.strumenti, name="strumenti"),
 ]

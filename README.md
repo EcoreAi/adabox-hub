@@ -350,6 +350,9 @@ completate.
     scelta del modello, ricerca sul web, memoria, aree di lavoro, pianificate, ricerca nei documenti, modifiche ai
     dati, documenti, grafici, assistenti ed esperti, previsioni, MCP, voce. Ciò che ognuna spegne è in
     `addons/ai/funzioni.py`; la pagina `/ai/licenza/` le elenca. Vedi «Funzioni attivabili dei moduli»;
+  - la pagina **Strumenti** (`/ai/strumenti/`) elenca gli strumenti di Ada con funzione, app, rischio e se sono
+    disponibili (se no, perché). Si spengono per l'azienda (permesso `ai.change_strumentospento`) o per tutta
+    l'istanza (Global Admin); spegnere toglie e basta, e a quale funzione appartiene uno strumento resta nel codice;
   - il tetto di spesa mensile per azienda (default 50 $) e la soglia dell'avviso agli amministratori stanno in
     `/impostazioni/`. I consumi di ogni chiamata sono in `/ai/consumi/`.
 - **Come funziona**:

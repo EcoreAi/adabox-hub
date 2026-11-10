@@ -4,6 +4,7 @@ import json
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -1162,3 +1163,36 @@ def collega_app(request, pk):
     area.save(update_fields=["app_collegate"])
     prossimo = request.POST.get("da", "")
     return redirect(prossimo if prossimo.startswith("/") and not prossimo.startswith("//") else reverse("ai:progetto", args=[area.pk]))
+
+
+@login_required
+@permission_required("ai.view_strumentospento", raise_exception=True)
+def strumenti(request):
+    """Gli strumenti dell'assistente: funzione, app, rischio e se sono disponibili (se no, perché). Si spengono per
+    l'azienda corrente (permesso di modifica) o per tutta l'istanza (Global Admin). Si può solo togliere."""
+    from . import elenco_strumenti
+    from .models import StrumentoSpento
+    azienda = getattr(request, "azienda", None)
+    if request.method == "POST":
+        nome, livello, azione = request.POST.get("nome", ""), request.POST.get("livello"), request.POST.get("azione")
+        if not elenco_strumenti.esiste(nome) or livello not in ("istanza", "azienda") or azione not in ("spegni", "accendi"):
+            return HttpResponse("richiesta non valida", status=400)
+        if livello == "istanza" and not request.user.is_superuser:
+            raise PermissionDenied
+        if livello == "azienda" and (azienda is None or not request.user.has_perm("ai.change_strumentospento")):
+            raise PermissionDenied
+        dove = None if livello == "istanza" else azienda
+        if azione == "spegni":
+            StrumentoSpento.objects.get_or_create(nome=nome, azienda=dove, defaults={"spento_da": request.user})
+            messages.success(request, f"«{nome}» spento {'per tutta l’istanza' if dove is None else f'per {azienda}'}.")
+        else:
+            for riga in StrumentoSpento.objects.filter(nome=nome, azienda=dove):
+                riga.delete()                            # una per una: il registro delle modifiche le vede
+            messages.success(request, f"«{nome}» riacceso {'per tutta l’istanza' if dove is None else f'per {azienda}'}.")
+        return redirect(f"{reverse('ai:strumenti')}#{nome}")
+    righe = elenco_strumenti.elenco(azienda)
+    return render(request, "ai/strumenti.html", {
+        "righe": righe, "disponibili": sum(1 for r in righe if not r["motivi"]), "azienda": azienda,
+        "puo_azienda": azienda is not None and request.user.has_perm("ai.change_strumentospento"),
+        "puo_istanza": request.user.is_superuser})
+
