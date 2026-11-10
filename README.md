@@ -678,6 +678,20 @@ che lo ospita abbia:
   `theme/context_processors.py`);
 - facoltativo: una route `core:profilo`; se esiste, il menu utente mostra il link Profilo.
 
+## Tema personalizzato di un'istanza
+
+Un progetto basato su adabox-hub (es. ZenPark) cambia grafica e nome dal `.env`, senza modificare
+`config/settings.py`, così si aggiorna con un semplice `git pull`:
+
+```bash
+TEMA_APP=zenpark.tema        # app messa prima di "theme": i suoi template e static sovrascrivono quelli di theme/
+THEME_BRAND=ZenPark          # nome nell'header, nelle email, nei .ics e nei PDF (default: Adabox v3)
+THEME_POWERED_BY=Adabox      # `theme.powered_by` per i template del tema (es. "powered by Adabox")
+```
+
+L'app del tema può stare dentro un modulo (la cartella degli addons è nel path). Senza queste variabili
+tutto resta come prima.
+
 ## Test
 
 ```bash

@@ -34,9 +34,15 @@ DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
+# Tema personalizzato (spento di default): un'app con i suoi template e static, messa prima di "theme"
+# così ne sovrascrive i file (es. TEMA_APP=zenpark.tema, importabile dagli addons). Nome del prodotto e
+# riga "powered by" si cambiano dal .env, senza toccare questo file.
+TEMA_APP = env("TEMA_APP", default="")
+
 # Brand: letto dal context processor theme.context_processors.theme
 THEME = {
-    "brand": "Adabox v3",
+    "brand": env("THEME_BRAND", default="Adabox v3"),
+    "powered_by": env("THEME_POWERED_BY", default=""),  # riga piccola sotto il nome, se il tema la mostra
     "mark": "AH",
     "company": "ICHNOBYTE S.R.L.",
     "company_url": "https://ichnobyte.it/",
@@ -45,6 +51,7 @@ THEME = {
 }
 
 INSTALLED_APPS = [
+    *([TEMA_APP] if TEMA_APP else []),  # prima di theme: ne sovrascrive template e static
     "theme",  # prima di admin: sovrascrive admin/base_site.html
     "django.contrib.admin",
     "django.contrib.auth",
