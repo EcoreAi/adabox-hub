@@ -138,6 +138,14 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# Impronta del contenuto nel nome dei file statici (core.storage.StaticConImpronta): il browser non usa mai una copia
+# vecchia, nemmeno dei CSS dell'admin di Django dopo un aggiornamento. Di default senza DEBUG; in sviluppo dietro nginx
+# (che serve staticfiles/) si accende con STATIC_IMPRONTA=True. Serve collectstatic (deploy/entrypoint.sh lo fa).
+STATIC_IMPRONTA = env.bool("STATIC_IMPRONTA", default=not DEBUG)
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "core.storage.StaticConImpronta"},
+}
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
