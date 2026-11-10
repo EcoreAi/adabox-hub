@@ -134,3 +134,11 @@ def test_catalogo_html(client, superuser, dati):
     assert "Con foto" in html and "Senza foto" in html and "file://" in html
     r = client.post("/prodotti/prodotti/azione/stampa_catalogo/", {"pk": pks})
     assert r.status_code in (200, 503)
+
+
+def test_lista_e_kanban_con_e_senza_immagine(client, superuser, dati):
+    Prodotto.objects.create(azienda=dati, nome="Senza foto")
+    Prodotto.objects.create(azienda=dati, nome="Con foto", immagine=foto())
+    for url in ("/prodotti/prodotti/", "/prodotti/prodotti/?vista=kanban"):
+        r = client.get(url)
+        assert r.status_code == 200 and "Senza foto" in r.content.decode()

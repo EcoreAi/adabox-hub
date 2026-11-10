@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 from core.viste import Inline, ModelView, register, schede
 
@@ -59,7 +60,7 @@ class ProdottoView(ModelView):
     def col_miniatura(self, obj):
         url = immagini.url(obj, 64)
         if not url:
-            return format_html('<span class="ui-miniatura" aria-hidden="true"></span>')
+            return mark_safe('<span class="ui-miniatura" aria-hidden="true"></span>')
         return format_html('<img class="ui-miniatura" src="{}" alt="" loading="lazy">', url)
     col_miniatura.short_description = ""
 
