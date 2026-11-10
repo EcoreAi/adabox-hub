@@ -15,10 +15,6 @@
   <div class="ui-card-head"><div class="ui-card-title">Sul sistema finto</div></div>
   {% if d.record %}<div class="ui-table-wrap"><table class="ui-table is-revealed">
     <thead><tr><th>Tipo</th><th>Id</th><th>Nome</th><th>Dettagli</th><th>Associati</th></tr></thead>
-    <tbody>{% for r in d.record %}<tr>
-      {% if r.tipo == 'companies' %}<td>Azienda</td><td>{{ r.id_esterno }}</td><td>{{ r.proprieta.name }}</td><td>{{ r.proprieta.domain }} {{ r.proprieta.city }}</td>
-      {% elif r.tipo == 'deals' %}<td>Opportunità</td><td>{{ r.id_esterno }}</td><td>{{ r.proprieta.dealname }}</td><td>{{ r.proprieta.amount }} € · {{ r.proprieta.dealstage }}</td>
-      {% else %}<td>Persona</td><td>{{ r.id_esterno }}</td><td>{{ r.proprieta.firstname }} {{ r.proprieta.lastname }}</td><td>{{ r.proprieta.email }} {{ r.proprieta.phone }} {{ r.proprieta.jobtitle }}</td>{% endif %}
-      <td>{% for tipo, ids in r.associazioni.items %}{{ ids|join:", " }} {% endfor %}</td></tr>{% endfor %}</tbody>
+    <tbody>{% for r in d.record %}<tr><td>{{ r.tipo }}</td><td>{{ r.id }}</td><td>{{ r.nome }}</td><td>{{ r.dettagli }}</td><td>{{ r.associati }}</td></tr>{% endfor %}</tbody>
   </table></div>{% else %}<div class="ui-card-body">Ancora nessun record.</div>{% endif %}
 </section>{% endif %}

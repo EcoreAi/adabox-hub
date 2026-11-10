@@ -1,4 +1,5 @@
 """HubSpot: formato delle chiamate, errori, sincronia nei due versi, nessun rimbalzo, nessun dato perso."""
+import datetime
 import json
 
 import httpx2 as httpx
@@ -45,7 +46,7 @@ def test_chiamata_di_ricerca_nel_formato_di_hubspot():
     def gestore(r):
         viste.append(r)
         return httpx.Response(200, json={"results": [{"id": "1", "properties": {}}], "paging": {"next": {"after": "100"}}})
-    record, dopo = _hs(gestore).modificati_da(1234, "50")
+    record, dopo = _hs(gestore).modificati(hubspot.CONTATTI, datetime.datetime.fromtimestamp(1.234, tz=datetime.timezone.utc), "50")
     r = viste[0]
     corpo = json.loads(r.content)
     assert str(r.url) == "https://api.hubapi.com/crm/v3/objects/contacts/search" and r.headers["Authorization"] == "Bearer segreto"
@@ -143,10 +144,10 @@ def test_il_cursore_avanza_e_tiene_un_margine(esterno, monkeypatch):
     esterno.refresh_from_db()
     assert esterno.cursore is not None
     letti = []
-    originale = hubspot.HubSpot.modificati_da
-    monkeypatch.setattr(hubspot.HubSpot, "modificati_da", lambda self, ms, dopo=None: letti.append(ms) or originale(self, ms, dopo))
+    originale = hubspot.HubSpot.modificati
+    monkeypatch.setattr(hubspot.HubSpot, "modificati", lambda self, tipo, da, dopo=None: letti.append((tipo, da)) or originale(self, tipo, da, dopo))
     sincronia.giro(esterno.pk)
-    assert letti[0] == int((esterno.cursore - sincronia.MARGINE).timestamp() * 1000)
+    assert (hubspot.CONTATTI, esterno.cursore - sincronia.MARGINE) in letti
 
 
 def test_paginazione(esterno, monkeypatch):
@@ -157,14 +158,14 @@ def test_paginazione(esterno, monkeypatch):
 
 
 def test_token_sbagliato_si_vede_e_non_ritenta(esterno, monkeypatch):
-    monkeypatch.setattr(hubspot.HubSpot, "modificati_da", lambda *a, **k: (_ for _ in ()).throw(ErroreConnettore("rifiuta il token")))
+    monkeypatch.setattr(hubspot.HubSpot, "modificati", lambda *a, **k: (_ for _ in ()).throw(ErroreConnettore("rifiuta il token")))
     assert "token" in sincronia.giro(esterno.pk)
     esterno.refresh_from_db()
     assert esterno.in_errore and "token" in esterno.ultimo_esito
 
 
 def test_errore_temporaneo_si_rilancia_per_ritentare(esterno, monkeypatch):
-    monkeypatch.setattr(hubspot.HubSpot, "modificati_da", lambda *a, **k: (_ for _ in ()).throw(ErroreTemporaneo("429")))
+    monkeypatch.setattr(hubspot.HubSpot, "modificati", lambda *a, **k: (_ for _ in ()).throw(ErroreTemporaneo("429")))
     with pytest.raises(ErroreTemporaneo):
         sincronia.giro(esterno.pk)
 
@@ -272,9 +273,14 @@ def test_il_token_non_compare_nella_pagina(client, azienda):
     assert "pat-segretissimo" not in client.get(f"/connettori/collegamenti/{c.pk}/modifica/").content.decode()
 
 
-def test_un_solo_collegamento_per_azienda_dalla_pagina(client, esterno, azienda):
+def test_un_solo_collegamento_per_sistema_dalla_pagina(client, esterno, azienda):
     client.force_login(_root(azienda))
-    assert client.get("/connettori/collegamenti/nuovo/").status_code == 403
+    assert client.get("/connettori/collegamenti/nuovo/").status_code == 200          # restano Salesforce e Zoho
+    r = client.post("/connettori/collegamenti/nuovo/", {"sistema": "hubspot", "modalita": "prova", "comanda": "esterno", "attivo": "on"})
+    assert r.status_code == 200 and "già collegato" in r.content.decode() and CollegamentoEsterno.objects.count() == 1
+    for sistema in ("salesforce", "zoho"):
+        CollegamentoEsterno.objects.create(azienda=azienda, sistema=sistema)
+    assert client.get("/connettori/collegamenti/nuovo/").status_code == 403          # tutti collegati
 
 
 def test_collegamento_di_altra_azienda_non_si_apre(client, azienda):

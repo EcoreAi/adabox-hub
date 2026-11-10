@@ -1,6 +1,9 @@
-"""La prova: risponde come HubSpot, con il suo formato, senza uscire in rete. Il connettore passa dallo stesso codice,
+"""La prova di HubSpot: risponde con il suo formato, senza uscire in rete. Il connettore passa dallo stesso codice,
 cambia solo il trasporto. I record (persone, aziende, opportunità) stanno in RecordProva, con le loro associazioni,
-così si vede cosa arriva dall'altra parte."""
+così si vede cosa arriva dall'altra parte.
+
+Qui stanno anche gli aiuti comuni alle prove degli altri sistemi (prova_salesforce, prova_zoho): ognuna offre
+`trasporto`, `simula_nuovo`, `simula_modifica` e `riga`."""
 import datetime
 import json
 import re
@@ -10,8 +13,10 @@ import httpx2 as httpx
 from django.utils import timezone
 
 from ..models import RecordProva
-from .hubspot import CONTATTI, OGGETTI
+from .base import AZIENDE, OPPORTUNITA, PERSONE
+from .hubspot import OGGETTI
 
+CONTATTI = PERSONE
 FASI = [  # la pipeline predefinita di HubSpot, con gli stessi id
     ("appointmentscheduled", "Appointment scheduled", 0, "0.2", "false"),
     ("qualifiedtobuy", "Qualified to buy", 1, "0.4", "false"),
@@ -23,16 +28,10 @@ FASI = [  # la pipeline predefinita di HubSpot, con gli stessi id
 ]
 
 
-def _adesso_ms():
+# --- aiuti comuni a tutte le prove --------------------------------------------------------------------------------
+
+def adesso_ms():
     return int(timezone.now().timestamp() * 1000)
-
-
-def _forma(r):
-    return {"id": r.id_esterno, "properties": {**r.proprieta, OGGETTI[r.tipo]["modificato"]: _iso(r.modificato_ms)}}
-
-
-def _iso(ms):
-    return datetime.datetime.fromtimestamp(ms / 1000, tz=datetime.timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def scrivi(collegamento, proprieta, id_esterno=None, tipo=CONTATTI):
@@ -40,7 +39,7 @@ def scrivi(collegamento, proprieta, id_esterno=None, tipo=CONTATTI):
     id_esterno = id_esterno or str(secrets.randbelow(10**10))
     r, _ = RecordProva.objects.get_or_create(collegamento=collegamento, tipo=tipo, id_esterno=id_esterno,
                                              defaults={"proprieta": {}, "modificato_ms": 0})
-    r.proprieta, r.modificato_ms = {**r.proprieta, **proprieta}, _adesso_ms()
+    r.proprieta, r.modificato_ms = {**r.proprieta, **proprieta}, adesso_ms()
     r.save()
     return r
 
@@ -52,6 +51,21 @@ def associa(collegamento, da, a):
         if y.id_esterno not in voci:
             x.associazioni = {**x.associazioni, y.tipo: voci + [y.id_esterno]}
             RecordProva.objects.filter(pk=x.pk).update(associazioni=x.associazioni)
+
+
+def prossima_fase(fasi, attuale, vinta):
+    """La fase dopo `attuale`, senza andare oltre quella vinta."""
+    return fasi[min(fasi.index(attuale) + 1 if attuale in fasi else 0, fasi.index(vinta))]
+
+
+# --- HubSpot --------------------------------------------------------------------------------------------------------
+
+def _iso(ms):
+    return datetime.datetime.fromtimestamp(ms / 1000, tz=datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _forma(r):
+    return {"id": r.id_esterno, "properties": {**r.proprieta, OGGETTI[r.tipo]["modificato"]: _iso(r.modificato_ms)}}
 
 
 def _cerca(qs, corpo, tipo):
@@ -105,3 +119,37 @@ def trasporto(collegamento):
         return httpx.Response(404, json={"message": "not found"})
     return httpx.MockTransport(rispondi)
 
+
+def simula_nuovo(c, s):
+    """Una persona nuova e, se il collegamento le comprende, la sua azienda e un'opportunità (s: i dati scelti)."""
+    persona = scrivi(c, {"firstname": s["nome"], "lastname": s["cognome"], "email": s["email"], "phone": s["telefono"]})
+    azienda = None
+    if c.aziende:
+        azienda = scrivi(c, {"name": s["ditta"], "domain": s["dominio"], "city": "Milano"}, tipo=AZIENDE)
+        associa(c, persona, azienda)
+    if c.opportunita:
+        fase = FASI[s["fase"] % 5]
+        trattativa = scrivi(c, {"dealname": s["titolo"], "amount": str(s["importo"]), "pipeline": "default", "dealstage": fase[0]}, tipo=OPPORTUNITA)
+        associa(c, trattativa, azienda or persona)
+
+
+def simula_modifica(c, ruolo):
+    record = RecordProva.objects.filter(collegamento=c, tipo=CONTATTI).first()
+    if record is None:
+        return False
+    scrivi(c, {"jobtitle": ruolo}, record.id_esterno)
+    trattativa = RecordProva.objects.filter(collegamento=c, tipo=OPPORTUNITA).first()
+    if trattativa is not None:
+        fase = prossima_fase([f[0] for f in FASI], trattativa.proprieta.get("dealstage"), "closedwon")
+        scrivi(c, {"dealstage": fase}, trattativa.id_esterno, OPPORTUNITA)
+    return True
+
+
+def riga(r):
+    """(nome, dettagli) di un record del sistema finto, per la pagina del collegamento."""
+    p = r.proprieta
+    if r.tipo == AZIENDE:
+        return p.get("name", ""), f"{p.get('domain', '')} {p.get('city', '')}"
+    if r.tipo == OPPORTUNITA:
+        return p.get("dealname", ""), f"{p.get('amount', '')} € · {p.get('dealstage', '')}"
+    return f"{p.get('firstname', '')} {p.get('lastname', '')}", f"{p.get('email', '')} {p.get('phone', '')} {p.get('jobtitle', '')}"
