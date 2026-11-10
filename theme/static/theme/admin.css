@@ -128,14 +128,19 @@ a:hover { text-decoration: underline; text-underline-offset: 2px; }
 /* ============================================================
    Breadcrumbs
    ============================================================ */
-div.breadcrumbs {
+/* Django 6.1: <ol class="breadcrumbs"> con un <li> per voce (prima era un <div>) */
+div.breadcrumbs, ol.breadcrumbs {
   background: var(--ui-surface);
   color: var(--ui-text-2);
   padding: 14px 24px;
   border-bottom: 1px solid var(--ui-border);
   font-size: 13px;
+  margin: 0;
+  list-style: none;
 }
-div.breadcrumbs a { color: var(--ui-primary); }
+ol.breadcrumbs li { font-size: 13px; }
+div.breadcrumbs a, ol.breadcrumbs a { color: var(--ui-primary); }
+ol.breadcrumbs a:focus, ol.breadcrumbs a:hover { color: var(--ui-primary); text-decoration: underline; }
 
 /* ============================================================
    Content area
@@ -162,7 +167,8 @@ div.breadcrumbs a { color: var(--ui-primary); }
 }
 body.colMS { margin-right: 0; }
 body.colSM { margin-left: 0; }
-.dashboard #content > h1 { grid-column: 1 / -1; margin: 0 0 4px; }
+.dashboard #content > h1,
+.dashboard #content > .titles-and-tools { grid-column: 1 / -1; margin: 0 0 4px; }
 .dashboard #content-main { min-width: 0; margin: 0; float: none; width: auto; }
 .dashboard #content-related {
   margin: 0;
@@ -184,7 +190,20 @@ body.colSM { margin-left: 0; }
    admin con la sidebar di navigazione). */
 #content-main { box-sizing: border-box; }
 
-#content > h1 {
+/* Django 6.1 avvolge titolo e bottoni in .titles-and-tools > .titles: titolo a sinistra, bottoni a destra */
+.titles-and-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 16px;
+}
+.titles-and-tools .titles { flex: 1 1 auto; min-width: 0; }
+.titles-and-tools .titles > h1 { margin-bottom: 0; }
+.titles-and-tools .object-tools { margin: 0; }
+
+#content > h1,
+#content .titles > h1 {
   text-align: left;
   font-size: 22px;
   font-weight: 600;
@@ -576,3 +595,9 @@ ul.messagelist li.error   { background: rgba(255, 59, 48, 0.12); color: #c4271f;
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Django 6.1 sottolinea tutti i link fuori da header, sidebar e lista delle app (a:not(...)): nel tema i link non
+   sono sottolineati, lo diventano al passaggio del mouse. */
+#container a:link, #container a:visited { text-decoration: none; }
+#container a:focus, #container a:hover { text-decoration: underline; }
+#container a[role="button"]:hover, #container .object-tools a:hover, #container a.button:hover { text-decoration: none; }
