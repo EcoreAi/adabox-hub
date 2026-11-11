@@ -18,6 +18,9 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 **Novità**
 
+- **Connettori 1.4.0 — Odoo**, contatti e opportunità, con «ogni utente con la sua chiave»: ognuno collega il suo
+  account da «I miei account esterni» e in adabox vede solo ciò che Odoo mostra a lui (migrazione `connettori.0005`).
+  Le aziende si agganciano per partita IVA, anche negli altri connettori. Provato su un Odoo 19 vero.
 - **Discuss 1.13.0 e Portale 1.2.0 — assistente nel portale clienti.** Nello sportello del sito si attiva «risponde
   anche nel portale clienti»: i clienti autenticati trovano la sezione «Assistente», che risponde con la conoscenza
   dello sportello, la guida pubblicata e il riepilogo dei loro documenti (gli stessi della home del portale). Non ha

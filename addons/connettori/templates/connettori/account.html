@@ -1,0 +1,25 @@
+{% extends 'core/base_app.html' %}
+{% block title %}I miei account esterni · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>I miei account esterni</h1>
+  <div class="sub">Collega il tuo account: in adabox arrivano, e vedi, solo i dati che quel sistema mostra a te.</div></div></div>
+{% for v in voci %}{% with c=v.collegamento a=v.account %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">{{ c.get_sistema_display }}{% if c.modalita == 'prova' %} (prova){% endif %}</div>
+    {% if a.in_errore %}<span class="ui-pill ui-pill-warn">Da ricollegare</span>{% elif a %}<span class="ui-pill ui-pill-ok">Collegato</span>{% endif %}</div>
+  <div class="ui-card-body">
+    {% if a %}<p class="ui-help">{% if a.ultimo_giro %}Ultimo giro {{ a.ultimo_giro|date:"d/m/Y H:i" }}: {{ a.ultimo_esito }}{% else %}Prima lettura in corso.{% endif %}</p>
+      <div class="ui-pagehead-actions">
+        <form method="post" action="{% url 'connettori:account_sincronizza' a.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-secondary" type="submit">Sincronizza ora</button></form>
+        <form method="post" action="{% url 'connettori:account_scollega' a.pk %}" onsubmit="return confirm('Scollegare il tuo account? I dati arrivati restano, ma non li vedrai più.')">{% csrf_token %}<button class="ui-btn ui-btn-danger" type="submit">Scollega</button></form>
+      </div>{% endif %}
+    <form method="post" action="{% url 'connettori:account_collega' c.pk %}" class="ui-section">{% csrf_token %}
+      <label>{% if a %}Cambia la chiave API{% else %}La tua chiave API di {{ c.get_sistema_display }}{% endif %}
+        <input type="password" name="chiave" autocomplete="new-password" required></label>
+      <p class="ui-help">In Odoo: il tuo nome in alto a destra → Preferenze → Sicurezza dell'account → Nuova chiave API. La chiave si salva cifrata e non si mostra più.</p>
+      <button class="ui-btn ui-btn-primary" type="submit">{% if a %}Aggiorna{% else %}Collega{% endif %}</button>
+    </form>
+  </div>
+</section>{% endwith %}
+{% empty %}<section class="ui-card is-revealed ui-section"><div class="ui-card-body"><p>La tua azienda non ha collegamenti da attivare con il tuo account.</p></div></section>{% endfor %}
+{% endblock %}

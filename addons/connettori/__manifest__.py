@@ -1,7 +1,7 @@
 {
     "name": "Connettori",
-    "summary": "Adabox accanto al software che hai già: avvisi firmati verso l'esterno, collegamenti ai record esterni e i CRM HubSpot, Salesforce e Zoho (persone, aziende, opportunità)",
-    "version": "1.3.0",
+    "summary": "Adabox accanto al software che hai già: avvisi firmati verso l'esterno, collegamenti ai record esterni e i CRM HubSpot, Salesforce, Zoho e Odoo (persone, aziende, opportunità)",
+    "version": "1.4.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Integrazioni",
     "depends": [],
@@ -13,6 +13,9 @@
         {"label": "Webhook", "url_name": "connettori:webhook_lista", "permission": "connettori.view_webhook"},
         {"label": "Consegne", "url_name": "connettori:consegne_lista", "permission": "connettori.view_consegnawebhook"},
         {"label": "Collegamenti esterni", "url_name": "connettori:riferimenti_lista", "permission": "connettori.view_riferimentoesterno"},
+    ],
+    "menu_profilo": [
+        {"label": "I miei account esterni", "url_name": "connettori:account", "icon": "user"},
     ],
     "groups": {
         "Connettori / Responsabile": ["connettori.*"],

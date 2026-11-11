@@ -10,6 +10,7 @@ Mai cancellazioni, in nessun verso, e un campo vuoto non cancella un valore: per
 vecchio. Se una chiave (email, nome dell'azienda) porta a più record non si sceglie a caso: si salta e si segnala."""
 import datetime
 import logging
+import re
 
 from django.apps import apps
 from django.db import transaction
@@ -19,7 +20,7 @@ from django.utils.dateparse import parse_datetime
 from core import lavori, sequenze
 
 from . import eventi, riferimenti, sistemi
-from .models import CollegamentoEsterno
+from .models import AccountEsterno, CollegamentoEsterno, RiferimentoEsterno, VisibilitaEsterna
 from .sistemi.base import AZIENDE, OPPORTUNITA, PERSONE, ErroreConnettore, ErroreTemporaneo, dominio
 
 CONTATTI = PERSONE
@@ -28,15 +29,15 @@ log = logging.getLogger("connettori.sincronia")
 MARGINE = datetime.timedelta(minutes=5)       # i record cambiati compaiono nella ricerca con un po' di ritardo
 MASSIMO_PAGINE = 50                           # il resto al prossimo giro: il cursore è già avanzato
 LUNGHEZZE = {"nome": 200, "ruolo": 100, "indirizzo": 200, "citta": 100, "cap": 10, "telefono": 40, "cellulare": 40, "sito": 200,
-             "email": 254, "nazione": 2}
+             "email": 254, "nazione": 2, "partita_iva": 28, "codice_fiscale": 16}
 NOMI = {CONTATTI: ("persone", "create", "aggiornate"), AZIENDE: ("aziende", "create", "aggiornate"),
         OPPORTUNITA: ("opportunità", "create", "aggiornate")}
 # campi che cambiano da soli (calcoli periodici): un salvataggio che tocca solo questi non riparte verso l'esterno
 SOLO_CALCOLATI = {"classe_abc", "fatturato_12_mesi", "vies_valido", "vies_il", "punteggio", "punteggio_fattori", "punteggio_il"}
 
 
-def client(collegamento):
-    return sistemi.client(collegamento)
+def client(collegamento, account=None):
+    return sistemi.client(collegamento, account)
 
 
 def crm_attivo():
@@ -55,6 +56,20 @@ def chiave_azienda(id_est):
 
 def _taglia(dati):
     return {k: v[:LUNGHEZZE[k]] if k in LUNGHEZZE else v for k, v in dati.items()}
+
+
+def _fiscali(dati):
+    """Partita IVA senza il prefisso del paese (come la salva l'anagrafica), il paese dal prefisso se manca, codice
+    fiscale in maiuscolo: così si confrontano con quelle già in adabox."""
+    from contatti import validatori
+    if dati.get("partita_iva"):
+        grezza = re.sub(r"[\s.\-]", "", dati["partita_iva"]).upper()
+        if not dati.get("nazione") and len(grezza) > 2 and grezza[:2].isalpha():
+            dati["nazione"] = "GR" if grezza[:2] == "EL" else grezza[:2]
+        dati["partita_iva"] = validatori.normalizza_partita_iva(grezza, dati.get("nazione") or "IT")[:28]
+    if dati.get("codice_fiscale"):
+        dati["codice_fiscale"] = dati["codice_fiscale"].strip().upper()[:16]
+    return dati
 
 
 def _aggiorna(obj, dati):
@@ -91,8 +106,15 @@ def _applica(collegamento, sistema, record, aziende_associate=None):
             return "dubbio"
         if stessi:
             contatto = stessi[0]
-    if collegamento.aziende and (societa := _azienda_collegata(collegamento, aziende_associate)) is not None:
+    societa = _azienda_collegata(collegamento, aziende_associate) if collegamento.aziende else None
+    if societa is not None:
         dati["societa"] = societa
+        if contatto is None:                           # senza email: per nome, ma solo tra le persone di quell'azienda
+            stessi = list(Contatto.objects.filter(azienda=azienda, tipo=Contatto.PERSONA, societa=societa, nome__iexact=dati["nome"])[:2])
+            if len(stessi) > 1:
+                return "dubbio"
+            if stessi and riferimenti.id_esterno(stessi[0], collegamento.sistema) in (None, str(record["id"])):
+                contatto = stessi[0]
     esito = "uguale"
     if contatto is None:
         contatto = Contatto.objects.create(azienda=azienda, codice=sequenze.prossimo("contatti.contatto", azienda), tipo=Contatto.PERSONA,
@@ -107,12 +129,20 @@ def _applica(collegamento, sistema, record, aziende_associate=None):
 def _applica_azienda(collegamento, sistema, record):
     """Un'azienda esterna su un contatto di tipo azienda: si riconosce dal collegamento, poi dal nome."""
     from contatti.models import Contatto
-    dati = _taglia(sistema.in_adabox(AZIENDE, record))
+    dati = _fiscali(_taglia(sistema.in_adabox(AZIENDE, record)))
     if not dati.get("nome"):
         return "dubbio"
     azienda = collegamento.azienda
     chiave = chiave_azienda(record["id"])
     contatto = riferimenti.trova(Contatto, azienda, collegamento.sistema, chiave)
+    if contatto is None and dati.get("partita_iva"):         # la partita IVA prima del nome: è la chiave più sicura
+        stessi = list(Contatto.objects.filter(azienda=azienda, tipo=Contatto.AZIENDA, partita_iva=dati["partita_iva"])[:2])
+        if len(stessi) > 1:
+            return "dubbio"
+        if stessi:
+            if riferimenti.id_esterno(stessi[0], collegamento.sistema) not in (None, chiave):
+                return "dubbio"                           # già collegata a un'altra azienda esterna con la stessa partita IVA
+            contatto = stessi[0]
     if contatto is None:
         stessi = list(Contatto.objects.filter(azienda=azienda, tipo=Contatto.AZIENDA, nome__iexact=dati["nome"])[:2])
         if len(stessi) > 1:
@@ -172,6 +202,8 @@ def _applica_opportunita(collegamento, sistema, record, fasi, aziende_associate=
     from crm.models import Opportunita
     dati = sistema.in_adabox(OPPORTUNITA, record, fasi)
     fase_esterna = dati.pop("fase_esterna", None)
+    if (utente := utenti_esterni(collegamento).get(dati.pop("utente_esterno", None))) is not None:
+        dati["commerciale"] = utente                   # il venditore di là, se ha collegato il suo account
     azienda = collegamento.azienda
     opportunita = riferimenti.trova(Opportunita, azienda, collegamento.sistema, record["id"])
     if opportunita is None and not dati.get("titolo"):
@@ -209,15 +241,23 @@ def _applica_opportunita(collegamento, sistema, record, fasi, aziende_associate=
     return esito
 
 
-def _cursore(collegamento, tipo):
+def _cursore(collegamento, tipo, account=None):
+    """Fin dove si è letto: per il collegamento o, con una chiave per utente, per l'account (ognuno vede altro)."""
+    if account is not None:
+        valore = (account.cursori or {}).get(tipo)
+        return parse_datetime(valore) if valore else None
     if tipo == CONTATTI:
         return collegamento.cursore
     valore = (collegamento.cursori or {}).get(tipo)
     return parse_datetime(valore) if valore else None
 
 
-def _salva_cursore(collegamento, tipo, istante):
-    if tipo == CONTATTI:
+def _salva_cursore(collegamento, tipo, istante, account=None):
+    if account is not None:
+        if istante is not None:
+            account.cursori = {**(account.cursori or {}), tipo: istante.isoformat()}
+            AccountEsterno.objects.filter(pk=account.pk).update(cursori=account.cursori)
+    elif tipo == CONTATTI:
         CollegamentoEsterno.objects.filter(pk=collegamento.pk).update(cursore=istante)
         collegamento.cursore = istante
     elif istante is not None:
@@ -225,11 +265,20 @@ def _salva_cursore(collegamento, tipo, istante):
         CollegamentoEsterno.objects.filter(pk=collegamento.pk).update(cursori=collegamento.cursori)
 
 
-def _importa_tipo(collegamento, sistema, tipo, fasi=None):
+def utenti_esterni(collegamento):
+    """{id dell'utente nel sistema esterno: utente di adabox} degli account collegati: il venditore di un'opportunità
+    di Odoo diventa il commerciale in adabox se ha collegato il suo account."""
+    if not hasattr(collegamento, "_utenti_esterni"):
+        collegamento._utenti_esterni = {a.id_utente_esterno: a.utente for a in AccountEsterno.objects.filter(
+            collegamento=collegamento, utente__is_active=True).exclude(id_utente_esterno="").select_related("utente")}
+    return collegamento._utenti_esterni
+
+
+def _importa_tipo(collegamento, sistema, tipo, fasi=None, account=None):
     """I record di un tipo cambiati dall'ultimo giro. Il cursore si salva a ogni pagina: un errore non fa ripartire
     da capo."""
     conti = {"creato": 0, "aggiornato": 0, "uguale": 0, "dubbio": 0}
-    cursore = _cursore(collegamento, tipo)
+    cursore = _cursore(collegamento, tipo, account)
     da = cursore - MARGINE if cursore else datetime.datetime(2000, 1, 1, tzinfo=datetime.timezone.utc)
     dopo = None
     for _ in range(MASSIMO_PAGINE):
@@ -248,22 +297,53 @@ def _importa_tipo(collegamento, sistema, tipo, fasi=None):
                 istante = sistema.istante(tipo, r)
                 if istante is not None and (cursore is None or istante > cursore):
                     cursore = istante
-            _salva_cursore(collegamento, tipo, cursore)
+            _salva_cursore(collegamento, tipo, cursore, account)
         if not dopo:
             break
     return conti
 
 
-def importa(collegamento):
+def tipi_attivi(collegamento):
+    return [t for t, attivo in ((AZIENDE, collegamento.aziende), (CONTATTI, True), (OPPORTUNITA, collegamento.opportunita and crm_attivo()))
+            if attivo]
+
+
+def importa(collegamento, sistema=None, account=None):
     """Legge aziende, persone e opportunità cambiate dall'ultimo giro: {tipo: conti}. Le aziende prima, così le
     persone e le opportunità trovano il loro cliente."""
-    sistema = client(collegamento)
+    sistema = sistema or client(collegamento, account)
     conti = {}
-    if collegamento.aziende:
-        conti[AZIENDE] = _importa_tipo(collegamento, sistema, AZIENDE)
-    conti[CONTATTI] = _importa_tipo(collegamento, sistema, CONTATTI)
-    if collegamento.opportunita and crm_attivo():
-        conti[OPPORTUNITA] = _importa_tipo(collegamento, sistema, OPPORTUNITA, fasi=sistema.fasi())
+    for tipo in tipi_attivi(collegamento):
+        conti[tipo] = _importa_tipo(collegamento, sistema, tipo, fasi=sistema.fasi() if tipo == OPPORTUNITA else None, account=account)
+    return conti
+
+
+def _modello_di(tipo):
+    from django.apps import apps as registro
+    return registro.get_model("crm", "Opportunita") if tipo == OPPORTUNITA else registro.get_model("contatti", "Contatto")
+
+
+def riconcilia(collegamento, sistema, account):
+    """La visibilità dell'account allineata a ciò che il sistema gli mostra adesso: i record che vede in più si
+    aggiungono, quelli che non vede più (regole cambiate, record riassegnato) si tolgono. {"aggiunti", "tolti"}."""
+    from django.contrib.contenttypes.models import ContentType
+    conti = {"aggiunti": 0, "tolti": 0}
+    for tipo in tipi_attivi(collegamento):
+        ids = sistema.ids_visibili(tipo)
+        chiavi = {chiave_azienda(i) for i in ids} if tipo == AZIENDE else ids
+        rif = RiferimentoEsterno.objects.filter(azienda=collegamento.azienda, sistema=collegamento.sistema,
+                                                content_type=ContentType.objects.get_for_model(_modello_di(tipo)))
+        if tipo == AZIENDE:
+            rif = rif.filter(id_esterno__startswith=chiave_azienda(""))
+        elif tipo == CONTATTI:
+            rif = rif.exclude(id_esterno__startswith=chiave_azienda(""))
+        visti = dict(rif.values_list("id_esterno", "pk"))
+        dovuti = {visti[c] for c in chiavi if c in visti}
+        attuali = set(VisibilitaEsterna.objects.filter(account=account, riferimento__in=visti.values()).values_list("riferimento_id", flat=True))
+        VisibilitaEsterna.objects.bulk_create([VisibilitaEsterna(account=account, riferimento_id=r) for r in dovuti - attuali],
+                                              ignore_conflicts=True)
+        conti["tolti"] += VisibilitaEsterna.objects.filter(account=account, riferimento_id__in=attuali - dovuti).delete()[0]
+        conti["aggiunti"] += len(dovuti - attuali)
     return conti
 
 
@@ -289,6 +369,10 @@ def giro(collegamento_id):
     collegamento = CollegamentoEsterno.objects.select_related("azienda").filter(pk=collegamento_id, attivo=True).first()
     if collegamento is None or collegamento.comanda != CollegamentoEsterno.ESTERNO:
         return None
+    if collegamento.per_utente:                        # con una chiave per utente i giri sono per account
+        for pk in collegamento.account.filter(utente__is_active=True).values_list("pk", flat=True):
+            lavori.accoda("connettori.sincronia.giro_account", account_id=pk, azienda=collegamento.azienda, max_tentativi=3)
+        return "giri accodati per gli account"
     try:
         conti = importa(collegamento)
     except ErroreTemporaneo as e:
@@ -305,10 +389,45 @@ def giro(collegamento_id):
 giro.senza_transazione = True
 
 
+def _esito_account(account, testo, errore=False):
+    AccountEsterno.objects.filter(pk=account.pk).update(ultimo_giro=timezone.now(), ultimo_esito=testo[:500], in_errore=errore)
+
+
+def giro_account(account_id):
+    """Un giro con la chiave di un utente: legge ciò che il sistema mostra a lui e allinea la sua visibilità."""
+    account = (AccountEsterno.objects.select_related("collegamento__azienda", "utente")
+               .filter(pk=account_id, utente__is_active=True, collegamento__attivo=True, collegamento__per_utente=True).first())
+    if account is None or account.collegamento.comanda != CollegamentoEsterno.ESTERNO:
+        return None
+    collegamento = account.collegamento
+    try:
+        sistema = client(collegamento, account)
+        conti = importa(collegamento, sistema, account)
+        visibilita = riconcilia(collegamento, sistema, account)
+    except ErroreTemporaneo as e:
+        _esito_account(account, str(e), errore=True)
+        raise
+    except ErroreConnettore as e:
+        _esito_account(account, str(e), errore=True)
+        return str(e)
+    testo = riassunto(conti) + (f"; visibili in più {visibilita['aggiunti']}, non più visibili {visibilita['tolti']}"
+                                if visibilita["aggiunti"] or visibilita["tolti"] else "")
+    _esito_account(account, testo)
+    _esito(collegamento, f"{account.utente}: {testo}")
+    return testo
+
+
+giro_account.senza_transazione = True
+
+
 def giro_di_tutti():
-    """Dal cron: un lavoro per collegamento, così uno lento o in errore non ferma gli altri."""
-    for pk in CollegamentoEsterno.objects.filter(attivo=True, comanda=CollegamentoEsterno.ESTERNO).values_list("pk", flat=True):
+    """Dal cron: un lavoro per collegamento (o per account, con una chiave per utente), così uno lento o in errore non
+    ferma gli altri."""
+    for pk in CollegamentoEsterno.objects.filter(attivo=True, comanda=CollegamentoEsterno.ESTERNO, per_utente=False).values_list("pk", flat=True):
         lavori.accoda("connettori.sincronia.giro", collegamento_id=pk, max_tentativi=3)
+    for pk in AccountEsterno.objects.filter(collegamento__attivo=True, collegamento__per_utente=True, collegamento__comanda=CollegamentoEsterno.ESTERNO,
+                                            utente__is_active=True).values_list("pk", flat=True):
+        lavori.accoda("connettori.sincronia.giro_account", account_id=pk, max_tentativi=3)
 
 
 # --- da adabox all'esterno -----------------------------------------------------------------------------------------
@@ -438,7 +557,7 @@ def _da_mandare(instance, raw, update_fields):
 
 
 def _collegamenti_che_scrivono(azienda_id, **filtri):
-    return list(CollegamentoEsterno.objects.filter(azienda_id=azienda_id, attivo=True, comanda=CollegamentoEsterno.ADABOX, **filtri)
+    return list(CollegamentoEsterno.objects.filter(azienda_id=azienda_id, attivo=True, comanda=CollegamentoEsterno.ADABOX, per_utente=False, **filtri)
                 .values_list("pk", flat=True))
 
 

@@ -31,6 +31,26 @@ Da controllare alla prima prova: che `OpportunityStage.ApiName` si legga (se no 
 
 Da controllare alla prima prova: se il picklist Stage dei Deals porta la probabilità e il tipo (vinta, persa); se manca il campo Pipeline obbligatorio quando le pipeline sono attive.
 
+## Odoo (modulo Connettori)
+
+Odoo 19 (API JSON-2). Su Odoo Online l'API esterna c'è solo con il piano Custom; su Odoo.sh e installato in casa
+sempre. Helpdesk è solo nella versione Enterprise (il connettore per ora copre contatti e CRM).
+
+1. In adabox, Connettori → Collegamenti: sistema Odoo, modalità Vera, **indirizzo** = l'indirizzo https di Odoo, **database**
+   = il nome del database (serve se l'indirizzo ne ha più d'uno).
+2. Scegli come leggere:
+   - **ogni utente con la sua chiave** (consigliato): ogni utente apre «I miei account esterni» dal menu del profilo e
+     incolla la sua chiave API (in Odoo: Preferenze → Sicurezza dell'account → Nuova chiave API). In adabox arriva, e
+     ciascuno vede, solo ciò che Odoo mostra a lui; chi ha il permesso «Vede anche i dati esterni che il sistema mostra ad
+     altri utenti» vede tutto;
+   - **un utente tecnico**: la sua chiave API nel collegamento; tutti i dati arrivano una volta, e chi li vede lo decidono
+     le regole sulle righe di adabox.
+3. Il venditore di un'opportunità diventa il commerciale in adabox se ha collegato il suo account.
+
+Da controllare alla prima prova: le fasi del CRM (si abbinano per nome, se no per probabilità, che in Odoo non è nella
+fase e si stima dall'ordine); le aziende si agganciano per partita IVA, poi per nome; gli utenti di Odoo e l'azienda
+dell'istanza non si importano come clienti.
+
 ## Google (modulo Posta e calendario)
 
 1. console.cloud.google.com → nuovo progetto → abilita **Gmail API** e **Google Calendar API**.

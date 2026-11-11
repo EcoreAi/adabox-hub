@@ -86,8 +86,28 @@ def _testuale(regola):
     return getattr(regola, "_testuale", False)
 
 
+_FILTRI = []          # funzioni (vista, request, qs) -> qs dei moduli: es. i record di Odoo solo a chi li vede in Odoo
+
+
+def registra_filtro(funzione):
+    """Un modulo restringe i record di ogni vista oltre alle regole dei ruoli (es. Connettori: i dati arrivati da un
+    sistema esterno con la chiave di ogni utente si vedono solo se quel sistema li mostra a lui). Vale come le regole:
+    liste, API, export, assistente."""
+    if funzione not in _FILTRI:
+        _FILTRI.append(funzione)
+    return funzione
+
+
 def applica_righe(vista, request, qs):
-    """Il queryset con le regole sulle righe del ruolo; una regola rotta (campo sparito) nasconde tutto, mai di più."""
+    """Il queryset con le regole sulle righe del ruolo e i filtri dei moduli; una regola rotta (campo sparito)
+    nasconde tutto, mai di più."""
+    for filtro in _FILTRI:
+        try:
+            qs = filtro(vista, request, qs)
+        except Exception:                                 # un filtro rotto nasconde, mai mostra di più
+            import logging
+            logging.getLogger("core.regole").exception("filtro sulle righe %s", getattr(filtro, "__name__", filtro))
+            return qs.none()
     ruolo = ruolo_di(request)
     if ruolo is None:
         return qs

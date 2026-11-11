@@ -278,7 +278,7 @@ def test_un_solo_collegamento_per_sistema_dalla_pagina(client, esterno, azienda)
     assert client.get("/connettori/collegamenti/nuovo/").status_code == 200          # restano Salesforce e Zoho
     r = client.post("/connettori/collegamenti/nuovo/", {"sistema": "hubspot", "modalita": "prova", "comanda": "esterno", "attivo": "on"})
     assert r.status_code == 200 and "già collegato" in r.content.decode() and CollegamentoEsterno.objects.count() == 1
-    for sistema in ("salesforce", "zoho"):
+    for sistema in ("salesforce", "zoho", "odoo"):
         CollegamentoEsterno.objects.create(azienda=azienda, sistema=sistema)
     assert client.get("/connettori/collegamenti/nuovo/").status_code == 403          # tutti collegati
 
