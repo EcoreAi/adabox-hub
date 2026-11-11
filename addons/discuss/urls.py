@@ -93,3 +93,9 @@ urlpatterns = [
     path("notifica/<int:pk>/", pagine.apri_notifica, name="notifica"),
     path("contatore/", pagine.contatore, name="contatore"),
 ]
+
+from django.apps import apps as _apps  # noqa: E402
+
+if _apps.is_installed("portale"):                     # l'assistente nel portale clienti, se il portale c'è
+    from . import portale_assistente  # noqa: E402
+    urlpatterns.append(path("portale/assistente/", portale_assistente.vista(), name="portale_assistente"))

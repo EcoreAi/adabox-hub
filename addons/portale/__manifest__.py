@@ -1,7 +1,7 @@
 {
     "name": "Portale clienti",
     "summary": "L'area riservata dei clienti: preventivi, ordini, fatture, richieste di assistenza e progetti, ognuna dalla sua app",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Vendite e clienti",
     "depends": ["contatti"],

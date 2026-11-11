@@ -1,0 +1,20 @@
+{% extends "portale/base.html" %}
+{% block title %}Assistente{% endblock %}
+{% block contenuto %}
+<div class="ui-page-head"><div><h1 class="ui-page-title">Assistente</h1>
+  <p class="ui-help">Fai una domanda su prodotti, condizioni o sui documenti di {{ cliente }}: {{ sportello.nome_ai }} risponde con le informazioni pubblicate e con ciò che vedi nel portale. Non può modificare nulla. Le domande sono visibili al nostro staff.</p></div></div>
+<section class="ui-card is-revealed"><div class="ui-card-body">
+  {% for d in storia %}
+  <div class="pa-domanda"><strong>Tu</strong> · {{ d.creata|date:"d/m H:i" }}<p>{{ d.domanda|linebreaksbr }}</p></div>
+  <div class="pa-risposta"><strong>{{ sportello.nome_ai }}</strong><p>{{ d.risposta|linebreaksbr }}</p>
+    {% if d.senza_risposta and link_richiesta %}<a class="ui-btn ui-btn-secondary ui-btn-sm" href="{{ link_richiesta }}">Apri una richiesta</a>{% endif %}
+    {% if d.fonti %}<p class="ui-help">Fonti: {{ d.fonti|join:", " }}</p>{% endif %}</div>
+  {% empty %}<p class="ui-help">Ancora nessuna domanda. Esempi: «quali fatture devo ancora pagare?», «come si richiede un reso?».</p>{% endfor %}
+  <form method="post" class="pa-form">{% csrf_token %}
+    <textarea name="domanda" rows="2" maxlength="1000" required placeholder="Scrivi la tua domanda"></textarea>
+    <button class="ui-btn ui-btn-primary" type="submit">Chiedi</button>
+  </form>
+</div></section>
+<style>.pa-domanda,.pa-risposta{margin:0 0 .9rem}.pa-risposta{padding-left:.9rem;border-left:3px solid var(--ui-accent,#1e3a8a)}.pa-domanda p,.pa-risposta p{margin:.25rem 0}
+.pa-form{display:flex;gap:.5rem;align-items:flex-start;margin-top:1rem}.pa-form textarea{flex:1;min-width:0}</style>
+{% endblock %}

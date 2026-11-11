@@ -23,6 +23,11 @@ class DiscussConfig(AppConfig):
         entrata.registra_destinatario(Canale, posta_canali.ricevi_risposta)
         from . import assistente_sito  # noqa: F401  (indice della conoscenza del sito)
         from django.apps import apps
+        if apps.is_installed("portale"):
+            hooks.percorso_portale("/discuss/portale/")         # solo l'assistente: il resto di Discuss resta chiuso ai clienti
+            from portale import sezioni
+            sezioni.registra("assistente", "Assistente", "discuss:portale_assistente", ordine=5,
+                             visibile="discuss.portale_assistente.visibile")
         if apps.is_installed("wiki"):
             from . import conoscenza_wiki
             conoscenza_wiki.collega()

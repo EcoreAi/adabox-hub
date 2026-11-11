@@ -18,6 +18,11 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 **Novità**
 
+- **Discuss 1.13.0 e Portale 1.2.0 — assistente nel portale clienti.** Nello sportello del sito si attiva «risponde
+  anche nel portale clienti»: i clienti autenticati trovano la sezione «Assistente», che risponde con la conoscenza
+  dello sportello, la guida pubblicata e il riepilogo dei loro documenti (gli stessi della home del portale). Non ha
+  strumenti né accesso al database; quando non sa propone una richiesta di assistenza. Le domande sono visibili allo
+  staff in Discuss → Domande dal portale (migrazione `discuss.0015`). Spento finché non si attiva.
 - **AI 1.34.0 — ricerca mirata.** Si può chiedere all'assistente di cercare solo nei propri documenti o solo nella
   cartella dell'area di lavoro; le pagine della wiki sono indicizzate per intero, divise per sezioni.
 - **Wiki 1.1.0 — «Chiedi alla wiki»** e domande senza risposta per i responsabili (migrazione `wiki.0002`).

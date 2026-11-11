@@ -63,7 +63,7 @@ class SportelloForm(forms.ModelForm):
     class Meta:
         model = Sportello
         fields = ["nome", "benvenuto", "assenza", "operatori", "distribuzione", "domini", "privacy_url", "attivo",
-                  "modalita", "nome_ai", "istruzioni", "risposte_per_chat", "risposte_al_giorno", "azienda"]
+                  "modalita", "nome_ai", "istruzioni", "risposte_per_chat", "risposte_al_giorno", "azienda", "portale"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
