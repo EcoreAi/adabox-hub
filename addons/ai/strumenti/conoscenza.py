@@ -41,11 +41,28 @@ def _visibilita(contesto):
     return visibile
 
 
-def cerca_conoscenza(contesto, domanda, fonti=None, app="", limite=8):
+def _documenti_di(contesto, dove):
+    """Gli id dei documenti in cui cercare: lo spazio personale dell'utente o la cartella dell'area di lavoro."""
+    from .. import archivio
+    if not archivio.attivo():
+        raise ErroreStrumento("L'app Documenti non è installata.")
+    from documenti.models import Documento, Spazio
+    if dove == "miei_documenti":
+        return set(Documento.objects.filter(azienda=contesto.azienda, cestinato_il__isnull=True, cartella__spazio__tipo=Spazio.PERSONALE,
+                                            cartella__spazio__proprietario=contesto.utente).values_list("pk", flat=True))
+    progetto = getattr(contesto.conversazione, "progetto", None)
+    radice = archivio.cartella(contesto.utente, contesto.azienda, getattr(progetto, "cartella_documenti", None))
+    if radice is None:
+        raise ErroreStrumento("Questa chat non è in un'area di lavoro con una cartella dei Documenti: cerca ovunque o nei documenti personali.")
+    return {d.pk for d in archivio.documenti_in(contesto.utente, contesto.azienda, radice)}
+
+
+def cerca_conoscenza(contesto, domanda, fonti=None, app="", limite=8, dove="ovunque"):
     from .. import conoscenza
     from ..models import Frammento
     if not (domanda or "").strip():
         raise ErroreStrumento("Indica la domanda o le parole da cercare.")
+    documenti = _documenti_di(contesto, dove) if dove in ("miei_documenti", "cartella_area") else None
     ammesse = dict(Frammento.FONTI)
     fonti = [f for f in (fonti or []) if f in ammesse] or None
     ambito = getattr(contesto.conversazione, "ambito", "") or ""
@@ -54,11 +71,14 @@ def cerca_conoscenza(contesto, domanda, fonti=None, app="", limite=8):
     except (TypeError, ValueError):
         limite = 8
     visibile = _visibilita(contesto)
-    trovati = conoscenza.cerca(domanda, contesto.utente, contesto.azienda, fonti, ambito or app, limite, visibile)
+    if documenti is not None:                          # i documenti sono dell'app Documenti: l'ambito della chat non li esclude
+        ambito = app = ""
+    trovati = conoscenza.cerca(domanda, contesto.utente, contesto.azienda, fonti, ambito or app, limite, visibile, documenti=documenti)
     if not trovati and ambito:
         conoscenza.senza_risultati(ambito, contesto.azienda, domanda)
     if not trovati:
-        return {"risultati": [], "nota": "Nessun testo pertinente tra quelli che l'utente può vedere. Dillo, senza "
+        dove_testo = {"miei_documenti": " nei documenti personali", "cartella_area": " nella cartella dell'area"}.get(dove, "")
+        return {"risultati": [], "nota": f"Nessun testo pertinente{dove_testo} tra quelli che l'utente può vedere. Dillo, senza "
                                          "inventare; se serve prova con altre parole o con cerca_record."}
     risultati = []
     for n, (f, punteggio) in enumerate(trovati, start=1):
@@ -181,6 +201,9 @@ registra(Strumento(
         "fonti": {"type": "array", "items": {"type": "string", "enum": ["documento", "nota", "record"]},
                   "description": "solo queste fonti (default tutte)"},
         "app": {"type": "string", "description": "solo i testi di quest'app (slug)"},
+        "dove": {"type": "string", "enum": ["ovunque", "miei_documenti", "cartella_area"],
+                 "description": "ovunque (default); miei_documenti: solo lo spazio personale dell'utente nei Documenti, quando "
+                                "chiede dei «suoi» documenti; cartella_area: solo la cartella dei Documenti dell'area di lavoro della chat"},
         "limite": {"type": "integer", "description": "risultati (max 15, default 8)"}},
      "required": ["domanda"]}, cerca_conoscenza))
 registra(Strumento(

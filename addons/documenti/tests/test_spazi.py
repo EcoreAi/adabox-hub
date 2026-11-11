@@ -52,7 +52,9 @@ def test_chi_vede_gli_spazi(scena):
     sotto = Cartella.objects.create(azienda=azienda, nome="Bozze", padre=_radice(personale))
     assert sotto.spazio == personale                                                # eredita lo spazio della madre
     assert sotto in accesso.visibili(anna, azienda) and sotto not in accesso.visibili(bruno, azienda)
-    assert sotto in accesso.visibili(resp, azienda)                                  # regole aziendali (default)
+    assert sotto not in accesso.visibili(resp, azienda)                              # privato di default (dal 2026-11-11)
+    parametri.scrivi("documenti.responsabili_vedono_personali", True, azienda)
+    assert sotto in accesso.visibili(resp, azienda)                                  # se l'azienda lo decide
     parametri.scrivi("documenti.responsabili_vedono_personali", False, azienda)
     assert sotto not in accesso.visibili(resp, azienda)
     progetto = crea_spazio(azienda, resp, "Progetto X", Spazio.CONDIVISO)

@@ -436,13 +436,17 @@ def _coseno(a, b):
     return sum(x * y for x, y in zip(a, b))                  # vettori già normalizzati
 
 
-def cerca(domanda, utente, azienda=None, fonti=None, app="", limite=8, visibile=None):
-    """[(frammento, punteggio)] più pertinenti tra quelli che `visibile(frammento)` lascia vedere."""
+def cerca(domanda, utente, azienda=None, fonti=None, app="", limite=8, visibile=None, documenti=None):
+    """[(frammento, punteggio)] più pertinenti tra quelli che `visibile(frammento)` lascia vedere. Con `documenti`
+    (id dell'app Documenti) si cerca solo in quei documenti."""
     termini = parole(domanda)
     qs = Frammento.objects.all()
     qs = qs.filter(models.Q(azienda_id=getattr(azienda, "pk", None)) | models.Q(azienda__isnull=True))
     if fonti:
         qs = qs.filter(fonte__in=fonti)
+    if documenti is not None:
+        from documenti.models import Documento
+        qs = qs.filter(fonte=Frammento.DOCUMENTO, content_type=ContentType.objects.get_for_model(Documento), object_id__in=list(documenti))
     vettore = embedding([domanda], "query")
     domanda_v = array("f", vettore[0]) if vettore else None
     candidati = []

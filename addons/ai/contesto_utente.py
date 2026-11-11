@@ -91,4 +91,5 @@ def _nota_cartella(conversazione, progetto):
     elenco = ", ".join(f"«{d.nome}» (documento n. {d.pk}{', in ' + d.cartella.nome if d.cartella_id != radice.pk else ''})"
                        for d in documenti[:archivio.MASSIMO_ELENCO])
     altri = f" e altri {len(documenti) - archivio.MASSIMO_ELENCO}" if len(documenti) > archivio.MASSIMO_ELENCO else ""
-    return [f"Documenti della cartella dell'area di lavoro «{radice.percorso()}» (app Documenti), da leggere con leggi_documento se servono: {elenco}{altri}."]
+    return [f"Documenti della cartella dell'area di lavoro «{radice.percorso()}» (app Documenti), da leggere con leggi_documento se servono: {elenco}{altri}. "
+            "Per cercare dentro questi documenti usa cerca_conoscenza con dove=\"cartella_area\"."]

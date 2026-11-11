@@ -1,0 +1,28 @@
+# Note di rilascio
+
+Ciò che chi aggiorna un'istanza deve sapere: cambi di comportamento, azioni da fare, migrazioni. Il dettaglio è nei
+commit; qui solo ciò che si vede o che chiede un intervento.
+
+## 2026-11-11
+
+**Da sapere prima di aggiornare**
+
+- **Documenti 1.2.0 — gli spazi personali diventano privati.** L'impostazione «I responsabili dei documenti vedono gli
+  spazi personali» passa a spenta di default: gli spazi personali li vede solo il proprietario, anche nell'elenco dei
+  documenti dei responsabili e nella ricerca dell'assistente. Le aziende che l'avevano esplicitamente accesa non
+  cambiano. Chi vuole il comportamento di prima la riaccende in Impostazioni → Documenti. Corretto anche un difetto:
+  prima l'elenco dei documenti mostrava ai responsabili gli spazi personali anche con l'impostazione spenta.
+- **Posta e calendario — invio dal chatter.** Le caselle collegate prima di questa versione non hanno il permesso di
+  inviare: gli utenti che vogliono rispondere ai clienti dalla propria casella devono ricollegarla (la pagina lo
+  dice). Fino ad allora i messaggi partono dall'indirizzo di sistema, come prima.
+
+**Novità**
+
+- **AI 1.34.0 — ricerca mirata.** Si può chiedere all'assistente di cercare solo nei propri documenti o solo nella
+  cartella dell'area di lavoro; le pagine della wiki sono indicizzate per intero, divise per sezioni.
+- **Wiki 1.1.0 — «Chiedi alla wiki»** e domande senza risposta per i responsabili (migrazione `wiki.0002`).
+- **Discuss 1.12.0 — la wiki come fonte dell'assistente del sito**: nello sportello si scelgono gli spazi pubblici
+  (migrazione `discuss.0014`). Nessun cambiamento finché non se ne sceglie uno.
+- **Connettori 1.3.0 — Salesforce e Zoho CRM** sullo stesso motore di HubSpot (migrazione `connettori.0004`). Provati
+  solo contro sistemi simulati: prima di venderli, una prova con un'organizzazione vera (docs/collegamenti-esterni.md).
+- **Nuovo modulo Posta e calendario**: casella e calendario Google o Microsoft per utente, da installare dove serve.

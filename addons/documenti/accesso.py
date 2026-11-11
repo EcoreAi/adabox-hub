@@ -16,8 +16,8 @@ def responsabili_vedono_personali(azienda):
     try:
         valore = parametri.leggi("documenti.responsabili_vedono_personali", azienda)
     except KeyError:
-        return True
-    return True if valore is None else bool(valore)
+        return False
+    return bool(valore)                       # dal 2026-11-11 gli spazi personali sono privati, se l'azienda non decide altro
 
 
 def spazi(user, azienda):
