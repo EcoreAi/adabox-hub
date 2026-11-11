@@ -1,0 +1,52 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Posta e calendario · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Posta e calendario</h1>
+  <div class="sub">La tua casella e il tuo calendario di Google o Microsoft, collegati ad adabox</div></div></div>
+
+{% for c in caselle %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">{{ c.email }} · {{ c.get_tipo_display }}</div>
+    {% if c.in_errore %}<span class="ui-pill ui-pill-warn">Da ricollegare</span>{% endif %}</div>
+  <div class="ui-card-body">
+    <form method="post" action="{% url 'posta:imposta' c.pk %}">{% csrf_token %}
+      <p><label><input type="checkbox" name="posta"{% if c.posta %} checked{% endif %}> <strong>Email con i clienti</strong>:
+        quelle scambiate con un contatto di {{ c.azienda }} finiscono nel suo storico e in quello della sua opportunità aperta.
+        Le altre non si leggono.</label></p>
+      <p><label><input type="checkbox" name="calendario"{% if c.calendario %} checked{% endif %}> <strong>Calendario</strong>:
+        i tuoi appuntamenti arrivano in adabox come eventi privati, e quelli che organizzi qui partono verso il tuo calendario.
+        Non si cancella nulla in nessun verso; gli eventi ricorrenti non passano.</label></p>
+      <button class="ui-btn ui-btn-primary" type="submit">Salva</button>
+    </form>
+    <p class="ui-help">{% if c.ultimo_giro %}Ultimo giro {{ c.ultimo_giro|date:"d/m/Y H:i" }}: {{ c.ultimo_esito }}{% else %}Prima sincronizzazione in corso.{% endif %}</p>
+    <div class="ui-pagehead-actions">
+      <form method="post" action="{% url 'posta:sincronizza' c.pk %}">{% csrf_token %}<button class="ui-btn ui-btn-secondary" type="submit">Sincronizza ora</button></form>
+      {% if c.in_errore %}<form method="post" action="{% url 'posta:collega' c.tipo %}">{% csrf_token %}<button class="ui-btn ui-btn-secondary" type="submit">Ricollega</button></form>{% endif %}
+      <form method="post" action="{% url 'posta:scollega' c.pk %}" onsubmit="return confirm('Scollegare {{ c.email|escapejs }}? Email ed eventi già passati restano.')">{% csrf_token %}<button class="ui-btn ui-btn-danger" type="submit">Scollega</button></form>
+    </div>
+  </div>
+</section>
+{% endfor %}
+
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">{% if caselle %}Collega un'altra casella{% else %}Collega la tua casella{% endif %}</div></div>
+  <div class="ui-card-body">
+    {% if nessun_servizio %}<p>Il collegamento con Google e Microsoft non è ancora configurato: chiedi all'amministratore.</p>
+    {% elif servizi %}<p>Ti chiederemo il permesso di leggere la posta e di gestire gli eventi del calendario. Puoi scollegare quando vuoi.</p>
+      <div class="ui-pagehead-actions">{% for s in servizi %}
+        <form method="post" action="{% url 'posta:collega' s.tipo %}">{% csrf_token %}<button class="ui-btn ui-btn-primary" type="submit">Collega {{ s.get_tipo_display }}</button></form>
+      {% endfor %}</div>
+    {% else %}<p>Hai già collegato tutti i servizi disponibili.</p>{% endif %}
+    {% if ritorno %}<p class="ui-help">Per l'amministratore: l'indirizzo di reindirizzamento da registrare su Google Cloud e su Microsoft Entra è <code>{{ ritorno }}</code>.</p>{% endif %}
+  </div>
+</section>
+
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Feed del calendario</div></div>
+  <div class="ui-card-body">
+    <p>Un indirizzo segreto per vedere i tuoi appuntamenti di adabox in Google Calendar, Outlook o sul telefono («Aggiungi calendario da URL»), anche senza collegare la casella. Chi ha l'indirizzo vede i tuoi appuntamenti: non condividerlo.</p>
+    {% if feed %}<p><code>{{ feed }}</code></p>{% endif %}
+    <form method="post" action="{% url 'posta:feed_rinnova' %}">{% csrf_token %}<button class="ui-btn ui-btn-secondary" type="submit">{% if feed %}Cambia indirizzo{% else %}Crea l'indirizzo{% endif %}</button></form>
+  </div>
+</section>
+{% endblock %}

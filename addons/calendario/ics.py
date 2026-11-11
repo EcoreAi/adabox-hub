@@ -28,10 +28,8 @@ def _utc(dt):
     return dt.astimezone(tz.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
-def ics(evento, metodo="PUBLISH"):
-    righe = ["BEGIN:VCALENDAR", "VERSION:2.0", f"PRODID:-//{settings.THEME.get('brand', 'adabox-hub')}//IT",
-             f"METHOD:{metodo}", "BEGIN:VEVENT", f"UID:{evento.uid}@{settings.SITO_URL.split('//')[-1]}",
-             f"DTSTAMP:{_utc(timezone.now())}"]
+def _vevent(evento):
+    righe = ["BEGIN:VEVENT", f"UID:{evento.uid}@{settings.SITO_URL.split('//')[-1]}", f"DTSTAMP:{_utc(timezone.now())}"]
     if evento.tutto_il_giorno:
         inizio = timezone.localtime(evento.inizio).date()
         fine = timezone.localtime(evento.fine).date() + timedelta(days=1)
@@ -48,5 +46,21 @@ def ics(evento, metodo="PUBLISH"):
         righe.append(f"ORGANIZER;CN={_testo(nome)}:mailto:{evento.organizzatore.email}")
     for u in evento.partecipanti.exclude(email=""):
         righe.append(f"ATTENDEE;CN={_testo(u.get_full_name() or u.username)};RSVP=TRUE:mailto:{u.email}")
-    righe += ["END:VEVENT", "END:VCALENDAR"]
+    return righe + ["END:VEVENT"]
+
+
+def _vcalendar(blocchi, metodo, intestazione=()):
+    righe = ["BEGIN:VCALENDAR", "VERSION:2.0", f"PRODID:-//{settings.THEME.get('brand', 'adabox-hub')}//IT", f"METHOD:{metodo}", *intestazione]
+    for blocco in blocchi:
+        righe += blocco
+    righe.append("END:VCALENDAR")
     return "\r\n".join(_piega(r) for r in righe) + "\r\n"
+
+
+def ics(evento, metodo="PUBLISH"):
+    return _vcalendar([_vevent(evento)], metodo)
+
+
+def calendario(eventi, nome):
+    """Più eventi in un calendario da abbonare (feed), con il nome che mostra il programma."""
+    return _vcalendar([_vevent(e) for e in eventi], "PUBLISH", [f"X-WR-CALNAME:{_testo(nome)}"])
