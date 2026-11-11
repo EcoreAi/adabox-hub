@@ -105,7 +105,7 @@ class CollegamentoView(ModelView):
     list_display = ["sistema", "modalita", "comanda", "attivo", "ultimo_giro", "ultimo_esito"]
     list_filter = ["sistema", "attivo"]
     form_class = CollegamentoForm
-    form_layout = [("Collegamento", [("sistema", "modalita"), "comanda", ("aziende", "opportunita"), ("per_utente", "attivo")]),
+    form_layout = [("Collegamento", [("sistema", "modalita"), "comanda", ("aziende", "opportunita"), ("per_utente", "scrive_da_adabox"), "attivo"]),
                    ("Credenziali, solo per un collegamento vero", [("indirizzo", "database"), "client_id", ("nuovo_token", "nuovo_segreto")])]
     readonly_fields = ["ultimo_giro", "ultimo_esito"]
     company_field = "azienda"

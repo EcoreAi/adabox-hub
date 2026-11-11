@@ -145,6 +145,9 @@ class CollegamentoEsterno(AziendaMixin):
     database = models.CharField("database", max_length=80, blank=True, help_text="Odoo: il nome del database (se l'indirizzo ne serve più d'uno)")
     per_utente = models.BooleanField("ogni utente con la sua chiave", default=False,
                                      help_text="Odoo: ogni utente collega il suo account e vede in adabox solo ciò che quel sistema mostra a lui")
+    scrive_da_adabox = models.BooleanField("le modifiche fatte in adabox tornano lì", default=False,
+                                           help_text="con «ogni utente con la sua chiave»: contatti e opportunità salvati in adabox si scrivono "
+                                                     "nel sistema con la chiave di chi li salva, quindi con i suoi permessi")
     segreto_cifrato = models.TextField(blank=True, editable=False)        # Salesforce e Zoho: il client secret
     accesso_cifrato = models.TextField(blank=True, editable=False)        # il token di accesso del momento, condiviso tra i lavori
     accesso_scade = models.DateTimeField(null=True, blank=True, editable=False)

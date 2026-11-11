@@ -195,3 +195,81 @@ def test_il_modulo_controlla_odoo_e_il_per_utente():
     f = CollegamentoForm(data={**base, "sistema": OD, "comanda": "esterno", "per_utente": "on", "indirizzo": "https://acme.odoo.com/", "database": "acme"})
     assert f.is_valid(), f.errors
     assert f.cleaned_data["indirizzo"] == "https://acme.odoo.com"
+
+
+# --- da adabox a Odoo, con la chiave di chi salva --------------------------------------------------------------------
+
+def _salva(capture, utente, funzione):
+    from core import registro
+    with capture(execute=True), registro.origine("ui", utente):
+        return funzione()
+
+
+def test_la_modifica_in_adabox_torna_in_odoo_con_la_chiave_di_chi_salva(s, django_capture_on_commit_callbacks):
+    from connettori.models import RecordProva
+    CollegamentoEsterno.objects.filter(pk=s["c"].pk).update(scrive_da_adabox=True)
+    _giro(s, "mario", "lucia")
+    mia = Opportunita.objects.get(titolo="Impianto (di Mario)")
+
+    def cambia():
+        mia.titolo = "Impianto Verdi, seconda offerta"
+        mia.save()
+    _salva(django_capture_on_commit_callbacks, s["mario"], cambia)
+    assert RecordProva.objects.get(collegamento=s["c"], tipo=OPPORTUNITA, id_esterno="1").proprieta["name"] == "Impianto Verdi, seconda offerta"
+    assert "Impianto Verdi, seconda offerta" in _vede(s["mario"], s["azienda"])
+
+
+def test_odoo_rifiuta_e_il_record_lo_dice(s, django_capture_on_commit_callbacks):
+    from connettori.models import RecordProva
+    from core.models import Messaggio
+    CollegamentoEsterno.objects.filter(pk=s["c"].pk).update(scrive_da_adabox=True)
+    _giro(s, "lucia")
+    sua = Opportunita.objects.get(titolo="Manutenzione (di Lucia)")
+
+    def cambia():
+        sua.titolo = "Tentativo di Mario"
+        sua.save()
+    _salva(django_capture_on_commit_callbacks, s["mario"], cambia)                  # in Odoo Mario non la vede
+    assert RecordProva.objects.get(collegamento=s["c"], tipo=OPPORTUNITA, id_esterno="2").proprieta["name"] == "Manutenzione (di Lucia)"
+    nota = Messaggio.objects.get(object_id=sua.pk, content_type__model="opportunita", tipo=Messaggio.SISTEMA)
+    assert "Non scritto in Odoo" in nota.corpo and "mario" in nota.corpo
+    assert not AccountEsterno.objects.get(pk=s["conti"]["mario"].pk).in_errore     # la chiave è buona: è il record a non essere suo
+
+
+def test_senza_account_o_senza_utente_non_si_scrive(s, django_capture_on_commit_callbacks):
+    from connettori.models import RecordProva
+    from core.models import Lavoro
+    CollegamentoEsterno.objects.filter(pk=s["c"].pk).update(scrive_da_adabox=True)
+    _giro(s, "lucia")
+    sua = Opportunita.objects.get(titolo="Manutenzione (di Lucia)")
+    Lavoro.objects.all().delete()
+
+    def cambia(titolo):
+        def f():
+            sua.titolo = titolo
+            sua.save()
+        return f
+    _salva(django_capture_on_commit_callbacks, s["capo"], cambia("Dal capo"))       # nessun account
+    with django_capture_on_commit_callbacks(execute=True):                          # lavoro di sistema: nessun utente
+        cambia("Dal sistema")()
+    assert RecordProva.objects.get(collegamento=s["c"], tipo=OPPORTUNITA, id_esterno="2").proprieta["name"] == "Manutenzione (di Lucia)"
+    assert Lavoro.objects.filter(funzione="connettori.sincronia.scrivi_opportunita").count() == 1     # solo quello del capo, saltato
+
+
+def test_azienda_creata_in_adabox_va_in_odoo_e_resta_visibile(s, django_capture_on_commit_callbacks):
+    from connettori.models import RecordProva
+    CollegamentoEsterno.objects.filter(pk=s["c"].pk).update(scrive_da_adabox=True)
+    nuova = _salva(django_capture_on_commit_callbacks, s["mario"], lambda: Contatto.objects.create(
+        azienda=s["azienda"], codice="C9", nome="Neri Spa", tipo=Contatto.AZIENDA, partita_iva="01234567897"))
+    assert RecordProva.objects.filter(collegamento=s["c"], tipo=AZIENDE).count() == 1    # stessa partita IVA di Verdi: la stessa azienda, niente doppioni
+    assert riferimenti.id_esterno(nuova, OD) == sincronia.chiave_azienda("38")
+    altra = _salva(django_capture_on_commit_callbacks, s["mario"], lambda: Contatto.objects.create(
+        azienda=s["azienda"], codice="C10", nome="Bianchi Srl", tipo=Contatto.AZIENDA, partita_iva="00743110157"))
+    in_odoo = RecordProva.objects.get(collegamento=s["c"], tipo=AZIENDE, proprieta__name="Bianchi Srl")
+    assert in_odoo.proprieta["vat"] == "IT00743110157"
+    assert {"Bianchi Srl", "Neri Spa"} <= _vede(s["mario"], s["azienda"], Contatto) and riferimenti.id_esterno(altra, OD)
+
+
+def test_scrive_da_adabox_solo_per_utente():
+    f = CollegamentoForm(data={"sistema": OD, "modalita": "prova", "comanda": "esterno", "attivo": "on", "scrive_da_adabox": "on"})
+    assert "scrive_da_adabox" in f.errors

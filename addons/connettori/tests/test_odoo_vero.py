@@ -62,3 +62,29 @@ def test_con_un_odoo_vero_ognuno_vede_il_suo(monkeypatch):
     assert verdi.partita_iva == "01234567897" and anna.societa == verdi and anna.partita_iva == ""
     assert Opportunita.objects.get(titolo="[adabox-test] Impianto Verdi (di Mario)").commerciale == utenti["mario"]
     assert not Contatto.objects.filter(nome__startswith="[adabox-test] Mario Venditore").exists()       # gli utenti di Odoo no
+
+
+def test_con_un_odoo_vero_la_scrittura_usa_i_permessi_di_chi_salva(monkeypatch, django_capture_on_commit_callbacks):
+    from core import registro
+    from core.models import Messaggio
+    test_con_un_odoo_vero_ognuno_vede_il_suo(monkeypatch)
+    c = CollegamentoEsterno.objects.get()
+    CollegamentoEsterno.objects.filter(pk=c.pk).update(scrive_da_adabox=True)
+    mario = User.objects.get(username="mario")
+    chiavi = json.load(open(os.environ["ODOO_PROVA_CHIAVI"]))
+    lettore = odoo.Odoo(c.indirizzo, c.database, chiavi["adabox.test.lucia"]["chiave"])
+
+    def nome_in_odoo():
+        return [r["name"] for r in lettore._chiama("crm.lead", "search_read", domain=[["name", "like", "adabox-test"]], fields=["name"])]
+    mia = Opportunita.objects.get(titolo="[adabox-test] Impianto Verdi (di Mario)")
+    for titolo in ("[adabox-test] Impianto Verdi (di Mario) – rivisto", "[adabox-test] Impianto Verdi (di Mario)"):   # e si rimette com'era
+        with django_capture_on_commit_callbacks(execute=True), registro.origine("ui", mario):
+            mia.titolo = titolo
+            mia.save()
+        assert titolo in nome_in_odoo()
+    sua = Opportunita.objects.get(titolo="[adabox-test] Manutenzione Verdi (di Lucia)")
+    with django_capture_on_commit_callbacks(execute=True), registro.origine("ui", mario):
+        sua.titolo = "[adabox-test] tentativo di Mario"
+        sua.save()
+    assert "[adabox-test] tentativo di Mario" not in nome_in_odoo()
+    assert Messaggio.objects.filter(object_id=sua.pk, tipo=Messaggio.SISTEMA, corpo__contains="Non scritto in Odoo").exists()

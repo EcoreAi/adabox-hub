@@ -432,11 +432,36 @@ def giro_di_tutti():
 
 # --- da adabox all'esterno -----------------------------------------------------------------------------------------
 
-def _collegamento_che_scrive(collegamento_id, obj):
+def _collegamento_che_scrive(collegamento_id, obj, account=None):
+    """Il collegamento se deve scrivere quel record: comanda adabox, oppure (con l'account di chi ha salvato) un
+    collegamento per utente con «le modifiche fatte in adabox tornano lì»."""
     collegamento = CollegamentoEsterno.objects.select_related("azienda").filter(pk=collegamento_id, attivo=True).first()
-    if collegamento is None or obj is None or obj.azienda_id != collegamento.azienda_id or collegamento.comanda != CollegamentoEsterno.ADABOX:
+    if collegamento is None or obj is None or obj.azienda_id != collegamento.azienda_id:
         return None
-    return collegamento
+    if account is not None:
+        return collegamento if collegamento.per_utente and collegamento.scrive_da_adabox and account.collegamento_id == collegamento.pk else None
+    return collegamento if collegamento.comanda == CollegamentoEsterno.ADABOX and not collegamento.per_utente else None
+
+
+def _account_di(collegamento_id, utente_id):
+    if utente_id is None:
+        return None
+    return (AccountEsterno.objects.select_related("utente").filter(collegamento_id=collegamento_id, utente_id=utente_id, utente__is_active=True)
+            .exclude(chiave_cifrata="").first())
+
+
+def _rendi_visibile(account, *oggetti):
+    """Ciò che l'utente ha appena scritto nel sistema esterno resta suo anche in adabox, senza aspettare il giro."""
+    if account is None:
+        return
+    from django.contrib.contenttypes.models import ContentType
+    for obj in oggetti:
+        if obj is None:
+            continue
+        rif = RiferimentoEsterno.objects.filter(azienda_id=obj.azienda_id, sistema=account.collegamento.sistema,
+                                                content_type=ContentType.objects.get_for_model(obj), object_id=obj.pk).first()
+        if rif is not None:
+            VisibilitaEsterna.objects.get_or_create(riferimento=rif, account=account)
 
 
 def _id_azienda_fuori(collegamento, sistema, contatto):
@@ -449,7 +474,11 @@ def _id_azienda_fuori(collegamento, sistema, contatto):
         sistema.aggiorna(AZIENDE, id_est, proprieta)
     else:
         id_est = None
-        if dominio_sito := dominio(contatto.sito):
+        if contatto.partita_iva and "piva" in getattr(sistema, "CHIAVI_AZIENDA", ()):
+            id_est = sistema.trova(AZIENDE, "piva", contatto.partita_iva)
+            if id_est is False:
+                raise ErroreConnettore(f"Su {collegamento.get_sistema_display()} ci sono più aziende con la partita IVA {contatto.partita_iva}: collegane una a mano.")
+        if not id_est and (dominio_sito := dominio(contatto.sito)):
             id_est = sistema.trova(AZIENDE, "dominio", dominio_sito)
         if not id_est:
             id_est = sistema.trova(AZIENDE, "nome", contatto.nome)
@@ -479,50 +508,71 @@ def _id_persona_fuori(collegamento, sistema, contatto):
     return id_est
 
 
-def _scrivi(collegamento, cosa, funzione):
+def _scrivi(collegamento, cosa, funzione, account=None, obj=None):
     try:
         funzione()
     except ErroreTemporaneo as e:
-        _esito(collegamento, str(e), errore=True)
+        (_esito_account(account, str(e), errore=True) if account else _esito(collegamento, str(e), errore=True))
         raise
     except ErroreConnettore as e:
-        _esito(collegamento, f"{cosa}: {e}", errore=True)
+        if account is None:
+            _esito(collegamento, f"{cosa}: {e}", errore=True)
+            return str(e)
+        _esito_account(account, f"{cosa}: {e}")       # un rifiuto su un record non vuol dire chiave da rifare
+        if obj is not None:                            # chi ha salvato lo vede sul record: non è passato di là
+            from core import chatter
+            from core.models import Messaggio
+            with eventi.senza_eventi():
+                chatter.scrivi(obj, None, f"Non scritto in {collegamento.get_sistema_display()} con l'account di {account.utente}: {e}",
+                               tipo=Messaggio.SISTEMA)
         return str(e)
-    _esito(collegamento, f"Scritto {cosa} su {collegamento.get_sistema_display()}")
+    if account is None:
+        _esito(collegamento, f"Scritto {cosa} su {collegamento.get_sistema_display()}")
+    else:
+        _esito_account(account, f"Scritto {cosa} su {collegamento.get_sistema_display()}")
     return "scritto"
 
 
-def scrivi_fuori(collegamento_id, contatto_id):
+def scrivi_fuori(collegamento_id, contatto_id, utente_id=None):
     """Un contatto di adabox verso il sistema esterno: le persone con un'email (è la chiave con cui si riconoscono di
-    là), le aziende se il collegamento le comprende."""
+    là), le aziende se il collegamento le comprende. Con `utente_id` (collegamento per utente) con la sua chiave."""
     from contatti.models import Contatto
     contatto = Contatto.objects.select_related("societa").filter(pk=contatto_id).first()
-    collegamento = _collegamento_che_scrive(collegamento_id, contatto)
+    account = _account_di(collegamento_id, utente_id) if utente_id else None
+    if utente_id and account is None:
+        return "saltato: chi ha salvato non ha collegato il suo account"
+    collegamento = _collegamento_che_scrive(collegamento_id, contatto, account)
     if collegamento is None:
         return None
+    sistema = client(collegamento, account)
     if contatto.tipo == Contatto.AZIENDA:
         if not collegamento.aziende:
             return "saltato: le aziende non passano in questo collegamento"
-        sistema = client(collegamento)
-        return _scrivi(collegamento, contatto, lambda: _id_azienda_fuori(collegamento, sistema, contatto))
-    if not contatto.email:
+        esito = _scrivi(collegamento, contatto, lambda: _id_azienda_fuori(collegamento, sistema, contatto), account, contatto)
+    elif not contatto.email:
         return "saltato: serve una persona con un'email"
-    sistema = client(collegamento)
-    return _scrivi(collegamento, contatto, lambda: _id_persona_fuori(collegamento, sistema, contatto))
+    else:
+        esito = _scrivi(collegamento, contatto, lambda: _id_persona_fuori(collegamento, sistema, contatto), account, contatto)
+    _rendi_visibile(account, contatto, contatto.societa)
+    return esito
 
 
 scrivi_fuori.senza_transazione = True
 
 
-def scrivi_opportunita(collegamento_id, opportunita_id):
-    """Un'opportunità di adabox verso il sistema esterno, nella fase corrispondente e associata al cliente."""
+def scrivi_opportunita(collegamento_id, opportunita_id, utente_id=None):
+    """Un'opportunità di adabox verso il sistema esterno, nella fase corrispondente e associata al cliente. Con
+    `utente_id` (collegamento per utente) con la sua chiave."""
     from contatti.models import Contatto
     from crm.models import Opportunita
     opportunita = Opportunita.objects.select_related("contatto__societa", "fase").filter(pk=opportunita_id).first()
-    collegamento = _collegamento_che_scrive(collegamento_id, opportunita)
+    account = _account_di(collegamento_id, utente_id) if utente_id else None
+    if utente_id and account is None:
+        return "saltato: chi ha salvato non ha collegato il suo account"
+    collegamento = _collegamento_che_scrive(collegamento_id, opportunita, account)
     if collegamento is None or not collegamento.opportunita:
         return None
-    sistema = client(collegamento)
+    sistema = client(collegamento, account)
 
     def scrivi():
         proprieta = sistema.fuori(OPPORTUNITA, opportunita, fase_fuori(opportunita, sistema.fasi()))
@@ -544,7 +594,10 @@ def scrivi_opportunita(collegamento_id, opportunita_id):
             sistema.associa(OPPORTUNITA, id_est, CONTATTI, _id_persona_fuori(collegamento, sistema, cliente))
         if collegamento.aziende and cliente.societa_id:
             sistema.associa(OPPORTUNITA, id_est, AZIENDE, _id_azienda_fuori(collegamento, sistema, cliente.societa))
-    return _scrivi(collegamento, f"l'opportunità {opportunita}", scrivi)
+    esito = _scrivi(collegamento, f"l'opportunità {opportunita}", scrivi, account, opportunita)
+    cliente = opportunita.contatto
+    _rendi_visibile(account, opportunita, cliente, getattr(cliente, "societa", None))
+    return esito
 
 
 scrivi_opportunita.senza_transazione = True
@@ -561,18 +614,30 @@ def _collegamenti_che_scrivono(azienda_id, **filtri):
                 .values_list("pk", flat=True))
 
 
-def contatto_salvato(sender, instance, raw=False, update_fields=None, **_):
-    if not _da_mandare(instance, raw, update_fields):
+def _per_utente_che_scrivono(azienda_id, **filtri):
+    """I collegamenti per utente in cui le modifiche di adabox tornano nel sistema, con la chiave di chi salva."""
+    return list(CollegamentoEsterno.objects.filter(azienda_id=azienda_id, attivo=True, per_utente=True, scrive_da_adabox=True, **filtri)
+                .values_list("pk", flat=True))
+
+
+def _accoda_scritture(funzione, azienda_id, chiave, pk, **filtri):
+    for collegamento_id in _collegamenti_che_scrivono(azienda_id, **filtri):
+        transaction.on_commit(lambda c=collegamento_id: lavori.accoda(f"connettori.sincronia.{funzione}", collegamento_id=c, max_tentativi=5,
+                                                                      **{chiave: pk}))
+    from core import registro
+    utente = registro.utente_corrente()                # senza un utente (lavori di sistema) non c'è una chiave con cui scrivere
+    if utente is None:
         return
-    pk = instance.pk
-    for collegamento_id in _collegamenti_che_scrivono(instance.azienda_id):
-        transaction.on_commit(lambda c=collegamento_id: lavori.accoda("connettori.sincronia.scrivi_fuori", collegamento_id=c, contatto_id=pk, max_tentativi=5))
+    for collegamento_id in _per_utente_che_scrivono(azienda_id, **filtri):
+        transaction.on_commit(lambda c=collegamento_id, u=utente.pk: lavori.accoda(f"connettori.sincronia.{funzione}", collegamento_id=c,
+                                                                                  utente_id=u, max_tentativi=5, **{chiave: pk}))
+
+
+def contatto_salvato(sender, instance, raw=False, update_fields=None, **_):
+    if _da_mandare(instance, raw, update_fields):
+        _accoda_scritture("scrivi_fuori", instance.azienda_id, "contatto_id", instance.pk)
 
 
 def opportunita_salvata(sender, instance, raw=False, update_fields=None, **_):
-    if not _da_mandare(instance, raw, update_fields):
-        return
-    pk = instance.pk
-    for collegamento_id in _collegamenti_che_scrivono(instance.azienda_id, opportunita=True):
-        transaction.on_commit(lambda c=collegamento_id: lavori.accoda("connettori.sincronia.scrivi_opportunita", collegamento_id=c,
-                                                                      opportunita_id=pk, max_tentativi=5))
+    if _da_mandare(instance, raw, update_fields):
+        _accoda_scritture("scrivi_opportunita", instance.azienda_id, "opportunita_id", instance.pk, opportunita=True)

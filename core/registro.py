@@ -26,6 +26,12 @@ def imposta(utente, origine):
     return _autore.set((utente, origine))
 
 
+def utente_corrente():
+    """Chi sta facendo la modifica (la pagina, l'API con il token, l'assistente per conto di qualcuno); None per i
+    lavori di sistema. Lo usano anche i moduli: es. Connettori scrive in Odoo con la chiave di chi ha salvato."""
+    return _autore.get()[0]
+
+
 @contextmanager
 def origine(nome, utente=None):
     """Tutto ciò che succede qui dentro risulta fatto da `nome`; l'utente resta quello di prima se non se ne dà uno."""

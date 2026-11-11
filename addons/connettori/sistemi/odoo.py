@@ -11,6 +11,7 @@ utente con la sua chiave») arriva solo ciò che quell'utente vede. Accorgimenti
 - le opportunità perse sono archiviate: si leggono con active_test spento e `won_status` dice vinta, persa o aperta;
 - `mobile` non c'è più nella 19; il codice fiscale c'è con la localizzazione italiana (l10n_it_codice_fiscale)."""
 import datetime
+import re
 
 import httpx2 as httpx
 from django.utils.dateparse import parse_datetime
@@ -45,6 +46,7 @@ def _id(valore):
 
 class Odoo(Sistema):
     nome, etichetta = "odoo", "Odoo"
+    CHIAVI_AZIENDA = ("piva", "dominio", "nome")          # la partita IVA è in Odoo: si cerca prima quella
 
     def __init__(self, url, database, chiave, transport=None):
         self.url = (url or "").rstrip("/")
@@ -136,11 +138,13 @@ class Odoo(Sistema):
         return voci
 
     def trova(self, tipo, chiave, valore):
-        filtro = {"email": [["email", "=ilike", valore]], "nome": [["name", "=ilike", valore]], "piva": [["vat", "=ilike", valore]],
+        filtro = {"email": [["email", "=ilike", valore]], "nome": [["name", "=ilike", valore]], "piva": [["vat", "ilike", valore]],
                   "dominio": [["website", "ilike", valore]]}[chiave]
-        voci = self._chiama(MODELLI[tipo], "search_read", domain=[*self._filtro(tipo), *filtro], fields=["website"], limit=20)
+        voci = self._chiama(MODELLI[tipo], "search_read", domain=[*self._filtro(tipo), *filtro], fields=["website", "vat"], limit=20)
         if chiave == "dominio":
             voci = [v for v in voci if dominio(v.get("website")) == valore]
+        if chiave == "piva":                               # in Odoo con il prefisso del paese (IT0123…), in adabox senza
+            voci = [v for v in voci if re.sub(r"^[A-Z]{2}", "", str(v.get("vat") or "").replace(" ", "").upper()) == re.sub(r"^[A-Z]{2}", "", valore.upper())]
         return str(voci[0]["id"]) if len(voci) == 1 else (None if not voci else False)
 
     # --- scrittura -------------------------------------------------------------------------------------------------------
@@ -207,7 +211,8 @@ class Odoo(Sistema):
         dati = {"name": obj.nome, "email": obj.email, "phone": obj.telefono, "street": obj.indirizzo, "city": obj.citta, "zip": obj.cap,
                 "website": obj.sito}
         if tipo == AZIENDE:
-            dati["vat"] = obj.partita_iva
+            iva = (obj.partita_iva or "").upper()
+            dati["vat"] = iva if not iva or iva[:2].isalpha() else f"{obj.nazione or 'IT'}{iva}"     # in Odoo con il prefisso del paese
         else:
             dati["function"] = obj.ruolo
         return pieni(dati)

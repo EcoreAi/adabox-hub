@@ -46,6 +46,10 @@ sempre. Helpdesk è solo nella versione Enterprise (il connettore per ora copre 
    - **un utente tecnico**: la sua chiave API nel collegamento; tutti i dati arrivano una volta, e chi li vede lo decidono
      le regole sulle righe di adabox.
 3. Il venditore di un'opportunità diventa il commerciale in adabox se ha collegato il suo account.
+4. Con «le modifiche fatte in adabox tornano lì» (solo con «ogni utente con la sua chiave»), contatti e opportunità
+   salvati in adabox si scrivono in Odoo con la chiave di chi li salva, quindi con i suoi permessi: se Odoo rifiuta,
+   sul record compare una nota. Chi non ha collegato il suo account e i lavori di sistema non scrivono in Odoo. Se lo
+   stesso record cambia nei due posti tra un giro e l'altro, vale l'ultima scrittura.
 
 Da controllare alla prima prova: le fasi del CRM (si abbinano per nome, se no per probabilità, che in Odoo non è nella
 fase e si stima dall'ordine); le aziende si agganciano per partita IVA, poi per nome; gli utenti di Odoo e l'azienda
