@@ -5,11 +5,9 @@ from django.apps import apps
 from core import lavori
 from core.viste import ModelView, register
 
-from . import eventi, sincronia
+from . import eventi, sincronia, sistemi
 from .forms import CollegamentoForm
-from .models import CollegamentoEsterno, ConsegnaWebhook, RecordProva, RiferimentoEsterno, Webhook
-from .sistemi import hubspot
-from .sistemi import prova as sistema_di_prova
+from .models import CollegamentoEsterno, ConsegnaWebhook, RiferimentoEsterno, Webhook
 from .sistemi.base import ErroreConnettore
 
 NOMI_DI_PROVA = ["Giulia Ferrari", "Marco Galli", "Sara Conti", "Luca Moretti", "Elena Rizzo", "Paolo Greco"]
@@ -58,6 +56,11 @@ class ConsegnaView(ModelView):
     company_field = "azienda"
     buttons = ["riprova"]
 
+    def get_form_class(self, request=None):
+        classe = super().get_form_class(request)
+        azienda = getattr(request, "azienda", None)
+        return type(classe.__name__, (classe,), {"azienda_id": getattr(azienda, "pk", None)}) if azienda is not None else classe
+
     def has_add_permission(self, request):
         return False
 
@@ -96,17 +99,22 @@ class RiferimentoView(ModelView):
 
 @register
 class CollegamentoView(ModelView):
-    """Il legame con un sistema esterno. Il token si scrive nel modulo, si salva cifrato e non si mostra più."""
+    """Il legame con un sistema esterno. Token e segreti si scrivono nel modulo, si salvano cifrati e non si mostrano più."""
     model = CollegamentoEsterno
     slug = "collegamenti"
     list_display = ["sistema", "modalita", "comanda", "attivo", "ultimo_giro", "ultimo_esito"]
     list_filter = ["sistema", "attivo"]
     form_class = CollegamentoForm
     form_layout = [("Collegamento", [("sistema", "modalita"), "comanda", ("aziende", "opportunita"), "attivo"]),
-                   ("Credenziali, solo per un collegamento vero", ["nuovo_token"])]
+                   ("Credenziali, solo per un collegamento vero", [("indirizzo", "client_id"), ("nuovo_token", "nuovo_segreto")])]
     readonly_fields = ["ultimo_giro", "ultimo_esito"]
     company_field = "azienda"
     buttons = ["sincronizza", "verifica", "simula_nuovo", "simula_modifica"]
+
+    def get_form_class(self, request=None):
+        classe = super().get_form_class(request)
+        azienda = getattr(request, "azienda", None)
+        return type(classe.__name__, (classe,), {"azienda_id": getattr(azienda, "pk", None)}) if azienda is not None else classe
 
     def has_add_permission(self, request):
         azienda = getattr(request, "azienda", None)
@@ -159,37 +167,20 @@ class CollegamentoView(ModelView):
             return "Solo in prova."
         nome = random.choice(NOMI_DI_PROVA)
         primo, _, secondo = nome.partition(" ")
-        persona = sistema_di_prova.scrivi(obj, {"firstname": primo, "lastname": secondo,
-                                                "email": f"{primo}.{secondo}.{random.randint(100, 999)}@example.com".lower(),
-                                                "phone": f"+39 02 {random.randint(1000000, 9999999)}"})
-        cosa = [f"la persona «{nome}»"]
-        if obj.aziende:
-            ditta = random.choice(DITTE_DI_PROVA)
-            azienda = sistema_di_prova.scrivi(obj, {"name": ditta, "domain": f"{ditta.split()[0].lower()}.example.com", "city": "Milano"},
-                                              tipo=hubspot.AZIENDE)
-            sistema_di_prova.associa(obj, persona, azienda)
-            cosa.append(f"l'azienda «{ditta}»")
-        if obj.opportunita:
-            fase = random.choice(sistema_di_prova.FASI[:5])
-            trattativa = sistema_di_prova.scrivi(obj, {"dealname": f"Fornitura per {secondo}", "amount": str(random.randint(10, 90) * 100),
-                                                       "pipeline": "default", "dealstage": fase[0]}, tipo=hubspot.OPPORTUNITA)
-            sistema_di_prova.associa(obj, trattativa, azienda if obj.aziende else persona)
-            cosa.append("un'opportunità")
+        ditta = random.choice(DITTE_DI_PROVA)
+        sistemi.prova_di(obj).simula_nuovo(obj, {
+            "nome": primo, "cognome": secondo, "email": f"{primo}.{secondo}.{random.randint(100, 999)}@example.com".lower(),
+            "telefono": f"+39 02 {random.randint(1000000, 9999999)}", "ditta": ditta, "dominio": f"{ditta.split()[0].lower()}.example.com",
+            "titolo": f"Fornitura per {secondo}", "importo": random.randint(10, 90) * 100, "fase": random.randint(0, 4)})
+        cosa = [f"la persona «{nome}»"] + ([f"l'azienda «{ditta}»"] if obj.aziende else []) + (["un'opportunità"] if obj.opportunita else [])
         return f"Sul sistema finto: {', '.join(cosa)}. Premi «Sincronizza ora»."
     simula_nuovo.short_description = "Simula un cliente nuovo"
     simula_nuovo.ai = False
 
     def simula_modifica(self, request, obj):
-        record = RecordProva.objects.filter(collegamento=obj, tipo=hubspot.CONTATTI).first() if obj.modalita == CollegamentoEsterno.PROVA else None
-        if record is None:
+        ruolo = random.choice(["Responsabile acquisti", "Titolare", "Amministrazione"])
+        if obj.modalita != CollegamentoEsterno.PROVA or not sistemi.prova_di(obj).simula_modifica(obj, ruolo):
             return "Nessun record da modificare."
-        sistema_di_prova.scrivi(obj, {"jobtitle": random.choice(["Responsabile acquisti", "Titolare", "Amministrazione"])}, record.id_esterno)
-        trattativa = RecordProva.objects.filter(collegamento=obj, tipo=hubspot.OPPORTUNITA).first()
-        if trattativa is not None:
-            fasi = [f[0] for f in sistema_di_prova.FASI]          # avanza di una fase, fino a «vinta»
-            attuale = trattativa.proprieta.get("dealstage")
-            prossima = fasi[min(fasi.index(attuale) + 1 if attuale in fasi else 0, fasi.index("closedwon"))]
-            sistema_di_prova.scrivi(obj, {"dealstage": prossima}, trattativa.id_esterno, hubspot.OPPORTUNITA)
         return "Record modificato sul sistema finto: premi «Sincronizza ora»."
     simula_modifica.short_description = "Simula una modifica"
     simula_modifica.ai = False

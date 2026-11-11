@@ -127,8 +127,8 @@ class RiferimentoEsterno(AziendaMixin):
 class CollegamentoEsterno(AziendaMixin):
     """Il legame di un'azienda con un sistema esterno: quale, con quale token, che cosa passa (persone, aziende,
     opportunità) e chi comanda."""
-    HUBSPOT = "hubspot"
-    SISTEMI = [(HUBSPOT, "HubSpot")]
+    HUBSPOT, SALESFORCE, ZOHO = "hubspot", "salesforce", "zoho"
+    SISTEMI = [(HUBSPOT, "HubSpot"), (SALESFORCE, "Salesforce"), (ZOHO, "Zoho CRM")]
     PROVA, VERA = "prova", "vera"
     MODALITA = [(PROVA, "Prova, senza uscire in rete"), (VERA, "Vera")]
     ESTERNO, ADABOX = "esterno", "adabox"
@@ -137,7 +137,13 @@ class CollegamentoEsterno(AziendaMixin):
     modalita = models.CharField("modalità", max_length=8, choices=MODALITA, default=PROVA)
     comanda = models.CharField("chi comanda", max_length=8, choices=COMANDI, default=ESTERNO)
     attivo = models.BooleanField("attivo", default=True)
-    token_cifrato = models.TextField(blank=True, editable=False)
+    token_cifrato = models.TextField(blank=True, editable=False)          # HubSpot: token dell'app privata; Zoho: refresh token
+    indirizzo = models.CharField("indirizzo", max_length=200, blank=True,
+                                 help_text="Salesforce: il My Domain (azienda.my.salesforce.com); Zoho: il data center (com, eu, in, com.au, jp, ca, sa)")
+    client_id = models.CharField("client id", max_length=200, blank=True, help_text="Salesforce e Zoho: l'identificativo dell'app")
+    segreto_cifrato = models.TextField(blank=True, editable=False)        # Salesforce e Zoho: il client secret
+    accesso_cifrato = models.TextField(blank=True, editable=False)        # il token di accesso del momento, condiviso tra i lavori
+    accesso_scade = models.DateTimeField(null=True, blank=True, editable=False)
     aziende = models.BooleanField("anche le aziende", default=True,
                                   help_text="le aziende (companies) con le persone che ci lavorano")
     opportunita = models.BooleanField("anche le opportunità", default=True,
@@ -160,9 +166,13 @@ class CollegamentoEsterno(AziendaMixin):
     def token(self):
         return cifratura.decifra(self.token_cifrato)
 
+    def segreto(self):
+        return cifratura.decifra(self.segreto_cifrato)
+
 
 class RecordProva(models.Model):
-    """Un record del sistema esterno finto: fa le veci di HubSpot quando il collegamento è in prova."""
+    """Un record del sistema esterno finto: fa le veci di HubSpot, Salesforce o Zoho quando il collegamento è in prova,
+    con i nomi dei campi di quel sistema."""
     collegamento = models.ForeignKey(CollegamentoEsterno, on_delete=models.CASCADE, related_name="record_prova")
     tipo = models.CharField(max_length=20, default="contacts")
     id_esterno = models.CharField(max_length=40)
