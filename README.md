@@ -582,7 +582,14 @@ deploy/flotta.py elimina rossi --conferma rossi
 - **`aggiorna`** salva database e file, cambia versione e controlla `/salute/`. Se l'istanza non si riprende ripristina il database e la versione di prima, e **si ferma**: le istanze successive restano intatte. Con `--prima` si comincia da quella di prova. I moduli invece si aggiornano dal portale, ogni ora.
 - **`backup`** conserva gli ultimi 14 salvataggi per istanza, sullo stesso server: copiarli altrove e pianificarli con cron resta da fare.
 - **Il proxy non si tocca in automatico**: `crea` scrive `<radice>/rossi/proxy.caddy`, da includere nella configurazione di Caddy dopo aver puntato il DNS. Le istanze ascoltano solo su `127.0.0.1`.
-- **Servizi AI condivisi**: `--servizi-ai` collega l'istanza alla rete dei servizi di questo server. Vanno poi indicati in `/impostazioni/`.
+- **Servizi AI condivisi**: `--servizi-ai` collega l'istanza alla rete dei servizi di questo server. Vanno poi indicati in `/impostazioni/`:
+
+  | Impostazione | Valore su questo server | Senza |
+  |---|---|---|
+  | «URL del servizio di embedding (ricerca semantica)» | `http://adabox-embeddings-1:8080` | ricerca solo per parole chiave |
+  | «URL del servizio di protezione dei dati personali» | `http://adabox-pii-1:5005` | dati in chiaro ai modelli non locali |
+
+  Per un'istanza fuori da `flotta.py` (come lo sviluppo) si copia `deploy/compose.servizi-adabox.yml` come `docker-compose.override.yml`. Per controllare che funzioni, dal container: `python manage.py ai_indicizza` indicizza e riporta il servizio in uso e quanti frammenti hanno il vettore. Se il servizio smette di rispondere l'hub continua senza errori, con la sola ricerca per parole chiave.
 
 ## Comandi `modulo`
 
