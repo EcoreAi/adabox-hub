@@ -77,3 +77,11 @@ def squilli_per(utente):
     """Le chiamate che stanno squillando per questa persona, su qualsiasi pagina."""
     from discuss import chiamate
     return chiamate.squilli_per(utente) if utente.is_authenticated else []
+
+
+@register.simple_tag
+def sportelli_pubblici(obj):
+    """Gli sportelli il cui assistente riferisce ai visitatori questa pagina o questo spazio della wiki."""
+    from discuss import conoscenza_wiki
+    spazio_id = getattr(obj, "spazio_id", None) or obj.pk
+    return conoscenza_wiki.sportelli_che_la_dicono(spazio_id)

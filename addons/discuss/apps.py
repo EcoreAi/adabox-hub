@@ -22,3 +22,9 @@ class DiscussConfig(AppConfig):
         from .models import Canale
         entrata.registra_destinatario(Canale, posta_canali.ricevi_risposta)
         from . import assistente_sito  # noqa: F401  (indice della conoscenza del sito)
+        from django.apps import apps
+        if apps.is_installed("wiki"):
+            from . import conoscenza_wiki
+            conoscenza_wiki.collega()
+            hooks.sezione_dettaglio("wiki.PaginaWiki", "discuss/_wiki_pubblica.html", order=1)
+            hooks.sezione_dettaglio("wiki.SpazioWiki", "discuss/_wiki_pubblica.html", order=1)

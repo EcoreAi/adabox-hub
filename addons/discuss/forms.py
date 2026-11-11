@@ -3,7 +3,7 @@ from django import forms
 
 from core import cifratura
 
-from .models import Connessione
+from .models import Connessione, Sportello
 
 
 def _segreto(etichetta):
@@ -51,3 +51,32 @@ class ConnessioneForm(forms.ModelForm):
         if commit:
             c.save()
         return c
+
+
+class SportelloForm(forms.ModelForm):
+    """Lo sportello, con gli spazi della wiki che l'AI può riferire ai visitatori (se la wiki c'è)."""
+    spazi = forms.MultipleChoiceField(label="Spazi della wiki che l'AI può dire ai visitatori", required=False,
+                                      widget=forms.CheckboxSelectMultiple,
+                                      help_text="Tutte le pagine di questi spazi, anche quelle future, diventano conoscenza pubblica "
+                                                "dell'assistente: scegli solo spazi scritti per i clienti (prodotti, condizioni, policy).")
+
+    class Meta:
+        model = Sportello
+        fields = ["nome", "benvenuto", "assenza", "operatori", "distribuzione", "domini", "privacy_url", "attivo",
+                  "modalita", "nome_ai", "istruzioni", "risposte_per_chat", "risposte_al_giorno", "azienda"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from django.apps import apps
+        if not apps.is_installed("wiki"):
+            del self.fields["spazi"]
+            return
+        from wiki.models import SpazioWiki
+        spazi = SpazioWiki.objects.select_related("azienda").order_by("azienda__nome", "nome")
+        self.fields["spazi"].choices = [(str(s.pk), f"{s.nome} ({s.azienda})") for s in spazi]
+        self.initial.setdefault("spazi", [str(i) for i in (self.instance.spazi_wiki or [])])
+
+    def save(self, commit=True):
+        if "spazi" in self.fields:
+            self.instance.spazi_wiki = sorted(int(i) for i in self.cleaned_data.get("spazi") or [])
+        return super().save(commit)

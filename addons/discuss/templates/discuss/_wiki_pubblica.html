@@ -1,0 +1,7 @@
+{% load discuss %}{% sportelli_pubblici obj as sportelli %}{% if sportelli %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <span class="ui-pill ui-pill-warn">Pubblica</span>
+  {% if obj.spazio_id %}Questa pagina{% else %}Ogni pagina di questo spazio{% endif %} è conoscenza dell'assistente del sito
+  {% for s in sportelli %}«{{ s.nome }}»{% if not forloop.last %}, {% endif %}{% endfor %}: può riferirla ai visitatori, parola per parola.
+  Scrivi solo ciò che un cliente può leggere.
+</div></section>{% endif %}
