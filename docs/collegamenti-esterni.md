@@ -34,7 +34,7 @@ Da controllare alla prima prova: se il picklist Stage dei Deals porta la probabi
 ## Odoo (modulo Connettori)
 
 Odoo 19 (API JSON-2). Su Odoo Online l'API esterna c'è solo con il piano Custom; su Odoo.sh e installato in casa
-sempre. Helpdesk è solo nella versione Enterprise (il connettore per ora copre contatti e CRM).
+sempre. Helpdesk è solo nella versione Enterprise (il connettore copre contatti, CRM e calendario).
 
 1. In adabox, Connettori → Collegamenti: sistema Odoo, modalità Vera, **indirizzo** = l'indirizzo https di Odoo, **database**
    = il nome del database (serve se l'indirizzo ne ha più d'uno).
@@ -50,6 +50,10 @@ sempre. Helpdesk è solo nella versione Enterprise (il connettore per ora copre 
    salvati in adabox si scrivono in Odoo con la chiave di chi li salva, quindi con i suoi permessi: se Odoo rifiuta,
    sul record compare una nota. Chi non ha collegato il suo account e i lavori di sistema non scrivono in Odoo. Se lo
    stesso record cambia nei due posti tra un giro e l'altro, vale l'ultima scrittura.
+5. Con «anche il calendario» gli appuntamenti di Odoo arrivano nel calendario di adabox: organizzatore e partecipanti
+   interni se hanno collegato il loro account, i clienti invitati dai contatti già collegati, la descrizione senza il
+   blocco «Organizzato da» che Odoo aggiunge. Non partono inviti né promemoria da adabox, e non si copiano verso Google o
+   Microsoft (modulo Posta e calendario). Per ora in sola lettura.
 
 Da controllare alla prima prova: le fasi del CRM (si abbinano per nome, se no per probabilità, che in Odoo non è nella
 fase e si stima dall'ordine); le aziende si agganciano per partita IVA, poi per nome; gli utenti di Odoo e l'azienda

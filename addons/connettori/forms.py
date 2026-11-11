@@ -25,7 +25,7 @@ class CollegamentoForm(forms.ModelForm):
 
     class Meta:
         model = CollegamentoEsterno
-        fields = ["sistema", "modalita", "comanda", "aziende", "opportunita", "attivo", "indirizzo", "client_id", "database", "per_utente", "scrive_da_adabox"]
+        fields = ["sistema", "modalita", "comanda", "aziende", "opportunita", "attivo", "indirizzo", "client_id", "database", "per_utente", "scrive_da_adabox", "calendario"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -41,6 +41,8 @@ class CollegamentoForm(forms.ModelForm):
             self.add_error("sistema", "Questo sistema è già collegato: modifica il collegamento che c'è.")
         if dati.get("per_utente") and dati.get("sistema") != CollegamentoEsterno.ODOO:
             self.add_error("per_utente", "«Ogni utente con la sua chiave» per ora c'è solo per Odoo.")
+        if dati.get("calendario") and dati.get("sistema") != CollegamentoEsterno.ODOO:
+            self.add_error("calendario", "Il calendario per ora arriva solo da Odoo.")
         if dati.get("scrive_da_adabox") and not dati.get("per_utente"):
             self.add_error("scrive_da_adabox", "Vale con «ogni utente con la sua chiave»: si scrive con la chiave di chi salva.")
         if dati.get("per_utente") and dati.get("comanda") != CollegamentoEsterno.ESTERNO:

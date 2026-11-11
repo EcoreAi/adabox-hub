@@ -23,6 +23,7 @@ commit; qui solo ciò che si vede o che chiede un intervento.
   Le aziende si agganciano per partita IVA, anche negli altri connettori. Provato su un Odoo 19 vero.
   Con «le modifiche fatte in adabox tornano lì» contatti e opportunità salvati in adabox si scrivono in Odoo con la
   chiave di chi li salva (migrazione `connettori.0006`).
+  Con «anche il calendario» arrivano anche gli appuntamenti di Odoo, in sola lettura (migrazione `connettori.0007`).
 - **Discuss 1.13.0 e Portale 1.2.0 — assistente nel portale clienti.** Nello sportello del sito si attiva «risponde
   anche nel portale clienti»: i clienti autenticati trovano la sezione «Assistente», che risponde con la conoscenza
   dello sportello, la guida pubblicata e il riepilogo dei loro documenti (gli stessi della home del portale). Non ha

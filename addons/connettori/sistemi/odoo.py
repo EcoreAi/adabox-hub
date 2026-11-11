@@ -16,13 +16,13 @@ import re
 import httpx2 as httpx
 from django.utils.dateparse import parse_datetime
 
-from .base import (AZIENDE, OPPORTUNITA, PERSONE, ErroreConnettore, ErroreTemporaneo, Sistema, data, dominio, nazione, pieni,
+from .base import (AZIENDE, EVENTI, OPPORTUNITA, PERSONE, ErroreConnettore, ErroreTemporaneo, Sistema, data, dominio, nazione, pieni,
                    pulisci)
 from .hubspot import importo
 
 PER_PAGINA = 200
 TEMPO = 30
-MODELLI = {PERSONE: "res.partner", AZIENDE: "res.partner", OPPORTUNITA: "crm.lead"}
+MODELLI = {PERSONE: "res.partner", AZIENDE: "res.partner", OPPORTUNITA: "crm.lead", EVENTI: "calendar.event"}
 CAMPI = {
     PERSONE: ["name", "email", "phone", "function", "street", "city", "zip", "country_code", "website", "parent_id",
               "commercial_partner_id", "is_company", "write_date"],
@@ -30,7 +30,10 @@ CAMPI = {
               "is_company", "write_date"],
     OPPORTUNITA: ["name", "expected_revenue", "date_deadline", "stage_id", "won_status", "active", "probability", "partner_id",
                   "commercial_partner_id", "user_id", "description", "write_date"],
+    EVENTI: ["name", "start", "stop", "allday", "start_date", "stop_date", "location", "description", "privacy", "user_id", "partner_ids",
+             "write_date"],
 }
+FIRMA_ODOO = re.compile(r"(<br>\s*)*<strong>\s*(Organizzato da|Organized by|Dettagli contatto|Contact details)\s*</strong>.*", re.S | re.I)
 PERSA = {"id": "__persa__", "label": "Persa", "ordine": 10_000, "probabilita": 0.0, "chiusa": True, "vinta": False}
 
 
@@ -98,6 +101,8 @@ class Odoo(Sistema):
     def _filtro(self, tipo):
         if tipo == OPPORTUNITA:
             return [["type", "=", "opportunity"]]
+        if tipo == EVENTI:
+            return []
         if self._esclusi is None:                         # i contatti delle aziende dell'istanza non sono clienti
             self._esclusi = [_id(c["partner_id"]) for c in self._chiama("res.company", "search_read", domain=[], fields=["partner_id"])]
         return [["is_company", "=", tipo == AZIENDE], ["user_ids", "=", False], ["id", "not in", [i for i in self._esclusi if i]]]
@@ -147,6 +152,13 @@ class Odoo(Sistema):
             voci = [v for v in voci if re.sub(r"^[A-Z]{2}", "", str(v.get("vat") or "").replace(" ", "").upper()) == re.sub(r"^[A-Z]{2}", "", valore.upper())]
         return str(voci[0]["id"]) if len(voci) == 1 else (None if not voci else False)
 
+    def utenti_dei_partner(self, partner):
+        """{id del contatto: id dell'utente} per i contatti che sono utenti di Odoo (i partecipanti interni)."""
+        if not partner:
+            return {}
+        return {str(_id(u["partner_id"])): str(u["id"]) for u in self._chiama("res.users", "search_read", domain=[["partner_id", "in", [int(p) for p in partner]]],
+                                                                         fields=["partner_id"])}
+
     # --- scrittura -------------------------------------------------------------------------------------------------------
 
     def crea(self, tipo, dati):
@@ -178,6 +190,8 @@ class Odoo(Sistema):
 
     def in_adabox(self, tipo, r, fasi=None):
         r = {k: (None if v is False else v) for k, v in r.items()}          # in Odoo un campo vuoto vale False
+        if tipo == EVENTI:
+            return _evento(r)
         if tipo == OPPORTUNITA:
             dati = {}
             if str(r.get("name") or "").strip():
@@ -217,3 +231,33 @@ class Odoo(Sistema):
             dati["function"] = obj.ruolo
         return pieni(dati)
 
+
+
+def _testo(html):
+    """Il testo della descrizione, senza il blocco «Organizzato da… Dettagli contatto» che Odoo aggiunge da sé."""
+    from django.utils.html import strip_tags
+    html = FIRMA_ODOO.sub("", html or "")
+    html = re.sub(r"(?i)<br\s*/?>|</p>|</div>|</li>", "\n", html)
+    return re.sub(r"\n{3,}", "\n\n", strip_tags(html).replace("\xa0", " ")).strip()
+
+
+def _evento(r):
+    """Un appuntamento: date in UTC (o giornate intere, ultimo giorno compreso come in adabox), organizzatore e
+    partecipanti come id di Odoo, che il motore traduce in utenti e contatti di adabox."""
+    from django.utils import timezone
+    if r.get("allday") and r.get("start_date"):
+        primo = datetime.date.fromisoformat(r["start_date"])
+        ultimo = datetime.date.fromisoformat(r.get("stop_date") or r["start_date"])
+        inizio = timezone.make_aware(datetime.datetime.combine(primo, datetime.time()))
+        fine = timezone.make_aware(datetime.datetime.combine(max(primo, ultimo), datetime.time()))
+        tutto = True
+    else:
+        inizio = datetime.datetime.fromisoformat(r["start"]).replace(tzinfo=datetime.timezone.utc) if r.get("start") else None
+        fine = datetime.datetime.fromisoformat(r["stop"]).replace(tzinfo=datetime.timezone.utc) if r.get("stop") else inizio
+        tutto = False
+    dati = {"titolo": str(r.get("name") or "(senza titolo)")[:200], "inizio": inizio, "fine": fine or inizio, "tutto_il_giorno": tutto,
+            "luogo": str(r.get("location") or "")[:200], "descrizione": _testo(r.get("description")),
+            "privato": r.get("privacy") in ("private", "confidential"), "partecipanti_esterni": [str(p) for p in r.get("partner_ids") or []]}
+    if _id(r.get("user_id")) is not None:
+        dati["utente_esterno"] = str(_id(r["user_id"]))
+    return dati

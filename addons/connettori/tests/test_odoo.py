@@ -273,3 +273,38 @@ def test_azienda_creata_in_adabox_va_in_odoo_e_resta_visibile(s, django_capture_
 def test_scrive_da_adabox_solo_per_utente():
     f = CollegamentoForm(data={"sistema": OD, "modalita": "prova", "comanda": "esterno", "attivo": "on", "scrive_da_adabox": "on"})
     assert "scrive_da_adabox" in f.errors
+
+
+# --- calendario ------------------------------------------------------------------------------------------------------
+
+def test_gli_appuntamenti_di_odoo_arrivano_nel_calendario(s):
+    import datetime
+
+    from calendario.models import Evento
+    from connettori.sistemi.base import EVENTI
+    from django.utils import timezone
+    CollegamentoEsterno.objects.filter(pk=s["c"].pk).update(calendario=True)
+    finto.scrivi(s["c"], {"name": "Visita da Verdi", "start": "2026-11-20 09:00:00", "stop": "2026-11-20 10:30:00", "location": "Bergamo",
+                          "description": "<div><p>Portare il <b>catalogo</b></p><br><strong>Organizzato da</strong><br>Mario Venditore</div>",
+                          "user_id": 28, "partner_ids": [36, 37, 39]}, "1", EVENTI)
+    finto.scrivi(s["c"], {"name": "Fiera", "allday": True, "start_date": "2026-12-01", "stop_date": "2026-12-02", "start": "2026-12-01 08:00:00",
+                          "stop": "2026-12-02 18:00:00", "user_id": 29, "partner_ids": [37], "privacy": "private"}, "2", EVENTI)
+    assert "appuntamenti: creati 2" in sincronia.giro_account(s["conti"]["mario"].pk)
+    visita, fiera = Evento.objects.get(titolo="Visita da Verdi"), Evento.objects.get(titolo="Fiera")
+    assert visita.inizio == datetime.datetime(2026, 11, 20, 9, 0, tzinfo=datetime.timezone.utc) and visita.luogo == "Bergamo"
+    assert visita.descrizione == "Portare il catalogo" and visita.promemoria == 0                   # il blocco di Odoo tolto
+    assert visita.organizzatore == s["mario"] and list(visita.partecipanti.all()) == [s["lucia"]]
+    assert [c.nome for c in visita.contatti.all()] == ["Anna Verdi"]
+    assert fiera.tutto_il_giorno and fiera.privato and fiera.organizzatore == s["lucia"]
+    assert timezone.localtime(fiera.inizio).date() == datetime.date(2026, 12, 1) and timezone.localtime(fiera.fine).date() == datetime.date(2026, 12, 2)
+    assert "appuntamenti: creati 0, aggiornati 0, uguali 2" in sincronia.giro_account(s["conti"]["mario"].pk)        # rileggere non cambia
+    request = RequestFactory().get("/")
+    request.user, request.azienda = s["capo"], s["azienda"]
+    assert not registry.per_modello(Evento).get_queryset(request).exists()                         # senza account non li vede
+    request.user = s["mario"]
+    assert registry.per_modello(Evento).get_queryset(request).filter(titolo="Visita da Verdi").exists()
+
+
+def test_il_calendario_solo_da_odoo():
+    f = CollegamentoForm(data={"sistema": "hubspot", "modalita": "prova", "comanda": "esterno", "attivo": "on", "calendario": "on"})
+    assert "calendario" in f.errors

@@ -11,7 +11,7 @@ import re
 import httpx2 as httpx
 
 from ..models import RecordProva
-from .base import AZIENDE, OPPORTUNITA, PERSONE
+from .base import AZIENDE, EVENTI, OPPORTUNITA, PERSONE
 from .prova import scrivi
 
 URL, DATABASE = "https://prova.odoo.example", "prova"
@@ -58,6 +58,15 @@ def _lead(r):
             "description": p.get("description") or False, "write_date": _quando(r.modificato_ms)}
 
 
+def _evento(r):
+    p = dict(r.proprieta)
+    return {"id": int(r.id_esterno), "name": p.get("name"), "start": p.get("start") or False, "stop": p.get("stop") or False,
+            "allday": bool(p.get("allday")), "start_date": p.get("start_date") or False, "stop_date": p.get("stop_date") or False,
+            "location": p.get("location") or False, "description": p.get("description") or False, "privacy": p.get("privacy") or False,
+            "user_id": [p["user_id"], UTENTI.get(p["user_id"], ("?",))[0]] if p.get("user_id") else False,
+            "partner_ids": list(p.get("partner_ids") or []), "write_date": _quando(r.modificato_ms)}
+
+
 def _vale(record, condizione):
     campo, op, valore = condizione
     attuale = record.get(campo)
@@ -86,6 +95,8 @@ def _tutti(collegamento, modello, uid, contesto):
         voci += [{"id": PARTNER_AZIENDA, "name": "Azienda dell'istanza", "is_company": True, "user_ids": [], "write_date": "2000-01-01 00:00:00"}]
         voci += [{"id": p, "name": UTENTI[u][0], "is_company": False, "user_ids": [u], "write_date": "2000-01-01 00:00:00"} for u, p in PARTNER_UTENTI.items()]
         return voci
+    if modello == "calendar.event":                    # in Odoo il calendario è visibile a tutti gli utenti interni
+        return [_evento(r) for r in qs.filter(tipo=EVENTI)]
     voci = [_lead(r) for r in qs.filter(tipo=OPPORTUNITA)]
     if UTENTI[uid][1] == "suoi":                       # la regola di Odoo «solo i propri documenti»
         voci = [v for v in voci if v["user_id"] and v["user_id"][0] == uid]
@@ -122,15 +133,20 @@ def trasporto(collegamento):
             return httpx.Response(200, json={"lang": "it_IT", "tz": False, "uid": uid})
         if modello == "res.company" and metodo == "search_read":
             return httpx.Response(200, json=[{"id": 1, "partner_id": [PARTNER_AZIENDA, "Azienda dell'istanza"]}])
+        if modello == "res.users" and metodo == "search_read":       # gli utenti dei contatti (partecipanti interni)
+            cercati = next((c[2] for c in corpo.get("domain") or [] if c[0] == "partner_id"), [])
+            return httpx.Response(200, json=[{"id": u, "partner_id": [p, UTENTI[u][0]]} for u, p in PARTNER_UTENTI.items() if p in cercati])
         if modello == "crm.stage" and metodo == "search_read":
             return httpx.Response(200, json=[{"id": i, "name": n, "sequence": s, "is_won": v} for i, n, s, v in FASI])
-        if modello not in ("res.partner", "crm.lead"):
+        if modello not in ("res.partner", "crm.lead", "calendar.event"):
             return _errore(404, "werkzeug.exceptions.NotFound", f"modello {modello}")
         if metodo == "fields_get":
-            campi = ["name", "email", "phone", "function", "street", "city", "zip", "country_code", "website", "parent_id", "commercial_partner_id",
-                     "is_company", "vat", "l10n_it_codice_fiscale", "user_ids", "write_date"] if modello == "res.partner" else \
-                    ["name", "expected_revenue", "date_deadline", "stage_id", "won_status", "active", "probability", "partner_id",
-                     "commercial_partner_id", "user_id", "description", "write_date", "type"]
+            campi = {"res.partner": ["name", "email", "phone", "function", "street", "city", "zip", "country_code", "website", "parent_id",
+                                     "commercial_partner_id", "is_company", "vat", "l10n_it_codice_fiscale", "user_ids", "write_date"],
+                     "crm.lead": ["name", "expected_revenue", "date_deadline", "stage_id", "won_status", "active", "probability", "partner_id",
+                                  "commercial_partner_id", "user_id", "description", "write_date", "type"],
+                     "calendar.event": ["name", "start", "stop", "allday", "start_date", "stop_date", "location", "description", "privacy",
+                                        "user_id", "partner_ids", "write_date"]}[modello]
             return httpx.Response(200, json={c: {"type": "char"} for c in campi})
         try:
             if metodo == "search_read":

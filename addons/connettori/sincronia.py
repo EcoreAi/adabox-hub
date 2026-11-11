@@ -21,7 +21,7 @@ from core import lavori, sequenze
 
 from . import eventi, riferimenti, sistemi
 from .models import AccountEsterno, CollegamentoEsterno, RiferimentoEsterno, VisibilitaEsterna
-from .sistemi.base import AZIENDE, OPPORTUNITA, PERSONE, ErroreConnettore, ErroreTemporaneo, dominio
+from .sistemi.base import AZIENDE, EVENTI, OPPORTUNITA, PERSONE, ErroreConnettore, ErroreTemporaneo, dominio
 
 CONTATTI = PERSONE
 
@@ -31,7 +31,7 @@ MASSIMO_PAGINE = 50                           # il resto al prossimo giro: il cu
 LUNGHEZZE = {"nome": 200, "ruolo": 100, "indirizzo": 200, "citta": 100, "cap": 10, "telefono": 40, "cellulare": 40, "sito": 200,
              "email": 254, "nazione": 2, "partita_iva": 28, "codice_fiscale": 16}
 NOMI = {CONTATTI: ("persone", "create", "aggiornate"), AZIENDE: ("aziende", "create", "aggiornate"),
-        OPPORTUNITA: ("opportunità", "create", "aggiornate")}
+        OPPORTUNITA: ("opportunità", "create", "aggiornate"), EVENTI: ("appuntamenti", "creati", "aggiornati")}
 # campi che cambiano da soli (calcoli periodici): un salvataggio che tocca solo questi non riparte verso l'esterno
 SOLO_CALCOLATI = {"classe_abc", "fatturato_12_mesi", "vies_valido", "vies_il", "punteggio", "punteggio_fattori", "punteggio_il"}
 
@@ -241,6 +241,49 @@ def _applica_opportunita(collegamento, sistema, record, fasi, aziende_associate=
     return esito
 
 
+def _silenzio_calendario():
+    """Ciò che arriva dal sistema esterno non riparte nemmeno verso Google o Microsoft (modulo Posta e calendario)."""
+    import contextlib
+    if apps.is_installed("posta"):
+        from posta import agenda
+        return agenda.senza_eventi()
+    return contextlib.nullcontext()
+
+
+def _applica_evento(collegamento, sistema, record, utenti_dei_partner):
+    """Un appuntamento esterno su un evento del calendario: organizzatore e partecipanti interni dagli account
+    collegati, i clienti invitati dai contatti già collegati; senza promemoria né inviti."""
+    from calendario.models import Evento
+    from contatti.models import Contatto
+    dati = sistema.in_adabox(EVENTI, record)
+    if dati.get("inizio") is None:
+        return "dubbio"
+    utenti = utenti_esterni(collegamento)
+    partecipanti = dati.pop("partecipanti_esterni", [])
+    organizzatore = utenti.get(dati.pop("utente_esterno", None))
+    interni = [u for u in (utenti.get(utenti_dei_partner.get(p)) for p in partecipanti) if u is not None and u != organizzatore]
+    contatti = [c for c in (riferimenti.trova(Contatto, collegamento.azienda, collegamento.sistema, p)
+                            or riferimenti.trova(Contatto, collegamento.azienda, collegamento.sistema, chiave_azienda(p))
+                            for p in partecipanti if p not in utenti_dei_partner) if c is not None]
+    evento = riferimenti.trova(Evento, collegamento.azienda, collegamento.sistema, record["id"])
+    if organizzatore is not None:
+        dati["organizzatore"] = organizzatore
+    with _silenzio_calendario():
+        if evento is None:
+            evento = Evento.objects.create(azienda=collegamento.azienda, promemoria=0, **dati)
+            esito = "creato"
+        else:
+            esito = "aggiornato" if _aggiorna(evento, dati) else "uguale"
+        if set(evento.partecipanti.values_list("pk", flat=True)) != {u.pk for u in interni}:
+            evento.partecipanti.set(interni)
+            esito = "aggiornato" if esito == "uguale" else esito
+        if contatti and not {c.pk for c in contatti} <= set(evento.contatti.values_list("pk", flat=True)):
+            evento.contatti.add(*contatti)
+            esito = "aggiornato" if esito == "uguale" else esito
+    riferimenti.collega(evento, collegamento.sistema, record["id"])
+    return esito
+
+
 def _cursore(collegamento, tipo, account=None):
     """Fin dove si è letto: per il collegamento o, con una chiave per utente, per l'account (ognuno vede altro)."""
     if account is not None:
@@ -285,9 +328,13 @@ def _importa_tipo(collegamento, sistema, tipo, fasi=None, account=None):
         record, dopo = sistema.modificati(tipo, da, dopo)
         verso_aziende = sistema.associazioni(tipo, AZIENDE, record) if collegamento.aziende and tipo in (CONTATTI, OPPORTUNITA) and record else {}
         verso_persone = sistema.associazioni(tipo, CONTATTI, record) if tipo == OPPORTUNITA and record else {}
+        utenti_dei_partner = (sistema.utenti_dei_partner({p for r in record for p in (r.get("partner_ids") or [])})
+                              if tipo == EVENTI and record else {})
         with eventi.senza_eventi(), transaction.atomic():
             for r in record:
-                if tipo == AZIENDE:
+                if tipo == EVENTI:
+                    esito = _applica_evento(collegamento, sistema, r, utenti_dei_partner)
+                elif tipo == AZIENDE:
                     esito = _applica_azienda(collegamento, sistema, r)
                 elif tipo == OPPORTUNITA:
                     esito = _applica_opportunita(collegamento, sistema, r, fasi or [], verso_aziende.get(str(r["id"])), verso_persone.get(str(r["id"])))
@@ -304,8 +351,11 @@ def _importa_tipo(collegamento, sistema, tipo, fasi=None, account=None):
 
 
 def tipi_attivi(collegamento):
-    return [t for t, attivo in ((AZIENDE, collegamento.aziende), (CONTATTI, True), (OPPORTUNITA, collegamento.opportunita and crm_attivo()))
-            if attivo]
+    """Le aziende prima, poi le persone, le opportunità e gli appuntamenti (per ora solo da Odoo): così ognuno trova i
+    suoi collegati."""
+    eventi_attivi = collegamento.calendario and collegamento.sistema == CollegamentoEsterno.ODOO and apps.is_installed("calendario")
+    return [t for t, attivo in ((AZIENDE, collegamento.aziende), (CONTATTI, True), (OPPORTUNITA, collegamento.opportunita and crm_attivo()),
+                                (EVENTI, eventi_attivi)) if attivo]
 
 
 def importa(collegamento, sistema=None, account=None):
@@ -320,6 +370,8 @@ def importa(collegamento, sistema=None, account=None):
 
 def _modello_di(tipo):
     from django.apps import apps as registro
+    if tipo == EVENTI:
+        return registro.get_model("calendario", "Evento")
     return registro.get_model("crm", "Opportunita") if tipo == OPPORTUNITA else registro.get_model("contatti", "Contatto")
 
 
@@ -353,7 +405,7 @@ def riassunto(conti):
     testo = f"Creati {p['creato']}, aggiornati {p['aggiornato']}, uguali {p['uguale']}"
     if p["dubbio"]:
         testo += f", saltati {p['dubbio']} (senza nome o con più contatti per la stessa email)"
-    for tipo in (AZIENDE, OPPORTUNITA):
+    for tipo in (AZIENDE, OPPORTUNITA, EVENTI):
         c = conti.get(tipo)
         if not c or not any(c.values()):
             continue

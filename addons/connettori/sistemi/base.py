@@ -7,7 +7,8 @@ import datetime
 from urllib.parse import urlsplit
 
 PERSONE, AZIENDE, OPPORTUNITA = "contacts", "companies", "deals"      # i nomi di HubSpot, il primo sistema: restano le chiavi
-TIPI = (PERSONE, AZIENDE, OPPORTUNITA)
+EVENTI = "events"                                                     # appuntamenti del calendario (per ora da Odoo)
+TIPI = (PERSONE, AZIENDE, OPPORTUNITA, EVENTI)
 
 
 class ErroreConnettore(RuntimeError):

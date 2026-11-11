@@ -88,3 +88,18 @@ def test_con_un_odoo_vero_la_scrittura_usa_i_permessi_di_chi_salva(monkeypatch, 
         sua.save()
     assert "[adabox-test] tentativo di Mario" not in nome_in_odoo()
     assert Messaggio.objects.filter(object_id=sua.pk, tipo=Messaggio.SISTEMA, corpo__contains="Non scritto in Odoo").exists()
+
+
+def test_con_un_odoo_vero_arrivano_gli_appuntamenti(monkeypatch):
+    from calendario.models import Evento
+    test_con_un_odoo_vero_ognuno_vede_il_suo(monkeypatch)
+    c = CollegamentoEsterno.objects.get()
+    CollegamentoEsterno.objects.filter(pk=c.pk).update(calendario=True)
+    mario = User.objects.get(username="mario")
+    esito = sincronia.giro_account(AccountEsterno.objects.get(utente=mario).pk)
+    assert "appuntamenti: creati" in esito, esito
+    visita = Evento.objects.get(titolo="[adabox-test] Visita da Verdi")
+    assert visita.organizzatore == mario and visita.luogo == "Bergamo" and visita.descrizione == "Portare il catalogo"
+    assert [x.nome for x in visita.contatti.all()] == ["[adabox-test] Anna Verdi"]
+    fiera = Evento.objects.get(titolo="[adabox-test] Fiera")
+    assert fiera.tutto_il_giorno
