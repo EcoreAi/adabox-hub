@@ -153,6 +153,8 @@ class CollegamentoEsterno(AziendaMixin):
     accesso_scade = models.DateTimeField(null=True, blank=True, editable=False)
     aziende = models.BooleanField("anche le aziende", default=True,
                                   help_text="le aziende (companies) con le persone che ci lavorano")
+    ordini = models.BooleanField("anche gli ordini di vendita", default=False,
+                                 help_text="gli ordini (Odoo) con righe e prodotti, in sola lettura: consegne e fatture restano a Odoo")
     calendario = models.BooleanField("anche il calendario", default=False,
                                      help_text="gli appuntamenti (Odoo): organizzatore e partecipanti che hanno collegato il loro account, "
                                                "i clienti invitati; niente inviti dal calendario di adabox")

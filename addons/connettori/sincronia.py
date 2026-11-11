@@ -21,7 +21,7 @@ from core import lavori, sequenze
 
 from . import eventi, riferimenti, sistemi
 from .models import AccountEsterno, CollegamentoEsterno, RiferimentoEsterno, VisibilitaEsterna
-from .sistemi.base import AZIENDE, EVENTI, OPPORTUNITA, PERSONE, ErroreConnettore, ErroreTemporaneo, dominio
+from .sistemi.base import AZIENDE, EVENTI, OPPORTUNITA, ORDINI, PERSONE, ErroreConnettore, ErroreTemporaneo, dominio
 
 CONTATTI = PERSONE
 
@@ -31,7 +31,8 @@ MASSIMO_PAGINE = 50                           # il resto al prossimo giro: il cu
 LUNGHEZZE = {"nome": 200, "ruolo": 100, "indirizzo": 200, "citta": 100, "cap": 10, "telefono": 40, "cellulare": 40, "sito": 200,
              "email": 254, "nazione": 2, "partita_iva": 28, "codice_fiscale": 16}
 NOMI = {CONTATTI: ("persone", "create", "aggiornate"), AZIENDE: ("aziende", "create", "aggiornate"),
-        OPPORTUNITA: ("opportunità", "create", "aggiornate"), EVENTI: ("appuntamenti", "creati", "aggiornati")}
+        OPPORTUNITA: ("opportunità", "create", "aggiornate"), EVENTI: ("appuntamenti", "creati", "aggiornati"),
+        ORDINI: ("ordini di vendita", "creati", "aggiornati")}
 # campi che cambiano da soli (calcoli periodici): un salvataggio che tocca solo questi non riparte verso l'esterno
 SOLO_CALCOLATI = {"classe_abc", "fatturato_12_mesi", "vies_valido", "vies_il", "punteggio", "punteggio_fattori", "punteggio_il"}
 
@@ -284,6 +285,113 @@ def _applica_evento(collegamento, sistema, record, utenti_dei_partner):
     return esito
 
 
+def _aliquota(tassa):
+    """L'aliquota IVA di adabox per una tassa esterna: per percentuale; allo 0% per natura IVA (N1…N7)."""
+    from decimal import Decimal
+
+    from fiscale.models import AliquotaIva
+    if tassa is None:
+        return None
+    percentuale = Decimal(str(tassa.get("amount") or 0)).quantize(Decimal("0.01"))
+    voci = AliquotaIva.objects.filter(percentuale=percentuale, attiva=True)
+    if percentuale == 0:
+        natura = str(tassa.get("l10n_it_exempt_reason") or "")
+        return (voci.filter(natura=natura).first() or voci.filter(codice=natura).first()) if natura else voci.order_by("codice").first()
+    return voci.filter(natura="").order_by("codice").first() or voci.first()
+
+
+def _prodotto(collegamento, dati, aliquota):
+    """Il prodotto di adabox per un prodotto esterno: dal collegamento, poi dal codice, poi dal codice a barre; se non
+    c'è si crea (scelta del 2026-11-11), con codice, nome, prezzo, tipo e aliquota."""
+    from decimal import Decimal
+
+    from prodotti.models import Prodotto
+    azienda = collegamento.azienda
+    prodotto = riferimenti.trova(Prodotto, azienda, collegamento.sistema, dati["id"])
+    for campo, valore in (("codice", dati.get("default_code")), ("codice_barre", dati.get("barcode"))):
+        if prodotto is None and valore:
+            stessi = list(Prodotto.objects.filter(azienda=azienda, **{campo: str(valore)[:40]})[:2])
+            prodotto = stessi[0] if len(stessi) == 1 else None
+    if prodotto is None:
+        from prodotti.models import aliquota_predefinita, unita_predefinita
+        if (aliquota is None and aliquota_predefinita() is None) or unita_predefinita() is None:
+            return None                                 # anagrafica dei prodotti non pronta (aliquote, unità): la riga resta descrittiva
+        campi = {"azienda": azienda, "codice": str(dati.get("default_code") or "")[:40], "nome": str(dati.get("name") or "Prodotto")[:200],
+                 "tipo": Prodotto.SERVIZIO if dati.get("type") == "service" else Prodotto.BENE,
+                 "prezzo_vendita": Decimal(str(dati.get("list_price") or 0)), "codice_barre": str(dati.get("barcode") or "")[:40]}
+        if aliquota is not None:
+            campi["aliquota_iva"] = aliquota
+        prodotto = Prodotto.objects.create(**campi)
+    riferimenti.collega(prodotto, collegamento.sistema, dati["id"])
+    return prodotto
+
+
+def _applica_ordine(collegamento, sistema, record, righe, prodotti, tasse):
+    """Un ordine di vendita esterno, in sola lettura (core.esterni): testata con il numero di Odoo, cliente (l'azienda
+    del contatto), commerciale e opportunità dai collegati; righe ricreate a ogni modifica; totali ricalcolati.
+    Non manda il segnale di conferma: consegne e fatture restano al sistema esterno."""
+    from decimal import Decimal
+
+    from contatti.models import Contatto
+    from vendite.models import OrdineVendita, RigaVendita
+
+    from .sistemi.odoo import aliquota_iva
+    dati = sistema.in_adabox(ORDINI, record)
+    azienda = collegamento.azienda
+    partner = dati.pop("partner_esterno", "")
+    contatto = (riferimenti.trova(Contatto, azienda, collegamento.sistema, partner)
+                or riferimenti.trova(Contatto, azienda, collegamento.sistema, chiave_azienda(partner))) if partner else None
+    if contatto is None or not dati.get("numero"):
+        return "dubbio"
+    dati["cliente"] = contatto.societa if contatto.tipo == Contatto.PERSONA and contatto.societa_id else contatto
+    if (utente := utenti_esterni(collegamento).get(dati.pop("utente_esterno", None))) is not None:
+        dati["commerciale"] = utente
+    if (id_opp := dati.pop("opportunita_esterna", None)) and crm_attivo():
+        from crm.models import Opportunita
+        if (opp := riferimenti.trova(Opportunita, azienda, collegamento.sistema, id_opp)) is not None:
+            dati["opportunita_id"] = opp.pk
+    dati["numero_ordine"] = dati["numero"] if dati["stato"] == OrdineVendita.CONFERMATO else ""
+    dati = {k: v for k, v in dati.items() if v is not None}
+    ordine = riferimenti.trova(OrdineVendita, azienda, collegamento.sistema, record["id"])
+    nuove = []
+    for r in righe:
+        if r.get("display_type"):                      # sezioni e note: righe descrittive
+            nuove.append({"descrizione": str(r.get("name") or "")[:250], "quantita": Decimal(0), "prezzo": Decimal(0)})
+            continue
+        aliquota = _aliquota(aliquota_iva([tasse[str(t)] for t in r.get("tax_ids") or [] if str(t) in tasse]))
+        dati_prodotto = prodotti.get(str(_id_lista(r.get("product_id")))) if r.get("product_id") else None
+        prodotto = _prodotto(collegamento, dati_prodotto, aliquota) if dati_prodotto else None
+        nuove.append({"prodotto": prodotto, "descrizione": str(r.get("name") or "")[:250], "quantita": Decimal(str(r.get("product_uom_qty") or 0)),
+                      "prezzo": Decimal(str(r.get("price_unit") or 0)), "sconto": Decimal(str(r.get("discount") or 0)), "aliquota": aliquota})
+    impronta_righe = [(n.get("prodotto").pk if n.get("prodotto") else None, n["descrizione"], n["quantita"], n["prezzo"], n.get("sconto", 0),
+                       n.get("aliquota").pk if n.get("aliquota") else None) for n in nuove]
+    esito = "uguale"
+    if ordine is None:
+        ordine = OrdineVendita.objects.create(azienda=azienda, **dati)
+        esito = "creato"
+    elif _aggiorna(ordine, dati):
+        esito = "aggiornato"
+    attuali = [(r.prodotto_id, r.descrizione, r.quantita, r.prezzo, r.sconto, r.aliquota_id) for r in ordine.righe.order_by("pk")]
+
+    def uguali(riga):                                  # 2.000 e 2 sono la stessa quantità
+        valori = [v.normalize() if isinstance(v, Decimal) else v for v in riga]
+        if valori[0] is None and not valori[3]:         # riga descrittiva: adabox ci mette l'aliquota predefinita, non conta
+            valori[5] = None
+        return tuple(valori)
+    if [uguali(x) for x in attuali] != [uguali(x) for x in impronta_righe]:
+        ordine.righe.all().delete()
+        for n in nuove:
+            RigaVendita.objects.create(ordine=ordine, **n)
+        ordine.ricalcola()
+        esito = "aggiornato" if esito == "uguale" else esito
+    riferimenti.collega(ordine, collegamento.sistema, record["id"])
+    return esito
+
+
+def _id_lista(valore):
+    return valore[0] if isinstance(valore, (list, tuple)) and valore else valore
+
+
 def _cursore(collegamento, tipo, account=None):
     """Fin dove si è letto: per il collegamento o, con una chiave per utente, per l'account (ognuno vede altro)."""
     if account is not None:
@@ -330,10 +438,16 @@ def _importa_tipo(collegamento, sistema, tipo, fasi=None, account=None):
         verso_persone = sistema.associazioni(tipo, CONTATTI, record) if tipo == OPPORTUNITA and record else {}
         utenti_dei_partner = (sistema.utenti_dei_partner({p for r in record for p in (r.get("partner_ids") or [])})
                               if tipo == EVENTI and record else {})
+        righe = sistema.righe_ordini([r["id"] for r in record]) if tipo == ORDINI and record else {}
+        prodotti = sistema.prodotti({_id_lista(x["product_id"]) for rr in righe.values() for x in rr if x.get("product_id")}) if righe else {}
+        tasse = sistema.tasse({t for rr in righe.values() for x in rr for t in (x.get("tax_ids") or [])} |
+                              {t for p in prodotti.values() for t in (p.get("taxes_id") or [])}) if righe else {}
         with eventi.senza_eventi(), transaction.atomic():
             for r in record:
                 if tipo == EVENTI:
                     esito = _applica_evento(collegamento, sistema, r, utenti_dei_partner)
+                elif tipo == ORDINI:
+                    esito = _applica_ordine(collegamento, sistema, r, righe.get(str(r["id"]), []), prodotti, tasse)
                 elif tipo == AZIENDE:
                     esito = _applica_azienda(collegamento, sistema, r)
                 elif tipo == OPPORTUNITA:
@@ -353,9 +467,11 @@ def _importa_tipo(collegamento, sistema, tipo, fasi=None, account=None):
 def tipi_attivi(collegamento):
     """Le aziende prima, poi le persone, le opportunità e gli appuntamenti (per ora solo da Odoo): così ognuno trova i
     suoi collegati."""
-    eventi_attivi = collegamento.calendario and collegamento.sistema == CollegamentoEsterno.ODOO and apps.is_installed("calendario")
+    odoo = collegamento.sistema == CollegamentoEsterno.ODOO
+    eventi_attivi = collegamento.calendario and odoo and apps.is_installed("calendario")
+    ordini_attivi = collegamento.ordini and odoo and apps.is_installed("vendite")
     return [t for t, attivo in ((AZIENDE, collegamento.aziende), (CONTATTI, True), (OPPORTUNITA, collegamento.opportunita and crm_attivo()),
-                                (EVENTI, eventi_attivi)) if attivo]
+                                (ORDINI, ordini_attivi), (EVENTI, eventi_attivi)) if attivo]
 
 
 def importa(collegamento, sistema=None, account=None):
@@ -372,6 +488,8 @@ def _modello_di(tipo):
     from django.apps import apps as registro
     if tipo == EVENTI:
         return registro.get_model("calendario", "Evento")
+    if tipo == ORDINI:
+        return registro.get_model("vendite", "OrdineVendita")
     return registro.get_model("crm", "Opportunita") if tipo == OPPORTUNITA else registro.get_model("contatti", "Contatto")
 
 
@@ -405,7 +523,7 @@ def riassunto(conti):
     testo = f"Creati {p['creato']}, aggiornati {p['aggiornato']}, uguali {p['uguale']}"
     if p["dubbio"]:
         testo += f", saltati {p['dubbio']} (senza nome o con più contatti per la stessa email)"
-    for tipo in (AZIENDE, OPPORTUNITA, EVENTI):
+    for tipo in (AZIENDE, OPPORTUNITA, ORDINI, EVENTI):
         c = conti.get(tipo)
         if not c or not any(c.values()):
             continue

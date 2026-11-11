@@ -34,7 +34,7 @@ Da controllare alla prima prova: se il picklist Stage dei Deals porta la probabi
 ## Odoo (modulo Connettori)
 
 Odoo 19 (API JSON-2). Su Odoo Online l'API esterna c'è solo con il piano Custom; su Odoo.sh e installato in casa
-sempre. Helpdesk è solo nella versione Enterprise (il connettore copre contatti, CRM e calendario).
+sempre. Helpdesk è solo nella versione Enterprise (il connettore copre contatti, CRM, calendario e ordini di vendita).
 
 1. In adabox, Connettori → Collegamenti: sistema Odoo, modalità Vera, **indirizzo** = l'indirizzo https di Odoo, **database**
    = il nome del database (serve se l'indirizzo ne ha più d'uno).
@@ -54,6 +54,12 @@ sempre. Helpdesk è solo nella versione Enterprise (il connettore copre contatti
    interni se hanno collegato il loro account, i clienti invitati dai contatti già collegati, la descrizione senza il
    blocco «Organizzato da» che Odoo aggiunge. Non partono inviti né promemoria da adabox, e non si copiano verso Google o
    Microsoft (modulo Posta e calendario). Per ora in sola lettura.
+6. Con «anche gli ordini di vendita» gli ordini di Odoo arrivano in adabox con il numero di Odoo, stato, cliente,
+   commerciale, opportunità e righe (sezioni e note comprese). I prodotti si cercano per collegamento, codice interno e
+   codice a barre; se mancano si creano. L'aliquota di ogni riga è la tassa IVA tra quelle di Odoo (non INPS, cassa,
+   ritenute); allo 0% conta la natura IVA. In adabox gli ordini di Odoo sono **in sola lettura**: niente bottoni, niente
+   consegne né fatture, che restano a Odoo, così non si fattura due volte allo SDI. I totali si ricalcolano come in
+   adabox (possibili differenze di arrotondamento di un centesimo).
 
 Da controllare alla prima prova: le fasi del CRM (si abbinano per nome, se no per probabilità, che in Odoo non è nella
 fase e si stima dall'ordine); le aziende si agganciano per partita IVA, poi per nome; gli utenti di Odoo e l'azienda

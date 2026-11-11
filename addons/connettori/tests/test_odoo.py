@@ -308,3 +308,100 @@ def test_gli_appuntamenti_di_odoo_arrivano_nel_calendario(s):
 def test_il_calendario_solo_da_odoo():
     f = CollegamentoForm(data={"sistema": "hubspot", "modalita": "prova", "comanda": "esterno", "attivo": "on", "calendario": "on"})
     assert "calendario" in f.errors
+
+
+# --- ordini di vendita -------------------------------------------------------------------------------------------------
+
+@pytest.fixture
+def ordini(s):
+    from connettori.sistemi.base import ORDINI
+    import fiscale
+    from connettori.sistemi.prova_odoo import PRODOTTI, RIGHE
+    import prodotti
+    call_command("loaddata", str(Path(fiscale.__file__).parent / "data" / "iniziali.json"), verbosity=0)      # le aliquote IVA
+    call_command("loaddata", str(Path(prodotti.__file__).parent / "data" / "iniziali.json"), verbosity=0)     # le unità di misura
+    CollegamentoEsterno.objects.filter(pk=s["c"].pk).update(ordini=True)
+    finto.scrivi(s["c"], {"default_code": "VLV-1", "barcode": "8000000000017", "name": "Valvola", "list_price": 120.0, "type": "consu", "taxes_id": [1]}, "8", PRODOTTI)
+    finto.scrivi(s["c"], {"default_code": "INST", "barcode": False, "name": "Installazione", "list_price": 300.0, "type": "service", "taxes_id": [1]}, "9", PRODOTTI)
+    finto.scrivi(s["c"], {"name": "S00001", "state": "sale", "date_order": "2026-11-11 14:54:11", "validity_date": "2026-12-11", "partner_id": 39,
+                          "user_id": 28, "client_order_ref": "ODA 77", "opportunity_id": 1}, "1", ORDINI)
+    finto.scrivi(s["c"], {"name": "S00002", "state": "draft", "date_order": "2026-11-12 09:00:00", "partner_id": 38, "user_id": 29}, "2", ORDINI)
+    righe = [(1, {"order_id": 1, "sequence": 10, "display_type": False, "product_id": 8, "name": "Valvola", "product_uom_qty": 2.0, "price_unit": 120.0,
+                  "discount": 10.0, "tax_ids": [1, 103]}),
+             (2, {"order_id": 1, "sequence": 20, "display_type": "line_section", "product_id": False, "name": "Servizi", "product_uom_qty": 0.0,
+                  "price_unit": 0.0, "discount": 0.0, "tax_ids": []}),
+             (3, {"order_id": 1, "sequence": 30, "display_type": False, "product_id": 9, "name": "Installazione", "product_uom_qty": 1.0, "price_unit": 300.0,
+                  "discount": 0.0, "tax_ids": [9, 95]}),
+             (4, {"order_id": 2, "sequence": 10, "display_type": False, "product_id": 8, "name": "Valvola", "product_uom_qty": 1.0, "price_unit": 120.0,
+                  "discount": 0.0, "tax_ids": [1]})]
+    for i, dati in righe:
+        finto.scrivi(s["c"], dati, str(i), RIGHE)
+    return s
+
+
+def test_gli_ordini_di_odoo_arrivano_con_righe_prodotti_e_aliquote(ordini):
+    from decimal import Decimal
+
+    from fiscale.models import AliquotaIva
+    from prodotti.models import Prodotto
+    from vendite.models import OrdineVendita
+    s = ordini
+    AliquotaIva.objects.get_or_create(codice="N3.1", defaults={"descrizione": "Non imponibile esportazioni", "percentuale": 0, "natura": "N3.1"})
+    gia = Prodotto.objects.create(azienda=s["azienda"], codice="VLV-1", nome="Valvola ottone")         # c'è già: si riusa
+    testo = sincronia.giro_account(s["conti"]["mario"].pk)
+    assert "ordini di vendita: creati 1" in testo, testo
+    o = OrdineVendita.objects.get(numero="S00001")
+    assert o.stato == OrdineVendita.CONFERMATO and o.numero_ordine == "S00001" and o.riferimento_cliente == "ODA 77"
+    assert o.cliente.nome == "Verdi Srl" and o.commerciale == s["mario"] and o.opportunita_id == Opportunita.objects.get(titolo="Impianto (di Mario)").pk
+    righe = list(o.righe.order_by("pk"))
+    assert [r.descrizione for r in righe] == ["Valvola", "Servizi", "Installazione"]
+    assert righe[0].prodotto == gia and righe[0].sconto == Decimal("10") and righe[0].aliquota.codice == "22"        # non l'INPS al 4%
+    assert righe[1].prodotto is None and righe[1].importo == 0
+    assert righe[2].prodotto.codice == "INST" and righe[2].prodotto.tipo == Prodotto.SERVIZIO and righe[2].aliquota.codice == "N3.1"
+    assert o.imponibile == Decimal("516.00") and o.totale == Decimal("563.52")                 # 216 + 300, IVA 22% solo sulla valvola
+    assert "uguali 1" in sincronia.giro_account(s["conti"]["mario"].pk).split("ordini di vendita")[1]
+
+
+def test_un_ordine_di_odoo_non_si_modifica_non_si_fattura_non_si_consegna(client, ordini):
+    from django.core.exceptions import ValidationError
+
+    from core import esterni
+    from fatturazione import operazioni
+    from magazzino import collegamenti
+    from magazzino.models import Consegna
+    from vendite.models import OrdineVendita
+    s = ordini
+    sincronia.giro_account(s["conti"]["mario"].pk)
+    o = OrdineVendita.objects.get(numero="S00001")
+    assert esterni.gestito_da(o) == "Odoo"
+    with pytest.raises(ValidationError, match="Odoo"):
+        operazioni.da_ordine(o)
+    assert collegamenti.consegna_da_ordine(OrdineVendita, o) is None and not Consegna.objects.exists()
+    vista = registry.per_modello(OrdineVendita)
+    request = RequestFactory().get("/")
+    root = User.objects.create_superuser("root", "root@x.it", "x")
+    root.profilo.aziende.set([s["azienda"]])
+    root.profilo.azienda_predefinita = s["azienda"]
+    root.profilo.save()
+    request.user, request.azienda = root, s["azienda"]
+    assert not vista.has_change_permission(request, o) and not vista.has_delete_permission(request, o) and vista.get_buttons(request, o) == []
+    client.force_login(root)
+    pagina = client.get(f"/vendite/ordini/{o.pk}/").content.decode()
+    assert "arriva da Odoo" in pagina
+    propria = OrdineVendita.objects.create(azienda=s["azienda"], cliente=o.cliente)
+    assert esterni.gestito_da(propria) is None and vista.has_change_permission(request, propria)
+
+
+def test_ognuno_vede_i_suoi_ordini_ma_i_prodotti_sono_di_tutti(ordini):
+    from prodotti.models import Prodotto
+    from vendite.models import OrdineVendita
+    s = ordini
+    sincronia.giro_account(s["conti"]["mario"].pk)
+    sincronia.giro_account(s["conti"]["lucia"].pk)
+
+    def numeri(utente, modello=OrdineVendita, campo="numero"):
+        request = RequestFactory().get("/")
+        request.user, request.azienda = utente, s["azienda"]
+        return set(registry.per_modello(modello).get_queryset(request).values_list(campo, flat=True))
+    assert numeri(s["mario"]) == {"S00001"} and numeri(s["lucia"]) == {"S00001", "S00002"}
+    assert {"VLV-1", "INST"} <= numeri(s["capo"], Prodotto, "codice")                          # il catalogo non è filtrato

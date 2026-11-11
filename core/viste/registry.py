@@ -20,8 +20,27 @@ def _con_regole(vista):
         classe = form(request)
         return regole.adatta_form(classe, vista, request) if request is not None else classe
     vista.get_queryset, vista.get_form_class = get_queryset, get_form_class
+    _sola_lettura_se_esterno(vista)
     from core import approvazioni
     approvazioni.avvolgi(vista)               # i bottoni dei documenti passano dalle catene di approvazione
+
+
+def _sola_lettura_se_esterno(vista):
+    """I documenti gestiti da un altro sistema (core.esterni) non si modificano, non si cancellano e non hanno bottoni."""
+    from core import esterni
+    classe = type(vista)
+    modifica, cancella, bottoni = (classe.has_change_permission.__get__(vista), classe.has_delete_permission.__get__(vista),
+                                   classe.get_buttons.__get__(vista))
+
+    def has_change_permission(request, obj=None):
+        return modifica(request, obj) and not (obj is not None and esterni.gestito_da(obj))
+
+    def has_delete_permission(request, obj=None):
+        return cancella(request, obj) and not (obj is not None and esterni.gestito_da(obj))
+
+    def get_buttons(request, obj):
+        return [] if esterni.gestito_da(obj) else bottoni(request, obj)
+    vista.has_change_permission, vista.has_delete_permission, vista.get_buttons = has_change_permission, has_delete_permission, get_buttons
 
 
 def register(cls):

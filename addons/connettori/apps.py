@@ -11,10 +11,12 @@ class ConnettoriConfig(AppConfig):
 
         from core.registry import hooks
 
-        from core import regole
+        from core import esterni, regole
 
         from . import eventi, visibilita
         regole.registra_filtro(visibilita.filtro)            # i dati di Odoo per utente: solo a chi li vede là
+        esterni.registra(visibilita.gestito_da)              # gli ordini di Odoo: sola lettura, consegne e fatture a Odoo
+        hooks.sezione_dettaglio("vendite.OrdineVendita", "connettori/_gestito_fuori.html", order=0)
         post_save.connect(eventi.salvato, dispatch_uid="connettori.salvato")
         post_delete.connect(eventi.eliminato, dispatch_uid="connettori.eliminato")
         hooks.sezione_dettaglio("connettori.Webhook", "connettori/_webhook.html", order=5, permission="connettori.change_webhook")

@@ -103,3 +103,24 @@ def test_con_un_odoo_vero_arrivano_gli_appuntamenti(monkeypatch):
     assert [x.nome for x in visita.contatti.all()] == ["[adabox-test] Anna Verdi"]
     fiera = Evento.objects.get(titolo="[adabox-test] Fiera")
     assert fiera.tutto_il_giorno
+
+
+def test_con_un_odoo_vero_arrivano_gli_ordini_in_sola_lettura(monkeypatch):
+    import fiscale
+    import prodotti
+    from core import esterni
+    from vendite.models import OrdineVendita
+    call_command("loaddata", str(Path(fiscale.__file__).parent / "data" / "iniziali.json"), verbosity=0)
+    call_command("loaddata", str(Path(prodotti.__file__).parent / "data" / "iniziali.json"), verbosity=0)
+    test_con_un_odoo_vero_ognuno_vede_il_suo(monkeypatch)
+    c = CollegamentoEsterno.objects.get()
+    CollegamentoEsterno.objects.filter(pk=c.pk).update(ordini=True)
+    mario = User.objects.get(username="mario")
+    esito = sincronia.giro_account(AccountEsterno.objects.get(utente=mario).pk)
+    assert "ordini di vendita: creati" in esito, esito
+    o = OrdineVendita.objects.get(riferimento_cliente="adabox-test")
+    assert o.numero.startswith("S") and o.cliente.nome == "[adabox-test] Verdi Srl" and o.commerciale == mario
+    righe = list(o.righe.order_by("pk"))
+    assert [r.prodotto.codice if r.prodotto else r.descrizione for r in righe] == ["ADB-TEST-1", "Servizi", "ADB-TEST-2"]
+    assert righe[0].aliquota.codice == "22" and str(o.imponibile) == "516.00"
+    assert esterni.gestito_da(o) == "Odoo"

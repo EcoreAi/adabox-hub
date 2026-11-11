@@ -23,3 +23,9 @@ def dati_collegamento(collegamento):
                "associati": ", ".join(i for ids in r.associazioni.values() for i in ids)}
               for r in collegamento.record_prova.all()[:30] for n, d in [riga(r)]]
     return {"collegati": rif.count() - aziende - opportunita, "aziende": aziende, "opportunita": opportunita, "record": record}
+
+
+@register.simple_tag
+def gestito_da(obj):
+    from core import esterni
+    return esterni.gestito_da(obj)

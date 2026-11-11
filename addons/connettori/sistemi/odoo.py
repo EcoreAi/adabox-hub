@@ -16,13 +16,13 @@ import re
 import httpx2 as httpx
 from django.utils.dateparse import parse_datetime
 
-from .base import (AZIENDE, EVENTI, OPPORTUNITA, PERSONE, ErroreConnettore, ErroreTemporaneo, Sistema, data, dominio, nazione, pieni,
+from .base import (AZIENDE, EVENTI, OPPORTUNITA, ORDINI, PERSONE, ErroreConnettore, ErroreTemporaneo, Sistema, data, dominio, nazione, pieni,
                    pulisci)
 from .hubspot import importo
 
 PER_PAGINA = 200
 TEMPO = 30
-MODELLI = {PERSONE: "res.partner", AZIENDE: "res.partner", OPPORTUNITA: "crm.lead", EVENTI: "calendar.event"}
+MODELLI = {PERSONE: "res.partner", AZIENDE: "res.partner", OPPORTUNITA: "crm.lead", EVENTI: "calendar.event", ORDINI: "sale.order"}
 CAMPI = {
     PERSONE: ["name", "email", "phone", "function", "street", "city", "zip", "country_code", "website", "parent_id",
               "commercial_partner_id", "is_company", "write_date"],
@@ -32,7 +32,11 @@ CAMPI = {
                   "commercial_partner_id", "user_id", "description", "write_date"],
     EVENTI: ["name", "start", "stop", "allday", "start_date", "stop_date", "location", "description", "privacy", "user_id", "partner_ids",
              "write_date"],
+    ORDINI: ["name", "state", "date_order", "validity_date", "partner_id", "user_id", "client_order_ref", "opportunity_id", "amount_total",
+             "write_date"],
 }
+STATI_ORDINE = {"draft": "bozza", "sent": "inviato", "sale": "confermato", "done": "confermato", "cancel": "annullato"}
+NON_IVA = re.compile(r"INPS|PENS|CASSA|ENASARCO|RIT|\bRA\b|BOLLO", re.I)      # contributi e ritenute non sono l'IVA della riga
 FIRMA_ODOO = re.compile(r"(<br>\s*)*<strong>\s*(Organizzato da|Organized by|Dettagli contatto|Contact details)\s*</strong>.*", re.S | re.I)
 PERSA = {"id": "__persa__", "label": "Persa", "ordine": 10_000, "probabilita": 0.0, "chiusa": True, "vinta": False}
 
@@ -101,7 +105,7 @@ class Odoo(Sistema):
     def _filtro(self, tipo):
         if tipo == OPPORTUNITA:
             return [["type", "=", "opportunity"]]
-        if tipo == EVENTI:
+        if tipo in (EVENTI, ORDINI):
             return []
         if self._esclusi is None:                         # i contatti delle aziende dell'istanza non sono clienti
             self._esclusi = [_id(c["partner_id"]) for c in self._chiama("res.company", "search_read", domain=[], fields=["partner_id"])]
@@ -152,6 +156,36 @@ class Odoo(Sistema):
             voci = [v for v in voci if re.sub(r"^[A-Z]{2}", "", str(v.get("vat") or "").replace(" ", "").upper()) == re.sub(r"^[A-Z]{2}", "", valore.upper())]
         return str(voci[0]["id"]) if len(voci) == 1 else (None if not voci else False)
 
+    def righe_ordini(self, ordini):
+        """{id dell'ordine: [righe]} in ordine di sequenza; con sezioni e note (display_type)."""
+        if not ordini:
+            return {}
+        righe = self._chiama("sale.order.line", "search_read", domain=[["order_id", "in", [int(o) for o in ordini]]],
+                             fields=["order_id", "sequence", "display_type", "product_id", "name", "product_uom_qty", "price_unit", "discount", "tax_ids"],
+                             order="order_id, sequence, id")
+        voci = {}
+        for r in righe:
+            voci.setdefault(str(_id(r["order_id"])), []).append({k: (None if v is False else v) for k, v in r.items()})
+        return voci
+
+    def prodotti(self, ids):
+        """{id: prodotto} con codice, codice a barre, nome, prezzo, tipo (consu, service) e tasse."""
+        if not ids:
+            return {}
+        return {str(p["id"]): {k: (None if v is False else v) for k, v in p.items()} for p in self._chiama(
+            "product.product", "search_read", domain=[["id", "in", [int(i) for i in ids]]],
+            fields=["default_code", "barcode", "name", "list_price", "type", "taxes_id"], context={"active_test": False})}
+
+    def tasse(self, ids):
+        """{id: tassa} con percentuale, nome e natura IVA (localizzazione italiana)."""
+        if not ids:
+            return {}
+        if "account.tax" not in self._campi:
+            self._campi["account.tax"] = set(self._chiama("account.tax", "fields_get", attributes=["type"]))
+        campi = [c for c in ("name", "amount", "amount_type", "l10n_it_exempt_reason") if c in self._campi["account.tax"]]
+        return {str(t["id"]): t for t in self._chiama("account.tax", "search_read", domain=[["id", "in", [int(i) for i in ids]]], fields=campi,
+                                                      context={"active_test": False})}
+
     def utenti_dei_partner(self, partner):
         """{id del contatto: id dell'utente} per i contatti che sono utenti di Odoo (i partecipanti interni)."""
         if not partner:
@@ -192,6 +226,8 @@ class Odoo(Sistema):
         r = {k: (None if v is False else v) for k, v in r.items()}          # in Odoo un campo vuoto vale False
         if tipo == EVENTI:
             return _evento(r)
+        if tipo == ORDINI:
+            return _ordine(r)
         if tipo == OPPORTUNITA:
             dati = {}
             if str(r.get("name") or "").strip():
@@ -261,3 +297,24 @@ def _evento(r):
     if _id(r.get("user_id")) is not None:
         dati["utente_esterno"] = str(_id(r["user_id"]))
     return dati
+
+
+def _ordine(r):
+    """Testata dell'ordine: numero e stato di Odoo, data, validità, riferimento del cliente; il cliente, il venditore e
+    l'opportunità come id di Odoo, che il motore traduce."""
+    from django.utils import timezone
+    quando = datetime.datetime.fromisoformat(r["date_order"]).replace(tzinfo=datetime.timezone.utc) if r.get("date_order") else None
+    dati = {"numero": str(r.get("name") or "")[:30], "stato": STATI_ORDINE.get(r.get("state"), "bozza"),
+            "data": timezone.localtime(quando).date() if quando else None, "validita": data(r.get("validity_date")),
+            "riferimento_cliente": str(r.get("client_order_ref") or "")[:100], "partner_esterno": str(_id(r.get("partner_id")) or "")}
+    if _id(r.get("user_id")) is not None:
+        dati["utente_esterno"] = str(_id(r["user_id"]))
+    if _id(r.get("opportunity_id")) is not None:
+        dati["opportunita_esterna"] = str(_id(r["opportunity_id"]))
+    return dati
+
+
+def aliquota_iva(tasse):
+    """Tra le tasse di una riga, quella che è IVA: percentuale, non negativa, non un contributo o una ritenuta."""
+    iva = [t for t in tasse if t.get("amount_type", "percent") == "percent" and (t.get("amount") or 0) >= 0 and not NON_IVA.search(str(t.get("name") or ""))]
+    return iva[0] if iva else None

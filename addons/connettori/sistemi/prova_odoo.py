@@ -11,7 +11,7 @@ import re
 import httpx2 as httpx
 
 from ..models import RecordProva
-from .base import AZIENDE, EVENTI, OPPORTUNITA, PERSONE
+from .base import AZIENDE, EVENTI, OPPORTUNITA, ORDINI, PERSONE
 from .prova import scrivi
 
 URL, DATABASE = "https://prova.odoo.example", "prova"
@@ -19,6 +19,12 @@ UTENTI = {2: ("Amministratore", "tutto"), 28: ("Mario Venditore", "suoi"), 29: (
 PARTNER_UTENTI = {2: 3, 28: 36, 29: 37}          # anche gli utenti sono contatti
 PARTNER_AZIENDA = 1                               # l'azienda dell'istanza
 FASI = [(1, "New", 1, False), (2, "Qualified", 2, False), (3, "Proposition", 3, False), (4, "Won", 70, True)]
+TASSE = [{"id": 1, "name": "22%", "amount": 22.0, "amount_type": "percent", "l10n_it_exempt_reason": False},
+         {"id": 9, "name": "0%", "amount": 0.0, "amount_type": "percent", "l10n_it_exempt_reason": "N3.1"},
+         {"id": 95, "name": "20% RIT PF", "amount": -20.0, "amount_type": "percent", "l10n_it_exempt_reason": False},
+         {"id": 103, "name": "4% INPS", "amount": 4.0, "amount_type": "percent", "l10n_it_exempt_reason": False}]
+PRODOTTI = "prodotti"                              # tipo dei RecordProva dei prodotti
+RIGHE = "righe"                                    # tipo dei RecordProva delle righe d'ordine
 TIPI = {PERSONE: "res.partner", AZIENDE: "res.partner", OPPORTUNITA: "crm.lead"}
 
 
@@ -67,11 +73,21 @@ def _evento(r):
             "partner_ids": list(p.get("partner_ids") or []), "write_date": _quando(r.modificato_ms)}
 
 
+def _ordine(r):
+    p = dict(r.proprieta)
+    return {"id": int(r.id_esterno), "name": p.get("name"), "state": p.get("state", "draft"), "date_order": p.get("date_order") or False,
+            "validity_date": p.get("validity_date") or False, "partner_id": [p["partner_id"], "?"] if p.get("partner_id") else False,
+            "user_id": [p["user_id"], UTENTI.get(p["user_id"], ("?",))[0]] if p.get("user_id") else False,
+            "client_order_ref": p.get("client_order_ref") or False, "opportunity_id": [p["opportunity_id"], "?"] if p.get("opportunity_id") else False,
+            "amount_total": p.get("amount_total", 0.0), "write_date": _quando(r.modificato_ms)}
+
+
 def _vale(record, condizione):
     campo, op, valore = condizione
     attuale = record.get(campo)
-    if isinstance(attuale, list) and attuale and not isinstance(valore, list) and campo not in ("user_ids",):
-        attuale = attuale[0]
+    if isinstance(attuale, list) and attuale and campo not in ("user_ids", "partner_ids", "tax_ids", "taxes_id") \
+            and (not isinstance(valore, list) or op in ("in", "not in")):
+        attuale = attuale[0]                           # un many2one [id, nome] si confronta per id
     if op == "=":
         return (attuale or False) == valore if valore is False else attuale == valore
     if op == "!=":
@@ -97,6 +113,16 @@ def _tutti(collegamento, modello, uid, contesto):
         return voci
     if modello == "calendar.event":                    # in Odoo il calendario è visibile a tutti gli utenti interni
         return [_evento(r) for r in qs.filter(tipo=EVENTI)]
+    if modello == "sale.order":
+        voci = [_ordine(r) for r in qs.filter(tipo=ORDINI)]
+        return [v for v in voci if v["user_id"] and v["user_id"][0] == uid] if UTENTI[uid][1] == "suoi" else voci
+    if modello == "sale.order.line":
+        return [{**r.proprieta, "id": int(r.id_esterno), "order_id": [r.proprieta["order_id"], "?"],
+                 "product_id": [r.proprieta["product_id"], "?"] if r.proprieta.get("product_id") else False} for r in qs.filter(tipo=RIGHE)]
+    if modello == "product.product":
+        return [{**r.proprieta, "id": int(r.id_esterno)} for r in qs.filter(tipo=PRODOTTI)]
+    if modello == "account.tax":
+        return list(TASSE)
     voci = [_lead(r) for r in qs.filter(tipo=OPPORTUNITA)]
     if UTENTI[uid][1] == "suoi":                       # la regola di Odoo «solo i propri documenti»
         voci = [v for v in voci if v["user_id"] and v["user_id"][0] == uid]
@@ -138,7 +164,7 @@ def trasporto(collegamento):
             return httpx.Response(200, json=[{"id": u, "partner_id": [p, UTENTI[u][0]]} for u, p in PARTNER_UTENTI.items() if p in cercati])
         if modello == "crm.stage" and metodo == "search_read":
             return httpx.Response(200, json=[{"id": i, "name": n, "sequence": s, "is_won": v} for i, n, s, v in FASI])
-        if modello not in ("res.partner", "crm.lead", "calendar.event"):
+        if modello not in ("res.partner", "crm.lead", "calendar.event", "sale.order", "sale.order.line", "product.product", "account.tax"):
             return _errore(404, "werkzeug.exceptions.NotFound", f"modello {modello}")
         if metodo == "fields_get":
             campi = {"res.partner": ["name", "email", "phone", "function", "street", "city", "zip", "country_code", "website", "parent_id",
@@ -146,7 +172,10 @@ def trasporto(collegamento):
                      "crm.lead": ["name", "expected_revenue", "date_deadline", "stage_id", "won_status", "active", "probability", "partner_id",
                                   "commercial_partner_id", "user_id", "description", "write_date", "type"],
                      "calendar.event": ["name", "start", "stop", "allday", "start_date", "stop_date", "location", "description", "privacy",
-                                        "user_id", "partner_ids", "write_date"]}[modello]
+                                        "user_id", "partner_ids", "write_date"],
+                     "sale.order": ["name", "state", "date_order", "validity_date", "partner_id", "user_id", "client_order_ref",
+                                    "opportunity_id", "amount_total", "write_date"],
+                     "account.tax": ["name", "amount", "amount_type", "l10n_it_exempt_reason"]}.get(modello, [])
             return httpx.Response(200, json={c: {"type": "char"} for c in campi})
         try:
             if metodo == "search_read":

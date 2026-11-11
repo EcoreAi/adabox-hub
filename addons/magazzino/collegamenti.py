@@ -10,6 +10,9 @@ from .models import Consegna, Magazzino, Ricevimento, RigaConsegna, RigaRicevime
 
 def consegna_da_ordine(sender, ordine, utente=None, **kwargs):
     """Una consegna da spedire con i beni dell'ordine di vendita (i servizi non si consegnano)."""
+    from core import esterni
+    if esterni.gestito_da(ordine):                    # l'ordine arriva da un altro sistema: lì si spedisce
+        return None
     righe = [r for r in ordine.righe.select_related("prodotto") if r.prodotto_id and r.prodotto.tipo == "bene"
              and not getattr(r, "diretta", False)]          # le righe in triangolazione le spedisce il fornitore
     if not righe:
