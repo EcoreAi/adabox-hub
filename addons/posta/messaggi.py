@@ -6,6 +6,7 @@ sua opportunità aperta. Le email senza contatti non si scaricano e non lasciano
 messaggio già avvenuto: non riparte per email ai follower. Il Message-ID resta sul messaggio, così una risposta che
 torna dalla casella di sistema si abbina allo stesso record."""
 import datetime
+import re
 from email import message_from_bytes, policy
 from email.utils import parseaddr, parsedate_to_datetime
 
@@ -45,6 +46,25 @@ def opportunita_aperta(contatti):
     return aperte[0] if len(aperte) == 1 else None
 
 
+def gia_nel_chatter(message_id):
+    """Partito dal chatter (anche dalla casella dell'autore) e quindi già nello storico: torna dagli inviati, non si
+    riscrive. Quelli scritti qui dalla sincronizzazione hanno una riga EmailSincronizzata."""
+    return (Messaggio.objects.filter(message_id=message_id).exists()
+            and not EmailSincronizzata.objects.filter(message_id=message_id).exists())
+
+
+def record_della_risposta(msg, azienda):
+    """Il record del messaggio del chatter a cui l'email risponde (In-Reply-To e References), nella stessa azienda."""
+    citati = re.findall(r"<[^>]+>", f"{msg.get('In-Reply-To', '')} {msg.get('References', '')}")
+    if not citati:
+        return None
+    originale = Messaggio.objects.filter(message_id__in=citati).exclude(object_id=None).order_by("-pk").first()
+    obj = originale.record if originale is not None else None
+    if obj is None or getattr(obj, "azienda_id", azienda.pk) != azienda.pk:
+        return None
+    return obj
+
+
 def _corpo(msg, allegati):
     oggetto = str(msg.get("Subject") or "").strip() or "(senza oggetto)"
     testo = togli_citazione(_testo(msg)) or "(nessun testo)"
@@ -69,12 +89,15 @@ def importa(casella, voce, fornitore, interni=None):
         return "nessuno"
     msg = message_from_bytes(grezza, policy=policy.default)
     message_id = str(msg.get("Message-ID") or "").strip()[:255] or f"<{casella.tipo}-{voce['id'][:200]}@posta.adabox>"
+    if gia_nel_chatter(message_id):
+        return "gia"
     mittente = parseaddr(str(msg.get("From") or ""))[1].lower()
     if mittente in propri:
         autore = casella.utente
     else:
         autore = next((u for u in get_user_model().objects.filter(email__iexact=mittente, is_active=True)[:1]), None) if mittente in interni else None
-    record = contatti + [o for o in [opportunita_aperta(contatti)] if o is not None]
+    record = contatti + [o for o in [opportunita_aperta(contatti), record_della_risposta(msg, casella.azienda)] if o is not None]
+    record = list({(type(o), o.pk): o for o in record}.values())
     corpo = _corpo(msg, sum(1 for _ in msg.iter_attachments()))
     scritti = []
     for obj in record:

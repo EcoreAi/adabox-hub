@@ -4,6 +4,7 @@ import base64
 import datetime
 import json
 import re
+from email import message_from_bytes, policy
 from email.message import EmailMessage
 from email.utils import format_datetime, getaddresses
 from urllib.parse import parse_qs, unquote
@@ -38,6 +39,8 @@ class Finto:
         self.accesso, self.refresh, self.rinnovi = "acc-1", "ref-1", 0
         self.revocato = False
         self.chiamate = []
+        self.inviati = []               # messaggi spediti dalla casella (email.message.EmailMessage)
+        self.invio_rifiutato = False
 
     def aggiungi(self, id_esterno, msg, quando=None, etichette=()):
         quando = quando or datetime.datetime.now(datetime.timezone.utc)
@@ -76,6 +79,12 @@ class FintoGoogle(Finto):
             return self._token(r)
         if not self._autorizzato(r):
             return httpx.Response(401, json={"error": {"code": 401, "message": "Invalid Credentials"}})
+        if url.path == "/gmail/v1/users/me/messages/send":
+            if self.invio_rifiutato:
+                return httpx.Response(403, json={"error": {"code": 403, "message": "Request had insufficient authentication scopes."}})
+            raw = json.loads(r.content)["raw"]
+            self.inviati.append(message_from_bytes(base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4)), policy=policy.default))
+            return httpx.Response(200, json={"id": "inviato1", "threadId": "t1", "labelIds": ["SENT"]})
         if url.path == "/gmail/v1/users/me/messages":
             dopo = int(re.search(r"after:(\d+)", url.params["q"]).group(1)) * 1000
             ids = [i for i, (_, ms, _) in sorted(self.posta.items(), key=lambda v: -v[1][1]) if ms > dopo]
@@ -130,6 +139,10 @@ class FintoMicrosoft(Finto):
         percorso = unquote(url.path)
         if percorso == "/v1.0/me":
             return httpx.Response(200, json={"mail": self.email.title(), "userPrincipalName": self.email})
+        if percorso == "/v1.0/me/sendMail":
+            assert r.headers["Content-Type"] == "text/plain"
+            self.inviati.append(message_from_bytes(base64.b64decode(r.content), policy=policy.default))
+            return httpx.Response(202)
         if percorso == "/v1.0/me/messages":
             if "$skiptoken" in url.params:
                 inizio, da = int(url.params["$skiptoken"]), url.params["da"]

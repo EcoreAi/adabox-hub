@@ -88,7 +88,7 @@ class Fornitore:
             raise ErrorePosta(f"{self.etichetta} non ha dato l'accesso permanente: togli l'app dal tuo account e ricollega.")
         self._accesso = corpo["access_token"]
         return {"refresh": corpo["refresh_token"], "accesso": corpo["access_token"], "scade": self._scadenza(corpo),
-                "email": self.indirizzo(corpo)}
+                "email": self.indirizzo(corpo), "ambiti": str(corpo.get("scope") or " ".join(self.AMBITI))}
 
     def indirizzo(self, corpo):
         raise NotImplementedError
@@ -144,6 +144,16 @@ class Fornitore:
         return str(errore.get("message", "")) if isinstance(errore, dict) else str(errore or "")
 
     # --- il contratto --------------------------------------------------------------------------------------------------
+
+    AMBITO_INVIO = ""
+
+    def puo_inviare(self, ambiti):
+        """Il permesso di inviare è tra quelli concessi (le caselle collegate prima non lo hanno: vanno ricollegate)."""
+        return self.AMBITO_INVIO.lower() in (ambiti or "").lower()
+
+    def invia(self, grezza):
+        """Spedisce un messaggio RFC 822 (bytes) dalla casella; la copia resta tra gli inviati."""
+        raise NotImplementedError
 
     def messaggi(self, dal, dopo=None):
         """([{"id", "indirizzi" (mittente e destinatari), "quando"}], prossima pagina): i messaggi arrivati o

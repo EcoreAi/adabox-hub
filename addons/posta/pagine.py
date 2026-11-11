@@ -31,8 +31,11 @@ def _ritorno(request):
 @permission_required("posta.add_casella", raise_exception=True)
 def caselle(request):
     feed = FeedCalendario.objects.filter(utente=request.user).first()
+    caselle = list(Casella.objects.filter(utente=request.user).select_related("azienda"))
+    for c in caselle:
+        c.puo_inviare = fornitori.FORNITORI[c.tipo].AMBITO_INVIO.lower() in (c.ambiti or "").lower()
     return render(request, "posta/caselle.html", {
-        "caselle": Casella.objects.filter(utente=request.user).select_related("azienda"),
+        "caselle": caselle,
         "servizi": ServizioOAuth.objects.filter(attivo=True).exclude(tipo__in=Casella.objects.filter(utente=request.user).values("tipo")),
         "nessun_servizio": not ServizioOAuth.objects.filter(attivo=True).exists(),
         "feed": request.build_absolute_uri(reverse("posta:feed", args=[feed.token])) if feed else "",
@@ -73,7 +76,8 @@ def ritorno(request):
         with transaction.atomic():
             casella, nuova = Casella.objects.update_or_create(utente=request.user, tipo=servizio.tipo, defaults={
                 "azienda_id": attesa["azienda"], "email": dati["email"], "refresh_cifrato": cifratura.cifra(dati["refresh"]),
-                "accesso_cifrato": cifratura.cifra(dati["accesso"]), "accesso_scade": dati["scade"], "in_errore": False, "ultimo_esito": ""})
+                "accesso_cifrato": cifratura.cifra(dati["accesso"]), "accesso_scade": dati["scade"], "ambiti": dati["ambiti"], "in_errore": False,
+                "ultimo_esito": ""})
     except IntegrityError:
         messages.error(request, "Non è stato possibile salvare la casella: riprova.")
         return redirect("posta:caselle")
@@ -91,7 +95,8 @@ def _mia(request, pk):
 def imposta(request, pk):
     casella = _mia(request, pk)
     casella.posta, casella.calendario = request.POST.get("posta") == "on", request.POST.get("calendario") == "on"
-    casella.save(update_fields=["posta", "calendario"])
+    casella.invio = request.POST.get("invio") == "on"
+    casella.save(update_fields=["posta", "calendario", "invio"])
     messages.success(request, "Preferenze salvate.")
     return redirect("posta:caselle")
 

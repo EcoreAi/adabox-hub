@@ -16,6 +16,9 @@
       <p><label><input type="checkbox" name="calendario"{% if c.calendario %} checked{% endif %}> <strong>Calendario</strong>:
         i tuoi appuntamenti arrivano in adabox come eventi privati, e quelli che organizzi qui partono verso il tuo calendario.
         Non si cancella nulla in nessun verso; gli eventi ricorrenti non passano.</label></p>
+      <p><label><input type="checkbox" name="invio"{% if c.invio %} checked{% endif %}> <strong>Rispondi dalla tua casella</strong>:
+        i messaggi che scrivi ai clienti dal chatter partono da {{ c.email }}, e le loro risposte tornano a te e nello storico.</label>
+        {% if not c.puo_inviare %}<br><span class="ui-help">Questa casella è stata collegata senza il permesso di inviare: ricollegala per attivarlo. Fino ad allora i messaggi partono dall'indirizzo di sistema.</span>{% endif %}</p>
       <button class="ui-btn ui-btn-primary" type="submit">Salva</button>
     </form>
     <p class="ui-help">{% if c.ultimo_giro %}Ultimo giro {{ c.ultimo_giro|date:"d/m/Y H:i" }}: {{ c.ultimo_esito }}{% else %}Prima sincronizzazione in corso.{% endif %}</p>

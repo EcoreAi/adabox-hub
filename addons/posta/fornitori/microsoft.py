@@ -5,6 +5,7 @@ Documentazione: learn.microsoft.com, identity platform (authorization code flow)
 ($filter su receivedDateTime, /$value per il MIME) e /me/events (lastModifiedDateTime, Prefer: outlook.timezone).
 Il refresh token cambia a ogni rinnovo: si salva quello nuovo. Gli eventi ricorrenti (seriesMaster) e annullati non
 passano."""
+import base64
 import datetime
 from urllib.parse import urlsplit
 
@@ -32,7 +33,8 @@ def _pagina_graph(url):
 
 class Microsoft(Fornitore):
     tipo, etichetta = "microsoft", "Microsoft"
-    AMBITI = ("openid", "email", "offline_access", "User.Read", "Mail.Read", "Calendars.ReadWrite")
+    AMBITO_INVIO = "Mail.Send"
+    AMBITI = ("openid", "email", "offline_access", "User.Read", "Mail.Read", AMBITO_INVIO, "Calendars.ReadWrite")
 
     @property
     def _base(self):
@@ -75,6 +77,10 @@ class Microsoft(Fornitore):
 
     def grezza(self, id_esterno):
         return self._chiama("GET", f"{GRAPH}/me/messages/{id_esterno}/$value").content
+
+    def invia(self, grezza):
+        """sendMail accetta il MIME in base64 con Content-Type text/plain; la copia va negli elementi inviati."""
+        self._chiama("POST", f"{GRAPH}/me/sendMail", content=base64.b64encode(grezza), headers={"Content-Type": "text/plain"})
 
     # --- calendario ----------------------------------------------------------------------------------------------------
 

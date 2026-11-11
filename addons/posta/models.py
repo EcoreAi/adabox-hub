@@ -43,6 +43,9 @@ class Casella(AziendaMixin):
                                 help_text="le email scambiate con i contatti finiscono nel loro storico; le altre non si leggono")
     calendario = models.BooleanField("calendario", default=True,
                                      help_text="gli appuntamenti arrivano in adabox e quelli che organizzi qui partono verso il calendario")
+    invio = models.BooleanField("rispondi dalla tua casella", default=True,
+                                help_text="i messaggi del chatter ai clienti partono dalla tua casella, e le risposte tornano a te")
+    ambiti = models.TextField("permessi concessi", blank=True, editable=False)
     refresh_cifrato = models.TextField(blank=True, editable=False)
     accesso_cifrato = models.TextField(blank=True, editable=False)
     accesso_scade = models.DateTimeField(null=True, blank=True, editable=False)

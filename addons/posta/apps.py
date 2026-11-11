@@ -11,5 +11,8 @@ class PostaConfig(AppConfig):
 
         from calendario.models import Evento
 
-        from . import agenda
+        from core.chatter import email
+
+        from . import agenda, invio
         post_save.connect(agenda.evento_salvato, sender=Evento, dispatch_uid="posta.evento_salvato")
+        email.registra_invio(invio.invia)

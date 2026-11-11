@@ -27,7 +27,8 @@ class Google(Fornitore):
     tipo, etichetta = "google", "Google"
     AUTORIZZA = "https://accounts.google.com/o/oauth2/v2/auth"
     TOKEN = "https://oauth2.googleapis.com/token"
-    AMBITI = ("openid", "email", "https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/calendar.events")
+    AMBITO_INVIO = "https://www.googleapis.com/auth/gmail.send"
+    AMBITI = ("openid", "email", "https://www.googleapis.com/auth/gmail.readonly", AMBITO_INVIO, "https://www.googleapis.com/auth/calendar.events")
 
     def parametri_autorizzazione(self):
         return {"access_type": "offline", "prompt": "consent", "include_granted_scopes": "true"}
@@ -62,6 +63,9 @@ class Google(Fornitore):
         dati = self._chiama("GET", f"{GMAIL}/messages/{id_esterno}", params={"format": "raw"}).json()
         raw = dati.get("raw") or ""
         return base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4))
+
+    def invia(self, grezza):
+        self._chiama("POST", f"{GMAIL}/messages/send", json={"raw": base64.urlsafe_b64encode(grezza).decode()})
 
     # --- calendario ----------------------------------------------------------------------------------------------------
 
