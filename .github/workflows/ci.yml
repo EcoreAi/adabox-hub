@@ -24,6 +24,8 @@ jobs:
         parte: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # todo/test_installazione ricostruisce il modulo 1.0 da un commit vecchio con git archive
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
