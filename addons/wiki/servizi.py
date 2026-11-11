@@ -4,6 +4,7 @@ import re
 from django.apps import apps
 from django.db.models import Max, Q
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.html import escape, linebreaks
 from django.utils.safestring import mark_safe
 
@@ -57,7 +58,7 @@ def rendi(pagina):
     testo = COLLEGAMENTO.sub(link, pagina.testo or "")
     if apps.is_installed("ai"):
         from ai import markdown
-        return markdown.rendi(testo)
+        return markdown.rendi(testo, ancore=True)
     return mark_safe(linebreaks(escape(testo)))
 
 
@@ -65,3 +66,27 @@ def citata_da(pagina):
     """Le pagine dello spazio che la citano con [[Titolo]]."""
     return [p for p in PaginaWiki.objects.filter(spazio_id=pagina.spazio_id).exclude(pk=pagina.pk)
             if pagina.titolo.lower() in {m.group(1).strip().lower() for m in COLLEGAMENTO.finditer(p.testo or "")}]
+
+
+def domanda_senza_risposta(azienda, domanda):
+    """Registrata da ai.conoscenza quando «Chiedi alla wiki» non trova nulla: stesse parole, stessa riga."""
+    import hashlib
+
+    from ai.conoscenza import parole
+
+    from .models import DomandaWiki
+    testo = " ".join((domanda or "").split())[:500]
+    if not testo:
+        return
+    chiave = hashlib.sha256(" ".join(sorted(parole(testo) or {testo.lower()})).encode()).hexdigest()
+    voce, nuova = DomandaWiki.objects.get_or_create(azienda=azienda, chiave=chiave, defaults={"domanda": testo})
+    if not nuova:
+        DomandaWiki.objects.filter(pk=voce.pk).update(volte=voce.volte + 1, risolta=False, ultima=timezone.now())
+
+
+def si_puo_chiedere(utente):
+    """«Chiedi alla wiki» c'è se l'assistente è installato e acceso e l'utente può usarlo."""
+    if not apps.is_installed("ai") or not utente.has_perm("ai.add_conversazione"):
+        return False
+    from core.registry.modules import disattivati
+    return "ai" not in disattivati()

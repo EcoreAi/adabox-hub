@@ -1,7 +1,7 @@
 {
     "name": "Wiki",
     "summary": "La wiki interna: spazi con i loro permessi, pagine ad albero in markdown, versioni, collegamenti tra pagine e ai record",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Collaborazione",
     "depends": [],
@@ -11,6 +11,8 @@
     "menu": [
         {"label": "Pagine", "url_name": "wiki:pagine_lista", "permission": "wiki.view_paginawiki"},
         {"label": "Spazi", "url_name": "wiki:spazi_lista", "permission": "wiki.view_spaziowiki"},
+        {"label": "Chiedi alla wiki", "url_name": "wiki:chiedi", "permission": "wiki.view_paginawiki"},
+        {"label": "Domande senza risposta", "url_name": "wiki:domande_lista", "permission": "wiki.view_domandawiki"},
     ],
     "groups": {
         "Wiki / Utente": ["wiki.view_spaziowiki", "wiki.view_paginawiki", "wiki.add_paginawiki", "wiki.change_paginawiki",

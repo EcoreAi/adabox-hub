@@ -4,6 +4,7 @@
     {% if p.scrive %}<a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'wiki:pagine_nuovo' %}?spazio={{ obj.spazio_id }}&padre={{ obj.pk }}">Pagina qui sotto</a>{% endif %}</div>
   <div class="ui-card-body wk-testo">{{ p.html }}</div>
   {% if p.figlie %}<div class="ui-card-body"><strong>Pagine qui sotto</strong><ul>{% for f in p.figlie %}<li><a class="ui-link" href="{% url 'wiki:pagine_dettaglio' f.pk %}">{{ f }}</a></li>{% endfor %}</ul></div>{% endif %}
+  {% if p.chiedi %}<div class="ui-card-body"><strong>Hai una domanda?</strong> {% include "wiki/_chiedi.html" %}</div>{% endif %}
   {% if p.citata_da %}<div class="ui-card-body"><span class="sub">Citata da: {% for c in p.citata_da %}<a class="ui-link" href="{% url 'wiki:pagine_dettaglio' c.pk %}">{{ c }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</span></div>{% endif %}
 </section>
 {% if p.versioni %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Versioni</div></div>

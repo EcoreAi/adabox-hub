@@ -55,6 +55,8 @@ def cerca_conoscenza(contesto, domanda, fonti=None, app="", limite=8):
         limite = 8
     visibile = _visibilita(contesto)
     trovati = conoscenza.cerca(domanda, contesto.utente, contesto.azienda, fonti, ambito or app, limite, visibile)
+    if not trovati and ambito:
+        conoscenza.senza_risultati(ambito, contesto.azienda, domanda)
     if not trovati:
         return {"risultati": [], "nota": "Nessun testo pertinente tra quelli che l'utente può vedere. Dillo, senza "
                                          "inventare; se serve prova con altre parole o con cerca_record."}
@@ -65,6 +67,8 @@ def cerca_conoscenza(contesto, domanda, fonti=None, app="", limite=8):
             url = vista.url("dettaglio", pk=f.object_id)
         except Exception:
             url = ""
+        if url and "#" in f.chiave and f.chiave.split("#", 1)[1]:
+            url += "#" + f.chiave.split("#", 1)[1]                   # la sezione della pagina (wiki)
         estratto = f.testo if len(f.testo) <= LUNGHEZZA_ESTRATTO else f.testo[:LUNGHEZZA_ESTRATTO] + "…"
         risultati.append({"n": n, "fonte": f.get_fonte_display(), "titolo": f.titolo, "url": url,
                           "vista": f"{vista.modulo}.{vista.slug}", "id": f.object_id, "estratto": estratto,

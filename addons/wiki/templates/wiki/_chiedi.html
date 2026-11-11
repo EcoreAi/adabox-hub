@@ -1,0 +1,6 @@
+<form method="post" action="{% url 'ai:invia' %}" class="wk-chiedi">{% csrf_token %}
+  <input type="hidden" name="ambito" value="wiki">
+  <textarea name="testo" rows="2" required placeholder="Es. come si gestisce un reso di un cliente?">{{ domanda|default:"" }}</textarea>
+  <button class="ui-btn ui-btn-primary" type="submit">Chiedi</button>
+</form>
+<style>.wk-chiedi{display:flex;gap:.5rem;align-items:flex-start}.wk-chiedi textarea{flex:1;min-width:0}</style>

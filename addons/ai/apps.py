@@ -31,8 +31,9 @@ class AiConfig(AppConfig):
         post_delete.connect(allegati_chat.togli_file, sender=ProgettoChat, dispatch_uid="ai.togli_file_progetto")
         from django.db.models.signals import pre_delete
         pre_delete.connect(_chat_all_area_personale, sender=ProgettoChat, dispatch_uid="ai.chat_area_personale")
+        from . import segnali
+        segnali.collega_sezioni()
         if apps.is_installed("documenti"):
-            from . import segnali
             segnali.collega_documenti()
 
 

@@ -128,17 +128,45 @@ def frammenti_record():
     """(chiave, dati del frammento) per ogni record delle ModelView con campi di testo."""
     for vista, campi in _viste_indicizzabili():
         ct = ContentType.objects.get_for_model(vista.model)
-        azienda_campo = vista.company_field
         for obj in vista.model._default_manager.all().iterator(chunk_size=500):
-            righe = [f"{vista.verbose_name}: {obj}"]
-            for f in campi:
-                valore = getattr(obj, f.attname)
-                if valore and str(valore) != str(obj):
-                    righe.append(f"{f.verbose_name}: {valore}")
-            testo = "\n".join(righe)[:MAX_TESTO_RECORD]
-            yield {"fonte": Frammento.RECORD, "content_type": ct, "object_id": obj.pk, "chiave": "",
-                   "azienda_id": getattr(obj, f"{azienda_campo}_id", None) if azienda_campo else None,
-                   "titolo": f"{str(vista.verbose_name).capitalize()} «{obj}»"[:250], "testo": testo}
+            yield from frammenti_di_un_record(vista, campi, ct, obj)
+
+
+def frammenti_di_un_record(vista, campi, ct, obj):
+    """Un frammento per record (i campi di testo, fino a MAX_TESTO_RECORD); le viste con `conoscenza_sezioni`
+    (es. le pagine della wiki) danno invece quel campo per intero, un frammento per sezione."""
+    azienda_id = getattr(obj, f"{vista.company_field}_id", None) if vista.company_field else None
+    if getattr(vista, "conoscenza_sezioni", None):
+        yield from _frammenti_a_sezioni(vista, campi, ct, obj, azienda_id)
+        return
+    righe = [f"{vista.verbose_name}: {obj}"]
+    for f in campi:
+        valore = getattr(obj, f.attname)
+        if valore and str(valore) != str(obj):
+            righe.append(f"{f.verbose_name}: {valore}")
+    yield {"fonte": Frammento.RECORD, "content_type": ct, "object_id": obj.pk, "chiave": "", "azienda_id": azienda_id,
+           "titolo": f"{str(vista.verbose_name).capitalize()} «{obj}»"[:250], "testo": "\n".join(righe)[:MAX_TESTO_RECORD]}
+
+
+def _frammenti_a_sezioni(vista, campi, ct, obj, azienda_id):
+    """Il campo lungo diviso ai titoli markdown; ogni frammento porta il percorso (es. «Procedure › Resi › Rimborso»),
+    perché un pezzo da solo si capisca, e l'ancora della sezione nella chiave («003#rimborso»), per la citazione.
+    Le sezioni lunghe si spezzano ancora come i documenti."""
+    from .markdown import sezioni
+    campo = vista.conoscenza_sezioni
+    percorso = vista.conoscenza_percorso(obj) if hasattr(vista, "conoscenza_percorso") else [str(obj)]
+    altri = [f"{f.verbose_name}: {getattr(obj, f.attname)}" for f in campi
+             if f.attname != campo and getattr(obj, f.attname) and str(getattr(obj, f.attname)) != str(obj)]
+    n = 0
+    for titoli, ancora, testo in sezioni(getattr(obj, campo, "") or ""):
+        intestazione = " › ".join([*percorso, *titoli])
+        corpo = "\n".join(altri) + "\n\n" + testo if n == 0 and altri else testo
+        for i, pezzo in enumerate(pezzi(corpo) or [""]):
+            yield {"fonte": Frammento.RECORD, "content_type": ct, "object_id": obj.pk, "azienda_id": azienda_id,
+                   "chiave": f"{n:03d}#{ancora}"[:40], "titolo": (f"{str(vista.verbose_name).capitalize()} «{intestazione}»"
+                                                                  + (f", parte {i + 1}" if i else ""))[:250],
+                   "testo": f"{intestazione}\n\n{pezzo}".strip()}
+            n += 1
 
 
 def frammenti_note():
@@ -285,6 +313,39 @@ def indicizza_documento(documento_id):
     return json.dumps(conti)
 
 
+def viste_a_sezioni():
+    """{label del modello: vista} delle viste che indicizzano un campo lungo per sezioni (es. wiki.paginawiki)."""
+    from core.viste import registry
+    registry.autodiscover(["core", *settings.ADDONS_ATTIVI])
+    return {v.opts.label_lower: v for m in ["core", *settings.ADDONS_ATTIVI] if m not in ESCLUSI
+            for v in registry.viste_di(m) if getattr(v, "conoscenza_sezioni", None)}
+
+
+def indicizza_record(content_type_id, object_id):
+    """Un record a sezioni solo, subito dopo il salvataggio o l'eliminazione (come i documenti)."""
+    ct = ContentType.objects.get_for_id(content_type_id)
+    vista = viste_a_sezioni().get(f"{ct.app_label}.{ct.model}")
+    conti = {"nuovi": 0, "aggiornati": 0, "tolti": 0, "vettori": 0}
+    esistenti = Frammento.objects.filter(fonte=Frammento.RECORD, content_type=ct, object_id=object_id)
+    obj = vista.model._default_manager.filter(pk=object_id).first() if vista is not None else None
+    campi = next((c for v, c in _viste_indicizzabili() if v is vista), []) if obj is not None else []
+    _allinea(esistenti, frammenti_di_un_record(vista, campi, ct, obj) if obj is not None else [], conti)
+    _vettori(esistenti, conti, 120, time.monotonic())
+    return json.dumps(conti)
+
+
+indicizza_record.senza_transazione = True
+
+
+def accoda_record(content_type_id, object_id):
+    """In coda, una volta sola per record: più salvataggi di fila fanno un'indicizzazione."""
+    from core import lavori
+    from core.models import Lavoro
+    argomenti = {"content_type_id": content_type_id, "object_id": object_id}
+    if not Lavoro.objects.filter(funzione="ai.conoscenza.indicizza_record", argomenti=argomenti, stato=Lavoro.IN_CODA).exists():
+        lavori.accoda("ai.conoscenza.indicizza_record", max_tentativi=2, **argomenti)
+
+
 def accoda_documento(documento_id):
     """In coda per il worker, una volta sola per documento (più modifiche di fila = un'indicizzazione)."""
     from core import lavori
@@ -346,6 +407,25 @@ indicizza_documento.senza_transazione = True
 
 
 # ---------- ricerca ----------
+
+_SENZA_RISULTATI = {}     # app -> funzione(azienda, domanda): le domande di una chat limitata all'app senza risultati
+
+
+def registra_senza_risultati(app, funzione):
+    """Un'app vuole sapere che cosa si è cercato senza trovare nulla nelle chat limitate a lei (la wiki ne fa un
+    elenco di pagine da scrivere)."""
+    _SENZA_RISULTATI[app] = funzione
+
+
+def senza_risultati(app, azienda, domanda):
+    funzione = _SENZA_RISULTATI.get(app)
+    if funzione is None or azienda is None:
+        return
+    try:
+        funzione(azienda, domanda)
+    except Exception:
+        log.exception("domanda senza risultati non registrata per %s", app)
+
 
 
 def parole(testo):
