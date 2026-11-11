@@ -21,7 +21,6 @@ Confronto con la checklist di `docs/features-gap` (Odoo, ERPNext, NetSuite, Busi
 | Priorità | Che cosa | Voci | Perché |
 |---|---|---|---|
 | 1 | Integrazione con CRM e gestionali esterni: HubSpot, Salesforce e Zoho fatti sul motore comune (2026-11-10), da provare su organizzazioni vere; poi Zucchetti e TeamSystem con un partner e i connettori eCommerce (Shopify, WooCommerce) | INT-05, INT-06 | Decisione del 2026-11-05: adabox deve poter entrare accanto al software che il cliente ha già |
-| 2 | Multivaluta | PLT-02 | Ultima grande voce Core del kernel; blocca la valuta dei listini (CRM-05) |
 | 3 | Posta e calendario con Google e Microsoft per utente: fatti il 2026-11-10 nel modulo Posta e calendario (email con i contatti nello storico, calendario nei due versi, feed ICS), da provare con account veri; con l'invio dal chatter dalla casella dell'utente (2026-11-11) | INT-01, CRM-08 | Voci Core: la posta collegata ai record è attesa in ogni CRM |
 
 Fatte: portale clienti e pagamenti online (COM-01, COM-02), SEPA, RiBa, liquidazione IVA e LIPE (FIN-32, FIN-16, LOC-02), costi, lotti e ubicazioni di magazzino (INV-09, INV-03, INV-04), varianti e anagrafica articolo (INV-01, 2026-11-09).
@@ -36,6 +35,7 @@ Esclusioni confermate il 2026-11-05: queste voci restano N/A e non entrano nella
 | Produzione | 16 voci MFG | Fuori dal prodotto |
 | POS, eCommerce, CMS | COM-03..06, IND-05 | Fuori dal prodotto |
 | Multilingua | PLT-15 | Il prodotto resta in italiano. È una voce Core nei concorrenti: pesa nei confronti con clienti esteri |
+| Multivaluta | PLT-02, la valuta dei listini in CRM-05 | Decisione del 2026-11-11: per ora il software è solo per clienti italiani. Si riapre con il primo cliente estero |
 | Paghe | HR-09, LOC-04 | Restano al consulente del lavoro, a cui arriva l'esportazione delle presenze (HR-03) |
 | Selezione e valutazioni | HR-06, HR-15, HR-07 | Fuori dal prodotto |
 
