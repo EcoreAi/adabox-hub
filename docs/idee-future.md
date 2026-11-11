@@ -36,3 +36,23 @@ marketplace dopo, sopra il sistema dei moduli.
 - OCR delle scansioni per l'indice della conoscenza.
 - WebDAV per i Documenti (serve un dominio con HTTPS).
 - pgvector per gli embedding quando il server passa a Postgres.
+
+## adabox dentro Claude e ChatGPT (proposta del 2026-11-11)
+
+**Idea.** I clienti usano gli abbonamenti Claude o ChatGPT che hanno già, con i dati di adabox: ogni istanza espone
+un server MCP con OAuth che l'utente aggiunge come connettore personalizzato; la chat resta nella cronologia del
+fornitore, adabox applica i permessi dell'utente e, se l'azienda vuole, maschera i dati personali. Collegate: la
+chiave API personale dentro Ada e l'importazione delle chat esportate da ChatGPT e Claude.
+
+**Escluso.** Usare dentro adabox l'abbonamento dell'utente (sessioni o token dell'abbonamento): vietato dai termini
+dei fornitori.
+
+**Progetto tecnico.** `docs/progetto-connettore-ai.md` (verificato sulle fonti del 2026-11-11): protocollo MCP in
+doppia versione (2025-11-25 e 2026-07-28), OAuth 2.1 con CIMD e DCR, strumenti di Ada in sola lettura, scritture come
+proposte confermate in adabox, stime e fasi.
+
+**Decisioni aperte.** Libreria OAuth o server nostro (dopo uno spike); scritture solo come proposte o anche dirette;
+mascheramento di default; quali clienti hanno piani che ammettono i connettori (ChatGPT da verificare).
+
+**Primo passo consigliato.** Spike di 3–4 giorni: OAuth minimo e uno strumento di lettura collegati davvero a Claude
+e a ChatGPT.
