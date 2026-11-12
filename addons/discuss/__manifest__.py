@@ -1,7 +1,7 @@
 {
     "name": "Discuss",
     "summary": "Chat di lavoro in tempo reale: canali, gruppi, reazioni, risposte, presenza, ricerca e posta unica",
-    "version": "1.13.0",
+    "version": "1.13.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],

@@ -3,7 +3,7 @@ import logging
 
 from django.utils import timezone
 
-from .. import catalogo
+from .. import catalogo, limiti
 from ..gateway import ErroreModello, Inizio, Testo, Uso, esegui as gateway
 from ..models import Conversazione, MessaggioChat, Turno
 from ..protezione import Protezione
@@ -25,14 +25,15 @@ def genera(conversazione, utente, azienda=None):
     try:
         profilo = catalogo.profilo_per("titoli", azienda, conversazione.ambito)
         richiesta = f"Domanda: {messaggi[0].testo[:1500]}\n\nRisposta: {messaggi[1].testo[:1500]}"
-        for pezzo in gateway(catalogo.catena(profilo, azienda), protezione=Protezione(conversazione), sistema=SISTEMA,
+        catena = limiti.ammessi(catalogo.catena(profilo, azienda), utente)
+        for pezzo in gateway(catena, protezione=Protezione(conversazione), sistema=SISTEMA,
                              messaggi=[{"ruolo": "utente", "testo": richiesta}], max_token=60, effort=profilo.effort):
             if isinstance(pezzo, Inizio):
                 modello = turno.modello = pezzo.modello
             elif isinstance(pezzo, Testo):
                 testo.append(pezzo.testo)
             elif isinstance(pezzo, Uso) and modello is not None:
-                turno.uso, turno.costo = pezzo.come_dict(), modello.costo(pezzo.come_dict())
+                turno.addebita(modello, pezzo.come_dict())
     except (ErroreModello, catalogo.NessunModello) as e:
         log.info("titolo non generato: %s", e)
         turno.stato, turno.errore = Turno.ERRORE, str(e)

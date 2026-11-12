@@ -18,8 +18,19 @@
     <div><dt>Cliente</dt><dd>{{ stato.cliente|default:"—" }}</dd></div>
     <div><dt>Utenti al mese</dt><dd>{% if stato.utenti %}{{ utenti_mese }} su {{ stato.utenti }}{% else %}{{ utenti_mese }} (senza limite){% endif %}</dd></div>
     {% if tetto is not None %}<div><dt>Spesa del mese</dt><dd>{{ spesa|floatformat:2 }} ${% if tetto %} su {{ tetto }} ${% else %} (senza tetto){% endif %}</dd></div>{% endif %}
+    {% if stato.valida %}<div><dt>Formula</dt><dd>{{ stato.nome_formula }}</dd></div>{% endif %}
+    {% if a_formula %}<div><dt>Consumo del mese sul piano</dt><dd>{{ consumo_fornito|floatformat:2 }} ${% if stato.quota_istanza %} su {{ stato.quota_istanza }} ${% elif stato.formula == 'consumo' %} (senza tetto){% endif %}</dd></div>
+    {% if stato.formula == 'inclusa' %}<div><dt>Quota per utente</dt><dd>{% if stato.quota_utente %}{{ stato.quota_utente }} $ al mese{% else %}senza limite{% endif %}</dd></div>{% endif %}{% endif %}
   </dl>
+  {% if a_formula %}<p class="ui-help">{% if stato.formula == 'inclusa' %}L'assistente è compreso nel canone fino alla quota: conta il costo dei modelli forniti con il piano, e a quota finita quei modelli tornano il primo del mese.{% else %}L'assistente si paga a consumo: conta il costo dei modelli forniti con il piano.{% endif %} I modelli con una chiave dell'azienda e quelli locali restano fuori dal conto.</p>{% endif %}
+  {% if senza_fornito %}<p class="ui-help"><span class="ui-pill ui-pill-warning">Da sistemare</span> Nessun provider attivo è segnato «fornito con il piano»: finché il Global Admin non lo segna in <a class="ui-link" href="{% url 'ai:provider_lista' %}">Provider e chiavi</a>, il consumo non si conta e la quota non vale.</p>{% endif %}
 </div></section>
+{% if consumo_per_utente %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Consumo del mese per utente</div></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Utente</th><th class="ui-num">Sul piano</th>{% if stato.quota_utente %}<th class="ui-num">Quota</th>{% endif %}</tr></thead>
+    <tbody>{% for utente, costo in consumo_per_utente %}<tr><td>{{ utente.get_full_name|default:utente.username }}</td>
+      <td class="ui-num">{{ costo|floatformat:2 }} $</td>{% if stato.quota_utente %}<td class="ui-num">{{ stato.quota_utente }} $</td>{% endif %}</tr>{% endfor %}</tbody>
+  </table></div></section>{% endif %}
 {% if stato.valida %}<section class="ui-card is-revealed ui-section"><div class="ui-card-head"><div class="ui-card-title">Funzioni comprese</div></div>
   <div class="ui-card-body"><ul class="ai-funzioni-licenza">{% for f in funzioni_licenza %}
     <li class="{% if f.compresa %}is-compresa{% else %}is-esclusa{% endif %}"><span>{% if f.compresa %}✓{% else %}—{% endif %}</span>

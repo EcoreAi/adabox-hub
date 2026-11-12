@@ -19,12 +19,16 @@ class ProviderForm(forms.ModelForm):
                               widget=forms.URLInput(attrs={"autocomplete": "off"}),
                               help_text="per Anthropic e Mistral lascia vuoto; per Ollama/OpenRouter l'indirizzo dell'API")
 
+    global_admin = False              # la vista lo mette a True per il Global Admin: solo lui decide «fornito con il piano»
+
     class Meta:
         model = Provider
-        fields = ["nome", "tipo", "base_url", "locale", "attivo"]
+        fields = ["nome", "tipo", "base_url", "locale", "attivo", "gestito"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if not self.global_admin:
+            del self.fields["gestito"]
         if self.instance.pk and self.instance.chiave_cifrata:
             try:
                 attuale = cifratura.mascherato(cifratura.decifra(self.instance.chiave_cifrata))

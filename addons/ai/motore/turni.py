@@ -198,11 +198,7 @@ class _Esecuzione:
         self.turno.save(update_fields=["avanzamento", "battito"])
 
     def aggiungi_uso(self, modello, uso):
-        totale = dict(self.turno.uso)
-        for k, v in uso.come_dict().items():
-            totale[k] = totale.get(k, 0) + v
-        self.turno.uso = totale
-        self.turno.costo += modello.costo(uso.come_dict())
+        self.turno.addebita(modello, uso.come_dict())
 
     def oltre_budget(self):
         if time.monotonic() - self.inizio > self.secondi:
@@ -229,7 +225,7 @@ def esegui(turno_id):
                       else catalogo.catena(profilo, turno.azienda))
         from .. import funzioni
         scelto = conversazione.modello if funzioni.attiva("piu_modelli") else None
-        catena = catalogo.con_scelta(anelli, scelto, turno.azienda)
+        catena = limiti.ammessi(catalogo.con_scelta(anelli, scelto, turno.azienda), utente)
         from ..strumenti import web
         ammessi = {s.nome: s for s in assistenti.filtra_strumenti(
             web.filtra(strumenti.disponibili(utente, conversazione.ambito, turno.azienda), turno.azienda, turno.web), assistente, esperto=turno.compito == "esperto")}
