@@ -663,3 +663,15 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-scorri { overflow-x: hidden; }
 .ai-barra-area .ai-barra-area-apri[data-tip]::after { left: 0; top: auto; bottom: calc(100% + 4px); transform: none; }
 .ai-collega-app { display: inline; margin: 0; } .ai-collega-app .ui-input { height: 30px; width: auto; font-size: 13px; padding: 0 26px 0 10px; }
+
+/* la fonte di una citazione accanto alla chat, con il passaggio citato evidenziato */
+.ai-fonte[hidden] { display: none; }
+.ai-fonte-nota { margin: 0; font-size: .8rem; color: var(--ui-text-2, #6b7280); }
+.ai-fonte-testo { display: flex; flex-direction: column; gap: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.ai-fonte-blocco { padding: 10px 12px; border: 1px solid var(--ui-border); border-radius: 10px; }
+.ai-fonte-blocco.is-citato { border-color: var(--ui-primary, #2b4bb5); }
+.ai-fonte-pagina { font-size: .75rem; font-weight: 600; color: var(--ui-text-2, #6b7280); margin-bottom: 6px; }
+.ai-fonte-corpo { white-space: pre-wrap; font-size: .9rem; }
+.ai-fonte mark { background: #fff1a8; color: inherit; border-radius: 3px; padding: 0 1px; }
+@media (prefers-color-scheme: dark) { .ai-fonte mark { background: #6b5a00; } }
+.ai-msg-testo a.is-citata { background: #fff1a8; border-radius: 4px; }

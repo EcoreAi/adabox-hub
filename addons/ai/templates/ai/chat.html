@@ -225,6 +225,8 @@
 
   {# ---------- a destra: il documento aperto accanto alla chat ---------- #}
   {% if documento %}{% include "ai/_tela.html" %}{% endif %}
+  {# la fonte di una citazione cliccata nella risposta, con il passaggio evidenziato (chat.js) #}
+  <aside class="ai-tela ai-fonte" id="ai-fonte" data-url-fonte="{% url 'ai:fonte' 0 %}" aria-label="Fonte citata" hidden></aside>
   {% if cartelle_scrivibili %}
   <dialog class="ai-salva-doc" id="ai-salva-doc" aria-labelledby="ai-salva-doc-titolo">
     <form method="dialog" class="ai-salva-doc-corpo" data-salva-doc>

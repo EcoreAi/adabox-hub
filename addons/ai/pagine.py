@@ -748,6 +748,24 @@ def trascrivi_voce(request):
         return JsonResponse({"errore": str(e)}, status=502)
 
 
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+def fonte_citata(request, pk):
+    """Il testo della fonte di una citazione, con il passaggio citato evidenziato: si apre accanto alla chat. Vale per
+    le proprie chat e per quelle condivise nelle aree che si vedono; 404 se il link non è una fonte del turno."""
+    from . import fonti_citate
+    azienda = getattr(request, "azienda", None)
+    visibili = Q(utente=request.user)
+    if funzioni.attiva("aree_di_lavoro"):
+        visibili |= Q(condivisa=True, progetto__in=aree.visibili(request.user, azienda))
+    messaggio = get_object_or_404(MessaggioChat, pk=pk, ruolo=MessaggioChat.ASSISTENTE,
+                                  conversazione__in=Conversazione.objects.filter(visibili, nascosta=False))
+    dati = fonti_citate.fonte(messaggio, request.GET.get("url", ""), request)
+    if dati is None:
+        raise Http404("Il link non è una fonte di questa risposta.")
+    return render(request, "ai/_fonte.html", {"f": dati})
+
+
 def _messaggio_da_leggere(request, pk):
     return get_object_or_404(MessaggioChat, pk=pk, ruolo=MessaggioChat.ASSISTENTE, conversazione__utente=request.user,
                              conversazione__nascosta=False)

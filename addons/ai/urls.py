@@ -37,6 +37,7 @@ urlpatterns = [
     path("scrivi/<slug:campo>/", pagine.scrivi_con_ada, name="scrivi_con_ada"),
     path("riassumi/<int:ct>/<int:pk>/", pagine.riassumi_record, name="riassumi_record"),
     path("scrivi/esito/<int:pk>/", pagine.esito_scrittura, name="esito_scrittura"),
+    path("fonte/<int:pk>/", pagine.fonte_citata, name="fonte"),
     path("voce/messaggio/<int:pk>/", pagine.parti_voce, name="parti_voce"),
     path("voce/messaggio/<int:pk>/<int:parte>/", pagine.audio_voce, name="audio_voce"),
     path("documento/<int:pk>/", pagine.documento, name="documento"),

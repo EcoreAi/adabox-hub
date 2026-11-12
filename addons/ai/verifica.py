@@ -70,7 +70,8 @@ def _frammento_di(risultato):
         return None
     inizio = estratto.rstrip("…")[:200]
     for f in Frammento.objects.filter(content_type=ContentType.objects.get_for_model(vista.model),
-                                      object_id=risultato["id"]).only("pk", "testo", "vettore"):
+                                      object_id=risultato["id"]).only(
+                                          "pk", "testo", "vettore", "titolo", "pagina", "content_type_id", "object_id"):
         if f.testo.startswith(inizio):
             return f
     return None

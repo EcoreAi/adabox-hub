@@ -316,3 +316,47 @@ def test_domanda_d_oro_con_fonte_e_citazioni(scena, con_servizio):
     r, = valutazione.valuta([sbagliata], scena["capo"], scena["azienda"], copioni=True)
     assert "fonte «Rossi» non trovata da cerca_conoscenza" in r["problemi"]
     assert "nessuna citazione della conoscenza nella risposta" in r["problemi"]
+
+
+# ---------- la fonte di una citazione accanto alla chat
+
+def _risposta_con_citazione(scena, domanda, risposta):
+    from ai.models import MessaggioChat
+    _modello_finto("chat", "classificazione")
+    conversazione = Conversazione.objects.create(utente=scena["capo"])
+    with finto.con_copione([[("strumento", "cerca_conoscenza", domanda)], [risposta]]):
+        motore.avvia(conversazione, "domanda", scena["capo"], scena["azienda"])
+    return MessaggioChat.objects.get(conversazione=conversazione, ruolo="assistente")
+
+
+@con_documenti
+def test_fonte_di_un_pdf_con_il_passaggio_evidenziato(scena, archivio, con_servizio, client):
+    from documenti import servizi
+    d = servizi.carica(archivio, ContentFile(pdf(["Premessa generale del contratto.", "Il canone annuo e di 1200 euro.",
+                                                  "Recesso con preavviso di 60 giorni."]), name="contratto.pdf"), scena["capo"])
+    conoscenza.indicizza_documento(d.pk)
+    url = f"/documenti/documenti/{d.pk}/?pagina=3"
+    m = _risposta_con_citazione(scena, {"domanda": "preavviso recesso", "fonti": ["documento"]},
+                                f"Il recesso richiede 60 giorni di preavviso [1]({url}).")
+    client.force_login(scena["capo"])
+    pagina = client.get(f"/ai/fonte/{m.pk}/", {"url": url}).content.decode()
+    assert "contratto.pdf" in pagina and "Pagina 1" in pagina and "Pagina 3" in pagina
+    assert "<mark>Recesso con preavviso di 60 giorni.</mark>" in pagina and "<mark>Premessa" not in pagina
+    assert client.get(f"/ai/fonte/{m.pk}/", {"url": "/vendite/ordini/12/"}).status_code == 404
+    chat = client.get(f"/ai/chat/{m.conversazione_id}/").content.decode()
+    assert 'id="ai-fonte"' in chat and f'data-url-fonte="/ai/fonte/0/"' in chat
+
+
+def test_fonte_di_un_record_e_permessi(scena, con_servizio, client):
+    conoscenza.indicizza()
+    url = _url_bianchi(scena)
+    m = _risposta_con_citazione(scena, {"domanda": "rinnovo contratto Bianchi disdetta"},
+                                f"Si rinnova ogni anno a gennaio [1]({url}).")
+    client.force_login(scena["capo"])
+    pagina = client.get(f"/ai/fonte/{m.pk}/", {"url": url}).content.decode()
+    assert "Bianchi Srl" in pagina and "<mark>Il contratto di manutenzione si rinnova" in pagina
+    assert "Chiamato per la fattura di ottobre." in pagina                 # le altre note del record, non evidenziate
+    altro = User.objects.create_user("altro", password="x")
+    altro.user_permissions.set(Permission.objects.filter(codename="view_conversazione"))
+    client.force_login(altro)
+    assert client.get(f"/ai/fonte/{m.pk}/", {"url": url}).status_code == 404       # la chat è di un altro
