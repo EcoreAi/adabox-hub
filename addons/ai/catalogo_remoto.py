@@ -1,6 +1,6 @@
-"""Il catalogo dei modelli letto dal provider (GET /models degli endpoint compatibili OpenAI e di Mistral), per
-aggiungere i modelli senza scriverli a mano. Mistral dà contesto e capacità; OpenRouter anche i prezzi; OpenAI e
-Ollama solo l'ID. I prezzi che il provider non dà restano da scrivere nella scheda del modello."""
+"""Il catalogo dei modelli letto dal provider (GET /models di OpenAI, Gemini, Mistral e degli endpoint compatibili),
+per aggiungere i modelli senza scriverli a mano. Mistral dà contesto e capacità; OpenRouter anche i prezzi; OpenAI,
+Gemini e Ollama solo l'ID. I prezzi che il provider non dà restano da scrivere nella scheda del modello."""
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
@@ -10,6 +10,10 @@ from .gateway.openai_compat import url_base
 from .models import Modello, Provider
 
 HTTP = None                      # nei test: un httpx2.Client con un trasporto finto
+CON_CATALOGO = ("openai_compat", "mistral", "openai", "gemini")
+# OpenAI e Gemini elencano insieme ai modelli di chat anche quelli per immagini, voce, embedding: dal nome si riconoscono
+NON_DI_CHAT = ("embedding", "tts", "whisper", "transcribe", "audio", "realtime", "image", "imagen", "dall-e", "veo", "sora",
+               "moderation", "aqa", "babbage", "davinci")
 
 
 class CatalogoNonDisponibile(Exception):
@@ -45,11 +49,12 @@ def _nome(id_api):
 
 def leggi(provider, azienda=None):
     """[Voce] dei modelli di chat del provider, i dismessi esclusi e gli alias raccolti sotto un solo nome."""
-    if provider.tipo not in (Provider.OPENAI_COMPAT, Provider.MISTRAL):
-        raise CatalogoNonDisponibile("Il catalogo si legge dai provider Mistral e compatibili OpenAI.")
+    if provider.tipo not in CON_CATALOGO:
+        raise CatalogoNonDisponibile("Il catalogo si legge da OpenAI, Gemini, Mistral e dai provider compatibili OpenAI.")
     chiave = provider.chiave_per(azienda)
-    if provider.tipo == Provider.MISTRAL and not chiave:
-        raise CatalogoNonDisponibile("Inserisci prima la chiave API di Mistral nel provider.")
+    if provider.tipo != Provider.OPENAI_COMPAT and not chiave:
+        raise CatalogoNonDisponibile(f"Inserisci prima la chiave API di {provider.get_tipo_display()} nel provider.")
+    con_nomi_misti = provider.tipo in ("openai", "gemini")
     intestazioni = {"Authorization": f"Bearer {chiave}"} if chiave else {}
     http = HTTP or httpx2.Client(timeout=httpx2.Timeout(30.0, connect=10.0))
     try:
@@ -72,6 +77,9 @@ def leggi(provider, azienda=None):
     voci, visti = [], set()
     for m in elenco if isinstance(elenco, list) else []:
         if not isinstance(m, dict) or not m.get("id") or m.get("archived") or m.get("deprecation"):
+            continue
+        m = {**m, "id": m["id"].removeprefix("models/")}                    # Gemini li chiama «models/gemini-…»
+        if con_nomi_misti and any(parola in m["id"].lower() for parola in NON_DI_CHAT):
             continue
         capacita = m.get("capabilities") or {}
         if capacita and not capacita.get("completion_chat", True):          # embedding, OCR, moderazione...
