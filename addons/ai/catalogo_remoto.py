@@ -10,7 +10,7 @@ from .gateway.openai_compat import url_base
 from .models import Modello, Provider
 
 HTTP = None                      # nei test: un httpx2.Client con un trasporto finto
-CON_CATALOGO = ("openai_compat", "mistral", "openai", "gemini")
+CON_CATALOGO = (Provider.OPENAI, Provider.GEMINI, Provider.MISTRAL, Provider.OPENAI_COMPAT)
 # OpenAI e Gemini elencano insieme ai modelli di chat anche quelli per immagini, voce, embedding: dal nome si riconoscono
 NON_DI_CHAT = ("embedding", "tts", "whisper", "transcribe", "audio", "realtime", "image", "imagen", "dall-e", "veo", "sora",
                "moderation", "aqa", "babbage", "davinci")
@@ -54,7 +54,7 @@ def leggi(provider, azienda=None):
     chiave = provider.chiave_per(azienda)
     if provider.tipo != Provider.OPENAI_COMPAT and not chiave:
         raise CatalogoNonDisponibile(f"Inserisci prima la chiave API di {provider.get_tipo_display()} nel provider.")
-    con_nomi_misti = provider.tipo in ("openai", "gemini")
+    con_nomi_misti = provider.tipo in (Provider.OPENAI, Provider.GEMINI)
     intestazioni = {"Authorization": f"Bearer {chiave}"} if chiave else {}
     http = HTTP or httpx2.Client(timeout=httpx2.Timeout(30.0, connect=10.0))
     try:

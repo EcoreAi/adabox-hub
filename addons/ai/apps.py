@@ -33,6 +33,7 @@ class AiConfig(AppConfig):
         pre_delete.connect(_chat_all_area_personale, sender=ProgettoChat, dispatch_uid="ai.chat_area_personale")
         from . import segnali
         segnali.collega_sezioni()
+        segnali.collega_costi()
         if apps.is_installed("documenti"):
             segnali.collega_documenti()
 

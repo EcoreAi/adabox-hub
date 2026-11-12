@@ -134,7 +134,9 @@ def test_eliminare_la_chat_non_azzera_il_consumo(db):
     utente = User.objects.create_user("u")
     chat = Conversazione.objects.create(utente=utente)
     turno = Turno.objects.create(conversazione=chat, utente=utente, costo=Decimal("2"), costo_fornito=Decimal("1.5"),
-                                 testo="una risposta con dati", errore="un errore con dati", stato=Turno.COMPLETATO)
+                                 testo="una risposta con dati", errore="un errore con dati", stato=Turno.COMPLETATO,
+                                 avanzamento=[{"strumento": "cerca_record", "stato": "fatto"}],
+                                 provenienza={"letture": [{"titolo": "Contatti", "dettaglio": "filtri: Mario Rossi"}]})
     Evento.objects.create(conversazione=chat, turno=turno, tipo=Evento.UTENTE, dati={"ruolo": "utente", "testo": "x"})
     altra = Conversazione.objects.create(utente=utente)
     resta = Turno.objects.create(conversazione=altra, utente=utente, testo="resta")
@@ -142,6 +144,7 @@ def test_eliminare_la_chat_non_azzera_il_consumo(db):
     turno.refresh_from_db()
     resta.refresh_from_db()
     assert turno.conversazione_id is None and turno.testo == "" and turno.errore == ""      # il costo sì, il contenuto no
+    assert turno.avanzamento == [] and turno.provenienza == {}                             # nemmeno le ricerche fatte
     assert (turno.costo, turno.costo_fornito, turno.utente) == (Decimal("2"), Decimal("1.5"), utente)
     assert not Evento.objects.exists() and resta.conversazione == altra and resta.testo == "resta"
     assert limiti.consumo_fornito(utente) == Decimal("1.5")

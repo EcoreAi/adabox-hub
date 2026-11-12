@@ -12,6 +12,7 @@ def provider_scheda(provider, utente=None):
     except cifratura.SegretoIlleggibile:
         chiave = "illeggibile: inseriscila di nuovo con «Modifica»"
     modelli = list(provider.modelli.order_by("-attivo", "etichetta"))
-    return {"chiave": chiave, "modelli": modelli,
+    from ..catalogo_remoto import CON_CATALOGO
+    return {"chiave": chiave, "modelli": modelli, "con_catalogo": provider.tipo in CON_CATALOGO,
             "senza_prezzo": any(m.prezzo_input is None or m.prezzo_output is None for m in modelli),
             "modificabile": not provider.gestito or bool(getattr(utente, "is_superuser", False))}

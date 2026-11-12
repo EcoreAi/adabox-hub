@@ -90,12 +90,13 @@ class MessaggioChat(models.Model):
 
 
 class Provider(models.Model):
-    """Un fornitore di modelli: API Anthropic, endpoint compatibile OpenAI (OpenAI, OpenRouter, Ollama, vLLM,
-    Gemini) o il modello finto per test e demo. La chiave API è cifrata; le aziende possono avere la propria."""
-    ANTHROPIC, OPENAI_COMPAT, MISTRAL, FINTO = "anthropic", "openai_compat", "mistral", "finto"
-    TIPI = [(ANTHROPIC, "Anthropic (Claude)"), (MISTRAL, "Mistral AI (La Plateforme)"),
-            (OPENAI_COMPAT, "Compatibile OpenAI (OpenAI, OpenRouter, Ollama...)"), (FINTO, "Finto (test e demo)")]
-    CON_CHIAVE = {ANTHROPIC, MISTRAL}                     # senza chiave non rispondono: si saltano nella catena
+    """Un fornitore di modelli: Anthropic, OpenAI, Google Gemini, Mistral, un endpoint compatibile OpenAI (OpenRouter,
+    Ollama, vLLM) o il modello finto per test e demo. La chiave API è cifrata; le aziende possono avere la propria."""
+    ANTHROPIC, OPENAI, GEMINI, MISTRAL, OPENAI_COMPAT, FINTO = "anthropic", "openai", "gemini", "mistral", "openai_compat", "finto"
+    TIPI = [(ANTHROPIC, "Anthropic (Claude)"), (OPENAI, "OpenAI (GPT)"), (GEMINI, "Google (Gemini)"),
+            (MISTRAL, "Mistral AI (La Plateforme)"), (OPENAI_COMPAT, "Compatibile OpenAI (OpenRouter, Ollama...)"),
+            (FINTO, "Finto (test e demo)")]
+    CON_CHIAVE = {ANTHROPIC, OPENAI, GEMINI, MISTRAL}     # senza chiave non rispondono: si saltano nella catena
     nome = models.CharField("nome", max_length=80, unique=True)
     tipo = models.CharField("tipo", max_length=15, choices=TIPI)
     base_url = models.URLField("URL dell'API", blank=True, help_text="vuoto = quello predefinito del tipo")
@@ -228,21 +229,14 @@ class AnelloCatena(models.Model):
         ordering = ["ordine", "pk"]
 
 
-def resta_il_costo(collector, field, sub_objs, using):
-    """Eliminando una conversazione i suoi turni restano come righe di costo, senza più la risposta: se sparissero,
-    cancellare le chat azzererebbe il consumo del mese (quote della licenza, tetto di spesa, consumi)."""
-    for nome in ("testo", "errore"):                     # prima il contenuto: dopo, il filtro sulla conversazione non li trova più
-        collector.add_field_update(field.model._meta.get_field(nome), "", sub_objs)
-    collector.add_field_update(field, None, sub_objs)
-
-
 class Turno(models.Model):
     """Un'esecuzione dell'assistente: dalla domanda alla risposta, con i passi, il costo e lo stato.
     `testo` cresce mentre il modello scrive (lo streaming lo segue); il resto è nel log degli eventi."""
     IN_CORSO, COMPLETATO, ERRORE, INTERROTTO, FERMATO = "in_corso", "completato", "errore", "interrotto", "fermato"
     STATI = [(IN_CORSO, "In corso"), (COMPLETATO, "Completato"), (ERRORE, "Errore"), (INTERROTTO, "Interrotto"),
              (FERMATO, "Fermato dall'utente")]
-    conversazione = models.ForeignKey(Conversazione, on_delete=resta_il_costo, null=True, blank=True,
+    # eliminando la conversazione il turno resta come riga di costo, svuotato del contenuto (ai.segnali)
+    conversazione = models.ForeignKey(Conversazione, on_delete=models.SET_NULL, null=True, blank=True,
                                       related_name="turni", verbose_name="conversazione")
     utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+",
                                verbose_name="utente")

@@ -30,6 +30,21 @@ def _cambiati(sender, pks, **_):
     _accoda(list(pks))
 
 
+def _restano_i_costi(sender, instance, **_):
+    """Eliminando una chat i suoi turni restano come righe di costo, senza più niente della conversazione (risposta,
+    errore, passi, fonti consultate): se sparissero, cancellare le chat azzererebbe il consumo del mese, e con lui le
+    quote della licenza, il tetto di spesa e i consumi riferiti al portale."""
+    from .models import Turno
+    Turno.objects.filter(conversazione=instance).update(testo="", errore="", avanzamento=[], provenienza={})
+
+
+def collega_costi():
+    from django.db.models.signals import pre_delete
+
+    from .models import Conversazione
+    pre_delete.connect(_restano_i_costi, sender=Conversazione, dispatch_uid="ai.restano_i_costi")
+
+
 def collega_documenti():
     from documenti.models import Documento
     from documenti.segnali import documenti_cambiati

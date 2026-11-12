@@ -2,7 +2,7 @@
 <section class="ui-card is-revealed ui-section">
   <div class="ui-card-head"><div class="ui-card-title">Modelli di {{ obj.nome }} ({{ ps.modelli|length }})</div><div class="spacer"></div>
     {% if ps.modificabile %}<div class="head-actions">
-      {% if obj.tipo == 'mistral' or obj.tipo == 'openai_compat' %}<a class="ui-btn ui-btn-primary ui-btn-sm" href="{% url 'ai:catalogo_provider' obj.pk %}">Scegli dal catalogo</a>{% endif %}
+      {% if ps.con_catalogo %}<a class="ui-btn ui-btn-primary ui-btn-sm" href="{% url 'ai:catalogo_provider' obj.pk %}">Scegli dal catalogo</a>{% endif %}
       <a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'ai:modelli_nuovo' %}?provider={{ obj.pk }}">Nuovo modello</a>
     </div>{% endif %}</div>
   <div class="ui-card-body">{% if obj.gestito %}<p class="sub">Fornito con il piano: la chiave non è dell'azienda e il costo dei suoi modelli conta sulla quota della licenza. Provider, modelli e prezzi li cambia solo il Global Admin.</p>

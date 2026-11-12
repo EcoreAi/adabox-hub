@@ -337,13 +337,21 @@ dalle app), AI-3 (proattività), AI-4 (conoscenza), AI-5 (fiducia), AI-6 (specia
 completate.
 
 - **Configurazione** (gruppo «AI / Amministratore»):
-  - in `/ai/provider/` la chiave API di Anthropic, salvata cifrata con `CHIAVE_CIFRATURA` o, se manca, con una
-    chiave derivata da `SECRET_KEY`; in `/ai/chiavi/` una chiave diversa per azienda;
+  - in `/ai/provider/` i fornitori dei modelli, ognuno con la sua chiave API, salvata cifrata con `CHIAVE_CIFRATURA`
+    o, se manca, con una chiave derivata da `SECRET_KEY`; in `/ai/chiavi/` una chiave diversa per azienda. I tipi:
+    **Anthropic** (Claude), **OpenAI** (GPT), **Google** (Gemini), **Mistral**, «compatibile OpenAI» e il modello
+    finto. Per i primi quattro basta la chiave: l'indirizzo è il loro. «Scegli dal catalogo» legge i modelli da
+    OpenAI, Gemini, Mistral e dagli endpoint compatibili; i prezzi che il fornitore non dà si scrivono nel modello;
   - in `/ai/modelli/` modelli e prezzi (all'installazione: Claude Haiku, Sonnet e Opus 5.5);
   - in `/ai/profili/` quale catena di modelli usa ogni compito (chat, titoli, riassunti, pianificate,
     classificazione), anche per singola app o azienda. Il modello successivo della catena entra solo se il
     precedente fallisce prima di rispondere;
-  - Ollama, OpenRouter, OpenAI, vLLM e Gemini si aggiungono come provider "compatibile OpenAI" con il loro URL.
+  - Ollama, OpenRouter e vLLM si aggiungono come provider «compatibile OpenAI» con il loro URL. Ciò che distingue i
+    fornitori sta in `gateway/openai_compat.py`: OpenAI vuole `max_completion_tokens`; Gemini, dalla serie 3, mette
+    una firma del ragionamento sulle chiamate agli strumenti e la rivuole identica nei turni successivi (il gateway la
+    conserva e la rimanda solo a lui). OpenAI e Gemini sono provati con risposte simulate, non con i servizi veri;
+  - quale fornitore risponde in chat lo decide chi amministra: i modelli con il livello «Veloce» e «Avanzato», e la
+    catena del profilo come riserva. Così un piano può offrire Claude, GPT, Gemini o Mistral con un solo abbonamento.
 - **Licenza**:
   - si carica in `/ai/licenza/` il file JSON firmato da ICHNOBYTE con
     `python manage.py ai_licenza --chiave privata.pem --cliente ... --scadenza AAAA-MM-GG --utenti N`;
@@ -357,7 +365,16 @@ completate.
     disponibili (se no, perché). Si spengono per l'azienda (permesso `ai.change_strumentospento`) o per tutta
     l'istanza (Global Admin); spegnere toglie e basta, e a quale funzione appartiene uno strumento resta nel codice;
   - il tetto di spesa mensile per azienda (default 50 $) e la soglia dell'avviso agli amministratori stanno in
-    `/impostazioni/`. I consumi di ogni chiamata sono in `/ai/consumi/`.
+    `/impostazioni/`. I consumi di ogni chiamata sono in `/ai/consumi/`: non si eliminano, e i turni di una chat
+    eliminata restano come righe di costo senza più contenuto;
+  - la **formula** della licenza dice come si vende l'assistente. «propria»: la chiave è del cliente, come finora.
+    «inclusa»: l'assistente è nel canone, con una quota mensile per utente e per istanza. «consumo»: si fattura
+    l'utilizzo, con un tetto facoltativo. Le quote contano il costo sui provider **forniti con il piano**
+    (`Provider.gestito`): la chiave è di chi vende, provider, modelli e prezzi li cambia solo il Global Admin, e la
+    chiave dell'azienda lì non vale. A quota finita quei modelli escono dalla catena (`ai.limiti.ammessi`) fino al
+    primo del mese e restano quelli con una chiave dell'azienda o locali, se ci sono; la chat avvisa dall'80%. Senza
+    portale: `ai_licenza --formula inclusa --quota-utente 5 --quota-istanza 200`. Le formule «inclusa» e «consumo»
+    sono affidabili solo sulle istanze ospitate: su un server del cliente la chiave e i contatori sono in mano sua.
 - **Come funziona**:
   - ogni domanda è un turno eseguito in un thread (o nel processo con `AI_TURNI_SINCRONI=True`);
   - il contesto del modello si ricostruisce dal log degli eventi, in sola aggiunta: i blocchi di ragionamento
@@ -565,6 +582,14 @@ questa, o l'ospitare l'istanza senza dare accesso al server. Licenza e firme son
 1. `MODULI_CHIAVE_PRIVATA=/percorso/chiave.pem` nel suo `.env` (firma licenze e cataloghi; da `modulo chiavi`).
 2. `manage.py rivendita_pubblica --tutti`, o «Carica un pacchetto», mette in vendita i moduli (zip firmati, nell'archivio privato).
 3. **Piani** con le loro app e il prezzo, poi un'**Istanza** per ogni cliente: piano, moduli in più, utenti, scadenza. «Genera il token» lo mostra una volta sola.
+   Il prezzo di un piano ha due parti che si sommano: fisso al mese e **per utente** al mese (l'abbonamento per utente:
+   si moltiplica per gli utenti della licenza). Il piano dice anche come si vende l'**assistente AI**: con la chiave del
+   cliente, **incluso** nel canone con una quota mensile per utente e per istanza (in dollari di costo dei modelli), o
+   **a consumo**, cioè canone più utilizzo con un ricarico in percentuale e un tetto facoltativo. L'istanza può avere
+   condizioni sue. I termini vanno nella licenza sotto `"ai"`, che il kernel firma senza leggere. Ogni ora le istanze
+   riferiscono i consumi (`ai.consumi_portale`, solo numeri): «Consumi AI» mostra l'importo da fatturare con «a consumo»
+   (costo sul piano × cambio × ricarico) e il consumo sulla quota con «inclusa». Il cambio dollaro → euro è
+   un'impostazione del modulo, da aggiornare a mano. Il portale non emette fatture.
    Un piano può comprendere solo alcune **funzioni** di un modulo (es. l'assistente senza ricerca sul web né aree di
    lavoro): «moduli con le funzioni scelte» e «funzioni comprese»; l'istanza può averne in più. Vedi sotto.
 4. Le **Richieste** dei clienti si approvano con un bottone: il modulo passa nella licenza dell'istanza.
