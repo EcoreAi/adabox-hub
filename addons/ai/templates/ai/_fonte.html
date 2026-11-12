@@ -1,0 +1,14 @@
+{# La fonte di una citazione accanto alla chat: il testo con il passaggio citato evidenziato (ai/fonti_citate.py). #}
+<header class="ai-tela-testa">
+  <h2 class="ai-tela-titolo" title="{{ f.titolo }}">{{ f.titolo }}</h2>
+  <span class="ai-spazio"></span>
+  <a class="ui-btn ui-btn-secondary ui-btn-sm" href="{{ f.url }}">{% if f.documento %}Apri il documento{% else %}Apri{% endif %}</a>
+  <button type="button" class="ai-chiudi" data-chiudi-fonte aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button>
+</header>
+<p class="ai-fonte-nota">Evidenziato il passaggio citato nella risposta.{% if f.nessuna_evidenza %} Non l'ho ritrovato nel testo attuale: il documento può essere cambiato dopo la risposta.{% endif %}</p>
+<div class="ai-fonte-testo">
+  {% for b in f.blocchi %}<section class="ai-fonte-blocco{% if b.evidenziato %} is-citato{% endif %}"{% if b.aperta %} data-aperta{% endif %}>
+    {% if b.pagina %}<div class="ai-fonte-pagina">Pagina {{ b.pagina }}</div>{% elif b.titolo %}<div class="ai-fonte-pagina">{{ b.titolo }}</div>{% endif %}
+    <div class="ai-fonte-corpo">{% for testo, evidenziato in b.segmenti %}{% if evidenziato %}<mark>{{ testo }}</mark>{% else %}{{ testo }}{% endif %}{% endfor %}</div>
+  </section>{% empty %}<p class="ai-fonte-nota">Dal file non si ricava testo da mostrare.</p>{% endfor %}
+</div>

@@ -449,6 +449,10 @@ completate.
     testo citato, prima in locale (parole, numeri, vicinanza dei vettori), poi solo per i casi dubbi con il
     profilo «Classificazione». Sotto la risposta «N su M citazioni verificate» con le frasi non sostenute o
     incerte e il motivo; la risposta non si riscrive;
+  - in chat il clic su una citazione (o su una frase da controllare) apre accanto il testo della fonte con il
+    passaggio citato evidenziato (`ai/fonti_citate.py`, `/ai/fonte/<messaggio>/?url=`): il documento intero, per
+    pagine nei PDF, oppure i testi del record o della pagina wiki. Solo link restituiti dagli strumenti nel turno, con
+    i permessi di chi guarda; Ctrl+clic apre il link come prima;
   - `python manage.py ai_eval --ricerca --file domande.json` misura la sola ricerca ({domanda, fonte}: posizione
     del primo risultato con quel titolo), senza modello; nelle domande d'oro `fonte` e `citazioni_verificate`.
 - **Fiducia** (AI-5):
