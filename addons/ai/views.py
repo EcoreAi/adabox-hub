@@ -4,7 +4,7 @@ from core import cifratura
 from core.viste import Inline, ModelView, register
 
 from .forms import AssistenteForm, ChiaveAziendaForm, PianificataForm, ProgettoChatForm, ProviderForm, ServerMCPForm, ServizioVoceForm
-from .models import (AnelloCatena, Assistente, ChiaveAzienda, Modello, Pianificata, Profilo, Proposta, Provider, MemoriaUtente, ProgettoChat, ServerMCP, ServizioVoce, StrumentoSpento,
+from .models import (AnelloCatena, Assistente, ChiaveAzienda, IndiceDocumento, Modello, Pianificata, Profilo, Proposta, Provider, MemoriaUtente, ProgettoChat, ServerMCP, ServizioVoce, StrumentoSpento,
                      ValutazioneRisposta, Turno)
 
 
@@ -311,6 +311,49 @@ class ValutazioniView(ModelView):
     form_layout = [("Valutazione", [("creata", "voto"), ("utente", "commento")])]
     readonly_fields = ["creata", "voto", "utente", "commento"]
     company_field = "azienda"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@register
+class IndiceDocumentiView(ModelView):
+    """Come l'assistente legge ogni documento: indicizzato, in parte, scansione senza testo, file protetto. Si vedono
+    solo i documenti che l'utente vede nell'archivio."""
+    funzione = "conoscenza"
+    model = IndiceDocumento
+    slug = "indice"
+    storico = False
+    company_field = "azienda"
+    list_display = ["nome", "stato", "pagine", "frammenti", "messaggio", "aggiornato", "apri"]
+    list_filter = ["stato", "aggiornato"]
+    search_fields = ["nome", "riassunto"]
+    list_group_by = ["stato"]
+    form_layout = [("Documento", [("nome", "stato"), "messaggio", ("pagine", "caratteri", "frammenti"), "aggiornato"]),
+                   ("Riassunto", ["riassunto"])]
+    readonly_fields = ["nome", "stato", "messaggio", "pagine", "caratteri", "frammenti", "aggiornato", "riassunto"]
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        azienda = getattr(request, "azienda", None)
+        from django.apps import apps
+        if azienda is None or not apps.is_installed("documenti"):
+            return qs.none()
+        from documenti import accesso
+        return qs.filter(documento_id__in=accesso.documenti(request.user, azienda).values("pk"))
+
+    def col_apri(self, obj):
+        from django.urls import NoReverseMatch, reverse
+        from django.utils.html import format_html
+        try:
+            return format_html('<a class="ui-link" href="{}">Apri il documento</a>',
+                               reverse("documenti:documenti_dettaglio", args=[obj.documento_id]))
+        except NoReverseMatch:
+            return ""
+    col_apri.short_description = "Documento"
 
     def has_add_permission(self, request):
         return False

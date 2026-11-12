@@ -165,3 +165,10 @@ def url_riassunto(vista, obj):
 
     from core.generici import ct_di
     return reverse("ai:riassumi_record", args=[ct_di(vista.model).pk, obj.pk])
+
+
+@register.simple_tag
+def indice_documento(documento):
+    """Lo stato del documento nell'indice dell'assistente, o None se non è ancora stato letto."""
+    from ai.models import IndiceDocumento
+    return IndiceDocumento.objects.filter(documento_id=documento.pk).first()

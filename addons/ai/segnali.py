@@ -21,9 +21,10 @@ def _salvato(sender, instance, raw=False, **_):
 def _eliminato(sender, instance, **_):
     from django.contrib.contenttypes.models import ContentType
 
-    from .models import Frammento
+    from .models import Frammento, IndiceDocumento
     Frammento.objects.filter(fonte=Frammento.DOCUMENTO, content_type=ContentType.objects.get_for_model(sender),
                              object_id=instance.pk).delete()
+    IndiceDocumento.objects.filter(documento_id=instance.pk).delete()
 
 
 def _cambiati(sender, pks, **_):

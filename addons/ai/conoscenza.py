@@ -21,7 +21,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.utils import timezone
 
-from .models import Frammento
+from .models import Frammento, IndiceDocumento
 
 log = logging.getLogger("ai.conoscenza")
 
@@ -44,28 +44,41 @@ PAROLE_VUOTE = {"che", "per", "con", "del", "della", "delle", "dei", "degli", "d
 
 # ---------- testo dai file ----------
 
-def testo_da_file(nome, dati):
-    """Il testo di un file (txt, md, csv, PDF, Word, Excel); "" se il tipo non è supportato o il file è illeggibile."""
+TESTUALI = ("txt", "md", "csv", "tsv", "json", "xml", "html", "htm", "eml")
+SUPPORTATI = (*TESTUALI, "pdf", "docx", "xlsx", "xlsm")
+
+
+def estrai(nome, dati):
+    """(pagine, esito) di un file. `pagine` è [(numero di pagina o None, testo)]: le pagine vere per i PDF, un solo
+    pezzo senza numero per gli altri tipi. `esito`: "ok", "non_supportato" o "illeggibile" (file rotto o protetto)."""
     estensione = nome.lower().rsplit(".", 1)[-1] if "." in nome else ""
+    if estensione not in SUPPORTATI:
+        return [], "non_supportato"
     try:
-        if estensione in ("txt", "md", "csv", "tsv", "json", "xml", "html", "htm", "eml"):
+        if estensione in TESTUALI:
             testo = dati.decode("utf-8", errors="replace")
-            return re.sub(r"<[^>]+>", " ", testo) if estensione in ("html", "htm", "xml") else testo
+            return [(None, re.sub(r"<[^>]+>", " ", testo) if estensione in ("html", "htm", "xml") else testo)], "ok"
         if estensione == "pdf":
             from pypdf import PdfReader
-            return "\n\n".join((pagina.extract_text() or "") for pagina in PdfReader(io.BytesIO(dati)).pages)
+            return [(n, pagina.extract_text() or "") for n, pagina in enumerate(PdfReader(io.BytesIO(dati)).pages, start=1)], "ok"
         if estensione == "docx":
             import docx
             documento = docx.Document(io.BytesIO(dati))
             righe = [p.text for p in documento.paragraphs]
             for tabella in documento.tables:
                 righe += [" | ".join(c.text for c in riga.cells) for riga in tabella.rows]
-            return "\n".join(righe)
-        if estensione in ("xlsx", "xlsm"):
-            return "\n".join(" | ".join(map(str, riga)) for _, righe in fogli(dati) for riga in righe)
+            return [(None, "\n".join(righe))], "ok"
+        return [(None, "\n".join(" | ".join(map(str, riga)) for _, righe in fogli(dati) for riga in righe))], "ok"
     except Exception:                                  # file rotto o protetto: non si indicizza, non si blocca
         log.warning("testo non estratto da %s", nome, exc_info=True)
-    return ""
+        return [], "illeggibile"
+
+
+def testo_da_file(nome, dati, segna_pagine=False):
+    """Il testo di un file (txt, md, csv, PDF, Word, Excel); "" se il tipo non è supportato o il file è illeggibile.
+    Con `segna_pagine` ogni pagina di un PDF comincia con «[pagina N]»."""
+    pagine, _ = estrai(nome, dati)
+    return "\n\n".join(f"[pagina {n}]\n{t}" if segna_pagine and n else t for n, t in pagine)
 
 
 def fogli(dati, massimo=5000):
@@ -189,26 +202,101 @@ def frammenti_documenti():
         return
     from documenti.models import Documento
     ct = ContentType.objects.get_for_model(Documento)
+    vivi = set()
     for d in Documento.objects.filter(cestinato_il__isnull=True).iterator(chunk_size=200):
+        vivi.add(d.pk)
         yield from frammenti_di_un_documento(d, ct)
+    spariti = [pk for pk in IndiceDocumento.objects.values_list("documento_id", flat=True) if pk not in vivi]
+    for i in range(0, len(spariti), 500):                    # a blocchi: niente query con migliaia di parametri
+        IndiceDocumento.objects.filter(documento_id__in=spariti[i:i + 500]).delete()
 
 
-def frammenti_di_un_documento(d, ct):
-    file = d.contenuto
-    if not file:
+MAX_FILE = 20 * 1024 * 1024
+
+
+def frammenti_di_un_documento(d, ct, analisi=None):
+    """I frammenti di un documento (con la pagina, per i PDF) e, se c'è ed è aggiornato, il suo riassunto. Annota
+    com'è andata in IndiceDocumento: chi carica una scansione senza testo lo vede nella scheda del documento."""
+    analisi = analisi or analizza(d)
+    if analisi is None:
         return
-    try:
-        with file.open("rb") as f:
-            dati = f.read(20 * 1024 * 1024)
-    except (OSError, ValueError):
-        return
-    testo = testo_da_file(d.nome, dati)[:MAX_TESTO_DOCUMENTO]
+    pagine, stato = analisi["pagine"], analisi["indice"]
+    n = 0
     if d.descrizione:
-        testo = f"{d.descrizione}\n\n{testo}"
-    for i, pezzo in enumerate(pezzi(testo)):
-        yield {"fonte": Frammento.DOCUMENTO, "content_type": ct, "object_id": d.pk, "chiave": str(i),
-               "azienda_id": d.azienda_id, "titolo": f"Documento «{d.nome}»" + (f", parte {i + 1}" if i else ""),
-               "testo": pezzo}
+        yield {"fonte": Frammento.DOCUMENTO, "content_type": ct, "object_id": d.pk, "chiave": "descrizione", "pagina": None,
+               "azienda_id": d.azienda_id, "titolo": f"Documento «{d.nome}», descrizione"[:250], "testo": d.descrizione[:MAX_TESTO_RECORD]}
+    for pagina, testo in pagine:
+        for i, pezzo in enumerate(pezzi(testo)):
+            chiave = f"p{pagina}.{i}" if pagina else str(i)
+            dove = f", p. {pagina}" if pagina else (f", parte {i + 1}" if i else "")
+            yield {"fonte": Frammento.DOCUMENTO, "content_type": ct, "object_id": d.pk, "chiave": chiave, "pagina": pagina,
+                   "azienda_id": d.azienda_id, "titolo": f"Documento «{d.nome}»{dove}"[:250], "testo": pezzo}
+            n += 1
+    if stato.riassunto and stato.impronta_riassunto == stato.impronta:
+        yield {"fonte": Frammento.DOCUMENTO, "content_type": ct, "object_id": d.pk, "chiave": "riassunto", "pagina": None,
+               "azienda_id": d.azienda_id, "titolo": f"Documento «{d.nome}», riassunto"[:250], "testo": stato.riassunto}
+    if stato.frammenti != n:
+        IndiceDocumento.objects.filter(pk=stato.pk).update(frammenti=n)
+
+
+def analizza(d):
+    """Estrae il testo del documento e aggiorna il suo IndiceDocumento. {pagine, testo, indice}, o None se il documento
+    non ha un file da leggere."""
+    file = d.contenuto
+    stato = {"nome": d.nome[:200], "azienda_id": d.azienda_id, "pagine": None, "caratteri": 0, "messaggio": ""}
+    pagine, esito, parziale = [], "vuoto", False
+    if file:
+        try:
+            with file.open("rb") as f:
+                dati = f.read(MAX_FILE + 1)
+        except (OSError, ValueError):
+            dati, esito = None, "illeggibile"
+        if dati is not None:
+            parziale = len(dati) > MAX_FILE
+            pagine, esito = estrai(d.nome, dati[:MAX_FILE])
+    if esito == "ok":
+        pagine, totale = _taglia(pagine)
+        parziale = parziale or totale > MAX_TESTO_DOCUMENTO
+        stato["caratteri"] = min(totale, MAX_TESTO_DOCUMENTO)
+        stato["pagine"] = max((n for n, _ in pagine if n), default=None)
+        if not any(t.strip() for _, t in pagine):
+            esito = IndiceDocumento.SENZA_TESTO
+            stato["messaggio"] = "Nessun testo nel file: probabilmente è una scansione. L'assistente non lo può leggere."
+        else:
+            esito = IndiceDocumento.PARZIALE if parziale else IndiceDocumento.INDICIZZATO
+            if parziale:
+                stato["messaggio"] = "Documento molto lungo: l'assistente ne conosce solo la prima parte."
+    elif esito == "non_supportato":
+        esito = IndiceDocumento.NON_SUPPORTATO
+        stato["messaggio"] = "Tipo di file non letto dall'assistente (si leggono PDF, Word, Excel, testo, CSV, Markdown)."
+    elif esito == "illeggibile":
+        esito = IndiceDocumento.ILLEGGIBILE
+        stato["messaggio"] = "File rotto o protetto da password: l'assistente non lo può leggere."
+    else:
+        esito = IndiceDocumento.VUOTO
+    testo = "\n\n".join(t for _, t in pagine)
+    stato.update(stato=esito, impronta=_impronta(testo) if testo.strip() else "")
+    indice = IndiceDocumento.objects.filter(documento_id=d.pk).first()
+    if indice is None:
+        indice = IndiceDocumento.objects.create(documento_id=d.pk, **stato)
+    elif any(getattr(indice, k) != v for k, v in stato.items()):      # il giro programmato non riscrive ciò che non cambia
+        for k, v in stato.items():
+            setattr(indice, k, v)
+        indice.save()
+    if not file:
+        return None
+    return {"pagine": pagine, "testo": testo, "indice": indice}
+
+
+def _taglia(pagine):
+    """Le pagine fino a MAX_TESTO_DOCUMENTO caratteri in tutto (oltre si taglia) e il totale prima del taglio."""
+    risultato, usati, totale = [], 0, 0
+    for n, t in pagine:
+        totale += len(t)
+        if usati < MAX_TESTO_DOCUMENTO:
+            risultato.append((n, t[:MAX_TESTO_DOCUMENTO - usati]))
+            usati += len(risultato[-1][1])
+    return risultato, totale
 
 
 SORGENTI = {Frammento.RECORD: frammenti_record, Frammento.NOTA: frammenti_note,
@@ -270,7 +358,7 @@ def _allinea(esistenti_qs, sorgente, conti):
             conti["nuovi"] += 1
         elif f.impronta != impronta or f.azienda_id != dati["azienda_id"]:
             Frammento.objects.filter(pk=f.pk).update(impronta=impronta, titolo=dati["titolo"], testo=dati["testo"],
-                                                     azienda_id=dati["azienda_id"], vettore=None)
+                                                     azienda_id=dati["azienda_id"], pagina=dati.get("pagina"), vettore=None)
             conti["aggiornati"] += 1
     spariti = [f.pk for k, f in esistenti.items() if k not in visti]
     for i in range(0, len(spariti), 500):
@@ -302,15 +390,95 @@ def indicizza(fonti=None, limite_secondi=240):
 
 def indicizza_documento(documento_id):
     """Un documento solo, subito dopo un caricamento, una versione nuova, uno spostamento, un cambio di nome o il
-    cestino: in chat si trova in pochi secondi, senza aspettare il giro programmato."""
+    cestino: in chat si trova in pochi secondi, senza aspettare il giro programmato. Con i riassunti accesi, prima
+    di allineare i frammenti si rifà il riassunto se il testo è cambiato."""
     from documenti.models import Documento
     ct = ContentType.objects.get_for_model(Documento)
     conti = {"nuovi": 0, "aggiornati": 0, "tolti": 0, "vettori": 0}
     esistenti = Frammento.objects.filter(fonte=Frammento.DOCUMENTO, content_type=ct, object_id=documento_id)
     d = Documento.objects.filter(pk=documento_id, cestinato_il__isnull=True).first()
-    _allinea(esistenti, frammenti_di_un_documento(d, ct) if d is not None else [], conti)
+    analisi = None
+    if d is None:
+        IndiceDocumento.objects.filter(documento_id=documento_id).delete()
+    else:
+        analisi = analizza(d)
+        if analisi is not None and riassunti_accesi():
+            conti["riassunto"] = riassumi(d, analisi)
+    _allinea(esistenti, frammenti_di_un_documento(d, ct, analisi) if analisi is not None else [], conti)
     _vettori(esistenti, conti, 120, time.monotonic())
     return json.dumps(conti)
+
+
+# ---------- riassunti dei documenti ----------
+
+RIASSUNTO_SISTEMA = (
+    "Riassumi il documento di un'azienda perché un assistente capisca se gli serve per rispondere a una domanda. "
+    "Scrivi in italiano, senza preamboli, al massimo 200 parole, con queste righe:\n"
+    "Argomento: una frase.\nPunti chiave: 3-6 punti brevi (date, importi, scadenze, obblighi se ci sono).\n"
+    "Nomi: persone, aziende, prodotti, luoghi citati.\nRiferimenti: altri documenti, contratti o norme citati (o «—»).\n"
+    "Usa solo ciò che c'è nel testo: non inventare.")
+RIASSUNTO_MAX_TESTO = 60_000          # caratteri del documento mandati al modello
+RIASSUNTI_PER_GIRO = 10               # documenti messi in coda dal giro programmato, per non spendere a raffica
+
+
+def riassunti_accesi():
+    from core import parametri
+    try:
+        return bool(parametri.leggi("ai.riassunti_documenti"))
+    except KeyError:
+        return False
+
+
+def riassumi(d, analisi):
+    """Il riassunto del documento (profilo «riassunti»), se il testo è cambiato dall'ultimo tentativo. Un tentativo
+    fallito non si ripete finché il testo non cambia. Restituisce "fatto", "già fatto", "senza testo" o l'errore."""
+    from . import catalogo, limiti
+    from .gateway import ErroreModello, Inizio, Testo, Uso, esegui as gateway
+    from .models import Turno
+    from .protezione import Protezione
+    indice = analisi["indice"]
+    if indice.stato not in (IndiceDocumento.INDICIZZATO, IndiceDocumento.PARZIALE):
+        return "senza testo"
+    if indice.impronta_riassunto == indice.impronta:
+        return "già fatto"
+    utente = d.caricato_da or d.proprietario
+    lavoro = Turno.objects.create(utente=utente, azienda_id=d.azienda_id, compito="riassunto_documento")
+    pezzi_testo, modello = [], None
+    try:
+        profilo = catalogo.profilo_per("riassunti", d.azienda)
+        catena = limiti.ammessi(catalogo.catena(profilo, d.azienda), utente)
+        domanda = f"Documento «{d.nome}»:\n\n{analisi['testo'][:RIASSUNTO_MAX_TESTO]}"
+        for pezzo in gateway(catena, protezione=Protezione(None), sistema=RIASSUNTO_SISTEMA,
+                             messaggi=[{"ruolo": "utente", "testo": domanda}], max_token=800, effort=profilo.effort):
+            if isinstance(pezzo, Inizio):
+                modello = lavoro.modello = pezzo.modello
+            elif isinstance(pezzo, Testo):
+                pezzi_testo.append(pezzo.testo)
+            elif isinstance(pezzo, Uso) and modello is not None:
+                lavoro.addebita(modello, pezzo.come_dict())
+    except (ErroreModello, catalogo.NessunModello) as e:
+        log.warning("documento %s non riassunto: %s", d.pk, e)
+        lavoro.stato, lavoro.errore = Turno.ERRORE, str(e)
+    else:
+        lavoro.stato = Turno.COMPLETATO
+    lavoro.testo, lavoro.finito = "".join(pezzi_testo).strip(), timezone.now()
+    lavoro.save()
+    riuscito = lavoro.stato == Turno.COMPLETATO and lavoro.testo
+    indice.riassunto = lavoro.testo[:4000] if riuscito else ""
+    indice.impronta_riassunto = indice.impronta
+    indice.save(update_fields=["riassunto", "impronta_riassunto", "aggiornato"])
+    return "fatto" if riuscito else (lavoro.errore[:200] or "risposta vuota")
+
+
+def accoda_riassunti_arretrati():
+    """Con i riassunti accesi, i documenti leggibili il cui riassunto manca o è vecchio vanno in coda, pochi per giro."""
+    if not riassunti_accesi():
+        return 0
+    arretrati = list(IndiceDocumento.objects.filter(stato__in=[IndiceDocumento.INDICIZZATO, IndiceDocumento.PARZIALE])
+                     .exclude(impronta_riassunto=models.F("impronta")).values_list("documento_id", flat=True)[:RIASSUNTI_PER_GIRO])
+    for pk in arretrati:
+        accoda_documento(pk)
+    return len(arretrati)
 
 
 def viste_a_sezioni():
@@ -353,6 +521,7 @@ def accoda_documento(documento_id):
     funzione = "ai.conoscenza.indicizza_documento"
     if not Lavoro.objects.filter(funzione=funzione, argomenti={"documento_id": documento_id},
                                  stato=Lavoro.IN_CODA).exists():
+        IndiceDocumento.objects.filter(documento_id=documento_id).update(stato=IndiceDocumento.IN_CODA)
         lavori.accoda(funzione, documento_id=documento_id, max_tentativi=2)
 
 
@@ -398,7 +567,10 @@ def indicizza_cron():
     scelta = intervallo()
     if not dovuta(scelta, _ultima_esecuzione(), timezone.now()):
         return f"saltata: impostazione «{scelta}»"
-    return json.dumps(indicizza(), ensure_ascii=False)
+    conti = indicizza()
+    if "documenti" in settings.ADDONS_ATTIVI:
+        conti["riassunti_in_coda"] = accoda_riassunti_arretrati()
+    return json.dumps(conti, ensure_ascii=False)
 
 
 # chiedono gli embedding in rete: dentro una transazione terrebbero fermo il database per tutti, per tutto il tempo
@@ -436,21 +608,30 @@ def _coseno(a, b):
     return sum(x * y for x, y in zip(a, b))                  # vettori già normalizzati
 
 
+FINESTRA = 200                        # candidati controllati insieme per i permessi (una query per tipo di record)
+
+
 def cerca(domanda, utente, azienda=None, fonti=None, app="", limite=8, visibile=None, documenti=None):
     """[(frammento, punteggio)] più pertinenti tra quelli che `visibile(frammento)` lascia vedere. Con `documenti`
-    (id dell'app Documenti) si cerca solo in quei documenti."""
+    (id dell'app Documenti) si cerca solo in quei documenti.
+
+    L'app e i permessi si applicano prima di tagliare la classifica: i candidati si scorrono in ordine di punteggio,
+    a finestre, finché non ci sono `limite` risultati visibili. Se tanti frammenti di altre app o non visibili
+    stanno sopra, i pertinenti visibili si trovano lo stesso."""
     termini = parole(domanda)
     qs = Frammento.objects.all()
     qs = qs.filter(models.Q(azienda_id=getattr(azienda, "pk", None)) | models.Q(azienda__isnull=True))
     if fonti:
         qs = qs.filter(fonte__in=fonti)
+    if app:
+        qs = qs.filter(content_type_id__in=_tipi_di(app))
     if documenti is not None:
         from documenti.models import Documento
         qs = qs.filter(fonte=Frammento.DOCUMENTO, content_type=ContentType.objects.get_for_model(Documento), object_id__in=list(documenti))
     vettore = embedding([domanda], "query")
     domanda_v = array("f", vettore[0]) if vettore else None
     candidati = []
-    for f in qs.only("pk", "fonte", "content_type_id", "object_id", "titolo", "testo", "vettore", "chiave").iterator(
+    for f in qs.only("pk", "fonte", "content_type_id", "object_id", "titolo", "testo", "vettore", "chiave", "pagina").iterator(
             chunk_size=2000):
         testo_parole = parole(f.titolo + " " + f.testo)
         chiave = len(termini & testo_parole) / len(termini) if termini else 0.0
@@ -462,26 +643,29 @@ def cerca(domanda, utente, azienda=None, fonti=None, app="", limite=8, visibile=
             candidati.append((punteggio, f))
     candidati.sort(key=lambda c: c[0], reverse=True)
     risultati, per_record = [], {}
-    for punteggio, f in candidati[:limite * 8]:
-        if app and _app_di(f) != app:
-            continue
-        if visibile is not None and not visibile(f):
-            continue
-        record = (f.content_type_id, f.object_id)
-        if per_record.get(record, 0) >= 2:                   # al massimo due pezzi dello stesso documento o record
-            continue
-        per_record[record] = per_record.get(record, 0) + 1
-        risultati.append((f, round(punteggio, 3)))
-        if len(risultati) >= limite:
-            break
+    for inizio in range(0, len(candidati), FINESTRA):
+        finestra = candidati[inizio:inizio + FINESTRA]
+        if visibile is not None and hasattr(visibile, "prepara"):
+            visibile.prepara([f for _, f in finestra])
+        for punteggio, f in finestra:
+            if visibile is not None and not visibile(f):
+                continue
+            record = (f.content_type_id, f.object_id)
+            if per_record.get(record, 0) >= 2:               # al massimo due pezzi dello stesso documento o record
+                continue
+            per_record[record] = per_record.get(record, 0) + 1
+            risultati.append((f, round(punteggio, 3)))
+            if len(risultati) >= limite:
+                return risultati
     return risultati
 
 
-def _app_di(frammento):
+def _tipi_di(app):
+    """Gli id dei ContentType dei modelli che appartengono all'app (quelli la cui vista è dell'app)."""
     from core.viste import registry
-    modello = ContentType.objects.get_for_id(frammento.content_type_id).model_class()
-    vista = registry.per_modello(modello) if modello else None
-    return vista.modulo if vista else ""
+    registry.autodiscover(["core", *settings.ADDONS_ATTIVI])
+    return [ContentType.objects.get_for_model(v.model).pk for v in registry.viste_di(app)
+            if getattr(registry.per_modello(v.model), "modulo", None) == app]
 
 
 def statistiche():

@@ -108,7 +108,7 @@ def test_valutazione_con_le_domande_d_oro(scena, capsys):
     r, = valutazione.valuta(sbagliata, scena["capo"], copioni=True)
     assert not r["ok"] and r["problemi"] == ["strumenti non usati: data_e_ora", "manca «mezzogiorno»"]
     call_command("ai_eval", "--copioni")
-    assert "Riuscite 5 su 5" in capsys.readouterr().out
+    assert "Riuscite 6 su 6" in capsys.readouterr().out
     Assistente.objects.create(nome="Prova", domande_oro=sbagliata)
     with pytest.raises(SystemExit):
         call_command("ai_eval", "--copioni", "--assistente", "prova")

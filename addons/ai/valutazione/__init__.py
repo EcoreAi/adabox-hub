@@ -6,8 +6,14 @@ controlli attesi (strumenti usati, testo che deve o non deve comparire, esito de
   sui dati veri in modo deterministico: in CI blocca le regressioni.
 
 Formato di una domanda: {"domanda", "app"?, "strumenti"? (tutti usati), "strumenti_uno_tra"? (almeno uno),
-"contiene"? , "non_contiene"? (senza distinzione tra maiuscole), "esito"? (lista di esiti ammessi), "copione"?}.
-Nei testi da cercare {oggi_giorno} diventa il giorno della settimana di oggi (es. giovedì)."""
+"contiene"? , "non_contiene"? (senza distinzione tra maiuscole), "esito"? (lista di esiti ammessi),
+"fonte"? (testo che deve stare nel titolo di uno dei risultati di cerca_conoscenza del turno),
+"citazioni_verificate"? (true: la risposta cita la conoscenza e ogni citazione è verificata), "copione"?}.
+Nei testi da cercare {oggi_giorno} diventa il giorno della settimana di oggi (es. giovedì).
+
+`valuta_ricerca` misura la sola ricerca nella conoscenza, senza modello né costi: per ogni {"domanda", "fonte"} la
+posizione del primo risultato il cui titolo contiene `fonte` (`manage.py ai_eval --ricerca --file domande.json`).
+Da rifare a ogni cambio di come si spezzano, si pesano o si filtrano i testi."""
 import json
 import time
 from contextlib import contextmanager
@@ -49,7 +55,52 @@ def controlla(domanda, turno, usati):
     esito = (turno.provenienza or {}).get("esito")
     if domanda.get("esito") and esito not in domanda["esito"]:
         problemi.append(f"esito {esito}, atteso {' o '.join(domanda['esito'])}")
+    if domanda.get("fonte") and not any(domanda["fonte"].lower() in t.lower() for t in _titoli_trovati(turno)):
+        problemi.append(f"fonte «{domanda['fonte']}» non trovata da cerca_conoscenza")
+    if domanda.get("citazioni_verificate"):
+        c = (turno.provenienza or {}).get("citazioni") or {}
+        if not c.get("totale"):
+            problemi.append("nessuna citazione della conoscenza nella risposta")
+        elif c["verificate"] < c["totale"]:
+            problemi.append(f"citazioni verificate {c['verificate']} su {c['totale']}")
     return problemi
+
+
+def _titoli_trovati(turno):
+    """I titoli dei risultati di cerca_conoscenza nel turno."""
+    from ..models import Evento
+    nomi, titoli = {}, []
+    for ev in Evento.objects.filter(turno=turno, tipo__in=[Evento.ASSISTENTE, Evento.STRUMENTO]).order_by("pk"):
+        if ev.tipo == Evento.ASSISTENTE:
+            nomi.update({b.get("id"): b["nome"] for b in ev.dati.get("blocchi", []) if b.get("tipo") == "strumento"})
+            continue
+        for r in ev.dati.get("risultati", []):
+            if nomi.get(r.get("id")) == "cerca_conoscenza" and not r.get("errore"):
+                try:
+                    titoli += [v.get("titolo", "") for v in json.loads(r.get("contenuto") or "{}").get("risultati", [])]
+                except (TypeError, ValueError, AttributeError):
+                    pass
+    return titoli
+
+
+def valuta_ricerca(domande, utente, azienda=None, limite=8):
+    """[{domanda, fonte, posizione (1.. o None), titoli}] e il riepilogo {trovate, in_testa, totale, mrr}: la ricerca
+    di cerca_conoscenza con i permessi di `utente`, senza modello."""
+    from .. import conoscenza, strumenti
+    from ..models import Conversazione
+    from ..strumenti.conoscenza import _visibilita
+    contesto = strumenti.Contesto(utente=utente, azienda=azienda, conversazione=Conversazione(utente=utente))
+    righe = []
+    for d in domande:
+        trovati = conoscenza.cerca(d["domanda"], utente, azienda, d.get("fonti"), d.get("app", ""), limite, _visibilita(contesto))
+        titoli = [f.titolo for f, _ in trovati]
+        posizione = next((i for i, t in enumerate(titoli, start=1) if d["fonte"].lower() in t.lower()), None)
+        righe.append({"domanda": d["domanda"], "fonte": d["fonte"], "posizione": posizione, "titoli": titoli[:5]})
+    totale = len(righe) or 1
+    riepilogo = {"totale": len(righe), "trovate": sum(r["posizione"] is not None for r in righe),
+                 "in_testa": sum(r["posizione"] == 1 for r in righe),
+                 "mrr": round(sum(1 / r["posizione"] for r in righe if r["posizione"]) / totale, 3)}
+    return righe, riepilogo
 
 
 def concreto(testo):
