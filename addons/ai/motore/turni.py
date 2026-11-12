@@ -395,6 +395,14 @@ def _chiudi(e, stato, coda="", errore=""):
             turno.provenienza = provenienza.calcola(turno, testo, segnaposto=e.protezione.protetti if e.protezione else ())
         except Exception:                          # la provenienza è un di più: non deve rompere il turno
             log.exception("provenienza del turno %s", turno.pk)
+        from .. import funzioni, verifica
+        try:
+            if funzioni.attiva("conoscenza") and verifica.accesa():
+                citazioni = verifica.citazioni(turno, testo, e.protezione)
+                if citazioni:
+                    turno.provenienza = {**(turno.provenienza or {}), "citazioni": citazioni}
+        except Exception:                          # anche la verifica è un di più
+            log.exception("verifica delle citazioni del turno %s", turno.pk)
     with transaction.atomic():                         # insieme: chi vede il turno concluso trova già il messaggio
         turno.save()
         if turno.conversazione_id and testo:

@@ -1,0 +1,13 @@
+{% load ai %}{% indice_documento obj as ix %}{# Come l'assistente legge il documento: chi carica una scansione senza testo lo scopre qui, non da una risposta vuota. #}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Per l'assistente</div>
+    {% if ix %}<span class="ui-pill {% if ix.leggibile %}ui-pill-ok{% elif ix.stato == 'in_coda' %}ui-pill-neutral{% else %}ui-pill-warn{% endif %}">{{ ix.get_stato_display }}</span>{% endif %}</div>
+  <div class="ui-card-body">
+    {% if not ix %}<p class="ui-help">Non ancora letto dall'assistente: succede entro pochi minuti dal caricamento.</p>
+    {% else %}
+      {% if ix.leggibile %}<p class="ui-help">Ada lo trova nelle sue ricerche{% if ix.pagine %}: {{ ix.pagine }} pagin{{ ix.pagine|pluralize:"a,e" }}{% endif %}, {{ ix.frammenti }} pezz{{ ix.frammenti|pluralize:"o,i" }} citabil{{ ix.frammenti|pluralize:"e,i" }}{% if ix.pagine %}, ognuno con la sua pagina{% endif %}.</p>{% endif %}
+      {% if ix.messaggio %}<p class="ui-help">{{ ix.messaggio }}</p>{% endif %}
+      {% if ix.riassunto and ix.impronta_riassunto == ix.impronta %}<details><summary>Riassunto</summary><div class="ai-riassunto-doc">{{ ix.riassunto|linebreaks }}</div></details>{% endif %}
+    {% endif %}
+  </div>
+</section>

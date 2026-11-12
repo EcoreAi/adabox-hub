@@ -1,7 +1,7 @@
 {
     "name": "Assistente AI",
     "summary": "Chat con l'assistente: cronologia delle conversazioni, artifact e documenti salvati",
-    "version": "1.35.0",
+    "version": "1.36.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -22,6 +22,7 @@
         {"label": "Voce", "url_name": "ai:voce_lista", "permission": "ai.change_serviziovoce", "funzione": "voce"},
         {"label": "Sistemi esterni (MCP)", "url_name": "ai:mcp_lista", "permission": "ai.change_servermcp", "funzione": "mcp"},
         {"label": "Valutazioni", "url_name": "ai:valutazioni_lista", "permission": "ai.view_valutazionerisposta"},
+        {"label": "Indice dei documenti", "url_name": "ai:indice_lista", "permission": "ai.view_indicedocumento", "funzione": "conoscenza"},
         {"label": "Licenza", "url_name": "ai:licenza", "permission": "ai.change_licenza"},
     ],
     "groups": {
@@ -85,6 +86,15 @@
          "scelte": [["5m", "Ogni 5 minuti"], ["10m", "Ogni 10 minuti"], ["30m", "Ogni 30 minuti"], ["1h", "Ogni ora"],
                     ["notte", "Di notte (una volta, dopo le 2)"], ["spento", "Mai (solo dopo i caricamenti e a mano)"]],
          "help": "i documenti caricati o modificati si indicizzano comunque subito; questo è il giro completo"},
+        {"chiave": "riassunti_documenti", "funzione": "conoscenza", "label": "Riassunto di ogni documento nell'indice",
+         "tipo": "booleano", "default": False,
+         "help": "un modello del profilo «Riassunti» legge ogni documento caricato o cambiato (fino a 60.000 caratteri) e ne "
+                 "scrive il riassunto: l'assistente trova meglio i documenti con domande generali. Costa una chiamata per "
+                 "documento; senza protezione dei dati personali il testo va al modello così com'è"},
+        {"chiave": "verifica_citazioni", "funzione": "conoscenza", "label": "Verifica delle citazioni dei documenti",
+         "tipo": "booleano", "default": True,
+         "help": "a fine risposta si controlla che ogni frase citata sia sostenuta dall'estratto: prima un confronto locale, "
+                 "poi, solo per i casi dubbi, un modello del profilo «Classificazione»"},
         {"chiave": "url_pii", "label": "URL del servizio di protezione dei dati personali", "tipo": "testo",
          "default": "", "help": "es. http://adabox-pii-1:5005; con l'URL i dati personali arrivano mascherati "
                                 "ai modelli cloud (se il servizio non risponde non si invia nulla); "

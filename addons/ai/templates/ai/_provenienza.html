@@ -17,6 +17,16 @@
   {% if pv.letture_esterne %}<span class="ai-badge is-neutro" title="Letti da un sistema esterno collegato, non dai dati del gestionale">Da sistemi esterni ({{ pv.letture_esterne }} letture)</span>{% endif %}
   {% if pv.letture_web %}<span class="ai-badge is-avviso" title="Da pagine web scritte da altri: verifica la fonte">Dal web ({{ pv.letture_web }} letture): verifica le fonti</span>{% endif %}
   {% endif %}
+  {% with c=pv.citazioni %}{% if c %}<details class="ai-pv"><summary class="ai-chip{% if c.verificate == c.totale %} is-ok{% else %} is-avviso{% endif %}" title="Verifica: {{ c.metodo }}"><svg><use href="#icon-check"/></svg>{{ c.verificate }} su {{ c.totale }} citazion{{ c.totale|pluralize:"e,i" }} verificat{{ c.totale|pluralize:"a,e" }}</summary>
+    <div class="ai-pv-card">
+      {% if c.da_controllare %}<ul class="ai-pv-fonti">{% for d in c.da_controllare %}<li>
+        <span class="ai-pv-origine is-{% if d.esito == 'non sostenuta' %}web{% else %}documento{% endif %}">{% if d.esito == "non sostenuta" %}Non sostenuta{% else %}Incerta{% endif %}</span>
+        <a href="{{ d.url }}">{{ d.frase|truncatechars:160 }}</a>{% if d.motivo %}<small>{{ d.motivo }}</small>{% endif %}</li>{% endfor %}</ul>
+      <p class="ai-pv-nota">Controlla queste frasi sulla fonte prima di usarle.</p>
+      {% else %}<p class="ai-pv-nota">Ogni frase citata è sostenuta dall'estratto che cita.</p>{% endif %}
+      <p class="ai-pv-nota">Verifica automatica ({{ c.metodo }}): può sbagliare.</p>
+    </div>
+  </details>{% endif %}{% endwith %}
   {% if pv.esito == "parziale" %}<span class="ai-badge is-avviso" title="Numeri non trovati nei dati letti: {{ pv.non_verificati|join:', ' }}">⚠ {{ pv.n_non_verificati }} {{ pv.n_non_verificati|pluralize:"numero non trovato,numeri non trovati" }} nei dati letti</span>{% endif %}
   {% if pv.esito == "senza fonti" %}<span class="ai-badge is-neutro" title="La risposta non viene da dati letti con gli strumenti">Senza dati del gestionale</span>{% endif %}
   {% if pv.pii %}<details class="ai-pv"><summary class="ai-chip is-protetto"><svg><use href="#icon-lock"/></svg>{{ pv.pii }} {{ pv.pii|pluralize:"dato personale protetto,dati personali protetti" }}</summary>

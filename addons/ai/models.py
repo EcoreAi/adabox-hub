@@ -467,6 +467,7 @@ class Frammento(models.Model):
     content_type = models.ForeignKey("contenttypes.ContentType", on_delete=models.CASCADE, related_name="+")
     object_id = models.PositiveBigIntegerField()
     chiave = models.CharField("chiave", max_length=40, help_text="es. il pezzo del documento o la nota")
+    pagina = models.PositiveIntegerField("pagina", null=True, blank=True, help_text="la pagina del PDF da cui viene il pezzo")
     azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, verbose_name="azienda")
     titolo = models.CharField("titolo", max_length=250)
     testo = models.TextField("testo")
@@ -483,6 +484,42 @@ class Frammento(models.Model):
 
     def __str__(self):
         return self.titolo
+
+
+class IndiceDocumento(models.Model):
+    """Com'è andata l'indicizzazione di un documento dell'app Documenti: dice chi carica una scansione senza testo o
+    un file protetto che l'assistente non lo può leggere, e tiene il riassunto del documento (se acceso)."""
+    IN_CODA, INDICIZZATO, PARZIALE, SENZA_TESTO = "in_coda", "indicizzato", "parziale", "senza_testo"
+    NON_SUPPORTATO, ILLEGGIBILE, VUOTO = "non_supportato", "illeggibile", "vuoto"
+    STATI = [(IN_CODA, "In coda"), (INDICIZZATO, "Indicizzato"), (PARZIALE, "Indicizzato in parte (troppo lungo)"),
+             (SENZA_TESTO, "Senza testo (scansione?)"), (NON_SUPPORTATO, "Tipo di file non letto"),
+             (ILLEGGIBILE, "Illeggibile o protetto"), (VUOTO, "Senza file")]
+    documento_id = models.PositiveBigIntegerField("documento", unique=True)
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, verbose_name="azienda")
+    nome = models.CharField("nome del file", max_length=200)
+    stato = models.CharField("stato", max_length=15, choices=STATI, default=IN_CODA)
+    messaggio = models.CharField("dettaglio", max_length=250, blank=True)
+    pagine = models.PositiveIntegerField("pagine", null=True, blank=True)
+    caratteri = models.PositiveIntegerField("caratteri letti", default=0)
+    frammenti = models.PositiveIntegerField("frammenti", default=0)
+    impronta = models.CharField("impronta del testo", max_length=40, blank=True)
+    riassunto = models.TextField("riassunto", blank=True)
+    impronta_riassunto = models.CharField(max_length=40, blank=True, editable=False,
+                                          help_text="l'impronta del testo dell'ultimo tentativo di riassunto")
+    aggiornato = models.DateTimeField("aggiornato il", auto_now=True)
+
+    class Meta:
+        verbose_name = "documento nell'indice"
+        verbose_name_plural = "documenti nell'indice"
+        ordering = ["-aggiornato"]
+        indexes = [models.Index(fields=["azienda", "stato"])]
+
+    def __str__(self):
+        return self.nome
+
+    @property
+    def leggibile(self):
+        return self.stato in (self.INDICIZZATO, self.PARZIALE)
 
 
 class Licenza(models.Model):

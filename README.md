@@ -432,6 +432,25 @@ completate.
     `docker-compose.override.yml`;
   - i vettori stanno nel database e si confrontano in Python (adatto fino a decine di migliaia di frammenti);
     pgvector è il passo successivo quando il database sarà Postgres.
+  - la classifica si taglia dopo i permessi e l'app della chat: i candidati si scorrono in ordine di punteggio, a
+    finestre di 200, con una query per tipo di record, finché non ci sono abbastanza risultati visibili;
+  - i PDF si indicizzano pagina per pagina: ogni frammento ha la sua pagina, la citazione apre il documento con
+    l'anteprima su quella pagina (`?pagina=N`), `leggi_documento` segna «[pagina N]» e con `pagina_pdf` parte da
+    una pagina;
+  - `IndiceDocumento` dice com'è andata per ogni documento (indicizzato, in parte, scansione senza testo, tipo non
+    letto, file rotto o protetto): nella scheda del documento («Per l'assistente») e in Assistente AI → «Indice dei
+    documenti», con i soli documenti che l'utente vede;
+  - con l'impostazione «Riassunto di ogni documento nell'indice» (spenta di default) il profilo «Riassunti» scrive
+    il riassunto di ogni documento caricato o cambiato; diventa un frammento in più, con la visibilità del
+    documento. Un tentativo fallito non si ripete finché il testo non cambia; il giro programmato mette in coda
+    al massimo 10 documenti arretrati per volta;
+  - verifica delle citazioni (`ai/verifica.py`, impostazione «Verifica delle citazioni dei documenti», accesa):
+    a fine turno ogni frase che cita un estratto di `cerca_conoscenza` o un documento letto si confronta con il
+    testo citato, prima in locale (parole, numeri, vicinanza dei vettori), poi solo per i casi dubbi con il
+    profilo «Classificazione». Sotto la risposta «N su M citazioni verificate» con le frasi non sostenute o
+    incerte e il motivo; la risposta non si riscrive;
+  - `python manage.py ai_eval --ricerca --file domande.json` misura la sola ricerca ({domanda, fonte}: posizione
+    del primo risultato con quel titolo), senza modello; nelle domande d'oro `fonte` e `citazioni_verificate`.
 - **Fiducia** (AI-5):
   - con l'URL del servizio `adabox-pii` nelle impostazioni («URL del servizio di protezione dei dati personali»)
     ai modelli **non locali** i dati personali arrivano come segnaposto (`[FULLNAME_1]`, `[IBAN_1]`...), stabili

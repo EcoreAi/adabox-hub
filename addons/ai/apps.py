@@ -36,6 +36,7 @@ class AiConfig(AppConfig):
         segnali.collega_costi()
         if apps.is_installed("documenti"):
             segnali.collega_documenti()
+            hooks.sezione_dettaglio("documenti.Documento", "ai/_indice_documento.html", order=6, permission="ai.add_conversazione")
 
 
 def _chat_all_area_personale(sender, instance, **kwargs):

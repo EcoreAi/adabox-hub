@@ -7,6 +7,19 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 **Da sapere prima di aggiornare**
 
+- **AI 1.36.0 — conoscenza: pagine, stato dei documenti, citazioni verificate** (migrazione `ai.0037`).
+  - La ricerca dell'assistente applica permessi e app della chat prima di tagliare la classifica: in «Chiedi alla
+    wiki» o con molti record non visibili prima poteva rispondere «non trovo nulla» anche se la pagina c'era.
+  - I PDF si indicizzano per pagina: al primo giro dopo l'aggiornamento i loro frammenti si rifanno (e si ricalcolano
+    i vettori). La citazione apre l'anteprima alla pagina giusta.
+  - Nella scheda di ogni documento la sezione «Per l'assistente» dice se Ada lo legge; le scansioni senza testo e i
+    file protetti sono in Assistente AI → «Indice dei documenti».
+  - Sotto le risposte che citano documenti, note o pagine compare «N su M citazioni verificate». Per le frasi dubbie
+    parte una chiamata al profilo «Classificazione» (nei Consumi con il compito «verifica_citazioni»); si spegne
+    nelle impostazioni.
+  - Nuova impostazione, spenta: «Riassunto di ogni documento nell'indice». Accesa, ogni documento caricato o cambiato
+    costa una chiamata al profilo «Riassunti» (compito «riassunto_documento»); senza protezione dei dati personali
+    il testo va al modello così com'è.
 - **Kernel 1.2.0.** I moduli possono dichiarare indirizzi alla radice dell'istanza (`urlpatterns_radice`), per i
   percorsi fissati da uno standard. Serve al nuovo modulo «Chat AI esterne», che sulle istanze con il kernel 1.1 non si
   installa: va aggiornata prima l'immagine (`deploy/flotta.py aggiorna`). Gli altri moduli non cambiano.

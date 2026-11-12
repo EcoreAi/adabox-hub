@@ -13,15 +13,31 @@ class Command(BaseCommand):
         parser.add_argument("--utente", help="username con cui rispondere (default: il primo superuser)")
         parser.add_argument("--assistente", help="nome dell'assistente: usa le sue domande d'oro e la sua configurazione")
         parser.add_argument("--file", help="file JSON delle domande (default: quello del modulo)")
+        parser.add_argument("--ricerca", action="store_true",
+                            help="solo la ricerca nella conoscenza, senza modello: il file ha {domanda, fonte} (serve --file)")
         parser.add_argument("--copioni", action="store_true",
                             help="modello finto con i copioni delle domande (percorso degli strumenti, senza costi)")
 
-    def handle(self, utente, assistente, file, copioni, **_):
+    def handle(self, utente, assistente, file, copioni, ricerca=False, **_):
         Utente = get_user_model()
         persona = (Utente.objects.filter(username=utente).first() if utente
                    else Utente.objects.filter(is_superuser=True, is_active=True).order_by("pk").first())
         if persona is None:
             raise CommandError("utente non trovato")
+        if ricerca:
+            if not file:
+                raise CommandError("con --ricerca serve --file con le domande {domanda, fonte}")
+            righe, riepilogo = valutazione.valuta_ricerca(valutazione.carica(file), persona, Azienda.objects.order_by("pk").first())
+            for r in righe:
+                esito = f"#{r['posizione']}" if r["posizione"] else "NO"
+                self.stdout.write(f"{esito:<4} {r['domanda'][:70]:<70} «{r['fonte']}»")
+                if not r["posizione"]:
+                    self.stdout.write(f"      trovati: {'; '.join(r['titoli']) or '-'}")
+            self.stdout.write(f"Trovate {riepilogo['trovate']} su {riepilogo['totale']}, in testa {riepilogo['in_testa']}, "
+                              f"MRR {riepilogo['mrr']}.")
+            if riepilogo["trovate"] < riepilogo["totale"]:
+                raise SystemExit(1)
+            return
         scelto = None
         if assistente:
             scelto = Assistente.objects.filter(nome__iexact=assistente).first()
