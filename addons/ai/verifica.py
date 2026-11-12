@@ -120,7 +120,7 @@ def frasi_citate(testo, fonti_turno):
             citati = [u for _, u in LINK.findall(pezzo) if u in fonti_turno or _base(u) in fonti_turno]
             if not citati:
                 continue
-            frase = MARKDOWN.sub("", LINK.sub("", pezzo)).strip(" -•:\t")
+            frase = re.sub(r"\(\s*\)|\[\s*\]", "", MARKDOWN.sub("", LINK.sub("", pezzo))).strip(" -•:\t")
             frase = re.sub(r"\s+([.,;:!?])", r"\1", re.sub(r"^\d+[.)]\s+", "", frase)).strip()
             if len(frase) >= 12:
                 risultato.append((frase, list(dict.fromkeys(citati))))
@@ -166,7 +166,7 @@ def _revisore(turno, coppie, protezione=None):
         catena = limiti.ammessi(catalogo.catena(profilo, turno.azienda), turno.utente)
         for pezzo in gateway(catena, protezione=protezione or Protezione(conversazione), sistema=SISTEMA,
                              messaggi=[{"ruolo": "utente", "testo": "\n\n".join(righe)}],
-                             max_token=200 + 80 * len(coppie), effort=profilo.effort):
+                             max_token=max(profilo.max_token, 600 + 200 * len(coppie)), effort=profilo.effort):
             if isinstance(pezzo, Inizio):
                 modello = lavoro.modello = pezzo.modello
             elif isinstance(pezzo, Testo):
@@ -186,13 +186,21 @@ def _revisore(turno, coppie, protezione=None):
 
 
 def _leggi_giudizi(testo, quante):
+    """I giudizi dal JSON del revisore; se la risposta è tagliata a metà, quelli completi che ci sono."""
     inizio, fine = testo.find("["), testo.rfind("]")
     try:
         voci = json.loads(testo[inizio:fine + 1]) if inizio >= 0 < fine else None
     except ValueError:
         voci = None
     if not isinstance(voci, list):
-        return None
+        voci = []
+        for pezzo in re.findall(r"\{[^{}]*\}", testo):
+            try:
+                voci.append(json.loads(pezzo))
+            except ValueError:
+                pass
+        if not voci:
+            return None
     giudizi = [None] * quante
     for i, voce in enumerate(voci):
         if not isinstance(voce, dict):

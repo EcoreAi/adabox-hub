@@ -280,6 +280,9 @@ def test_frasi_citate_e_giudizi():
     assert verifica._leggi_giudizi('Ecco: [{"n": 2, "esito": "incerta", "motivo": "vago"}]', 2) == [
         None, {"esito": "incerta", "motivo": "vago"}]
     assert verifica._leggi_giudizi("non so", 1) is None
+    tagliata = '[{"n": 1, "esito": "sostenuta", "motivo": ""}, {"n": 2, "esito": "inc'
+    assert verifica._leggi_giudizi(tagliata, 2) == [{"esito": "verificata", "motivo": ""}, None]
+    assert verifica.frasi_citate("È solo una bozza ([1](/a/1/)).", fonti) == [("È solo una bozza.", ["/a/1/"])]
 
 
 # ---------- valutazione
