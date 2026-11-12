@@ -63,6 +63,21 @@ def test_plausibilita_nei_risultati_degli_strumenti():
     assert protezione.plausibile("Il cliente Mario Rossi", 11, 22, "FULLNAME")
 
 
+def test_nomi_dell_azienda_e_nomi_utente_inesistenti_non_si_mascherano(db):
+    from django.contrib.auth.models import User
+
+    from core.models import Azienda
+    Azienda.objects.filter(pk=1).update(nome="Adabox Hub")
+    User.objects.create_user("mrossi", password="x")
+    protezione._noti["quando"] = 0.0
+    p = lambda testo, valore, etichetta: protezione.plausibile(testo, testo.index(valore), testo.index(valore) + len(valore), etichetta)  # noqa: E731
+    assert not p("che cosa è adabox?", "adabox", "USERNAME")              # non è lo username di nessuno
+    assert not p("lavoro in Adabox Hub", "Adabox Hub", "ORG") and not p("lavoro in Adabox Hub", "Hub", "ORG")
+    assert p("scrivi a mrossi", "mrossi", "USERNAME")                     # un utente vero resta protetto
+    assert p("ordine di Bianchi Costruzioni", "Bianchi Costruzioni", "ORG")
+    assert p("che cosa è adabox?", "adabox", "FULLNAME")                  # altre categorie: decide il servizio
+
+
 def test_al_cloud_solo_segnaposto_all_utente_in_chiaro(scena):
     ricevuti = []
     strumenti.registra(strumenti.Strumento("eco", "test", {"type": "object", "properties": {}},

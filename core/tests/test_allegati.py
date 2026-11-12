@@ -99,3 +99,12 @@ def test_x_accel(client, acme, settings):
     r = client.get(f"/allegati/{a.pk}/")
     assert r["X-Accel-Redirect"] == f"/_privati/{a.file.name}" and r.content == b""
     assert 'filename="nota.txt"' in r["Content-Disposition"]
+
+
+def test_x_accel_con_lettere_accentate(client, acme, settings):
+    from django.core.files.base import ContentFile
+    settings.ALLEGATI_X_ACCEL = True
+    a = allegati.salva(acme, ContentFile(b"x", name="Che_cosa_è_adabox.txt"))
+    _utente(client, "view_azienda")
+    r = client.get(f"/allegati/{a.pk}/")
+    assert r["X-Accel-Redirect"].endswith("Che_cosa_%C3%A8_adabox.txt") and r["X-Accel-Redirect"].isascii()
