@@ -19,7 +19,12 @@
   {% endif %}
   {% with c=pv.citazioni %}{% if c %}<details class="ai-pv"><summary class="ai-chip{% if c.verificate == c.totale %} is-ok{% else %} is-avviso{% endif %}" title="Verifica: {{ c.metodo }}"><svg><use href="#icon-check"/></svg>{{ c.verificate }} su {{ c.totale }} citazion{{ c.totale|pluralize:"e,i" }} verificat{{ c.totale|pluralize:"a,e" }}</summary>
     <div class="ai-pv-card">
-      {% if c.da_controllare %}<ul class="ai-pv-fonti">{% for d in c.da_controllare %}<li>
+      {% if c.elenco %}<ul class="ai-pv-fonti">{% for d in c.elenco %}<li>
+        <span class="ai-pv-origine is-{% if d.esito == 'verificata' %}gestionale{% elif d.esito == 'non sostenuta' %}web{% else %}documento{% endif %}">{% if d.esito == "verificata" %}Verificata{% elif d.esito == "non sostenuta" %}Non sostenuta{% else %}Incerta{% endif %}</span>
+        <span>{{ d.frase|truncatechars:160 }}</span>
+        <small><a href="{{ d.url }}">{{ d.fonte|default:"Apri la fonte" }}</a>{% if d.motivo %} · {{ d.motivo }}{% endif %}</small></li>{% endfor %}</ul>
+      {% if c.verificate < c.totale %}<p class="ai-pv-nota">Controlla le frasi non verificate sulla fonte prima di usarle.</p>{% endif %}
+      {% elif c.da_controllare %}<ul class="ai-pv-fonti">{% for d in c.da_controllare %}<li>
         <span class="ai-pv-origine is-{% if d.esito == 'non sostenuta' %}web{% else %}documento{% endif %}">{% if d.esito == "non sostenuta" %}Non sostenuta{% else %}Incerta{% endif %}</span>
         <a href="{{ d.url }}">{{ d.frase|truncatechars:160 }}</a>{% if d.motivo %}<small>{{ d.motivo }}</small>{% endif %}</li>{% endfor %}</ul>
       <p class="ai-pv-nota">Controlla queste frasi sulla fonte prima di usarle.</p>

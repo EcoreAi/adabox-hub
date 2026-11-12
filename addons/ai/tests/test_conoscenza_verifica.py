@@ -226,6 +226,10 @@ def test_citazioni_sostenute_verificate_senza_modello(scena, con_servizio):
                f"giorni di preavviso [1]({url}).")
     c = turno.provenienza["citazioni"]
     assert (c["totale"], c["verificate"], c["metodo"]) == (2, 2, "confronto locale")
+    assert [(e["esito"], e["url"]) for e in c["elenco"]] == [("verificata", url)] * 2
+    assert all(e["fonte"].startswith("Nota di capo") or "Bianchi" in e["fonte"] for e in c["elenco"])
+    fonti = turno.provenienza["fonti"]                                   # le fonti citate, con il loro link
+    assert fonti and all(f["url"] == url for f in fonti) and "Documenti e note" not in [f["titolo"] for f in fonti]
     assert not any(ch["sistema"] == verifica.SISTEMA for ch in chiamate)  # nessuna chiamata al revisore
 
 
@@ -255,7 +259,7 @@ def test_senza_revisore_la_citazione_dubbia_resta_incerta(scena, con_servizio, c
     assert "15" in c["da_controllare"][0]["motivo"]
     client.force_login(scena["capo"])
     pagina = client.get(f"/ai/chat/{turno.conversazione_id}/").content.decode()
-    assert "0 su 1 citazione verificata" in pagina and "Controlla queste frasi" in pagina
+    assert "0 su 1 citazione verificata" in pagina and "Controlla le frasi non verificate" in pagina
 
 
 def test_link_non_restituiti_dagli_strumenti_non_sono_citazioni(scena, con_servizio):
