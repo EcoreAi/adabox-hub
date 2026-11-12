@@ -3,7 +3,8 @@
 Messaggi neutri (quelli del log degli eventi):
 - {"ruolo": "utente", "testo": "..."}
 - {"ruolo": "assistente", "blocchi": [{"tipo": "testo", "testo": ...} | {"tipo": "strumento", "id", "nome",
-   "argomenti"}], "nativo": {"provider": "anthropic", "contenuto": [...]}}   # nativo: da rimandare invariato
+   "argomenti", "extra"?}], "nativo": {"provider": "anthropic", "contenuto": [...]}}   # nativo: da rimandare invariato
+   (`extra` su uno strumento: ciò che il fornitore rivuole identico, es. la firma del ragionamento di Gemini)
 - {"ruolo": "strumento", "risultati": [{"id", "contenuto": str, "errore": bool}]}
 """
 from dataclasses import dataclass, field
