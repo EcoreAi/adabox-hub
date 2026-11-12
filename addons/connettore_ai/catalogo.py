@@ -119,6 +119,17 @@ def _solo_app(nome, risultato, app):
     return risultato
 
 
+def _link_assoluti(valore, base):
+    """I link ai record («url»: "/contatti/contatti/7/") con l'indirizzo dell'istanza davanti: nella chat esterna un
+    link relativo non porta da nessuna parte."""
+    if isinstance(valore, dict):
+        return {k: base + v if k == "url" and isinstance(v, str) and v.startswith("/") else _link_assoluti(v, base)
+                for k, v in valore.items()}
+    if isinstance(valore, list):
+        return [_link_assoluti(v, base) for v in valore]
+    return valore
+
+
 def _testo(valore):
     from ai.strumenti.registro import LIMITE_RISULTATO
     testo = valore if isinstance(valore, str) else json.dumps(valore, ensure_ascii=False, default=str)
@@ -169,7 +180,7 @@ def chiama(collegamento, nome, argomenti):
         registra(Chiamata.RIFIUTATA, "app fuori dal collegamento")
         return Esito("Questa app non è tra quelle comprese nel collegamento: l'utente può aggiungerla ricollegando adabox.", errore=True)
 
-    from . import protezione
+    from . import protezione, stato
     try:
         risultato, messaggio = _esegui(strumento, collegamento, protezione.smaschera(collegamento, argomenti))
         if messaggio is not None:
@@ -177,7 +188,7 @@ def chiama(collegamento, nome, argomenti):
             return Esito(protezione.maschera(collegamento, messaggio)[0], errore=True)
         if isinstance(risultato, dict):
             risultato = {k: v for k, v in risultato.items() if k not in SENZA_CHIAVI.get(nome, ())}
-        risultato = _solo_app(nome, risultato, collegamento.app)
+        risultato = _link_assoluti(_solo_app(nome, risultato, collegamento.app), stato.base())
         testo, troncato = _testo(risultato)
         testo, mascherati = protezione.maschera(collegamento, testo)
     except protezione.NonDisponibile:

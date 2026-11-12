@@ -95,6 +95,7 @@ def test_letture_con_i_permessi_della_persona(client, token, contatti, mario, az
     assert json.loads(trovati["content"][0]["text"]) == trovati["structuredContent"]
     letto = chiama(client, token, "leggi_record", {"vista": "contatti.contatti", "id": contatti[0].pk})
     assert letto["structuredContent"]["nome"] == "Rossi Srl" and "bottoni_disponibili" not in letto["structuredContent"]
+    assert trovati["structuredContent"]["risultati"][0]["url"] == f"{SITO}/contatti/contatti/{contatti[0].pk}/"    # link che si aprono dalla chat
     conto = chiama(client, token, "aggrega_record", {"vista": "contatti.contatti", "per": "citta"})
     assert conto["isError"] is False and "Cagliari" in conto["content"][0]["text"]
     negata = chiama(client, token, "cerca_record", {"vista": "crm.opportunita"})
