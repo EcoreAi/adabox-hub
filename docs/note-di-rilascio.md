@@ -7,6 +7,12 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 **Da sapere prima di aggiornare**
 
+- **Kernel — file con lettere accentate.** Con nginx (X-Accel) un documento o un allegato con lettere accentate nel
+  nome (es. «Che_cosa_è.pdf») dava 404 all'anteprima e al download: il percorso ora esce codificato. Serve
+  l'immagine nuova.
+- **AI — protezione dei dati personali.** Il nome dell'azienda, il marchio e le loro parole non si mascherano più,
+  e un «nome utente» si maschera solo se è lo username di un utente: prima «che cos'è adabox?» arrivava al modello
+  come «che cos'è [USERNAME_1]?» e Ada non cercava nei documenti.
 - **AI 1.36.0 — conoscenza: pagine, stato dei documenti, citazioni verificate** (migrazione `ai.0037`).
   - La ricerca dell'assistente applica permessi e app della chat prima di tagliare la classifica: in «Chiedi alla
     wiki» o con molti record non visibili prima poteva rispondere «non trovo nulla» anche se la pagina c'era.

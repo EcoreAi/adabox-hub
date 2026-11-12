@@ -24,7 +24,10 @@ ISTRUZIONE = (
     "\n\nProtezione dei dati: alcuni dati personali (nomi, codici fiscali, IBAN, email, indirizzi...) ti arrivano "
     "come segnaposto tra parentesi quadre, es. [FULLNAME_1] o [EMAIL_2]. Ogni segnaposto indica sempre lo stesso "
     "valore: usalo così com'è nelle risposte e negli argomenti degli strumenti (l'utente vedrà il valore vero) e non "
-    "chiedere di rivelarlo. Nei link Markdown lascia il segnaposto con le parentesi: [testo]([URL_1]).")
+    "chiedere di rivelarlo. Se la domanda dell'utente contiene un segnaposto, è una parola vera che ha scritto: "
+    "rispondi su quella, cercandola con gli strumenti (es. cerca_conoscenza con il segnaposto, che lo strumento "
+    "riceve in chiaro), e non spiegare che cos'è un segnaposto. "
+    "Nei link Markdown lascia il segnaposto con le parentesi: [testo]([URL_1]).")
 SEGNAPOSTO = re.compile(r"\[\s*([A-Za-z]+(?:_[A-Za-z]+)*)[\s_]+(\d+)\s*\]")
 SEGNAPOSTO_COME_LINK = re.compile(r"\[\s*([A-Za-z]+(?:_[A-Za-z]+)*)[\s_]+(\d+)\s*\](?=\()")   # [ORG_1](/url)
 LINK_SENZA_QUADRE = re.compile(r"\]\(\s*([A-Z]+(?:_[A-Z]+)*)_(\d+)\s*\)")
@@ -116,15 +119,58 @@ def _sembra_codice(valore, etichetta):
     return etichetta in ("ORG", "USERNAME") and v.isupper() and len(v) <= 4
 
 
+NOTI_SECONDI = 300
+_noti = {"quando": 0.0, "propri": frozenset(), "utenti": frozenset()}
+
+
+def _nomi_noti():
+    """(nomi propri dell'istanza, username degli utenti), in minuscolo, ricalcolati ogni 5 minuti. I nomi propri sono
+    le aziende dell'istanza e il marchio, con le loro parole: non sono dati personali di nessuno."""
+    import time
+    adesso = time.monotonic()
+    if adesso - _noti["quando"] > NOTI_SECONDI:
+        from django.conf import settings
+        from django.contrib.auth import get_user_model
+
+        from core.models import Azienda
+        nomi = [*Azienda.objects.values_list("nome", flat=True), getattr(settings, "THEME", {}).get("brand") or "", "adabox"]
+        propri = set()
+        for nome in nomi:
+            nome = (nome or "").strip().lower()
+            if nome:
+                propri.add(nome)
+                propri.update(p for p in re.findall(r"\w{3,}", nome))
+        utenti = {u.lower() for u in get_user_model().objects.values_list("username", flat=True)}
+        _noti.update(quando=adesso, propri=frozenset(propri), utenti=frozenset(utenti))
+    return _noti["propri"], _noti["utenti"]
+
+
+def _non_personale(valore, etichetta):
+    """Il nome dell'azienda o del marchio preso per un'organizzazione o un nome utente, o un «nome utente» che non è
+    lo username di nessuno (es. «adabox» in «che cos'è adabox?»): da non mascherare."""
+    if etichetta not in ("ORG", "USERNAME"):
+        return False
+    try:
+        propri, utenti = _nomi_noti()
+    except Exception:                                    # database non pronto: meglio mascherare
+        return False
+    v = " ".join(valore.lower().split())
+    if v in propri:
+        return True
+    return etichetta == "USERNAME" and v not in utenti
+
+
 def plausibile(testo, inizio, fine, etichetta):
     """Scarta le rilevazioni tipiche dei risultati degli strumenti: chiavi JSON, codici presi per nomi, numeri presi
-    per dati personali di tipo "a parole"."""
+    per dati personali di tipo "a parole", i nomi dell'azienda e i «nomi utente» che non sono di nessun utente."""
     valore = testo[inizio:fine]
     if inizio > 0 and testo[inizio - 1] == '"' and CHIAVE_JSON.match(testo[fine:fine + 4]):
         return False
     if etichetta not in NUMERICHE and _numerico(valore):
         return False
     if etichetta in PAROLE and _sembra_codice(valore, etichetta):
+        return False
+    if _non_personale(valore, etichetta):
         return False
     return bool(valore.strip())
 
