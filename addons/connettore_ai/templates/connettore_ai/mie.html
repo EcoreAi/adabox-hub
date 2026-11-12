@@ -1,0 +1,40 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Le mie chat AI · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Le mie chat AI</h1>
+  <div class="sub">Usa i dati di adabox dalla chat che hai già: Claude, ChatGPT, Gemini o Le Chat leggono ciò che puoi vedere tu, con il tuo abbonamento.</div></div></div>
+{% if spento %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body"><p>Il collegamento alle chat AI esterne non è attivo su questa istanza.</p></div></section>
+{% elif not collegabili %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body"><p>La tua azienda non ha acceso il collegamento alle chat AI esterne. Lo accende un amministratore da Impostazioni → Chat AI esterne.</p></div></section>
+{% else %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Indirizzo da incollare nella chat</div></div>
+  <div class="ui-card-body">
+    <input class="ui-input" type="text" readonly value="{{ indirizzo }}" onfocus="this.select()" aria-label="Indirizzo del connettore">
+    {% if in_chiaro %}<p class="ui-help">Questo indirizzo non è https: le chat dei fornitori lo rifiutano. Serve un'istanza raggiungibile da internet con SITO_URL in https.</p>{% endif %}
+    <ul class="ui-help" style="padding-left:18px;">
+      <li><strong>Claude</strong>: Personalizza → Connettori → Aggiungi → Aggiungi connettore personalizzato, oppure <a href="https://claude.ai/customize/connectors?modal=add-custom-connector&amp;connectorName=adabox&amp;connectorUrl={{ indirizzo|urlencode:'' }}" target="_blank" rel="noopener">apri Claude con l'indirizzo già scritto</a>. Nei piani Team ed Enterprise lo aggiunge prima un proprietario dell'organizzazione.</li>
+      <li><strong>ChatGPT</strong>: dalla pagina dei plugin, il bottone «+» → Aggiungi un server MCP personalizzato, con autenticazione OAuth. Nei piani Business ed Enterprise lo crea un amministratore.</li>
+      <li><strong>Le Chat</strong>: Connettori → Aggiungi connettore → Connettore MCP personalizzato. Serve un amministratore dell'organizzazione (nei piani personali sei tu).</li>
+      <li><strong>Gemini</strong>: con Gemini Enterprise lo collega un amministratore, con le credenziali create da chi amministra adabox. Nell'app Gemini personale le app personalizzate oggi ci sono solo negli Stati Uniti.</li>
+    </ul>
+    <p class="ui-help">La chat ti porta su adabox per accedere e dare il consenso: scegli l'azienda e le app. Legge soltanto, con i tuoi permessi; i dati letti restano nella cronologia del fornitore.</p>
+  </div>
+</section>
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Chat collegate</div></div>
+  <div class="ui-card-body">
+    {% for c in collegamenti %}
+    <div class="ui-pagehead" style="margin:0 0 10px;">
+      <div><strong>{{ c.get_fornitore_display }}</strong>{% if c.client.nome %} · {{ c.client.nome }}{% endif %}
+        <div class="sub">{{ c.azienda }} · {% if c.app %}solo {{ c.app|join:", " }}{% else %}tutte le app che vedi{% endif %} · collegata il {{ c.creato|date:"d/m/Y" }}
+          · {% if c.ultimo_uso %}ultimo uso {{ c.ultimo_uso|date:"d/m/Y H:i" }}, {{ c.n_chiamate }} chiamate{% else %}mai usata{% endif %}</div></div>
+      <form method="post" action="{% url 'connettore_ai:scollega' c.pk %}" onsubmit="return confirm('Scollegare questa chat? Da subito non leggerà più niente.')">{% csrf_token %}
+        <button class="ui-btn ui-btn-danger" type="submit">Scollega</button></form>
+    </div>
+    {% empty %}<p class="ui-help">Nessuna chat collegata.</p>{% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

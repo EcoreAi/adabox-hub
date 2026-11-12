@@ -3,6 +3,23 @@
 Ciò che chi aggiorna un'istanza deve sapere: cambi di comportamento, azioni da fare, migrazioni. Il dettaglio è nei
 commit; qui solo ciò che si vede o che chiede un intervento.
 
+## 2026-11-12
+
+**Da sapere prima di aggiornare**
+
+- **Kernel 1.2.0.** I moduli possono dichiarare indirizzi alla radice dell'istanza (`urlpatterns_radice`), per i
+  percorsi fissati da uno standard. Serve al nuovo modulo «Chat AI esterne», che sulle istanze con il kernel 1.1 non si
+  installa: va aggiornata prima l'immagine (`deploy/flotta.py aggiorna`). Gli altri moduli non cambiano.
+
+**Novità**
+
+- **Chat AI esterne 1.0.0 (`connettore_ai`)**: adabox come connettore dentro Claude, ChatGPT, Gemini e Le Chat
+  (migrazione `connettore_ai.0001`). Ogni persona collega la chat che usa già e da lì legge ciò che in adabox può
+  vedere, con il suo abbonamento: sola lettura, permessi di ogni momento, registro delle chiamate, mascheramento dei
+  dati personali se l'azienda lo accende. Spento finché un'azienda non lo accende in Impostazioni; serve un'istanza
+  pubblica in https con `SITO_URL` corretto. Alla radice dell'istanza compaiono `/mcp` e due indirizzi sotto
+  `/.well-known/`: il proxy deve passarli all'app. Provato con client simulati, non ancora con i quattro veri.
+
 ## 2026-11-11
 
 **Da sapere prima di aggiornare**

@@ -37,22 +37,15 @@ marketplace dopo, sopra il sistema dei moduli.
 - WebDAV per i Documenti (serve un dominio con HTTPS).
 - pgvector per gli embedding quando il server passa a Postgres.
 
-## adabox dentro Claude e ChatGPT (proposta del 2026-11-11)
+## adabox dentro Claude, ChatGPT, Gemini e Le Chat: ciò che resta
 
-**Idea.** I clienti usano gli abbonamenti Claude o ChatGPT che hanno già, con i dati di adabox: ogni istanza espone
-un server MCP con OAuth che l'utente aggiunge come connettore personalizzato; la chat resta nella cronologia del
-fornitore, adabox applica i permessi dell'utente e, se l'azienda vuole, maschera i dati personali. Collegate: la
-chiave API personale dentro Ada e l'importazione delle chat esportate da ChatGPT e Claude.
+Il connettore in sola lettura con il mascheramento è fatto dal 2026-11-12 (modulo `connettore_ai`; README, sezione
+«Chat AI esterne»; progetto e scostamenti in `docs/progetto-connettore-ai.md`). Restano idee:
 
-**Escluso.** Usare dentro adabox l'abbonamento dell'utente (sessioni o token dell'abbonamento): vietato dai termini
-dei fornitori.
+- **Scritture dalle chat esterne**, come proposte da confermare in adabox: nessuna modifica parte da una chat senza che
+  la persona veda l'anteprima vera.
+- **Importare le chat** esportate da ChatGPT e Claude nell'area personale (formati non documentati).
+- **Chiave API personale** dentro Ada: in sospeso. Usare dentro adabox l'abbonamento della persona resta vietato dai
+  termini di Anthropic e Google; OpenAI lo ammette solo alle app che approva.
 
-**Progetto tecnico.** `docs/progetto-connettore-ai.md` (verificato sulle fonti del 2026-11-11): protocollo MCP in
-doppia versione (2025-11-25 e 2026-07-28), OAuth 2.1 con CIMD e DCR, strumenti di Ada in sola lettura, scritture come
-proposte confermate in adabox, stime e fasi.
-
-**Decisioni aperte.** Libreria OAuth o server nostro (dopo uno spike); scritture solo come proposte o anche dirette;
-mascheramento di default; quali clienti hanno piani che ammettono i connettori (ChatGPT da verificare).
-
-**Primo passo consigliato.** Spike di 3–4 giorni: OAuth minimo e uno strumento di lettura collegati davvero a Claude
-e a ChatGPT.
+**Prima di tutto questo:** la prova del connettore con i quattro client veri, su un'istanza pubblica in https.

@@ -1,0 +1,5 @@
+{% extends 'theme/base.html' %}
+{% block title %}Collegamento non riuscito · {{ theme.brand }}{% endblock %}
+{# chi ha già una sessione vede la scheda dentro adabox, gli altri come la pagina di accesso #}
+{% block content %}<div style="display:flex; justify-content:center; padding:24px 0;">{% include 'connettore_ai/_errore.html' %}</div>{% endblock %}
+{% block public_content %}<div class="ui-login">{% include 'connettore_ai/_errore.html' %}</div>{% endblock %}
