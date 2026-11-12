@@ -4,9 +4,11 @@ Dei moduli non compresi nella licenza il catalogo porta solo la descrizione: il 
 lo copre, con il token dell'istanza."""
 import ast
 import base64
+import datetime
 import hashlib
 import shutil
 import zipfile
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from django.conf import settings
@@ -17,7 +19,7 @@ from django.utils import timezone
 from core import licenza
 from core.registry import pacchetti
 
-from .models import FunzioneVendibile, Istanza, ModuloVendibile, Pacchetto, Richiesta, Suite
+from .models import AI_CONSUMO, AI_INCLUSA, AI_PROPRIA, ConsumoAI, FunzioneVendibile, Istanza, ModuloVendibile, Pacchetto, Richiesta, Suite
 from .schede import SCHEDE
 
 
@@ -143,7 +145,72 @@ def licenza_di(istanza):
         dati.update(suite=suite, comuni=comuni_di(istanza))
     if funzioni := funzioni_di(istanza, dati["moduli"]):   # come sopra: senza restrizioni la chiave non c'è
         dati["funzioni"] = funzioni
+    if ai := ai_di(istanza):                               # come sopra: con la chiave del cliente la chiave non c'è
+        dati["ai"] = ai
     return licenza.firma(dati, chiave_privata())
+
+
+def ai_di(istanza):
+    """I termini dell'assistente per la licenza (li legge ai.licenza sull'istanza): la formula e le quote in dollari.
+    Con la chiave del cliente niente: non c'è nulla da far rispettare. Il ricarico resta sul portale."""
+    termini = istanza.termini_ai()
+    if termini["formula"] == AI_PROPRIA:
+        return None
+    quota_utente = termini["quota_utente"] if termini["formula"] == AI_INCLUSA else Decimal(0)
+    return {"formula": termini["formula"], "quota_utente": str(quota_utente), "quota_istanza": str(termini["quota_istanza"])}
+
+
+def cambio():
+    """Euro per un dollaro: i costi dei modelli sono in dollari, gli importi al cliente in euro."""
+    from core import parametri
+    return parametri.leggi("rivendita.cambio_usd_eur") or Decimal(1)
+
+
+def quota_ai(istanza, termini):
+    """La quota del mese in dollari con cui confrontare il consumo: quella dell'istanza o, con «inclusa» e senza quella,
+    la somma delle quote per utente. 0 = senza quota."""
+    if termini["quota_istanza"] or termini["formula"] != AI_INCLUSA:
+        return termini["quota_istanza"]
+    return termini["quota_utente"] * istanza.posti()
+
+
+def importo_ai(costo_fornito, termini):
+    """Che cosa si fattura per l'assistente, in euro: solo con «a consumo», il costo sul piano più il ricarico."""
+    if termini["formula"] != AI_CONSUMO:
+        return Decimal(0)
+    return (costo_fornito * cambio() * (1 + termini["ricarico"] / 100)).quantize(Decimal("0.01"))
+
+
+def _decimale(valore):
+    try:
+        numero = Decimal(str(valore))
+    except InvalidOperation:
+        return None
+    return numero if numero.is_finite() and 0 <= numero < Decimal("1e6") else None
+
+
+def _intero(valore):
+    return valore if isinstance(valore, int) and not isinstance(valore, bool) and 0 <= valore < 2_000_000_000 else None
+
+
+def ricevi_consumi_ai(istanza, voci, oggi=None):
+    """I riepiloghi mensili mandati dall'istanza: una riga per mese, sostituita a ogni invio. Valgono solo il mese in
+    corso e quello precedente: i mesi chiusi non si riscrivono. Restituisce i mesi registrati (AAAA-MM)."""
+    questo = (oggi or timezone.localdate()).replace(day=1)
+    ammessi = {f"{m:%Y-%m}": m for m in (questo, (questo - datetime.timedelta(days=1)).replace(day=1))}
+    termini = istanza.termini_ai()
+    registrati = []
+    for v in voci or []:
+        mese = ammessi.get(v.get("mese")) if isinstance(v, dict) and isinstance(v.get("mese"), str) else None
+        costo, fornito = (_decimale(v.get(c)) for c in ("costo", "costo_fornito")) if mese else (None, None)
+        turni, utenti = (_intero(v.get(c)) for c in ("turni", "utenti")) if mese else (None, None)
+        if None in (mese, costo, fornito, turni, utenti) or fornito > costo:
+            continue
+        ConsumoAI.objects.update_or_create(istanza=istanza, mese=mese, defaults={
+            "costo": costo, "costo_fornito": fornito, "turni": turni, "utenti": utenti, "formula": termini["formula"],
+            "quota": quota_ai(istanza, termini), "importo": importo_ai(fornito, termini)})
+        registrati.append(v["mese"])
+    return registrati
 
 
 def catalogo_di(istanza, base_url):

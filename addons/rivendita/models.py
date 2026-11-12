@@ -3,11 +3,15 @@ import secrets
 import uuid
 
 from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 
 from core.storage import StoragePrivato
 
+# come si vende l'assistente AI: le stesse chiavi che l'istanza legge dalla licenza (ai.licenza)
+AI_PROPRIA, AI_INCLUSA, AI_CONSUMO = "propria", "inclusa", "consumo"
+FORMULE_AI = [(AI_PROPRIA, "Chiave del cliente"), (AI_INCLUSA, "Inclusa nel canone, con una quota"), (AI_CONSUMO, "A consumo: canone più utilizzo")]
 
 class ModuloVendibile(models.Model):
     """Un modulo del catalogo commerciale: nasce pubblicando il suo primo pacchetto."""
@@ -88,6 +92,20 @@ class Piano(models.Model):
     moduli = models.ManyToManyField(ModuloVendibile, blank=True, limit_choices_to={"su_misura": False}, related_name="piani", verbose_name="moduli inclusi")
     utenti = models.PositiveIntegerField("utenti inclusi", default=0, help_text="0 = senza tetto")
     prezzo_mese = models.DecimalField("prezzo al mese (€)", max_digits=9, decimal_places=2, default=0)
+    prezzo_utente_mese = models.DecimalField(
+        "prezzo per utente al mese (€)", max_digits=9, decimal_places=2, default=0, validators=[MinValueValidator(0)],
+        help_text="abbonamento per utente: si moltiplica per gli utenti dell'istanza e si somma al prezzo al mese")
+    ai_formula = models.CharField("assistente AI", max_length=8, choices=FORMULE_AI, default=AI_PROPRIA,
+                                  help_text="con «inclusa» e «a consumo» i modelli li fornisce chi vende, con la sua chiave")
+    ai_quota_utente = models.DecimalField(
+        "quota AI per utente al mese ($)", max_digits=9, decimal_places=2, default=0, validators=[MinValueValidator(0)],
+        help_text="con «inclusa»: costo dei modelli compreso per ogni utente; 0 = senza quota")
+    ai_quota_istanza = models.DecimalField(
+        "quota AI dell'istanza al mese ($)", max_digits=9, decimal_places=2, default=0, validators=[MinValueValidator(0)],
+        help_text="con «inclusa» è la quota compresa, con «a consumo» il tetto massimo; 0 = senza")
+    ai_ricarico = models.DecimalField(
+        "ricarico sull'AI a consumo (%)", max_digits=6, decimal_places=2, default=0, validators=[MinValueValidator(0)],
+        help_text="si aggiunge al costo dei modelli quando l'assistente si fattura a consumo")
     attivo = models.BooleanField("attivo", default=True)
     moduli_a_funzioni = models.ManyToManyField(
         ModuloVendibile, blank=True, related_name="piani_a_funzioni", verbose_name="moduli con le funzioni scelte",
@@ -140,6 +158,16 @@ class Istanza(models.Model):
     funzioni_extra = models.ManyToManyField(FunzioneVendibile, blank=True, related_name="istanze", verbose_name="funzioni in più",
                                             help_text="oltre a quelle del piano, per i moduli con le funzioni scelte")
     utenti = models.PositiveIntegerField("utenti", null=True, blank=True, help_text="vuoto = quelli del piano; 0 = senza tetto")
+    ai_formula = models.CharField("assistente AI", max_length=8, choices=FORMULE_AI, blank=True, help_text="vuoto = come il piano")
+    ai_quota_utente = models.DecimalField(
+        "quota AI per utente al mese ($)", max_digits=9, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)],
+        help_text="vuoto = quella del piano; 0 = senza quota")
+    ai_quota_istanza = models.DecimalField(
+        "quota AI dell'istanza al mese ($)", max_digits=9, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)],
+        help_text="vuoto = quella del piano; 0 = senza")
+    ai_ricarico = models.DecimalField(
+        "ricarico sull'AI a consumo (%)", max_digits=6, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)],
+        help_text="vuoto = quello del piano")
     scadenza = models.DateField("scadenza della licenza")
     grazia_giorni = models.PositiveSmallIntegerField("giorni di grazia", default=30, help_text="dopo la scadenza, prima della sola lettura")
     ospitata = models.BooleanField("ospitata da noi", default=True, help_text="senza accesso del cliente al server")
@@ -172,6 +200,24 @@ class Istanza(models.Model):
         self.ultimo_contatto, self.moduli_presenti, self.utenti_attivi = timezone.now(), moduli, utenti_attivi
         self.save(update_fields=["ultimo_contatto", "moduli_presenti", "utenti_attivi"])
 
+    def posti(self):
+        """Gli utenti che si fatturano: quelli della licenza o, senza tetto, quelli attivi riferiti dall'istanza."""
+        utenti = self.utenti if self.utenti is not None else self.piano.utenti
+        return utenti or self.utenti_attivi or 0
+
+    def canone_mese(self):
+        """Il canone in euro senza l'utilizzo dell'AI: piano, prezzo per utente, suite e moduli in più."""
+        return (self.piano.prezzo_mese + self.piano.prezzo_utente_mese * self.posti()
+                + sum(su.prezzo_mese for su in self.suite.all()) + sum(m.prezzo_mese for m in self.moduli_extra.all()))
+
+    def termini_ai(self):
+        """{formula, quota_utente, quota_istanza, ricarico}: i valori dell'istanza, dove ci sono, altrimenti del piano."""
+        def scelto(nome):
+            proprio = getattr(self, nome)
+            return getattr(self.piano, nome) if proprio is None else proprio
+        return {"formula": self.ai_formula or self.piano.ai_formula, "quota_utente": scelto("ai_quota_utente"),
+                "quota_istanza": scelto("ai_quota_istanza"), "ricarico": scelto("ai_ricarico")}
+
 
 class Richiesta(models.Model):
     """Un'app chiesta dall'amministratore di un cliente dal suo catalogo."""
@@ -197,3 +243,29 @@ class Richiesta(models.Model):
 
     def __str__(self):
         return f"{self.nome} per {self.istanza}"
+
+
+class ConsumoAI(models.Model):
+    """Il consumo dell'assistente di un'istanza in un mese, come lo riferisce lei (ai.consumi_portale). Con la formula
+    «a consumo» dice che cosa fatturare, con quella «inclusa» quanto margine resta sulla quota. Formula e importo sono
+    quelli dell'ultimo aggiornamento: l'istanza rimanda il mese fino alla fine di quello dopo, poi la riga resta ferma."""
+    istanza = models.ForeignKey(Istanza, on_delete=models.CASCADE, related_name="consumi_ai", verbose_name="istanza")
+    mese = models.DateField("mese", help_text="il primo giorno")
+    costo = models.DecimalField("costo dei modelli ($)", max_digits=12, decimal_places=4, default=0)
+    costo_fornito = models.DecimalField("di cui sul piano ($)", max_digits=12, decimal_places=4, default=0,
+                                        help_text="sui provider forniti con il piano: il resto è su chiavi del cliente o modelli locali")
+    turni = models.PositiveIntegerField("turni", default=0)
+    utenti = models.PositiveIntegerField("persone in chat", default=0)
+    formula = models.CharField("formula", max_length=8, choices=FORMULE_AI, default=AI_PROPRIA)
+    quota = models.DecimalField("quota del mese ($)", max_digits=12, decimal_places=2, default=0, help_text="0 = senza")
+    importo = models.DecimalField("da fatturare (€)", max_digits=12, decimal_places=2, default=0)
+    aggiornato = models.DateTimeField("aggiornato il", auto_now=True)
+
+    class Meta:
+        verbose_name = "consumo AI"
+        verbose_name_plural = "consumi AI"
+        ordering = ["-mese", "istanza__cliente"]
+        constraints = [models.UniqueConstraint(fields=["istanza", "mese"], name="rivendita_consumo_ai_unico")]
+
+    def __str__(self):
+        return f"{self.istanza} · {self.mese:%m/%Y}"

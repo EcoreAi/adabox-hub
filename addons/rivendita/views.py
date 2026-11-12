@@ -2,7 +2,7 @@ from django.utils import timezone
 
 from core.viste import ModelView, register
 
-from .models import Istanza, ModuloVendibile, Pacchetto, Piano, Richiesta, Suite
+from .models import ConsumoAI, Istanza, ModuloVendibile, Pacchetto, Piano, Richiesta, Suite
 
 
 @register
@@ -10,17 +10,22 @@ class IstanzeView(ModelView):
     model = Istanza
     api = False                   # contiene segreti o credenziali: niente API
     slug = "istanze"
-    list_display = ["cliente", "piano", "scadenza", "ultimo_contatto", "utenti_attivi", "ospitata", "attiva"]
+    list_display = ["cliente", "piano", "canone", "scadenza", "ultimo_contatto", "utenti_attivi", "ospitata", "attiva"]
     list_filter = ["piano", "ospitata", "attiva", "scadenza"]
     search_fields = ["cliente", "email", "url"]
     form_layout = [("Cliente", [("cliente", "email"), ("url", "ospitata")]),
                    ("Licenza", [("piano", "scadenza"), ("utenti", "grazia_giorni"), "suite", "moduli_extra", "funzioni_extra", "attiva"]),
+                   ("Assistente AI (vuoto = come il piano)", [("ai_formula", "ai_ricarico"), ("ai_quota_utente", "ai_quota_istanza")]),
                    ("Stato", [("ultimo_contatto", "utenti_attivi"), "codice"]), ("Note", ["note"])]
     readonly_fields = ["ultimo_contatto", "utenti_attivi", "codice"]
     list_group_by = ["piano", "ospitata", "scadenza:mese"]
     chatter = True
-    tracked_fields = ["piano", "scadenza", "utenti", "attiva"]
+    tracked_fields = ["piano", "scadenza", "utenti", "attiva", "ai_formula"]
     buttons = ["genera_token"]
+
+    def col_canone(self, obj):
+        return f"{obj.canone_mese():.2f} €"
+    col_canone.short_description = "Canone al mese"
 
     def genera_token(self, request, obj):
         return (f"Token di {obj.cliente}: {obj.nuovo_token()} (si vede solo adesso: va in LICENZA_TOKEN sull'istanza; "
@@ -88,10 +93,11 @@ class RichiesteView(ModelView):
 class PianiView(ModelView):
     model = Piano
     slug = "piani"
-    list_display = ["nome", "prezzo_mese", "utenti", "attivo"]
-    list_filter = ["attivo"]
+    list_display = ["nome", "prezzo_mese", "prezzo_utente_mese", "utenti", "ai_formula", "attivo"]
+    list_filter = ["attivo", "ai_formula"]
     search_fields = ["nome"]
-    form_layout = [("Piano", [("nome", "attivo"), ("prezzo_mese", "utenti"), "moduli", "descrizione"]),
+    form_layout = [("Piano", [("nome", "attivo"), ("prezzo_mese", "prezzo_utente_mese"), "utenti", "moduli", "descrizione"]),
+                   ("Assistente AI", [("ai_formula", "ai_ricarico"), ("ai_quota_utente", "ai_quota_istanza")]),
                    ("Funzioni dei moduli", ["moduli_a_funzioni", "funzioni"])]
 
 
@@ -131,4 +137,38 @@ class PacchettiView(ModelView):
     readonly_fields = ["modulo", "versione", "nome_file", "dimensione", "min_core", "creato", "sha256"]
 
     def has_add_permission(self, request):
+        return False
+
+
+@register
+class ConsumiAIView(ModelView):
+    """Il consumo dell'assistente riferito dalle istanze, mese per mese: l'importo da fatturare con la formula a consumo
+    e, con quella inclusa, quanta parte della quota è stata usata."""
+    model = ConsumoAI
+    storico = False
+    slug = "consumi_ai"
+    list_display = ["mese", "istanza", "formula", "costo", "costo_fornito", "sulla_quota", "importo", "utenti", "turni", "aggiornato"]
+    list_filter = ["formula", "istanza", "mese"]
+    search_fields = ["istanza__cliente"]
+    form_layout = [("Consumo", [("istanza", "mese"), ("formula", "quota"), ("costo", "costo_fornito"), ("utenti", "turni"),
+                                ("importo", "aggiornato")])]
+    readonly_fields = ["istanza", "mese", "formula", "quota", "costo", "costo_fornito", "utenti", "turni", "importo", "aggiornato"]
+    list_group_by = ["mese:mese", "istanza", "formula"]
+    list_sum = ["costo_fornito", "importo"]
+
+    def col_mese(self, obj):
+        return f"{obj.mese:%m/%Y}"
+    col_mese.short_description = "Mese"
+
+    def col_sulla_quota(self, obj):
+        return f"{obj.costo_fornito / obj.quota * 100:.0f}%" if obj.quota else "—"
+    col_sulla_quota.short_description = "Sulla quota"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False

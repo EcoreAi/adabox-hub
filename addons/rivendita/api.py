@@ -43,6 +43,23 @@ def sincronizza(request):
                          "rifiutate": servizi.rifiutate(istanza), "suite_rifiutate": servizi.rifiutate(istanza, servizi.Richiesta.SUITE)})
 
 
+@csrf_exempt
+@require_POST
+def consumi_ai(request):
+    """L'istanza riferisce i consumi dell'assistente del mese in corso e del precedente (ai.consumi_portale)."""
+    istanza = _istanza(request)
+    if istanza is None:
+        return JsonResponse({"errore": "token non valido"}, status=401)
+    try:
+        dati = json.loads(request.body or b"{}")
+        mesi = dati["mesi"] if isinstance(dati, dict) and isinstance(dati.get("mesi"), list) else None
+    except ValueError:
+        mesi = None
+    if mesi is None:
+        return JsonResponse({"errore": "corpo non valido"}, status=400)
+    return JsonResponse({"registrati": servizi.ricevi_consumi_ai(istanza, mesi[:12])})
+
+
 @require_GET
 def pacchetto(request, slug, versione):
     """Il pacchetto si scarica solo se la licenza dell'istanza lo copre e non è scaduta oltre la grazia."""
