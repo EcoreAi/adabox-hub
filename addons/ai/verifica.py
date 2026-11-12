@@ -82,13 +82,13 @@ def fonti(turno):
     né pagina (una frase può citare il documento intero)."""
     nomi, uscita = {}, {}
 
-    def aggiungi(url, testo, vettore=None):
+    def aggiungi(url, testo, vettore=None, titolo=""):
         if not url or not testo:
             return
         for chiave in {url, _base(url)}:
             voci = uscita.setdefault(chiave, [])
             if all(v["testo"] != testo for v in voci):
-                voci.append({"testo": testo, "vettore": vettore})
+                voci.append({"testo": testo, "vettore": vettore, "titolo": titolo})
 
     for ev in Evento.objects.filter(turno=turno, tipo__in=[Evento.ASSISTENTE, Evento.STRUMENTO]).order_by("pk"):
         if ev.tipo == Evento.ASSISTENTE:
@@ -103,11 +103,13 @@ def fonti(turno):
             except (TypeError, ValueError):
                 continue
             if nome == "leggi_documento" and isinstance(dati, dict):
-                aggiungi(dati.get("url"), dati.get("testo"))
+                pagina = f", da p. {dati['da_pagina_pdf']}" if dati.get("da_pagina_pdf") else ""
+                aggiungi(dati.get("url"), dati.get("testo"), titolo=f"Documento «{dati.get('documento', '')}»{pagina}")
             elif isinstance(dati, dict):
                 for voce in dati.get("risultati", []):
                     f = _frammento_di(voce)
-                    aggiungi(voce.get("url"), f.testo if f else voce.get("estratto"), f.vettore if f else None)
+                    aggiungi(voce.get("url"), f.testo if f else voce.get("estratto"), f.vettore if f else None,
+                             voce.get("titolo", ""))
     return uscita
 
 
@@ -234,8 +236,10 @@ def citazioni(turno, testo, protezione=None):
         voci = [v for u in citati for v in fonti_turno.get(u) or fonti_turno.get(_base(u), [])]
         testi = list(dict.fromkeys(v["testo"] for v in voci))
         verificata, dettagli = confronto_locale(frase, testi, vettore, [v["vettore"] for v in voci if v["vettore"]])
+        esatte = fonti_turno.get(citati[0]) or fonti_turno.get(_base(citati[0]), [])
         esito = {"frase": frase, "url": citati[0], "esito": "verificata" if verificata else "incerta", "stadio": 1,
-                 "motivo": "" if verificata else _motivo_locale(dettagli)}
+                 "motivo": "" if verificata else _motivo_locale(dettagli),
+                 "fonte": next((v["titolo"] for v in esatte if v.get("titolo")), "")}
         esiti.append(esito)
         if not verificata:
             dubbie.append((esito, "\n---\n".join(testi)))
@@ -250,7 +254,8 @@ def citazioni(turno, testo, protezione=None):
     conti = {k: sum(e["esito"] == k for e in esiti) for k in ("verificata", "non sostenuta", "incerta")}
     return {"totale": len(esiti), "verificate": conti["verificata"], "non_sostenute": conti["non sostenuta"],
             "incerte": conti["incerta"], "metodo": metodo,
-            "da_controllare": [{k: e[k] for k in ("frase", "esito", "motivo", "url")} for e in esiti if e["esito"] != "verificata"]}
+            "da_controllare": [{k: e[k] for k in ("frase", "esito", "motivo", "url")} for e in esiti if e["esito"] != "verificata"],
+            "elenco": [{k: e[k] for k in ("frase", "esito", "motivo", "url", "fonte")} for e in esiti]}
 
 
 def _motivo_locale(dettagli):

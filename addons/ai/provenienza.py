@@ -86,6 +86,31 @@ def fonte(nome, argomenti):
         return {"origine": origine, "titolo": "Sistema esterno", "dettaglio": ESTERNO.sub("", nome).replace("_", " "), "url": ""}
     valori = [v for v in argomenti.values() if isinstance(v, (str, int, float)) and str(v).strip()]
     return {"origine": origine, "titolo": nome.replace("_", " ").capitalize(), "dettaglio": _breve(", ".join(map(str, valori))), "url": ""}
+def _citate(nome, contenuto, testo):
+    """I risultati di cerca_conoscenza o leggi_documento che la risposta cita con il loro link: una fonte ciascuno,
+    con il titolo (documento e pagina, pagina della wiki, record) e il link al punto letto. [] se non ne cita."""
+    import json
+    if nome not in ("cerca_conoscenza", "leggi_documento") or not testo:
+        return []
+    try:
+        dati = json.loads(contenuto or "")
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(dati, dict):
+        return []
+    if nome == "leggi_documento":
+        voci = [{"url": dati.get("url", ""), "fonte": "Documento", "titolo": f"Documento «{dati.get('documento', '')}»"}]
+    else:
+        voci = dati.get("risultati", [])
+    citate = []
+    for v in voci:
+        url = v.get("url") or ""
+        if url and f"]({url})" in testo:
+            citate.append({"origine": "documento" if v.get("fonte") == "Documento" else "gestionale",
+                           "titolo": v.get("titolo", ""), "dettaglio": "citata nella risposta", "url": url})
+    return citate
+
+
 # «13 settimane», «3 mesi», «2 ore»: parametri della domanda o del periodo, non dati da verificare
 UNITA_DI_TEMPO = re.compile(r"\s*(?:secondi|minut[oi]|or[ae]\b|giorn[oi]|settiman[ae]|mes[ei]|trimestr[ei]|"
                             r"semestr[ei]|ann[oi])", re.IGNORECASE)
@@ -150,9 +175,10 @@ def calcola(turno, testo, protetti=0, segnaposto=None):
             for r in ev.dati.get("risultati", []):
                 if not r.get("errore"):
                     chiamata = chiamate_per_id.get(r.get("id"), {})
-                    f = fonte(chiamata.get("nome"), chiamata.get("argomenti"))
-                    if f and f not in consultate and len(consultate) < MAX_FONTI:
-                        consultate.append(f)
+                    citate = _citate(chiamata.get("nome"), r.get("contenuto"), testo)
+                    for f in citate or [fonte(chiamata.get("nome"), chiamata.get("argomenti"))]:
+                        if f and f not in consultate and len(consultate) < MAX_FONTI:
+                            consultate.append(f)
                     origine = _origine(nomi.get(r.get("id")))
                     if origine:
                         fuori[origine] += 1
