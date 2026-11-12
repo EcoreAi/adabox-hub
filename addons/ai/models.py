@@ -101,6 +101,9 @@ class Provider(models.Model):
     base_url = models.URLField("URL dell'API", blank=True, help_text="vuoto = quello predefinito del tipo")
     chiave_cifrata = models.TextField("chiave API (cifrata)", blank=True, editable=False)
     locale = models.BooleanField("locale", default=False, help_text="gira sui nostri server: i dati non escono")
+    gestito = models.BooleanField("fornito con il piano", default=False,
+                                  help_text="la chiave è di chi fornisce l'assistente: il suo costo conta sulla quota della licenza, "
+                                            "e provider e modelli li cambia solo il Global Admin")
     attivo = models.BooleanField("attivo", default=True)
 
     class Meta:
@@ -112,9 +115,10 @@ class Provider(models.Model):
         return self.nome
 
     def chiave_per(self, azienda=None):
-        """La chiave dell'azienda se c'è, altrimenti quella globale (in chiaro, solo in memoria)."""
+        """La chiave dell'azienda se c'è, altrimenti quella globale (in chiaro, solo in memoria). Su un provider fornito
+        con il piano vale solo quella globale: il consumo deve restare sul conto di chi lo fornisce."""
         from core import cifratura
-        if azienda is not None:
+        if azienda is not None and not self.gestito:
             propria = self.chiavi_azienda.filter(azienda=azienda).first()
             if propria and propria.chiave_cifrata:
                 return cifratura.decifra(propria.chiave_cifrata)
@@ -224,13 +228,21 @@ class AnelloCatena(models.Model):
         ordering = ["ordine", "pk"]
 
 
+def resta_il_costo(collector, field, sub_objs, using):
+    """Eliminando una conversazione i suoi turni restano come righe di costo, senza più la risposta: se sparissero,
+    cancellare le chat azzererebbe il consumo del mese (quote della licenza, tetto di spesa, consumi)."""
+    for nome in ("testo", "errore"):                     # prima il contenuto: dopo, il filtro sulla conversazione non li trova più
+        collector.add_field_update(field.model._meta.get_field(nome), "", sub_objs)
+    collector.add_field_update(field, None, sub_objs)
+
+
 class Turno(models.Model):
     """Un'esecuzione dell'assistente: dalla domanda alla risposta, con i passi, il costo e lo stato.
     `testo` cresce mentre il modello scrive (lo streaming lo segue); il resto è nel log degli eventi."""
     IN_CORSO, COMPLETATO, ERRORE, INTERROTTO, FERMATO = "in_corso", "completato", "errore", "interrotto", "fermato"
     STATI = [(IN_CORSO, "In corso"), (COMPLETATO, "Completato"), (ERRORE, "Errore"), (INTERROTTO, "Interrotto"),
              (FERMATO, "Fermato dall'utente")]
-    conversazione = models.ForeignKey(Conversazione, on_delete=models.CASCADE, null=True, blank=True,
+    conversazione = models.ForeignKey(Conversazione, on_delete=resta_il_costo, null=True, blank=True,
                                       related_name="turni", verbose_name="conversazione")
     utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+",
                                verbose_name="utente")
@@ -245,6 +257,8 @@ class Turno(models.Model):
     passi = models.PositiveSmallIntegerField("passi", default=0)
     uso = models.JSONField("token", default=dict, blank=True)
     costo = models.DecimalField("costo ($)", max_digits=12, decimal_places=6, default=0)
+    costo_fornito = models.DecimalField("di cui sul piano ($)", max_digits=12, decimal_places=6, default=0,
+                                        help_text="la parte del costo sui provider forniti con il piano: conta sulla quota della licenza")
     errore = models.TextField("errore", blank=True)
     richiesta_stop = models.BooleanField("stop richiesto", default=False)
     provenienza = models.JSONField("provenienza", default=dict, blank=True,
@@ -265,6 +279,16 @@ class Turno(models.Model):
     @property
     def concluso(self):
         return self.stato != self.IN_CORSO
+
+    def addebita(self, modello, uso):
+        """Somma al turno i token e il costo di una chiamata al modello (`uso`: il dict di gateway.Uso)."""
+        totale = dict(self.uso)
+        for chiave, valore in uso.items():
+            totale[chiave] = totale.get(chiave, 0) + valore
+        costo = modello.costo(uso)
+        self.uso, self.costo = totale, self.costo + costo
+        if modello.provider.gestito:
+            self.costo_fornito += costo
 
 
 class Evento(models.Model):

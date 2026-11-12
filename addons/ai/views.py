@@ -1,3 +1,5 @@
+from django.core.exceptions import PermissionDenied
+
 from core import cifratura
 from core.viste import Inline, ModelView, register
 
@@ -6,14 +8,47 @@ from .models import (AnelloCatena, Assistente, ChiaveAzienda, Modello, Pianifica
                      ValutazioneRisposta, Turno)
 
 
+def _riservato(request, provider):
+    """Un provider fornito con il piano, con i suoi modelli e i loro prezzi, lo cambia solo il Global Admin: la chiave
+    non è del cliente, e chi ne cambiasse l'URL se la farebbe mandare."""
+    return provider is not None and provider.gestito and not request.user.is_superuser
+
+
+def _senza_gestiti(base):
+    """Sottoclasse del form in cui il provider si sceglie solo tra quelli non forniti con il piano."""
+    def __init__(self, *args, **kwargs):
+        base.__init__(self, *args, **kwargs)
+        self.fields["provider"].queryset = self.fields["provider"].queryset.filter(gestito=False)
+    return type(base)(base.__name__, (base,), {"__init__": __init__, "__module__": base.__module__})
+
+
 @register
 class ProviderView(ModelView):
     model = Provider
     api = False                   # contiene segreti o credenziali: niente API
     slug = "provider"
-    list_display = ["nome", "tipo", "chiave", "locale", "attivo"]
+    list_display = ["nome", "tipo", "chiave", "locale", "gestito", "attivo"]
     form_class = ProviderForm
-    form_layout = [("Provider", [("nome", "tipo"), "base_url", ("nuova_chiave", "togli_chiave"), ("locale", "attivo")])]
+    form_layout = [("Provider", [("nome", "tipo"), "base_url", ("nuova_chiave", "togli_chiave"), ("locale", "attivo"), "gestito"])]
+
+    def get_form_class(self, request=None):
+        base = super().get_form_class(request)
+        if request is None:
+            return base
+        return type("ProviderFormUtente", (base,), {"global_admin": request.user.is_superuser})
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and not _riservato(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return super().has_delete_permission(request, obj) and not _riservato(request, obj)
+
+    def save_model(self, request, obj, form, change):
+        """L'ultimo controllo, qualunque sia la strada (pagina, API, importazione, assistente): chi non è Global Admin
+        non crea un provider fornito con il piano e non tocca uno che lo è."""
+        if not request.user.is_superuser and (obj.gestito or (change and Provider.objects.filter(pk=obj.pk, gestito=True).exists())):
+            raise PermissionDenied
+        super().save_model(request, obj, form, change)
 
     def layout_dettaglio(self):
         """Nella scheda niente campi del form per la chiave: la chiave mascherata e i modelli stanno nella sezione sotto."""
@@ -22,6 +57,8 @@ class ProviderView(ModelView):
                                  for riga in righe) if r]) for t, righe in super().layout_dettaglio()]
 
     def col_chiave(self, obj):
+        if obj.gestito:
+            return "del piano" if obj.chiave_cifrata else "—"     # non è dell'azienda: nemmeno le ultime cifre
         try:
             return cifratura.mascherato(cifratura.decifra(obj.chiave_cifrata)) or "—"
         except cifratura.SegretoIlleggibile:
@@ -38,6 +75,9 @@ class ChiaveAziendaView(ModelView):
     list_display = ["provider", "azienda", "chiave"]
     form_class = ChiaveAziendaForm
     form_layout = [("Chiave dell'azienda", [("provider", "azienda"), "chiave"])]
+
+    def get_form_class(self, request=None):
+        return _senza_gestiti(super().get_form_class(request))     # su un provider fornito con il piano non varrebbe
 
     def col_chiave(self, obj):
         try:
@@ -59,6 +99,23 @@ class ModelloView(ModelView):
                                                                ("prezzo_cache_scrittura", "prezzo_cache_lettura")]),
                    ("Capacità", [("strumenti", "visione", "ragionamento"), ("residenza_ue", "attivo")]),
                    ("Nella chat", [("livello_chat", "sceglibile")])]
+
+    # i modelli di un provider fornito con il piano: i prezzi fanno il costo che conta sulla quota e si fattura
+    def get_form_class(self, request=None):
+        base = super().get_form_class(request)
+        return base if request is None or request.user.is_superuser else _senza_gestiti(base)
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and not (obj is not None and _riservato(request, obj.provider))
+
+    def has_delete_permission(self, request, obj=None):
+        return super().has_delete_permission(request, obj) and not (obj is not None and _riservato(request, obj.provider))
+
+    def save_model(self, request, obj, form, change):
+        prima = Modello.objects.filter(pk=obj.pk).select_related("provider").first() if change else None
+        if _riservato(request, obj.provider) or (prima is not None and _riservato(request, prima.provider)):
+            raise PermissionDenied
+        super().save_model(request, obj, form, change)
 
 
 @register
@@ -84,21 +141,25 @@ class ConsumiView(ModelView):
     tra_aziende = True
     slug = "consumi"
     verbose_name_plural = "consumi"
-    list_display = ["iniziato", "utente", "azienda", "compito", "modello", "passi", "costo", "protetti", "stato"]
+    list_display = ["iniziato", "utente", "azienda", "compito", "modello", "passi", "costo", "costo_fornito", "protetti", "stato"]
     list_filter = ["compito", "stato", "modello", "azienda", "iniziato"]
     search_fields = ["utente__username", "testo", "errore"]
     form_layout = [("Turno", [("iniziato", "finito"), ("utente", "azienda"), ("compito", "modello"),
-                              ("stato", "passi"), ("costo", "uso"), "errore"])]
+                              ("stato", "passi"), ("costo", "costo_fornito"), "uso", "errore"])]
     readonly_fields = ["iniziato", "finito", "utente", "azienda", "compito", "modello", "stato", "passi", "costo",
-                       "uso", "errore"]
+                       "costo_fornito", "uso", "errore"]
     list_group_by = ["iniziato:mese", "utente", "modello", "compito", "azienda"]
-    list_sum = ["costo"]
-    graph = {"tipi": ["barre", "linee", "torta"], "misure": ["sum:costo", "count"],
+    list_sum = ["costo", "costo_fornito"]
+    graph = {"tipi": ["barre", "linee", "torta"], "misure": ["sum:costo", "sum:costo_fornito", "count"],
              "per": ["iniziato:mese", "utente", "modello", "compito"]}
 
     def col_costo(self, obj):
         return f"{obj.costo:.4f} $"
     col_costo.short_description = "Costo"
+
+    def col_costo_fornito(self, obj):
+        return f"{obj.costo_fornito:.4f} $" if obj.costo_fornito else "—"
+    col_costo_fornito.short_description = "Sul piano"
 
     def col_protetti(self, obj):
         return (obj.provenienza or {}).get("pii") or "—"
@@ -109,6 +170,9 @@ class ConsumiView(ModelView):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False                     # sono i costi del mese: su di loro si calcolano quote, tetto e fatture
 
 
 @register

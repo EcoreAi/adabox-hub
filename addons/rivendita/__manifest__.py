@@ -1,7 +1,7 @@
 {
     "name": "Rivendita",
     "summary": "Il portale di chi vende adabox: clienti e istanze, piani, suite per dipartimento, moduli pubblicati, licenze firmate e richieste dal catalogo",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Direzione",
     "depends": [],
@@ -12,6 +12,7 @@
     "menu": [
         {"label": "Istanze", "url_name": "rivendita:istanze_lista", "permission": "rivendita.view_istanza"},
         {"label": "Richieste", "url_name": "rivendita:richieste_lista", "permission": "rivendita.view_richiesta"},
+        {"label": "Consumi AI", "url_name": "rivendita:consumi_ai_lista", "permission": "rivendita.view_consumoai"},
         {"label": "Piani", "url_name": "rivendita:piani_lista", "permission": "rivendita.view_piano"},
         {"label": "Suite", "url_name": "rivendita:suite_lista", "permission": "rivendita.view_suite"},
         {"label": "Moduli in vendita", "url_name": "rivendita:moduli_lista", "permission": "rivendita.view_modulovendibile"},
@@ -22,4 +23,9 @@
         "Rivendita / Responsabile": ["rivendita.*"],
     },
     "dashboard": "rivendita.dashboard.dati",
+    "settings": [
+        {"chiave": "cambio_usd_eur", "label": "Cambio dollaro → euro per l'assistente a consumo", "tipo": "decimale", "default": "1.00",
+         "help": "euro per un dollaro: i costi dei modelli sono in dollari, gli importi ai clienti in euro. 1.00 è solo il valore di "
+                 "partenza: va tenuto aggiornato a mano"},
+    ],
 }

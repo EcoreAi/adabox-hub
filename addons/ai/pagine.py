@@ -103,6 +103,8 @@ def _avviso_spesa(request):
     stato = licenza.attuale()
     if not stato.valida:
         return f"L'assistente non è attivo: {stato.motivo}"
+    if avviso := limiti.avviso_quota(request.user, stato):
+        return avviso
     azienda = getattr(request, "azienda", None)
     if azienda is None or limiti.tetto(azienda) <= 0:
         return ""
@@ -474,13 +476,18 @@ def pagina_licenza(request):
             messages.error(request, f"Licenza non caricata: {stato.motivo}")
         return redirect("ai:licenza")
     from core import funzioni as core_funzioni
+    from .models import Provider
     azienda = getattr(request, "azienda", None)
     stato = licenza.attuale()
+    a_formula = stato.valida and stato.formula != licenza.PROPRIA
     return render(request, "ai/licenza.html", {
         "stato": stato, "funzioni_licenza": [{**f, "compresa": stato.funzioni is None or f["chiave"] in stato.funzioni}
                                              for f in core_funzioni.catalogo("ai")],
         "spesa": limiti.spesa_mese(azienda) if azienda else None,
-        "tetto": limiti.tetto(azienda) if azienda else None, "utenti_mese": len(limiti.utenti_del_mese())})
+        "tetto": limiti.tetto(azienda) if azienda else None, "utenti_mese": len(limiti.utenti_del_mese()),
+        "a_formula": a_formula, "consumo_fornito": limiti.consumo_fornito(),
+        "senza_fornito": a_formula and not Provider.objects.filter(gestito=True, attivo=True).exists(),
+        "consumo_per_utente": limiti.consumo_per_utente() if stato.valida and stato.formula == licenza.INCLUSA else []})
 
 
 def _scheda(request, proposta, errore=""):
@@ -1077,6 +1084,8 @@ def catalogo_provider(request, pk):
     from . import catalogo_remoto
     from .models import Provider
     provider = get_object_or_404(Provider, pk=pk)
+    if provider.gestito and not request.user.is_superuser:      # fornito con il piano: i suoi modelli li decide il Global Admin
+        raise PermissionDenied
     try:
         voci = catalogo_remoto.leggi(provider)
     except catalogo_remoto.CatalogoNonDisponibile as e:

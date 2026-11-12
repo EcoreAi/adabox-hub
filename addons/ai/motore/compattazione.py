@@ -9,7 +9,7 @@ import logging
 
 from django.utils import timezone
 
-from .. import catalogo
+from .. import catalogo, limiti
 from ..gateway import ErroreModello, Inizio, Testo, Uso, esegui as gateway
 from ..models import Evento, Turno
 
@@ -83,7 +83,8 @@ def se_serve(turno):
     try:
         from ..protezione import Protezione
         profilo = catalogo.profilo_per("riassunti", turno.azienda, conversazione.ambito)
-        for pezzo in gateway(catalogo.catena(profilo, turno.azienda), protezione=Protezione(conversazione),
+        catena = limiti.ammessi(catalogo.catena(profilo, turno.azienda), turno.utente)
+        for pezzo in gateway(catena, protezione=Protezione(conversazione),
                              sistema=SISTEMA, messaggi=[{"ruolo": "utente", "testo": _trascrizione(
                                  conversazione, fino_a, riassunto)[-400_000:]}], max_token=4000, effort=profilo.effort):
             if isinstance(pezzo, Inizio):
@@ -91,7 +92,7 @@ def se_serve(turno):
             elif isinstance(pezzo, Testo):
                 testo.append(pezzo.testo)
             elif isinstance(pezzo, Uso) and modello is not None:
-                lavoro.uso, lavoro.costo = pezzo.come_dict(), modello.costo(pezzo.come_dict())
+                lavoro.addebita(modello, pezzo.come_dict())
     except (ErroreModello, catalogo.NessunModello) as e:
         log.warning("conversazione %s non riassunta: %s", conversazione.pk, e)
         lavoro.stato, lavoro.errore = Turno.ERRORE, str(e)

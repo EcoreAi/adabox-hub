@@ -1,7 +1,7 @@
 {
     "name": "Assistente AI",
     "summary": "Chat con l'assistente: cronologia delle conversazioni, artifact e documenti salvati",
-    "version": "1.34.0",
+    "version": "1.35.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -36,7 +36,8 @@
     "cron": [{"nome": "Attività pianificate dell'assistente", "funzione": "ai.pianificate.esegui_scadute",
               "ogni": "1m"},
              {"nome": "Indice della conoscenza dell'assistente", "funzione": "ai.conoscenza.indicizza_cron",
-              "ogni": "5m"}],
+              "ogni": "5m"},
+             {"nome": "Consumi dell'assistente al portale", "funzione": "ai.consumi_portale.invia", "ogni": "1h"}],
     "dashboard": "ai.dashboard.kpi",
     # funzioni che il piano può comprendere o no (core.funzioni, ai.funzioni): senza «funzioni» nella licenza, tutte
     "funzioni": [

@@ -260,3 +260,131 @@ def test_funzioni_dal_manifest_al_piano_e_alla_licenza(client, scena, portale, t
     # tolta dal manifest, la funzione sparisce anche dal piano
     _pubblica(tmp_path, portale, "extra", version="1.2.0", depends=["base"], funzioni=funzioni[1:])
     assert funzioni_in_licenza() == {"extra": frozenset({"memoria"})}
+
+
+# ---------- le formule dell'assistente AI ----------
+
+def _consumi(client, token, mesi):
+    return client.post(reverse("rivendita:api_consumi_ai"), json.dumps({"mesi": mesi}), content_type="application/json",
+                       headers={"Authorization": f"Bearer {token}"})
+
+
+def _mese(giorni_fa=0):
+    return f"{(timezone.localdate().replace(day=1) - datetime.timedelta(days=giorni_fa)).replace(day=1):%Y-%m}"
+
+
+@pytest.mark.django_db
+def test_i_termini_dell_assistente_vanno_in_licenza_solo_se_servono(client, scena):
+    from decimal import Decimal
+
+    from ai import licenza as licenza_ai
+    istanza, token = scena
+
+    def ai_in_licenza():
+        dati = _post(client, token).json()
+        sincronia._verifica(dati)                              # la firma copre anche i termini
+        return dati["licenza"].get("ai")
+
+    assert ai_in_licenza() is None                             # chiave del cliente: la licenza resta quella di sempre
+    Piano.objects.filter(pk=istanza.piano_id).update(ai_formula="inclusa", ai_quota_utente=5, ai_quota_istanza=200, ai_ricarico=30)
+    istanza.refresh_from_db()
+    termini = ai_in_licenza()
+    assert termini == {"formula": "inclusa", "quota_utente": "5.00", "quota_istanza": "200.00"}     # il ricarico resta sul portale
+    assert licenza_ai.termini(termini) == {"formula": "inclusa", "quota_utente": Decimal("5.00"), "quota_istanza": Decimal("200.00")}
+    # l'istanza può avere condizioni sue; a consumo la quota per utente non esiste
+    Istanza.objects.filter(pk=istanza.pk).update(ai_formula="consumo", ai_quota_istanza=0)
+    istanza.refresh_from_db()
+    assert istanza.termini_ai() == {"formula": "consumo", "quota_utente": Decimal("5.00"), "quota_istanza": Decimal("0"), "ricarico": Decimal("30.00")}
+    assert ai_in_licenza() == {"formula": "consumo", "quota_utente": "0", "quota_istanza": "0.00"}
+    Istanza.objects.filter(pk=istanza.pk).update(ai_formula="propria")
+    istanza.refresh_from_db()
+    assert ai_in_licenza() is None
+
+
+@pytest.mark.django_db
+def test_canone_mensile_con_il_prezzo_per_utente(scena):
+    istanza, _ = scena
+    assert istanza.canone_mese() == 99                                         # il piano della scena: 99 € fissi, 10 utenti
+    Piano.objects.filter(pk=istanza.piano_id).update(prezzo_utente_mese=12)
+    suite = Suite.objects.create(nome="Vendite", slug="vendite", prezzo_mese=40)
+    istanza.suite.add(suite)
+    ModuloVendibile.objects.filter(slug="premium").update(prezzo_mese=15)
+    istanza.moduli_extra.add(ModuloVendibile.objects.get(slug="premium"))
+    istanza = Istanza.objects.get(pk=istanza.pk)
+    assert istanza.posti() == 10 and istanza.canone_mese() == 99 + 12 * 10 + 40 + 15
+    Istanza.objects.filter(pk=istanza.pk).update(utenti=4)
+    assert Istanza.objects.get(pk=istanza.pk).canone_mese() == 99 + 12 * 4 + 40 + 15
+    Istanza.objects.filter(pk=istanza.pk).update(utenti=0, utenti_attivi=7)     # senza tetto: gli utenti attivi riferiti
+    assert Istanza.objects.get(pk=istanza.pk).posti() == 7
+
+
+@pytest.mark.django_db
+def test_consumi_dell_assistente_riferiti_dall_istanza(client, superuser, scena):
+    from decimal import Decimal
+
+    from core import parametri
+    from rivendita.models import ConsumoAI
+    istanza, token = scena
+    voce = {"mese": _mese(), "costo": "12.500000", "costo_fornito": "10.000000", "turni": 80, "utenti": 4}
+    assert _consumi(client, "sbagliato", [voce]).status_code == 401
+    assert client.post(reverse("rivendita:api_consumi_ai"), "[]", content_type="application/json",
+                       headers={"Authorization": f"Bearer {token}"}).status_code == 400
+    # a consumo: costo sul piano × cambio × ricarico
+    Piano.objects.filter(pk=istanza.piano_id).update(ai_formula="consumo", ai_ricarico=20, ai_quota_istanza=50)
+    parametri.scrivi("rivendita.cambio_usd_eur", Decimal("0.90"))
+    scorso = {"mese": _mese(1), "costo": "3", "costo_fornito": "3", "turni": 9, "utenti": 1}
+    r = _consumi(client, token, [voce, scorso, {"mese": _mese(40), "costo": "9", "costo_fornito": "9", "turni": 1, "utenti": 1},
+                                 {"mese": _mese(), "costo": "1", "costo_fornito": "2", "turni": 1, "utenti": 1},     # più sul piano che in tutto
+                                 {"mese": "sempre", "costo": "1"}, "testo", {"mese": _mese(), "costo": "-1", "costo_fornito": "0", "turni": 1, "utenti": 1}])
+    assert r.status_code == 200 and r.json() == {"registrati": [voce["mese"], scorso["mese"]]}     # i mesi chiusi non si riscrivono
+    consumo = ConsumoAI.objects.get(mese__month=timezone.localdate().month)
+    assert (consumo.costo, consumo.costo_fornito, consumo.turni, consumo.utenti) == (Decimal("12.5"), Decimal("10"), 80, 4)
+    assert (consumo.formula, consumo.quota, consumo.importo) == ("consumo", Decimal("50"), Decimal("10.80"))
+    assert ConsumoAI.objects.count() == 2
+    # rimandare lo stesso mese sostituisce la riga
+    _consumi(client, token, [{**voce, "costo_fornito": "11"}])
+    consumo.refresh_from_db()
+    assert ConsumoAI.objects.count() == 2 and consumo.importo == Decimal("11.88")
+    # inclusa: niente da fatturare, ma si vede il consumo rispetto alla quota (qui 5 $ per i 10 utenti del piano)
+    Piano.objects.filter(pk=istanza.piano_id).update(ai_formula="inclusa", ai_quota_utente=5, ai_quota_istanza=0)
+    _consumi(client, token, [voce])
+    consumo.refresh_from_db()
+    assert (consumo.formula, consumo.quota, consumo.importo) == ("inclusa", Decimal("50"), 0)
+    pagina = client.get(reverse("rivendita:consumi_ai_lista")).content.decode()
+    assert "Rossi Srl" in pagina and "20%" in pagina
+    assert client.get(reverse("rivendita:consumi_ai_nuovo")).status_code == 403
+    assert client.post(reverse("rivendita:consumi_ai_elimina", args=[consumo.pk])).status_code == 403
+
+
+@pytest.mark.django_db
+def test_dal_lavoro_dell_istanza_al_portale(client, scena, settings, monkeypatch):
+    """ai.consumi_portale manda esattamente ciò che l'endpoint accetta."""
+    from decimal import Decimal
+
+    from django.contrib.auth.models import User
+
+    from ai import consumi_portale
+    from ai.models import Turno
+    from rivendita.models import ConsumoAI
+    istanza, token = scena
+    Turno.objects.create(utente=User.objects.create_user("anna"), costo=Decimal("1.25"), costo_fornito=Decimal("1"))
+    settings.LICENZA_PORTALE_URL, settings.LICENZA_TOKEN = "https://portale.example/rivendita/api", token
+    monkeypatch.setattr(consumi_portale, "_chiama", lambda dati: _consumi(client, settings.LICENZA_TOKEN, dati["mesi"]))
+    assert consumi_portale.invia().startswith("inviati")
+    consumo = ConsumoAI.objects.get(mese=timezone.localdate().replace(day=1))
+    assert (consumo.istanza, consumo.costo, consumo.costo_fornito, consumo.turni, consumo.utenti) == (istanza, Decimal("1.25"), Decimal("1"), 1, 1)
+
+
+@pytest.mark.django_db
+def test_dashboard_con_canoni_e_assistente(rf, superuser, scena):
+    from decimal import Decimal
+
+    from rivendita import dashboard
+    from rivendita.models import ConsumoAI
+    istanza, _ = scena
+    istanza.suite.add(Suite.objects.create(nome="Vendite", slug="vendite", prezzo_mese=40))
+    ConsumoAI.objects.create(istanza=istanza, mese=timezone.localdate().replace(day=1), importo=Decimal("10.80"))
+    richiesta = rf.get("/")
+    richiesta.user, richiesta.azienda = superuser, None
+    kpi = {k["etichetta"]: k["valore"] for k in dashboard.dati(richiesta)["kpi"]}
+    assert kpi["canoni al mese"].startswith("139") and kpi["assistente a consumo, mese in corso"].startswith("10,8")

@@ -19,7 +19,20 @@ class Command(BaseCommand):
         parser.add_argument("--scadenza", required=True, help="AAAA-MM-GG")
         parser.add_argument("--utenti", type=int, default=0, help="utenti al mese (0 = senza limite)")
         parser.add_argument("--funzioni", help="chiavi del catalogo separate da virgola (default: tutte)")
+        parser.add_argument("--formula", choices=sorted(licenza.FORMULE), help="come si vende l'assistente (default: propria, la chiave del cliente)")
+        parser.add_argument("--quota-utente", help="$ al mese per utente sui provider forniti con il piano (con «inclusa»)")
+        parser.add_argument("--quota-istanza", help="$ al mese per tutta l'istanza: quota compresa con «inclusa», tetto con «consumo»")
         parser.add_argument("--uscita", help="file da scrivere (default: stampa)")
+
+    def _quota(self, nome, valore):
+        from decimal import Decimal, InvalidOperation
+        try:
+            quota = Decimal(valore)
+        except InvalidOperation as e:
+            raise CommandError(f"--{nome.replace('_', '-')} non è un numero") from e
+        if not quota.is_finite() or quota < 0:
+            raise CommandError(f"--{nome.replace('_', '-')} deve essere zero o più")
+        return str(quota)
 
     def handle(self, *args, **opzioni):
         try:
@@ -34,6 +47,13 @@ class Command(BaseCommand):
             if sconosciute := sorted(set(chiavi) - catalogo):
                 raise CommandError(f"funzioni sconosciute: {', '.join(sconosciute)} (ammesse: {', '.join(sorted(catalogo))})")
             contenuto["funzioni"] = chiavi
+        if opzioni.get("formula"):
+            contenuto["formula"] = opzioni["formula"]
+        for nome in ("quota_utente", "quota_istanza"):
+            if opzioni.get(nome) is not None:
+                contenuto[nome] = self._quota(nome, opzioni[nome])
+        if licenza.termini(contenuto)["formula"] == licenza.PROPRIA and ("quota_utente" in contenuto or "quota_istanza" in contenuto):
+            raise CommandError("le quote valgono con --formula inclusa o consumo")
         dati = licenza.firma(contenuto, pacchetti.carica_privata(opzioni["chiave"]))
         testo = json.dumps(dati, ensure_ascii=False, indent=2)
         if opzioni.get("uscita"):
