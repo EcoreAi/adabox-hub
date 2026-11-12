@@ -6,11 +6,10 @@ from django.contrib.auth.models import Permission
 
 from connettore_ai import mcp, protezione
 from connettore_ai.models import ChatCollegata, Chiamata
-from contatti.models import Contatto
 from core import parametri
 from core.models import Azienda
 
-from .conftest import CLAUDE, DOCUMENTO_CLAUDE, MCP, SITO, chiama, consenti, rpc, scambia
+from .conftest import CLAUDE, DOCUMENTO_CLAUDE, SITO, chiama, consenti, rpc, scambia, serve_contatti
 
 META_VERSIONE = "io.modelcontextprotocol/protocolVersion"
 
@@ -85,6 +84,7 @@ def test_tools_list_solo_letture_con_annotazioni(client, token):
         assert "dove" not in strumenti["cerca_conoscenza"]["inputSchema"]["properties"]
 
 
+@serve_contatti
 def test_letture_con_i_permessi_della_persona(client, token, contatti, mario, azienda):
     viste = chiama(client, token, "elenco_viste")
     assert viste["isError"] is False and "contatti.contatti" in viste["content"][0]["text"]
@@ -99,6 +99,7 @@ def test_letture_con_i_permessi_della_persona(client, token, contatti, mario, az
     assert conto["isError"] is False and "Cagliari" in conto["content"][0]["text"]
     negata = chiama(client, token, "cerca_record", {"vista": "crm.opportunita"})
     assert negata["isError"] is True
+    from contatti.models import Contatto
     altra = Azienda.objects.create(nome="Beta Srl")
     estraneo = Contatto.objects.create(azienda=altra, nome="Verdi Snc")
     assert "Verdi" not in chiama(client, token, "cerca_record", {"vista": "contatti.contatti"})["content"][0]["text"]
@@ -107,7 +108,7 @@ def test_letture_con_i_permessi_della_persona(client, token, contatti, mario, az
     assert fuori["isError"] is True and "aziende: parametro non previsto" in fuori["content"][0]["text"]
 
 
-def test_parametri_sbagliati_e_strumenti_fuori_elenco(client, token, contatti):
+def test_parametri_sbagliati_e_strumenti_fuori_elenco(client, token):
     assert "vista: obbligatorio" in chiama(client, token, "cerca_record", {})["content"][0]["text"]
     sbagliato = chiama(client, token, "leggi_record", {"vista": "contatti.contatti", "id": "uno"})
     assert sbagliato["isError"] is True and "id: atteso integer" in sbagliato["content"][0]["text"]
@@ -117,6 +118,7 @@ def test_parametri_sbagliati_e_strumenti_fuori_elenco(client, token, contatti):
     assert rpc(client, token, "tools/call", {"name": "elenco_viste", "arguments": []}).json()["error"]["code"] == -32602
 
 
+@serve_contatti
 def test_registro_senza_valori(client, token, contatti, mario):
     chiama(client, token, "cerca_record", {"vista": "contatti.contatti", "testo": "Rossi"})
     chiama(client, token, "cerca_record", {"vista": "crm.opportunita", "testo": "segreto"})
@@ -131,7 +133,7 @@ def test_registro_senza_valori(client, token, contatti, mario):
 
 # ---------- era moderna (2026-07-28, senza stato) ----------
 
-def test_discover_e_richieste_senza_handshake(client, token, contatti):
+def test_discover_e_richieste_senza_handshake(client, token):
     r = rpc(client, token, "server/discover", moderna=True)
     risultato = r.json()["result"]
     assert r.status_code == 200 and risultato["resultType"] == "complete"
@@ -139,8 +141,8 @@ def test_discover_e_richieste_senza_handshake(client, token, contatti):
     assert risultato["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == "adabox" and risultato["capabilities"] == {"tools": {"listChanged": False}}
     elenco = rpc(client, token, "tools/list", moderna=True).json()["result"]
     assert elenco["resultType"] == "complete" and elenco["cacheScope"] == "private" and elenco["ttlMs"] > 0 and elenco["tools"]
-    esito = chiama(client, token, "cerca_record", {"vista": "contatti.contatti", "testo": "Rossi"}, moderna=True)
-    assert esito["resultType"] == "complete" and "Rossi Srl" in esito["content"][0]["text"]
+    esito = chiama(client, token, "data_e_ora", {"fuso": "Europe/Rome"}, moderna=True)
+    assert esito["resultType"] == "complete" and esito["structuredContent"]["fuso"] == "Europe/Rome"
     assert rpc(client, token, "notifications/cancelled", ident=None, moderna=True).status_code == 202
 
 
@@ -196,6 +198,7 @@ def test_revocato_disattivato_o_spento_smette_subito(client, token, mario, azien
     assert rpc(client, token, "tools/list").status_code == 401
 
 
+@serve_contatti
 def test_permesso_tolto_dopo_il_collegamento(client, token, contatti, mario):
     assert chiama(client, token, "cerca_record", {"vista": "contatti.contatti"})["isError"] is False
     mario.user_permissions.remove(Permission.objects.get(codename="view_contatto"))
@@ -210,6 +213,7 @@ def test_strumento_spento_dall_amministratore(client, token, azienda):
     assert rpc(client, token, "tools/call", {"name": "aggrega_record", "arguments": {"vista": "contatti.contatti"}}).json()["error"]["code"] == -32602
 
 
+@serve_contatti
 def test_solo_le_app_del_consenso(client, mario, documenti, contatti):
     mario.user_permissions.add(*Permission.objects.filter(codename__in=["view_opportunita", "view_documento"]))
     codice = consenti(client, mario, DOCUMENTO_CLAUDE, CLAUDE, quali="alcune", app=["contatti"])
@@ -255,6 +259,7 @@ def servizio_pii(monkeypatch):
     return stato_servizio
 
 
+@serve_contatti
 def test_dati_personali_mascherati_e_segnaposto_che_tornano(client, token, contatti, azienda, servizio_pii):
     parametri.scrivi("connettore_ai.maschera", True, azienda)
     elenco = chiama(client, token, "cerca_record", {"vista": "contatti.contatti"})
@@ -271,6 +276,7 @@ def test_dati_personali_mascherati_e_segnaposto_che_tornano(client, token, conta
     assert altro not in mirato
 
 
+@serve_contatti
 def test_senza_servizio_di_protezione_non_esce_niente(client, token, contatti, azienda, servizio_pii):
     parametri.scrivi("connettore_ai.maschera", True, azienda)
     for guasto in ({"giu": True}, {"giu": False, "url": ""}):

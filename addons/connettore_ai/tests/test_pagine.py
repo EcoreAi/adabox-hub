@@ -18,8 +18,8 @@ def test_indirizzi_alla_radice_dichiarati_dal_modulo():
     assert reverse("connettore_ai:token") == "/connettore_ai/oauth/token"
 
 
-def test_le_mie_chat_elenco_e_scollega(client, collegata, mario, azienda, contatti):
-    chiama(client, collegata["access_token"], "cerca_record", {"vista": "contatti.contatti"})
+def test_le_mie_chat_elenco_e_scollega(client, collegata, mario, azienda):
+    chiama(client, collegata["access_token"], "data_e_ora")
     client.force_login(mario)
     html = client.get("/connettore_ai/").content.decode()
     assert MCP in html and "Claude" in html and "1 chiamate" in html and "tutte le app che vedi" in html
@@ -48,8 +48,8 @@ def test_pagina_quando_l_azienda_non_ha_acceso(client, mario, azienda):
     assert client.get("/connettore_ai/").status_code == 403
 
 
-def test_elenchi_dell_amministratore_in_sola_lettura(client, collegata, superuser, azienda, contatti):
-    chiama(client, collegata["access_token"], "cerca_record", {"vista": "contatti.contatti"})
+def test_elenchi_dell_amministratore_in_sola_lettura(client, collegata, superuser, azienda):
+    chiama(client, collegata["access_token"], "data_e_ora")
     superuser.profilo.aziende.set([azienda])
     superuser.profilo.azienda_predefinita = azienda
     superuser.profilo.save()

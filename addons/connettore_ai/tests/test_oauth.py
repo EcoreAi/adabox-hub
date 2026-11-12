@@ -11,7 +11,7 @@ from connettore_ai.models import ChatCollegata, ClientOAuth, Codice, Token
 from core import parametri
 
 from .conftest import (CHATGPT, CLAUDE, DOCUMENTO_CHATGPT, DOCUMENTO_CLAUDE, MCP, SITO, consenti, persona, richiesta,
-                       rinnova, ritorno_di, rpc, scambia)
+                       rinnova, ritorno_di, rpc, scambia, serve_contatti)
 
 GEMINI_APP = [f"https://oauth-redirect{v}.googleusercontent.com/{p}/user_bound_custom-mcp-1234-adabox"
               for v in ("", "-sandbox", "-test") for p in ("r", "a")]
@@ -53,7 +53,7 @@ def test_modulo_spento_niente_risponde(client, azienda, monkeypatch):
 
 # ---------- il giro completo, come lo fa ogni fornitore ----------
 
-def test_chatgpt_con_il_documento_pubblico(client, mario, documenti, contatti):
+def test_chatgpt_con_il_documento_pubblico(client, mario, documenti):
     """ChatGPT dichiara private_key_jwt ma accetta «none»: per noi è un client pubblico con PKCE."""
     anonimo = client.get("/connettore_ai/oauth/authorize", richiesta(DOCUMENTO_CHATGPT, CHATGPT))
     assert anonimo.status_code == 302 and anonimo["Location"].startswith("/accounts/login/?next=")
@@ -232,6 +232,7 @@ def test_consenso_senza_csrf_non_vale(mario, documenti):
     assert not Codice.objects.exists()
 
 
+@serve_contatti
 def test_scelta_dell_azienda_e_delle_app(client, mario, documenti, azienda):
     from core.models import Azienda
     altra = Azienda.objects.create(nome="Beta Srl")

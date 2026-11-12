@@ -5,10 +5,10 @@ import hashlib
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 import pytest
+from django.apps import apps
 from django.contrib.auth.models import Permission, User
 
 from connettore_ai import clienti
-from contatti.models import Contatto
 from core import parametri
 from core.models import Azienda
 
@@ -20,6 +20,8 @@ VERIFICATORE = "v" * 64
 SFIDA = base64.urlsafe_b64encode(hashlib.sha256(VERIFICATORE.encode()).digest()).rstrip(b"=").decode()
 DOCUMENTO_CHATGPT = "https://chatgpt.com/oauth/client.json"
 DOCUMENTO_CLAUDE = "https://claude.ai/oauth/mcp-oauth-client-metadata"
+# i test sui dati leggono i contatti: nel collaudo del solo modulo (con l'assistente e basta) si saltano
+serve_contatti = pytest.mark.skipif(not apps.is_installed("contatti"), reason="serve contatti")
 
 
 @pytest.fixture(autouse=True)
@@ -52,6 +54,7 @@ def mario(azienda):
 
 @pytest.fixture
 def contatti(azienda):
+    from contatti.models import Contatto
     return [Contatto.objects.create(azienda=azienda, nome="Rossi Srl", citta="Cagliari", cliente=True),
             Contatto.objects.create(azienda=azienda, nome="Bianchi Spa", citta="Sassari")]
 
