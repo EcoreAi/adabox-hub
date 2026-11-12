@@ -2,6 +2,43 @@
 
 Come far usare i dati di adabox dalle chat di Claude e ChatGPT con gli abbonamenti che i clienti hanno già, più due funzioni collegate: la chiave API personale dentro Ada e l'importazione delle chat fatte altrove. Verificato sulle fonti ufficiali il 2026-11-11 (elenco in fondo); dove una fonte non era raggiungibile è segnato **da verificare**.
 
+## Stato al 2026-11-12
+
+**Fatto**, nel modulo `connettore_ai` 1.0.0 (serve il kernel 1.2, per gli indirizzi alla radice): la parte A in sola
+lettura con il mascheramento (fasi 1 e 2), per Claude, ChatGPT, Le Chat di Mistral e Gemini. Per Gemini funzionano
+Gemini Enterprise, Antigravity e Gemini CLI; l'app personale ha le app personalizzate solo negli Stati Uniti. L'uso è
+descritto nel README, sezione «Chat AI esterne». Il resto di questo documento è il progetto del 2026-11-11: dove non
+coincide con la tabella qui sotto, vale la tabella.
+
+| Tema | Nel progetto | Costruito | Perché |
+|---|---|---|---|
+| Server OAuth | libreria o codice nostro, da decidere dopo lo spike | codice nostro, minimo | django-oauth-toolkit non copre CIMD, RFC 9728 e RFC 9207; ciò che serve sta in poche centinaia di righe con i test |
+| Indirizzi | `/oauth/…` alla radice | `/connettore_ai/oauth/…`; alla radice solo `/mcp` e i `/.well-known/…` | gli indirizzi di OAuth li dicono i metadati: alla radice va solo ciò che uno standard fissa |
+| Emittente | non deciso | l'origine dell'istanza, da `SITO_URL` | senza percorso, i metadati stanno dove tutte le chat li cercano per primi |
+| Origin | elenco dei domini dei fornitori | solo la forma (https, senza percorso) | nessun fornitore dichiara la sua origine e Claude avverte che un controllo stretto respinge le sue chiamate; il DNS rebinding lo ferma `ALLOWED_HOSTS` e il token non è un cookie |
+| Registrazione | CIMD e DCR | CIMD, DCR e credenziali create a mano | Gemini Enterprise non ha né CIMD né DCR: l'amministratore copia identificativo e segreto |
+| Documento di ChatGPT | client pubblico | accettato anche se dichiara `private_key_jwt` | tra i metodi che supporta c'è `none`, e ChatGPT sceglie tra quelli che offriamo |
+| Token di rinnovo | ruotati sempre | ruotati per i client pubblici, fissi per quelli con un segreto | Google chiede di restituire lo stesso token |
+| Consenso | azienda, app, lettura o scritture, durata | azienda e app; solo lettura | le scritture sono la fase 3 |
+| Più aziende | un collegamento per azienda | così | — |
+| Mascheramento | mappa per collegamento con scadenza a 24 ore | mappa per collegamento, senza scadenza | la chat può riusare un segnaposto giorni dopo; la mappa muore con il collegamento |
+| Spike con client veri | fase 0 | non fatto | manca un'istanza pubblica in https |
+
+**Corretto rispetto al testo del 2026-11-11.** Claude chiama anche da `153.61.208.0/20`, oltre a `160.79.104.0/21`.
+In ChatGPT i server MCP personalizzati si aggiungono dalla pagina dei plugin (piani Business, Enterprise ed Edu; Pro in
+sola lettura) e la «modalità sviluppatore» non compare più nella documentazione. Da fine settembre 2026 OpenAI ha
+«Sign in with ChatGPT» con l'uso del piano in app di terzi, ma per le app a pagamento o ospitate su server solo su
+ammissione: non cambia la scelta del connettore.
+
+**Resta da fare**, in ordine:
+1. La prova con Claude, ChatGPT, Le Chat e Gemini veri, su un'istanza pubblica. Fino ad allora il modulo è provato solo
+   con client simulati che seguono la documentazione. Da fonti non ufficiali, quindi da confermare lì: l'indirizzo di
+   ritorno di Le Chat e quelli dell'app Gemini.
+2. Le scritture come proposte confermate in adabox (fase 3).
+3. L'importazione delle chat (parte C).
+4. La chiave personale (parte B) resta in sospeso: il 2026-11-12 si è scelto di vendere l'AI dentro il piano, con le
+   formule «inclusa» e «a consumo» (vedi README, «Vendere i moduli ai clienti»).
+
 ## In sintesi
 
 | Parte | Cosa | Stato delle fonti |
@@ -10,7 +47,7 @@ Come far usare i dati di adabox dalle chat di Claude e ChatGPT con gli abbonamen
 | B. Chiave personale | Nella chat di Ada l'utente sceglie anche il proprio account API Anthropic o OpenAI | Nessun vincolo esterno |
 | C. Importazione | L'utente carica l'esportazione di ChatGPT o Claude e ritrova le chat in Ada | Formati non documentati |
 
-**Cosa non si fa, e perché.** Usare dentro adabox l'abbonamento Claude o ChatGPT dell'utente (sessioni, cookie, token di accesso dell'abbonamento) è vietato: Anthropic scrive che terze parti non possono offrire l'accesso con Claude.ai, instradare richieste con le credenziali dei piani Free, Pro, Max o Ultra, né raccogliere, conservare o fare da intermediario a credenziali o token di sessione di Claude.ai; chi sviluppa deve usare le chiavi API. OpenAI vieta di condividere le credenziali o rendere l'account disponibile ad altri. Il connettore va nel verso opposto (è Claude che chiama adabox) e non tocca credenziali dei fornitori.
+**Cosa non si fa, e perché.** Usare dentro adabox l'abbonamento Claude o ChatGPT dell'utente (sessioni, cookie, token di accesso dell'abbonamento) è vietato: Anthropic scrive che terze parti non possono offrire l'accesso con Claude.ai, instradare richieste con le credenziali dei piani Free, Pro, Max o Ultra, né raccogliere, conservare o fare da intermediario a credenziali o token di sessione di Claude.ai; chi sviluppa deve usare le chiavi API. OpenAI vieta di condividere le credenziali o rendere l'account disponibile ad altri. Il programma «Sign in with ChatGPT» di OpenAI (uso del piano in app di terzi, da fine settembre 2026) è la sola eccezione, ed è su ammissione. Il connettore va nel verso opposto (è Claude che chiama adabox) e non tocca credenziali dei fornitori.
 
 **Decisioni da prendere prima di iniziare** (sezione 8): libreria o codice nostro per il server OAuth; scritture eseguite subito o confermate in adabox; mascheramento dei dati attivo di default o no; quali clienti hanno piani che ammettono i connettori.
 

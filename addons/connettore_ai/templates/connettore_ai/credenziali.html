@@ -1,0 +1,32 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Credenziali per Gemini Enterprise · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Credenziali per Gemini Enterprise</h1>
+  <div class="sub">Gemini Enterprise non si registra da solo: chi lo amministra inserisce a mano gli indirizzi e le credenziali di adabox.</div></div></div>
+{% if segreto %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Credenziali create</div><span class="ui-pill ui-pill-warn">Il segreto si vede solo adesso</span></div>
+  <div class="ui-card-body">
+    <label>Client ID <input class="ui-input" type="text" readonly value="{{ client.client_id }}" onfocus="this.select()"></label>
+    <label>Client secret <input class="ui-input" type="text" readonly value="{{ segreto }}" onfocus="this.select()"></label>
+    <p class="ui-help">Copiali ora nella console di Gemini Enterprise. Qui resta solo l'impronta del segreto: se lo perdi, creane di nuove.</p>
+  </div>
+</section>
+{% endif %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Che cosa inserire in Gemini Enterprise</div></div>
+  <div class="ui-card-body">
+    <label>Indirizzo del server MCP <input class="ui-input" type="text" readonly value="{{ indirizzo }}" onfocus="this.select()"></label>
+    <label>Authorization URL <input class="ui-input" type="text" readonly value="{{ url_autorizza }}" onfocus="this.select()"></label>
+    <label>Token URL <input class="ui-input" type="text" readonly value="{{ url_token }}" onfocus="this.select()"></label>
+    <label>Scopes <input class="ui-input" type="text" readonly value="{{ ambiti }}" onfocus="this.select()"></label>
+    <ul class="ui-help" style="padding-left:18px;">
+      <li>Autenticazione: OAuth 2.0, con il supporto PKCE attivo. adabox rifiuta le richieste senza PKCE.</li>
+      <li>Indirizzo di ritorno usato da Google, già ammesso: {{ ritorno }}</li>
+      <li>Ogni persona poi si collega con il suo utente di adabox e dà il suo consenso: le credenziali identificano Gemini, non una persona.</li>
+    </ul>
+    <form method="post" onsubmit="return confirm('Creare nuove credenziali? Quelle già create restano valide.')">{% csrf_token %}
+      <button class="ui-btn ui-btn-primary" type="submit">Crea le credenziali</button></form>
+  </div>
+</section>
+{% endblock %}

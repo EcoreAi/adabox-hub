@@ -87,7 +87,10 @@ Un'app minima non scrive né viste né template: bastano modello, `ModelView` e 
    HTMX), nuovo, dettaglio, modifica, elimina (modale), azioni e bottoni, con nomi URL
    `<slug>:<vista>_lista|_nuovo|_dettaglio|_modifica|_elimina|_azione|_bottone` e i permessi
    Django del modello. Pagine proprie: `urls.py` del modulo (montato sotto lo stesso prefisso)
-   e template che estendono `core/base_app.html`.
+   e template che estendono `core/base_app.html`. Dal kernel 1.2 `urls.py` può dichiarare anche
+   `urlpatterns_radice`: indirizzi fuori dal prefisso, per i casi in cui il percorso lo fissa uno
+   standard (`/.well-known/…`). Stanno alla radice senza namespace: nomi unici, e la vista controlla
+   da sé se il modulo è acceso, perché i middleware dei moduli lì non arrivano.
 4. **Gruppi, fixture, hook** — i gruppi del manifest si creano all'installazione (`app.*` =
    tutti i permessi dell'app); le fixture `data` si caricano a ogni installazione e
    aggiornamento (pk fissi), quelle `demo` solo con `--demo`; `hooks.py` può definire
@@ -446,6 +449,59 @@ completate.
 - **Produzione**: lo streaming lo serve il servizio `stream` del compose (uvicorn, ASGI), e nginx gli instrada
   `/ai/flusso/`; il resto resta su gunicorn (WSGI). Quando cambiano i moduli installati, `stream` risponde 503 e
   si riavvia da solo, come il worker.
+
+### Chat AI esterne: adabox dentro Claude, ChatGPT, Gemini e Le Chat
+
+Il modulo `connettore_ai` («Chat AI esterne», dipende da `ai`, kernel 1.2) fa usare i dati di adabox dalla chat che le
+persone hanno già, con il loro abbonamento: l'istanza espone un server MCP con OAuth, la chat lo aggiunge come
+connettore personalizzato e legge ciò che la persona può vedere. Non consuma token dei modelli e non tocca le
+credenziali dei fornitori: è la chat che chiama adabox. Progetto, scelte e fonti: `docs/progetto-connettore-ai.md`.
+
+- **Accensione**: spento di default. In `/impostazioni/` ogni azienda accende «Le persone di questa azienda possono
+  collegare adabox alle chat AI esterne»; si collega chi ha il gruppo «Connettore AI / Utente». Serve un'istanza
+  raggiungibile da internet in https, con `SITO_URL` uguale all'indirizzo pubblico: emittente e risorsa nascono da lì
+  e le chat li confrontano carattere per carattere.
+- **Per la persona**: «Le mie chat AI» (menu del profilo) mostra l'indirizzo da incollare, `https://<istanza>/mcp`, e
+  le chat collegate con «Scollega». La chat porta su adabox per l'accesso (con la verifica in due passaggi) e per il
+  consenso: quale azienda, tutte le app o solo alcune. Un collegamento vale per una persona, un'azienda e una chat.
+- **Che cosa arriva alle chat**: un elenco chiuso di letture dell'assistente (`elenco_viste`, `descrivi_vista`,
+  `cerca_record`, `leggi_record`, `aggrega_record`, `cerca_conoscenza`, `leggi_documento`, `leggi_foglio`,
+  `data_e_ora`, `app_disponibili`), eseguite come la persona, nella sua azienda, con i permessi di quel momento.
+  Nessuna scrittura. Valgono la licenza dell'assistente e gli strumenti spenti dalla pagina «Strumenti». Utente
+  disattivato, permesso tolto, azienda che spegne l'interruttore: il collegamento smette alla chiamata successiva.
+- **Come si presenta ogni chat**:
+
+  | Chat | Registrazione | Note |
+  |---|---|---|
+  | Claude | documento pubblico (CIMD), altrimenti da sé (DCR) | nei piani Team ed Enterprise il connettore lo aggiunge prima un proprietario |
+  | ChatGPT | documento pubblico; con `iss` usa l'indirizzo di ritorno stabile | server MCP personalizzati nei piani Business, Enterprise ed Edu; Pro in sola lettura |
+  | Le Chat | da sé (DCR) | serve un amministratore dell'organizzazione |
+  | Gemini Enterprise | credenziali create a mano in «Credenziali per Gemini Enterprise» | in Google va acceso il supporto PKCE |
+  | Antigravity, Gemini CLI, Claude Code | documento pubblico o da sé | solo con «Ammetti i programmi sul computer dell'utente» per i ritorni su `localhost` |
+  | App Gemini personale | da sé, con segreto | le app personalizzate oggi esistono solo negli Stati Uniti |
+
+- **Protocollo**: MCP Streamable HTTP, un POST per richiesta, risposte JSON, nessuna sessione. Sullo stesso indirizzo
+  rispondono la versione 2026-07-28 (senza stato: `server/discover`, intestazioni `MCP-Protocol-Version`, `Mcp-Method`
+  e `Mcp-Name` controllate contro il corpo) e le precedenti con `initialize` (2025-11-25, 2025-06-18, 2025-03-26).
+- **Autorizzazione**: OAuth 2.1 con PKCE S256 obbligatorio. Metadati a `/.well-known/oauth-protected-resource[/mcp]`
+  e `/.well-known/oauth-authorization-server`; `iss` in ogni ritorno (RFC 9207); `resource` controllato quando arriva
+  (RFC 8707). Codici e token sono opachi e salvati come impronta: accesso un'ora, rinnovo 90 giorni senza uso. Il
+  rinnovo dei client pubblici si ruota a ogni uso e, riusato, revoca il collegamento; ai client con un segreto resta
+  lo stesso, come chiede Google.
+- **Indirizzi di ritorno**: il codice parte solo verso quelli dei fornitori noti (`connettore_ai/clienti.py`); altri si
+  aggiungono in «Altri indirizzi di ritorno ammessi». È questa la protezione: chiunque può presentarsi come client, ma
+  con un ritorno fuori elenco non ottiene nulla.
+- **Dati personali**: con «Proteggi i dati personali verso le chat esterne» i risultati escono con i segnaposto
+  dell'assistente (`[FULLNAME_1]`), stabili per collegamento, e i segnaposto negli argomenti tornano valori veri. Nella
+  chat si leggono i segnaposto. Se il servizio di protezione non risponde non esce nulla.
+- **Controllo**: «Collegamenti» (con «Scollega»), «Chiamate» (strumento, vista, esito, durata; mai i valori) e «Chat
+  conosciute». 120 chiamate al minuto per collegamento; pulizia giornaliera di codici, token e client mai usati.
+- **Rete**: gli indirizzi alla radice sono `/mcp` e i due `/.well-known/…`; il proxy deve passarli all'app con
+  l'intestazione `Authorization`. Claude chiama solo in IPv4, da `160.79.104.0/21` e `153.61.208.0/20`.
+- **Limiti**: provato con client simulati che seguono la documentazione dei fornitori letta il 2026-11-12, non ancora
+  con Claude, ChatGPT, Gemini e Le Chat veri: serve un'istanza pubblica in https. Da fonti non ufficiali, e quindi da
+  confermare alla prima prova: l'indirizzo di ritorno di Le Chat e quelli dell'app Gemini. Niente scritture, niente
+  importazione delle chat.
 
 ## Ricerche, pivot e registro
 

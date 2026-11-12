@@ -82,3 +82,20 @@ def test_barra_dell_app_nel_contesto(client, superuser, monkeypatch):
 def test_patterns_moduli_vuoto(settings):
     settings.ADDONS_ATTIVI = []
     assert patterns_moduli() == []
+
+
+def test_indirizzi_alla_radice_dichiarati_da_un_modulo(addons_tmp, settings):
+    """`urlpatterns_radice` in urls.py: indirizzi che uno standard vuole fuori dal prefisso del modulo (/.well-known/…).
+    Stanno alla radice, senza namespace, dopo i prefissi dei moduli."""
+    from django.urls import URLPattern, URLResolver
+    cartella = addons_tmp.crea("radici")
+    (cartella / "urls.py").write_text(
+        "from django.http import HttpResponse\nfrom django.urls import path\n\n\n"
+        "def pagina(request):\n    return HttpResponse('ok')\n\n\n"
+        "urlpatterns = [path('dentro/', pagina, name='dentro')]\n"
+        "urlpatterns_radice = [path('.well-known/prova', pagina, name='radici_prova')]\n")
+    settings.ADDONS_ATTIVI = ["radici"]
+    patterns = patterns_moduli()
+    assert [p.namespace for p in patterns if isinstance(p, URLResolver)] == ["radici"]
+    assert [str(p.pattern) for p in patterns if isinstance(p, URLPattern)] == [".well-known/prova"]
+    assert isinstance(patterns[-1], URLPattern) and patterns[-1].name == "radici_prova"
