@@ -42,9 +42,9 @@ body.ui-body { background: #fcfcfb; }
 }
 .ui-logo, .ui-logo:hover { color: #fff; }
 /* il cubo nei verdi del tema (il CSS vince sugli attributi fill dell'SVG) */
-.ui-header .ui-logo-cubo path:nth-child(1) { fill: #7fd3d8; stroke: #7fd3d8; }
-.ui-header .ui-logo-cubo path:nth-child(2) { fill: #2b9ea6; stroke: #2b9ea6; }
-.ui-header .ui-logo-cubo path:nth-child(3) { fill: #1b7f86; stroke: #1b7f86; }
+.ui-header .ui-logo-cubo path:nth-child(1), .ai-saluto-logo .ui-logo-cubo path:nth-child(1) { fill: #7fd3d8; stroke: #7fd3d8; }
+.ui-header .ui-logo-cubo path:nth-child(2), .ai-saluto-logo .ui-logo-cubo path:nth-child(2) { fill: #2b9ea6; stroke: #2b9ea6; }
+.ui-header .ui-logo-cubo path:nth-child(3), .ai-saluto-logo .ui-logo-cubo path:nth-child(3) { fill: #1b7f86; stroke: #1b7f86; }
 
 .ui-header .ui-nav a, .ui-header .ui-nav-voce { color: rgba(255, 255, 255, 0.92); font-weight: 600; border-radius: 8px; }
 .ui-header .ui-nav a::after, .ui-header .ui-nav-voce::after { display: none; }
@@ -92,6 +92,7 @@ body.ui-body { background: #fcfcfb; }
 .ai-rail-btn[aria-expanded="true"] { background: var(--ui-selezione); color: var(--ui-primary); }
 .ai-ambito[aria-pressed="true"], .ai-scheda-voce[aria-pressed="true"] { border-color: rgba(43, 158, 166, 0.45); }
 body.ai-pagina { background: #fcfcfb; }
+.ai-saluto-logo { filter: drop-shadow(0 4px 10px rgba(27, 127, 134, 0.22)); }
 
 /* ---------- admin di Django ---------- */
 #header {

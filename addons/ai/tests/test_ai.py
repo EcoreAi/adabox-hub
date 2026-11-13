@@ -21,6 +21,8 @@ def utente(db, client):
 def test_pagina_vuota_a_tre_colonne(client, utente):
     html = client.get("/ai/chat/").content.decode()
     assert "Ciao, Chiara" in html and 'id="ai-pannello-sinistra" hidden' in html
+    saluto = html[html.index('class="ai-saluto"'):html.index('</h1>')]
+    assert 'class="ai-saluto-logo"' in saluto and 'class="ui-logo-cubo"' in saluto and '#ai-scintilla' not in saluto   # il cubo del logo
     assert "ai-pannello-destra" not in html and "ai-rail-destra" not in html               # una sola colonna di icone
     for etichetta in ("Nuova chat", "Cronologia chat", "Preferiti: chat, documenti, grafici e tabelle", "Aree di lavoro"):
         assert etichetta in html

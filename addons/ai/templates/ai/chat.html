@@ -98,7 +98,7 @@
         {% include "ai/_testa_progetto.html" %}
         {% elif not messaggi %}
         <div class="ai-saluto">
-          <span class="ai-scintilla" aria-hidden="true"><svg><use href="#ai-scintilla"/></svg></span>
+          <span class="ai-saluto-logo" aria-hidden="true">{% include "theme/partials/_logo.html" %}</span>
           <h1>Ciao, {{ user.first_name|default:user.username }}</h1>
         </div>
         {% endif %}
