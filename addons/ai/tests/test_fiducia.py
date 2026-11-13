@@ -69,7 +69,7 @@ def test_nomi_dell_azienda_e_nomi_utente_inesistenti_non_si_mascherano(db):
     from core.models import Azienda
     Azienda.objects.filter(pk=1).update(nome="Adabox Hub")
     User.objects.create_user("mrossi", password="x")
-    protezione._noti["quando"] = 0.0
+    protezione._noti["quando"] = None
     p = lambda testo, valore, etichetta: protezione.plausibile(testo, testo.index(valore), testo.index(valore) + len(valore), etichetta)  # noqa: E731
     assert not p("che cosa è adabox?", "adabox", "USERNAME")              # non è lo username di nessuno
     assert not p("lavoro in Adabox Hub", "Adabox Hub", "ORG") and not p("lavoro in Adabox Hub", "Hub", "ORG")
@@ -219,3 +219,15 @@ def test_segnaposto_come_testo_di_un_link_in_streaming():
     assert testo == "| 1 | [Rizzo Stampa Snc](/contatti/24/) | 146.470 € |" and p.sconosciuti == 0
     assert usciti[-1].blocchi[0]["testo"] == "| 1 | [Rizzo Stampa Snc](/contatti/24/) |"
     assert protezione.Vault({"[ORG_1]": "Rizzo"}).smaschera("[[ORG_1]](/c/1/) e [ORG_1]") == ("[Rizzo](/c/1/) e Rizzo", 0)
+
+
+def test_nomi_noti_calcolati_anche_su_una_macchina_appena_accesa(db, monkeypatch):
+    """monotonic() piccolo (macchina accesa da pochi secondi): la prima volta la lista si calcola comunque."""
+    import time
+
+    from core.models import Azienda
+    Azienda.objects.filter(pk=1).update(nome="Adabox Hub")
+    monkeypatch.setitem(protezione._noti, "quando", None)
+    monkeypatch.setattr(time, "monotonic", lambda: 12.0)
+    propri, _ = protezione._nomi_noti()
+    assert "adabox hub" in propri
