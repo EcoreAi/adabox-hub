@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="{% statico 'portale/portale.css' %}">
   {% block head_extra %}{% endblock %}
   <link rel="icon" type="image/svg+xml" href="{% url 'theme:favicon' %}">
+  {% include "theme/partials/_tema.html" %}
 </head>
 {# Portale dei clienti: testata propria con le sezioni delle app installate, niente app interne. #}
 <body class="ui-body">

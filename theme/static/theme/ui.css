@@ -62,6 +62,7 @@ h1, h2, h3, h4, h5, h6 { font-weight: 600; letter-spacing: -0.02em; color: var(-
 .ui-logo:hover { color: var(--ui-text); text-decoration: none; }
 .ui-logo-mark { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
 .ui-logo-cubo { display: block; width: 100%; height: 100%; }
+.ui-logo-immagine { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
 
 .ui-nav { flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; }
 .ui-nav a, .ui-nav-voce {
@@ -1780,3 +1781,7 @@ div.ui-checkbox-list input[type="checkbox"] { width: 16px; height: 16px; margin:
   .ui-nav-altre .ui-menucol a:hover, .ui-nav-altre .ui-menucol a:focus-visible { transform: none; }
   .ui-dropdown-menu a:hover, .ui-dropdown-menu a:focus-visible { padding-left: 12px; }
 }
+
+/* Anteprima di un tema (Admin → Temi): striscia in alto, solo per chi l'ha aperta */
+.ui-tema-anteprima { padding: 6px 16px; background: var(--ui-primary); color: #fff; font-size: 13px; text-align: center; }
+.ui-tema-anteprima a { color: #fff; text-decoration: underline; margin-left: 8px; }

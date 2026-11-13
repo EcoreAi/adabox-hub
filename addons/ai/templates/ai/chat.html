@@ -8,11 +8,13 @@
   <link rel="stylesheet" href="{% statico 'theme/ui.css' %}">
   <link rel="stylesheet" href="{% statico 'ai/chat.css' %}">
   <link rel="icon" type="image/svg+xml" href="{% url 'theme:favicon' %}">
+  {% include "theme/partials/_tema.html" %}
 </head>
 {# Pagina a tutto schermo sotto l'header del tema (lo stesso di tutte le app): tre colonne, senza footer. #}
 <body class="ui-body ai-pagina" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 {% include 'theme/partials/_icons.html' %}
 {% include "ai/_icone.html" %}
+{% include 'theme/partials/_tema_anteprima.html' %}
 {% include 'theme/partials/_header.html' %}
 <div class="ai-chat{% if documento %} con-documento{% endif %}" data-ai-chat{% if lettura %} data-lettura{% endif %}{% if sola_lettura %} data-sola-lettura{% endif %}{% if progetto_aperto or conversazione.progetto_id %} data-in-progetto{% endif %}>
 
