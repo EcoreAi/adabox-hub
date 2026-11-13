@@ -364,3 +364,73 @@ def test_fonte_di_un_record_e_permessi(scena, con_servizio, client):
     altro.user_permissions.set(Permission.objects.filter(codename="view_conversazione"))
     client.force_login(altro)
     assert client.get(f"/ai/fonte/{m.pk}/", {"url": url}).status_code == 404       # la chat è di un altro
+
+
+# ---------- «Fai dimenticare ad Ada»
+
+@con_documenti
+def test_fai_dimenticare_un_documento(scena, archivio, con_servizio, client):
+    from ai import oblio
+    from ai.models import Evento, MessaggioChat, OblioDocumento
+    from documenti import servizi
+    segreto = servizi.carica(archivio, ContentFile(b"Il fornitore Gamma applica lo sconto segreto del 37 per cento.",
+                                                   name="accordo-gamma.txt"), scena["capo"])
+    altro = servizi.carica(archivio, ContentFile(b"Il listino Gamma vale per tutto il 2027.", name="listino-gamma.txt"),
+                           scena["capo"])
+    conoscenza.indicizza()
+    url = f"/documenti/documenti/{segreto.pk}/"
+    m = _risposta_con_citazione(scena, {"domanda": "fornitore Gamma sconto listino", "fonti": ["documento"]},
+                                f"Gamma applica uno sconto del 37 per cento [1]({url}).")
+    risultato = Evento.objects.get(conversazione=m.conversazione, tipo="strumento").dati["risultati"][0]["contenuto"]
+    assert "sconto segreto" in risultato and "listino-gamma" in risultato
+
+    client.force_login(scena["capo"])
+    scheda = client.get(url).content.decode()
+    assert "Fai dimenticare ad Ada" in scheda
+    client.post(f"/ai/documenti/{segreto.pk}/dimentica/", {"motivo": "richiesta GDPR"})
+
+    assert not Frammento.objects.filter(object_id=segreto.pk, fonte="documento").exists()
+    assert Frammento.objects.filter(object_id=altro.pk, fonte="documento").exists()
+    risultato = Evento.objects.get(conversazione=m.conversazione, tipo="strumento").dati["risultati"][0]["contenuto"]
+    assert "sconto segreto" not in risultato and url not in risultato and "listino-gamma" in risultato  # l'altro resta
+    m.refresh_from_db()
+    assert m.testo == oblio.NOTA_RISPOSTA and "37" not in m.turno.testo and m.turno.provenienza == {}
+    eventi = Evento.objects.filter(conversazione=m.conversazione, tipo="assistente")
+    assert all("37 per cento" not in json.dumps(e.dati) for e in eventi)
+    registro = OblioDocumento.objects.get()
+    assert (registro.motivo, registro.chat, registro.risposte, registro.azione) == ("richiesta GDPR", 1, 1, "dimenticato")
+    assert registro.frammenti >= 1 and "sconto" not in str(registro.__dict__)
+
+    # escluso anche se cambia, finché non si riammette
+    servizi.nuova_versione(segreto, ContentFile(b"Sconto segreto aggiornato al 40 per cento.", name="accordo-gamma.txt"),
+                           scena["capo"])
+    conoscenza.indicizza_documento(segreto.pk)
+    conoscenza.indicizza()
+    assert not Frammento.objects.filter(object_id=segreto.pk, fonte="documento").exists()
+    assert IndiceDocumento.objects.get(documento_id=segreto.pk).stato == "escluso"
+    c = _contesto(scena["capo"], scena["azienda"])
+    assert not any("accordo-gamma" in r["titolo"] for r in
+                   strumenti_conoscenza.cerca_conoscenza(c, "sconto segreto Gamma", fonti=["documento"])["risultati"])
+    assert "Riammetti" in client.get(url).content.decode()
+    assert "accordo-gamma.txt" in client.get("/ai/dimenticati/").content.decode()
+
+    client.post(f"/ai/documenti/{segreto.pk}/riammetti/")
+    conoscenza.indicizza_documento(segreto.pk)
+    assert Frammento.objects.filter(object_id=segreto.pk, fonte="documento").exists()
+    assert OblioDocumento.objects.filter(azione="riammesso").count() == 1
+
+
+@con_documenti
+def test_fai_dimenticare_serve_il_permesso(scena, archivio, client):
+    from documenti import servizi
+    d = servizi.carica(archivio, ContentFile(b"Testo.", name="nota.txt"), scena["capo"])
+    mario = User.objects.create_user("mario", password="x")
+    mario.user_permissions.set(Permission.objects.filter(codename__in=["view_documento", "view_conversazione",
+                                                                       "add_conversazione"]))
+    mario.profilo.aziende.set([scena["azienda"]])
+    mario.profilo.azienda_predefinita = scena["azienda"]
+    mario.profilo.save()
+    client.force_login(mario)
+    assert "Fai dimenticare" not in client.get(f"/documenti/documenti/{d.pk}/").content.decode()
+    assert client.post(f"/ai/documenti/{d.pk}/dimentica/").status_code == 403
+    assert not IndiceDocumento.objects.filter(stato="escluso").exists()

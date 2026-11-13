@@ -1,7 +1,7 @@
 {
     "name": "Assistente AI",
     "summary": "Chat con l'assistente: cronologia delle conversazioni, artifact e documenti salvati",
-    "version": "1.36.0",
+    "version": "1.37.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -23,6 +23,7 @@
         {"label": "Sistemi esterni (MCP)", "url_name": "ai:mcp_lista", "permission": "ai.change_servermcp", "funzione": "mcp"},
         {"label": "Valutazioni", "url_name": "ai:valutazioni_lista", "permission": "ai.view_valutazionerisposta"},
         {"label": "Indice dei documenti", "url_name": "ai:indice_lista", "permission": "ai.view_indicedocumento", "funzione": "conoscenza"},
+        {"label": "Documenti dimenticati", "url_name": "ai:dimenticati_lista", "permission": "ai.view_obliodocumento", "funzione": "conoscenza"},
         {"label": "Licenza", "url_name": "ai:licenza", "permission": "ai.change_licenza"},
     ],
     "groups": {

@@ -185,7 +185,9 @@ def _revisore(turno, coppie, protezione=None):
     lavoro.save()
     if lavoro.stato != Turno.COMPLETATO:
         return None
-    return _leggi_giudizi(lavoro.testo, len(coppie))
+    giudizi = _leggi_giudizi(lavoro.testo, len(coppie))
+    Turno.objects.filter(pk=lavoro.pk).update(testo="")      # i giudizi citano la fonte: restano nella provenienza
+    return giudizi
 
 
 def _leggi_giudizi(testo, quante):
