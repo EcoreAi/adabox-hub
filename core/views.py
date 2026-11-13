@@ -506,8 +506,11 @@ def impostazioni(request):
             messages.success(request, f"Impostazioni di {manifest[slug].name} salvate.")
             return redirect(f"{reverse('core:impostazioni')}#{slug}")
         if form.fields:                                    # tutte di funzioni non comprese: niente scheda
-            schede.append({"slug": slug, "nome": manifest[slug].name, "form": form})
-    return render(request, "core/impostazioni.html", {"schede": schede, "obblighi": due_fattori.OBBLIGHI,
+            schede.append({"slug": slug, "nome": manifest[slug].name, "form": form, "quante": len(form.fields),
+                           "categoria": manifest[slug].category, "sommario": manifest[slug].summary})
+    # indice a sinistra: le stesse colonne del menu «Altre», app in ordine alfabetico dentro ciascuna
+    return render(request, "core/impostazioni.html", {"gruppi": barra.gruppi(schede, "nome"), "schede": schede,
+                                                      "aperta": inviato or "", "obblighi": due_fattori.OBBLIGHI,
                                                       "obbligo": due_fattori.leggi_obbligo()})
 
 

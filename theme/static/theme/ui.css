@@ -1785,3 +1785,54 @@ div.ui-checkbox-list input[type="checkbox"] { width: 16px; height: 16px; margin:
 /* Anteprima di un tema (Admin → Temi): striscia in alto, solo per chi l'ha aperta */
 .ui-tema-anteprima { padding: 6px 16px; background: var(--ui-primary); color: #fff; font-size: 13px; text-align: center; }
 .ui-tema-anteprima a { color: #fff; text-decoration: underline; margin-left: 8px; }
+
+/* ============================================================
+   Impostazioni: indice a sinistra con la ricerca, una sezione alla volta a destra (core/impostazioni.js).
+   Senza JavaScript le sezioni restano tutte in colonna.
+   ============================================================ */
+.imp { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; align-items: start; }
+.imp-indice { position: sticky; top: 76px; max-height: calc(100vh - 96px); display: flex; flex-direction: column;
+  background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--radius-card); overflow: hidden; }
+.imp-cerca { position: relative; padding: 12px; border-bottom: 1px solid var(--ui-border); }
+.imp-cerca svg { position: absolute; left: 24px; top: 50%; width: 15px; height: 15px; transform: translateY(-50%); color: var(--ui-text-3); pointer-events: none; }
+.imp-cerca .ui-input { width: 100%; padding-left: 34px; padding-right: 30px; }
+.imp-tasto { position: absolute; right: 22px; top: 50%; transform: translateY(-50%); min-width: 18px; padding: 1px 5px; border: 1px solid var(--ui-border);
+  border-radius: 5px; font: 11px var(--font-mono); color: var(--ui-text-3); text-align: center; background: var(--ui-surface-2); }
+.imp-cerca .ui-input:focus ~ .imp-tasto, .imp-cerca .ui-input:not(:placeholder-shown) ~ .imp-tasto { display: none; }
+.imp-voci, .imp-risultati { padding: 6px 8px; }
+.imp-voci { overflow-y: auto; scrollbar-width: thin; }
+.imp-risultati { border-bottom: 1px solid var(--ui-border); max-height: 45vh; overflow-y: auto; scrollbar-width: thin; }
+.imp-gruppo + .imp-gruppo { margin-top: 6px; }
+.imp-gruppo-titolo { padding: 10px 10px 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ui-text-3); }
+.imp-voci a { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; font-size: 13.5px; color: var(--ui-text);
+  transition: background-color 140ms var(--ease-out), color 140ms var(--ease-out); }
+.imp-voci a:hover { background: var(--ui-surface-2); text-decoration: none; color: var(--ui-text); }
+.imp-voci a.is-active { background: var(--ui-primary-tint); color: var(--ui-primary); font-weight: 600; box-shadow: inset 3px 0 0 var(--ui-primary); }
+.imp-voci a svg { width: 13px; height: 13px; margin-left: auto; color: var(--ui-text-3); }
+.imp-conta { margin-left: auto; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--ui-surface-2); color: var(--ui-text-3);
+  font-size: 11px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; }
+.imp-voci a.is-active .imp-conta { background: var(--ui-surface); color: var(--ui-primary); }
+.imp-risultato { display: flex; flex-direction: column; gap: 1px; width: 100%; padding: 7px 10px; border: 0; border-radius: 8px; background: none;
+  font: inherit; font-size: 13px; color: var(--ui-text); text-align: left; cursor: pointer; }
+.imp-risultato:hover, .imp-risultato:focus-visible { background: var(--ui-primary-tint); outline: none; }
+.imp-risultato-dove { font-size: 11px; color: var(--ui-text-3); }
+.imp-vuoto { margin: 8px 10px; font-size: 13px; color: var(--ui-text-3); }
+.imp-indietro { display: none; }
+.imp.is-js .imp-sezione:not(.is-aperta) { display: none; }
+.imp.is-js .imp-sezione { margin-bottom: 0; }
+.imp-trovato { animation: imp-lampo 1.8s var(--ease-out); border-radius: 10px; }
+@keyframes imp-lampo { 0%, 35% { background: var(--ui-primary-tint); box-shadow: 0 0 0 8px var(--ui-primary-tint); } 100% { background: transparent; box-shadow: 0 0 0 8px transparent; } }
+
+@media (max-width: 767px) {
+  .imp { grid-template-columns: 1fr; gap: 12px; }
+  .imp-indice { position: static; max-height: none; }
+  .imp-voci a { padding: 11px 12px; font-size: 15px; }
+  /* sul telefono: o l'elenco o la sezione aperta, con «‹ Impostazioni» per tornare */
+  .imp.is-js.mostra-sezione .imp-indice { display: none; }
+  .imp.is-js:not(.mostra-sezione) .imp-corpo { display: none; }
+  .imp.is-js .imp-indietro { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 10px; padding: 6px 2px; border: 0; background: none;
+    font: inherit; font-weight: 600; color: var(--ui-primary); cursor: pointer; }
+  .imp.is-js .imp-indietro svg { width: 16px; height: 16px; }
+  .imp-tasto { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .imp-trovato { animation: none; background: var(--ui-primary-tint); } }

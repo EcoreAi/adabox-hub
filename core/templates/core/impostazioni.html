@@ -1,48 +1,83 @@
 {% extends 'core/base_app.html' %}
-{% load vista %}
+{% load vista tema %}
 {% block title %}Impostazioni · {{ theme.brand }}{% endblock %}
 {% block app_content %}
 <div class="ui-pagehead">
   <div><h1>Impostazioni</h1><div class="sub">Parametri delle app installate{% if azienda %} · azienda corrente: {{ azienda }}{% endif %}</div></div>
 </div>
-<section class="ui-card is-revealed ui-section" id="barra">
-  <div class="ui-card-head"><div class="ui-card-title">Barra in alto</div></div>
-  <div class="ui-card-body"><p class="ui-help" style="margin-top:0;">Quali app restano visibili nella barra in alto e in che ordine; le altre vanno nel menu «Altre».</p>
-    <a class="ui-btn ui-btn-secondary" href="{% url 'core:impostazioni_barra' %}">Scegli le app della barra</a>
-    {% if perms.core.change_sequenza %}<a class="ui-btn ui-btn-secondary" href="{% url 'core:numerazioni' %}">Numerazioni</a>{% endif %}
-    {% if perms.core.change_pianificazione %}<a class="ui-btn ui-btn-secondary" href="{% url 'core:pianificazioni' %}">Lavori pianificati</a>{% endif %}</div>
-</section>
-{% if user.is_superuser %}
-<section class="ui-card is-revealed ui-section" id="sicurezza">
-  <div class="ui-card-head"><div><div class="ui-card-title">Sicurezza</div>
-    <div class="ui-card-sub">Verifica in due passaggi: all'accesso, oltre alla password, un codice dall'app sul telefono</div></div></div>
-  <div class="ui-card-body">
-    <form method="post">{% csrf_token %}<input type="hidden" name="modulo" value="sicurezza">
-      <div class="df-scelte">{% for valore, testo in obblighi %}
-        <label class="df-scelta"><input type="radio" name="obbligo" value="{{ valore }}"{% if valore == obbligo %} checked{% endif %}> <span>{{ testo }}</span></label>{% endfor %}
+{# Indice a sinistra (generali, poi le app per argomento e in ordine alfabetico) e una sezione alla volta a destra.
+   Senza JavaScript si vedono tutte le sezioni una sotto l'altra e l'indice porta alle ancore. #}
+<div class="imp" data-imp{% if aperta %} data-aperta="{{ aperta }}"{% endif %}>
+  <aside class="imp-indice" aria-label="Sezioni delle impostazioni">
+    <div class="imp-cerca">
+      <svg aria-hidden="true"><use href="#icon-search"/></svg>
+      <input class="ui-input" type="search" id="imp-cerca" placeholder="Cerca un'impostazione…" aria-label="Cerca tra sezioni e impostazioni" autocomplete="off">
+      <kbd class="imp-tasto" aria-hidden="true">/</kbd>
+    </div>
+    <div class="imp-risultati" id="imp-risultati" aria-live="polite" hidden></div>
+    <nav class="imp-voci" id="imp-voci">
+      <div class="imp-gruppo">
+        <div class="imp-gruppo-titolo">Generali</div>
+        <a href="#barra" data-sezione="barra">Barra in alto</a>
+        {% if user.is_superuser %}<a href="#sicurezza" data-sezione="sicurezza">Sicurezza</a>{% endif %}
+        {% if perms.core.change_sequenza %}<a href="{% url 'core:numerazioni' %}" class="imp-esterna">Numerazioni <svg aria-hidden="true"><use href="#icon-share"/></svg></a>{% endif %}
+        {% if perms.core.change_pianificazione %}<a href="{% url 'core:pianificazioni' %}" class="imp-esterna">Lavori pianificati <svg aria-hidden="true"><use href="#icon-share"/></svg></a>{% endif %}
       </div>
-      <p class="ui-help">Chi rientra nell'obbligo la attiva al prossimo clic, guidato passo per passo. Chi perde telefono e codici si sblocca dall'admin, in «Autenticazioni a due fattori».</p>
-      <button type="submit" class="ui-btn ui-btn-primary"><svg><use href="#icon-save"/></svg> Salva</button>
-    </form>
-  </div>
-</section>
-{% endif %}
-{% for s in schede %}
-<section class="ui-card is-revealed ui-section" id="{{ s.slug }}">
-  <div class="ui-card-head"><div class="ui-card-title">{{ s.nome }}</div></div>
-  <div class="ui-card-body">
-    <form method="post" novalidate>
-      {% csrf_token %}
-      <input type="hidden" name="modulo" value="{{ s.slug }}">
-      {% for f in s.form %}
-        {% campo f %}
-        {% if f.field.per_azienda and azienda %}<p class="ui-help" style="margin-top:-10px;">Vale per {{ azienda }}; le altre aziende hanno il proprio valore.</p>{% endif %}
+      {% for g in gruppi %}
+      <div class="imp-gruppo">
+        <div class="imp-gruppo-titolo">{{ g.titolo }}</div>
+        {% for s in g.voci %}<a href="#{{ s.slug }}" data-sezione="{{ s.slug }}">{{ s.nome }} <span class="imp-conta" title="{{ s.quante }} impostazion{{ s.quante|pluralize:'e,i' }}">{{ s.quante }}</span></a>{% endfor %}
+      </div>
       {% endfor %}
-      <button type="submit" class="ui-btn ui-btn-primary"><svg><use href="#icon-save"/></svg> Salva</button>
-    </form>
+    </nav>
+  </aside>
+
+  <div class="imp-corpo">
+    <button type="button" class="imp-indietro" data-imp-indietro><svg aria-hidden="true"><use href="#icon-arrow-left"/></svg> Impostazioni</button>
+
+    <section class="ui-card is-revealed ui-section imp-sezione" id="barra" data-titolo="Barra in alto" data-gruppo="Generali">
+      <div class="ui-card-head"><div><div class="ui-card-title">Barra in alto</div>
+        <div class="ui-card-sub">Generali</div></div></div>
+      <div class="ui-card-body"><p class="ui-help" style="margin-top:0;">Quali app restano visibili nella barra in alto e in che ordine; le altre vanno nel menu «Altre».</p>
+        <a class="ui-btn ui-btn-secondary" href="{% url 'core:impostazioni_barra' %}">Scegli le app della barra</a>
+        {% if perms.core.change_sequenza %}<a class="ui-btn ui-btn-secondary" href="{% url 'core:numerazioni' %}">Numerazioni</a>{% endif %}
+        {% if perms.core.change_pianificazione %}<a class="ui-btn ui-btn-secondary" href="{% url 'core:pianificazioni' %}">Lavori pianificati</a>{% endif %}</div>
+    </section>
+    {% if user.is_superuser %}
+    <section class="ui-card is-revealed ui-section imp-sezione" id="sicurezza" data-titolo="Sicurezza" data-gruppo="Generali">
+      <div class="ui-card-head"><div><div class="ui-card-title">Sicurezza</div>
+        <div class="ui-card-sub">Verifica in due passaggi: all'accesso, oltre alla password, un codice dall'app sul telefono</div></div></div>
+      <div class="ui-card-body">
+        <form method="post">{% csrf_token %}<input type="hidden" name="modulo" value="sicurezza">
+          <div class="df-scelte">{% for valore, testo in obblighi %}
+            <label class="df-scelta"><input type="radio" name="obbligo" value="{{ valore }}"{% if valore == obbligo %} checked{% endif %}> <span>{{ testo }}</span></label>{% endfor %}
+          </div>
+          <p class="ui-help">Chi rientra nell'obbligo la attiva al prossimo clic, guidato passo per passo. Chi perde telefono e codici si sblocca dall'admin, in «Autenticazioni a due fattori».</p>
+          <button type="submit" class="ui-btn ui-btn-primary"><svg><use href="#icon-save"/></svg> Salva</button>
+        </form>
+      </div>
+    </section>
+    {% endif %}
+    {% for g in gruppi %}{% for s in g.voci %}
+    <section class="ui-card is-revealed ui-section imp-sezione" id="{{ s.slug }}" data-titolo="{{ s.nome }}" data-gruppo="{{ g.titolo }}">
+      <div class="ui-card-head"><div><div class="ui-card-title">{{ s.nome }}</div>
+        <div class="ui-card-sub">{{ g.titolo }} · {{ s.quante }} impostazion{{ s.quante|pluralize:'e,i' }}{% if s.sommario %} · {{ s.sommario }}{% endif %}</div></div></div>
+      <div class="ui-card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          <input type="hidden" name="modulo" value="{{ s.slug }}">
+          {% for f in s.form %}
+            {% campo f %}
+            {% if f.field.per_azienda and azienda %}<p class="ui-help" style="margin-top:-10px;">Vale per {{ azienda }}; le altre aziende hanno il proprio valore.</p>{% endif %}
+          {% endfor %}
+          <button type="submit" class="ui-btn ui-btn-primary"><svg><use href="#icon-save"/></svg> Salva</button>
+        </form>
+      </div>
+    </section>
+    {% endfor %}{% empty %}
+    <div class="ui-card is-revealed"><div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessuna app installata ha impostazioni.</p></div></div></div>
+    {% endfor %}
   </div>
-</section>
-{% empty %}
-<div class="ui-card is-revealed"><div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessuna app installata ha impostazioni.</p></div></div></div>
-{% endfor %}
+</div>
 {% endblock %}
+{% block scripts %}<script src="{% statico 'core/impostazioni.js' %}" defer></script>{% endblock %}

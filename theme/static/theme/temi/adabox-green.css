@@ -84,7 +84,7 @@ body.ui-body { background: #fcfcfb; }
 .ui-footer { background: var(--ui-surface-2); }
 
 /* voce selezionata nelle colonne laterali: fondo verde chiaro con il filo a sinistra, come nella chat */
-.ui-selettore a.is-active,
+.ui-selettore a.is-active, .imp-voci a.is-active,
 .ai-elenco a.is-attiva, .ai-elenco a[aria-current="page"] {
   background: var(--ui-selezione); color: var(--ui-text); box-shadow: inset 3px 0 0 var(--ui-accent);
 }
