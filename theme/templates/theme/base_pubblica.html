@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="{% statico 'theme/ui.css' %}">
   <link rel="icon" type="image/svg+xml" href="{% url 'theme:favicon' %}">
   {% block head_extra %}{% endblock %}
+  {% include "theme/partials/_tema.html" %}
 </head>
 {# Pagine aperte a chiunque abbia il link (preventivo, pagamento): stesso aspetto per anonimi, clienti del portale e
    utenti interni, senza la testata delle app. theme/base.html invece mostra il contenuto pubblico solo agli anonimi. #}

@@ -1,0 +1,112 @@
+/* ============================================================
+   Tema «Adabox Green» — si carica DOPO ui.css (e admin.css).
+   Header blu notte, verde acqua per le voci scelte, fondi caldi quasi bianchi.
+   Si attiva da Admin → Tema grafico → Temi. Per un tema nuovo: «Duplica» questo e cambia i valori.
+   Contrasti (AA): testo primario #14666c su bianco 6,7:1; bottoni #1b7f86 con testo bianco 4,7:1;
+   testo bianco sull'header #22394a 12:1.
+   ============================================================ */
+:root {
+  --ui-primary: #14666c;
+  --ui-primary-lift: #1b7f86;
+  --ui-primary-hover-dark: #0f5f65;
+  --ui-primary-hover-light: #18737a;
+  --ui-primary-tint: rgba(43, 158, 166, 0.14);
+
+  --ui-accent: #2b9ea6;          /* verde acqua pieno: bordi, cerchi, focus (non per il testo) */
+  --ui-selezione: #b8e8eb;       /* voce selezionata nelle colonne laterali */
+  --ui-header: #22394a;
+  --ui-header-voce: #334958;     /* voce attiva / passaggio nell'header */
+
+  --ui-text: #1f2a30;
+  --ui-text-2: #5f6b70;
+  --ui-text-3: #7b8589;
+
+  --ui-surface: #ffffff;
+  --ui-surface-2: #f7f7f5;
+  --ui-border: #e5e6e5;
+  --ui-border-soft: rgba(34, 57, 74, 0.10);
+
+  --radius-card: 16px;
+  --shadow-card: 0 4px 18px rgba(34, 57, 74, 0.07);
+  --shadow-dropdown: 0 10px 28px rgba(34, 57, 74, 0.14);
+}
+
+body.ui-body { background: #fcfcfb; }
+
+/* ---------- header scuro ---------- */
+.ui-header {
+  background: var(--ui-header);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  box-shadow: none;
+  color: #fff;
+}
+.ui-logo, .ui-logo:hover { color: #fff; }
+/* il cubo nei verdi del tema (il CSS vince sugli attributi fill dell'SVG) */
+.ui-header .ui-logo-cubo path:nth-child(1) { fill: #7fd3d8; stroke: #7fd3d8; }
+.ui-header .ui-logo-cubo path:nth-child(2) { fill: #2b9ea6; stroke: #2b9ea6; }
+.ui-header .ui-logo-cubo path:nth-child(3) { fill: #1b7f86; stroke: #1b7f86; }
+
+.ui-header .ui-nav a, .ui-header .ui-nav-voce { color: rgba(255, 255, 255, 0.92); font-weight: 600; border-radius: 8px; }
+.ui-header .ui-nav a::after, .ui-header .ui-nav-voce::after { display: none; }
+.ui-header .ui-nav a:hover, .ui-header .ui-nav-voce:hover,
+.ui-header .ui-nav a:focus-visible, .ui-header .ui-nav-voce:focus-visible { color: #fff; background: rgba(255, 255, 255, 0.08); }
+.ui-header .ui-nav a.is-active, .ui-header .ui-nav-voce.is-active { color: #fff; background: var(--ui-header-voce); }
+.ui-header .ui-nav a:focus-visible, .ui-header .ui-nav-voce:focus-visible { box-shadow: 0 0 0 2px var(--ui-accent); }
+/* i menu che si aprono dall'header restano chiari */
+.ui-header .ui-dropdown-menu a { color: var(--ui-text); font-weight: 500; }
+.ui-header .ui-dropdown-menu a:hover, .ui-header .ui-dropdown-menu a.is-active { color: var(--ui-primary); background: var(--ui-primary-tint); }
+.ui-header .ui-menucol-titolo { color: var(--ui-text-3); }
+
+.ui-nav-toggle { color: #fff; }
+.ui-nav-toggle:hover { background: rgba(255, 255, 255, 0.08); }
+.ui-profile-trigger { color: #fff; border-color: rgba(255, 255, 255, 0.22); }
+.ui-profile-trigger:hover { background: rgba(255, 255, 255, 0.08); }
+.ui-avatar { background: var(--ui-accent); }
+.ui-header .ui-cerca-globale .ui-input { background: rgba(255, 255, 255, 0.10); border-color: rgba(255, 255, 255, 0.18); color: #fff; }
+.ui-header .ui-cerca-globale .ui-input::placeholder { color: rgba(255, 255, 255, 0.65); }
+.ui-header .ui-cerca-globale .ui-input:focus { background: #fff; color: var(--ui-text); border-color: var(--ui-accent); }
+.ui-header .rp-icona, .ui-header .ds-campanella { color: rgba(255, 255, 255, 0.9) !important; }
+.ui-header .rp-icona:hover, .ui-header .ds-campanella:hover { background: rgba(255, 255, 255, 0.08); color: #fff !important; }
+.ui-header .ts-crono { background: rgba(255, 255, 255, 0.10); }
+.ui-header .ts-crono-tempo { color: #fff; }
+
+/* telefono: il menu aperto è un pannello chiaro sotto l'header */
+@media (max-width: 767px) {
+  .ui-header .ui-nav.is-open { background: var(--ui-header); }
+  .ui-header .ui-nav.is-open a.is-active { background: var(--ui-header-voce); }
+}
+
+/* ---------- elementi ricorrenti ---------- */
+.ak-etichetta { background: linear-gradient(135deg, var(--ui-primary-lift), var(--ui-accent)); }
+.ak-etichetta:hover { box-shadow: 0 14px 34px rgba(27, 127, 134, 0.35); }
+.ui-btn-primary:hover { box-shadow: 0 3px 10px rgba(27, 127, 134, 0.25); }
+.ui-tema-anteprima { background: var(--ui-accent); }
+.ui-footer { background: var(--ui-surface-2); }
+
+/* voce selezionata nelle colonne laterali: fondo verde chiaro con il filo a sinistra, come nella chat */
+.ui-selettore a.is-active,
+.ai-elenco a.is-attiva, .ai-elenco a[aria-current="page"] {
+  background: var(--ui-selezione); color: var(--ui-text); box-shadow: inset 3px 0 0 var(--ui-accent);
+}
+.ai-rail { background: var(--ui-surface-2); }
+.ai-rail-btn[aria-expanded="true"] { background: var(--ui-selezione); color: var(--ui-primary); }
+.ai-ambito[aria-pressed="true"], .ai-scheda-voce[aria-pressed="true"] { border-color: rgba(43, 158, 166, 0.45); }
+body.ai-pagina { background: #fcfcfb; }
+
+/* ---------- admin di Django ---------- */
+#header {
+  --header-color: #fff;
+  --header-branding-color: #fff;
+  --header-bg: var(--ui-header);
+  --header-link-color: rgba(255, 255, 255, 0.9);
+  background: var(--ui-header);
+  color: #fff;
+}
+#header a:link, #header a:visited, #header #user-tools a,
+#header #branding h1 a, #header #branding h1 a:link, #header #branding h1 a:visited, #header #branding h1 a:hover { color: #fff; }
+#header .ui-logo-cubo path:nth-child(1) { fill: #7fd3d8; stroke: #7fd3d8; }
+#header .ui-logo-cubo path:nth-child(2) { fill: #2b9ea6; stroke: #2b9ea6; }
+#header .ui-logo-cubo path:nth-child(3) { fill: #1b7f86; stroke: #1b7f86; }
+#header #user-tools { color: rgba(255, 255, 255, 0.75); }
+#header #user-tools a:hover { background: rgba(255, 255, 255, 0.10); }
+#header #user-tools button { color: #fff; }

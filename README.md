@@ -844,6 +844,22 @@ THEME_POWERED_BY=Adabox      # `theme.powered_by` per i template del tema (es. "
 L'app del tema può stare dentro un modulo (la cartella degli addons è nel path). Senza queste variabili
 tutto resta come prima.
 
+## Temi grafici dall'admin
+
+Da **Admin → Tema grafico → Temi** si sceglie l'aspetto dell'applicazione per tutti, senza riavviare:
+
+- **Adabox Classico** (di sistema): l'aspetto di sempre, nessun foglio in più;
+- **Adabox Green** (di sistema): header blu notte, verde acqua per le voci scelte, fondi caldi
+  (`theme/static/theme/temi/adabox-green.css`);
+- temi **caricati**: un file `.css` (fino a 512 KB) e, se serve, un logo SVG/PNG/JPG/WebP al posto del cubo.
+  CSS e logo stanno nel database, quindi non c'è niente da pubblicare tra gli statici.
+
+Ogni tema si aggiunge dopo `ui.css`: basta ridefinire i token di `tokens.css` (`--ui-primary`, `--ui-surface`…)
+e le parti da cambiare. Per partire da un tema esistente: azione **Duplica** nell'elenco, poi si modifica la copia.
+**Anteprima** mostra un tema solo a chi la apre (sessione dello staff); **Attiva** lo passa a tutti. I temi di
+sistema e quello attivo non si cancellano. Si combina con `TEMA_APP`: quella cambia template e statici
+all'avvio, questi aggiungono un foglio sopra.
+
 ## Test
 
 ```bash

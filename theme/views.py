@@ -6,8 +6,9 @@ from django.views.decorators.cache import cache_control
 def colore_tema():
     from django.conf import settings
 
-    from .context_processors import DEFAULTS
-    return {**DEFAULTS, **getattr(settings, "THEME", {})}["theme_color"]
+    from .context_processors import DEFAULTS, tema_corrente
+    tema = tema_corrente()
+    return (tema and tema.colore_barra) or {**DEFAULTS, **getattr(settings, "THEME", {})}["theme_color"]
 
 
 @cache_control(max_age=86400)
@@ -79,3 +80,60 @@ def service_worker(request):
 def offline(request):
     from django.shortcuts import render
     return render(request, "theme/offline.html")
+
+
+@cache_control(max_age=31536000, public=True)                     # l'URL cambia con ?v= a ogni modifica
+def tema_css(request, pk):
+    from django.shortcuts import get_object_or_404
+
+    from .models import Tema
+    tema = get_object_or_404(Tema.objects.only("css"), pk=pk)
+    risposta = HttpResponse(tema.css, content_type="text/css; charset=utf-8")
+    risposta["X-Content-Type-Options"] = "nosniff"
+    return risposta
+
+
+@cache_control(max_age=31536000, public=True)
+def tema_logo(request, pk):
+    from django.http import Http404
+    from django.shortcuts import get_object_or_404
+
+    from .models import LOGO_TIPI, Tema
+    tema = get_object_or_404(Tema.objects.only("logo", "logo_tipo"), pk=pk)
+    if not tema.logo or tema.logo_tipo not in LOGO_TIPI:
+        raise Http404
+    risposta = HttpResponse(bytes(tema.logo), content_type=tema.logo_tipo)
+    risposta["X-Content-Type-Options"] = "nosniff"
+    if tema.logo_tipo == "image/svg+xml":                           # aperto da solo: niente script né risorse esterne
+        risposta["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+    return risposta
+
+
+def _solo_staff(vista):
+    from functools import wraps
+
+    from django.contrib.admin.views.decorators import staff_member_required
+    return staff_member_required(wraps(vista)(vista))
+
+
+@_solo_staff
+def anteprima(request, pk):
+    """Il tema si vede solo in questa sessione, finché non la chiudi: gli altri continuano con quello attivo."""
+    from django.shortcuts import get_object_or_404, redirect
+
+    from .context_processors import SESSIONE_ANTEPRIMA
+    from .models import Tema
+    request.session[SESSIONE_ANTEPRIMA] = get_object_or_404(Tema, pk=pk).pk
+    return redirect("/")
+
+
+@_solo_staff
+def anteprima_fine(request):
+    from django.shortcuts import redirect
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    from .context_processors import SESSIONE_ANTEPRIMA
+    request.session.pop(SESSIONE_ANTEPRIMA, None)
+    dopo = request.GET.get("next", "")
+    sicuro = url_has_allowed_host_and_scheme(dopo, {request.get_host()}, require_https=request.is_secure())
+    return redirect(dopo if dopo and sicuro else "admin:theme_tema_changelist")
