@@ -120,7 +120,7 @@ def _sembra_codice(valore, etichetta):
 
 
 NOTI_SECONDI = 300
-_noti = {"quando": 0.0, "propri": frozenset(), "utenti": frozenset()}
+_noti = {"quando": None, "propri": frozenset(), "utenti": frozenset()}       # None: mai calcolati
 
 
 def _nomi_noti():
@@ -128,7 +128,9 @@ def _nomi_noti():
     le aziende dell'istanza e il marchio, con le loro parole: non sono dati personali di nessuno."""
     import time
     adesso = time.monotonic()
-    if adesso - _noti["quando"] > NOTI_SECONDI:
+    # monotonic() parte dall'accensione della macchina: con «0» come inizio, nei primi 5 minuti di vita del server
+    # (o del runner della CI) la lista restava vuota e il nome dell'azienda veniva mascherato
+    if _noti["quando"] is None or adesso - _noti["quando"] > NOTI_SECONDI:
         from django.conf import settings
         from django.contrib.auth import get_user_model
 
