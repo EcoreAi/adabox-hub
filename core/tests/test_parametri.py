@@ -96,3 +96,31 @@ def test_link_impostazioni_nella_barra_dell_app(client):
     u = _utente(client, "change_parametro")
     app = modules.app_visibili(User.objects.get(pk=u.pk))[0]
     assert app["settings_url"] == "/impostazioni/#alfa"
+
+
+@pytest.mark.django_db
+def test_pagina_indice_per_argomento_e_in_ordine_alfabetico(client, monkeypatch):
+    def man(slug, nome, categoria):
+        return Manifest(slug=slug, percorso=None, name=nome, version="1.0.0", min_core="1.0", application=True,
+                        category=categoria, summary=f"Sommario di {nome}", settings=[SETTINGS[1]])
+    finti = {"zeta": man("zeta", "Zeta", "Vendite"), "beta": man("beta", "Beta", "Contabilità"),
+             "alfa": man("alfa", "Alfa", "Vendite"), "nuova": man("nuova", "Nuova", "Categoria mai vista")}
+    monkeypatch.setattr(modules, "manifests_attivi", lambda: finti)
+    _utente(client, "change_parametro")
+    html = client.get(reverse("core:impostazioni")).content.decode()
+    inizio = html.index('id="imp-voci"')
+    indice = html[inizio:html.index("</nav>", inizio)]
+    posizioni = [indice.index(t) for t in ("Generali", "Vendite e clienti", 'data-sezione="alfa"', 'data-sezione="zeta"',
+                                           "Amministrazione", 'data-sezione="beta"', "Altre app", 'data-sezione="nuova"')]
+    assert posizioni == sorted(posizioni)
+    assert 'id="imp-cerca"' in html and "core/impostazioni.js" in html and "Sommario di Beta" in html
+    # le sezioni seguono lo stesso ordine dell'indice
+    assert html.index('id="alfa"') < html.index('id="zeta"') < html.index('id="beta"') < html.index('id="nuova"')
+
+
+@pytest.mark.django_db
+def test_dopo_un_errore_si_riapre_la_sezione_inviata(client):
+    _utente(client, "change_parametro")
+    r = client.post(reverse("core:impostazioni"), {"modulo": "alfa", "giorni": "x", "soglia": "1", "modo": "a"})
+    assert 'data-aperta="alfa"' in r.content.decode()
+    assert "data-aperta" not in client.get(reverse("core:impostazioni")).content.decode()
