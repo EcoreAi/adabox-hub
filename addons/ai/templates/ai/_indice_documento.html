@@ -9,5 +9,21 @@
       {% if ix.messaggio %}<p class="ui-help">{{ ix.messaggio }}</p>{% endif %}
       {% if ix.riassunto and ix.impronta_riassunto == ix.impronta %}<details><summary>Riassunto</summary><div class="ai-riassunto-doc">{{ ix.riassunto|linebreaks }}</div></details>{% endif %}
     {% endif %}
+    {% if perms.ai.add_obliodocumento %}
+      {% if ix.stato == "escluso" %}
+      <form method="post" action="{% url 'ai:riammetti_documento' obj.pk %}" class="ai-oblio">{% csrf_token %}
+        <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Riammetti nell'assistente</button>
+        <span class="ui-help">Torna nelle ricerche di Ada; le chat già ripulite restano ripulite.</span>
+      </form>
+      {% else %}
+      <details class="ai-oblio"><summary class="ui-btn ui-btn-ghost ui-btn-sm">Fai dimenticare ad Ada…</summary>
+        <form method="post" action="{% url 'ai:dimentica_documento' obj.pk %}" onsubmit="return confirm('Ada dimentica questo documento e le chat che lo hanno letto vengono ripulite, per tutti gli utenti. Non si torna indietro sulle chat. Procedere?')">{% csrf_token %}
+          <p class="ui-help">Il documento esce dall'indice e non viene più letto. Nelle chat di tutti gli utenti in cui Ada lo ha letto, le letture vengono tolte e le risposte sostituite da una nota. Il file resta nell'archivio. Non si toccano le memorie degli utenti, ciò che è già finito in chat esterne o presso i fornitori dei modelli, e i backup.</p>
+          <input class="ui-input" name="motivo" maxlength="300" placeholder="Motivo (es. richiesta di cancellazione GDPR)">
+          <button type="submit" class="ui-btn ui-btn-danger ui-btn-sm">Fai dimenticare</button>
+        </form>
+      </details>
+      {% endif %}
+    {% endif %}
   </div>
 </section>

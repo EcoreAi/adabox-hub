@@ -4,7 +4,7 @@ from core import cifratura
 from core.viste import Inline, ModelView, register
 
 from .forms import AssistenteForm, ChiaveAziendaForm, PianificataForm, ProgettoChatForm, ProviderForm, ServerMCPForm, ServizioVoceForm
-from .models import (AnelloCatena, Assistente, ChiaveAzienda, IndiceDocumento, Modello, Pianificata, Profilo, Proposta, Provider, MemoriaUtente, ProgettoChat, ServerMCP, ServizioVoce, StrumentoSpento,
+from .models import (AnelloCatena, Assistente, ChiaveAzienda, IndiceDocumento, Modello, OblioDocumento, Pianificata, Profilo, Proposta, Provider, MemoriaUtente, ProgettoChat, ServerMCP, ServizioVoce, StrumentoSpento,
                      ValutazioneRisposta, Turno)
 
 
@@ -359,6 +359,33 @@ class IndiceDocumentiView(ModelView):
         return False
 
     def has_change_permission(self, request, obj=None):
+        return False
+
+
+@register
+class OblioDocumentiView(ModelView):
+    """Il registro di «Fai dimenticare ad Ada»: chi ha escluso o riammesso un documento, quando, perché e quanto è
+    stato tolto da indice e chat. Si legge e basta."""
+    funzione = "conoscenza"
+    model = OblioDocumento
+    slug = "dimenticati"
+    storico = False
+    company_field = "azienda"
+    list_display = ["creato", "nome", "azione", "utente", "motivo", "frammenti", "chat", "risposte"]
+    list_filter = ["azione", "utente", "creato"]
+    search_fields = ["nome", "motivo"]
+    form_layout = [("Operazione", [("creato", "azione"), ("nome", "utente"), "motivo"]),
+                   ("Cosa è stato tolto", [("frammenti", "chat"), ("risultati", "risposte"), ("riassunti", "documenti_chat")])]
+    readonly_fields = ["creato", "azione", "nome", "utente", "motivo", "frammenti", "chat", "risultati", "risposte",
+                       "riassunti", "documenti_chat"]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 

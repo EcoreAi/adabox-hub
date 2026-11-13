@@ -7,6 +7,9 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 **Da sapere prima di aggiornare**
 
+- **AI 1.37.0 — «Fai dimenticare ad Ada»** (migrazione `ai.0038`). Nella scheda di un documento, per chi ha il permesso
+  (gruppo «AI / Amministratore»): il documento esce dall'assistente e dalle chat di tutti gli utenti che lo avevano
+  letto (le risposte di quei turni diventano una nota). Registro in Assistente AI → «Documenti dimenticati».
 - **Kernel — file con lettere accentate.** Con nginx (X-Accel) un documento o un allegato con lettere accentate nel
   nome (es. «Che_cosa_è.pdf») dava 404 all'anteprima e al download: il percorso ora esce codificato. Serve
   l'immagine nuova.

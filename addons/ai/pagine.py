@@ -766,6 +766,37 @@ def fonte_citata(request, pk):
     return render(request, "ai/_fonte.html", {"f": dati})
 
 
+def _documento_da_dimenticare(request, pk):
+    """Il documento, se l'utente lo vede nell'archivio e può far dimenticare documenti all'assistente."""
+    from django.apps import apps
+    if not apps.is_installed("documenti") or not request.user.has_perm("ai.add_obliodocumento"):
+        raise PermissionDenied
+    from documenti import accesso
+    return get_object_or_404(accesso.documenti(request.user, getattr(request, "azienda", None)), pk=pk)
+
+
+@require_POST
+@login_required
+def dimentica_documento(request, pk):
+    """«Fai dimenticare ad Ada»: esclude il documento dall'assistente e lo toglie dalle chat (ai/oblio.py)."""
+    from . import oblio
+    documento = _documento_da_dimenticare(request, pk)
+    r = oblio.dimentica(documento, request.user, request.POST.get("motivo", ""))
+    messages.success(request, f"Ada ha dimenticato «{documento.nome}»: {r.frammenti} pezzi tolti dall'indice, "
+                              f"{r.chat} chat ripulite, {r.risposte} risposte sostituite.")
+    return redirect("documenti:documenti_dettaglio", pk=pk)
+
+
+@require_POST
+@login_required
+def riammetti_documento(request, pk):
+    from . import oblio
+    documento = _documento_da_dimenticare(request, pk)
+    oblio.riammetti(documento, request.user, request.POST.get("motivo", ""))
+    messages.success(request, f"«{documento.nome}» torna nell'indice dell'assistente entro pochi secondi.")
+    return redirect("documenti:documenti_dettaglio", pk=pk)
+
+
 def _messaggio_da_leggere(request, pk):
     return get_object_or_404(MessaggioChat, pk=pk, ruolo=MessaggioChat.ASSISTENTE, conversazione__utente=request.user,
                              conversazione__nascosta=False)

@@ -242,6 +242,11 @@ def frammenti_di_un_documento(d, ct, analisi=None):
 def analizza(d):
     """Estrae il testo del documento e aggiorna il suo IndiceDocumento. {pagine, testo, indice}, o None se il documento
     non ha un file da leggere."""
+    escluso = IndiceDocumento.objects.filter(documento_id=d.pk, stato=IndiceDocumento.ESCLUSO).first()
+    if escluso is not None:                                  # «Fai dimenticare ad Ada»: non si legge più
+        if escluso.nome != d.nome[:200]:
+            IndiceDocumento.objects.filter(pk=escluso.pk).update(nome=d.nome[:200])
+        return None
     file = d.contenuto
     stato = {"nome": d.nome[:200], "azienda_id": d.azienda_id, "pagine": None, "caratteri": 0, "messaggio": ""}
     pagine, esito, parziale = [], "vuoto", False
@@ -465,6 +470,8 @@ def riassumi(d, analisi):
     lavoro.save()
     riuscito = lavoro.stato == Turno.COMPLETATO and lavoro.testo
     indice.riassunto = lavoro.testo[:4000] if riuscito else ""
+    if lavoro.testo:                     # il riassunto vive solo nell'indice: nei consumi resta il costo, non il testo
+        Turno.objects.filter(pk=lavoro.pk).update(testo="")
     indice.impronta_riassunto = indice.impronta
     indice.save(update_fields=["riassunto", "impronta_riassunto", "aggiornato"])
     return "fatto" if riuscito else (lavoro.errore[:200] or "risposta vuota")
@@ -521,7 +528,8 @@ def accoda_documento(documento_id):
     funzione = "ai.conoscenza.indicizza_documento"
     if not Lavoro.objects.filter(funzione=funzione, argomenti={"documento_id": documento_id},
                                  stato=Lavoro.IN_CODA).exists():
-        IndiceDocumento.objects.filter(documento_id=documento_id).update(stato=IndiceDocumento.IN_CODA)
+        IndiceDocumento.objects.filter(documento_id=documento_id).exclude(stato=IndiceDocumento.ESCLUSO).update(
+            stato=IndiceDocumento.IN_CODA)
         lavori.accoda(funzione, documento_id=documento_id, max_tentativi=2)
 
 

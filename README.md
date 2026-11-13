@@ -453,6 +453,11 @@ completate.
     passaggio citato evidenziato (`ai/fonti_citate.py`, `/ai/fonte/<messaggio>/?url=`): il documento intero, per
     pagine nei PDF, oppure i testi del record o della pagina wiki. Solo link restituiti dagli strumenti nel turno, con
     i permessi di chi guarda; Ctrl+clic apre il link come prima;
+  - «Fai dimenticare ad Ada» (`ai/oblio.py`, permesso `ai.add_obliodocumento`): nella scheda del documento lo esclude
+    dall'indice (anche se cambia, finché non lo si riammette), toglie le sue letture dalle chat di tutti gli utenti,
+    sostituisce le risposte di quei turni con una nota e cancella i riassunti di quelle chat; registro in Assistente
+    AI → «Documenti dimenticati», senza il testo. Restano fuori memorie degli utenti, chat esterne, fornitori dei
+    modelli e backup. I turni di servizio (riassunti dei documenti, verifica) tengono il costo ma non il testo;
   - `python manage.py ai_eval --ricerca --file domande.json` misura la sola ricerca ({domanda, fonte}: posizione
     del primo risultato con quel titolo), senza modello; nelle domande d'oro `fonte` e `citazioni_verificate`.
 - **Fiducia** (AI-5):

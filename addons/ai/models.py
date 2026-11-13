@@ -490,10 +490,10 @@ class IndiceDocumento(models.Model):
     """Com'è andata l'indicizzazione di un documento dell'app Documenti: dice chi carica una scansione senza testo o
     un file protetto che l'assistente non lo può leggere, e tiene il riassunto del documento (se acceso)."""
     IN_CODA, INDICIZZATO, PARZIALE, SENZA_TESTO = "in_coda", "indicizzato", "parziale", "senza_testo"
-    NON_SUPPORTATO, ILLEGGIBILE, VUOTO = "non_supportato", "illeggibile", "vuoto"
+    NON_SUPPORTATO, ILLEGGIBILE, VUOTO, ESCLUSO = "non_supportato", "illeggibile", "vuoto", "escluso"
     STATI = [(IN_CODA, "In coda"), (INDICIZZATO, "Indicizzato"), (PARZIALE, "Indicizzato in parte (troppo lungo)"),
              (SENZA_TESTO, "Senza testo (scansione?)"), (NON_SUPPORTATO, "Tipo di file non letto"),
-             (ILLEGGIBILE, "Illeggibile o protetto"), (VUOTO, "Senza file")]
+             (ILLEGGIBILE, "Illeggibile o protetto"), (VUOTO, "Senza file"), (ESCLUSO, "Escluso dall'assistente")]
     documento_id = models.PositiveBigIntegerField("documento", unique=True)
     azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, verbose_name="azienda")
     nome = models.CharField("nome del file", max_length=200)
@@ -520,6 +520,35 @@ class IndiceDocumento(models.Model):
     @property
     def leggibile(self):
         return self.stato in (self.INDICIZZATO, self.PARZIALE)
+
+
+class OblioDocumento(models.Model):
+    """Registro di «Fai dimenticare ad Ada» e delle riammissioni: chi, quando, perché, quanto è stato tolto. Mai il
+    testo del documento."""
+    DIMENTICATO, RIAMMESSO = "dimenticato", "riammesso"
+    AZIONI = [(DIMENTICATO, "Dimenticato"), (RIAMMESSO, "Riammesso")]
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, verbose_name="azienda")
+    documento_id = models.PositiveBigIntegerField("documento")
+    nome = models.CharField("documento", max_length=200)
+    azione = models.CharField("azione", max_length=11, choices=AZIONI, default=DIMENTICATO)
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+",
+                               verbose_name="chi")
+    motivo = models.CharField("motivo", max_length=300, blank=True)
+    creato = models.DateTimeField("il", auto_now_add=True)
+    frammenti = models.PositiveIntegerField("pezzi tolti dall'indice", default=0)
+    chat = models.PositiveIntegerField("chat ripulite", default=0)
+    risultati = models.PositiveIntegerField("letture tolte dalle chat", default=0)
+    risposte = models.PositiveIntegerField("risposte sostituite", default=0)
+    riassunti = models.PositiveIntegerField("riassunti delle chat tolti", default=0)
+    documenti_chat = models.PositiveIntegerField("documenti accanto a quelle chat (da controllare)", default=0)
+
+    class Meta:
+        verbose_name = "documento dimenticato"
+        verbose_name_plural = "documenti dimenticati"
+        ordering = ["-creato"]
+
+    def __str__(self):
+        return f"{self.nome} · {self.get_azione_display().lower()}"
 
 
 class Licenza(models.Model):
