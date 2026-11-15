@@ -205,6 +205,7 @@ con `core.mixins.ProprietaMixin` (valori nel JSON `proprieta`): compaiono nel fo
 | `studio` | — | adatta le viste senza programmare: colonne, filtri, ricerca, raggruppamenti, form, etichette, kanban; storico, esporta/importa |
 | `documenti` | — | archivio per cartelle con permessi ereditati, anteprima, tag, cestino, zip; link pubblici a scadenza, richieste di documenti, cartelle che raccolgono gli allegati dei record |
 | `discuss` | — | canali e messaggi diretti tra colleghi, menzioni, posta in arrivo (anche dal chatter), campanella in testata, email per i non letti |
+| `sharepoint` | documenti | cartelle dei Documenti allineate con SharePoint (Microsoft 365) da SharePoint, verso SharePoint o nei due versi, con le sottocartelle |
 
 `python manage.py modulo installa timesheet crm helpdesk calendario --demo --si` installa tutto, con le dipendenze
 (contatti, progetti) e i dati dimostrativi. Chi installa un'app riceve il suo gruppo base; i gruppi "Responsabile"
@@ -329,6 +330,26 @@ Spec `docs/superpowers/specs/2026-10-29-adabox-hub-documenti-spazi-design.md`.
   (default 200; nginx accetta fino a 512 MB). Gli allegati dei record restano a `ALLEGATI_MAX_MB`.
 - **Versioni**: un file con lo stesso nome nella stessa cartella diventa la versione nuova del documento; si
   tengono le ultime N (impostazione, default 10), si scaricano e si ripristinano dall'anteprima.
+
+### SharePoint
+
+Il modulo `sharepoint` (dipende da `documenti`) tiene una cartella dei Documenti allineata con una cartella di una
+raccolta documenti di SharePoint, attraverso Microsoft Graph. Ogni collegamento sceglie la cartella, il verso (da
+SharePoint, verso SharePoint, nei due versi) e la modalità: **prova** risponde una SharePoint finta con lo stesso
+formato, senza uscire in rete, con i bottoni «Simula un file nuovo» e «Simula una modifica».
+
+- **Giro ogni 15 minuti** (cron) e «Sincronizza ora»: si legge l'albero della cartella su SharePoint, si copia qui ciò
+  che è nuovo o cambiato (cTag), poi si scrive là ciò che è cambiato in adabox (versione del documento). Le
+  sottocartelle diventano cartelle con lo stesso nome, nei due sensi.
+- **Conflitti**: se un file cambia da entrambe le parti vince SharePoint, e il file di adabox resta tra le versioni
+  precedenti del documento. Un file rinominato o spostato da una parte si rinomina o si sposta dall'altra.
+- **Cancellazioni**: un file tolto da SharePoint finisce nel cestino dei Documenti; su SharePoint non si cancella mai
+  nulla. Valgono la dimensione massima e le quote dei Documenti.
+- **Collegamento vero**: un'app registrata in Microsoft Entra ID con un client secret e i permessi applicativi di
+  Microsoft Graph `Sites.Selected` (l'amministratore concede all'app la scrittura sul solo sito) oppure
+  `Sites.ReadWrite.All`. Nel collegamento: indirizzo del sito, raccolta (vuoto = quella predefinita), cartella,
+  tenant, client id e client secret (cifrato, non si rilegge). Le chiamate vanno solo a `graph.microsoft.com` e
+  `login.microsoftonline.com`; download e caricamenti grandi solo verso indirizzi https di Microsoft.
 
 ### Assistente AI
 
