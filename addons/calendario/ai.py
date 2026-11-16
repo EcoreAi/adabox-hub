@@ -38,15 +38,29 @@ def agenda(contesto, da="", a=""):
         for e in eventi]
     conteggio = {s: sum(r["stato"] == s for r in righe) for s in ("passato", "in corso", "da venire")}
     return {"da": inizio.isoformat(), "a": fine.isoformat(), "adesso": timezone.localtime(adesso).strftime("%Y-%m-%d %H:%M"),
-            "conteggio": conteggio, "eventi": righe}
+            "sintesi": sintesi(conteggio), "conteggio": conteggio, "eventi": righe}
+
+
+def sintesi(conteggio):
+    """La frase dei numeri, scritta qui: il modello la riporta invece di contare (e di tacere i passati)."""
+    totale = sum(conteggio.values())
+    if not totale:
+        return "Nessun appuntamento nel periodo."
+    def quanti(n, uno, molti):
+        return f"{n} {uno if n == 1 else molti}"
+    parti = [quanti(conteggio["passato"], "già passato", "già passati"),
+             "nessuno in corso" if not conteggio["in corso"] else quanti(conteggio["in corso"], "in corso", "in corso"),
+             quanti(conteggio["da venire"], "da venire", "da venire")]
+    return f"{quanti(totale, 'appuntamento', 'appuntamenti')} nel periodo: " + ", ".join(parti) + "."
 
 
 registra(Strumento(
     "calendario_agenda", "Gli appuntamenti e le riunioni del calendario tra due date (default: i prossimi 7 giorni), "
                          "compresi quelli già iniziati e ancora in corso. Ogni evento ha uno stato rispetto ad adesso "
-                         "(passato, in corso, da venire) e c'è il conteggio per stato. Per «che appuntamenti ho (oggi)» "
-                         "parti da quelli in corso e da venire; di quelli già passati di' solo quanti sono e chiedi se "
-                         "vuole il dettaglio, a meno che l'utente chieda proprio quelli.",
+                         "(passato, in corso, da venire); «sintesi» dice quanti sono per stato. Riporta sempre i numeri "
+                         "della sintesi, anche quelli già passati (non dire «ci sono 4» se 6 sono già passati). Per «che "
+                         "appuntamenti ho» elenca quelli in corso e da venire; dei passati di' solo quanti sono e chiedi "
+                         "se vuole il dettaglio, a meno che l'utente chieda proprio quelli.",
     {"type": "object", "properties": {"da": {"type": "string", "description": "AAAA-MM-GG, default oggi"},
                                       "a": {"type": "string", "description": "AAAA-MM-GG, compresa"}},
      "required": []}, agenda, permesso="calendario.view_evento"))

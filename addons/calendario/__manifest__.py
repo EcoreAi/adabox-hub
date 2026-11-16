@@ -1,7 +1,7 @@
 {
     "name": "Calendario",
     "summary": "Appuntamenti e riunioni con inviti, promemoria e file .ics",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": ["contatti"],
