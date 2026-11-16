@@ -1,4 +1,5 @@
 {% load vista %}
+{% if parziale %}<div class="sub" id="lista-totale" hx-swap-oob="true">{{ page_obj.paginator.count }} in totale</div>{% endif %}
 <div id="tabella">
   {% if selezione %}
   <form method="post" id="form-azioni" class="ui-azioni">

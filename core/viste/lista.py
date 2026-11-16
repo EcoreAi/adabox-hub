@@ -86,7 +86,7 @@ class ListaView(VistaBase):
             **contesto_testata(request, vista, "lista"),
             "filtri": filtri.specifiche(vista, request), "page_obj": page_obj,
             "q": request.GET.get("q", ""), "puo_aggiungere": vista.has_add_permission(request),
-            "azioni": azioni, **salvate.contesto(request, vista),
+            "azioni": azioni, "parziale": parziale(request), **salvate.contesto(request, vista),
         }
         return render(request, vista.template_tabella if parziale(request) else vista.template_lista, ctx)
 
