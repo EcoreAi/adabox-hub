@@ -1,4 +1,5 @@
 """HubSpot oltre le persone: aziende, opportunità, fasi della pipeline e associazioni, nei due versi."""
+import datetime
 import json
 from decimal import Decimal
 from pathlib import Path
@@ -56,7 +57,7 @@ def _hs(gestore):
 
 def test_ricerca_aziende_usa_hs_lastmodifieddate():
     viste = []
-    _hs(lambda r: viste.append(r) or httpx.Response(200, json={"results": []})).modificati(AZIENDE, 5)
+    _hs(lambda r: viste.append(r) or httpx.Response(200, json={"results": []})).modificati(AZIENDE, datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc))
     corpo = json.loads(viste[0].content)
     assert viste[0].url.path == "/crm/v3/objects/companies/search"
     assert corpo["filterGroups"][0]["filters"][0]["propertyName"] == "hs_lastmodifieddate" and "name" in corpo["properties"]
@@ -75,17 +76,17 @@ def test_associazioni_e_fasi_nel_formato_v4():
                 {"id": "w", "label": "Vinta", "displayOrder": 2, "metadata": {"probability": "1.0", "isClosed": "true"}}]}]})
         return httpx.Response(200, json={})
     hs = _hs(gestore)
-    assert hs.associazioni(CONTATTI, AZIENDE, ["7"]) == {"7": ["99"]}
+    assert hs.associazioni(CONTATTI, AZIENDE, [{"id": "7"}]) == {"7": ["99"]}
     assert viste[0].url.path == "/crm/v4/associations/contacts/companies/batch/read"
     hs.associa(OPPORTUNITA, "1", AZIENDE, "2")
     assert viste[1].method == "PUT" and viste[1].url.path == "/crm/v4/objects/deals/1/associations/default/companies/2"
     fasi = hs.fasi()
-    assert [(f["id"], f["probabilita"], f["chiusa"]) for f in fasi] == [("a", 0.5, False), ("w", 1.0, True)]
+    assert [(f["id"], f["probabilita"], f["chiusa"], f["vinta"]) for f in fasi] == [("a", 0.5, False, False), ("w", 1.0, True, True)]
 
 
 def test_trova_piu_risultati_e_ambiguo():
     risposta = {"results": [{"id": "1"}, {"id": "2"}]}
-    assert _hs(lambda r: httpx.Response(200, json=risposta)).trova(AZIENDE, "name", "Rossi") is False
+    assert _hs(lambda r: httpx.Response(200, json=risposta)).trova(AZIENDE, "nome", "Rossi") is False
 
 
 def test_dominio():

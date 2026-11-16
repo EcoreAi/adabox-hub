@@ -2,6 +2,7 @@
 import mimetypes
 import os
 from pathlib import PurePosixPath
+from urllib.parse import quote
 
 from django.conf import settings
 from django.http import FileResponse, HttpResponse
@@ -65,7 +66,8 @@ def risposta(allegato):
     in_linea = allegato.mime in IN_LINEA
     if settings.ALLEGATI_X_ACCEL:
         r = HttpResponse(content_type=allegato.mime)
-        r["X-Accel-Redirect"] = f"/_privati/{allegato.file.name}"
+        # codificato: nginx legge l'header come un URI, e un nome con lettere accentate in chiaro non lo trova (404)
+        r["X-Accel-Redirect"] = quote(f"/_privati/{allegato.file.name}")
         r["Content-Disposition"] = content_disposition_header(not in_linea, allegato.nome)
         return r
     return FileResponse(allegato.file.open("rb"), as_attachment=not in_linea, filename=allegato.nome,

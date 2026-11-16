@@ -1,7 +1,27 @@
+import os
 import textwrap
+from pathlib import Path
 
 import pytest
+from django.conf import settings as impostazioni
 from django.contrib.auth.models import User
+
+CARTELLA_ADDONS = Path(impostazioni.ADDONS_DIR).resolve()
+
+
+@pytest.fixture(autouse=True)
+def moduli_installati_come_forzati(monkeypatch):
+    """Nei test i moduli installati sono quelli di ADDONS_FORCE (pytest.ini), non lo stato del server di sviluppo in
+    addons/installed.json: quel file è fuori dal repository, in CI non c'è e in locale cambia con le prove. Le
+    cartelle addons temporanee (addons_tmp) leggono il loro file come sempre."""
+    from core.registry import bootstrap
+    forzati = {s.strip() for s in os.environ.get("ADDONS_FORCE", "").split(",") if s.strip()}
+    installati = [s for s in impostazioni.ADDONS_ATTIVI if s in forzati]
+    originale = bootstrap.leggi_stato
+
+    def leggi_stato(addons_dir):
+        return list(installati) if Path(addons_dir).resolve() == CARTELLA_ADDONS else originale(addons_dir)
+    monkeypatch.setattr(bootstrap, "leggi_stato", leggi_stato)
 
 
 @pytest.fixture

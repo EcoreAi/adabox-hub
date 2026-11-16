@@ -39,7 +39,7 @@ class _Stato:
 
 def _passo(turno_id, stato, request=None):
     """(eventi, finito) dallo stato attuale del turno."""
-    turno = Turno.objects.filter(pk=turno_id).only("testo", "avanzamento", "stato", "conversazione_id").first()
+    turno = Turno.objects.filter(pk=turno_id).only("testo", "avanzamento", "stato", "conversazione_id", "provenienza").first()
     if turno is None:
         return [_evento("fine", {"stato": "errore", "html": ""})], True
     eventi = []
@@ -58,7 +58,12 @@ def _passo(turno_id, stato, request=None):
         messaggio = MessaggioChat.objects.filter(turno_id=turno_id, ruolo=MessaggioChat.ASSISTENTE).order_by("-pk").first()
         # con la richiesta: i form delle schede (proposte, salva) hanno il token CSRF
         html = render_to_string("ai/_messaggi.html", {"messaggi": [messaggio]}, request=request) if messaggio else ""
-        eventi.append(_evento("fine", {"stato": turno.stato, "html": html}))
+        # il testo completo serve a «Parla con Ada» per leggere l'ultimo tratto (scritto dopo l'ultima lettura)
+        pv = turno.provenienza or {}
+        titoli = list(dict.fromkeys(f.get("titolo", "") for f in pv.get("fonti", []) if f.get("titolo")))[:4]
+        eventi.append(_evento("fine", {"stato": turno.stato, "html": html, "testo": turno.testo,
+                                       "verifica": {"esito": pv.get("esito", ""), "fonti": titoli,
+                                                    "non_verificati": pv.get("non_verificati", [])}}))
         return eventi, True
     return eventi, False
 

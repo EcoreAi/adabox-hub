@@ -23,9 +23,13 @@ def personale(utente, azienda):
 
 
 def corrente(utente, azienda):
-    """L'area su cui l'utente sta lavorando (se la vede ancora), altrimenti la sua area personale."""
+    """L'area su cui l'utente sta lavorando (se la vede ancora), altrimenti la sua area personale. Senza la funzione
+    «aree_di_lavoro» sempre quella personale: le chat ci stanno comunque, ma l'utente non la vede."""
+    from . import funzioni
     if azienda is None:
         return None
+    if not funzioni.attiva("aree_di_lavoro"):
+        return personale(utente, azienda)
     scelta = AreaCorrente.objects.filter(utente=utente, azienda=azienda).select_related("area").first()
     if scelta is not None and puo_vedere(utente, scelta.area) and scelta.area.azienda_id == azienda.pk:
         return scelta.area

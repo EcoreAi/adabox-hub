@@ -1,0 +1,120 @@
+/* «Parla con Ada»: pagina scura e immersiva, solo qui. I colori di ogni stato stanno nelle variabili --pa-c1..c3:
+   le usano lo sfondo (CSS) e la sfera (canvas, li legge da qui). */
+body.pa-pagina {
+  height: 100vh; height: 100dvh; overflow: hidden; margin: 0;
+  background: #070b14; color: #e8eef6;
+  -webkit-tap-highlight-color: transparent;
+}
+.pa {
+  --pa-c1: #2b9ea6; --pa-c2: #1b6fd1; --pa-c3: #7fd3d8;
+  --pa-testo: #e8eef6; --pa-testo-2: rgba(232, 238, 246, 0.62); --pa-vetro: rgba(255, 255, 255, 0.08);
+  position: relative; isolation: isolate;
+  height: 100%; display: flex; flex-direction: column; align-items: center;
+  padding: env(safe-area-inset-top) 16px 0;
+}
+.pa[data-stato="ascolto"] { --pa-c1: #22d3c5; --pa-c2: #2563eb; --pa-c3: #a5f3fc; }
+.pa[data-stato="trascrivo"], .pa[data-stato="penso"] { --pa-c1: #8b5cf6; --pa-c2: #2563eb; --pa-c3: #22d3ee; }
+.pa[data-stato="parlo"] { --pa-c1: #2dd4bf; --pa-c2: #6366f1; --pa-c3: #f0abfc; }
+
+/* ---------- sfondo: due macchie di luce che si spostano piano e cambiano colore con lo stato ---------- */
+.pa-sfondo { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.pa-sfondo span {
+  position: absolute; width: 90vmax; height: 90vmax; border-radius: 50%; filter: blur(80px); opacity: .32;
+  transition: background-color 1.2s ease, opacity 1.2s ease;
+}
+.pa-sfondo span:first-child { background: var(--pa-c1); top: -45vmax; left: -30vmax; animation: pa-deriva 22s ease-in-out infinite alternate; }
+.pa-sfondo span:last-child { background: var(--pa-c2); bottom: -50vmax; right: -35vmax; animation: pa-deriva 28s ease-in-out infinite alternate-reverse; }
+.pa[data-stato="fermo"] .pa-sfondo span { opacity: .18; }
+@keyframes pa-deriva { from { transform: translate(0, 0) scale(1); } to { transform: translate(8vmax, 6vmax) scale(1.12); } }
+
+/* ---------- testa ---------- */
+.pa-testa { width: 100%; max-width: 640px; display: flex; align-items: center; gap: 8px; padding: 10px 0 0; }
+.pa-titolo { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.pa-titolo span { max-width: 100%; font-size: 15px; font-weight: 600; color: var(--pa-testo); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pa-titolo a { font-size: 12.5px; color: var(--pa-testo-2); text-decoration: none; }
+.pa-titolo a:hover { color: var(--pa-testo); text-decoration: underline; }
+.pa-tasto { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 50%;
+  color: var(--pa-testo-2); background: var(--pa-vetro); flex: none; }
+.pa-tasto:hover { color: var(--pa-testo); text-decoration: none; background: rgba(255, 255, 255, 0.14); }
+.pa-tasto svg { width: 20px; height: 20px; }
+.pa-tasto-vuoto { visibility: hidden; }
+
+/* ---------- sfera e stato ---------- */
+.pa-centro { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.pa-sfera { width: min(86vw, 380px, 46vh); height: min(86vw, 380px, 46vh); }
+.pa-stato { margin: 0; font-size: 17px; font-weight: 500; letter-spacing: .01em; color: var(--pa-testo-2); transition: color .4s ease; }
+.pa[data-stato="ascolto"] .pa-stato, .pa[data-stato="parlo"] .pa-stato { color: var(--pa-testo); }
+
+/* ---------- testi: cosa hai detto, sottotitoli di Ada (le righe vecchie sfumano in alto) ---------- */
+.pa-testi { width: 100%; max-width: 560px; flex: none; display: flex; flex-direction: column; gap: 10px; text-align: center; min-height: 112px; }
+.pa-detto { margin: 0; font-size: 14px; color: var(--pa-testo-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pa-detto::before { content: "Tu · "; font-weight: 600; }
+.pa-sottotitoli {
+  max-height: 5.2em; overflow: hidden; font-size: 19px; line-height: 1.35; font-weight: 500; color: var(--pa-testo);
+  display: flex; flex-direction: column; justify-content: flex-end;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 1.6em); mask-image: linear-gradient(to bottom, transparent 0, #000 1.6em);
+}
+.pa-sottotitoli .pa-parola { opacity: 0; transition: opacity .25s ease; }
+.pa-sottotitoli .pa-parola.is-detta { opacity: 1; }
+.pa-sottotitoli .pa-nota { font-size: 15px; color: var(--pa-testo-2); }
+
+/* da dove vengono i dati: «Verificata · Calendario» o un avviso */
+.pa-fonti { margin: 2px auto 0; padding: 4px 12px; border-radius: 999px; font-size: 12.5px; color: var(--pa-testo-2);
+  background: var(--pa-vetro); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pa-fonti::before { content: "✓ "; color: #34d399; }
+.pa-fonti.is-avviso { color: #fcd34d; background: rgba(252, 211, 77, 0.12); }
+.pa-fonti.is-avviso::before { content: "⚠ "; color: #fcd34d; }
+
+/* ---------- scrivi invece di parlare ---------- */
+.pa-scrivi { width: 100%; max-width: 560px; display: flex; gap: 8px; margin-top: 10px; }
+.pa-scrivi[hidden] { display: none; }
+.pa-scrivi input { flex: 1; min-width: 0; height: 48px; padding: 0 18px; border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.07); color: var(--pa-testo); font: inherit; font-size: 16px; outline: none; }
+.pa-scrivi input:focus { border-color: var(--pa-c1); background: rgba(255, 255, 255, 0.1); }
+.pa-scrivi input::placeholder { color: var(--pa-testo-2); }
+.pa-scrivi button { width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--pa-c1); color: #04121a; cursor: pointer; }
+.pa-scrivi button svg { width: 22px; height: 22px; }
+
+/* ---------- barra in basso, come in una chiamata ---------- */
+.pa-piede { width: 100%; max-width: 420px; flex: none; display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 12px calc(30px + env(safe-area-inset-bottom)); }
+.pa-laterale { width: 56px; height: 56px; border-radius: 50%; border: 0; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--pa-vetro); color: var(--pa-testo); cursor: pointer; transition: background-color .2s ease, transform .15s ease; }
+.pa-laterale:hover { background: rgba(255, 255, 255, 0.15); text-decoration: none; color: var(--pa-testo); }
+.pa-laterale:active { transform: scale(.94); }
+.pa-laterale svg { width: 24px; height: 24px; }
+.pa-laterale[aria-pressed="true"] { background: rgba(255, 255, 255, 0.22); }
+.pa-chiudi { background: rgba(239, 68, 68, 0.18); color: #fca5a5; }
+.pa-chiudi:hover { background: rgba(239, 68, 68, 0.3); color: #fecaca; }
+
+.pa-microfono {
+  --pa-livello: 0;
+  position: relative; width: 84px; height: 84px; border-radius: 50%; border: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--pa-c1), var(--pa-c2)); color: #fff;
+  box-shadow: 0 10px 30px -6px var(--pa-c1), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transition: transform .15s ease, box-shadow .6s ease; touch-action: manipulation;
+}
+.pa-microfono:active { transform: scale(.94); }
+.pa-microfono:focus-visible { outline: 3px solid rgba(255, 255, 255, 0.5); outline-offset: 5px; }
+.pa-microfono svg { position: relative; width: 34px; height: 34px; }
+/* l'anello segue il livello della voce (--pa-livello, 0..1, dal canvas) */
+.pa-anello { position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--pa-c3); opacity: 0;
+  transform: scale(calc(1 + var(--pa-livello) * .35)); transition: opacity .3s ease; }
+.pa[data-stato="ascolto"] .pa-anello, .pa[data-stato="parlo"] .pa-anello { opacity: .7; }
+.pa[data-stato="ascolto"] .pa-microfono { background: linear-gradient(135deg, #ef4444, #db2777); box-shadow: 0 10px 34px -6px #ef4444; }
+.pa-icona-stop { display: none; }
+.pa[data-stato="penso"] .pa-icona-mic, .pa[data-stato="parlo"] .pa-icona-mic, .pa[data-stato="trascrivo"] .pa-icona-mic { display: none; }
+.pa[data-stato="penso"] .pa-icona-stop, .pa[data-stato="parlo"] .pa-icona-stop, .pa[data-stato="trascrivo"] .pa-icona-stop { display: block; }
+.pa[data-stato="trascrivo"] .pa-microfono { opacity: .7; }
+
+.pa-spenta { max-width: 420px; text-align: center; }
+.pa-spenta h1 { font-size: 22px; margin: 0 0 8px; color: var(--pa-testo); }
+.pa-spenta p { color: var(--pa-testo-2); margin: 0 0 18px; }
+.pa-bottone { display: inline-block; padding: 12px 20px; border-radius: 24px; background: var(--pa-c1); color: #04121a; font-weight: 600; text-decoration: none; }
+
+@media (max-height: 640px) { .pa-testi { min-height: 84px; } .pa-sottotitoli { font-size: 17px; } .pa-piede { padding-top: 10px; } }
+@media (prefers-reduced-motion: reduce) {
+  .pa-sfondo span { animation: none; }
+  .pa-microfono, .pa-laterale, .pa-anello { transition: none; }
+}

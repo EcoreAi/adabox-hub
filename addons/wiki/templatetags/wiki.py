@@ -9,4 +9,4 @@ def pagina_wiki(context, pagina):
     utente = context["request"].user
     return {"html": servizi.rendi(pagina), "figlie": list(pagina.figlie.order_by("ordine", "titolo")), "percorso": pagina.percorso(),
             "versioni": list(pagina.versioni.select_related("autore")[:15]), "citata_da": servizi.citata_da(pagina),
-            "scrive": servizi.puo_scrivere(utente, pagina.spazio)}
+            "scrive": servizi.puo_scrivere(utente, pagina.spazio), "chiedi": servizi.si_puo_chiedere(utente)}

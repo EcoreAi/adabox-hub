@@ -1,0 +1,30 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Strumenti dell'assistente · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Strumenti dell'assistente</h1>
+  <div class="sub">{{ disponibili }} disponibili su {{ righe|length }}{% if azienda %} per {{ azienda }}{% endif %}. Ada usa uno strumento solo se è disponibile e se l'utente ha il permesso indicato.</div></div>
+  <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="{% url 'ai:licenza' %}">Funzioni della licenza</a></div></div>
+<section class="ui-card is-revealed">
+  <div class="ui-filtri"><input class="ui-input" type="search" placeholder="Filtra per nome, funzione, app o stato" aria-label="Filtra gli strumenti" data-filtra></div>
+  <div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Strumento</th><th>Funzione</th><th>App</th><th>Rischio</th><th>Stato</th>{% if puo_azienda or puo_istanza %}<th>Spegni</th>{% endif %}</tr></thead>
+    <tbody>{% for r in righe %}<tr id="{{ r.nome }}" data-testo="{{ r.nome }} {{ r.funzione|lower }} {{ r.app|lower }} {{ r.motivi|join:' '|default:'disponibile' }}">
+      <td><code>{{ r.nome }}</code><div class="sub">{{ r.descrizione|truncatechars:160 }}</div>{% if r.permesso %}<div class="sub">permesso: <code>{{ r.permesso }}</code></div>{% endif %}</td>
+      <td>{{ r.funzione|default:"di base" }}</td>
+      <td>{{ r.app|default:"—" }}</td>
+      <td>{% if r.scrive %}<span class="ui-pill ui-pill-warn">{{ r.rischio }}</span>{% else %}<span class="sub">{{ r.rischio }}</span>{% endif %}</td>
+      <td>{% if r.motivi %}<span class="ui-pill ui-pill-neutral">non disponibile</span><div class="sub">{{ r.motivi|join:"; " }}</div>{% else %}<span class="ui-pill ui-pill-ok">disponibile</span>{% endif %}</td>
+      {% if puo_azienda or puo_istanza %}<td style="white-space:nowrap">
+        {% if puo_azienda %}<form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="nome" value="{{ r.nome }}"><input type="hidden" name="livello" value="azienda">
+          <button class="ui-btn ui-btn-sm {% if r.spento_azienda %}ui-btn-primary{% else %}ui-btn-secondary{% endif %}" name="azione" value="{% if r.spento_azienda %}accendi{% else %}spegni{% endif %}"
+                  title="{% if r.spento_azienda %}Riaccendi per {{ azienda }}{% else %}Spegni per {{ azienda }}{% endif %}">{% if r.spento_azienda %}Riaccendi per l'azienda{% else %}Per l'azienda{% endif %}</button></form>{% endif %}
+        {% if puo_istanza %}<form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="nome" value="{{ r.nome }}"><input type="hidden" name="livello" value="istanza">
+          <button class="ui-btn ui-btn-sm {% if r.spento_istanza %}ui-btn-primary{% else %}ui-btn-ghost{% endif %}" name="azione" value="{% if r.spento_istanza %}accendi{% else %}spegni{% endif %}"
+                  title="{% if r.spento_istanza %}Riaccendi per tutta l'istanza{% else %}Spegni per tutta l'istanza{% endif %}">{% if r.spento_istanza %}Riaccendi per tutti{% else %}Per tutti{% endif %}</button></form>{% endif %}
+      </td>{% endif %}
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  <div class="ui-card-body"><p class="sub">Spegnere uno strumento lo toglie e basta: uno strumento di una funzione non compresa nella licenza non si accende da qui.{% if puo_istanza %} «Per tutti» vale per ogni azienda dell'istanza ed è riservato al Global Admin.{% endif %} Gli strumenti dei sistemi esterni (MCP) si gestiscono in «Sistemi esterni».</p></div>
+</section>
+<script>document.querySelector("[data-filtra]")?.addEventListener("input", e => { const q = e.target.value.toLowerCase().trim(); document.querySelectorAll("tr[data-testo]").forEach(r => r.hidden = q && !r.dataset.testo.includes(q)); });</script>
+{% endblock %}

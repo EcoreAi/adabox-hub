@@ -1,0 +1,20 @@
+{% load sharepoint %}{% dati_sharepoint obj as d %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Come funziona</div>{% if obj.in_errore %}<span class="ui-pill ui-pill-warn">Da controllare</span>{% endif %}</div>
+  <div class="ui-card-body">
+    {% if obj.verso == 'da_sharepoint' %}<p>Ogni 15 minuti si leggono i file della cartella su SharePoint, con le sottocartelle, e quelli nuovi o cambiati si copiano in «{{ obj.cartella }}». Le modifiche fatte in adabox non partono verso SharePoint.</p>
+    {% elif obj.verso == 'verso_sharepoint' %}<p>Ogni 15 minuti i documenti di «{{ obj.cartella }}» e delle sue sottocartelle, nuovi o cambiati, si copiano su SharePoint. Le modifiche fatte su SharePoint non tornano qui.</p>
+    {% else %}<p>Ogni 15 minuti si copiano in adabox i file nuovi o cambiati su SharePoint, poi su SharePoint i documenti nuovi o cambiati in «{{ obj.cartella }}», con le sottocartelle. Se un file cambia da entrambe le parti tra un giro e l'altro vince SharePoint, e il file di adabox resta tra le versioni precedenti del documento.</p>{% endif %}
+    <p>{% if obj.verso != 'verso_sharepoint' %}Un file tolto da SharePoint finisce nel cestino dei Documenti, da dove si recupera. {% endif %}Su SharePoint non si cancella mai nulla. Valgono la dimensione massima e le quote dei Documenti.</p>
+    <p>Allineati: {{ d.allineati }} file.{% if obj.ultimo_giro %} Ultimo giro {{ obj.ultimo_giro|date:"d/m/Y H:i" }}: {{ obj.ultimo_esito }}{% endif %}</p>
+    {% if obj.modalita == 'prova' %}<p>Sei in prova: risponde una SharePoint finta con lo stesso formato di Microsoft Graph, e non si esce in rete.</p>
+    {% else %}<p class="ui-help">Client secret: {% if obj.segreto_cifrato %}salvato (cifrato){% else %}mancante{% endif %}. Per Sites.Selected l'amministratore concede all'app l'accesso in scrittura al sito con Microsoft Graph (POST /sites/{id}/permissions) o PnP PowerShell (Grant-PnPAzureADAppSitePermission).</p>{% endif %}
+  </div>
+</section>
+{% if obj.modalita == 'prova' %}<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Sulla SharePoint finta</div></div>
+  {% if d.prova %}<div class="ui-table-wrap"><table class="ui-table is-revealed">
+    <thead><tr><th>Percorso</th><th>Tipo</th><th>Dimensione</th><th>Modificato</th></tr></thead>
+    <tbody>{% for f in d.prova %}<tr><td>{{ f.percorso }}</td><td>{% if f.cartella %}cartella{% else %}file{% endif %}</td><td>{% if not f.cartella %}{{ f.contenuto|byte|filesizeformat }}{% endif %}</td><td>{{ f.modificato|date:"d/m/Y H:i" }}</td></tr>{% endfor %}</tbody>
+  </table></div>{% else %}<div class="ui-card-body">Ancora vuota: si prepara al primo «Verifica» o «Sincronizza ora».</div>{% endif %}
+</section>{% endif %}

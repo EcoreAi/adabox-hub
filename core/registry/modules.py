@@ -235,7 +235,7 @@ def app_visibili(user):
     from django.urls import NoReverseMatch, reverse
     if not user.is_authenticated:
         return []
-    from core import dipartimenti
+    from core import dipartimenti, funzioni
     apps = []
     spenti = disattivati()
     nomi = etichette()
@@ -244,9 +244,12 @@ def app_visibili(user):
         if not m.application or slug in spenti or not dipartimenti.ammessa(user, slug):
             continue
         menu = []
+        comprese = funzioni.comprese(slug) if any(v.get("funzione") for v in m.menu) else None
         for posizione, voce in enumerate(m.menu):
             if not _voce_visibile(user, voce):
                 continue
+            if comprese is not None and voce.get("funzione") and voce["funzione"] not in comprese:
+                continue                                   # funzione non compresa nella licenza
             cambio = cambi.get((slug, voce["url_name"]))
             if cambio is not None and cambio.nascosta:
                 continue

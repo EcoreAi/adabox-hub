@@ -51,6 +51,8 @@ def test_testo_da_leggere_e_parti():
     assert len(lunga[0]) == voce.CARATTERI_PRIMA and "".join(lunga) == "x" * 1000
     assert voce.lingua_di("The order is late and we are sorry for that") == "en"
     assert voce.lingua_di("L'ordine è in ritardo e ci scusiamo per il disagio") == "it"
+    assert voce.lingua_di("Oggi hai sei appuntamenti in calendario.") == "it"           # «in» non è inglese
+    assert voce.lingua_di("Ok, thanks") == "it" and voce.lingua_di("Ciao") == "it"       # nel dubbio, italiano
 
 
 def test_quale_servizio(s):
@@ -114,7 +116,7 @@ def test_errori_dei_fornitori(s):
 def test_dettatura(s, client, monkeypatch):
     viste = []
     finto = _client(lambda r: httpx.Response(200, json={"text": " Ciao Ada "}), viste)
-    monkeypatch.setattr(voce, "trascrivi", lambda file, lingua="", _v=voce.trascrivi: _v(file, lingua, http_client=finto))
+    monkeypatch.setattr(voce, "trascrivi", lambda file, lingua="", azienda=None, parole=(), _v=voce.trascrivi: _v(file, lingua, http_client=finto, azienda=azienda, parole=parole))
     r = client.post(reverse("ai:trascrivi_voce"), {"audio": SimpleUploadedFile("v.webm", b"x" * 100, content_type="audio/webm;codecs=opus")})
     assert r.json() == {"testo": "Ciao Ada"} and str(viste[0].url) == "http://speaches:8000/v1/audio/transcriptions"
     assert b"faster-whisper-small" in viste[0].content

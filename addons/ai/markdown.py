@@ -14,6 +14,38 @@ CORSIVO = re.compile(r"(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])|(?<!\w)_(?!\s)(
 LINK = re.compile(r"\[([^\]\n]+)\]\((https?://[^\s)]+|/(?!/)[^\s)]*)\)")
 URL = re.compile(r"(?<![\"'=>])\bhttps?://[^\s<]+[^\s<.,;:!?)\]'\"]")
 SEPARATORE = re.compile(r"^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?$")
+TITOLO = re.compile(r"^(#{1,4})\s+(.*)$")
+
+
+def _ancora(titolo, usate):
+    """L'id di un titolo («Resi e rimborsi» → «resi-e-rimborsi», poi «-2» se si ripete): lo stesso per la pagina mostrata
+    e per i frammenti della conoscenza, così una citazione apre la pagina alla sezione giusta."""
+    from django.utils.text import slugify
+    testo = LINK.sub(lambda m: m.group(1), titolo)
+    base = slugify(re.sub(r"[*_`]", "", testo))[:60].strip("-") or "sezione"
+    usate[base] = usate.get(base, 0) + 1
+    return base if usate[base] == 1 else f"{base}-{usate[base]}"
+
+
+def sezioni(testo):
+    """Il markdown diviso ai titoli (# … ####, non dentro i blocchi di codice): [(percorso dei titoli, ancora, testo)].
+    Il testo prima del primo titolo ha percorso vuoto e nessuna ancora."""
+    voci, percorso, ancora, righe, usate, codice = [], [], "", [], {}, False
+    for riga in (testo or "").replace("\r\n", "\n").split("\n"):
+        if riga.strip().startswith("```"):
+            codice = not codice
+        titolo = None if codice else TITOLO.match(riga)
+        if titolo:
+            if "".join(righe).strip():
+                voci.append(([t for _, t in percorso], ancora, "\n".join(righe).strip()))
+            livello, nome = len(titolo.group(1)), titolo.group(2).strip()
+            percorso = [(lv, t) for lv, t in percorso if lv < livello] + [(livello, nome)]
+            ancora, righe = _ancora(nome, usate), []
+        else:
+            righe.append(riga)
+    if "".join(righe).strip() or not voci:
+        voci.append(([t for _, t in percorso], ancora, "\n".join(righe).strip()))
+    return voci
 
 
 def _in_linea(testo):
@@ -55,9 +87,10 @@ def _celle(riga):
     return [c.strip() for c in riga.strip().strip("|").split("|")]
 
 
-def rendi(testo):
+def rendi(testo, ancore=False):
+    """Con ancore=True i titoli hanno un id (le pagine della wiki: le citazioni puntano alla sezione)."""
     righe = escape(testo or "").replace("\r\n", "\n").split("\n")
-    html, i = [], 0
+    html, i, usate = [], 0, {}
     paragrafo = []
 
     def chiudi_paragrafo():
@@ -77,11 +110,12 @@ def rendi(testo):
             html.append(_blocco_codice("\n".join(codice), lingua))
             i += 1
             continue
-        titolo = re.match(r"^(#{1,4})\s+(.*)$", riga)
+        titolo = TITOLO.match(riga)
         if titolo:
             chiudi_paragrafo()
             livello = min(len(titolo.group(1)) + 2, 6)
-            html.append(f"<h{livello}>{_in_linea(titolo.group(2))}</h{livello}>")
+            id_ = f' id="{_ancora(unescape(titolo.group(2).strip()), usate)}"' if ancore else ""
+            html.append(f"<h{livello}{id_}>{_in_linea(titolo.group(2))}</h{livello}>")
             i += 1
             continue
         if riga.strip().startswith("|") and i + 1 < len(righe) and SEPARATORE.match(righe[i + 1].strip()):

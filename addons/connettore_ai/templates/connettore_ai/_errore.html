@@ -1,0 +1,11 @@
+<div class="ui-login-card" style="max-width:520px;">
+  <div class="ui-login-header">
+    <span class="mark">{% include "theme/partials/_logo.html" %}</span>
+    <h1>{% if negato %}Non puoi collegare questa chat{% else %}Collegamento non riuscito{% endif %}</h1>
+  </div>
+  <div class="ui-login-body">
+    <div class="ui-alert ui-alert-danger" role="alert">{{ motivo }}</div>
+    {% if not negato %}<p class="ui-help">La richiesta arrivata dalla chat non è valida per questa istanza di adabox, quindi non è stato inviato nulla. Riprova dalla chat; se si ripete, passa questo messaggio a chi amministra adabox.</p>{% endif %}
+    <p style="margin:14px 0 0; text-align:center;"><a href="/">Torna ad adabox</a></p>
+  </div>
+</div>

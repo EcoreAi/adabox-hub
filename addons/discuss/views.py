@@ -1,7 +1,7 @@
 from core.viste import ModelView, register
 
-from .forms import ConnessioneForm
-from .models import Canale, Connessione, ModelloWhatsApp, Sportello, VoceConoscenza
+from .forms import ConnessioneForm, SportelloForm
+from .models import Canale, Connessione, DomandaPortale, ModelloWhatsApp, Sportello, VoceConoscenza
 
 
 @register
@@ -28,8 +28,17 @@ class SportelloView(ModelView):
     list_display = ["nome", "attivo", "creato"]
     list_filter = ["attivo"]
     search_fields = ["nome"]
+    form_class = SportelloForm
     form_layout = [("Sportello", ["nome", "benvenuto", "assenza", "operatori", "distribuzione", "domini", "privacy_url", "attivo"]),
-                   ("Risposte con l'AI", ["modalita", "nome_ai", "istruzioni", ("risposte_per_chat", "risposte_al_giorno"), "azienda"])]
+                   ("Risposte con l'AI", ["modalita", "nome_ai", "istruzioni", ("risposte_per_chat", "risposte_al_giorno"), "azienda", "portale"]),
+                   ("Conoscenza dalla wiki", ["spazi"])]
+
+    def get_form_class(self, request=None):
+        from django.apps import apps
+        classe = super().get_form_class(request)
+        if not apps.is_installed("wiki"):                  # senza wiki la sezione resta vuota: si toglie
+            self.form_layout = [s for s in self.form_layout if s[0] != "Conoscenza dalla wiki"]
+        return classe
     readonly_fields = ["creato"]
 
 
@@ -42,6 +51,10 @@ class VoceConoscenzaView(ModelView):
     list_filter = ["sportello", "tipo", "attiva"]
     search_fields = ["titolo", "testo"]
     form_layout = [("Voce", ["sportello", "tipo", "titolo", "testo", "attiva"])]
+
+    def has_change_permission(self, request, obj=None):
+        """Le pagine copiate dalla wiki si modificano nella wiki: qui si possono solo spegnere o togliere."""
+        return super().has_change_permission(request, obj) and (obj is None or obj.pagina_wiki is None)
 
 
 @register
@@ -68,3 +81,28 @@ class ModelloWhatsAppView(ModelView):
     list_filter = ["stato", "categoria", "connessione"]
     search_fields = ["nome", "corpo"]
     form_layout = [("Modello", ["connessione", ("nome", "lingua"), "categoria", "corpo"])]
+
+
+@register
+class DomandaPortaleView(ModelView):
+    """Le domande dei clienti all'assistente del portale, con le risposte: per lo staff che cura la conoscenza."""
+    model = DomandaPortale
+    slug = "domande_portale"
+    storico = False
+    list_display = ["creata", "cliente", "utente", "domanda", "senza_risposta"]
+    list_filter = ["senza_risposta", "sportello", "creata"]
+    search_fields = ["domanda", "risposta", "cliente__nome"]
+    form_layout = [("Domanda", [("cliente", "utente"), ("sportello", "creata"), "domanda", "risposta", "senza_risposta"])]
+    readonly_fields = ["cliente", "utente", "sportello", "creata", "domanda", "risposta", "senza_risposta"]
+
+    def get_queryset(self, request):
+        """Solo i clienti dell'azienda corrente: le domande sono dati dei clienti."""
+        azienda = getattr(request, "azienda", None)
+        qs = super().get_queryset(request)
+        return qs.filter(cliente__azienda=azienda) if azienda is not None else qs.none()
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

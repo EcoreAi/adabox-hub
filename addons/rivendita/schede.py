@@ -19,6 +19,8 @@ SCHEDE = {
                  ["Date di consegna calcolate", "Carico di lavoro delle persone", "Diagramma di Gantt", "Simulazioni «E se…»"]),
     "commesse": ("Dalle ore alla fattura: tieni sotto controllo tariffe, costi e redditività di ogni progetto.",
                  ["Ore da fatturare", "Tariffe e costi orari", "Monte ore dei contratti", "Redditività dei progetti"]),
+    "connettore_ai": ("I dati di adabox dentro Claude, ChatGPT, Gemini e Le Chat: ognuno li interroga dalla chat che usa già, con il suo abbonamento e con i suoi permessi.",
+                      ["Collegamento con accesso e consenso in adabox", "Sola lettura, con i permessi di ogni persona", "Dati personali mascherati, se l'azienda lo chiede", "Registro delle chiamate e revoca con un clic"]),
     "contatti": ("L'anagrafica unica di aziende e persone, con tutti i dati che servono a vendite e fatture.",
                  ["Clienti e fornitori", "Referenti delle aziende", "Recapiti e dati fiscali", "Categorie e vista kanban"]),
     "crm": ("Segui ogni trattativa dal primo contatto al contratto e sai sempre quanto vale la tua pipeline.",

@@ -67,18 +67,20 @@ def genera(sistema, testo, utente, azienda=None, titolo="Comunicazioni", di_serv
         limiti.verifica(azienda, utente)
         conversazione = Conversazione.objects.filter(utente=utente, nascosta=True, titolo=titolo).first() or \
             Conversazione.objects.create(utente=utente, nascosta=True, titolo=titolo)
-        lavoro = Turno.objects.create(conversazione=conversazione, utente=utente, azienda=azienda, compito="riassunti")
+        lavoro = Turno.objects.create(conversazione=conversazione, utente=utente, azienda=azienda,
+                                      compito=limiti.SERVIZIO if di_servizio else "riassunti")
         profilo = catalogo.profilo_per("riassunti", azienda)
         pezzi, modello = [], None
         try:
-            for pezzo in gateway(catalogo.catena(profilo, azienda), protezione=Protezione(conversazione), sistema=sistema,
+            catena = limiti.ammessi(catalogo.catena(profilo, azienda), None if di_servizio else utente)
+            for pezzo in gateway(catena, protezione=Protezione(conversazione), sistema=sistema,
                                  messaggi=[{"ruolo": "utente", "testo": testo[-MASSIMO_TESTO:]}], max_token=2000, effort=profilo.effort):
                 if isinstance(pezzo, Inizio):
                     modello = lavoro.modello = pezzo.modello
                 elif isinstance(pezzo, Testo):
                     pezzi.append(pezzo.testo)
                 elif isinstance(pezzo, Uso) and modello is not None:
-                    lavoro.uso, lavoro.costo = pezzo.come_dict(), modello.costo(pezzo.come_dict())
+                    lavoro.addebita(modello, pezzo.come_dict())
         except Exception as e:
             lavoro.stato, lavoro.errore, lavoro.finito = Turno.ERRORE, str(e)[:500], timezone.now()
             lavoro.save()

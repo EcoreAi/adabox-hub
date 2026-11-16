@@ -63,6 +63,21 @@ def test_plausibilita_nei_risultati_degli_strumenti():
     assert protezione.plausibile("Il cliente Mario Rossi", 11, 22, "FULLNAME")
 
 
+def test_nomi_dell_azienda_e_nomi_utente_inesistenti_non_si_mascherano(db):
+    from django.contrib.auth.models import User
+
+    from core.models import Azienda
+    Azienda.objects.filter(pk=1).update(nome="Adabox Hub")
+    User.objects.create_user("mrossi", password="x")
+    protezione._noti["quando"] = None
+    p = lambda testo, valore, etichetta: protezione.plausibile(testo, testo.index(valore), testo.index(valore) + len(valore), etichetta)  # noqa: E731
+    assert not p("che cosa è adabox?", "adabox", "USERNAME")              # non è lo username di nessuno
+    assert not p("lavoro in Adabox Hub", "Adabox Hub", "ORG") and not p("lavoro in Adabox Hub", "Hub", "ORG")
+    assert p("scrivi a mrossi", "mrossi", "USERNAME")                     # un utente vero resta protetto
+    assert p("ordine di Bianchi Costruzioni", "Bianchi Costruzioni", "ORG")
+    assert p("che cosa è adabox?", "adabox", "FULLNAME")                  # altre categorie: decide il servizio
+
+
 def test_al_cloud_solo_segnaposto_all_utente_in_chiaro(scena):
     ricevuti = []
     strumenti.registra(strumenti.Strumento("eco", "test", {"type": "object", "properties": {}},
@@ -204,3 +219,15 @@ def test_segnaposto_come_testo_di_un_link_in_streaming():
     assert testo == "| 1 | [Rizzo Stampa Snc](/contatti/24/) | 146.470 € |" and p.sconosciuti == 0
     assert usciti[-1].blocchi[0]["testo"] == "| 1 | [Rizzo Stampa Snc](/contatti/24/) |"
     assert protezione.Vault({"[ORG_1]": "Rizzo"}).smaschera("[[ORG_1]](/c/1/) e [ORG_1]") == ("[Rizzo](/c/1/) e Rizzo", 0)
+
+
+def test_nomi_noti_calcolati_anche_su_una_macchina_appena_accesa(db, monkeypatch):
+    """monotonic() piccolo (macchina accesa da pochi secondi): la prima volta la lista si calcola comunque."""
+    import time
+
+    from core.models import Azienda
+    Azienda.objects.filter(pk=1).update(nome="Adabox Hub")
+    monkeypatch.setitem(protezione._noti, "quando", None)
+    monkeypatch.setattr(time, "monotonic", lambda: 12.0)
+    propri, _ = protezione._nomi_noti()
+    assert "adabox hub" in propri

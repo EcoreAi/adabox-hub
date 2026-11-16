@@ -1,7 +1,7 @@
 {
     "name": "Documenti",
     "summary": "Archivio di file per cartelle con permessi, tag, anteprima, condivisione e richieste",
-    "version": "1.1.1",
+    "version": "1.2.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -42,6 +42,7 @@
         {"chiave": "versioni_max", "label": "Versioni precedenti da tenere per ogni documento", "tipo": "intero",
          "default": 10, "per_azienda": True, "help": "0 = niente versioni: un file con lo stesso nome è un nuovo documento"},
         {"chiave": "responsabili_vedono_personali", "label": "I responsabili dei documenti vedono gli spazi personali",
-         "tipo": "booleano", "default": True, "per_azienda": True},
+         "tipo": "booleano", "default": False, "per_azienda": True,
+         "help": "Spento: gli spazi personali sono privati del loro proprietario, anche nella ricerca dell'assistente"},
     ],
 }

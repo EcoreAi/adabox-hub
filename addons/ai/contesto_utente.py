@@ -41,7 +41,8 @@ def _ultima_memoria_vista(conversazione):
 
 
 def nota_memoria(utente, azienda):
-    if azienda is None:
+    from . import funzioni
+    if azienda is None or not funzioni.attiva("memoria"):
         return ""
     righe, totale = [], 0
     for testo in MemoriaUtente.objects.filter(utente=utente, azienda=azienda).order_by("-pk").values_list("testo", flat=True)[:MASSIMO_VOCI]:
@@ -54,8 +55,9 @@ def nota_memoria(utente, azienda):
 
 def nota_progetto(conversazione):
     from . import allegati_chat
+    from . import funzioni
     progetto = conversazione.progetto
-    if progetto is None:
+    if progetto is None or not funzioni.attiva("aree_di_lavoro"):
         return ""
     righe = [f"Questa chat è nell'area di lavoro «{progetto.nome}» (area n. {progetto.pk})."]
     if progetto.istruzioni.strip():
@@ -89,4 +91,5 @@ def _nota_cartella(conversazione, progetto):
     elenco = ", ".join(f"«{d.nome}» (documento n. {d.pk}{', in ' + d.cartella.nome if d.cartella_id != radice.pk else ''})"
                        for d in documenti[:archivio.MASSIMO_ELENCO])
     altri = f" e altri {len(documenti) - archivio.MASSIMO_ELENCO}" if len(documenti) > archivio.MASSIMO_ELENCO else ""
-    return [f"Documenti della cartella dell'area di lavoro «{radice.percorso()}» (app Documenti), da leggere con leggi_documento se servono: {elenco}{altri}."]
+    return [f"Documenti della cartella dell'area di lavoro «{radice.percorso()}» (app Documenti), da leggere con leggi_documento se servono: {elenco}{altri}. "
+            "Per cercare dentro questi documenti usa cerca_conoscenza con dove=\"cartella_area\"."]

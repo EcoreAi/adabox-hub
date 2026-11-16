@@ -1,0 +1,335 @@
+# ERP Feature Gap Analysis — Instructions and Checklist
+
+## Purpose
+
+You are analyzing an ERP codebase written in Python. Compare it against the
+feature checklist below, which is benchmarked on four leading ERPs:
+Odoo, ERPNext, Oracle NetSuite and Microsoft Dynamics 365 Business Central.
+Goal: produce a precise, evidence-based gap analysis that the team can turn
+into a build roadmap.
+
+## How to evaluate
+
+1. Inspect the codebase thoroughly before answering: data models/schemas,
+   business logic/services, API routes, UI views/screens, background jobs,
+   configuration, tests and docs.
+2. For EVERY checklist item assign exactly one status:
+   - HAVE     — fully usable end-to-end (data model + business logic + UI or API)
+   - PARTIAL  — some of it exists (e.g. model only, no workflow/UI; or a basic
+                version missing key sub-features listed in the item)
+   - MISSING  — nothing relevant exists
+   - N/A      — intentionally out of scope for this product (only if the
+                codebase/docs make that explicit)
+3. Rules:
+   - Never mark HAVE from a file or class name alone; find the actual logic.
+   - For PARTIAL, state concretely what is missing.
+   - Cite evidence as file paths (and function/class names where useful).
+   - If you cannot find something after a real search, say MISSING, not "unclear".
+4. Tiers (already assigned, do not change them):
+   - Core — present in all four benchmark ERPs; customers assume it exists
+   - Adv  — present in two or three; what mid-market buyers compare on
+   - Edge — present in one vendor or shipped in the last ~18 months;
+            differentiation opportunities
+
+## Required output format
+
+### A. Summary by section
+A table: Section | Items | HAVE | PARTIAL | MISSING | N/A | Core coverage %
+
+### B. Full results
+A table with one row per checklist item:
+ID | Feature | Tier | Status | Evidence (paths) | Gap notes
+
+### C. Prioritized gap list
+Ordered as: (1) Core MISSING, (2) Core PARTIAL, (3) Adv MISSING,
+(4) Adv PARTIAL, (5) Edge. Group by section. For each gap give:
+- what to build (one or two sentences)
+- dependencies on other items (by ID)
+- effort estimate: S (< 1 week), M (1–4 weeks), L (> 1 month) for one developer
+
+### D. Architectural observations
+Anything in the codebase that will block Core features at scale (e.g. no
+multi-company field on records, no audit trail mechanism, no permission layer,
+hard-coded currency or tax logic, no localization framework).
+
+---
+
+# CHECKLIST
+
+## 1. Platform & core architecture (PLT)
+
+- [ ] PLT-01 (Core) Multi-company / multi-branch in one database, with shared or separate charts of accounts and consolidated reporting
+- [ ] PLT-02 (Core) Multi-currency: rate tables, automatic rate updates, realized and unrealized gains/losses
+- [ ] PLT-03 (Core) Role-based access control: user groups, row-level record rules, field-level visibility
+- [ ] PLT-04 (Core) Audit trail / change history on every business record (who, what, when, old/new values)
+- [ ] PLT-05 (Core) Document numbering sequences per company and document type; fiscal years, periods, lock dates
+- [ ] PLT-06 (Core) Custom fields, forms, list views and menus configurable without code (admin UI)
+- [ ] PLT-07 (Core) Workflow / approval engine with multi-level approvals (POs, expenses, time off, discounts)
+- [ ] PLT-08 (Core) Automation rules and scheduled jobs (triggers on create/update/time, server actions)
+- [ ] PLT-09 (Core) Editable print/PDF templates per document type and company (quote, invoice, delivery note, PO)
+- [ ] PLT-10 (Core) Email on every record: send/receive, threaded log ("chatter"), followers, @mentions, pinned messages
+- [ ] PLT-11 (Core) Internal chat / direct messages / channels
+- [ ] PLT-12 (Core) Attachments and document management with folders, tags, versioning
+- [ ] PLT-13 (Core) CSV/XLSX import with column mapping, validation, and support for product variants per line; bulk export
+- [ ] PLT-14 (Core) REST or JSON-RPC API covering all models (CRUD + search), with authentication and webhooks
+- [ ] PLT-15 (Core) Multi-language UI and translatable field values
+- [ ] PLT-16 (Core) Responsive web UI plus native or PWA mobile apps covering main workflows
+- [ ] PLT-17 (Core) Global search, saved filters/favorites; kanban, list, pivot, graph, calendar and Gantt views
+- [ ] PLT-18 (Core) Scheduled activities, notifications, to-do inbox per user
+- [ ] PLT-19 (Adv) Offline tolerance in the UI (graceful degradation when connection drops)
+- [ ] PLT-20 (Adv) App/module marketplace: install third-party modules without forking the core
+- [ ] PLT-21 (Adv) Low-code app builder (new models, views, automations from the UI)
+- [ ] PLT-22 (Adv) Deployment options: SaaS multi-tenant and on-premise/self-hosted
+- [ ] PLT-23 (Adv) SSO (OAuth2/SAML), two-factor authentication, LDAP/AD
+- [ ] PLT-24 (Adv) Built-in electronic signature on documents
+- [ ] PLT-25 (Adv) Embedded spreadsheet / BI app with live links to business data
+- [ ] PLT-26 (Adv) Sandbox/staging environments and data anonymization for testing
+
+## 2. Finance & accounting (FIN)
+
+- [ ] FIN-01 (Core) Double-entry general ledger; journals by type (sales, purchase, bank, cash, miscellaneous)
+- [ ] FIN-02 (Core) Configurable chart of accounts (hierarchical) and cost centers
+- [ ] FIN-03 (Core) Accrual and cash-basis accounting
+- [ ] FIN-04 (Core) Customer invoices, credit notes, payment terms, installment schedules, invoice sending by email
+- [ ] FIN-05 (Core) Vendor bills created/proposed from purchase orders or receipts (3-way match)
+- [ ] FIN-06 (Core) Accounts receivable / payable ledgers with aging reports (buckets)
+- [ ] FIN-07 (Core) Customer credit limits with blocking/warning on orders
+- [ ] FIN-08 (Core) Payment follow-ups / dunning levels with reminder emails
+- [ ] FIN-09 (Core) Bank statement import (CSV, OFX, QIF, CAMT.053 and local formats)
+- [ ] FIN-10 (Core) Bank synchronization via feed providers (automatic transaction import)
+- [ ] FIN-11 (Core) Bank reconciliation with automatic matching suggestions and reconciliation models
+- [ ] FIN-12 (Core) Partial payments, overpayments, write-offs, outstanding payment allocation
+- [ ] FIN-13 (Core) Cash registers / petty cash with opening and closing balances
+- [ ] FIN-14 (Core) Check printing, individually and in batches; batch payments
+- [ ] FIN-15 (Core) Tax engine: tax groups, inclusive/exclusive, fiscal positions (tax mapping by customer/country), withholding taxes
+- [ ] FIN-16 (Core) Tax/VAT report by period with export in the format required by the tax authority
+- [ ] FIN-17 (Core) Fixed assets: register, depreciation methods and schedules, automated amortization entries, disposal
+- [ ] FIN-18 (Core) Deferred revenue and deferred expense recognition over periods (multi-year contracts)
+- [ ] FIN-19 (Core) Budgets (by account/cost center/period) with budget vs actual reports
+- [ ] FIN-20 (Core) Analytic / dimensional accounting (multiple axes, distribution models, bulk editing of analytic lines)
+- [ ] FIN-21 (Core) Financial statements with drill-down: P&L, balance sheet, cash flow, trial balance, general ledger, aged AR/AP
+- [ ] FIN-22 (Core) Inventory valuation posted to GL (perpetual or periodic; standard, average, FIFO)
+- [ ] FIN-23 (Core) Period cut-off entries, accruals, automatic reversing entries
+- [ ] FIN-24 (Core) Expense reports: employee submission, mobile receipt capture, approval, reimbursement, re-invoicing to customers
+- [ ] FIN-25 (Core) Online payment links / portal payment on invoices
+- [ ] FIN-26 (Core) Period locking and fiscal year closing with retained earnings
+- [ ] FIN-27 (Adv) Revenue recognition rules (ASC 606 / IFRS 15 style performance obligations)
+- [ ] FIN-28 (Adv) Subscription billing: recurring, usage/consumption-based, proration, upgrades/downgrades
+- [ ] FIN-29 (Adv) FP&A: planning and budgeting with modelling, statistical accounts, expense allocations, forecast versions
+- [ ] FIN-30 (Adv) Multi-entity consolidation with intercompany eliminations and currency translation
+- [ ] FIN-31 (Adv) Intercompany transaction automation (mirror sales/purchase between companies)
+- [ ] FIN-32 (Adv) Payment file generation (SEPA credit transfer / direct debit, local bank formats)
+- [ ] FIN-33 (Adv) E-invoicing networks: Peppol, country channels (e.g. Italian SDI, Brazilian NF-e), inbound and outbound, with status tracking
+- [ ] FIN-34 (Adv) Loans management, disallowed expenses, ESG reporting
+- [ ] FIN-35 (Adv) Financial close management / reconciliation workbench with task checklists
+- [ ] FIN-36 (Edge) AI/OCR digitization of vendor bills and receipts into draft documents
+- [ ] FIN-37 (Edge) AI bank matching that learns from past reconciliations
+- [ ] FIN-38 (Edge) Payables agent that prepares bills for human approval
+
+## 3. Sales, CRM & marketing (CRM)
+
+- [ ] CRM-01 (Core) Leads and opportunities with pipeline stages, kanban, probability, expected revenue, lost reasons
+- [ ] CRM-02 (Core) Activities (calls, meetings, emails) scheduled on records with reminders
+- [ ] CRM-03 (Core) Lead → quotation → sales order → delivery → invoice flow with document linking
+- [ ] CRM-04 (Core) Quotation templates, optional products, validity dates
+- [ ] CRM-05 (Core) Pricelists and discount rules by customer, quantity, date, currency
+- [ ] CRM-06 (Core) Contact management: companies and persons, multiple addresses, tags, parent/child
+- [ ] CRM-07 (Core) Sales teams, targets, pipeline and win/loss reporting
+- [ ] CRM-08 (Core) Email sync and logging on contacts/opportunities (IMAP/Gmail/Exchange)
+- [ ] CRM-09 (Core) Customer portal: view quotes, accept/sign, view orders and invoices
+- [ ] CRM-10 (Adv) Marketing automation workflows (drip campaigns, triggers)
+- [ ] CRM-11 (Adv) Customer segmentation (profiling, ABC classification, tags, dynamic lists)
+- [ ] CRM-12 (Adv) Email marketing, SMS marketing, surveys, event management
+- [ ] CRM-13 (Adv) Online appointment booking linked to calendars
+- [ ] CRM-14 (Adv) Predictive lead scoring
+- [ ] CRM-15 (Adv) Sales commissions, quotas, sales forecasting
+- [ ] CRM-16 (Adv) E-signature on quotations and contracts
+- [ ] CRM-17 (Adv) Subscriptions, rental, loyalty programs, promotions, gift cards, coupons
+- [ ] CRM-18 (Adv) Product configurator / CPQ
+- [ ] CRM-19 (Adv) Website live chat and web-to-lead forms
+- [ ] CRM-20 (Edge) Sales order agent that drafts orders from inbound customer emails
+
+## 4. Purchasing (PUR)
+
+- [ ] PUR-01 (Core) RFQs / tenders to multiple vendors, comparison, purchase orders
+- [ ] PUR-02 (Core) Vendor pricelists, lead times, minimum quantities, vendor product codes
+- [ ] PUR-03 (Core) Receipts against PO, bills from PO, 3-way matching (PO / receipt / bill)
+- [ ] PUR-04 (Core) Approval rules by amount or category
+- [ ] PUR-05 (Core) Blanket orders / purchase agreements with call-offs
+- [ ] PUR-06 (Core) Reordering rules that auto-generate RFQs/POs
+- [ ] PUR-07 (Core) Vendor master with payment terms, bank accounts, tax settings
+- [ ] PUR-08 (Core) Returns to vendor and vendor credit notes
+- [ ] PUR-09 (Adv) Landed costs allocation (freight, duties) onto stock valuation
+- [ ] PUR-10 (Adv) Drop-shipping (vendor ships directly to customer)
+- [ ] PUR-11 (Adv) Purchase subcontracting (send components, receive finished goods)
+- [ ] PUR-12 (Adv) Vendor portal (confirm POs, upload invoices)
+- [ ] PUR-13 (Adv) Supplier evaluation / scorecards (on-time, quality, price)
+- [ ] PUR-14 (Edge) AI agent for purchase approvals and replenishment proposals
+
+## 5. Inventory & warehouse (INV)
+
+- [ ] INV-01 (Core) Item master: variants/attributes, alternatives, barcodes, per-supplier and per-customer item codes
+- [ ] INV-02 (Core) Units of measure with categories and conversions; purchase vs sales UoM
+- [ ] INV-03 (Core) Serial numbers and lots/batches with expiry dates and traceability reports
+- [ ] INV-04 (Core) Multi-warehouse with hierarchical locations and bins
+- [ ] INV-05 (Core) Stock moves, internal transfers, receipts, deliveries with status workflow
+- [ ] INV-06 (Core) Pick lists and packing slips to fulfil sales orders
+- [ ] INV-07 (Core) Reorder points, min/max, replenishment suggestions and forecasted stock
+- [ ] INV-08 (Core) Stock counts / cycle counts / reconciliation with adjustments posted to GL
+- [ ] INV-09 (Core) Valuation methods (FIFO, average, standard) with cost layers and revaluation
+- [ ] INV-10 (Core) Reports: on-hand, forecasted, stock aging, movement history, valuation
+- [ ] INV-11 (Core) Barcode scanning workflows (receipts, picks, counts, transfers)
+- [ ] INV-12 (Core) Returns / RMA with restocking and refund linkage
+- [ ] INV-13 (Core) Packaging definitions and kits (bundle products)
+- [ ] INV-14 (Adv) Putaway and removal strategies (FIFO/FEFO/LIFO, bin suggestions by product velocity)
+- [ ] INV-15 (Adv) Multi-step routes (pick → pack → ship), wave/batch/cluster picking
+- [ ] INV-16 (Adv) Shipping carrier integration: rates, labels, tracking numbers
+- [ ] INV-17 (Adv) Shipment booking with parcels/carrier templates; delivery trips and route planning
+- [ ] INV-18 (Adv) Quality control checkpoints (receipt, delivery, in-process) with pass/fail and quarantine
+- [ ] INV-19 (Adv) Consignment stock, cross-docking, 3PL/WMS-level features
+- [ ] INV-20 (Adv) Demand forecasting and predictive replenishment
+- [ ] INV-21 (Edge) AI replenishment agent
+
+## 6. Manufacturing (MFG)
+
+- [ ] MFG-01 (Core) Multilevel bills of materials with versions and alternatives
+- [ ] MFG-02 (Core) Routings, work centers, operations with time standards
+- [ ] MFG-03 (Core) Manufacturing orders: component consumption, by-products, scrap, backflushing
+- [ ] MFG-04 (Core) Work orders / job cards per operation with start/stop time tracking
+- [ ] MFG-05 (Core) MRP: material requirements from sales/forecast demand, generating POs and MOs
+- [ ] MFG-06 (Core) Production costing (standard and actual, labor and overhead)
+- [ ] MFG-07 (Core) Unbuild / disassembly orders
+- [ ] MFG-08 (Core) Capacity planning per work center
+- [ ] MFG-09 (Core) Manufacturing subcontracting with material tracking
+- [ ] MFG-10 (Adv) Master production schedule (MPS)
+- [ ] MFG-11 (Adv) Shop-floor terminal (tablet view) with real-time status of operations and workstations
+- [ ] MFG-12 (Adv) Quality checks inside work orders
+- [ ] MFG-13 (Adv) Maintenance (preventive/corrective) on equipment, linked to work centers
+- [ ] MFG-14 (Adv) PLM / engineering change orders on BOMs
+- [ ] MFG-15 (Adv) Process manufacturing (formulas, batches, yields) in addition to discrete
+- [ ] MFG-16 (Adv) IoT integration (scales, printers, sensors, PLC triggers)
+- [ ] MFG-17 (Adv) Manufacturing cost and variance reporting
+- [ ] MFG-18 (Edge) AI-assisted production scheduling
+
+## 7. HR & payroll (HR)
+
+- [ ] HR-01 (Core) Employee records, org chart, departments, job positions
+- [ ] HR-02 (Core) Contracts with salary structures and history
+- [ ] HR-03 (Core) Attendance (check-in/out, kiosk) and time off / leave management with accruals and approvals
+- [ ] HR-04 (Core) Timesheets linked to projects/tasks
+- [ ] HR-05 (Core) Expense claims with approval and reimbursement
+- [ ] HR-06 (Core) Recruitment (job postings, applicants, pipeline), onboarding/offboarding checklists
+- [ ] HR-07 (Core) Appraisals / performance reviews
+- [ ] HR-08 (Core) Employee self-service portal (payslips, time off, expenses, documents)
+- [ ] HR-09 (Adv) Payroll with country-specific rules, payslips, accounting entries
+- [ ] HR-10 (Adv) Skills management, e-learning, certifications
+- [ ] HR-11 (Adv) Goal tracking and recognition
+- [ ] HR-12 (Adv) Fleet management (vehicles, contracts, costs)
+- [ ] HR-13 (Adv) Shift planning / scheduling
+- [ ] HR-14 (Adv) Frontdesk / visitor management
+- [ ] HR-15 (Adv) Referral programs
+- [ ] HR-16 (Edge) Expense agent (auto-coding and policy checks on receipts)
+
+## 8. Projects, service & helpdesk (PRJ)
+
+- [ ] PRJ-01 (Core) Projects and tasks with kanban, Gantt, milestones, dependencies, subtasks
+- [ ] PRJ-02 (Core) Timesheets on tasks and project billing (fixed price, time & materials, milestones)
+- [ ] PRJ-03 (Core) Project profitability (revenue vs cost, budget tracking)
+- [ ] PRJ-04 (Core) Helpdesk tickets: teams, stages, configurable SLA policies, email-to-ticket
+- [ ] PRJ-05 (Core) Knowledge base / internal wiki
+- [ ] PRJ-06 (Core) Customer portal access to tickets and project progress
+- [ ] PRJ-07 (Adv) Resource and capacity planning
+- [ ] PRJ-08 (Adv) Field service: planning and dispatching, service orders, repairs, service contracts, warranties, service items, service pricing
+- [ ] PRJ-09 (Adv) Warranty claims management
+- [ ] PRJ-10 (Adv) Asset / equipment maintenance for customer and internal assets
+- [ ] PRJ-11 (Adv) Repairs management (quote, parts, labor)
+- [ ] PRJ-12 (Adv) Full PSA: resource utilization, project revenue recognition, expense billing
+- [ ] PRJ-13 (Adv) Appointments and scheduling
+
+## 9. Commerce & front office (COM)
+
+- [ ] COM-01 (Core) Customer portal: invoices, orders, quotes, tickets, documents
+- [ ] COM-02 (Core) Online payments through multiple gateways
+- [ ] COM-03 (Adv) eCommerce storefront integrated with stock, pricing and accounting
+- [ ] COM-04 (Adv) Website builder / CMS with pages, blogs, forms
+- [ ] COM-05 (Adv) Point of sale for retail (offline-capable, receipts, cash control)
+- [ ] COM-06 (Adv) Point of sale for restaurants (tables, kitchen display, split bills)
+- [ ] COM-07 (Adv) Loyalty, gift cards, promotions in POS and eCommerce
+- [ ] COM-08 (Adv) Marketplace and platform connectors (Shopify, Amazon, third-party POS, logistics)
+- [ ] COM-09 (Adv) Self-service account and subscription management for customers
+- [ ] COM-10 (Adv) Live chat and social login
+- [ ] COM-11 (Adv) Rental management and event ticketing
+
+## 10. Reporting & analytics (RPT)
+
+- [ ] RPT-01 (Core) Dashboards with KPIs per module and per role
+- [ ] RPT-02 (Core) Pivot and graph views on any record set with grouping and measures
+- [ ] RPT-03 (Core) Saved searches / filters shared across users
+- [ ] RPT-04 (Core) Standard financial statements with drill-down to entries
+- [ ] RPT-05 (Core) Export to Excel/CSV from any list
+- [ ] RPT-06 (Core) Scheduled / emailed reports
+- [ ] RPT-07 (Adv) Report designer for custom layouts and custom SQL/dataset reports
+- [ ] RPT-08 (Adv) Embedded spreadsheet with live links to business data
+- [ ] RPT-09 (Adv) BI connectors (Power BI, Looker, Metabase) and analytics datasets/workbooks
+- [ ] RPT-10 (Adv) Data warehouse / read-replica export
+- [ ] RPT-11 (Edge) AI narrative summaries of reports
+
+## 11. AI & automation (AI)
+
+- [ ] AI-01 (Edge) Conversational Q&A over sales, inventory and finance data with permissions respected
+- [ ] AI-02 (Edge) Document OCR for vendor bills, receipts, e-invoice PDFs → draft records
+- [ ] AI-03 (Edge) AI bank-transaction matching that learns from history
+- [ ] AI-04 (Edge) Pre-built agents: payables, sales order, expense, replenishment, purchase approval
+- [ ] AI-05 (Edge) Agent builder/designer with configurable model provider (OpenAI, Gemini, Claude, local)
+- [ ] AI-06 (Edge) MCP server / agent API so external agents can read and write ERP data under permissions
+- [ ] AI-07 (Edge) Forecasting: demand, cash flow, planning deviation detection
+- [ ] AI-08 (Edge) Text generation: product descriptions, email drafts, meeting/ticket summaries
+- [ ] AI-09 (Edge) AI activity log and human-in-the-loop approval for every agent action
+
+## 12. Integrations & extensibility (INT)
+
+- [ ] INT-01 (Core) Email and calendar sync (Gmail, Outlook/Exchange)
+- [ ] INT-02 (Adv) Office suite integration (Teams/Slack, Outlook add-in, Excel, Google Workspace)
+- [ ] INT-03 (Core) Payment gateways, bank feeds, shipping carriers
+- [ ] INT-04 (Adv) E-signature providers
+- [ ] INT-05 (Adv) eCommerce / marketplace / POS / logistics connectors
+- [ ] INT-06 (Adv) Low-code automation platform hooks (Zapier/Make/Power Automate style)
+- [ ] INT-07 (Adv) App marketplace with partner-built modules and versioned module API
+- [ ] INT-08 (Core) Open API docs, SDK, webhooks, sandbox environments
+- [ ] INT-09 (Adv) Pre-configured industry editions (roles, flows, sample data)
+
+## 13. Localization & compliance (LOC)
+
+- [ ] LOC-01 (Core) Fiscal localization packages per country: chart of accounts, taxes, fiscal positions, legal statements
+- [ ] LOC-02 (Core) Tax return export in the format of the local tax authority
+- [ ] LOC-03 (Adv) Country e-invoicing channels (Peppol, Italian SDI, Brazilian NF-e, etc.)
+- [ ] LOC-04 (Adv) Payroll localizations
+- [ ] LOC-05 (Adv) VAT, Intrastat, EC sales list, audit exports (SAF-T and equivalents)
+- [ ] LOC-06 (Adv) Local GAAP and IFRS statement formats
+- [ ] LOC-07 (Core) GDPR tooling: data erasure, consent records, retention policies
+- [ ] LOC-08 (Adv) Security certifications readiness (SOC 2, ISO 27001), data residency options, encryption at rest
+
+## 14. Industry packs (IND)
+
+- [ ] IND-01 (Adv) Retail verticals (clothing, grocery, hardware, furniture, book/toy stores)
+- [ ] IND-02 (Adv) Hospitality verticals (bar/restaurant, hotel, guest house, campsite with housekeeping and room-to-bill posting)
+- [ ] IND-03 (Adv) Services verticals (agencies, consulting, hair salon/booking-based businesses)
+- [ ] IND-04 (Adv) Education, healthcare, agriculture, non-profit
+- [ ] IND-05 (Adv) Discrete and process manufacturing templates
+
+---
+
+## Benchmark sources
+
+- Odoo accounting features: https://www.odoo.com/app/accounting-features
+- Odoo accounting documentation: https://www.odoo.com/documentation/18.0/applications/finance/accounting.html
+- Odoo 19.1 release notes: https://www.odoo.com/odoo-19-1-release-notes
+- Odoo 19 module overview: https://www.cybrosys.com/odoo/odoo-books/v19/
+- ERPNext modules and capabilities: https://erpresearch.com/erp/erpnext/modules
+- ERPNext feature overview: https://crozdesk.com/operations-management/erp-software/erpnext
+- NetSuite modules list: https://erpresearch.com/en-us/netsuite-modules-list
+- NetSuite modules guide: https://tipalti.com/blog/netsuite-modules-guide/
+- Business Central capabilities: https://www.dynamicssquare.co.uk/products/dynamics-365-business-central
+- Business Central 2026 release wave 1: https://learn.microsoft.com/en-us/dynamics365/release-plan/2026wave1/smb/dynamics365-business-central/
+- Business Central AI agents: https://letsdatascience.com/news/business-central-deploys-four-ai-agents-for-finance-fef9abda
+- AI in ERP 2026 overview: https://www.remio.ai/post/ai-meets-erp-how-modern-businesses-are-using-ai-assistants-to-get-more-from-odoo-sap-and-netsuite

@@ -26,6 +26,11 @@ ALTRA = {**SQUADRA, "slug": "ordini-vendite", "name": "Ordini", "department": "v
 PAROLE_TECNICHE = ("MCP", "bearer", "wfc_", "prefisso", "ingaggio", "osservazione")
 
 
+def _senza_token(pagina):
+    """La pagina senza i token CSRF (64 caratteri casuali), che possono contenere per caso «MCP» o «wfc_»."""
+    return re.sub(r"(?<![A-Za-z0-9])[A-Za-z0-9]{64}(?![A-Za-z0-9])", "", pagina)
+
+
 @pytest.fixture
 def vetrina(listino):
     listino.risposte["/api/catalog"] = (200, {"teams": [{**SQUADRA, "showcase": VETRINA}, ALTRA]})
@@ -67,7 +72,7 @@ def test_negozio_con_vetrina_e_reparti(client, superuser, vetrina):
     filtrata = client.get("/awf/negozio/?reparto=vendite").content.decode()
     assert "Ordini" in filtrata and "Lead e CRM" not in filtrata
     for parola in PAROLE_TECNICHE:
-        assert parola not in pagina, parola
+        assert parola not in _senza_token(pagina), parola
 
 
 def test_negozio_senza_vetrina_ricava_dal_catalogo(client, superuser, listino):
@@ -236,7 +241,7 @@ def test_tappe_e_un_solo_bottone(client, inviata, vetrina):
     assert "Un passaggio da fare una volta sola." in pagina and _primari(pagina) == 1
     assert 'href="/agate/impostazioni/">Collega il Controllo AI' in pagina and "Ritira la richiesta" in pagina
     for parola in PAROLE_TECNICHE:
-        assert parola not in pagina, parola
+        assert parola not in _senza_token(pagina), parola
 
     Collegamento.objects.filter(pk=1).update(mcp_impronta="a" * 64)
     assert _primari(client.get("/awf/richieste/").content.decode()) == 0               # si aspetta Agentlia

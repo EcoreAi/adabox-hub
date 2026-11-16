@@ -2,6 +2,7 @@ import datetime
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db.models import Q
 from django.shortcuts import redirect
 from django.template.defaultfilters import filesizeformat
 from django.urls import reverse
@@ -74,7 +75,10 @@ class DocumentoView(ModelView):
     def get_queryset(self, request):
         qs = super().get_queryset(request).filter(cestinato_il__isnull=True).select_related("cartella", "proprietario")
         if accesso.gestore(request.user):
-            return qs
+            if accesso.responsabili_vedono_personali(getattr(request, "azienda", None)):
+                return qs
+            # tutto, tranne gli spazi personali degli altri: sono privati se l'azienda non decide altrimenti
+            return qs.exclude(Q(cartella__spazio__tipo=Spazio.PERSONALE) & ~Q(cartella__spazio__proprietario=request.user))
         return qs.filter(cartella__in=[c.pk for c in accesso.visibili(request.user, request.azienda)])
 
     def has_add_permission(self, request):

@@ -4,6 +4,7 @@ locale o con un fornitore cloud (Cartesia, Mistral, Azure, Gemini).
 Verso un fornitore cloud va il testo della risposta così com'è, dati personali compresi: per questo serve un consenso
 apposito dell'azienda (ai.voce_cloud), come per le immagini. Tabelle e codice non si leggono."""
 import base64
+import logging
 import re
 import struct
 from xml.sax.saxutils import escape
@@ -34,11 +35,25 @@ def url_locale():
 
 
 def accesa(azienda):
-    return azienda is not None and bool(parametri.leggi("ai.voce", azienda))
+    from . import funzioni
+    return azienda is not None and funzioni.attiva("voce") and bool(parametri.leggi("ai.voce", azienda))
 
 
 def dettatura_disponibile(azienda):
-    return accesa(azienda) and bool(url_locale())
+    return accesa(azienda) and (bool(url_locale()) or trascrizione_cloud(azienda) is not None)
+
+
+def trascrizione_cloud(azienda):
+    """Il servizio che trascrive in cloud per l'azienda (il suo, poi quello di tutte), solo con il consenso: l'audio
+    di chi parla esce dal server. None = Whisper locale."""
+    if not accesa(azienda) or not parametri.leggi("ai.trascrizione_cloud", azienda):
+        return None
+    base = ServizioVoce.objects.filter(attivo=True, uso=ServizioVoce.TRASCRIZIONE)
+    for qs in (base.filter(azienda=azienda), base.filter(azienda=None)):
+        servizio = qs.order_by("pk").first()
+        if servizio is not None:
+            return servizio
+    return None
 
 
 def servizio_per(azienda):
@@ -46,7 +61,8 @@ def servizio_per(azienda):
     if not accesa(azienda):
         return None
     cloud = bool(parametri.leggi("ai.voce_cloud", azienda))
-    for qs in (ServizioVoce.objects.filter(attivo=True, azienda=azienda), ServizioVoce.objects.filter(attivo=True, azienda=None)):
+    lettura = ServizioVoce.objects.filter(attivo=True, uso=ServizioVoce.LETTURA)
+    for qs in (lettura.filter(azienda=azienda), lettura.filter(azienda=None)):
         for s in qs.order_by("pk"):
             if (s.locale and url_locale()) or (not s.locale and cloud):
                 return s
@@ -55,12 +71,76 @@ def servizio_per(azienda):
 
 # ---------- dettatura ----------
 
-def trascrivi(file, lingua="", http_client=None):
+OVH_URL = "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+TEMPO_CLOUD = 30
+log = logging.getLogger(__name__)
+
+
+def parole_note(utente, azienda):
+    """Le parole da riconoscere anche se rare: il nome dell'assistente, il marchio, l'azienda e il nome dell'utente.
+    Senza, «Ada, quali appuntamenti…» diventava «Ha da quali…»."""
+    from django.conf import settings
+    parole = ["Ada", getattr(settings, "THEME", {}).get("brand", ""), getattr(azienda, "nome", ""),
+              getattr(utente, "first_name", ""), getattr(utente, "last_name", "")]
+    visti, uniche = set(), []
+    for p in parole:
+        p = " ".join(str(p or "").split())[:40]
+        if p and p.lower() not in visti:
+            visti.add(p.lower())
+            uniche.append(p)
+    return uniche[:10]
+
+
+def trascrivi(file, lingua="", http_client=None, azienda=None, parole=()):
+    """Il testo detto: con il servizio cloud dell'azienda se c'è (e se non risponde, con il Whisper locale), altrimenti
+    con il Whisper locale."""
     if file.size > MASSIMO_AUDIO:
         raise ErroreVoce("Registrazione troppo lunga.")
     tipo = (file.content_type or "").split(";")[0]
     if tipo not in TIPI_AUDIO:
         raise ErroreVoce("Formato audio non riconosciuto.")
+    servizio = trascrizione_cloud(azienda) if azienda is not None else None
+    if servizio is not None:
+        dati_audio = file.read()
+        try:
+            return trascrivi_cloud(servizio, dati_audio, file.name or "voce.webm", tipo, lingua, http_client, parole=parole)
+        except ErroreVoce:
+            if not url_locale():
+                raise
+            log.warning("trascrizione con «%s» non riuscita: si usa il Whisper locale", servizio.nome, exc_info=True)
+            file.seek(0)
+    if not url_locale():
+        raise ErroreVoce("La dettatura non è configurata.")
+    return _trascrivi_locale(file, tipo, lingua, http_client)
+
+
+def trascrivi_cloud(servizio, audio, nome, tipo, lingua="", http_client=None, parole=()):
+    """Mistral Voxtral e OVH (Whisper) parlano la stessa lingua di OpenAI: multipart con file, modello e lingua."""
+    if not servizio.chiave():
+        raise ErroreVoce(f"«{servizio.nome}»: manca la chiave API.")
+    url = {ServizioVoce.MISTRAL: "https://api.mistral.ai/v1", ServizioVoce.OVH: OVH_URL}.get(servizio.tipo)
+    if url is None:
+        raise ErroreVoce(f"«{servizio.nome}» non trascrive.")
+    dati = {"model": servizio.valore("modello")}
+    if lingua in ("it", "en"):
+        dati["language"] = lingua
+    client = http_client or httpx.Client(timeout=TEMPO_CLOUD, trust_env=False, follow_redirects=False)
+    try:
+        file = [("file", (nome, audio, tipo))]
+        if servizio.tipo == ServizioVoce.MISTRAL:          # Voxtral: parole da favorire (nomi propri, marchi)
+            file += [("context_bias", (None, p)) for p in parole]
+        r = client.post(f"{url}/audio/transcriptions", headers={"Authorization": f"Bearer {servizio.chiave()}"},
+                        files=file, data=dati)
+        _controlla(r, servizio.nome, "trascrizione")
+        return str(r.json().get("text", "")).strip()
+    except (httpx.HTTPError, ValueError, AttributeError) as e:
+        raise ErroreVoce(f"«{servizio.nome}» non risponde: {type(e).__name__}") from e
+    finally:
+        if http_client is None:
+            client.close()
+
+
+def _trascrivi_locale(file, tipo, lingua, http_client):
     dati = {"model": parametri.leggi("ai.modello_trascrizione") or "Systran/faster-whisper-small"}
     if lingua in ("it", "en"):
         dati["language"] = lingua
@@ -78,13 +158,18 @@ def trascrivi(file, lingua="", http_client=None):
 
 # ---------- che cosa si legge ----------
 
-_PAROLE_IT = {"il", "la", "di", "che", "e", "per", "un", "una", "non", "sono", "del", "della", "con", "le", "gli", "ho", "è", "nel"}
-_PAROLE_EN = {"the", "and", "of", "to", "is", "in", "that", "for", "with", "you", "are", "this", "it", "on", "have", "be", "not"}
+_PAROLE_IT = {"il", "la", "di", "che", "e", "per", "un", "una", "non", "sono", "del", "della", "con", "le", "gli", "ho", "è", "nel",
+              "hai", "oggi", "ci", "al", "alle", "dei", "delle", "questo", "questa", "mi", "ti", "si", "anche", "più", "ora"}
+# niente parole che esistono anche in italiano («in», «a»): con «Oggi hai sei appuntamenti in calendario» vinceva l'inglese
+_PAROLE_EN = {"the", "and", "of", "to", "is", "that", "for", "with", "you", "are", "this", "it", "on", "have", "be", "not"}
 
 
 def lingua_di(testo):
+    """«en» solo se l'inglese è evidente (almeno tre parole tipiche e il doppio delle italiane): i clienti sono
+    italiani, e un pezzo breve letto con la voce inglese suona sbagliato."""
     parole = re.findall(r"[a-zàèéìòù']+", testo.lower())
-    return "en" if sum(p in _PAROLE_EN for p in parole) > sum(p in _PAROLE_IT for p in parole) else "it"
+    inglesi, italiane = sum(p in _PAROLE_EN for p in parole), sum(p in _PAROLE_IT for p in parole)
+    return "en" if inglesi >= 3 and inglesi > 2 * italiane else "it"
 
 
 def da_leggere(markdown):
@@ -107,7 +192,39 @@ def da_leggere(markdown):
     testo = re.sub(r"^\s{0,3}(#{1,6}|[-*+]|\d+[.)]|>)\s+", "", testo, flags=re.M)
     testo = re.sub(r"(\*\*|__|\*|_|`|~~)", "", testo)
     testo = re.sub(r"^\s*(---|\*\*\*)\s*$", "", testo, flags=re.M)
+    testo = per_la_voce(testo)
     return re.sub(r"[ \t]+", " ", re.sub(r"\n{2,}", "\n", testo)).strip()
+
+
+MESI = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre",
+        "novembre", "dicembre"]
+EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D]")
+
+
+def per_la_voce(testo):
+    """Le cifre come si dicono: il testo resta in cifre (la guardia sui numeri le controlla), la voce le pronuncia.
+    13:30 → «13 e 30», 1.250,50 € → «1250 euro e 50», 16/11/2026 → «16 novembre 2026», 12% → «12 per cento»;
+    le emoji non si leggono."""
+    testo = EMOJI.sub("", testo)
+
+    def importo(m):
+        intero, cent = m.group("intero").replace(".", ""), (m.group("cent") or "").ljust(2, "0") if m.group("cent") else ""
+        return f"{intero} euro" + (f" e {int(cent)}" if cent and int(cent) else "")
+    soldi = r"(?P<intero>\d{1,3}(?:\.\d{3})+|\d+)(?:,(?P<cent>\d{1,2}))?"
+    testo = re.sub(r"€\s?" + soldi, importo, testo)
+    testo = re.sub(soldi + r"\s?(?:€|euro\b|EUR\b)", importo, testo)
+
+    def data(m):
+        g, mese, anno = int(m.group(1)), int(m.group(2)), m.group(3)
+        if not (1 <= g <= 31 and 1 <= mese <= 12):
+            return m.group(0)
+        return f"{g} {MESI[mese - 1]}" + (f" {anno if len(anno) == 4 else '20' + anno}" if anno else "")
+    testo = re.sub(r"\b(\d{1,2})/(\d{1,2})(?:/(\d{2}|\d{4}))?\b", data, testo)
+    testo = re.sub(r"\b([01]?\d|2[0-3])[:.]([0-5]\d)\b(?![.,]\d)",
+                   lambda m: f"{int(m.group(1))}" + (f" e {int(m.group(2))}" if int(m.group(2)) else ""), testo)
+    testo = re.sub(r"\b\d{1,3}(?:\.\d{3})+\b", lambda m: m.group(0).replace(".", ""), testo)
+    testo = re.sub(r"(\d),(\d)", r"\1 virgola \2", testo)
+    return re.sub(r"\s?%", " per cento", testo)
 
 
 def parti(testo):
@@ -139,18 +256,23 @@ def parti(testo):
 
 # ---------- lettura ----------
 
+def silenzio_wav(secondi=1, frequenza=16000):
+    """Un breve WAV muto, per provare un servizio di trascrizione senza mandare la voce di nessuno."""
+    return _wav(b"\x00\x00" * int(secondi * frequenza), frequenza)
+
+
 def _wav(pcm, frequenza=24000):
     return (b"RIFF" + struct.pack("<I", 36 + len(pcm)) + b"WAVEfmt " + struct.pack("<IHHIIHH", 16, 1, 1, frequenza, frequenza * 2, 2, 16)
             + b"data" + struct.pack("<I", len(pcm)) + pcm)
 
 
-def _controlla(r, nome):
+def _controlla(r, nome, azione="lettura"):
     if r.status_code in (401, 403):
-        raise ErroreVoce(f"{nome}: chiave non valida o testo rifiutato (HTTP {r.status_code}).")
+        raise ErroreVoce(f"{nome}: chiave non valida o richiesta rifiutata (HTTP {r.status_code}).")
     if r.status_code == 402:
         raise ErroreVoce(f"{nome}: credito esaurito.")
     if r.status_code != 200:
-        raise ErroreVoce(f"{nome}: lettura non riuscita (HTTP {r.status_code}).")
+        raise ErroreVoce(f"{nome}: {azione} non riuscita (HTTP {r.status_code}).")
 
 
 def sintetizza(servizio, testo, lingua="it", http_client=None):

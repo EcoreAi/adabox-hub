@@ -2,7 +2,7 @@
 from django.urls import path
 from django.views.generic import RedirectView
 
-from . import flusso, pagine
+from . import flusso, pagine, parla
 
 urlpatterns = [
     path("", RedirectView.as_view(pattern_name="ai:chat"), name="indice"),
@@ -34,9 +34,18 @@ urlpatterns = [
     path("chat/<int:pk>/condividi/", pagine.condividi_chat, name="condividi_chat"),
     path("salva-documenti/<slug:tipo>/<int:pk>/", pagine.salva_documenti, name="salva_documenti"),
     path("voce/trascrivi/", pagine.trascrivi_voce, name="trascrivi_voce"),
+    path("parla/", parla.pagina, name="parla"),
+    path("parla/<int:pk>/", parla.pagina, name="parla_conversazione"),
+    path("parla/ascolta/", parla.ascolta, name="parla_ascolta"),
+    path("parla/chiedi/", parla.chiedi, name="parla_chiedi"),
+    path("parla/audio/<int:pk>/<int:inizio>-<int:fine>/", parla.audio, name="parla_audio"),
+    path("parla/frase/<slug:chiave>/", parla.frase, name="parla_frase"),
     path("scrivi/<slug:campo>/", pagine.scrivi_con_ada, name="scrivi_con_ada"),
     path("riassumi/<int:ct>/<int:pk>/", pagine.riassumi_record, name="riassumi_record"),
     path("scrivi/esito/<int:pk>/", pagine.esito_scrittura, name="esito_scrittura"),
+    path("fonte/<int:pk>/", pagine.fonte_citata, name="fonte"),
+    path("documenti/<int:pk>/dimentica/", pagine.dimentica_documento, name="dimentica_documento"),
+    path("documenti/<int:pk>/riammetti/", pagine.riammetti_documento, name="riammetti_documento"),
     path("voce/messaggio/<int:pk>/", pagine.parti_voce, name="parti_voce"),
     path("voce/messaggio/<int:pk>/<int:parte>/", pagine.audio_voce, name="audio_voce"),
     path("documento/<int:pk>/", pagine.documento, name="documento"),
@@ -55,4 +64,5 @@ urlpatterns = [
     path("proposta/<int:pk>/conferma/", pagine.conferma_proposta, name="conferma_proposta"),
     path("proposta/<int:pk>/annulla/", pagine.annulla_proposta, name="annulla_proposta"),
     path("licenza/", pagine.pagina_licenza, name="licenza"),
+    path("strumenti/", pagine.strumenti, name="strumenti"),
 ]

@@ -74,6 +74,26 @@ class PaginaWiki(AziendaMixin):
         return list(reversed(nodi))
 
 
+class DomandaWiki(AziendaMixin):
+    """Una domanda fatta alla wiki («Chiedi alla wiki») senza trovare nulla: dice quali pagine mancano. Le stesse parole
+    si contano insieme; chi l'ha fatta non si salva."""
+    domanda = models.CharField("domanda", max_length=500)
+    chiave = models.CharField(max_length=64, editable=False)
+    volte = models.PositiveIntegerField("volte", default=1)
+    prima = models.DateTimeField("la prima volta", auto_now_add=True)
+    ultima = models.DateTimeField("l'ultima volta", auto_now=True)
+    risolta = models.BooleanField("risolta", default=False, help_text="la pagina che risponde è stata scritta")
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "domanda senza risposta"
+        verbose_name_plural = "domande senza risposta"
+        ordering = ["risolta", "-volte", "-ultima"]
+        constraints = [models.UniqueConstraint(fields=["azienda", "chiave"], name="wiki_domanda_unica")]
+
+    def __str__(self):
+        return self.domanda
+
+
 class VersionePagina(models.Model):
     pagina = models.ForeignKey(PaginaWiki, on_delete=models.CASCADE, related_name="versioni", verbose_name="pagina")
     numero = models.PositiveIntegerField("versione")

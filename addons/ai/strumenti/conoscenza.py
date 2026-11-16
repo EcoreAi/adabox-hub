@@ -23,29 +23,63 @@ def _visibilita(contesto):
     from ..conoscenza import ESCLUSI
     request = richiesta.per(contesto)
     spenti = ESCLUSI | disattivati()
-    cache = {}
+    cache, viste = {}, {}
 
-    def visibile(frammento):
-        chiave = (frammento.content_type_id, frammento.object_id)
-        if chiave not in cache:
-            modello = ContentType.objects.get_for_id(frammento.content_type_id).model_class()
+    def vista_di(content_type_id):
+        """La vista personalizzata per l'utente, se la può aprire; None altrimenti (una volta per tipo di record)."""
+        if content_type_id not in viste:
+            modello = ContentType.objects.get_for_id(content_type_id).model_class()
             vista = registry.per_modello(modello) if modello else None
-            cache[chiave] = None
+            viste[content_type_id] = None
             if vista is not None and vista.modulo not in spenti:
                 vista = vista.personalizzata(request)
-                if vista.has_view_permission(request) and vista.get_queryset(request).filter(
-                        pk=frammento.object_id).exists():
-                    cache[chiave] = vista
-        return cache[chiave] is not None
+                if vista.has_view_permission(request):
+                    viste[content_type_id] = vista
+        return viste[content_type_id]
+
+    def prepara(frammenti):
+        """Controlla in blocco i record non ancora visti: una query per tipo di record invece di una per record."""
+        da_vedere = {}
+        for f in frammenti:
+            if (f.content_type_id, f.object_id) not in cache:
+                da_vedere.setdefault(f.content_type_id, set()).add(f.object_id)
+        for content_type_id, ids in da_vedere.items():
+            vista = vista_di(content_type_id)
+            ammessi = set(vista.get_queryset(request).filter(pk__in=ids).values_list("pk", flat=True)) if vista else set()
+            for pk in ids:
+                cache[(content_type_id, pk)] = vista if pk in ammessi else None
+
+    def visibile(frammento):
+        if (frammento.content_type_id, frammento.object_id) not in cache:
+            prepara([frammento])
+        return cache[(frammento.content_type_id, frammento.object_id)] is not None
     visibile.cache = cache
+    visibile.prepara = prepara
     return visibile
 
 
-def cerca_conoscenza(contesto, domanda, fonti=None, app="", limite=8):
+def _documenti_di(contesto, dove):
+    """Gli id dei documenti in cui cercare: lo spazio personale dell'utente o la cartella dell'area di lavoro."""
+    from .. import archivio
+    if not archivio.attivo():
+        raise ErroreStrumento("L'app Documenti non è installata.")
+    from documenti.models import Documento, Spazio
+    if dove == "miei_documenti":
+        return set(Documento.objects.filter(azienda=contesto.azienda, cestinato_il__isnull=True, cartella__spazio__tipo=Spazio.PERSONALE,
+                                            cartella__spazio__proprietario=contesto.utente).values_list("pk", flat=True))
+    progetto = getattr(contesto.conversazione, "progetto", None)
+    radice = archivio.cartella(contesto.utente, contesto.azienda, getattr(progetto, "cartella_documenti", None))
+    if radice is None:
+        raise ErroreStrumento("Questa chat non è in un'area di lavoro con una cartella dei Documenti: cerca ovunque o nei documenti personali.")
+    return {d.pk for d in archivio.documenti_in(contesto.utente, contesto.azienda, radice)}
+
+
+def cerca_conoscenza(contesto, domanda, fonti=None, app="", limite=8, dove="ovunque"):
     from .. import conoscenza
     from ..models import Frammento
     if not (domanda or "").strip():
         raise ErroreStrumento("Indica la domanda o le parole da cercare.")
+    documenti = _documenti_di(contesto, dove) if dove in ("miei_documenti", "cartella_area") else None
     ammesse = dict(Frammento.FONTI)
     fonti = [f for f in (fonti or []) if f in ammesse] or None
     ambito = getattr(contesto.conversazione, "ambito", "") or ""
@@ -54,9 +88,14 @@ def cerca_conoscenza(contesto, domanda, fonti=None, app="", limite=8):
     except (TypeError, ValueError):
         limite = 8
     visibile = _visibilita(contesto)
-    trovati = conoscenza.cerca(domanda, contesto.utente, contesto.azienda, fonti, ambito or app, limite, visibile)
+    if documenti is not None:                          # i documenti sono dell'app Documenti: l'ambito della chat non li esclude
+        ambito = app = ""
+    trovati = conoscenza.cerca(domanda, contesto.utente, contesto.azienda, fonti, ambito or app, limite, visibile, documenti=documenti)
+    if not trovati and ambito:
+        conoscenza.senza_risultati(ambito, contesto.azienda, domanda)
     if not trovati:
-        return {"risultati": [], "nota": "Nessun testo pertinente tra quelli che l'utente può vedere. Dillo, senza "
+        dove_testo = {"miei_documenti": " nei documenti personali", "cartella_area": " nella cartella dell'area"}.get(dove, "")
+        return {"risultati": [], "nota": f"Nessun testo pertinente{dove_testo} tra quelli che l'utente può vedere. Dillo, senza "
                                          "inventare; se serve prova con altre parole o con cerca_record."}
     risultati = []
     for n, (f, punteggio) in enumerate(trovati, start=1):
@@ -65,14 +104,22 @@ def cerca_conoscenza(contesto, domanda, fonti=None, app="", limite=8):
             url = vista.url("dettaglio", pk=f.object_id)
         except Exception:
             url = ""
+        if url and "#" in f.chiave and f.chiave.split("#", 1)[1]:
+            url += "#" + f.chiave.split("#", 1)[1]                   # la sezione della pagina (wiki)
+        elif url and f.pagina:
+            url += f"?pagina={f.pagina}"                              # la pagina del PDF, aperta nell'anteprima
         estratto = f.testo if len(f.testo) <= LUNGHEZZA_ESTRATTO else f.testo[:LUNGHEZZA_ESTRATTO] + "…"
-        risultati.append({"n": n, "fonte": f.get_fonte_display(), "titolo": f.titolo, "url": url,
-                          "vista": f"{vista.modulo}.{vista.slug}", "id": f.object_id, "estratto": estratto,
-                          "pertinenza": punteggio})
+        voce = {"n": n, "fonte": f.get_fonte_display(), "titolo": f.titolo, "url": url,
+                "vista": f"{vista.modulo}.{vista.slug}", "id": f.object_id, "estratto": estratto, "pertinenza": punteggio}
+        if f.pagina:
+            voce["pagina"] = f.pagina
+        risultati.append(voce)
     semantica = bool(conoscenza.url_servizio())
     return {"risultati": risultati, "ricerca": "semantica e per parole chiave" if semantica else "per parole chiave",
             "istruzioni": "Rispondi solo con quello che dicono questi estratti e cita ogni informazione con il "
-                          "numero della fonte come link Markdown, es. [1](url). Se gli estratti non bastano, dillo."}
+                          "numero della fonte come link Markdown con il suo url, es. [1](url), nella stessa frase "
+                          "dell'informazione: ogni frase citata viene verificata sull'estratto. Se gli estratti non "
+                          "bastano, dillo."}
 
 
 def _documento(contesto, id):
@@ -91,19 +138,32 @@ def _dati(documento):
         return f.read(20 * 1024 * 1024)
 
 
-def leggi_documento(contesto, id, pagina=1):
+def leggi_documento(contesto, id, pagina=1, pagina_pdf=None):
+    """Il testo a blocchi di PAGINA_DOCUMENTO caratteri; nei PDF ogni pagina comincia con «[pagina N]», e con
+    `pagina_pdf` si parte da quella pagina del file (per leggere attorno a un estratto trovato con la ricerca)."""
     from ..conoscenza import testo_da_file
     vista, d = _documento(contesto, id)
-    testo = testo_da_file(d.nome, _dati(d))
-    if not testo.strip():
+    testo = testo_da_file(d.nome, _dati(d), segna_pagine=True)
+    if not testo.strip() or not any(r.strip() and not r.startswith("[pagina ") for r in testo.splitlines()):
         raise ErroreStrumento(f"Dal file «{d.nome}» non si ricava testo (tipo non supportato o scansione senza testo).")
+    url = vista.url("dettaglio", pk=d.pk)
+    if pagina_pdf:
+        try:
+            numero = max(1, int(pagina_pdf))
+        except (TypeError, ValueError):
+            raise ErroreStrumento("pagina_pdf dev'essere un numero di pagina.")
+        inizio = testo.find(f"[pagina {numero}]\n")
+        if inizio < 0:
+            raise ErroreStrumento(f"Il documento non ha la pagina {numero} (o non è un PDF).")
+        return {"documento": d.nome, "url": f"{url}?pagina={numero}", "da_pagina_pdf": numero,
+                "testo": testo[inizio:inizio + PAGINA_DOCUMENTO]}
     try:
         pagina = max(1, int(pagina))
     except (TypeError, ValueError):
         pagina = 1
     pagine = (len(testo) + PAGINA_DOCUMENTO - 1) // PAGINA_DOCUMENTO
     inizio = (pagina - 1) * PAGINA_DOCUMENTO
-    return {"documento": d.nome, "url": vista.url("dettaglio", pk=d.pk), "pagina": pagina, "pagine": pagine,
+    return {"documento": d.nome, "url": url, "pagina": pagina, "pagine": pagine,
             "testo": testo[inizio:inizio + PAGINA_DOCUMENTO]}
 
 
@@ -177,13 +237,18 @@ registra(Strumento(
         "fonti": {"type": "array", "items": {"type": "string", "enum": ["documento", "nota", "record"]},
                   "description": "solo queste fonti (default tutte)"},
         "app": {"type": "string", "description": "solo i testi di quest'app (slug)"},
+        "dove": {"type": "string", "enum": ["ovunque", "miei_documenti", "cartella_area"],
+                 "description": "ovunque (default); miei_documenti: solo lo spazio personale dell'utente nei Documenti, quando "
+                                "chiede dei «suoi» documenti; cartella_area: solo la cartella dei Documenti dell'area di lavoro della chat"},
         "limite": {"type": "integer", "description": "risultati (max 15, default 8)"}},
      "required": ["domanda"]}, cerca_conoscenza))
 registra(Strumento(
-    "leggi_documento", "Il testo di un documento dell'app Documenti, a pagine di circa 12.000 caratteri: per leggere "
-                       "per intero un documento trovato con cerca_conoscenza.",
+    "leggi_documento", "Il testo di un documento dell'app Documenti, a blocchi di circa 12.000 caratteri: per leggere "
+                       "per intero un documento trovato con cerca_conoscenza. Nei PDF ogni pagina del file comincia con "
+                       "«[pagina N]»; con pagina_pdf si legge a partire da quella pagina (es. quella di un estratto).",
     {"type": "object", "properties": {"id": {"type": "integer", "description": "id del documento"},
-                                      "pagina": {"type": "integer", "description": "da 1"}},
+                                      "pagina": {"type": "integer", "description": "blocco da leggere, da 1"},
+                                      "pagina_pdf": {"type": "integer", "description": "solo PDF: parti da questa pagina del file"}},
      "required": ["id"]}, leggi_documento, app="documenti"))
 registra(Strumento(
     "leggi_foglio", "Le righe di un file Excel o CSV dell'app Documenti (prima riga = intestazione), con un filtro di "

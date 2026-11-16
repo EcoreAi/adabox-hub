@@ -288,6 +288,43 @@
     const dopo = ultima && !messaggi.querySelector('[data-flusso]') && ultima.querySelector('[data-solo-ultima]');
     if (dopo) dopo.hidden = false;
   }
+  // --- fonti: il clic su una citazione apre accanto alla chat il testo citato, evidenziato. Ctrl/Cmd o il tasto
+  //     centrale aprono il link come sempre; se il link non è una fonte del turno (404) si va alla pagina ---
+  const pannelloFonte = chat.querySelector('#ai-fonte');
+  const chiudiFonte = () => {
+    if (!pannelloFonte) return;
+    pannelloFonte.hidden = true;
+    pannelloFonte.innerHTML = '';
+    messaggi.querySelectorAll('a.is-citata').forEach((a) => a.classList.remove('is-citata'));
+  };
+  const apriFonte = async (articolo, link) => {
+    const href = link.getAttribute('href');
+    const indirizzo = pannelloFonte.dataset.urlFonte.replace(/0\/$/, `${articolo.dataset.messaggio}/`);
+    let risposta;
+    try {
+      risposta = await fetch(`${indirizzo}?url=${encodeURIComponent(href)}`, { headers: { 'X-Requested-With': 'fetch' } });
+    } catch (err) { window.location.href = href; return; }
+    if (!risposta.ok) { window.location.href = href; return; }
+    pannelloFonte.innerHTML = await risposta.text();
+    pannelloFonte.hidden = false;
+    messaggi.querySelectorAll('a.is-citata').forEach((a) => a.classList.remove('is-citata'));
+    link.classList.add('is-citata');
+    const primo = pannelloFonte.querySelector('mark') || pannelloFonte.querySelector('[data-aperta]');
+    if (primo) primo.scrollIntoView({ block: 'center' });
+  };
+  if (pannelloFonte) {
+    pannelloFonte.addEventListener('click', (e) => { if (e.target.closest('[data-chiudi-fonte]')) chiudiFonte(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !pannelloFonte.hidden) chiudiFonte(); });
+  }
+  messaggi.addEventListener('click', (e) => {
+    const link = e.target.closest('.ai-msg-testo a[href^="/"], .ai-pv-card a[href^="/"]');
+    const conLink = link && link.closest('[data-messaggio]');
+    if (pannelloFonte && conLink && !(e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) && link.target !== '_blank') {
+      e.preventDefault();
+      apriFonte(conLink, link);
+      return;
+    }
+  });
   messaggi.addEventListener('click', (e) => {
     const articolo = e.target.closest('[data-messaggio]');
     if (!articolo) return;

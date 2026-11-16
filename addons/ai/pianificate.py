@@ -61,6 +61,9 @@ def calcola_prossima(p, da=None):
 def esegui_scadute():
     """Le pianificazioni scadute: la prossima esecuzione si sposta subito (nella stessa transazione, così con più
     worker ognuna parte una volta sola), poi si eseguono una alla volta."""
+    from . import funzioni
+    if not funzioni.attiva("pianificate"):
+        return "saltata: attività pianificate non comprese nella licenza"
     adesso = timezone.now()
     with transaction.atomic():
         qs = Pianificata.objects.filter(attiva=True, prossima__lte=adesso).order_by("prossima")

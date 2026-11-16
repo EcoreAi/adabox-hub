@@ -1,0 +1,5 @@
+{% load connettori %}{% gestito_da obj as sistema %}{% if sistema %}
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  <span class="ui-pill ui-pill-warn">Da {{ sistema }}</span>
+  Questo ordine arriva da {{ sistema }} e si aggiorna da lì: in adabox si consulta, ma si modifica, si consegna e si fattura in {{ sistema }}.
+</div></section>{% endif %}

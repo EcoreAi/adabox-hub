@@ -20,6 +20,8 @@ def fatture_attive(ordine):
 @transaction.atomic
 def da_ordine(ordine):
     """Fattura in bozza con le righe dell'ordine di vendita confermato; un ordine già fatturato non si rifattura."""
+    from core import esterni
+    esterni.controlla(ordine, "la fattura")         # gli ordini di Odoo si fatturano in Odoo: mai due volte allo SDI
     ordine = type(ordine).objects.select_for_update().get(pk=ordine.pk)      # due clic insieme: passa uno solo
     if ordine.stato != "confermato":
         raise ValidationError("Si fattura solo un ordine confermato.")

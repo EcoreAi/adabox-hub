@@ -12,7 +12,11 @@ class AiConfig(AppConfig):
 
         from . import allegati_chat
         from .models import MessaggioChat, ProgettoChat
+        from core import funzioni
         from core.registry import hooks
+
+        from . import licenza
+        funzioni.fonte("ai", lambda: licenza.comprese())  # l'assistente può avere una licenza sua (ai.licenza)
         hooks.sezione_dettaglio("ai.ValutazioneRisposta", "ai/_valutazione.html", order=5)
         hooks.sezione_dettaglio("ai.ProgettoChat", "ai/_progetto.html", order=5)
         hooks.voce_testata("ai/_scrivi_con_ada.html", order=200, permission="ai.add_conversazione")
@@ -27,9 +31,12 @@ class AiConfig(AppConfig):
         post_delete.connect(allegati_chat.togli_file, sender=ProgettoChat, dispatch_uid="ai.togli_file_progetto")
         from django.db.models.signals import pre_delete
         pre_delete.connect(_chat_all_area_personale, sender=ProgettoChat, dispatch_uid="ai.chat_area_personale")
+        from . import segnali
+        segnali.collega_sezioni()
+        segnali.collega_costi()
         if apps.is_installed("documenti"):
-            from . import segnali
             segnali.collega_documenti()
+            hooks.sezione_dettaglio("documenti.Documento", "ai/_indice_documento.html", order=6, permission="ai.add_conversazione")
 
 
 def _chat_all_area_personale(sender, instance, **kwargs):

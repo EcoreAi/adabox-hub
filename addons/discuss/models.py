@@ -330,6 +330,11 @@ class Sportello(models.Model):
     risposte_per_chat = models.PositiveIntegerField("risposte AI per conversazione", default=20, help_text="Oltre, passa a una persona.")
     risposte_al_giorno = models.PositiveIntegerField("risposte AI al giorno", default=300, help_text="Il tetto contro gli abusi: oltre, passa alle persone.")
     azienda = models.ForeignKey("core.Azienda", on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="azienda", help_text="A chi vanno i costi dell'AI e quale tetto di spesa vale.")
+    portale = models.BooleanField("risponde anche nel portale clienti", default=False,
+                                  help_text="I clienti autenticati possono fare domande all'AI dal portale: risponde con questa conoscenza, "
+                                            "la guida pubblicata e il riepilogo dei loro documenti che vedono già nel portale.")
+    spazi_wiki = models.JSONField("spazi della wiki", default=list, blank=True, editable=False,
+                                  help_text="id degli spazi della wiki le cui pagine l'AI può riferire ai visitatori (discuss.conoscenza_wiki)")
     chiave = models.CharField("chiave", max_length=40, unique=True, default=_nuova_chiave, editable=False)
     attivo = models.BooleanField("attivo", default=True)
     creato = models.DateTimeField("creato il", auto_now_add=True)
@@ -505,11 +510,14 @@ class SandboxEvento(models.Model):
 
 class VoceConoscenza(models.Model):
     """Ciò che l'AI del sito può dire. Sta in tabelle sue: i record e i documenti interni non sono raggiungibili da lì."""
-    FAQ, DOCUMENTO = "faq", "documento"
+    FAQ, DOCUMENTO, WIKI = "faq", "documento", "wiki"
     sportello = models.ForeignKey(Sportello, on_delete=models.CASCADE, related_name="conoscenza", verbose_name="sportello")
-    tipo = models.CharField("tipo", max_length=10, choices=[(FAQ, "Domanda frequente"), (DOCUMENTO, "Documento")], default=FAQ)
+    tipo = models.CharField("tipo", max_length=10, choices=[(FAQ, "Domanda frequente"), (DOCUMENTO, "Documento"), (WIKI, "Pagina della wiki")],
+                            default=FAQ)
     titolo = models.CharField("titolo o domanda", max_length=200)
     testo = models.TextField("testo o risposta", help_text="Tutto ciò che scrivi qui può essere detto ai visitatori.")
+    pagina_wiki = models.PositiveBigIntegerField("pagina della wiki", null=True, blank=True, editable=False,
+                                                 help_text="copiata da questa pagina: si modifica nella wiki")
     attiva = models.BooleanField("attiva", default=True)
     n_frammenti = models.PositiveIntegerField("frammenti", default=0, editable=False)
     aggiornata = models.DateTimeField("aggiornata il", auto_now=True)
@@ -518,6 +526,8 @@ class VoceConoscenza(models.Model):
         verbose_name = "voce della conoscenza del sito"
         verbose_name_plural = "conoscenza del sito"
         ordering = ["tipo", "titolo"]
+        constraints = [models.UniqueConstraint(fields=["sportello", "pagina_wiki"], condition=models.Q(pagina_wiki__isnull=False),
+                                               name="discuss_voce_pagina_wiki_unica")]
 
     def __str__(self):
         return self.titolo
@@ -533,6 +543,27 @@ class FrammentoPubblico(models.Model):
         verbose_name = "frammento pubblico"
         verbose_name_plural = "frammenti pubblici"
         ordering = ["voce", "ordine"]
+
+
+class DomandaPortale(models.Model):
+    """Una domanda di un cliente all'assistente del portale, con la risposta: la storia del cliente e il registro per lo
+    staff (il cliente lo sa dalla pagina)."""
+    sportello = models.ForeignKey(Sportello, on_delete=models.CASCADE, related_name="domande_portale", verbose_name="sportello")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+", verbose_name="persona")
+    cliente = models.ForeignKey("contatti.Contatto", on_delete=models.CASCADE, related_name="+", verbose_name="cliente")
+    domanda = models.TextField("domanda")
+    risposta = models.TextField("risposta", blank=True)
+    fonti = models.JSONField("fonti", default=list, blank=True)
+    senza_risposta = models.BooleanField("senza risposta", default=False, help_text="l'AI non sapeva: proposta una richiesta di assistenza")
+    creata = models.DateTimeField("creata il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "domanda dal portale"
+        verbose_name_plural = "domande dal portale"
+        ordering = ["-creata", "-pk"]
+
+    def __str__(self):
+        return self.domanda[:80]
 
 
 class DomandaSenzaRisposta(models.Model):

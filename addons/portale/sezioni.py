@@ -5,16 +5,17 @@ nella testata e in home. Il cliente vede solo i documenti del suo cliente (Acces
     sezioni.registra("fatture", "Fatture", "fatturazione:portale_fatture", ordine=30,
                      riepilogo="fatturazione.portale.riepilogo", attive=["portale_fatture"])
 
-`riepilogo(accesso)` restituisce {"conta": int, "nota": str, "voci": [(titolo, url, nota)]} per la scheda in home."""
+`riepilogo(accesso)` restituisce {"conta": int, "nota": str, "voci": [(titolo, url, nota)]} per la scheda in home.
+`visibile(accesso)` (facoltativo) dice se la sezione c'è per quel cliente (es. l'assistente, solo se configurato)."""
 from django.urls import NoReverseMatch, reverse
 from django.utils.module_loading import import_string
 
 _sezioni = {}
 
 
-def registra(chiave, titolo, url_name, ordine=100, riepilogo=None, attive=()):
+def registra(chiave, titolo, url_name, ordine=100, riepilogo=None, attive=(), visibile=None):
     _sezioni[chiave] = {"chiave": chiave, "titolo": titolo, "url_name": url_name, "ordine": ordine, "riepilogo": riepilogo,
-                        "attive": set(attive) | {url_name.split(":")[-1]}}
+                        "attive": set(attive) | {url_name.split(":")[-1]}, "visibile": visibile}
 
 
 def per(accesso, con_riepilogo=False):
@@ -25,6 +26,14 @@ def per(accesso, con_riepilogo=False):
     for s in sorted(_sezioni.values(), key=lambda v: (v["ordine"], v["titolo"])):
         if s["url_name"].split(":")[0] in spenti:
             continue
+        if s["visibile"] and accesso is not None:
+            try:
+                if not import_string(s["visibile"])(accesso):
+                    continue
+            except Exception:                              # noqa: BLE001 - nel dubbio la sezione non si mostra
+                import logging
+                logging.getLogger("portale").exception("visibilità della sezione %s", s["chiave"])
+                continue
         try:
             url = reverse(s["url_name"])
         except NoReverseMatch:

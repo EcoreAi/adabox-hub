@@ -5,6 +5,7 @@ import secrets
 import uuid
 from urllib.parse import urlsplit
 
+from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -127,8 +128,8 @@ class RiferimentoEsterno(AziendaMixin):
 class CollegamentoEsterno(AziendaMixin):
     """Il legame di un'azienda con un sistema esterno: quale, con quale token, che cosa passa (persone, aziende,
     opportunità) e chi comanda."""
-    HUBSPOT = "hubspot"
-    SISTEMI = [(HUBSPOT, "HubSpot")]
+    HUBSPOT, SALESFORCE, ZOHO, ODOO = "hubspot", "salesforce", "zoho", "odoo"
+    SISTEMI = [(HUBSPOT, "HubSpot"), (SALESFORCE, "Salesforce"), (ZOHO, "Zoho CRM"), (ODOO, "Odoo")]
     PROVA, VERA = "prova", "vera"
     MODALITA = [(PROVA, "Prova, senza uscire in rete"), (VERA, "Vera")]
     ESTERNO, ADABOX = "esterno", "adabox"
@@ -137,9 +138,26 @@ class CollegamentoEsterno(AziendaMixin):
     modalita = models.CharField("modalità", max_length=8, choices=MODALITA, default=PROVA)
     comanda = models.CharField("chi comanda", max_length=8, choices=COMANDI, default=ESTERNO)
     attivo = models.BooleanField("attivo", default=True)
-    token_cifrato = models.TextField(blank=True, editable=False)
+    token_cifrato = models.TextField(blank=True, editable=False)          # HubSpot: token dell'app privata; Zoho: refresh token
+    indirizzo = models.CharField("indirizzo", max_length=200, blank=True,
+                                 help_text="Salesforce: il My Domain (azienda.my.salesforce.com); Zoho: il data center (com, eu, in, com.au, jp, ca, sa)")
+    client_id = models.CharField("client id", max_length=200, blank=True, help_text="Salesforce e Zoho: l'identificativo dell'app")
+    database = models.CharField("database", max_length=80, blank=True, help_text="Odoo: il nome del database (se l'indirizzo ne serve più d'uno)")
+    per_utente = models.BooleanField("ogni utente con la sua chiave", default=False,
+                                     help_text="Odoo: ogni utente collega il suo account e vede in adabox solo ciò che quel sistema mostra a lui")
+    scrive_da_adabox = models.BooleanField("le modifiche fatte in adabox tornano lì", default=False,
+                                           help_text="con «ogni utente con la sua chiave»: contatti e opportunità salvati in adabox si scrivono "
+                                                     "nel sistema con la chiave di chi li salva, quindi con i suoi permessi")
+    segreto_cifrato = models.TextField(blank=True, editable=False)        # Salesforce e Zoho: il client secret
+    accesso_cifrato = models.TextField(blank=True, editable=False)        # il token di accesso del momento, condiviso tra i lavori
+    accesso_scade = models.DateTimeField(null=True, blank=True, editable=False)
     aziende = models.BooleanField("anche le aziende", default=True,
                                   help_text="le aziende (companies) con le persone che ci lavorano")
+    ordini = models.BooleanField("anche gli ordini di vendita", default=False,
+                                 help_text="gli ordini (Odoo) con righe e prodotti, in sola lettura: consegne e fatture restano a Odoo")
+    calendario = models.BooleanField("anche il calendario", default=False,
+                                     help_text="gli appuntamenti (Odoo): organizzatore e partecipanti che hanno collegato il loro account, "
+                                               "i clienti invitati; niente inviti dal calendario di adabox")
     opportunita = models.BooleanField("anche le opportunità", default=True,
                                       help_text="le opportunità (deals) con fase, valore e chiusura prevista; serve il CRM")
     cursore = models.DateTimeField("letto fino a", null=True, blank=True, editable=False)
@@ -153,6 +171,7 @@ class CollegamentoEsterno(AziendaMixin):
         verbose_name_plural = "collegamenti"
         ordering = ["sistema", "pk"]
         constraints = [models.UniqueConstraint(fields=["azienda", "sistema"], name="connettori_un_collegamento_per_sistema")]
+        permissions = [("vede_tutti_i_dati_esterni", "Vede anche i dati esterni che il sistema mostra ad altri utenti")]
 
     def __str__(self):
         return f"{self.get_sistema_display()} ({self.get_modalita_display().split(',')[0].lower()})"
@@ -160,9 +179,50 @@ class CollegamentoEsterno(AziendaMixin):
     def token(self):
         return cifratura.decifra(self.token_cifrato)
 
+    def segreto(self):
+        return cifratura.decifra(self.segreto_cifrato)
+
+
+class AccountEsterno(models.Model):
+    """L'account di un utente su un sistema esterno (collegamento «ogni utente con la sua chiave»): i dati arrivano con
+    la sua chiave, quindi con i suoi permessi in quel sistema, e in adabox li vede lui (VisibilitaEsterna)."""
+    collegamento = models.ForeignKey(CollegamentoEsterno, on_delete=models.CASCADE, related_name="account", verbose_name="collegamento")
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="account_esterni", verbose_name="utente")
+    chiave_cifrata = models.TextField(blank=True, editable=False)
+    id_utente_esterno = models.CharField("utente nel sistema", max_length=64, blank=True, editable=False)
+    cursori = models.JSONField("letto fino a, per tipo", default=dict, blank=True, editable=False)
+    ultimo_giro = models.DateTimeField("ultimo giro", null=True, blank=True, editable=False)
+    ultimo_esito = models.CharField("ultimo esito", max_length=500, blank=True, editable=False)
+    in_errore = models.BooleanField("da ricollegare", default=False, editable=False)
+    creato = models.DateTimeField("collegato il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "account esterno"
+        verbose_name_plural = "account esterni"
+        ordering = ["collegamento", "utente"]
+        constraints = [models.UniqueConstraint(fields=["collegamento", "utente"], name="connettori_un_account_per_utente")]
+
+    def __str__(self):
+        return f"{self.utente} su {self.collegamento.get_sistema_display()}"
+
+    def chiave(self):
+        return cifratura.decifra(self.chiave_cifrata)
+
+
+class VisibilitaEsterna(models.Model):
+    """Questo account vede questo record nel sistema esterno: in adabox il record arrivato da lì lo vede chi ce l'ha."""
+    riferimento = models.ForeignKey(RiferimentoEsterno, on_delete=models.CASCADE, related_name="visibilita")
+    account = models.ForeignKey(AccountEsterno, on_delete=models.CASCADE, related_name="visibili")
+
+    class Meta:
+        verbose_name = "visibilità esterna"
+        verbose_name_plural = "visibilità esterne"
+        constraints = [models.UniqueConstraint(fields=["riferimento", "account"], name="connettori_visibilita_unica")]
+
 
 class RecordProva(models.Model):
-    """Un record del sistema esterno finto: fa le veci di HubSpot quando il collegamento è in prova."""
+    """Un record del sistema esterno finto: fa le veci di HubSpot, Salesforce o Zoho quando il collegamento è in prova,
+    con i nomi dei campi di quel sistema."""
     collegamento = models.ForeignKey(CollegamentoEsterno, on_delete=models.CASCADE, related_name="record_prova")
     tipo = models.CharField(max_length=20, default="contacts")
     id_esterno = models.CharField(max_length=40)

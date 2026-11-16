@@ -1,0 +1,36 @@
+<div class="ui-login-card" style="max-width:520px;">
+  <div class="ui-login-header">
+    <span class="mark">{% include "theme/partials/_logo.html" %}</span>
+    <h1>Collegare {{ fornitore }} ad adabox?</h1>
+    <p>{% if nome_client %}«{{ nome_client }}» chiede{% else %}Una chat chiede{% endif %} di leggere i dati di adabox a nome tuo, {{ request.user.get_full_name|default:request.user.username }}.</p>
+  </div>
+  <form method="post" class="ui-login-body">
+    {% csrf_token %}
+    {% for chiave, valore in nascosti %}<input type="hidden" name="{{ chiave }}" value="{{ valore }}">{% endfor %}
+    {% if errore %}<div class="ui-alert ui-alert-danger" role="alert">{{ errore }}</div>{% endif %}
+    <div class="ui-alert ui-alert-warning">Consenti solo se hai avviato tu il collegamento da {{ fornitore }}, adesso. Se questa pagina si è aperta da un link ricevuto, annulla.</div>
+    {% if locale %}<div class="ui-alert ui-alert-info">La richiesta arriva da un programma sul tuo computer, non dal sito di un fornitore.</div>{% endif %}
+    <ul class="ui-help" style="margin:0 0 14px; padding-left:18px;">
+      <li>Legge solo ciò che in adabox puoi vedere tu, con i tuoi permessi di ogni momento.</li>
+      <li>Non può creare, modificare né eliminare niente.</li>
+      <li>I dati letti arrivano a {{ fornitore }} e restano nella cronologia di quella chat.</li>
+      <li>Puoi scollegarla quando vuoi da «Le mie chat AI».</li>
+    </ul>
+    {% if aziende|length > 1 %}
+    <div class="ui-form-group">
+      <span class="ui-label">Azienda</span>
+      {% for a in aziende %}<label style="display:block;"><input type="radio" name="azienda" value="{{ a.pk }}" {% if a.pk|stringformat:"s" == azienda_scelta %}checked{% endif %} required> {{ a }}</label>{% endfor %}
+    </div>
+    {% else %}<input type="hidden" name="azienda" value="{{ aziende.0.pk }}"><p class="ui-help">Azienda: <strong>{{ aziende.0 }}</strong></p>{% endif %}
+    <div class="ui-form-group">
+      <span class="ui-label">Che cosa può leggere</span>
+      <label style="display:block;"><input type="radio" name="quali" value="tutte" checked> Tutte le app che vedo, anche documenti e note</label>
+      <label style="display:block;"><input type="radio" name="quali" value="alcune"> Solo queste app</label>
+      <div style="margin:6px 0 0 22px; columns:2;">
+        {% for a in app_visibili %}<label style="display:block;"><input type="checkbox" name="app" value="{{ a.slug }}"> {{ a.label }}</label>{% endfor %}
+      </div>
+    </div>
+    <button class="ui-btn ui-btn-primary" type="submit" name="consenti" value="1" style="width:100%; justify-content:center;">Consenti la lettura</button>
+    <button class="ui-btn ui-btn-secondary" type="submit" name="nega" value="1" formnovalidate style="width:100%; justify-content:center; margin-top:8px;">Annulla</button>
+  </form>
+</div>

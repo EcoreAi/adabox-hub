@@ -60,6 +60,7 @@ Un'app minima non scrive né viste né template: bastano modello, `ModelView` e 
    ```
    Lo slug (`^[a-z][a-z0-9_]{1,30}$`) è il nome della cartella e del pacchetto. Chiavi
    sconosciute sono un errore. `python manage.py modulo verifica addons/<slug>` lo valida.
+   Le parti che un piano può comprendere o no si dichiarano in `"funzioni"` (vedi «Funzioni attivabili dei moduli»).
 2. **Pacchetto Django** — `__init__.py`, `apps.py`, `models.py`, `migrations/`. I modelli
    per azienda ereditano `core.mixins.AziendaMixin`; quelli condivisi (tag, tipi) no.
    Le migrazioni si generano con `ADDONS_FORCE=<slug> python manage.py makemigrations <slug>`
@@ -86,7 +87,10 @@ Un'app minima non scrive né viste né template: bastano modello, `ModelView` e 
    HTMX), nuovo, dettaglio, modifica, elimina (modale), azioni e bottoni, con nomi URL
    `<slug>:<vista>_lista|_nuovo|_dettaglio|_modifica|_elimina|_azione|_bottone` e i permessi
    Django del modello. Pagine proprie: `urls.py` del modulo (montato sotto lo stesso prefisso)
-   e template che estendono `core/base_app.html`.
+   e template che estendono `core/base_app.html`. Dal kernel 1.2 `urls.py` può dichiarare anche
+   `urlpatterns_radice`: indirizzi fuori dal prefisso, per i casi in cui il percorso lo fissa uno
+   standard (`/.well-known/…`). Stanno alla radice senza namespace: nomi unici, e la vista controlla
+   da sé se il modulo è acceso, perché i middleware dei moduli lì non arrivano.
 4. **Gruppi, fixture, hook** — i gruppi del manifest si creano all'installazione (`app.*` =
    tutti i permessi dell'app); le fixture `data` si caricano a ogni installazione e
    aggiornamento (pk fissi), quelle `demo` solo con `--demo`; `hooks.py` può definire
@@ -201,6 +205,7 @@ con `core.mixins.ProprietaMixin` (valori nel JSON `proprieta`): compaiono nel fo
 | `studio` | — | adatta le viste senza programmare: colonne, filtri, ricerca, raggruppamenti, form, etichette, kanban; storico, esporta/importa |
 | `documenti` | — | archivio per cartelle con permessi ereditati, anteprima, tag, cestino, zip; link pubblici a scadenza, richieste di documenti, cartelle che raccolgono gli allegati dei record |
 | `discuss` | — | canali e messaggi diretti tra colleghi, menzioni, posta in arrivo (anche dal chatter), campanella in testata, email per i non letti |
+| `sharepoint` | documenti | cartelle dei Documenti allineate con SharePoint (Microsoft 365) da SharePoint, verso SharePoint o nei due versi, con le sottocartelle |
 
 `python manage.py modulo installa timesheet crm helpdesk calendario --demo --si` installa tutto, con le dipendenze
 (contatti, progetti) e i dati dimostrativi. Chi installa un'app riceve il suo gruppo base; i gruppi "Responsabile"
@@ -326,6 +331,26 @@ Spec `docs/superpowers/specs/2026-10-29-adabox-hub-documenti-spazi-design.md`.
 - **Versioni**: un file con lo stesso nome nella stessa cartella diventa la versione nuova del documento; si
   tengono le ultime N (impostazione, default 10), si scaricano e si ripristinano dall'anteprima.
 
+### SharePoint
+
+Il modulo `sharepoint` (dipende da `documenti`) tiene una cartella dei Documenti allineata con una cartella di una
+raccolta documenti di SharePoint, attraverso Microsoft Graph. Ogni collegamento sceglie la cartella, il verso (da
+SharePoint, verso SharePoint, nei due versi) e la modalità: **prova** risponde una SharePoint finta con lo stesso
+formato, senza uscire in rete, con i bottoni «Simula un file nuovo» e «Simula una modifica».
+
+- **Giro ogni 15 minuti** (cron) e «Sincronizza ora»: si legge l'albero della cartella su SharePoint, si copia qui ciò
+  che è nuovo o cambiato (cTag), poi si scrive là ciò che è cambiato in adabox (versione del documento). Le
+  sottocartelle diventano cartelle con lo stesso nome, nei due sensi.
+- **Conflitti**: se un file cambia da entrambe le parti vince SharePoint, e il file di adabox resta tra le versioni
+  precedenti del documento. Un file rinominato o spostato da una parte si rinomina o si sposta dall'altra.
+- **Cancellazioni**: un file tolto da SharePoint finisce nel cestino dei Documenti; su SharePoint non si cancella mai
+  nulla. Valgono la dimensione massima e le quote dei Documenti.
+- **Collegamento vero**: un'app registrata in Microsoft Entra ID con un client secret e i permessi applicativi di
+  Microsoft Graph `Sites.Selected` (l'amministratore concede all'app la scrittura sul solo sito) oppure
+  `Sites.ReadWrite.All`. Nel collegamento: indirizzo del sito, raccolta (vuoto = quella predefinita), cartella,
+  tenant, client id e client secret (cifrato, non si rilegge). Le chiamate vanno solo a `graph.microsoft.com` e
+  `login.microsoftonline.com`; download e caricamenti grandi solo verso indirizzi https di Microsoft.
+
 ### Assistente AI
 
 Spec `docs/superpowers/specs/2026-10-29-adabox-hub-modulo-ai-design.md`; fasi AI-1 (fondamenta), AI-2 (strumenti
@@ -333,20 +358,44 @@ dalle app), AI-3 (proattività), AI-4 (conoscenza), AI-5 (fiducia), AI-6 (specia
 completate.
 
 - **Configurazione** (gruppo «AI / Amministratore»):
-  - in `/ai/provider/` la chiave API di Anthropic, salvata cifrata con `CHIAVE_CIFRATURA` o, se manca, con una
-    chiave derivata da `SECRET_KEY`; in `/ai/chiavi/` una chiave diversa per azienda;
+  - in `/ai/provider/` i fornitori dei modelli, ognuno con la sua chiave API, salvata cifrata con `CHIAVE_CIFRATURA`
+    o, se manca, con una chiave derivata da `SECRET_KEY`; in `/ai/chiavi/` una chiave diversa per azienda. I tipi:
+    **Anthropic** (Claude), **OpenAI** (GPT), **Google** (Gemini), **Mistral**, «compatibile OpenAI» e il modello
+    finto. Per i primi quattro basta la chiave: l'indirizzo è il loro. «Scegli dal catalogo» legge i modelli da
+    OpenAI, Gemini, Mistral e dagli endpoint compatibili; i prezzi che il fornitore non dà si scrivono nel modello;
   - in `/ai/modelli/` modelli e prezzi (all'installazione: Claude Haiku, Sonnet e Opus 5.5);
   - in `/ai/profili/` quale catena di modelli usa ogni compito (chat, titoli, riassunti, pianificate,
     classificazione), anche per singola app o azienda. Il modello successivo della catena entra solo se il
     precedente fallisce prima di rispondere;
-  - Ollama, OpenRouter, OpenAI, vLLM e Gemini si aggiungono come provider "compatibile OpenAI" con il loro URL.
+  - Ollama, OpenRouter e vLLM si aggiungono come provider «compatibile OpenAI» con il loro URL. Ciò che distingue i
+    fornitori sta in `gateway/openai_compat.py`: OpenAI vuole `max_completion_tokens`; Gemini, dalla serie 3, mette
+    una firma del ragionamento sulle chiamate agli strumenti e la rivuole identica nei turni successivi (il gateway la
+    conserva e la rimanda solo a lui). OpenAI e Gemini sono provati con risposte simulate, non con i servizi veri;
+  - quale fornitore risponde in chat lo decide chi amministra: i modelli con il livello «Veloce» e «Avanzato», e la
+    catena del profilo come riserva. Così un piano può offrire Claude, GPT, Gemini o Mistral con un solo abbonamento.
 - **Licenza**:
   - si carica in `/ai/licenza/` il file JSON firmato da ICHNOBYTE con
     `python manage.py ai_licenza --chiave privata.pem --cliente ... --scadenza AAAA-MM-GG --utenti N`;
   - la firma si verifica con `MODULI_CHIAVI_FIDATE`, le stesse chiavi dei pacchetti;
   - in sviluppo `AI_LICENZA_SVILUPPO=True` simula una licenza;
+  - le **funzioni** comprese (`--funzioni memoria,ricerca_web`; senza, tutte) decidono la versione dell'assistente:
+    scelta del modello, ricerca sul web, memoria, aree di lavoro, pianificate, ricerca nei documenti, modifiche ai
+    dati, documenti, grafici, assistenti ed esperti, previsioni, MCP, voce. Ciò che ognuna spegne è in
+    `addons/ai/funzioni.py`; la pagina `/ai/licenza/` le elenca. Vedi «Funzioni attivabili dei moduli»;
+  - la pagina **Strumenti** (`/ai/strumenti/`) elenca gli strumenti di Ada con funzione, app, rischio e se sono
+    disponibili (se no, perché). Si spengono per l'azienda (permesso `ai.change_strumentospento`) o per tutta
+    l'istanza (Global Admin); spegnere toglie e basta, e a quale funzione appartiene uno strumento resta nel codice;
   - il tetto di spesa mensile per azienda (default 50 $) e la soglia dell'avviso agli amministratori stanno in
-    `/impostazioni/`. I consumi di ogni chiamata sono in `/ai/consumi/`.
+    `/impostazioni/`. I consumi di ogni chiamata sono in `/ai/consumi/`: non si eliminano, e i turni di una chat
+    eliminata restano come righe di costo senza più contenuto;
+  - la **formula** della licenza dice come si vende l'assistente. «propria»: la chiave è del cliente, come finora.
+    «inclusa»: l'assistente è nel canone, con una quota mensile per utente e per istanza. «consumo»: si fattura
+    l'utilizzo, con un tetto facoltativo. Le quote contano il costo sui provider **forniti con il piano**
+    (`Provider.gestito`): la chiave è di chi vende, provider, modelli e prezzi li cambia solo il Global Admin, e la
+    chiave dell'azienda lì non vale. A quota finita quei modelli escono dalla catena (`ai.limiti.ammessi`) fino al
+    primo del mese e restano quelli con una chiave dell'azienda o locali, se ci sono; la chat avvisa dall'80%. Senza
+    portale: `ai_licenza --formula inclusa --quota-utente 5 --quota-istanza 200`. Le formule «inclusa» e «consumo»
+    sono affidabili solo sulle istanze ospitate: su un server del cliente la chiave e i contatori sono in mano sua.
 - **Come funziona**:
   - ogni domanda è un turno eseguito in un thread (o nel processo con `AI_TURNI_SINCRONI=True`);
   - il contesto del modello si ricostruisce dal log degli eventi, in sola aggiunta: i blocchi di ragionamento
@@ -404,6 +453,34 @@ completate.
     `docker-compose.override.yml`;
   - i vettori stanno nel database e si confrontano in Python (adatto fino a decine di migliaia di frammenti);
     pgvector è il passo successivo quando il database sarà Postgres.
+  - la classifica si taglia dopo i permessi e l'app della chat: i candidati si scorrono in ordine di punteggio, a
+    finestre di 200, con una query per tipo di record, finché non ci sono abbastanza risultati visibili;
+  - i PDF si indicizzano pagina per pagina: ogni frammento ha la sua pagina, la citazione apre il documento con
+    l'anteprima su quella pagina (`?pagina=N`), `leggi_documento` segna «[pagina N]» e con `pagina_pdf` parte da
+    una pagina;
+  - `IndiceDocumento` dice com'è andata per ogni documento (indicizzato, in parte, scansione senza testo, tipo non
+    letto, file rotto o protetto): nella scheda del documento («Per l'assistente») e in Assistente AI → «Indice dei
+    documenti», con i soli documenti che l'utente vede;
+  - con l'impostazione «Riassunto di ogni documento nell'indice» (spenta di default) il profilo «Riassunti» scrive
+    il riassunto di ogni documento caricato o cambiato; diventa un frammento in più, con la visibilità del
+    documento. Un tentativo fallito non si ripete finché il testo non cambia; il giro programmato mette in coda
+    al massimo 10 documenti arretrati per volta;
+  - verifica delle citazioni (`ai/verifica.py`, impostazione «Verifica delle citazioni dei documenti», accesa):
+    a fine turno ogni frase che cita un estratto di `cerca_conoscenza` o un documento letto si confronta con il
+    testo citato, prima in locale (parole, numeri, vicinanza dei vettori), poi solo per i casi dubbi con il
+    profilo «Classificazione». Sotto la risposta «N su M citazioni verificate» con le frasi non sostenute o
+    incerte e il motivo; la risposta non si riscrive;
+  - in chat il clic su una citazione (o su una frase da controllare) apre accanto il testo della fonte con il
+    passaggio citato evidenziato (`ai/fonti_citate.py`, `/ai/fonte/<messaggio>/?url=`): il documento intero, per
+    pagine nei PDF, oppure i testi del record o della pagina wiki. Solo link restituiti dagli strumenti nel turno, con
+    i permessi di chi guarda; Ctrl+clic apre il link come prima;
+  - «Fai dimenticare ad Ada» (`ai/oblio.py`, permesso `ai.add_obliodocumento`): nella scheda del documento lo esclude
+    dall'indice (anche se cambia, finché non lo si riammette), toglie le sue letture dalle chat di tutti gli utenti,
+    sostituisce le risposte di quei turni con una nota e cancella i riassunti di quelle chat; registro in Assistente
+    AI → «Documenti dimenticati», senza il testo. Restano fuori memorie degli utenti, chat esterne, fornitori dei
+    modelli e backup. I turni di servizio (riassunti dei documenti, verifica) tengono il costo ma non il testo;
+  - `python manage.py ai_eval --ricerca --file domande.json` misura la sola ricerca ({domanda, fonte}: posizione
+    del primo risultato con quel titolo), senza modello; nelle domande d'oro `fonte` e `citazioni_verificate`.
 - **Fiducia** (AI-5):
   - con l'URL del servizio `adabox-pii` nelle impostazioni («URL del servizio di protezione dei dati personali»)
     ai modelli **non locali** i dati personali arrivano come segnaposto (`[FULLNAME_1]`, `[IBAN_1]`...), stabili
@@ -438,6 +515,59 @@ completate.
 - **Produzione**: lo streaming lo serve il servizio `stream` del compose (uvicorn, ASGI), e nginx gli instrada
   `/ai/flusso/`; il resto resta su gunicorn (WSGI). Quando cambiano i moduli installati, `stream` risponde 503 e
   si riavvia da solo, come il worker.
+
+### Chat AI esterne: adabox dentro Claude, ChatGPT, Gemini e Le Chat
+
+Il modulo `connettore_ai` («Chat AI esterne», dipende da `ai`, kernel 1.2) fa usare i dati di adabox dalla chat che le
+persone hanno già, con il loro abbonamento: l'istanza espone un server MCP con OAuth, la chat lo aggiunge come
+connettore personalizzato e legge ciò che la persona può vedere. Non consuma token dei modelli e non tocca le
+credenziali dei fornitori: è la chat che chiama adabox. Progetto, scelte e fonti: `docs/progetto-connettore-ai.md`.
+
+- **Accensione**: spento di default. In `/impostazioni/` ogni azienda accende «Le persone di questa azienda possono
+  collegare adabox alle chat AI esterne»; si collega chi ha il gruppo «Connettore AI / Utente». Serve un'istanza
+  raggiungibile da internet in https, con `SITO_URL` uguale all'indirizzo pubblico: emittente e risorsa nascono da lì
+  e le chat li confrontano carattere per carattere.
+- **Per la persona**: «Le mie chat AI» (menu del profilo) mostra l'indirizzo da incollare, `https://<istanza>/mcp`, e
+  le chat collegate con «Scollega». La chat porta su adabox per l'accesso (con la verifica in due passaggi) e per il
+  consenso: quale azienda, tutte le app o solo alcune. Un collegamento vale per una persona, un'azienda e una chat.
+- **Che cosa arriva alle chat**: un elenco chiuso di letture dell'assistente (`elenco_viste`, `descrivi_vista`,
+  `cerca_record`, `leggi_record`, `aggrega_record`, `cerca_conoscenza`, `leggi_documento`, `leggi_foglio`,
+  `data_e_ora`, `app_disponibili`), eseguite come la persona, nella sua azienda, con i permessi di quel momento.
+  Nessuna scrittura. Valgono la licenza dell'assistente e gli strumenti spenti dalla pagina «Strumenti». Utente
+  disattivato, permesso tolto, azienda che spegne l'interruttore: il collegamento smette alla chiamata successiva.
+- **Come si presenta ogni chat**:
+
+  | Chat | Registrazione | Note |
+  |---|---|---|
+  | Claude | documento pubblico (CIMD), altrimenti da sé (DCR) | nei piani Team ed Enterprise il connettore lo aggiunge prima un proprietario |
+  | ChatGPT | documento pubblico; con `iss` usa l'indirizzo di ritorno stabile | server MCP personalizzati nei piani Business, Enterprise ed Edu; Pro in sola lettura |
+  | Le Chat | da sé (DCR) | serve un amministratore dell'organizzazione |
+  | Gemini Enterprise | credenziali create a mano in «Credenziali per Gemini Enterprise» | in Google va acceso il supporto PKCE |
+  | Antigravity, Gemini CLI, Claude Code | documento pubblico o da sé | solo con «Ammetti i programmi sul computer dell'utente» per i ritorni su `localhost` |
+  | App Gemini personale | da sé, con segreto | le app personalizzate oggi esistono solo negli Stati Uniti |
+
+- **Protocollo**: MCP Streamable HTTP, un POST per richiesta, risposte JSON, nessuna sessione. Sullo stesso indirizzo
+  rispondono la versione 2026-07-28 (senza stato: `server/discover`, intestazioni `MCP-Protocol-Version`, `Mcp-Method`
+  e `Mcp-Name` controllate contro il corpo) e le precedenti con `initialize` (2025-11-25, 2025-06-18, 2025-03-26).
+- **Autorizzazione**: OAuth 2.1 con PKCE S256 obbligatorio. Metadati a `/.well-known/oauth-protected-resource[/mcp]`
+  e `/.well-known/oauth-authorization-server`; `iss` in ogni ritorno (RFC 9207); `resource` controllato quando arriva
+  (RFC 8707). Codici e token sono opachi e salvati come impronta: accesso un'ora, rinnovo 90 giorni senza uso. Il
+  rinnovo dei client pubblici si ruota a ogni uso e, riusato, revoca il collegamento; ai client con un segreto resta
+  lo stesso, come chiede Google.
+- **Indirizzi di ritorno**: il codice parte solo verso quelli dei fornitori noti (`connettore_ai/clienti.py`); altri si
+  aggiungono in «Altri indirizzi di ritorno ammessi». È questa la protezione: chiunque può presentarsi come client, ma
+  con un ritorno fuori elenco non ottiene nulla.
+- **Dati personali**: con «Proteggi i dati personali verso le chat esterne» i risultati escono con i segnaposto
+  dell'assistente (`[FULLNAME_1]`), stabili per collegamento, e i segnaposto negli argomenti tornano valori veri. Nella
+  chat si leggono i segnaposto. Se il servizio di protezione non risponde non esce nulla.
+- **Controllo**: «Collegamenti» (con «Scollega»), «Chiamate» (strumento, vista, esito, durata; mai i valori) e «Chat
+  conosciute». 120 chiamate al minuto per collegamento; pulizia giornaliera di codici, token e client mai usati.
+- **Rete**: gli indirizzi alla radice sono `/mcp` e i due `/.well-known/…`; il proxy deve passarli all'app con
+  l'intestazione `Authorization`. Claude chiama solo in IPv4, da `160.79.104.0/21` e `153.61.208.0/20`.
+- **Limiti**: provato con client simulati che seguono la documentazione dei fornitori letta il 2026-11-12, non ancora
+  con Claude, ChatGPT, Gemini e Le Chat veri: serve un'istanza pubblica in https. Da fonti non ufficiali, e quindi da
+  confermare alla prima prova: l'indirizzo di ritorno di Le Chat e quelli dell'app Gemini. Niente scritture, niente
+  importazione delle chat.
 
 ## Ricerche, pivot e registro
 
@@ -501,6 +631,16 @@ questa, o l'ospitare l'istanza senza dare accesso al server. Licenza e firme son
 1. `MODULI_CHIAVE_PRIVATA=/percorso/chiave.pem` nel suo `.env` (firma licenze e cataloghi; da `modulo chiavi`).
 2. `manage.py rivendita_pubblica --tutti`, o «Carica un pacchetto», mette in vendita i moduli (zip firmati, nell'archivio privato).
 3. **Piani** con le loro app e il prezzo, poi un'**Istanza** per ogni cliente: piano, moduli in più, utenti, scadenza. «Genera il token» lo mostra una volta sola.
+   Il prezzo di un piano ha due parti che si sommano: fisso al mese e **per utente** al mese (l'abbonamento per utente:
+   si moltiplica per gli utenti della licenza). Il piano dice anche come si vende l'**assistente AI**: con la chiave del
+   cliente, **incluso** nel canone con una quota mensile per utente e per istanza (in dollari di costo dei modelli), o
+   **a consumo**, cioè canone più utilizzo con un ricarico in percentuale e un tetto facoltativo. L'istanza può avere
+   condizioni sue. I termini vanno nella licenza sotto `"ai"`, che il kernel firma senza leggere. Ogni ora le istanze
+   riferiscono i consumi (`ai.consumi_portale`, solo numeri): «Consumi AI» mostra l'importo da fatturare con «a consumo»
+   (costo sul piano × cambio × ricarico) e il consumo sulla quota con «inclusa». Il cambio dollaro → euro è
+   un'impostazione del modulo, da aggiornare a mano. Il portale non emette fatture.
+   Un piano può comprendere solo alcune **funzioni** di un modulo (es. l'assistente senza ricerca sul web né aree di
+   lavoro): «moduli con le funzioni scelte» e «funzioni comprese»; l'istanza può averne in più. Vedi sotto.
 4. Le **Richieste** dei clienti si approvano con un bottone: il modulo passa nella licenza dell'istanza.
 
 **Dalla parte del cliente**, l'immagine contiene kernel e tema, nessun modulo: `docker build -f deploy/Dockerfile.cliente -t adabox_hub_cliente:<versione> .`,
@@ -529,6 +669,27 @@ menu» vale per tutti; ognuno può scegliere il suo da «Le mie app nel menu». 
 caricamento, installazione). Senza portale: `manage.py licenza firma --firma chiave.pem --cliente … --moduli crm,contatti
 --scadenza AAAA-MM-GG` crea il file da caricare in `/moduli/` o con `manage.py licenza carica`; i pacchetti si caricano a mano.
 
+## Funzioni attivabili dei moduli
+
+Per vendere versioni diverse dello stesso modulo (l'assistente «base» e quello completo) non serve dividerlo: il
+modulo dichiara le sue funzioni e la licenza dice quali sono comprese (`core/funzioni.py`).
+
+- **Nel manifest**: `"funzioni": [{"chiave": "ricerca_web", "label": "Ricerca sul web", "help": "…"}]`; le voci di
+  `menu` e di `settings` con `"funzione": "ricerca_web"` spariscono quando non è compresa (le impostazioni non si
+  vedono e non si salvano). Serve il kernel 1.1 (`"min_core": "1.1"`).
+- **Nel codice**: `ModelView.funzione = "memoria"` chiude la vista anche ai superutenti; `funzioni.attiva("ai",
+  "memoria")` nei punti che contano (strumenti, prompt, lavori pianificati); `{% if funzioni.ai.memoria %}` nei
+  template. Nascondere un bottone non basta: il controllo va anche dove si esegue.
+- **Nella licenza**: `"funzioni": {"ai": ["memoria", "ricerca_web"]}`. Un modulo che non compare, o un'istanza senza
+  licenza, ha tutte le funzioni: le licenze e i piani di prima non cambiano. Senza portale:
+  `manage.py licenza firma … --funzioni ai=memoria,ricerca_web` (`ai=` = nessuna).
+- **Sul portale**: alla pubblicazione di un pacchetto le funzioni del manifest diventano «funzioni attivabili» del
+  modulo. Nel piano si segnano i «moduli con le funzioni scelte» (anche con nessuna funzione: solo la base) e le
+  «funzioni comprese»; l'istanza aggiunge le sue «funzioni in più». La licenza arriva all'istanza alla
+  sincronizzazione oraria: una funzione si accende o si spegne senza installare nulla.
+- **I limiti**: come per i moduli è un deterrente, perché il codice delle funzioni spente è sul server. Una parte da
+  proteggere davvero va in un modulo a sé, che sul server del cliente non arriva.
+
 ## Le istanze ospitate da noi
 
 Ogni cliente ha la sua istanza: container, database Postgres, segreti e backup propri. `deploy/flotta.py` le gestisce sul server, con la sola libreria standard.
@@ -551,7 +712,14 @@ deploy/flotta.py elimina rossi --conferma rossi
 - **`aggiorna`** salva database e file, cambia versione e controlla `/salute/`. Se l'istanza non si riprende ripristina il database e la versione di prima, e **si ferma**: le istanze successive restano intatte. Con `--prima` si comincia da quella di prova. I moduli invece si aggiornano dal portale, ogni ora.
 - **`backup`** conserva gli ultimi 14 salvataggi per istanza, sullo stesso server: copiarli altrove e pianificarli con cron resta da fare.
 - **Il proxy non si tocca in automatico**: `crea` scrive `<radice>/rossi/proxy.caddy`, da includere nella configurazione di Caddy dopo aver puntato il DNS. Le istanze ascoltano solo su `127.0.0.1`.
-- **Servizi AI condivisi**: `--servizi-ai` collega l'istanza alla rete dei servizi di questo server. Vanno poi indicati in `/impostazioni/`.
+- **Servizi AI condivisi**: `--servizi-ai` collega l'istanza alla rete dei servizi di questo server. Vanno poi indicati in `/impostazioni/`:
+
+  | Impostazione | Valore su questo server | Senza |
+  |---|---|---|
+  | «URL del servizio di embedding (ricerca semantica)» | `http://adabox-embeddings-1:8080` | ricerca solo per parole chiave |
+  | «URL del servizio di protezione dei dati personali» | `http://adabox-pii-1:5005` | dati in chiaro ai modelli non locali |
+
+  Per un'istanza fuori da `flotta.py` (come lo sviluppo) si copia `deploy/compose.servizi-adabox.yml` come `docker-compose.override.yml`. Per controllare che funzioni, dal container: `python manage.py ai_indicizza` indicizza e riporta il servizio in uso e quanti frammenti hanno il vettore. Se il servizio smette di rispondere l'hub continua senza errori, con la sola ricerca per parole chiave.
 
 ## Comandi `modulo`
 
@@ -696,6 +864,22 @@ THEME_POWERED_BY=Adabox      # `theme.powered_by` per i template del tema (es. "
 
 L'app del tema può stare dentro un modulo (la cartella degli addons è nel path). Senza queste variabili
 tutto resta come prima.
+
+## Temi grafici dall'admin
+
+Da **Admin → Tema grafico → Temi** si sceglie l'aspetto dell'applicazione per tutti, senza riavviare:
+
+- **Adabox Classico** (di sistema): l'aspetto di sempre, nessun foglio in più;
+- **Adabox Green** (di sistema): header blu notte, verde acqua per le voci scelte, fondi caldi
+  (`theme/static/theme/temi/adabox-green.css`);
+- temi **caricati**: un file `.css` (fino a 512 KB) e, se serve, un logo SVG/PNG/JPG/WebP al posto del cubo.
+  CSS e logo stanno nel database, quindi non c'è niente da pubblicare tra gli statici.
+
+Ogni tema si aggiunge dopo `ui.css`: basta ridefinire i token di `tokens.css` (`--ui-primary`, `--ui-surface`…)
+e le parti da cambiare. Per partire da un tema esistente: azione **Duplica** nell'elenco, poi si modifica la copia.
+**Anteprima** mostra un tema solo a chi la apre (sessione dello staff); **Attiva** lo passa a tutti. I temi di
+sistema e quello attivo non si cancellano. Si combina con `TEMA_APP`: quella cambia template e statici
+all'avvio, questi aggiungono un foglio sopra.
 
 ## Test
 

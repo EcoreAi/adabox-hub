@@ -10,6 +10,10 @@ urlpatterns = [
     path("manifest.webmanifest", views.manifest, name="manifest"),
     path("sw.js", views.service_worker, name="sw"),
     path("offline/", views.offline, name="offline"),
+    path("tema/<int:pk>.css", views.tema_css, name="tema_css"),
+    path("tema/<int:pk>/logo", views.tema_logo, name="tema_logo"),
+    path("tema/<int:pk>/anteprima/", views.anteprima, name="tema_anteprima"),
+    path("tema/anteprima/fine/", views.anteprima_fine, name="tema_anteprima_fine"),
     # i browser chiedono /favicon.ico anche senza <link rel="icon">
     path("favicon.ico", RedirectView.as_view(pattern_name="theme:favicon", permanent=True)),
 ]

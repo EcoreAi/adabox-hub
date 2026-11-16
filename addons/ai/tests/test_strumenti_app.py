@@ -51,6 +51,19 @@ def test_agenda_del_calendario(db):
     assert ammessi["calendario_agenda"].app == "calendario"
     r = ammessi["calendario_agenda"].funzione(contesto)
     assert [e["titolo"] for e in r["eventi"]] == ["Fiera", "Riunione Rossi"] and r["eventi"][1]["url"]
+    assert [e["stato"] for e in r["eventi"]] == ["in corso", "da venire"] and r["conteggio"]["passato"] == 0
+    # uno già finito: lo stato lo calcola lo strumento, non il modello
+    adesso = timezone.now()
+    Evento.objects.create(azienda=azienda, titolo="Stamattina", inizio=adesso - datetime.timedelta(minutes=40),
+                          fine=adesso - datetime.timedelta(minutes=10), organizzatore=capo)
+    r = ammessi["calendario_agenda"].funzione(contesto, da=timezone.localtime(adesso - datetime.timedelta(minutes=40)).date().isoformat())
+    passato = next(e for e in r["eventi"] if e["titolo"] == "Stamattina")
+    assert passato["stato"] == "passato" and r["conteggio"]["passato"] == 1 and r["adesso"]
+    assert "1 già passato" in r["sintesi"] and r["sintesi"].endswith(".")
+    from calendario.ai import sintesi
+    assert sintesi({"passato": 6, "in corso": 0, "da venire": 4}) == "10 appuntamenti nel periodo: 6 già passati, nessuno in corso, 4 da venire."
+    assert sintesi({"passato": 0, "in corso": 1, "da venire": 0}) == "1 appuntamento nel periodo: 0 già passati, 1 in corso, 0 da venire."
+    assert sintesi({"passato": 0, "in corso": 0, "da venire": 0}) == "Nessun appuntamento nel periodo."
     with pytest.raises(strumenti.ErroreStrumento, match="Periodo non valido"):
         ammessi["calendario_agenda"].funzione(contesto, da="2026-01-01", a="2026-12-31")
     nessuno = User.objects.create_user("nessuno")

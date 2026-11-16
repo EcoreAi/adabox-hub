@@ -1,4 +1,5 @@
 """Email in uscita del chatter: un messaggio (non una nota) arriva ai follower, escluso l'autore."""
+import logging
 import re
 import uuid
 from urllib.parse import urlparse
@@ -12,6 +13,27 @@ from core import lavori
 from core.models import Messaggio
 
 SALE = "core.chatter.risposta"
+log = logging.getLogger("core.chatter")
+_INVII = []          # funzioni (messaggio, email) -> True se hanno spedito loro l'email a un esterno
+
+
+def registra_invio(funzione):
+    """Un'app spedisce da sé le email del chatter verso gli esterni (es. dalla casella dell'autore, modulo Posta).
+    La funzione riceve il Messaggio e l'EmailMultiAlternatives pronta e restituisce True se l'ha spedita; se
+    restituisce False o va in errore, parte dal server come sempre."""
+    if funzione not in _INVII:
+        _INVII.append(funzione)
+    return funzione
+
+
+def _spedisci_esterna(messaggio, email):
+    for funzione in _INVII:
+        try:
+            if funzione(messaggio, email):
+                return
+        except Exception:
+            log.exception("invio esterno del messaggio %s non riuscito: parte dal server", messaggio.pk)
+    email.send()
 TOKEN_RE = re.compile(r"^(\d+)-(\d+)-([0-9a-f]{16})$")
 
 
@@ -174,6 +196,6 @@ def notifica(messaggio_id):
                 to=[indirizzo], headers=intestazioni, reply_to=[risposta] if risposta else None, connection=connessione)
             email.attach_alternative(render_to_string("core/email/notifica.html", ctx_esterno), "text/html")
             _allega(email, m)
-            email.send()
+            _spedisci_esterna(m, email)
             inviate += 1
     return inviate

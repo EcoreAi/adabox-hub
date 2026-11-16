@@ -90,17 +90,21 @@ class MessaggioChat(models.Model):
 
 
 class Provider(models.Model):
-    """Un fornitore di modelli: API Anthropic, endpoint compatibile OpenAI (OpenAI, OpenRouter, Ollama, vLLM,
-    Gemini) o il modello finto per test e demo. La chiave API è cifrata; le aziende possono avere la propria."""
-    ANTHROPIC, OPENAI_COMPAT, MISTRAL, FINTO = "anthropic", "openai_compat", "mistral", "finto"
-    TIPI = [(ANTHROPIC, "Anthropic (Claude)"), (MISTRAL, "Mistral AI (La Plateforme)"),
-            (OPENAI_COMPAT, "Compatibile OpenAI (OpenAI, OpenRouter, Ollama...)"), (FINTO, "Finto (test e demo)")]
-    CON_CHIAVE = {ANTHROPIC, MISTRAL}                     # senza chiave non rispondono: si saltano nella catena
+    """Un fornitore di modelli: Anthropic, OpenAI, Google Gemini, Mistral, un endpoint compatibile OpenAI (OpenRouter,
+    Ollama, vLLM) o il modello finto per test e demo. La chiave API è cifrata; le aziende possono avere la propria."""
+    ANTHROPIC, OPENAI, GEMINI, MISTRAL, OPENAI_COMPAT, FINTO = "anthropic", "openai", "gemini", "mistral", "openai_compat", "finto"
+    TIPI = [(ANTHROPIC, "Anthropic (Claude)"), (OPENAI, "OpenAI (GPT)"), (GEMINI, "Google (Gemini)"),
+            (MISTRAL, "Mistral AI (La Plateforme)"), (OPENAI_COMPAT, "Compatibile OpenAI (OpenRouter, Ollama...)"),
+            (FINTO, "Finto (test e demo)")]
+    CON_CHIAVE = {ANTHROPIC, OPENAI, GEMINI, MISTRAL}     # senza chiave non rispondono: si saltano nella catena
     nome = models.CharField("nome", max_length=80, unique=True)
     tipo = models.CharField("tipo", max_length=15, choices=TIPI)
     base_url = models.URLField("URL dell'API", blank=True, help_text="vuoto = quello predefinito del tipo")
     chiave_cifrata = models.TextField("chiave API (cifrata)", blank=True, editable=False)
     locale = models.BooleanField("locale", default=False, help_text="gira sui nostri server: i dati non escono")
+    gestito = models.BooleanField("fornito con il piano", default=False,
+                                  help_text="la chiave è di chi fornisce l'assistente: il suo costo conta sulla quota della licenza, "
+                                            "e provider e modelli li cambia solo il Global Admin")
     attivo = models.BooleanField("attivo", default=True)
 
     class Meta:
@@ -112,9 +116,10 @@ class Provider(models.Model):
         return self.nome
 
     def chiave_per(self, azienda=None):
-        """La chiave dell'azienda se c'è, altrimenti quella globale (in chiaro, solo in memoria)."""
+        """La chiave dell'azienda se c'è, altrimenti quella globale (in chiaro, solo in memoria). Su un provider fornito
+        con il piano vale solo quella globale: il consumo deve restare sul conto di chi lo fornisce."""
         from core import cifratura
-        if azienda is not None:
+        if azienda is not None and not self.gestito:
             propria = self.chiavi_azienda.filter(azienda=azienda).first()
             if propria and propria.chiave_cifrata:
                 return cifratura.decifra(propria.chiave_cifrata)
@@ -190,7 +195,7 @@ class Profilo(models.Model):
     """Quale catena di modelli usare per un compito, per tutti o per un'app o un'azienda."""
     COMPITI = [("chat", "Chat e agente"), ("titoli", "Titoli delle chat"), ("riassunti", "Riassunti"),
                ("pianificate", "Attività pianificate"), ("classificazione", "Classificazione"),
-               ("ricerca", "Ricerca approfondita")]
+               ("ricerca", "Ricerca approfondita"), ("voce", "Parla con Ada (conversazione a voce)")]
     EFFORT = [("", "Predefinito del modello"), ("low", "Basso"), ("medium", "Medio"), ("high", "Alto"),
               ("xhigh", "Molto alto"), ("max", "Massimo")]
     nome = models.CharField("nome", max_length=80)
@@ -230,12 +235,15 @@ class Turno(models.Model):
     IN_CORSO, COMPLETATO, ERRORE, INTERROTTO, FERMATO = "in_corso", "completato", "errore", "interrotto", "fermato"
     STATI = [(IN_CORSO, "In corso"), (COMPLETATO, "Completato"), (ERRORE, "Errore"), (INTERROTTO, "Interrotto"),
              (FERMATO, "Fermato dall'utente")]
-    conversazione = models.ForeignKey(Conversazione, on_delete=models.CASCADE, null=True, blank=True,
+    # eliminando la conversazione il turno resta come riga di costo, svuotato del contenuto (ai.segnali)
+    conversazione = models.ForeignKey(Conversazione, on_delete=models.SET_NULL, null=True, blank=True,
                                       related_name="turni", verbose_name="conversazione")
     utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+",
                                verbose_name="utente")
     azienda = models.ForeignKey("core.Azienda", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="azienda")
     compito = models.CharField("compito", max_length=20, default="chat")
+    voce = models.BooleanField("a voce", default=False,
+                               help_text="da «Parla con Ada»: usa il profilo «voce» se c'è (conta comunque come chat)")
     web = models.BooleanField("ricerca sul web", default=True,
                               help_text="in chat solo se l'utente l'ha scelta per quel messaggio; le attività pianificate la usano se l'azienda l'ha accesa")
     stato = models.CharField("stato", max_length=10, choices=STATI, default=IN_CORSO)
@@ -245,6 +253,8 @@ class Turno(models.Model):
     passi = models.PositiveSmallIntegerField("passi", default=0)
     uso = models.JSONField("token", default=dict, blank=True)
     costo = models.DecimalField("costo ($)", max_digits=12, decimal_places=6, default=0)
+    costo_fornito = models.DecimalField("di cui sul piano ($)", max_digits=12, decimal_places=6, default=0,
+                                        help_text="la parte del costo sui provider forniti con il piano: conta sulla quota della licenza")
     errore = models.TextField("errore", blank=True)
     richiesta_stop = models.BooleanField("stop richiesto", default=False)
     provenienza = models.JSONField("provenienza", default=dict, blank=True,
@@ -265,6 +275,16 @@ class Turno(models.Model):
     @property
     def concluso(self):
         return self.stato != self.IN_CORSO
+
+    def addebita(self, modello, uso):
+        """Somma al turno i token e il costo di una chiamata al modello (`uso`: il dict di gateway.Uso)."""
+        totale = dict(self.uso)
+        for chiave, valore in uso.items():
+            totale[chiave] = totale.get(chiave, 0) + valore
+        costo = modello.costo(uso)
+        self.uso, self.costo = totale, self.costo + costo
+        if modello.provider.gestito:
+            self.costo_fornito += costo
 
 
 class Evento(models.Model):
@@ -449,6 +469,7 @@ class Frammento(models.Model):
     content_type = models.ForeignKey("contenttypes.ContentType", on_delete=models.CASCADE, related_name="+")
     object_id = models.PositiveBigIntegerField()
     chiave = models.CharField("chiave", max_length=40, help_text="es. il pezzo del documento o la nota")
+    pagina = models.PositiveIntegerField("pagina", null=True, blank=True, help_text="la pagina del PDF da cui viene il pezzo")
     azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, verbose_name="azienda")
     titolo = models.CharField("titolo", max_length=250)
     testo = models.TextField("testo")
@@ -465,6 +486,71 @@ class Frammento(models.Model):
 
     def __str__(self):
         return self.titolo
+
+
+class IndiceDocumento(models.Model):
+    """Com'è andata l'indicizzazione di un documento dell'app Documenti: dice chi carica una scansione senza testo o
+    un file protetto che l'assistente non lo può leggere, e tiene il riassunto del documento (se acceso)."""
+    IN_CODA, INDICIZZATO, PARZIALE, SENZA_TESTO = "in_coda", "indicizzato", "parziale", "senza_testo"
+    NON_SUPPORTATO, ILLEGGIBILE, VUOTO, ESCLUSO = "non_supportato", "illeggibile", "vuoto", "escluso"
+    STATI = [(IN_CODA, "In coda"), (INDICIZZATO, "Indicizzato"), (PARZIALE, "Indicizzato in parte (troppo lungo)"),
+             (SENZA_TESTO, "Senza testo (scansione?)"), (NON_SUPPORTATO, "Tipo di file non letto"),
+             (ILLEGGIBILE, "Illeggibile o protetto"), (VUOTO, "Senza file"), (ESCLUSO, "Escluso dall'assistente")]
+    documento_id = models.PositiveBigIntegerField("documento", unique=True)
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, verbose_name="azienda")
+    nome = models.CharField("nome del file", max_length=200)
+    stato = models.CharField("stato", max_length=15, choices=STATI, default=IN_CODA)
+    messaggio = models.CharField("dettaglio", max_length=250, blank=True)
+    pagine = models.PositiveIntegerField("pagine", null=True, blank=True)
+    caratteri = models.PositiveIntegerField("caratteri letti", default=0)
+    frammenti = models.PositiveIntegerField("frammenti", default=0)
+    impronta = models.CharField("impronta del testo", max_length=40, blank=True)
+    riassunto = models.TextField("riassunto", blank=True)
+    impronta_riassunto = models.CharField(max_length=40, blank=True, editable=False,
+                                          help_text="l'impronta del testo dell'ultimo tentativo di riassunto")
+    aggiornato = models.DateTimeField("aggiornato il", auto_now=True)
+
+    class Meta:
+        verbose_name = "documento nell'indice"
+        verbose_name_plural = "documenti nell'indice"
+        ordering = ["-aggiornato"]
+        indexes = [models.Index(fields=["azienda", "stato"])]
+
+    def __str__(self):
+        return self.nome
+
+    @property
+    def leggibile(self):
+        return self.stato in (self.INDICIZZATO, self.PARZIALE)
+
+
+class OblioDocumento(models.Model):
+    """Registro di «Fai dimenticare ad Ada» e delle riammissioni: chi, quando, perché, quanto è stato tolto. Mai il
+    testo del documento."""
+    DIMENTICATO, RIAMMESSO = "dimenticato", "riammesso"
+    AZIONI = [(DIMENTICATO, "Dimenticato"), (RIAMMESSO, "Riammesso")]
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, verbose_name="azienda")
+    documento_id = models.PositiveBigIntegerField("documento")
+    nome = models.CharField("documento", max_length=200)
+    azione = models.CharField("azione", max_length=11, choices=AZIONI, default=DIMENTICATO)
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+",
+                               verbose_name="chi")
+    motivo = models.CharField("motivo", max_length=300, blank=True)
+    creato = models.DateTimeField("il", auto_now_add=True)
+    frammenti = models.PositiveIntegerField("pezzi tolti dall'indice", default=0)
+    chat = models.PositiveIntegerField("chat ripulite", default=0)
+    risultati = models.PositiveIntegerField("letture tolte dalle chat", default=0)
+    risposte = models.PositiveIntegerField("risposte sostituite", default=0)
+    riassunti = models.PositiveIntegerField("riassunti delle chat tolti", default=0)
+    documenti_chat = models.PositiveIntegerField("documenti accanto a quelle chat (da controllare)", default=0)
+
+    class Meta:
+        verbose_name = "documento dimenticato"
+        verbose_name_plural = "documenti dimenticati"
+        ordering = ["-creato"]
+
+    def __str__(self):
+        return f"{self.nome} · {self.get_azione_display().lower()}"
 
 
 class Licenza(models.Model):
@@ -613,10 +699,15 @@ class VersioneDocumento(models.Model):
 
 
 class ServizioVoce(models.Model):
-    """Un servizio che legge ad alta voce le risposte: Kokoro sui nostri server oppure un fornitore cloud con chiave."""
-    KOKORO, CARTESIA, MISTRAL, AZURE, GEMINI = "kokoro", "cartesia", "mistral", "azure", "gemini"
+    """Un servizio vocale: legge ad alta voce le risposte (Kokoro sui nostri server o un fornitore cloud) oppure
+    trascrive il parlato in cloud (Mistral Voxtral, OVH Whisper), più veloce del Whisper locale."""
+    KOKORO, CARTESIA, MISTRAL, AZURE, GEMINI, OVH = "kokoro", "cartesia", "mistral", "azure", "gemini", "ovh"
     TIPI = [(KOKORO, "Kokoro (locale, sui nostri server)"), (CARTESIA, "Cartesia"), (MISTRAL, "Mistral (Voxtral)"),
-            (AZURE, "Azure AI Speech"), (GEMINI, "Google Gemini TTS")]
+            (AZURE, "Azure AI Speech"), (GEMINI, "Google Gemini TTS"), (OVH, "OVH AI Endpoints (Whisper)")]
+    LETTURA, TRASCRIZIONE = "lettura", "trascrizione"
+    USI = [(LETTURA, "Lettura delle risposte"), (TRASCRIZIONE, "Trascrizione del parlato")]
+    PER_USO = {LETTURA: {KOKORO, CARTESIA, MISTRAL, AZURE, GEMINI}, TRASCRIZIONE: {MISTRAL, OVH}}
+    MODELLI_TRASCRIZIONE = {MISTRAL: "voxtral-mini-latest", OVH: "whisper-large-v3-turbo"}
     PREDEFINITI = {                                      # modello, voce italiana, voce inglese
         KOKORO: ("speaches-ai/Kokoro-82M-v1.0-ONNX", "if_sara", "af_heart"),
         CARTESIA: ("sonic-3.6", "", ""),
@@ -626,6 +717,8 @@ class ServizioVoce(models.Model):
     }
     nome = models.CharField("nome", max_length=80)
     tipo = models.CharField("tipo", max_length=10, choices=TIPI)
+    uso = models.CharField("uso", max_length=12, choices=USI, default=LETTURA,
+                           help_text="trascrizione: Mistral o OVH, al posto del Whisper locale (con il consenso dell'azienda)")
     azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, related_name="+",
                                 verbose_name="azienda", help_text="vuota = per tutte le aziende")
     chiave_cifrata = models.TextField(blank=True, editable=False)
@@ -650,6 +743,8 @@ class ServizioVoce(models.Model):
     def valore(self, campo):
         """modello, voce_it o voce_en: quello scelto o quello consigliato per il tipo."""
         indice = {"modello": 0, "voce_it": 1, "voce_en": 2}[campo]
+        if self.uso == self.TRASCRIZIONE:
+            return getattr(self, campo) or (self.MODELLI_TRASCRIZIONE.get(self.tipo, "") if campo == "modello" else "")
         return getattr(self, campo) or self.PREDEFINITI.get(self.tipo, ("", "", ""))[indice]
 
     def chiave(self):
@@ -698,3 +793,26 @@ class AreaCorrente(models.Model):
         verbose_name = "area corrente"
         verbose_name_plural = "aree correnti"
         constraints = [models.UniqueConstraint(fields=["utente", "azienda"], name="ai_area_corrente_unica")]
+
+
+class StrumentoSpento(models.Model):
+    """Uno strumento dell'assistente spento a mano (pagina «Strumenti»): per tutta l'istanza (azienda vuota, solo il
+    Global Admin) o per un'azienda. Spegnere toglie e basta: uno strumento fuori licenza non si riaccende da qui."""
+    nome = models.CharField("strumento", max_length=80)
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, related_name="+",
+                                verbose_name="azienda", help_text="vuota = per tutta l'istanza")
+    spento_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                  related_name="+", verbose_name="spento da")
+    spento_il = models.DateTimeField("spento il", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "strumento spento"
+        verbose_name_plural = "strumenti spenti"
+        ordering = ["nome"]
+        constraints = [
+            models.UniqueConstraint(fields=["nome", "azienda"], name="ai_strumento_spento_azienda"),
+            models.UniqueConstraint(fields=["nome"], condition=models.Q(azienda__isnull=True), name="ai_strumento_spento_istanza"),
+        ]
+
+    def __str__(self):
+        return f"{self.nome} · {self.azienda or 'tutta l’istanza'}"

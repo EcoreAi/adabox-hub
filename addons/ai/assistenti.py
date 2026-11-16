@@ -9,6 +9,9 @@ from .models import Assistente
 
 
 def risolvi(conversazione, utente):
+    from . import funzioni
+    if not funzioni.attiva("assistenti"):
+        return None
     if conversazione.assistente_id:
         a = conversazione.assistente
         return a if a.ammesso(utente) else None

@@ -7,8 +7,8 @@ from . import anthropic_api, finto, openai_compat
 from .tipi import ErroreModello, Inizio
 
 log = logging.getLogger("ai.gateway")
-ADATTATORI = {"anthropic": anthropic_api.flusso, "openai_compat": openai_compat.flusso, "mistral": openai_compat.flusso,
-              "finto": finto.flusso}
+ADATTATORI = {"anthropic": anthropic_api.flusso, "openai": openai_compat.flusso, "gemini": openai_compat.flusso,
+              "mistral": openai_compat.flusso, "openai_compat": openai_compat.flusso, "finto": finto.flusso}
 TENTATIVI = 3
 ATTESA_MASSIMA = 20.0
 _dormi = time.sleep                                  # sostituibile nei test

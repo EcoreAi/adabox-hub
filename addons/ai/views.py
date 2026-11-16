@@ -1,9 +1,25 @@
+from django.core.exceptions import PermissionDenied
+
 from core import cifratura
 from core.viste import Inline, ModelView, register
 
 from .forms import AssistenteForm, ChiaveAziendaForm, PianificataForm, ProgettoChatForm, ProviderForm, ServerMCPForm, ServizioVoceForm
-from .models import (AnelloCatena, Assistente, ChiaveAzienda, Modello, Pianificata, Profilo, Proposta, Provider, MemoriaUtente, ProgettoChat, ServerMCP, ServizioVoce, ValutazioneRisposta,
-                     Turno)
+from .models import (AnelloCatena, Assistente, ChiaveAzienda, IndiceDocumento, Modello, OblioDocumento, Pianificata, Profilo, Proposta, Provider, MemoriaUtente, ProgettoChat, ServerMCP, ServizioVoce, StrumentoSpento,
+                     ValutazioneRisposta, Turno)
+
+
+def _riservato(request, provider):
+    """Un provider fornito con il piano, con i suoi modelli e i loro prezzi, lo cambia solo il Global Admin: la chiave
+    non è del cliente, e chi ne cambiasse l'URL se la farebbe mandare."""
+    return provider is not None and provider.gestito and not request.user.is_superuser
+
+
+def _senza_gestiti(base):
+    """Sottoclasse del form in cui il provider si sceglie solo tra quelli non forniti con il piano."""
+    def __init__(self, *args, **kwargs):
+        base.__init__(self, *args, **kwargs)
+        self.fields["provider"].queryset = self.fields["provider"].queryset.filter(gestito=False)
+    return type(base)(base.__name__, (base,), {"__init__": __init__, "__module__": base.__module__})
 
 
 @register
@@ -11,9 +27,28 @@ class ProviderView(ModelView):
     model = Provider
     api = False                   # contiene segreti o credenziali: niente API
     slug = "provider"
-    list_display = ["nome", "tipo", "chiave", "locale", "attivo"]
+    list_display = ["nome", "tipo", "chiave", "locale", "gestito", "attivo"]
     form_class = ProviderForm
-    form_layout = [("Provider", [("nome", "tipo"), "base_url", ("nuova_chiave", "togli_chiave"), ("locale", "attivo")])]
+    form_layout = [("Provider", [("nome", "tipo"), "base_url", ("nuova_chiave", "togli_chiave"), ("locale", "attivo"), "gestito"])]
+
+    def get_form_class(self, request=None):
+        base = super().get_form_class(request)
+        if request is None:
+            return base
+        return type("ProviderFormUtente", (base,), {"global_admin": request.user.is_superuser})
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and not _riservato(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return super().has_delete_permission(request, obj) and not _riservato(request, obj)
+
+    def save_model(self, request, obj, form, change):
+        """L'ultimo controllo, qualunque sia la strada (pagina, API, importazione, assistente): chi non è Global Admin
+        non crea un provider fornito con il piano e non tocca uno che lo è."""
+        if not request.user.is_superuser and (obj.gestito or (change and Provider.objects.filter(pk=obj.pk, gestito=True).exists())):
+            raise PermissionDenied
+        super().save_model(request, obj, form, change)
 
     def layout_dettaglio(self):
         """Nella scheda niente campi del form per la chiave: la chiave mascherata e i modelli stanno nella sezione sotto."""
@@ -22,6 +57,8 @@ class ProviderView(ModelView):
                                  for riga in righe) if r]) for t, righe in super().layout_dettaglio()]
 
     def col_chiave(self, obj):
+        if obj.gestito:
+            return "del piano" if obj.chiave_cifrata else "—"     # non è dell'azienda: nemmeno le ultime cifre
         try:
             return cifratura.mascherato(cifratura.decifra(obj.chiave_cifrata)) or "—"
         except cifratura.SegretoIlleggibile:
@@ -38,6 +75,9 @@ class ChiaveAziendaView(ModelView):
     list_display = ["provider", "azienda", "chiave"]
     form_class = ChiaveAziendaForm
     form_layout = [("Chiave dell'azienda", [("provider", "azienda"), "chiave"])]
+
+    def get_form_class(self, request=None):
+        return _senza_gestiti(super().get_form_class(request))     # su un provider fornito con il piano non varrebbe
 
     def col_chiave(self, obj):
         try:
@@ -59,6 +99,23 @@ class ModelloView(ModelView):
                                                                ("prezzo_cache_scrittura", "prezzo_cache_lettura")]),
                    ("Capacità", [("strumenti", "visione", "ragionamento"), ("residenza_ue", "attivo")]),
                    ("Nella chat", [("livello_chat", "sceglibile")])]
+
+    # i modelli di un provider fornito con il piano: i prezzi fanno il costo che conta sulla quota e si fattura
+    def get_form_class(self, request=None):
+        base = super().get_form_class(request)
+        return base if request is None or request.user.is_superuser else _senza_gestiti(base)
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and not (obj is not None and _riservato(request, obj.provider))
+
+    def has_delete_permission(self, request, obj=None):
+        return super().has_delete_permission(request, obj) and not (obj is not None and _riservato(request, obj.provider))
+
+    def save_model(self, request, obj, form, change):
+        prima = Modello.objects.filter(pk=obj.pk).select_related("provider").first() if change else None
+        if _riservato(request, obj.provider) or (prima is not None and _riservato(request, prima.provider)):
+            raise PermissionDenied
+        super().save_model(request, obj, form, change)
 
 
 @register
@@ -84,21 +141,25 @@ class ConsumiView(ModelView):
     tra_aziende = True
     slug = "consumi"
     verbose_name_plural = "consumi"
-    list_display = ["iniziato", "utente", "azienda", "compito", "modello", "passi", "costo", "protetti", "stato"]
+    list_display = ["iniziato", "utente", "azienda", "compito", "modello", "passi", "costo", "costo_fornito", "protetti", "stato"]
     list_filter = ["compito", "stato", "modello", "azienda", "iniziato"]
     search_fields = ["utente__username", "testo", "errore"]
     form_layout = [("Turno", [("iniziato", "finito"), ("utente", "azienda"), ("compito", "modello"),
-                              ("stato", "passi"), ("costo", "uso"), "errore"])]
+                              ("stato", "passi"), ("costo", "costo_fornito"), "uso", "errore"])]
     readonly_fields = ["iniziato", "finito", "utente", "azienda", "compito", "modello", "stato", "passi", "costo",
-                       "uso", "errore"]
+                       "costo_fornito", "uso", "errore"]
     list_group_by = ["iniziato:mese", "utente", "modello", "compito", "azienda"]
-    list_sum = ["costo"]
-    graph = {"tipi": ["barre", "linee", "torta"], "misure": ["sum:costo", "count"],
+    list_sum = ["costo", "costo_fornito"]
+    graph = {"tipi": ["barre", "linee", "torta"], "misure": ["sum:costo", "sum:costo_fornito", "count"],
              "per": ["iniziato:mese", "utente", "modello", "compito"]}
 
     def col_costo(self, obj):
         return f"{obj.costo:.4f} $"
     col_costo.short_description = "Costo"
+
+    def col_costo_fornito(self, obj):
+        return f"{obj.costo_fornito:.4f} $" if obj.costo_fornito else "—"
+    col_costo_fornito.short_description = "Sul piano"
 
     def col_protetti(self, obj):
         return (obj.provenienza or {}).get("pii") or "—"
@@ -110,9 +171,13 @@ class ConsumiView(ModelView):
     def has_change_permission(self, request, obj=None):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False                     # sono i costi del mese: su di loro si calcolano quote, tetto e fatture
+
 
 @register
 class PianificataView(ModelView):
+    funzione = "pianificate"
     """Le attività che l'assistente esegue da solo: ognuno vede le proprie, gli amministratori tutte."""
     model = Pianificata
     tra_aziende = True
@@ -187,6 +252,7 @@ class PianificataView(ModelView):
 
 @register
 class RegistroModificheView(ModelView):
+    funzione = "scritture"
     """Registro delle modifiche proposte dall'assistente: chi, cosa, quando, esito (solo lettura)."""
     model = Proposta
     storico = False
@@ -215,6 +281,7 @@ class RegistroModificheView(ModelView):
 
 @register
 class AssistenteView(ModelView):
+    funzione = "assistenti"
     """Assistenti configurabili: istruzioni, strumenti e modello propri; quello di un'app risponde nelle chat
     limitate a quell'app e fa da esperto per gli altri."""
     model = Assistente
@@ -252,6 +319,76 @@ class ValutazioniView(ModelView):
         return False
 
 
+@register
+class IndiceDocumentiView(ModelView):
+    """Come l'assistente legge ogni documento: indicizzato, in parte, scansione senza testo, file protetto. Si vedono
+    solo i documenti che l'utente vede nell'archivio."""
+    funzione = "conoscenza"
+    model = IndiceDocumento
+    slug = "indice"
+    storico = False
+    company_field = "azienda"
+    list_display = ["nome", "stato", "pagine", "frammenti", "messaggio", "aggiornato", "apri"]
+    list_filter = ["stato", "aggiornato"]
+    search_fields = ["nome", "riassunto"]
+    list_group_by = ["stato"]
+    form_layout = [("Documento", [("nome", "stato"), "messaggio", ("pagine", "caratteri", "frammenti"), "aggiornato"]),
+                   ("Riassunto", ["riassunto"])]
+    readonly_fields = ["nome", "stato", "messaggio", "pagine", "caratteri", "frammenti", "aggiornato", "riassunto"]
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        azienda = getattr(request, "azienda", None)
+        from django.apps import apps
+        if azienda is None or not apps.is_installed("documenti"):
+            return qs.none()
+        from documenti import accesso
+        return qs.filter(documento_id__in=accesso.documenti(request.user, azienda).values("pk"))
+
+    def col_apri(self, obj):
+        from django.urls import NoReverseMatch, reverse
+        from django.utils.html import format_html
+        try:
+            return format_html('<a class="ui-link" href="{}">Apri il documento</a>',
+                               reverse("documenti:documenti_dettaglio", args=[obj.documento_id]))
+        except NoReverseMatch:
+            return ""
+    col_apri.short_description = "Documento"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@register
+class OblioDocumentiView(ModelView):
+    """Il registro di «Fai dimenticare ad Ada»: chi ha escluso o riammesso un documento, quando, perché e quanto è
+    stato tolto da indice e chat. Si legge e basta."""
+    funzione = "conoscenza"
+    model = OblioDocumento
+    slug = "dimenticati"
+    storico = False
+    company_field = "azienda"
+    list_display = ["creato", "nome", "azione", "utente", "motivo", "frammenti", "chat", "risposte"]
+    list_filter = ["azione", "utente", "creato"]
+    search_fields = ["nome", "motivo"]
+    form_layout = [("Operazione", [("creato", "azione"), ("nome", "utente"), "motivo"]),
+                   ("Cosa è stato tolto", [("frammenti", "chat"), ("risultati", "risposte"), ("riassunti", "documenti_chat")])]
+    readonly_fields = ["creato", "azione", "nome", "utente", "motivo", "frammenti", "chat", "risultati", "risposte",
+                       "riassunti", "documenti_chat"]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 class _SoloMie(ModelView):
     """Personali: anche un amministratore vede solo le sue."""
     company_field = "azienda"
@@ -269,6 +406,7 @@ class _SoloMie(ModelView):
 
 @register
 class MemoriaView(_SoloMie):
+    funzione = "memoria"
     """Ciò che Ada ricorda di te in questa azienda: lo vedi tutto, lo cancelli quando vuoi."""
     model = MemoriaUtente
     slug = "memoria"
@@ -281,6 +419,7 @@ class MemoriaView(_SoloMie):
 
 @register
 class ProgettoChatView(_SoloMie):
+    funzione = "aree_di_lavoro"
     """Chat raggruppate con istruzioni e file comuni."""
     model = ProgettoChat
     slug = "progetti"
@@ -337,6 +476,7 @@ class ProgettoChatView(_SoloMie):
 
 @register
 class ServerMCPView(ModelView):
+    funzione = "mcp"
     """I sistemi esterni di cui Ada usa gli strumenti. Gli strumenti si accendono uno per uno, dopo averli letti."""
     model = ServerMCP
     api = False                   # contiene segreti o credenziali: niente API
@@ -372,14 +512,15 @@ class ServerMCPView(ModelView):
 
 @register
 class ServizioVoceView(ModelView):
-    """I servizi che leggono le risposte ad alta voce: Kokoro in locale o un fornitore cloud con la sua chiave."""
+    funzione = "voce"
+    """I servizi vocali: chi legge le risposte (Kokoro in locale o un fornitore cloud) e chi trascrive in cloud."""
     model = ServizioVoce
     api = False                   # contiene segreti o credenziali: niente API
     slug = "voce"
     tra_aziende = True
-    list_display = ["nome", "tipo", "azienda", "chiave", "attivo"]
+    list_display = ["nome", "uso", "tipo", "azienda", "chiave", "attivo"]
     form_class = ServizioVoceForm
-    form_layout = [("Servizio", [("nome", "tipo"), ("azienda", "attivo"), "nuova_chiave", "regione"]),
+    form_layout = [("Servizio", [("nome", "uso"), ("tipo", "azienda"), "attivo", "nuova_chiave", "regione"]),
                    ("Voci (vuoto = quelle consigliate)", [("modello",), ("voce_it", "voce_en")])]
     storico = False
     personale = True
@@ -399,6 +540,12 @@ class ServizioVoceView(ModelView):
 
     def prova(self, request, obj):
         from . import voce
+        if obj.uso == obj.TRASCRIZIONE:
+            try:                                    # un secondo di silenzio: basta a sapere se chiave e modello vanno
+                voce.trascrivi_cloud(obj, voce.silenzio_wav(), "prova.wav", "audio/wav", "it")
+            except voce.ErroreVoce as e:
+                return f"Prova non riuscita: {e}"
+            return "Prova riuscita: il servizio risponde e accetta la chiave e il modello."
         try:
             for lingua, frase in (("it", "Buongiorno, sono Ada."), ("en", "Hello, I am Ada.")):
                 voce.sintetizza(obj, frase, lingua)
@@ -407,3 +554,27 @@ class ServizioVoceView(ModelView):
         return "Prova riuscita: il servizio legge in italiano e in inglese."
     prova.short_description = "Prova il servizio"
     prova.ai = False
+
+
+@register
+class StrumentiSpentiView(ModelView):
+    """Gli strumenti spenti a mano, in sola lettura: si spengono e riaccendono dalla pagina «Strumenti». La vista c'è
+    perché i cambi finiscano nel registro delle modifiche."""
+    model = StrumentoSpento
+    api = False
+    slug = "strumenti_spenti"
+    list_display = ["nome", "azienda", "spento_da", "spento_il"]
+    list_filter = ["azienda"]
+    search_fields = ["nome"]
+    readonly_fields = ["nome", "azienda", "spento_da", "spento_il"]
+    form_layout = [("Strumento spento", [("nome", "azienda"), ("spento_da", "spento_il")])]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+

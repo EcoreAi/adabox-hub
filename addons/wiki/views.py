@@ -3,7 +3,7 @@ from django.core.exceptions import PermissionDenied
 from core.viste import Inline, ModelView, register
 
 from . import servizi
-from .models import MembroWiki, PaginaWiki, SpazioWiki
+from .models import DomandaWiki, MembroWiki, PaginaWiki, SpazioWiki
 
 
 @register
@@ -38,6 +38,16 @@ class PaginaWikiView(ModelView):
     form_layout = [("Pagina", [("titolo", "spazio"), ("padre", "ordine"), "testo"])]
     chatter = True
     ai_descrizione = "Le pagine della wiki interna: procedure, guide e conoscenza dell'azienda, in markdown."
+    conoscenza_sezioni = "testo"              # l'assistente indicizza il testo per intero, una sezione per frammento
+
+    def conoscenza_percorso(self, obj):
+        """«Procedure › Magazzino › Resi»: lo spazio, le pagine madri e la pagina."""
+        madri, p, visti = [], obj.padre, {obj.pk}
+        while p is not None and p.pk not in visti:
+            madri.insert(0, p.titolo)
+            visti.add(p.pk)
+            p = p.padre
+        return [obj.spazio.nome, *madri, obj.titolo]
 
     def get_queryset(self, request):
         if not getattr(request, "azienda", None):
@@ -73,3 +83,21 @@ class PaginaWikiView(ModelView):
         obj.aggiornata_da = request.user
         super().save_model(request, obj, form, change)
         servizi.salva_versione(obj, request.user)
+
+
+@register
+class DomandaWikiView(ModelView):
+    """Le domande fatte alla wiki senza trovare nulla: per i responsabili, dicono quali pagine scrivere."""
+    model = DomandaWiki
+    slug = "domande"
+    company_field = "azienda"
+    storico = False
+    list_display = ["domanda", "volte", "ultima", "risolta"]
+    list_filter = ["risolta"]
+    search_fields = ["domanda"]
+    form_layout = [("Domanda", ["domanda", ("volte", "ultima"), "risolta"])]
+    readonly_fields = ["domanda", "volte", "ultima"]
+    ai_descrizione = "Le domande fatte alla wiki a cui nessuna pagina rispondeva: le pagine da scrivere."
+
+    def has_add_permission(self, request):
+        return False

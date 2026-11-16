@@ -1,10 +1,53 @@
 # Voce nella chat di Ada
 
-Tre funzioni nella chat:
+Quattro funzioni:
 
 - **Microfono**: l'utente detta, il testo arriva nel campo da rileggere prima di inviare (massimo 2 minuti).
 - **Ascolta**: sotto ogni risposta, la legge ad alta voce. Tabelle e codice non si leggono: la voce dice che ci sono.
 - **Risposta vocale**: l'icona dell'altoparlante nella casella, accanto al microfono; legge ogni nuova risposta. La scelta resta nel browser.
+- **Parla con Ada** (`/ai/parla/`, l'icona delle onde accanto al microfono): una conversazione a voce a schermo intero,
+  pensata per il telefono. Sul telefono la chat si apre già così (la prima volta nella sessione e dopo mezz'ora
+  lontano); «Apri nella chat» o la X riportano alla chat scritta.
+
+## Parla con Ada
+
+- **Tocchi e parli**: la pagina capisce da sola quando hai finito (silenzio dopo la voce, *secondi di silenzio per
+  chiudere la frase*, 1,3 di default). Se non parli entro 8 secondi si ferma. Sotto i 150 ms di voce non manda nulla:
+  Whisper sul silenzio si inventa frasi.
+- **Risposte brevi**: la domanda va al motore della chat con una nota «modalità voce» (poche frasi parlate, niente
+  tabelle né elenchi lunghi, numeri come si dicono, conferma a voce prima di creare o modificare). Senza ricerca sul
+  web, per rispondere prima.
+- **La voce parte mentre la risposta si scrive**: il browser chiede l'audio una frase alla volta (la prima corta, due
+  pezzi preparati in anticipo). Il server legge solo il testo della risposta del turno, indicato per posizione: non
+  si può usare il servizio di lettura per altri testi. Codice e tabelle non si leggono; dopo 30 secondi di voce Ada si
+  ferma e il resto è nella chat.
+- **Turni**: finita la risposta riascolta per qualche secondo (*secondi di ascolto dopo la risposta*, 6 di default;
+  0 = si tocca ogni volta). **Toccando mentre pensa o parla la interrompi**: la risposta si ferma anche sul server e
+  nel turno dopo il modello sa fin dove l'avevi sentita.
+- Lo schermo resta acceso mentre la conversazione è attiva; da ferma il microfono si spegne.
+- **Modello**: con un profilo di compito *Parla con Ada (conversazione a voce)* in Assistente AI → Profili, i turni a
+  voce usano la sua catena (conviene un modello veloce e regolare, es. Claude Haiku, e un tetto ai token di 1000-2000);
+  senza, vale il profilo della chat con «Automatico». I turni a voce contano comunque come chat (licenza, cruscotto).
+- **Dati senza fonti**: se la risposta contiene cifre (orari, importi, numeri) che non vengono dalla domanda, dal
+  contesto o da uno strumento, e nel turno non è stato letto nessun dato, il motore chiede al modello di rifarla una
+  volta (leggendo i dati o dicendo che non li ha); se resta senza fonti, la voce aggiunge «non ho trovato questi dati
+  negli strumenti, verificali». La pagina non legge una risposta finché non sa se poggia su dati letti, così una
+  risposta scartata non si sente. Sotto i sottotitoli: «Verificata · Calendario» o l'avviso.
+- **Cifre nel testo, parole nella voce**: Ada scrive 13:30 e 1.250 € (così la guardia sui numeri le controlla), la
+  lettura le pronuncia («13 e 30», «1250 euro»); le emoji non si leggono.
+- **Strumenti a voce**: 18 su 39, quelli utili al telefono (agenda, record, totali, conoscenza, documenti,
+  comunicazioni, proposte di modifica, ricorda, previsioni); fuori grafici, tabelle, Analisi, documenti lunghi,
+  pianificazioni, agenti ed eliminazioni (`parla.STRUMENTI_VOCE`). Meno token per passo, circa il 40% di attesa in meno.
+- **Frasi d'attesa**: quando parte il primo strumento che legge dati, Ada dice «Guardo il calendario.», «Controllo nei
+  dati.», «Cerco nei documenti.»… (Kokoro le legge una volta, poi in cache; la pagina le scarica al primo tocco).
+- **Modello consigliato** (misurato il 2026-11-16): Mistral Medium 3.5, europeo, 0,6-1,1 s alla prima parola o allo
+  strumento, nessun dato inventato nelle prove; Mistral Small inventava appuntamenti, Large è 2-7 volte più lento.
+- Ada saluta l'utente per nome; a Mistral vanno come parole da favorire «Ada», il marchio, l'azienda e nome e cognome
+  dell'utente (senza, «Ada, quali…» diventava «Ha da quali…»).
+- Serve che ci siano sia la dettatura sia la lettura; la conversazione resta una chat normale, nella cronologia.
+
+Limiti di questa prima versione: con il Whisper locale la trascrizione impiega 6-8 secondi a frase (con la
+trascrizione in cloud circa uno); non ci si interrompe ancora con la voce, solo toccando.
 
 Il microfono funziona solo su pagine **https** (o `localhost`): è una regola dei browser.
 
@@ -12,11 +55,25 @@ Il microfono funziona solo su pagine **https** (o `localhost`): è una regola de
 
 | | Servizio | Che cosa esce dal server |
 |---|---|---|
-| Dettatura | Whisper, sempre locale (Speaches) | niente |
+| Dettatura | Whisper locale (Speaches) | niente |
+| Dettatura | Mistral Voxtral o OVH Whisper (con il consenso) | **l'audio** di chi parla, al fornitore |
 | Lettura | Kokoro, locale (Speaches) | niente |
 | Lettura | Cartesia, Mistral, Azure, Gemini | il testo della risposta, **dati personali compresi**, al fornitore |
 
-Per questo la lettura con un fornitore cloud ha un consenso apposito per azienda, spento di default.
+Per questo la lettura e la trascrizione con un fornitore cloud hanno ciascuna un consenso apposito per azienda,
+spento di default.
+
+## Trascrizione in cloud
+
+Il Whisper locale impiega 6-8 secondi a frase sulla CPU del server; in cloud circa un secondo. Per usarla:
+
+1. **Assistente AI → Voce → Nuovo**: *uso* «Trascrizione del parlato», *tipo* **Mistral (Voxtral)** (modello
+   `voxtral-mini-latest`) oppure **OVH AI Endpoints (Whisper)** (`whisper-large-v3-turbo`), la chiave API. «Prova il
+   servizio» manda un secondo di silenzio: dice se chiave e modello vanno, senza la voce di nessuno.
+2. **Impostazioni → Assistente AI**, per l'azienda: *Trascrizione del parlato con un fornitore cloud*.
+
+Vale per il microfono della chat e per «Parla con Ada». Se il fornitore non risponde si usa il Whisper locale (se c'è
+l'URL di Speaches). La stessa chiave Mistral può servire anche per la lettura: è un secondo servizio, con uso «Lettura».
 
 ## Installazione del servizio locale (Speaches)
 
@@ -51,6 +108,8 @@ di ogni risposta è corta (160 caratteri) per far partire la voce subito; le alt
    - *URL del servizio vocale locale*: `http://adabox_hub_speaches:8000`
    - *Modello Whisper per la dettatura*: lascia quello predefinito
    - per ogni azienda: *Voce nella chat* (spenta di default) e, solo se serve, *Lettura delle risposte con un fornitore cloud*
+   - per ogni azienda, per «Parla con Ada»: *Sul telefono la chat si apre con «Parla con Ada»* (accesa), *secondi di
+     silenzio per chiudere la frase* (1,3), *secondi di ascolto dopo la risposta* (6)
 2. **Assistente AI → Voce**: aggiungi il servizio di lettura e usa «Prova il servizio» (legge una frase in italiano e una
    in inglese). Con l'azienda vuota vale per tutte; un servizio di un'azienda ha la precedenza. Si usa il primo attivo
    ammesso: Kokoro se c'è l'URL locale, un cloud solo con il consenso dell'azienda.

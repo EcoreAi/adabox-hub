@@ -122,7 +122,7 @@ def riparti(conversazione, messaggio, testo, utente, azienda=None):
 
 
 def avvia(conversazione, testo, utente, azienda=None, compito="chat", sincrono=False, nota="", file=(), messaggio=None, web=True,
-          immagini_confermate=None):
+          immagini_confermate=None, voce=False):
     """Registra la domanda e avvia il turno: in un thread, oppure nel processo stesso con `sincrono` (worker delle
     pianificate) o AI_TURNI_SINCRONI (test). `nota` va al modello nel <contesto>, non nella chat. `file`: gli allegati
     del messaggio, già controllati. `messaggio`: quello esistente, quando si riparte da lì."""
@@ -131,7 +131,7 @@ def avvia(conversazione, testo, utente, azienda=None, compito="chat", sincrono=F
     if in_corso is not None:
         return in_corso
     with transaction.atomic():
-        turno = Turno.objects.create(conversazione=conversazione, utente=utente, azienda=azienda, compito=compito, web=web)
+        turno = Turno.objects.create(conversazione=conversazione, utente=utente, azienda=azienda, compito=compito, web=web, voce=voce)
         esiti = proposte.da_comunicare(conversazione)
         if messaggio is None:
             messaggio = MessaggioChat.objects.create(conversazione=conversazione, ruolo=MessaggioChat.UTENTE, testo=testo)
@@ -182,6 +182,7 @@ class _Esecuzione:
         self.ultimo_salvataggio = 0.0
         self.testo_turno = []                     # tutto il testo visibile del turno (tra un passo e l'altro)
         self.protezione = None
+        self.ricontrollato = False                # la guardia dei dati senza fonti (solo a voce) ha già chiesto di rifare
 
     def salva_testo(self, forza=False):
         adesso = time.monotonic()
@@ -198,11 +199,7 @@ class _Esecuzione:
         self.turno.save(update_fields=["avanzamento", "battito"])
 
     def aggiungi_uso(self, modello, uso):
-        totale = dict(self.turno.uso)
-        for k, v in uso.come_dict().items():
-            totale[k] = totale.get(k, 0) + v
-        self.turno.uso = totale
-        self.turno.costo += modello.costo(uso.come_dict())
+        self.turno.addebita(modello, uso.come_dict())
 
     def oltre_budget(self):
         if time.monotonic() - self.inizio > self.secondi:
@@ -224,13 +221,21 @@ def esegui(turno_id):
         if assistente is not None and assistente.profilo_id and assistente.profilo.attivo:
             profilo, anelli = assistente.profilo, catalogo.catena(assistente.profilo, turno.azienda)
         else:
-            profilo = catalogo.profilo_per(turno.compito, turno.azienda, conversazione.ambito)
+            # a voce: il profilo «voce» (un modello veloce e regolare, risposte corte) se l'amministratore l'ha creato,
+            # altrimenti quello della chat con «Automatico»
+            profilo = catalogo.profilo_per("voce" if turno.voce and turno.compito == "chat" else turno.compito,
+                                           turno.azienda, conversazione.ambito)
             anelli = (catalogo.automatico(profilo, turno.azienda) if profilo.compito == "chat"
                       else catalogo.catena(profilo, turno.azienda))
-        catena = catalogo.con_scelta(anelli, conversazione.modello, turno.azienda)
+        from .. import funzioni
+        scelto = conversazione.modello if funzioni.attiva("piu_modelli") else None
+        catena = limiti.ammessi(catalogo.con_scelta(anelli, scelto, turno.azienda), utente)
         from ..strumenti import web
         ammessi = {s.nome: s for s in assistenti.filtra_strumenti(
             web.filtra(strumenti.disponibili(utente, conversazione.ambito, turno.azienda), turno.azienda, turno.web), assistente, esperto=turno.compito == "esperto")}
+        if turno.voce:                                    # «Parla con Ada»: solo gli strumenti utili al telefono
+            from ..parla import STRUMENTI_VOCE
+            ammessi = {n: s for n, s in ammessi.items() if n in STRUMENTI_VOCE}
         if turno.compito == "aiuto":                      # «Scrivi con Ada»: solo letture del gestionale
             from .. import aiuto_testi
             ammessi = aiuto_testi.filtra_strumenti(ammessi)
@@ -297,6 +302,21 @@ def esegui(turno_id):
                 dati["mascherato"] = True                 # i blocchi nativi contengono i segnaposto
             Evento.objects.create(conversazione=conversazione, turno=turno, tipo=Evento.ASSISTENTE, dati=dati)
             if not chiamate:
+                if turno.voce:                           # a voce: niente dati letti come veri se non vengono da nessuna parte
+                    from .. import guardia
+                    cifre = guardia.sospetti(turno, "".join(testo_passo))
+                    if cifre and not e.ricontrollato:
+                        e.ricontrollato = True
+                        log.info("turno %s: risposta a voce con dati senza fonti (%s): si rifà", turno.pk, cifre)
+                        guardia.richiama(conversazione, turno, cifre)
+                        e.testo_turno = []
+                        e.salva_testo(forza=True)
+                        continue
+                    if cifre:
+                        e.testo_turno.append(guardia.AVVISO)
+                from .. import guardia as _guardia      # ciò che uno strumento chiede di non tacere (es. i passati)
+                for frase in _guardia.da_ricordare(turno, "".join(e.testo_turno)):
+                    e.testo_turno.append(f"\n\n{frase}")
                 if fine and fine.motivo == "limite":
                     e.testo_turno.append("\n\n_La risposta ha raggiunto la lunghezza massima._")
                 elif fine and fine.motivo == "rifiuto":
@@ -397,6 +417,14 @@ def _chiudi(e, stato, coda="", errore=""):
             turno.provenienza = provenienza.calcola(turno, testo, segnaposto=e.protezione.protetti if e.protezione else ())
         except Exception:                          # la provenienza è un di più: non deve rompere il turno
             log.exception("provenienza del turno %s", turno.pk)
+        from .. import funzioni, verifica
+        try:
+            if funzioni.attiva("conoscenza") and verifica.accesa():
+                citazioni = verifica.citazioni(turno, testo, e.protezione)
+                if citazioni:
+                    turno.provenienza = {**(turno.provenienza or {}), "citazioni": citazioni}
+        except Exception:                          # anche la verifica è un di più
+            log.exception("verifica delle citazioni del turno %s", turno.pk)
     with transaction.atomic():                         # insieme: chi vede il turno concluso trova già il messaggio
         turno.save()
         if turno.conversazione_id and testo:

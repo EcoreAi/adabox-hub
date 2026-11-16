@@ -36,7 +36,8 @@ def url_servizio():
 
 
 def abilitata(azienda):
-    return bool(url_servizio()) and bool(_parametro("ai.ricerca_web", azienda, False))
+    from .. import funzioni
+    return funzioni.attiva("ricerca_web") and bool(url_servizio()) and bool(_parametro("ai.ricerca_web", azienda, False))
 
 
 def filtra(strumenti, azienda, permessa=True):

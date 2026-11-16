@@ -1,5 +1,12 @@
-"""Adattatore per gli endpoint compatibili OpenAI (/chat/completions): OpenAI, OpenRouter, Ollama, vLLM, Gemini.
-Il protocollo è stabile: HTTP diretto con httpx2 e Server-Sent Events."""
+"""Adattatore per gli endpoint compatibili OpenAI (/chat/completions): OpenAI, Gemini, Mistral, OpenRouter, Ollama, vLLM.
+Il protocollo è stabile: HTTP diretto con httpx2 e Server-Sent Events. Le differenze tra i fornitori stanno qui:
+
+- OpenAI vuole `max_completion_tokens` (i suoi modelli che ragionano rifiutano `max_tokens`) e accetta tutti i livelli
+  di ragionamento;
+- Gemini, dalla serie 3, mette su ogni chiamata a uno strumento una «firma del ragionamento»
+  (`extra_content.google.thought_signature`) e la rivuole identica nei turni successivi, altrimenti risponde 400: la
+  firma viaggia nel blocco dello strumento (`extra`) e torna solo a Gemini;
+- Mistral ha i suoi nomi per i livelli di ragionamento."""
 import json
 import logging
 
@@ -9,7 +16,8 @@ from .tipi import ChiamataStrumento, ErroreModello, Fine, Testo, Uso
 
 log = logging.getLogger(__name__)
 URL_PREDEFINITO = "https://api.openai.com/v1"
-URL_PER_TIPO = {"mistral": "https://api.mistral.ai/v1"}
+URL_PER_TIPO = {"mistral": "https://api.mistral.ai/v1", "openai": URL_PREDEFINITO,
+                "gemini": "https://generativelanguage.googleapis.com/v1beta/openai"}
 
 
 def url_base(provider):
@@ -17,7 +25,12 @@ def url_base(provider):
 MOTIVI = {"stop": "fine", "tool_calls": "strumenti", "length": "limite", "content_filter": "rifiuto"}
 
 
-def _messaggi(sistema, messaggi):
+def gemini(provider):
+    """Gemini, anche quando è configurato come «compatibile OpenAI» con il suo indirizzo."""
+    return provider.tipo == "gemini" or "generativelanguage.googleapis.com" in (provider.base_url or "")
+
+
+def _messaggi(sistema, messaggi, con_firme=False):
     risultato = [{"role": "system", "content": sistema}]
     for m in messaggi:
         if m["ruolo"] == "utente":
@@ -30,7 +43,8 @@ def _messaggi(sistema, messaggi):
         elif m["ruolo"] == "assistente":
             testo = "".join(b["testo"] for b in m["blocchi"] if b["tipo"] == "testo")
             chiamate = [{"id": b["id"], "type": "function",
-                         "function": {"name": b["nome"], "arguments": json.dumps(b["argomenti"], ensure_ascii=False)}}
+                         "function": {"name": b["nome"], "arguments": json.dumps(b["argomenti"], ensure_ascii=False)},
+                         **({"extra_content": b["extra"]} if con_firme and b.get("extra") else {})}
                         for b in m["blocchi"] if b["tipo"] == "strumento"]
             risultato.append({"role": "assistant", "content": testo or None, **({"tool_calls": chiamate} if chiamate else {})})
         elif m["ruolo"] == "strumento":
@@ -65,16 +79,20 @@ def _errore_http(risposta):
 
 
 def flusso(modello, chiave, *, sistema, messaggi, strumenti=(), max_token=16000, effort="", http_client=None):
-    corpo = {"model": modello.id_api, "messages": _messaggi(sistema, messaggi), "stream": True,
-             "stream_options": {"include_usage": True}, "max_tokens": min(max_token, modello.max_output)}
+    tipo = modello.provider.tipo
+    corpo = {"model": modello.id_api, "messages": _messaggi(sistema, messaggi, con_firme=gemini(modello.provider)),
+             "stream": True, "stream_options": {"include_usage": True},
+             "max_completion_tokens" if tipo == "openai" else "max_tokens": min(max_token, modello.max_output)}
     if strumenti and modello.strumenti:
         corpo["tools"] = [{"type": "function", "function": {"name": s["nome"], "description": s["descrizione"],
                                                              "parameters": s["schema"]}} for s in strumenti]
     if effort == "none" and modello.provider.locale:                # Ollama: niente ragionamento, risposta subito
         corpo["reasoning_effort"] = "none"
     elif effort and modello.ragionamento:
-        if modello.provider.tipo == "mistral":                      # Mistral: none, low, high, xhigh, max (niente medium)
+        if tipo == "mistral":                                       # Mistral: none, low, high, xhigh, max (niente medium)
             corpo["reasoning_effort"] = {"medium": "high"}.get(effort, effort)
+        elif tipo == "openai":                                      # OpenAI li ha tutti; se il modello non ne vuole uno, sotto si riprova senza
+            corpo["reasoning_effort"] = effort
         else:
             corpo["reasoning_effort"] = "high" if effort in ("high", "xhigh", "max") else effort
     intestazioni = {"Content-Type": "application/json"}
@@ -118,6 +136,8 @@ def flusso(modello, chiave, *, sistema, messaggi, strumenti=(), max_token=16000,
                             funzione = c.get("function") or {}
                             voce["nome"] += funzione.get("name") or ""
                             voce["argomenti"] += funzione.get("arguments") or ""
+                            if isinstance(c.get("extra_content"), dict):         # Gemini: la firma del ragionamento
+                                voce["extra"] = c["extra_content"]
                         if scelta.get("finish_reason"):
                             motivo = MOTIVI.get(scelta["finish_reason"], "altro")
             break
@@ -136,7 +156,8 @@ def flusso(modello, chiave, *, sistema, messaggi, strumenti=(), max_token=16000,
         except json.JSONDecodeError:
             argomenti = {"_non_valido": c["argomenti"]}
         id_chiamata = c["id"] or f"chiamata_{i}"
-        blocchi.append({"tipo": "strumento", "id": id_chiamata, "nome": c["nome"], "argomenti": argomenti})
+        blocchi.append({"tipo": "strumento", "id": id_chiamata, "nome": c["nome"], "argomenti": argomenti,
+                        **({"extra": c["extra"]} if c.get("extra") else {})})
         yield ChiamataStrumento(id_chiamata, c["nome"], argomenti)
     if not blocchi:
         raise ErroreModello("VUOTA", "il modello non ha risposto")

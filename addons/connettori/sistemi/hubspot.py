@@ -4,16 +4,17 @@ di app privata (Authorization: Bearer). Solo l'indirizzo fisso di HubSpot.
 Documentazione: developers.hubspot.com, CRM objects, CRM search, associations v4, pipelines. Ricerca: massimo 200 per
 pagina e 10.000 per interrogazione; i record modificati compaiono con qualche istante di ritardo; quelli archiviati
 non compaiono. La data di modifica è `lastmodifieddate` per le persone e `hs_lastmodifieddate` per gli altri."""
-import datetime
 from decimal import Decimal, InvalidOperation
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote
 
 import httpx2 as httpx
+from django.utils.dateparse import parse_datetime
 
-from .base import ErroreConnettore, ErroreTemporaneo
+from .base import (AZIENDE, OPPORTUNITA, PERSONE, ErroreConnettore, ErroreTemporaneo, Sistema, data, dominio, nazione,
+                   nome_e_cognome, pieni, pulisci)
 
 BASE = "https://api.hubapi.com"
-CONTATTI, AZIENDE, OPPORTUNITA = "contacts", "companies", "deals"
+CONTATTI = PERSONE
 OGGETTI = {
     CONTATTI: {"modificato": "lastmodifieddate",
                "proprieta": ["email", "firstname", "lastname", "phone", "mobilephone", "jobtitle", "address", "city", "zip", "website"]},
@@ -22,7 +23,7 @@ OGGETTI = {
     OPPORTUNITA: {"modificato": "hs_lastmodifieddate",
                   "proprieta": ["dealname", "amount", "closedate", "dealstage", "pipeline", "description"]},
 }
-PROPRIETA = OGGETTI[CONTATTI]["proprieta"] + ["lastmodifieddate"]       # compatibilità: le persone
+CHIAVI = {"email": "email", "dominio": "domain", "nome": "name"}
 PER_PAGINA = 100
 TEMPO = 20
 AMBITI = "crm.objects.contacts, crm.objects.companies e crm.objects.deals (lettura e scrittura)"
@@ -32,8 +33,8 @@ def _id(valore):
     return quote(str(valore), safe="")
 
 
-class HubSpot:
-    nome = "hubspot"
+class HubSpot(Sistema):
+    nome, etichetta = "hubspot", "HubSpot"
 
     def __init__(self, token, transport=None):
         self.client = httpx.Client(base_url=BASE, timeout=TEMPO, transport=transport, trust_env=False, follow_redirects=False,
@@ -61,59 +62,51 @@ class HubSpot:
 
     # --- lettura dei record cambiati -------------------------------------------------------------------------------
 
-    def modificati(self, oggetto, millisecondi, dopo=None):
-        """(record, prossima pagina) di un tipo di oggetto. Dal meno recente: così il cursore avanza anche se ci si
-        ferma a metà."""
-        campo = OGGETTI[oggetto]["modificato"]
-        corpo = {"filterGroups": [{"filters": [{"propertyName": campo, "operator": "GTE", "value": str(millisecondi)}]}],
+    def modificati(self, tipo, da, dopo=None):
+        campo = OGGETTI[tipo]["modificato"]
+        corpo = {"filterGroups": [{"filters": [{"propertyName": campo, "operator": "GTE", "value": str(int(da.timestamp() * 1000))}]}],
                  "sorts": [{"propertyName": campo, "direction": "ASCENDING"}],
-                 "properties": OGGETTI[oggetto]["proprieta"] + [campo], "limit": PER_PAGINA}
+                 "properties": OGGETTI[tipo]["proprieta"] + [campo], "limit": PER_PAGINA}
         if dopo:
             corpo["after"] = dopo
-        dati = self._chiama("POST", f"/crm/v3/objects/{oggetto}/search", json=corpo)
+        dati = self._chiama("POST", f"/crm/v3/objects/{tipo}/search", json=corpo)
         return dati.get("results", []), (dati.get("paging") or {}).get("next", {}).get("after")
 
-    def modificati_da(self, millisecondi, dopo=None):
-        """Le persone cambiate (il primo oggetto gestito, resta per compatibilità)."""
-        return self.modificati(CONTATTI, millisecondi, dopo)
+    def istante(self, tipo, record):
+        return parse_datetime((record.get("properties") or {}).get(OGGETTI[tipo]["modificato"]) or "")
 
     # --- ricerca, creazione, modifica ------------------------------------------------------------------------------
 
-    def trova(self, oggetto, proprieta, valore):
-        """L'id del primo record con quel valore, o None. Per le chiavi naturali: email delle persone, dominio o nome
-        delle aziende."""
+    def trova(self, tipo, chiave, valore):
+        proprieta = CHIAVI[chiave]
         corpo = {"filterGroups": [{"filters": [{"propertyName": proprieta, "operator": "EQ", "value": valore}]}],
                  "properties": [proprieta], "limit": 2}
-        risultati = self._chiama("POST", f"/crm/v3/objects/{oggetto}/search", json=corpo).get("results", [])
+        risultati = self._chiama("POST", f"/crm/v3/objects/{tipo}/search", json=corpo).get("results", [])
         return risultati[0]["id"] if len(risultati) == 1 else (None if not risultati else False)
 
-    def trova_per_email(self, email):
-        trovato = self.trova(CONTATTI, "email", email)
-        return trovato or None
+    def crea(self, tipo, dati):
+        return self._chiama("POST", f"/crm/v3/objects/{tipo}", json={"properties": dati})["id"]
 
-    def crea(self, proprieta, oggetto=CONTATTI):
-        return self._chiama("POST", f"/crm/v3/objects/{oggetto}", json={"properties": proprieta})["id"]
-
-    def aggiorna(self, id_esterno, proprieta, oggetto=CONTATTI):
-        self._chiama("PATCH", f"/crm/v3/objects/{oggetto}/{_id(id_esterno)}", json={"properties": proprieta})
+    def aggiorna(self, tipo, id_esterno, dati):
+        self._chiama("PATCH", f"/crm/v3/objects/{tipo}/{_id(id_esterno)}", json={"properties": dati})
 
     # --- associazioni (v4) -----------------------------------------------------------------------------------------
 
-    def associazioni(self, da, a, ids):
-        """{id di partenza: [id associati]} per un gruppo di record (al massimo 100 per chiamata, come le pagine)."""
-        if not ids:
+    def associazioni(self, tipo, verso, record):
+        """Al massimo 100 record per chiamata, come le pagine."""
+        if not record:
             return {}
-        dati = self._chiama("POST", f"/crm/v4/associations/{da}/{a}/batch/read", json={"inputs": [{"id": str(i)} for i in ids]})
+        dati = self._chiama("POST", f"/crm/v4/associations/{tipo}/{verso}/batch/read", json={"inputs": [{"id": str(r["id"])} for r in record]})
         return {str(r["from"]["id"]): [str(t["toObjectId"]) for t in r.get("to", [])] for r in dati.get("results", [])}
 
-    def associa(self, da, id_da, a, id_a):
+    def associa(self, tipo, id_esterno, verso, id_verso):
         """L'associazione predefinita tra due record (se c'è già, HubSpot non la duplica)."""
-        self._chiama("PUT", f"/crm/v4/objects/{da}/{_id(id_da)}/associations/default/{a}/{_id(id_a)}")
+        self._chiama("PUT", f"/crm/v4/objects/{tipo}/{_id(id_esterno)}/associations/default/{verso}/{_id(id_verso)}")
 
     # --- fasi delle opportunità ------------------------------------------------------------------------------------
 
     def fasi(self):
-        """Le fasi della pipeline predefinita delle opportunità: [{id, label, ordine, probabilita, chiusa}]."""
+        """Le fasi della pipeline predefinita: chiusa al 100% è la vittoria, chiusa sotto è persa."""
         pipeline = self._chiama("GET", "/crm/v3/pipelines/deals").get("results", [])
         scelta = next((p for p in pipeline if p.get("id") == "default"), pipeline[0] if pipeline else None)
         if scelta is None:
@@ -125,86 +118,73 @@ class HubSpot:
                 probabilita = float(meta.get("probability", 0))
             except (TypeError, ValueError):
                 probabilita = 0.0
+            chiusa = str(meta.get("isClosed", "false")).lower() == "true"
             voci.append({"id": f["id"], "label": f.get("label", f["id"]), "ordine": f.get("displayOrder", 0),
-                         "probabilita": probabilita, "chiusa": str(meta.get("isClosed", "false")).lower() == "true",
-                         "pipeline": scelta["id"]})
+                         "probabilita": probabilita, "chiusa": chiusa, "vinta": chiusa and probabilita >= 1, "pipeline": scelta["id"]})
         return sorted(voci, key=lambda f: f["ordine"])
+
+    # --- i campi -----------------------------------------------------------------------------------------------------
+
+    def in_adabox(self, tipo, record, fasi=None):
+        if tipo == AZIENDE:
+            return azienda_in_adabox(record)
+        if tipo == OPPORTUNITA:
+            return opportunita_in_adabox(record, fasi or [])
+        return in_adabox(record)
+
+    def fuori(self, tipo, obj, fase=None):
+        if tipo == AZIENDE:
+            return azienda_in_hubspot(obj)
+        if tipo == OPPORTUNITA:
+            return opportunita_in_hubspot(obj, fase)
+        return in_hubspot(obj)
 
 
 # --- dai dati di HubSpot a quelli di adabox, e ritorno -------------------------------------------------------------
 
-def _pulisci(dati):
-    return {k: str(v).strip() for k, v in dati.items() if v is not None and str(v).strip()}
-
-
 def in_adabox(record):
-    """Dai campi di HubSpot a quelli del contatto; i campi vuoti restano fuori: non cancellano ciò che c'è da noi."""
     p = record.get("properties") or {}
     nome = " ".join(x for x in [(p.get("firstname") or "").strip(), (p.get("lastname") or "").strip()] if x)
     dati = {"nome": nome or (p.get("email") or "").strip(), "email": (p.get("email") or "").strip().lower(), "telefono": p.get("phone"),
             "cellulare": p.get("mobilephone"), "ruolo": p.get("jobtitle"), "indirizzo": p.get("address"), "citta": p.get("city"),
             "cap": p.get("zip"), "sito": p.get("website")}
-    return _pulisci(dati)
+    return pulisci(dati)
 
 
 def in_hubspot(contatto):
-    """Dal contatto a HubSpot: nome e cognome si separano sul primo spazio, l'unica divisione che non inventa nulla."""
-    nome, _, cognome = contatto.nome.strip().partition(" ")
-    dati = {"email": contatto.email, "firstname": nome, "lastname": cognome, "phone": contatto.telefono, "mobilephone": contatto.cellulare,
-            "jobtitle": contatto.ruolo, "address": contatto.indirizzo, "city": contatto.citta, "zip": contatto.cap, "website": contatto.sito}
-    return {k: v for k, v in dati.items() if v}
-
-
-def dominio(sito):
-    """«https://www.rossi.it/chi-siamo» → «rossi.it»: la chiave con cui HubSpot riconosce le aziende."""
-    sito = (sito or "").strip().lower()
-    if not sito:
-        return ""
-    host = urlsplit(sito if "://" in sito else f"https://{sito}").hostname or ""
-    return host[4:] if host.startswith("www.") else host
+    nome, cognome = nome_e_cognome(contatto.nome)
+    return pieni({"email": contatto.email, "firstname": nome, "lastname": cognome, "phone": contatto.telefono, "mobilephone": contatto.cellulare,
+                  "jobtitle": contatto.ruolo, "address": contatto.indirizzo, "city": contatto.citta, "zip": contatto.cap, "website": contatto.sito})
 
 
 def azienda_in_adabox(record):
     p = record.get("properties") or {}
     sito = p.get("website") or (f"https://{p['domain']}" if p.get("domain") else "")
-    nazione = (p.get("country") or "").strip()
-    dati = {"nome": p.get("name"), "telefono": p.get("phone"), "indirizzo": p.get("address"), "citta": p.get("city"),
-            "cap": p.get("zip"), "sito": sito, "nazione": nazione.upper() if len(nazione) == 2 else None}
-    return _pulisci(dati)
+    return pulisci({"nome": p.get("name"), "telefono": p.get("phone"), "indirizzo": p.get("address"), "citta": p.get("city"),
+                    "cap": p.get("zip"), "sito": sito, "nazione": nazione(p.get("country"))})
 
 
 def azienda_in_hubspot(contatto):
-    dati = {"name": contatto.nome, "domain": dominio(contatto.sito), "website": contatto.sito, "phone": contatto.telefono,
-            "address": contatto.indirizzo, "city": contatto.citta, "zip": contatto.cap, "country": contatto.nazione}
-    return {k: v for k, v in dati.items() if v}
+    return pieni({"name": contatto.nome, "domain": dominio(contatto.sito), "website": contatto.sito, "phone": contatto.telefono,
+                  "address": contatto.indirizzo, "city": contatto.citta, "zip": contatto.cap, "country": contatto.nazione})
 
 
-def _data(testo):
-    """La data di un valore di HubSpot: ISO («2026-11-30T00:00:00Z» o «2026-11-30») oppure millisecondi."""
-    testo = (testo or "").strip()
-    if not testo:
-        return None
-    if testo.isdigit():
-        return datetime.datetime.fromtimestamp(int(testo) / 1000, tz=datetime.timezone.utc).date()
+def importo(testo):
     try:
-        return datetime.date.fromisoformat(testo[:10])
-    except ValueError:
+        return Decimal(str(testo).strip()).quantize(Decimal("0.01")) if str(testo or "").strip() else None
+    except InvalidOperation:
         return None
 
 
 def opportunita_in_adabox(record, fasi):
-    """I campi dell'opportunità e lo stato dalla fase: chiusa al 100% è vinta, chiusa allo 0% è persa."""
     p = record.get("properties") or {}
     dati = {}
     if (p.get("dealname") or "").strip():
         dati["titolo"] = p["dealname"].strip()[:200]
-    if (p.get("amount") or "").strip():
-        try:
-            dati["valore_atteso"] = Decimal(p["amount"]).quantize(Decimal("0.01"))
-        except InvalidOperation:
-            pass
-    if data := _data(p.get("closedate")):
-        dati["chiusura_prevista"] = data
+    if (valore := importo(p.get("amount"))) is not None:
+        dati["valore_atteso"] = valore
+    if giorno := data(p.get("closedate")):
+        dati["chiusura_prevista"] = giorno
     fase = next((f for f in fasi if f["id"] == p.get("dealstage")), None)
     if fase is not None:
         dati["fase_esterna"] = fase
@@ -217,4 +197,4 @@ def opportunita_in_hubspot(opportunita, fase_esterna):
             "description": opportunita.note[:65000] if opportunita.note else None}
     if fase_esterna is not None:
         dati["pipeline"], dati["dealstage"] = fase_esterna["pipeline"], fase_esterna["id"]
-    return {k: v for k, v in dati.items() if v}
+    return pieni(dati)

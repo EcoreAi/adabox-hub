@@ -1,0 +1,12 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Chiedi alla wiki · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead"><div><h1>Chiedi alla wiki</h1>
+  <div class="sub">L'assistente risponde solo con le pagine che puoi leggere ({{ pagine }}), e cita le sezioni da cui prende ogni informazione.</div></div>
+  {% if domande %}<div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="{% url 'wiki:domande_lista' %}">Domande senza risposta</a></div>{% endif %}</div>
+<section class="ui-card is-revealed ui-section"><div class="ui-card-body">
+  {% if si_puo %}{% include "wiki/_chiedi.html" %}
+  <p class="ui-help">Se la wiki non dice nulla sull'argomento, l'assistente lo dice invece di inventare, e la domanda finisce tra quelle a cui manca una pagina.</p>
+  {% else %}<p>Per fare domande alla wiki serve l'assistente AI: chiedi all'amministratore di attivarlo per te.</p>{% endif %}
+</div></section>
+{% endblock %}

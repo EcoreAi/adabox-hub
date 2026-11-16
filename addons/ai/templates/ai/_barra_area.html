@@ -1,5 +1,5 @@
 {# L'area di lavoro della chat: la tendina sposta la chat aperta, o cambia l'area corrente per la chat nuova. #}
-{% with area=conversazione.progetto|default:progetto_nuova|default:area_corrente %}{% if area %}
+{% if funzioni.ai.aree_di_lavoro %}{% with area=conversazione.progetto|default:progetto_nuova|default:area_corrente %}{% if area %}
 <div class="ai-barra-area">
   <svg aria-hidden="true"><use href="#ai-cartella"/></svg>
   {% if sola_lettura %}
@@ -17,4 +17,4 @@
   <a class="ai-barra-area-apri" href="{% url 'ai:progetto' area.pk %}" data-tip="Apri l'area" aria-label="Apri l'area {{ area.nome }}">↗</a>
   {% endif %}
 </div>
-{% endif %}{% endwith %}
+{% endif %}{% endwith %}{% endif %}

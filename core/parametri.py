@@ -81,7 +81,11 @@ class ImpostazioniForm(forms.Form):
     def __init__(self, modulo, azienda, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.modulo, self.azienda = modulo, azienda
-        self.voci = {k: v for k, v in definizioni().items() if v["modulo"] == modulo}
+        from . import funzioni
+        comprese = funzioni.comprese(modulo)                # None = tutte
+        # le impostazioni di una funzione che la licenza non comprende non si vedono e non si salvano
+        self.voci = {k: v for k, v in definizioni().items() if v["modulo"] == modulo
+                     and (comprese is None or not v.get("funzione") or v["funzione"] in comprese)}
         for chiave, voce in self.voci.items():
             nome = voce["chiave"]
             self.fields[nome] = _campo(voce)

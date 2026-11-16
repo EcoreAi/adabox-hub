@@ -68,6 +68,7 @@ class ModelView:
     form_class = None
     readonly_fields = ()
     company_field = None          # None = modello globale
+    funzione = None               # chiave di una funzione del modulo (core.funzioni): senza, la vista non si apre
     ai_descrizione = ""                         # per Ada: che cosa contiene e come la chiamano gli utenti, se il nome non basta
     storico = True                              # False: record che cambiano troppo spesso per finire nel registro delle modifiche
     personale = False                           # True: record di una sola persona, che non si condivide (memoria, progetti dell'assistente)
@@ -197,6 +198,10 @@ class ModelView:
                 chatter.traccia(obj, vecchi, request.user)
 
     def _perm(self, request, azione):
+        if self.funzione:
+            from core import funzioni
+            if not funzioni.attiva(self.opts.app_label, self.funzione):
+                return False                       # funzione non compresa nella licenza: nemmeno per i superutenti
         return request.user.has_perm(f"{self.opts.app_label}.{azione}_{self.opts.model_name}")
 
     def has_view_permission(self, request, obj=None):

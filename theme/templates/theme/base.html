@@ -12,9 +12,11 @@
   <meta name="theme-color" content="{{ theme.theme_color }}">
   <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
   {% block head_extra %}{% endblock %}
+  {% include "theme/partials/_tema.html" %}
 </head>
 <body class="ui-body">
   {% include 'theme/partials/_icons.html' %}
+  {% include "theme/partials/_tema_anteprima.html" %}
   {% if sandbox %}<div class="ui-sandbox" role="note">Ambiente di prova: dati dimostrativi, le email non partono e le fatture vanno al simulatore dello SDI.</div>{% endif %}
 
   {% if user.is_authenticated %}

@@ -36,3 +36,16 @@ marketplace dopo, sopra il sistema dei moduli.
 - OCR delle scansioni per l'indice della conoscenza.
 - WebDAV per i Documenti (serve un dominio con HTTPS).
 - pgvector per gli embedding quando il server passa a Postgres.
+
+## adabox dentro Claude, ChatGPT, Gemini e Le Chat: ciò che resta
+
+Il connettore in sola lettura con il mascheramento è fatto dal 2026-11-12 (modulo `connettore_ai`; README, sezione
+«Chat AI esterne»; progetto e scostamenti in `docs/progetto-connettore-ai.md`). Restano idee:
+
+- **Scritture dalle chat esterne**, come proposte da confermare in adabox: nessuna modifica parte da una chat senza che
+  la persona veda l'anteprima vera.
+- **Importare le chat** esportate da ChatGPT e Claude nell'area personale (formati non documentati).
+- **Chiave API personale** dentro Ada: in sospeso. Usare dentro adabox l'abbonamento della persona resta vietato dai
+  termini di Anthropic e Google; OpenAI lo ammette solo alle app che approva.
+
+**Prima di tutto questo:** la prova del connettore con i quattro client veri, su un'istanza pubblica in https.

@@ -26,6 +26,7 @@ Se il modulo dipende da altri: `modulo nuovo bolle --dipende contatti`.
 6. **I segreti sono cifrati** con `core.cifratura`, si scrivono in un modulo e non si rileggono nelle pagine.
 7. **Le chiamate verso indirizzi decisi da un utente passano da `core.rete`**, che blocca la rete interna. La rete sta fuori dalle transazioni: lavoro in background con `core.lavori` e `senza_transazione = True`.
 8. **Una pagina senza login è una scelta**, e un endpoint senza CSRF deve verificare una firma.
+9. **Gli indirizzi alla radice sono un'eccezione.** `urlpatterns_radice` in `urls.py` serve solo quando il percorso lo fissa uno standard (`/.well-known/…`): lì i middleware dei moduli non arrivano, e la vista risponde 404 da sé quando il modulo è spento.
 
 Una pagina di amministrazione dell'istanza che mostra tutte le aziende di proposito lo dichiara con `tra_aziende = True`.
 
