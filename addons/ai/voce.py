@@ -192,7 +192,39 @@ def da_leggere(markdown):
     testo = re.sub(r"^\s{0,3}(#{1,6}|[-*+]|\d+[.)]|>)\s+", "", testo, flags=re.M)
     testo = re.sub(r"(\*\*|__|\*|_|`|~~)", "", testo)
     testo = re.sub(r"^\s*(---|\*\*\*)\s*$", "", testo, flags=re.M)
+    testo = per_la_voce(testo)
     return re.sub(r"[ \t]+", " ", re.sub(r"\n{2,}", "\n", testo)).strip()
+
+
+MESI = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre",
+        "novembre", "dicembre"]
+EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D]")
+
+
+def per_la_voce(testo):
+    """Le cifre come si dicono: il testo resta in cifre (la guardia sui numeri le controlla), la voce le pronuncia.
+    13:30 → «13 e 30», 1.250,50 € → «1250 euro e 50», 16/11/2026 → «16 novembre 2026», 12% → «12 per cento»;
+    le emoji non si leggono."""
+    testo = EMOJI.sub("", testo)
+
+    def importo(m):
+        intero, cent = m.group("intero").replace(".", ""), (m.group("cent") or "").ljust(2, "0") if m.group("cent") else ""
+        return f"{intero} euro" + (f" e {int(cent)}" if cent and int(cent) else "")
+    soldi = r"(?P<intero>\d{1,3}(?:\.\d{3})+|\d+)(?:,(?P<cent>\d{1,2}))?"
+    testo = re.sub(r"€\s?" + soldi, importo, testo)
+    testo = re.sub(soldi + r"\s?(?:€|euro\b|EUR\b)", importo, testo)
+
+    def data(m):
+        g, mese, anno = int(m.group(1)), int(m.group(2)), m.group(3)
+        if not (1 <= g <= 31 and 1 <= mese <= 12):
+            return m.group(0)
+        return f"{g} {MESI[mese - 1]}" + (f" {anno if len(anno) == 4 else '20' + anno}" if anno else "")
+    testo = re.sub(r"\b(\d{1,2})/(\d{1,2})(?:/(\d{2}|\d{4}))?\b", data, testo)
+    testo = re.sub(r"\b([01]?\d|2[0-3])[:.]([0-5]\d)\b(?![.,]\d)",
+                   lambda m: f"{int(m.group(1))}" + (f" e {int(m.group(2))}" if int(m.group(2)) else ""), testo)
+    testo = re.sub(r"\b\d{1,3}(?:\.\d{3})+\b", lambda m: m.group(0).replace(".", ""), testo)
+    testo = re.sub(r"(\d),(\d)", r"\1 virgola \2", testo)
+    return re.sub(r"\s?%", " per cento", testo)
 
 
 def parti(testo):

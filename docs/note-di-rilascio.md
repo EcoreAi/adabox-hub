@@ -5,6 +5,11 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-16
 
+- **AI 1.41.0 — «Parla con Ada» non legge dati inventati** (nessuna migrazione). Guardia «dati senza fonti» sulle
+  risposte a voce: cifre che non vengono da nessuno strumento → la risposta si rifà una volta, poi un avviso a voce;
+  sotto i sottotitoli le fonti o l'avviso. Cifre nel testo e parole solo nella voce; niente emoji lette. Nuova domanda
+  d'oro sugli appuntamenti (`manage.py ai_eval`): un modello che risponde senza leggere il calendario non la passa.
+- **Calendario 1.1.1** — l'agenda dell'assistente dice per ogni appuntamento se è passato, in corso o da venire.
 - **AI 1.40.0 — «Parla con Ada» più veloce e più precisa** (migrazione `ai.0040`). Nuovo compito dei profili *Parla con
   Ada*: se c'è, i turni a voce usano il suo modello (es. uno veloce e regolare) e il suo tetto ai token; senza, resta la
   chat con «Automatico». Ada saluta per nome; Mistral riceve come parole da favorire il nome dell'assistente,
