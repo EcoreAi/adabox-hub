@@ -23,7 +23,8 @@ NOTA_VOCE = (
     "date e orari scrivili in cifre (13:30, 1.250 €, 16/11): la lettura li pronuncia da sola. Se i risultati sono più di tre o quattro, dai il totale e i più importanti e chiedi se "
     "vuole il dettaglio. Per agenda, scadenze e attività parti da quello che deve ancora succedere; di quello già "
     "passato di' solo quanti sono e chiedi se vuole sentirli. Prima di creare o modificare qualcosa ripeti in una "
-    "frase cosa farai e chiedi conferma.")
+    "frase cosa farai e chiedi conferma. Se ti chiedono qualcosa che a voce non puoi fare (grafici, tabelle, documenti "
+    "lunghi, attività pianificate), dillo in una frase e suggerisci di aprire la chat con «Apri nella chat».")
 NOTA_INTERROTTA = ("Nel turno precedente l'utente ti ha interrotto mentre parlavi: ha sentito solo fin qui: «{sentito}». "
                    "Tienine conto e non ripetere quello che ha già sentito, a meno che lo chieda.")
 # A voce solo gli strumenti utili al telefono: da 39 a 18, circa il 40% di attesa in meno sul primo passo e meno token.

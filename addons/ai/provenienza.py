@@ -8,7 +8,9 @@ from .models import Evento
 
 # numeri non attaccati a lettere, barre o trattini (codici, link, date): 1.234,56 · 1234.5 · 42
 NUMERO = re.compile(r"(?<![\w/\-.,])(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)?)(?![\w/\-]|[.,]\d)")
-DATA = re.compile(r"\b\d{1,4}[/-]\d{1,2}[/-]\d{1,4}\b|\b\d{1,2}:\d{2}\b")
+MESI = r"(?:gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)"
+# date in cifre, orari e date a parole («lunedì 16 novembre 2026»): non sono dati da verificare
+DATA = re.compile(r"\b\d{1,4}[/-]\d{1,2}[/-]\d{1,4}\b|\b\d{1,2}:\d{2}\b|\b\d{1,2}\s+" + MESI + r"(?:\s+\d{4})?\b", re.IGNORECASE)
 LINK = re.compile(r"\]\([^)]*\)|https?://\S+")
 MAX_SEGNALATI = 5
 # Da dove viene un dato letto: una pagina web o un file non sono dati del gestionale, e il badge non deve dirlo
@@ -116,6 +118,33 @@ UNITA_DI_TEMPO = re.compile(r"\s*(?:secondi|minut[oi]|or[ae]\b|giorn[oi]|settima
                             r"semestr[ei]|ann[oi])", re.IGNORECASE)
 
 
+# «15 pollici», «27''», «500 W», «0,7×», «4K»: misure di un prodotto o di un'impostazione, non importi da verificare
+MISURA = re.compile(r"\s*(?:''|\"|×|x\b|pollici\b|W\b|kW\b|kWh\b|V\b|m\b|cm\b|mm\b|km\b|kg\b|g\b|GB\b|TB\b|MB\b|K\b|°|mq\b|m²|m2\b|l\b|ml\b)")
+# l'IVA all'italiana: 4, 5, 10, 22% vicino a «IVA» non è un dato dell'azienda
+ALIQUOTE_IVA = {Decimal(4), Decimal(5), Decimal(10), Decimal(22)}
+# «circa 20.000 €», «sotto i 22.000 €»: valori dichiarati approssimati, si confrontano con un margine
+APPROSSIMATO = re.compile(r"(?:circa|quasi|oltre|sotto|sopra|più di|meno di|intorno a|attorno a|fino a|sui|sulle|sugli)\s+(?:i|le|gli|a|ai)?\s*$", re.IGNORECASE)
+MARGINE_APPROSSIMATO = Decimal("0.15")
+
+
+def da_verificare(testo):
+    """[(come è scritto, Decimal, approssimato)]: i numeri della risposta da cercare nei dati letti. Fuori date, orari,
+    durate, misure, aliquote IVA, numeri piccoli e anni."""
+    pulito = DATA.sub(" ", LINK.sub(" ", testo or ""))
+    risultato = []
+    for m in NUMERO.finditer(pulito):
+        if UNITA_DI_TEMPO.match(pulito, m.end()) or MISURA.match(pulito, m.end()):
+            continue
+        v = _valore(m.group(1))
+        if v is None or not _da_verificare(v):
+            continue
+        intorno = pulito[max(0, m.start() - 25):m.end() + 25].lower()
+        if v in ALIQUOTE_IVA and "%" in pulito[m.end():m.end() + 3] and "iva" in intorno:
+            continue
+        risultato.append((m.group(1), v, bool(APPROSSIMATO.search(pulito[max(0, m.start() - 20):m.start()]))))
+    return risultato
+
+
 def _valore(testo, italiano=True):
     """Decimal di un numero scritto all'italiana (1.234,56) o all'inglese (1234.56, dei dati JSON)."""
     t = testo.replace(" ", "")
@@ -149,8 +178,10 @@ def _da_verificare(valore):
     return True
 
 
-def _trovato(valore, fonti):
+def _trovato(valore, fonti, approssimato=False):
     for f in fonti:
+        if approssimato and f and abs(f - valore) <= abs(f) * MARGINE_APPROSSIMATO:
+            return True
         if abs(f - valore) < Decimal("0.005"):
             return True
         if valore == valore.to_integral_value() and f.quantize(Decimal(1), rounding=ROUND_HALF_UP) == valore:
@@ -158,11 +189,37 @@ def _trovato(valore, fonti):
     return False
 
 
+def fonti_precedenti(turno, eventi=None):
+    """I numeri già letti prima in questa conversazione (risultati degli strumenti e domande dell'utente) e quelli delle
+    istruzioni di Ada: in una domanda di seguito («e quelli di ieri?») contano come fonti. Non le risposte di Ada."""
+    if turno.conversazione_id is None:
+        return []
+    eventi = eventi if eventi is not None else list(Evento.objects.filter(turno=turno).order_by("pk"))
+    primo = eventi[0].pk if eventi else None
+    qs = Evento.objects.filter(conversazione_id=turno.conversazione_id, tipo__in=[Evento.UTENTE, Evento.STRUMENTO])
+    if primo is not None:
+        qs = qs.filter(pk__lt=primo)
+    valori = []
+    for ev in qs.order_by("-pk")[:200]:
+        if ev.tipo == Evento.UTENTE:
+            if not ev.dati.get("richiamo"):
+                valori += [v for _, v in numeri(ev.dati.get("testo", ""))]
+        else:
+            for r in ev.dati.get("risultati", []):
+                if not r.get("errore"):
+                    valori += [v for _, v in numeri(r.get("contenuto"), italiano=False)]
+                    valori += [v for _, v in numeri(r.get("contenuto"))]
+    from .motore import prompt
+    valori += [v for _, v in numeri(prompt.sistema(None))]
+    return valori
+
+
 def calcola(turno, testo, protetti=0, segnaposto=None):
     """La provenienza della risposta. `segnaposto`: quelli usati nel turno (i valori restano solo nella conversazione)."""
     eventi = list(Evento.objects.filter(turno=turno).order_by("pk"))
     strumenti, letture, fonti, nomi, chiamate_per_id, consultate = [], 0, [], {}, {}, []
     fuori = {"web": 0, "allegati": 0, "esterni": 0, "documento": 0}
+    fonti += fonti_precedenti(turno, eventi)
     for ev in eventi:
         if ev.tipo == Evento.UTENTE and not ev.dati.get("richiamo"):    # il richiamo della guardia non è una fonte
             fonti += [v for _, v in numeri(ev.dati.get("testo", ""))]
@@ -186,13 +243,14 @@ def calcola(turno, testo, protetti=0, segnaposto=None):
                         letture += 1
                     fonti += [v for _, v in numeri(r["contenuto"], italiano=False)]
                     fonti += [v for _, v in numeri(r["contenuto"])]
-    nella_risposta = [(t, v) for t, v in numeri(testo, durate=False) if _da_verificare(v)]
+    nella_risposta = da_verificare(testo)
     non_verificati = []
-    for t, v in nella_risposta:
-        if not _trovato(v, fonti) and t not in non_verificati:
+    for t, v, approssimato in nella_risposta:
+        if not _trovato(v, fonti, approssimato) and t not in non_verificati:
             non_verificati.append(t)
     if not letture and not any(v for k, v in fuori.items() if k != "documento"):
-        esito = "senza fonti" if nella_risposta else "conversazione"
+        # niente letture in questo turno: verificato solo se i numeri vengono dai dati letti prima nella chat
+        esito = "conversazione" if not nella_risposta else "senza fonti" if non_verificati else "verificato"
     else:
         esito = "parziale" if non_verificati else "verificato"
     return {"esito": esito, "strumenti": sorted(set(strumenti)), "letture": letture, "letture_web": fuori["web"], "letture_allegati": fuori["allegati"],

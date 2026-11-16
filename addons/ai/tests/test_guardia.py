@@ -94,3 +94,40 @@ def test_calendario_chiede_di_ricordare_solo_se_serve():
     assert da_ricordare({"passato": 1, "in corso": 0, "da venire": 2})["da_ricordare"]["testo"].startswith("Ne è già passato uno")
     assert da_ricordare({"passato": 0, "in corso": 0, "da venire": 4}) == {}
     assert da_ricordare({"passato": 5, "in corso": 0, "da venire": 0}) == {}            # solo passati: li dice da sé
+
+
+def test_numeri_da_verificare_senza_falsi_allarmi():
+    from ai import provenienza as pv
+    def valori(testo):
+        return [t for t, _, _ in pv.da_verificare(testo)]
+    assert valori("Oggi è lunedì 16 novembre 2026, il 28 ottobre era martedì") == []          # date a parole
+    assert valori("Notebook 15 pollici, monitor 27'' 4K, proiettori 500 W, velocità 0,7×") == []  # misure
+    assert valori("60.000,00 € oltre IVA (22%)") == ["60.000,00"]                               # l'aliquota no, l'importo sì
+    assert valori("margine del 22% sulle vendite") == ["22"]                                    # 22% senza IVA: si controlla
+    (t, v, approssimato), = pv.da_verificare("sotto i 22.000 € a gennaio")
+    assert approssimato and pv._trovato(v, [pv.Decimal("21004.59")], approssimato)
+    assert not pv._trovato(v, [pv.Decimal("21004.59")])                                         # senza «sotto»: no
+
+
+def test_attivita_pianificate_niente_dati_senza_fonti(scena):
+    with finto.con_copione([["Oggi hai fatturato 12.345 euro."], ["Non riesco a leggere il fatturato adesso."], ["Titolo"]]):
+        t = motore.avvia(scena["c"], "Riepilogo del fatturato di oggi", scena["u"], compito="pianificate")
+    t.refresh_from_db()
+    assert t.testo == "Non riesco a leggere il fatturato adesso." and Evento.objects.filter(turno=t, dati__richiamo=True).exists()
+
+
+def test_domanda_di_seguito_con_dati_letti_prima(scena):
+    t1, _ = _turno(scena, "Aziende?", [[("strumento", "cerca_record", {"vista": "core.aziende"})], ["Ecco le aziende."]])
+    from ai.models import Evento as Ev
+    ev = Ev.objects.filter(turno=t1, tipo=Ev.STRUMENTO).first()
+    ev.dati = {"ruolo": "strumento", "risultati": [{"id": "x", "contenuto": '{"totale": 48250.5}', "errore": False}]}
+    ev.save()
+    t2, _ = _turno(scena, "E il totale?", [["Il totale è 48.250,50 €."]])        # nessuno strumento in questo turno
+    assert not Ev.objects.filter(turno=t2, dati__richiamo=True).exists() and "48.250,50" in t2.testo
+    assert t2.provenienza["esito"] == "verificato"
+
+
+def test_i_codici_dei_documenti_non_sono_cifre_da_verificare():
+    from ai import guardia
+    assert guardia.CIFRE.findall("Il preventivo PV/2026/0002 e l'ordine S00012 di [S00012](/vendite/ordini/12/)") == []
+    assert guardia.CIFRE.findall("alle 13:30 per 1.250,50 €") == ["13:30", "1.250,50"]

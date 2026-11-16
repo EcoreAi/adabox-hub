@@ -1,4 +1,5 @@
-"""Guardia «dati senza fonti» per le risposte a voce, prima che vengano lette.
+"""Guardia «dati senza fonti» per le risposte a voce (prima che vengano lette) e per le attività pianificate (che
+arrivano in Discuss o per email senza che nessuno le abbia viste scrivere).
 
 A voce l'utente non vede fonti né avvisi: una risposta con dati inventati (appuntamenti, importi, numeri) suonerebbe
 vera. Se la risposta finale contiene cifre e nel turno non è stato letto nessun dato del gestionale, il motore chiede
@@ -13,12 +14,13 @@ import re
 from .models import Evento
 from .provenienza import LINK, NON_FONTI
 
-CIFRE = re.compile(r"\d+(?:[.,:]\d+)*")
+# cifre staccate da lettere e barre: «S00012», «PV/2026/0002» sono codici di documenti, non dati da verificare
+CIFRE = re.compile(r"(?<![\w/])\d+(?:[.,:]\d+)*(?![\w/])")
 MAX_ESEMPI = 5
 RICHIAMO = ("Controllo automatico: la tua risposta contiene dati precisi ({esempi}) ma in questo turno non hai letto "
             "nessun dato con gli strumenti. Se sono dati dell'azienda (appuntamenti, importi, clienti, scadenze...) "
             "leggili con gli strumenti; se non puoi, di' chiaramente che non lo sai. Non scusarti e non citare questo "
-            "controllo: rispondi di nuovo all'utente, breve, per la voce.")
+            "controllo: rispondi di nuovo all'utente, breve.")
 AVVISO = "\n\nAttenzione: non ho trovato questi dati negli strumenti, verificali prima di usarli."
 
 
@@ -34,19 +36,26 @@ def sospetti(turno, testo):
     """Le cifre della risposta che non vengono da nessuna parte: [] se il turno ha letto dati o se non ce ne sono."""
     if strumenti_di_dati(turno):
         return []
-    noti = set()
-    for ev in Evento.objects.filter(turno=turno, tipo__in=[Evento.UTENTE, Evento.STRUMENTO]):
+    from . import provenienza
+    noti, valori = set(), []
+    # anche i dati letti prima nella stessa chat: «e quelli di ieri?» non è una risposta senza fonti
+    for ev in Evento.objects.filter(conversazione_id=turno.conversazione_id, tipo__in=[Evento.UTENTE, Evento.STRUMENTO]).order_by("-pk")[:300]:
         if ev.dati.get("richiamo"):
             continue                                  # il richiamo stesso contiene le cifre sospette
-        if ev.tipo == Evento.UTENTE:
-            noti.update(CIFRE.findall(ev.dati.get("testo", "")))
-        else:
-            for r in ev.dati.get("risultati", []):
-                noti.update(CIFRE.findall(str(r.get("contenuto", ""))))
+        testi = [ev.dati.get("testo", "")] if ev.tipo == Evento.UTENTE else [
+            str(r.get("contenuto", "")) for r in ev.dati.get("risultati", [])]
+        for t in testi:
+            noti.update(CIFRE.findall(t))
+            valori.extend(v for _, v in provenienza.numeri(t, italiano=False))
+            valori.extend(v for _, v in provenienza.numeri(t))
     trovati = []
     for cifra in CIFRE.findall(LINK.sub(" ", testo or "")):
-        if cifra not in noti and cifra not in trovati:
-            trovati.append(cifra)
+        if cifra in noti or cifra in trovati:
+            continue
+        valore = provenienza._valore(cifra) if ":" not in cifra else None        # «48.250,50» = 48250.5 nei dati
+        if valore is not None and provenienza._trovato(valore, valori):
+            continue
+        trovati.append(cifra)
     return trovati[:MAX_ESEMPI]
 
 
