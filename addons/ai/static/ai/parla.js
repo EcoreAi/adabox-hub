@@ -150,7 +150,7 @@
     const misura = audio().createAnalyser();
     misura.fftSize = 1024;
     sorgenteMic.connect(misura);
-    reg = { registratore, misura, rumore: 0, voceMs: 0, sentita: false, voceTotaleMs: 0, inizio: Date.now(),
+    reg = { registratore, misura, rumore: 0, somma: 0, letture: 0, voceMs: 0, sentita: false, voceTotaleMs: 0, inizio: Date.now(),
             silenzioDa: 0, ultimo: Date.now(), annullata: false, attesa: attesaMassima };
     registratore.addEventListener('dataavailable', (e) => { if (e.data.size) pezzi.push(e.data); });
     registratore.addEventListener('stop', () => {
@@ -180,9 +180,11 @@
     const adesso = Date.now(), passo = adesso - r.ultimo;
     r.ultimo = adesso;
     const trascorso = adesso - r.inizio;
-    if (trascorso < 300 && !r.sentita) r.rumore = Math.max(r.rumore, rms);      // il rumore di fondo dei primi istanti
+    // rumore di fondo: la media dei primi istanti (non il massimo: chi parla subito non deve passare per rumore),
+    // poi si adegua piano finché non si sente la voce
+    if (trascorso < 300 && !r.sentita) { r.somma += rms; r.letture += 1; r.rumore = r.somma / r.letture; }
     else if (!r.sentita) r.rumore = r.rumore * 0.95 + rms * 0.05;
-    const soglia = Math.max(0.02, r.rumore * 3);
+    const soglia = Math.max(0.015, Math.min(r.rumore * 3, 0.05));              // il tetto: la voce normale lo supera sempre
     if (rms > soglia && trascorso >= 300) {
       r.voceMs += passo; r.voceTotaleMs += passo; r.silenzioDa = 0;
       if (r.voceMs >= VOCE_MINIMA_MS) r.sentita = true;
