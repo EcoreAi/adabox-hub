@@ -116,3 +116,20 @@ def test_prova_con_un_secondo_di_silenzio(db):
     assert voce.trascrivi_cloud(servizio, wav, "prova.wav", "audio/wav", "it", _client(viste, lambda r: (200, {"text": ""}))) == ""
     with pytest.raises(voce.ErroreVoce, match="chiave non valida"):
         voce.trascrivi_cloud(servizio, wav, "prova.wav", "audio/wav", "it", _client([], lambda r: (401, {})))
+
+
+def test_parole_da_favorire_solo_per_mistral(s):
+    from django.contrib.auth.models import User
+    u = User(first_name="Enrico", last_name="Corellas", username="ec")
+    parole = voce.parole_note(u, s["az"])
+    assert parole[0] == "Ada" and "Enrico" in parole and "Corellas" in parole and len(parole) == len({p.lower() for p in parole})
+    _mistral()
+    s["valori"]["ai.trascrizione_cloud"] = True
+    viste = []
+    voce.trascrivi(_audio(), "it", _client(viste, lambda r: (200, {"text": "ok"})), azienda=s["az"], parole=["Ada", "Enrico"])
+    corpo = viste[0].read().decode(errors="replace")
+    assert corpo.count('name="context_bias"') == 2 and "Enrico" in corpo
+    ovh = ServizioVoce.objects.create(nome="OVH", tipo=ServizioVoce.OVH, uso=ServizioVoce.TRASCRIZIONE, chiave_cifrata=cifratura.cifra("t"))
+    viste = []
+    voce.trascrivi_cloud(ovh, b"x", "v.webm", "audio/webm", "it", _client(viste, lambda r: (200, {"text": "ok"})), parole=["Ada"])
+    assert "context_bias" not in viste[0].read().decode(errors="replace")       # OVH non lo conosce

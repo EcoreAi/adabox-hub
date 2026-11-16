@@ -17,7 +17,8 @@ from . import aree, funzioni, motore, voce
 from .models import Conversazione, Turno
 
 NOTA_VOCE = (
-    "L'utente ti parla a voce dal telefono e ascolta la risposta letta ad alta voce. Rispondi in poche frasi brevi e "
+    "L'utente si chiama {nome}: quando saluti o rispondi a un saluto chiamalo per nome, senza formule fatte come «come "
+    "posso aiutarti oggi?». L'utente ti parla a voce dal telefono e ascolta la risposta letta ad alta voce. Rispondi in poche frasi brevi e "
     "parlate, come in una telefonata: niente tabelle, elenchi lunghi, titoli, codice o link. Numeri, importi e date "
     "scrivili come si dicono. Se i risultati sono più di tre o quattro, dai il totale e i più importanti e chiedi se "
     "vuole il dettaglio. Prima di creare o modificare qualcosa ripeti in una frase cosa farai e chiedi conferma.")
@@ -72,7 +73,7 @@ def ascolta(request):
     if not disponibile(azienda) or file is None:
         return JsonResponse({"errore": "La voce non è attiva."}, status=400)
     try:
-        testo = voce.trascrivi(file, "it", azienda=azienda)
+        testo = voce.trascrivi(file, "it", azienda=azienda, parole=voce.parole_note(request.user, azienda))
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
     return JsonResponse({"testo": " ".join(testo.split())})
@@ -96,11 +97,11 @@ def chiedi(request):
     else:
         conversazione = Conversazione.objects.create(utente=request.user, progetto=aree.corrente(request.user, azienda),
                                                      titolo=testo[:60] + ("…" if len(testo) > 60 else ""))
-    note = [NOTA_VOCE]
+    note = [NOTA_VOCE.format(nome=request.user.first_name or request.user.get_full_name() or request.user.username)]
     sentito = " ".join(request.POST.get("sentito", "").split())[-SENTITO_MASSIMO:]
     if sentito:
         note.append(NOTA_INTERROTTA.format(sentito=sentito))
-    turno = motore.avvia(conversazione, testo, request.user, azienda, web=False, nota="\n".join(note))
+    turno = motore.avvia(conversazione, testo, request.user, azienda, web=False, nota="\n".join(note), voce=True)
     conversazione.save(update_fields=["aggiornata"])
     return JsonResponse({"conversazione": conversazione.pk, "turno": turno.pk,
                          "flusso": reverse("ai:flusso", args=[turno.pk]), "stop": reverse("ai:stop", args=[turno.pk]),

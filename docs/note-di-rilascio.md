@@ -5,6 +5,10 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-16
 
+- **AI 1.40.0 — «Parla con Ada» più veloce e più precisa** (migrazione `ai.0040`). Nuovo compito dei profili *Parla con
+  Ada*: se c'è, i turni a voce usano il suo modello (es. uno veloce e regolare) e il suo tetto ai token; senza, resta la
+  chat con «Automatico». Ada saluta per nome; Mistral riceve come parole da favorire il nome dell'assistente,
+  dell'azienda e dell'utente.
 - **AI 1.39.0 — trascrizione del parlato in cloud** (migrazione `ai.0039`). Nei servizi di «Voce» c'è il campo *uso*:
   con «Trascrizione del parlato» e tipo Mistral (Voxtral) o OVH (Whisper) la dettatura e «Parla con Ada» trascrivono in
   circa un secondo invece dei 6-8 del Whisper locale. Serve il consenso dell'azienda *Trascrizione del parlato con un
