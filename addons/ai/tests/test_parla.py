@@ -113,3 +113,14 @@ def test_la_chat_sul_telefono_apre_parla_con_ada(client, s):
     assert reverse("ai:parla_conversazione", args=[c.pk]) in html               # il pulsante tiene la conversazione
     s["valori"]["ai.voce_telefono"] = False
     assert "pointer: coarse" not in client.get(reverse("ai:chat")).content.decode()
+
+
+def test_la_voce_non_cambia_lingua_a_meta_risposta(client, s, monkeypatch):
+    lingue = []
+    monkeypatch.setattr(parla.voce, "audio_di", lambda servizio, testo, lingua: lingue.append(lingua) or (b"RIFF", "audio/wav"))
+    c = Conversazione.objects.create(utente=s["u"], titolo="x")
+    testo = "Oggi hai sei appuntamenti in calendario. Ora, alle tredici e quindici, c'è la riunione commerciale."
+    turno = Turno.objects.create(conversazione=c, utente=s["u"], testo=testo)
+    client.get(reverse("ai:parla_audio", args=[turno.pk, 0, 40]))            # il caso visto: letto con la voce inglese
+    client.get(reverse("ai:parla_audio", args=[turno.pk, 41, len(testo)]))
+    assert lingue == ["it", "it"]
