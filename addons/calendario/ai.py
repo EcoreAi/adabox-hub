@@ -38,7 +38,17 @@ def agenda(contesto, da="", a=""):
         for e in eventi]
     conteggio = {s: sum(r["stato"] == s for r in righe) for s in ("passato", "in corso", "da venire")}
     return {"da": inizio.isoformat(), "a": fine.isoformat(), "adesso": timezone.localtime(adesso).strftime("%Y-%m-%d %H:%M"),
-            "sintesi": sintesi(conteggio), "conteggio": conteggio, "eventi": righe}
+            "sintesi": sintesi(conteggio), **da_ricordare(conteggio), "conteggio": conteggio, "eventi": righe}
+
+
+def da_ricordare(conteggio):
+    """Se ci sono appuntamenti già passati e altri da fare, la risposta deve dire quanti sono i passati: se il modello
+    lo tace, il motore aggiunge questa frase (ai.guardia.da_ricordare)."""
+    n = conteggio["passato"]
+    if not n or not (conteggio["in corso"] or conteggio["da venire"]):
+        return {}
+    testo = f"{'Ne è già passato uno' if n == 1 else f'Ne sono già passati {n}'} nel periodo: vuoi sentirli?"
+    return {"da_ricordare": {"testo": testo, "segno": n}}
 
 
 def sintesi(conteggio):

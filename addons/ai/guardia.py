@@ -54,3 +54,47 @@ def richiama(conversazione, turno, cifre):
     """Il richiamo al modello: va nella storia del modello (non tra i messaggi della chat)."""
     Evento.objects.create(conversazione=conversazione, turno=turno, tipo=Evento.UTENTE, dati={
         "ruolo": "utente", "testo": RICHIAMO.format(esempi=", ".join(cifre)), "richiamo": True})
+
+
+# ---------- «da ricordare»: ciò che uno strumento chiede di non tacere ----------
+# Uno strumento può restituire {"da_ricordare": {"testo": "...", "segno": 6}}: se nella risposta finale il segno (un
+# numero) non compare né in cifre né in lettere, la frase si aggiunge in coda. Esempio: l'agenda con 6 appuntamenti già
+# passati e 4 da venire; il modello, a voce, diceva «hai 4 appuntamenti» tacendo i passati anche con l'istruzione.
+NUMERI = ["zero", "uno", "due", "tre", "quattro", "cinque", "sei", "sette", "otto", "nove", "dieci", "undici", "dodici",
+          "tredici", "quattordici", "quindici", "sedici", "diciassette", "diciotto", "diciannove", "venti"]
+DA_RICORDARE = re.compile(r'"da_ricordare":\s*(\{[^{}]*\})')
+
+
+def _richieste(contenuto):
+    import json
+    try:
+        dati = json.loads(contenuto)
+        voce = dati.get("da_ricordare") if isinstance(dati, dict) else None
+    except (TypeError, ValueError):                    # risultato troncato: si cerca il pezzo
+        m = DA_RICORDARE.search(contenuto or "")
+        try:
+            voce = json.loads(m.group(1)) if m else None
+        except ValueError:
+            voce = None
+    return [voce] if isinstance(voce, dict) and voce.get("testo") else []
+
+
+def _detto(segno, testo):
+    if segno is None:
+        return False
+    testo = (testo or "").lower()
+    parole = {str(segno)} | ({NUMERI[segno]} if isinstance(segno, int) and 0 <= segno < len(NUMERI) else set())
+    return any(re.search(rf"(?<![\w]){re.escape(p)}(?![\w])", testo) for p in parole)
+
+
+def da_ricordare(turno, testo):
+    """Le frasi da aggiungere alla risposta: quelle chieste dagli strumenti del turno e non dette."""
+    frasi = []
+    for ev in Evento.objects.filter(turno=turno, tipo=Evento.STRUMENTO).order_by("pk"):
+        for r in ev.dati.get("risultati", []):
+            if r.get("errore"):
+                continue
+            for voce in _richieste(r.get("contenuto")):
+                if not _detto(voce.get("segno"), testo) and voce["testo"] not in frasi and voce["testo"] not in (testo or ""):
+                    frasi.append(str(voce["testo"])[:300])
+    return frasi

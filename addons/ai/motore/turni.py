@@ -314,6 +314,9 @@ def esegui(turno_id):
                         continue
                     if cifre:
                         e.testo_turno.append(guardia.AVVISO)
+                from .. import guardia as _guardia      # ciò che uno strumento chiede di non tacere (es. i passati)
+                for frase in _guardia.da_ricordare(turno, "".join(e.testo_turno)):
+                    e.testo_turno.append(f"\n\n{frase}")
                 if fine and fine.motivo == "limite":
                     e.testo_turno.append("\n\n_La risposta ha raggiunto la lunghezza massima._")
                 elif fine and fine.motivo == "rifiuto":

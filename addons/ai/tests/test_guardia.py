@@ -70,3 +70,27 @@ def test_cifre_pronunciabili_ed_emoji():
     assert voce.per_la_voce("Scade il 16/11/2026") == "Scade il 16 novembre 2026"
     assert voce.per_la_voce("Margine 12,5%") == "Margine 12 virgola 5 per cento"
     assert voce.per_la_voce("Ciao Enrico! 👋").strip() == "Ciao Enrico!"
+
+
+def test_da_ricordare_si_aggiunge_se_il_modello_lo_tace(scena, monkeypatch):
+    import json
+    from ai.strumenti import registro
+    risultato = {"sintesi": "10 appuntamenti nel periodo: 6 già passati, nessuno in corso, 4 da venire.",
+                 "da_ricordare": {"testo": "Ne sono già passati 6 nel periodo: vuoi sentirli?", "segno": 6}, "eventi": []}
+    from ai import strumenti as s
+    finta = s.Strumento("calendario_agenda", "prova", {"type": "object", "properties": {}}, lambda contesto: risultato)
+    monkeypatch.setitem(registro._registro, "calendario_agenda", finta)          # tra gli strumenti della voce
+    t, _ = _turno(scena, "Appuntamenti questa settimana?", [[("strumento", "calendario_agenda", {})], ["Hai 4 appuntamenti."]])
+    assert t.testo.endswith("Ne sono già passati 6 nel periodo: vuoi sentirli?")
+    t, _ = _turno(scena, "E adesso?", [[("strumento", "calendario_agenda", {})], ["Ne hai 4 da fare e sei già fatti stamattina."]])
+    assert "vuoi sentirli" not in t.testo                                  # detto in lettere: niente aggiunta
+    t, _ = _turno(scena, "E poi?", [[("strumento", "calendario_agenda", {})], ["4 da fare, 6 già passati."]], a_voce=False)
+    assert "vuoi sentirli" not in t.testo
+
+
+def test_calendario_chiede_di_ricordare_solo_se_serve():
+    from calendario.ai import da_ricordare
+    assert da_ricordare({"passato": 6, "in corso": 0, "da venire": 4})["da_ricordare"]["segno"] == 6
+    assert da_ricordare({"passato": 1, "in corso": 0, "da venire": 2})["da_ricordare"]["testo"].startswith("Ne è già passato uno")
+    assert da_ricordare({"passato": 0, "in corso": 0, "da venire": 4}) == {}
+    assert da_ricordare({"passato": 5, "in corso": 0, "da venire": 0}) == {}            # solo passati: li dice da sé
