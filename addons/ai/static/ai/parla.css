@@ -2,7 +2,7 @@
 body.pa-pagina { height: 100vh; height: 100dvh; overflow: hidden; background: var(--ui-surface); }
 .pa {
   height: 100%; display: flex; flex-direction: column; align-items: center;
-  padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+  padding: env(safe-area-inset-top) 16px 0;
 }
 .pa-testa { width: 100%; max-width: 640px; display: flex; align-items: center; gap: 8px; padding: 10px 0; }
 .pa-titolo { flex: 1; text-align: center; font-size: 15px; font-weight: 600; color: var(--ui-text-2);
@@ -23,7 +23,7 @@ body.pa-pagina { height: 100vh; height: 100dvh; overflow: hidden; background: va
 .pa-detto::before { content: "Tu: "; font-weight: 600; }
 .pa-risposta { margin: 0; font-size: 17px; line-height: 1.45; color: var(--ui-text); }
 
-.pa-piede { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 14px 0 22px; }
+.pa-piede { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 14px 0 calc(28px + env(safe-area-inset-bottom)); flex: none; }
 .pa-microfono {
   width: 76px; height: 76px; border-radius: 50%; border: 0; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;

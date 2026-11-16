@@ -5,8 +5,8 @@
 <div class="ui-pagehead">
   <div><h1>Impostazioni</h1><div class="sub">Parametri delle app installate{% if azienda %} · azienda corrente: {{ azienda }}{% endif %}</div></div>
 </div>
-{# Indice a sinistra (generali, poi le app per argomento e in ordine alfabetico) e una sezione alla volta a destra.
-   Senza JavaScript si vedono tutte le sezioni una sotto l'altra e l'indice porta alle ancore. #}
+{% comment %} Indice a sinistra (generali, poi le app per argomento e in ordine alfabetico) e una sezione alla volta a destra.
+   Senza JavaScript si vedono tutte le sezioni una sotto l'altra e l'indice porta alle ancore. {% endcomment %}
 <div class="imp" data-imp{% if aperta %} data-aperta="{{ aperta }}"{% endif %}>
   <aside class="imp-indice" aria-label="Sezioni delle impostazioni">
     <div class="imp-cerca">

@@ -9,8 +9,8 @@
   {% block head_extra %}{% endblock %}
   {% include "theme/partials/_tema.html" %}
 </head>
-{# Pagine aperte a chiunque abbia il link (preventivo, pagamento): stesso aspetto per anonimi, clienti del portale e
-   utenti interni, senza la testata delle app. theme/base.html invece mostra il contenuto pubblico solo agli anonimi. #}
+{% comment %} Pagine aperte a chiunque abbia il link (preventivo, pagamento): stesso aspetto per anonimi, clienti del portale e
+   utenti interni, senza la testata delle app. theme/base.html invece mostra il contenuto pubblico solo agli anonimi. {% endcomment %}
 <body class="ui-body">
   {% include 'theme/partials/_icons.html' %}
   {% block public_content %}{% endblock %}

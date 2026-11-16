@@ -11,8 +11,8 @@
   <link rel="manifest" href="{% url 'theme:manifest' %}">
   {% include "theme/partials/_tema.html" %}
 </head>
-{# Conversazione a voce a schermo intero: tocchi e parli, Ada capisce quando hai finito, risponde a voce e ti
-   riascolta per qualche secondo. Toccando mentre pensa o parla la interrompi. La chat resta nella cronologia. #}
+{% comment %} Conversazione a voce a schermo intero: tocchi e parli, Ada capisce quando hai finito, risponde a voce e ti
+   riascolta per qualche secondo. Toccando mentre pensa o parla la interrompi. La chat resta nella cronologia. {% endcomment %}
 <body class="ui-body pa-pagina">
 {% include 'theme/partials/_icons.html' %}
 <main class="pa" data-parla
