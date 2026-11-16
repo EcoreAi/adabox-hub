@@ -3,6 +3,13 @@
 Ciò che chi aggiorna un'istanza deve sapere: cambi di comportamento, azioni da fare, migrazioni. Il dettaglio è nei
 commit; qui solo ciò che si vede o che chiede un intervento.
 
+## 2026-11-15
+
+- **Nuovo modulo SharePoint 1.0.0** (dipende da Documenti, migrazione `sharepoint.0001`). Una cartella dei Documenti
+  allineata con una cartella di SharePoint, nel verso scelto, ogni 15 minuti; si prova senza credenziali con la
+  SharePoint finta. Per un collegamento vero serve un'app in Microsoft Entra ID con `Sites.Selected` o
+  `Sites.ReadWrite.All` (vedi README, «SharePoint»).
+
 ## 2026-11-12
 
 **Da sapere prima di aggiornare**
