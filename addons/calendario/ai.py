@@ -26,17 +26,27 @@ def agenda(contesto, da="", a=""):
     request = richiesta.per(contesto)
     eventi = (vista.get_queryset(request).filter(inizio__date__lte=fine, fine__date__gte=inizio)
               .order_by("inizio").prefetch_related("partecipanti")[:200])
-    return {"da": inizio.isoformat(), "a": fine.isoformat(), "eventi": [{
-        "id": e.pk, "titolo": e.titolo, "url": vista.url("dettaglio", pk=e.pk),
+    adesso = timezone.now()
+
+    def stato(e):                        # rispetto ad adesso, calcolato qui: il modello non deve confrontare gli orari
+        return "passato" if e.fine <= adesso else "in corso" if e.inizio <= adesso else "da venire"
+    righe = [{
+        "id": e.pk, "titolo": e.titolo, "url": vista.url("dettaglio", pk=e.pk), "stato": stato(e),
         "inizio": timezone.localtime(e.inizio).strftime("%Y-%m-%d %H:%M"),
         "fine": timezone.localtime(e.fine).strftime("%Y-%m-%d %H:%M"), "tutto_il_giorno": e.tutto_il_giorno,
         "luogo": e.luogo, "partecipanti": [p.get_full_name() or p.username for p in e.partecipanti.all()]}
-        for e in eventi]}
+        for e in eventi]
+    conteggio = {s: sum(r["stato"] == s for r in righe) for s in ("passato", "in corso", "da venire")}
+    return {"da": inizio.isoformat(), "a": fine.isoformat(), "adesso": timezone.localtime(adesso).strftime("%Y-%m-%d %H:%M"),
+            "conteggio": conteggio, "eventi": righe}
 
 
 registra(Strumento(
     "calendario_agenda", "Gli appuntamenti e le riunioni del calendario tra due date (default: i prossimi 7 giorni), "
-                         "compresi quelli già iniziati e ancora in corso.",
+                         "compresi quelli già iniziati e ancora in corso. Ogni evento ha uno stato rispetto ad adesso "
+                         "(passato, in corso, da venire) e c'è il conteggio per stato. Per «che appuntamenti ho (oggi)» "
+                         "parti da quelli in corso e da venire; di quelli già passati di' solo quanti sono e chiedi se "
+                         "vuole il dettaglio, a meno che l'utente chieda proprio quelli.",
     {"type": "object", "properties": {"da": {"type": "string", "description": "AAAA-MM-GG, default oggi"},
                                       "a": {"type": "string", "description": "AAAA-MM-GG, compresa"}},
      "required": []}, agenda, permesso="calendario.view_evento"))
