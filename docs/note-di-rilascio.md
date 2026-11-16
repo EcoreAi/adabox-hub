@@ -5,6 +5,10 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-16
 
+- **AI 1.43.0, Calendario 1.1.3 — ciò che non si tace.** Uno strumento può chiedere che una frase non manchi nella
+  risposta (`da_ricordare`: testo e numero chiave): se il numero non compare, il motore la aggiunge. L'agenda la usa
+  per gli appuntamenti già passati («Ne sono già passati 6 nel periodo: vuoi sentirli?»), che a voce il modello taceva
+  anche con l'istruzione. L'agenda dà anche la sintesi dei numeri già scritta.
 - **AI 1.42.0 — «Parla con Ada» più rapida** (nessuna migrazione). A voce 18 strumenti invece di 39 (meno token, meno
   attesa) e frasi d'attesa quando parte uno strumento. Consigliato nel profilo «Parla con Ada»: Mistral Medium 3.5.
 - **AI 1.41.0 — «Parla con Ada» non legge dati inventati** (nessuna migrazione). Guardia «dati senza fonti» sulle
