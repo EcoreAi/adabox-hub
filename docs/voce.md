@@ -28,6 +28,13 @@ Quattro funzioni:
 - **Modello**: con un profilo di compito *Parla con Ada (conversazione a voce)* in Assistente AI → Profili, i turni a
   voce usano la sua catena (conviene un modello veloce e regolare, es. Claude Haiku, e un tetto ai token di 1000-2000);
   senza, vale il profilo della chat con «Automatico». I turni a voce contano comunque come chat (licenza, cruscotto).
+- **Dati senza fonti**: se la risposta contiene cifre (orari, importi, numeri) che non vengono dalla domanda, dal
+  contesto o da uno strumento, e nel turno non è stato letto nessun dato, il motore chiede al modello di rifarla una
+  volta (leggendo i dati o dicendo che non li ha); se resta senza fonti, la voce aggiunge «non ho trovato questi dati
+  negli strumenti, verificali». La pagina non legge una risposta finché non sa se poggia su dati letti, così una
+  risposta scartata non si sente. Sotto i sottotitoli: «Verificata · Calendario» o l'avviso.
+- **Cifre nel testo, parole nella voce**: Ada scrive 13:30 e 1.250 € (così la guardia sui numeri le controlla), la
+  lettura le pronuncia («13 e 30», «1250 euro»); le emoji non si leggono.
 - Ada saluta l'utente per nome; a Mistral vanno come parole da favorire «Ada», il marchio, l'azienda e nome e cognome
   dell'utente (senza, «Ada, quali…» diventava «Ha da quali…»).
 - Serve che ci siano sia la dettatura sia la lettura; la conversazione resta una chat normale, nella cronologia.

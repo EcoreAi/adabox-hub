@@ -182,6 +182,7 @@ class _Esecuzione:
         self.ultimo_salvataggio = 0.0
         self.testo_turno = []                     # tutto il testo visibile del turno (tra un passo e l'altro)
         self.protezione = None
+        self.ricontrollato = False                # la guardia dei dati senza fonti (solo a voce) ha già chiesto di rifare
 
     def salva_testo(self, forza=False):
         adesso = time.monotonic()
@@ -298,6 +299,18 @@ def esegui(turno_id):
                 dati["mascherato"] = True                 # i blocchi nativi contengono i segnaposto
             Evento.objects.create(conversazione=conversazione, turno=turno, tipo=Evento.ASSISTENTE, dati=dati)
             if not chiamate:
+                if turno.voce:                           # a voce: niente dati letti come veri se non vengono da nessuna parte
+                    from .. import guardia
+                    cifre = guardia.sospetti(turno, "".join(testo_passo))
+                    if cifre and not e.ricontrollato:
+                        e.ricontrollato = True
+                        log.info("turno %s: risposta a voce con dati senza fonti (%s): si rifà", turno.pk, cifre)
+                        guardia.richiama(conversazione, turno, cifre)
+                        e.testo_turno = []
+                        e.salva_testo(forza=True)
+                        continue
+                    if cifre:
+                        e.testo_turno.append(guardia.AVVISO)
                 if fine and fine.motivo == "limite":
                     e.testo_turno.append("\n\n_La risposta ha raggiunto la lunghezza massima._")
                 elif fine and fine.motivo == "rifiuto":

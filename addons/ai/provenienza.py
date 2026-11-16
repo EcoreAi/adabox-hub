@@ -164,7 +164,7 @@ def calcola(turno, testo, protetti=0, segnaposto=None):
     strumenti, letture, fonti, nomi, chiamate_per_id, consultate = [], 0, [], {}, {}, []
     fuori = {"web": 0, "allegati": 0, "esterni": 0, "documento": 0}
     for ev in eventi:
-        if ev.tipo == Evento.UTENTE:
+        if ev.tipo == Evento.UTENTE and not ev.dati.get("richiamo"):    # il richiamo della guardia non è una fonte
             fonti += [v for _, v in numeri(ev.dati.get("testo", ""))]
         elif ev.tipo == Evento.ASSISTENTE:
             chiamate = [b for b in ev.dati.get("blocchi", []) if b["tipo"] == "strumento"]

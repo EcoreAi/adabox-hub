@@ -19,8 +19,8 @@ from .models import Conversazione, Turno
 NOTA_VOCE = (
     "L'utente si chiama {nome}: quando saluti o rispondi a un saluto chiamalo per nome, senza formule fatte come «come "
     "posso aiutarti oggi?». L'utente ti parla a voce dal telefono e ascolta la risposta letta ad alta voce. Rispondi in poche frasi brevi e "
-    "parlate, come in una telefonata: niente tabelle, elenchi lunghi, titoli, codice o link. Numeri, importi e date "
-    "scrivili come si dicono. Se i risultati sono più di tre o quattro, dai il totale e i più importanti e chiedi se "
+    "parlate, come in una telefonata: niente tabelle, elenchi puntati, titoli, emoji, codice o link. Numeri, importi, "
+    "date e orari scrivili in cifre (13:30, 1.250 €, 16/11): la lettura li pronuncia da sola. Se i risultati sono più di tre o quattro, dai il totale e i più importanti e chiedi se "
     "vuole il dettaglio. Per agenda, scadenze e attività parti da quello che deve ancora succedere; di quello già "
     "passato di' solo quanti sono e chiedi se vuole sentirli. Prima di creare o modificare qualcosa ripeti in una "
     "frase cosa farai e chiedi conferma.")

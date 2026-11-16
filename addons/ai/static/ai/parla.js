@@ -252,20 +252,33 @@
   }
 
   function segui(j) {
-    const t = { testo: '', letto: 0, numero: 0, finito: false, coda: [], suona: null, parlatoS: 0,
+    // conDati: la risposta poggia su dati letti (uno strumento è stato usato). Finché non lo è non si parla: una
+    // risposta senza fonti può essere scartata dalla guardia del server e rifatta, e non deve essere già stata letta.
+    const t = { testo: '', letto: 0, numero: 0, finito: false, coda: [], suona: null, parlatoS: 0, conDati: false,
                 fonte: new EventSource(j.flusso), stop: j.stop, id: j.turno, tagliato: false };
     turno = t;
+    mostraVerifica(null);
     t.fonte.addEventListener('testo', (e) => {
       if (turno !== t) return;
       t.testo += JSON.parse(e.data).delta;
-      prepara(t);
+      if (t.conDati) prepara(t);
+    });
+    t.fonte.addEventListener('avanzamento', (e) => {
+      if (turno !== t || t.conDati) return;
+      const voci = JSON.parse(e.data);
+      if (voci.some((v) => v.strumento && !STRUMENTI_SENZA_DATI.has(v.strumento))) { t.conDati = true; prepara(t); }
     });
     t.fonte.addEventListener('fine', (e) => {
       t.fonte.close();
       if (turno !== t) return;
       const dati = JSON.parse(e.data);
       if (dati.stato === 'errore') { turno = null; notaSottotitoli('Non sono riuscita a rispondere: riprova o apri la chat.'); imposta('fermo'); return; }
-      if (typeof dati.testo === 'string') riallinea(t, dati.testo);
+      if (typeof dati.testo === 'string') {
+        if (!t.conDati && !t.numero) { t.testo = dati.testo; t.letto = 0; t.coda = []; }   // non ancora letto nulla: si parte dal testo finale
+        else riallinea(t, dati.testo);
+      }
+      t.conDati = true;
+      mostraVerifica(dati.verifica);
       t.finito = true;
       prepara(t);
       finePossibile(t);
@@ -376,6 +389,25 @@
     }
     sentito = parte.trim() || (t.testo ? '(niente: mi hai interrotto prima che parlassi)' : '');
     if (!t.finito) fetch(t.stop, { method: 'POST', headers: { 'X-CSRFToken': csrf } }).catch(() => {});
+  }
+
+  // ---------- verifica: da dove vengono i dati della risposta ----------
+  const STRUMENTI_SENZA_DATI = new Set(['data_e_ora', 'app_disponibili', 'elenco_viste', 'descrivi_vista', 'riassunto', 'verifica']);
+  const verifica_el = radice.querySelector('[data-pa-fonti]');
+  function mostraVerifica(v) {
+    if (!verifica_el) return;
+    verifica_el.className = 'pa-fonti';
+    if (!v || !v.esito || v.esito === 'conversazione') { verifica_el.hidden = true; verifica_el.textContent = ''; return; }
+    if (v.esito === 'senza fonti') {
+      verifica_el.textContent = 'Non verificata: nessun dato letto dal gestionale';
+      verifica_el.classList.add('is-avviso');
+    } else if (v.esito === 'parziale') {
+      verifica_el.textContent = 'Da controllare: ' + (v.non_verificati || []).slice(0, 3).join(', ') + (v.fonti.length ? ' · Fonti: ' + v.fonti.join(', ') : '');
+      verifica_el.classList.add('is-avviso');
+    } else {
+      verifica_el.textContent = 'Verificata · ' + (v.fonti.length ? v.fonti.join(', ') : 'dati del gestionale');
+    }
+    verifica_el.hidden = false;
   }
 
   // ---------- sottotitoli ----------
