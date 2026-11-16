@@ -233,6 +233,9 @@ def esegui(turno_id):
         from ..strumenti import web
         ammessi = {s.nome: s for s in assistenti.filtra_strumenti(
             web.filtra(strumenti.disponibili(utente, conversazione.ambito, turno.azienda), turno.azienda, turno.web), assistente, esperto=turno.compito == "esperto")}
+        if turno.voce:                                    # «Parla con Ada»: solo gli strumenti utili al telefono
+            from ..parla import STRUMENTI_VOCE
+            ammessi = {n: s for n, s in ammessi.items() if n in STRUMENTI_VOCE}
         if turno.compito == "aiuto":                      # «Scrivi con Ada»: solo letture del gestionale
             from .. import aiuto_testi
             ammessi = aiuto_testi.filtra_strumenti(ammessi)

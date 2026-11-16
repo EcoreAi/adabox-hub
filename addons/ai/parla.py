@@ -26,8 +26,38 @@ NOTA_VOCE = (
     "frase cosa farai e chiedi conferma.")
 NOTA_INTERROTTA = ("Nel turno precedente l'utente ti ha interrotto mentre parlavi: ha sentito solo fin qui: «{sentito}». "
                    "Tienine conto e non ripetere quello che ha già sentito, a meno che lo chieda.")
+# A voce solo gli strumenti utili al telefono: da 39 a 18, circa il 40% di attesa in meno sul primo passo e meno token.
+# Fuori quelli visivi (grafici, tabelle, Analisi), i documenti lunghi, le pianificazioni, gli agenti e l'eliminazione.
+STRUMENTI_VOCE = frozenset({
+    "data_e_ora", "calendario_agenda", "cerca_record", "leggi_record", "aggrega_record", "elenco_viste", "descrivi_vista",
+    "cerca_conoscenza", "leggi_documento", "comunicazioni_cerca", "comunicazioni_leggi", "comunicazioni_scrivi",
+    "crea_record", "modifica_record", "pianifica_attivita", "esegui_bottone", "ricorda", "previsione"})
+# Frasi d'attesa: lette quando parte uno strumento, prima della risposta (Kokoro le prepara una volta, poi in cache)
+FRASI = {"calendario": "Guardo il calendario.", "dati": "Controllo nei dati.", "documenti": "Cerco nei documenti.",
+         "comunicazioni": "Guardo le comunicazioni.", "attimo": "Un attimo."}
+FRASE_PER_STRUMENTO = {"calendario_agenda": "calendario", "cerca_record": "dati", "leggi_record": "dati",
+                       "aggrega_record": "dati", "previsione": "dati", "cerca_conoscenza": "documenti",
+                       "leggi_documento": "documenti", "comunicazioni_cerca": "comunicazioni",
+                       "comunicazioni_leggi": "comunicazioni"}
 CARATTERI_PEZZO = 600                    # un pezzo da leggere: il browser li fa di 110-300 caratteri
 SENTITO_MASSIMO = 500
+
+
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+@funzioni.richiede("voce")
+def frase(request, chiave):
+    """L'audio di una frase d'attesa: solo quelle dell'elenco, mai un testo del browser."""
+    servizio = voce.servizio_per(getattr(request, "azienda", None))
+    if servizio is None or chiave not in FRASI:
+        raise Http404
+    try:
+        dati, tipo = voce.audio_di(servizio, FRASI[chiave], "it")
+    except voce.ErroreVoce as e:
+        return JsonResponse({"errore": str(e)}, status=502)
+    risposta = HttpResponse(dati, content_type=tipo)
+    risposta["Cache-Control"] = "private, max-age=86400"
+    return risposta
 
 
 def disponibile(azienda):
@@ -61,6 +91,7 @@ def pagina(request, pk=None):
     conversazione = get_object_or_404(Conversazione, pk=pk, utente=request.user, nascosta=False) if pk else None
     return render(request, "ai/parla.html", {
         "disponibile": disponibile(azienda), "conversazione": conversazione, "impostazioni": impostazioni(azienda),
+        "frasi": FRASE_PER_STRUMENTO,
         "url_chat": reverse("ai:conversazione", args=[conversazione.pk]) if conversazione else reverse("ai:chat")})
 
 

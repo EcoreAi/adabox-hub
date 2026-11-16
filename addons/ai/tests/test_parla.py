@@ -124,3 +124,13 @@ def test_la_voce_non_cambia_lingua_a_meta_risposta(client, s, monkeypatch):
     client.get(reverse("ai:parla_audio", args=[turno.pk, 0, 40]))            # il caso visto: letto con la voce inglese
     client.get(reverse("ai:parla_audio", args=[turno.pk, 41, len(testo)]))
     assert lingue == ["it", "it"]
+
+
+def test_frasi_d_attesa_solo_quelle_dell_elenco(client, s, monkeypatch):
+    letti = []
+    monkeypatch.setattr(parla.voce, "audio_di", lambda servizio, testo, lingua: letti.append(testo) or (b"RIFF", "audio/wav"))
+    r = client.get(reverse("ai:parla_frase", args=["calendario"]))
+    assert r.status_code == 200 and letti == ["Guardo il calendario."]
+    assert client.get(reverse("ai:parla_frase", args=["qualsiasi-testo"])).status_code == 404
+    html = client.get(reverse("ai:parla")).content.decode()
+    assert 'id="pa-frasi"' in html and "calendario_agenda" in html

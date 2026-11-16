@@ -39,6 +39,7 @@ urlpatterns = [
     path("parla/ascolta/", parla.ascolta, name="parla_ascolta"),
     path("parla/chiedi/", parla.chiedi, name="parla_chiedi"),
     path("parla/audio/<int:pk>/<int:inizio>-<int:fine>/", parla.audio, name="parla_audio"),
+    path("parla/frase/<slug:chiave>/", parla.frase, name="parla_frase"),
     path("scrivi/<slug:campo>/", pagine.scrivi_con_ada, name="scrivi_con_ada"),
     path("riassumi/<int:ct>/<int:pk>/", pagine.riassumi_record, name="riassumi_record"),
     path("scrivi/esito/<int:pk>/", pagine.esito_scrittura, name="esito_scrittura"),
