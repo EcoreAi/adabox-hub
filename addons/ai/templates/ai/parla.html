@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Parla con Ada · {{ theme.brand }}</title>
-  <meta name="theme-color" content="{{ theme.theme_color }}">
+  <meta name="theme-color" content="#070b14">
   <link rel="stylesheet" href="{% statico 'theme/ui.css' %}">
   <link rel="stylesheet" href="{% statico 'ai/parla.css' %}">
   <link rel="icon" type="image/svg+xml" href="{% url 'theme:favicon' %}">
   <link rel="manifest" href="{% url 'theme:manifest' %}">
-  {% include "theme/partials/_tema.html" %}
 </head>
-{% comment %} Conversazione a voce a schermo intero: tocchi e parli, Ada capisce quando hai finito, risponde a voce e ti
-   riascolta per qualche secondo. Toccando mentre pensa o parla la interrompi. La chat resta nella cronologia. {% endcomment %}
+{% comment %} Conversazione a voce a schermo intero, scura e immersiva: una sfera che respira, ascolta (si deforma con la
+   voce), pensa (i colori girano) e parla (pulsa con la voce di Ada); sottotitoli sincronizzati con l'audio.
+   Tocchi e parli, Ada capisce quando hai finito; toccando mentre pensa o parla la interrompi. {% endcomment %}
 <body class="ui-body pa-pagina">
 {% include 'theme/partials/_icons.html' %}
 <main class="pa" data-parla
@@ -21,36 +21,52 @@
       data-conversazione="{{ conversazione.pk|default:'' }}" data-silenzio="{{ impostazioni.silenzio_ms }}"
       data-ascolto-dopo="{{ impostazioni.ascolto_dopo_ms }}" data-stato="fermo">
   {% csrf_token %}
+  <div class="pa-sfondo" aria-hidden="true"><span></span><span></span></div>
+
   <header class="pa-testa">
-    <a class="pa-tasto" href="{{ url_chat }}" data-pa-chat aria-label="Torna alla chat scritta" title="Chat scritta"><svg><use href="#icon-x"/></svg></a>
-    <div class="pa-titolo">{% if conversazione %}{{ conversazione.titolo }}{% else %}Parla con Ada{% endif %}</div>
     <a class="pa-tasto" href="{% url 'ai:parla' %}" aria-label="Nuova conversazione" title="Nuova conversazione"><svg><use href="#icon-plus"/></svg></a>
+    <div class="pa-titolo">
+      <span>{% if conversazione %}{{ conversazione.titolo }}{% else %}Parla con Ada{% endif %}</span>
+      <a href="{{ url_chat }}" data-pa-chat>Apri nella chat</a>
+    </div>
+    <span class="pa-tasto pa-tasto-vuoto" aria-hidden="true"></span>
   </header>
 
   {% if disponibile %}
   <section class="pa-centro">
-    <canvas class="pa-cerchio" aria-hidden="true"></canvas>
+    <canvas class="pa-sfera" aria-hidden="true"></canvas>
     <p class="pa-stato" aria-live="polite" data-pa-stato>Tocca e parla</p>
   </section>
 
-  <section class="pa-testi" aria-live="polite">
+  <section class="pa-testi">
     <p class="pa-detto" data-pa-detto hidden></p>
-    <p class="pa-risposta" data-pa-risposta hidden></p>
+    <div class="pa-sottotitoli" data-pa-risposta aria-live="polite"></div>
   </section>
 
+  <form class="pa-scrivi" data-pa-scrivi hidden>
+    <input type="text" name="testo" placeholder="Scrivi ad Ada…" autocomplete="off" enterkeyhint="send" aria-label="Scrivi ad Ada">
+    <button type="submit" aria-label="Invia"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </form>
+
   <footer class="pa-piede">
-    <button type="button" class="pa-microfono" data-pa-tocco aria-label="Parla">
-      <svg class="pa-icona-mic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z" fill="currentColor"/><path d="M18 11a6 6 0 0 1-12 0M12 17v4M9 21h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      <svg class="pa-icona-stop" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"/></svg>
+    <button type="button" class="pa-laterale" data-pa-tastiera aria-label="Scrivi invece di parlare" title="Scrivi">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6.5 10h1M10 10h1M13.5 10h1M17 10h.5M7 14h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
     </button>
-    <a class="pa-link" href="{{ url_chat }}" data-pa-chat>Apri nella chat</a>
+    <button type="button" class="pa-microfono" data-pa-tocco aria-label="Parla">
+      <span class="pa-anello" aria-hidden="true"></span>
+      <svg class="pa-icona-mic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z" fill="currentColor"/><path d="M18 11a6 6 0 0 1-12 0M12 17v4M9 21h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <svg class="pa-icona-stop" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2.5" fill="currentColor"/></svg>
+    </button>
+    <a class="pa-laterale pa-chiudi" href="{{ url_chat }}" data-pa-chat aria-label="Chiudi e torna alla chat scritta" title="Chiudi">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+    </a>
   </footer>
   {% else %}
   <section class="pa-centro">
     <div class="pa-spenta">
       <h1>La voce non è attiva</h1>
       <p>Per parlare con Ada servono la dettatura e la lettura delle risposte: si accendono in Impostazioni → Assistente AI, con un servizio in «Voce».</p>
-      <a class="ui-btn ui-btn-primary" href="{{ url_chat }}">Vai alla chat scritta</a>
+      <a class="pa-bottone" href="{{ url_chat }}">Vai alla chat scritta</a>
     </div>
   </section>
   {% endif %}
