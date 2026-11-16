@@ -21,7 +21,9 @@ NOTA_VOCE = (
     "posso aiutarti oggi?». L'utente ti parla a voce dal telefono e ascolta la risposta letta ad alta voce. Rispondi in poche frasi brevi e "
     "parlate, come in una telefonata: niente tabelle, elenchi lunghi, titoli, codice o link. Numeri, importi e date "
     "scrivili come si dicono. Se i risultati sono più di tre o quattro, dai il totale e i più importanti e chiedi se "
-    "vuole il dettaglio. Prima di creare o modificare qualcosa ripeti in una frase cosa farai e chiedi conferma.")
+    "vuole il dettaglio. Per agenda, scadenze e attività parti da quello che deve ancora succedere; di quello già "
+    "passato di' solo quanti sono e chiedi se vuole sentirli. Prima di creare o modificare qualcosa ripeti in una "
+    "frase cosa farai e chiedi conferma.")
 NOTA_INTERROTTA = ("Nel turno precedente l'utente ti ha interrotto mentre parlavi: ha sentito solo fin qui: «{sentito}». "
                    "Tienine conto e non ripetere quello che ha già sentito, a meno che lo chieda.")
 CARATTERI_PEZZO = 600                    # un pezzo da leggere: il browser li fa di 110-300 caratteri
