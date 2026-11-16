@@ -5,6 +5,17 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-16
 
+- **AI 1.44.0 — risposte più affidabili** (nessuna migrazione).
+  - Guardia sui numeri più precisa: non segnala più date a parole («16 novembre»), misure («15 pollici», «500 W»),
+    aliquote IVA, valori dichiarati approssimati vicini al dato vero, e conta come fonti i dati letti prima nella stessa
+    chat. Sui turni veri: da 40 a 16 numeri segnalati; restano quelli davvero senza fonte (calcoli a mente, conoscenza
+    generale).
+  - La guardia «dati senza fonti» vale anche per le attività pianificate (oltre che a voce), e confronta i valori e non
+    il testo («48.250,50» = 48250.5 nei dati).
+  - Istruzioni di Ada: niente calcoli a mente su righe e totali; la conoscenza generale si dichiara («da verificare»);
+    a voce, ciò che si può fare solo in chat si dice.
+  - Domande d'oro da 7 a 19, con trappole (cliente e contratto inesistenti, fatturato di domani, eliminazione in blocco,
+    conoscenza generale): `manage.py ai_eval`.
 - **AI 1.43.0, Calendario 1.1.3 — ciò che non si tace.** Uno strumento può chiedere che una frase non manchi nella
   risposta (`da_ricordare`: testo e numero chiave): se il numero non compare, il motore la aggiunge. L'agenda la usa
   per gli appuntamenti già passati («Ne sono già passati 6 nel periodo: vuoi sentirli?»), che a voce il modello taceva

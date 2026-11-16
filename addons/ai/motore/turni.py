@@ -302,7 +302,8 @@ def esegui(turno_id):
                 dati["mascherato"] = True                 # i blocchi nativi contengono i segnaposto
             Evento.objects.create(conversazione=conversazione, turno=turno, tipo=Evento.ASSISTENTE, dati=dati)
             if not chiamate:
-                if turno.voce:                           # a voce: niente dati letti come veri se non vengono da nessuna parte
+                # a voce e nelle attività pianificate (nessuno guarda mentre si scrive): niente dati senza fonti
+                if turno.voce or turno.compito == "pianificate":
                     from .. import guardia
                     cifre = guardia.sospetti(turno, "".join(testo_passo))
                     if cifre and not e.ricontrollato:

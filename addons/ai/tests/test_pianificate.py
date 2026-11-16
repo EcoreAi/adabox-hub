@@ -87,7 +87,8 @@ def test_creata_dalla_chat_con_conferma(scena):
 def test_eseguita_dal_worker_una_volta_sola_con_consegna(scena, settings):
     settings.SITO_URL = "https://hub.example.it"
     p = _pianificata(scena, per_email=True, in_discuss=True)
-    with finto.con_copione([["Ci sono **2 ordini** aperti: [S00012](/vendite/ordini/12/)."]]) as chiamate:
+    with finto.con_copione([[("strumento", "cerca_record", {"vista": "vendite.ordini"})],      # legge, poi risponde
+                            ["Ci sono **2 ordini** aperti: [S00012](/vendite/ordini/12/)."]]) as chiamate:
         assert pianificate.esegui_scadute() == "pianificate eseguite: 1"
         assert pianificate.esegui_scadute() == "pianificate eseguite: 0"          # la prossima è già spostata
     p.refresh_from_db()
