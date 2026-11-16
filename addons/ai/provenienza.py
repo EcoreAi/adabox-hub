@@ -220,6 +220,7 @@ def calcola(turno, testo, protetti=0, segnaposto=None):
     strumenti, letture, fonti, nomi, chiamate_per_id, consultate = [], 0, [], {}, {}, []
     fuori = {"web": 0, "allegati": 0, "esterni": 0, "documento": 0}
     fonti += fonti_precedenti(turno, eventi)
+    previsioni = []
     for ev in eventi:
         if ev.tipo == Evento.UTENTE and not ev.dati.get("richiamo"):    # il richiamo della guardia non è una fonte
             fonti += [v for _, v in numeri(ev.dati.get("testo", ""))]
@@ -232,6 +233,10 @@ def calcola(turno, testo, protetti=0, segnaposto=None):
             for r in ev.dati.get("risultati", []):
                 if not r.get("errore"):
                     chiamata = chiamate_per_id.get(r.get("id"), {})
+                    if chiamata.get("nome") == "previsione" and len(previsioni) < 5:
+                        p = _affidabilita(r.get("contenuto"))
+                        if p:
+                            previsioni.append(p)
                     citate = _citate(chiamata.get("nome"), r.get("contenuto"), testo)
                     for f in citate or [fonte(chiamata.get("nome"), chiamata.get("argomenti"))]:
                         if f and f not in consultate and len(consultate) < MAX_FONTI:
@@ -256,4 +261,19 @@ def calcola(turno, testo, protetti=0, segnaposto=None):
     return {"esito": esito, "strumenti": sorted(set(strumenti)), "letture": letture, "letture_web": fuori["web"], "letture_allegati": fuori["allegati"],
             "letture_esterne": fuori["esterni"], "pii": len(segnaposto) if segnaposto is not None else protetti,
             "segnaposto": sorted(segnaposto or []), "fonti": consultate,
-            "non_verificati": non_verificati[:MAX_SEGNALATI], "n_non_verificati": len(non_verificati)}
+            "non_verificati": non_verificati[:MAX_SEGNALATI], "n_non_verificati": len(non_verificati),
+            **({"previsioni": previsioni} if previsioni else {})}
+
+
+def _affidabilita(contenuto):
+    """{titolo, livello, motivi} dal risultato dello strumento previsione (calcolati dal codice, non dal modello)."""
+    import json
+    try:
+        dati = json.loads(contenuto)
+        a = dati.get("affidabilita") or {}
+    except (TypeError, ValueError, AttributeError):
+        return None
+    if a.get("livello") not in ("alta", "media", "bassa"):
+        return None
+    return {"titolo": str(dati.get("titolo", ""))[:120], "livello": a["livello"],
+            "motivi": [str(m)[:200] for m in a.get("motivi", [])][:4], "modello": str(dati.get("modello", ""))[:80]}

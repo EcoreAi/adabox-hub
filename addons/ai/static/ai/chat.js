@@ -740,3 +740,48 @@
   seguiInCorso();
   input.focus();
 })();
+
+/* Larghezza della chat: tre misure (Normale, Larga, Piena) e una maniglia sul bordo destro della colonna da
+   trascinare (doppio clic: normale; frecce da tastiera: ±40 px). La scelta resta nel browser. */
+(function () {
+  const chat = document.querySelector('.ai-chat');
+  const centro = document.querySelector('.ai-centro');
+  const maniglia = document.querySelector('[data-maniglia]');
+  const bottoni = Array.from(document.querySelectorAll('[data-larghezze] [data-larghezza]'));
+  if (!chat || !centro || !maniglia) return;
+  const NORMALE = 760, MINIMA = 560, LARGA = 1100, CHIAVE = 'ai-larghezza';
+  function massima() { return Math.max(MINIMA, centro.clientWidth - 40); }
+  function applica(valore, salva) {
+    const px = valore === 'piena' ? massima() : Math.max(MINIMA, Math.min(Number(valore) || NORMALE, massima()));
+    chat.style.setProperty('--ai-larghezza', (valore === 'piena' ? '100vw' : px + 'px'));
+    chat.classList.toggle('is-larga', px > 900);
+    const scelto = valore === 'piena' ? 'piena' : px >= LARGA - 60 && px <= LARGA + 60 ? String(LARGA) : px === NORMALE ? String(NORMALE) : '';
+    bottoni.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.larghezza === scelto)));
+    maniglia.setAttribute('aria-valuenow', String(px));
+    if (salva) { try { localStorage.setItem(CHIAVE, String(valore)); } catch (e) { /* senza storage: solo per ora */ } }
+  }
+  let salvata = null;
+  try { salvata = localStorage.getItem(CHIAVE); } catch (e) { /* idem */ }
+  applica(salvata || NORMALE, false);
+  bottoni.forEach((b) => b.addEventListener('click', () => applica(b.dataset.larghezza, true)));
+  let trascino = false;
+  function da_mouse(x) { const r = centro.getBoundingClientRect(); return Math.round(2 * (x - (r.left + r.width / 2))); }
+  maniglia.addEventListener('pointerdown', (e) => {
+    trascino = true; maniglia.setPointerCapture(e.pointerId); maniglia.classList.add('is-attiva'); document.body.classList.add('ai-trascino');
+  });
+  maniglia.addEventListener('pointermove', (e) => { if (trascino) applica(da_mouse(e.clientX), false); });
+  function fine(e) {
+    if (!trascino) return;
+    trascino = false; maniglia.classList.remove('is-attiva'); document.body.classList.remove('ai-trascino');
+    applica(da_mouse(e.clientX), true);
+  }
+  maniglia.addEventListener('pointerup', fine);
+  maniglia.addEventListener('pointercancel', fine);
+  maniglia.addEventListener('dblclick', () => applica(NORMALE, true));
+  maniglia.addEventListener('keydown', (e) => {
+    const ora = Number(maniglia.getAttribute('aria-valuenow')) || NORMALE;
+    if (e.key === 'ArrowRight') { e.preventDefault(); applica(ora + 40, true); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); applica(ora - 40, true); }
+  });
+  window.addEventListener('resize', () => { let v = null; try { v = localStorage.getItem(CHIAVE); } catch (e) { /* idem */ } applica(v || NORMALE, false); });
+})();

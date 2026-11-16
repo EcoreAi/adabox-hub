@@ -79,6 +79,14 @@
 
   {# ---------- colonna centrale ---------- #}
   <main class="ai-centro">
+    {# larghezza della colonna: tre misure e una maniglia sul bordo (il browser la ricorda); sul telefono non serve #}
+    <div class="ai-larghezza" role="group" aria-label="Larghezza della chat" data-larghezze>
+      <button type="button" data-larghezza="760" aria-pressed="true" title="Larghezza normale">Normale</button>
+      <button type="button" data-larghezza="1100" aria-pressed="false" title="Più larga: tabelle e grafici più comodi">Larga</button>
+      <button type="button" data-larghezza="piena" aria-pressed="false" title="Tutto lo spazio disponibile">Piena</button>
+    </div>
+    <div class="ai-maniglia" role="separator" aria-orientation="vertical" aria-label="Allarga o stringi la chat" tabindex="0"
+         title="Trascina per allargare la chat · doppio clic: larghezza normale" data-maniglia></div>
     {% if messages %}<div class="ai-avvisi">{% for m in messages %}<div class="ui-alert ui-alert-{{ m.tags|default:'info' }}">{{ m }}</div>{% endfor %}</div>{% endif %}
 
 

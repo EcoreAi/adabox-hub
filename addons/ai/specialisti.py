@@ -141,7 +141,45 @@ def calcola_previsione(spec, contesto):
     per = spec.get("per", "mese")
     return {"storico": [[etichetta(p, per), round(v, 2)] for p, v in storia],
             "futuro": [[etichetta(avanti(attuale, per, i), per), *q] for i, q in enumerate(futuro)],
-            "totale": totale(futuro), "modello": modello}
+            "totale": totale(futuro), "modello": modello,
+            "affidabilita": affidabilita(storia, futuro, spec.get("orizzonte", 3), per)}
+
+
+# ---------- affidabilità di una previsione: calcolata dal codice, non dichiarata dal modello ----------
+STORIA_SOLIDA, STORIA_MINIMA = 24, 12          # periodi di storia
+LARGHEZZA_BUONA, LARGHEZZA_MASSIMA = 0.5, 1.0  # ampiezza media dell'intervallo 10-90 % rispetto alla mediana
+ERRORE_BUONO, ERRORE_MASSIMO = 0.15, 0.35      # errore medio della prova sul passato (backtest)
+PERIODI = {"mese": ("mese", "mesi"), "settimana": ("settimana", "settimane"), "giorno": ("giorno", "giorni")}
+
+
+def affidabilita(storia, futuro, orizzonte, per="mese"):
+    """Alta, media o bassa da tre misure: quanta storia c'è, quanto è largo l'intervallo 10-90 %, e quanto avrebbe
+    sbagliato il modello sugli ultimi periodi già noti (la stessa previsione rifatta senza di loro: backtest)."""
+    uno, molti = PERIODI.get(per, ("periodo", "periodi"))
+    n = len(storia)
+    larghezze = [(alto - basso) / abs(mediana) for basso, mediana, alto in futuro if mediana]
+    larghezza = sum(larghezze) / len(larghezze) if larghezze else None
+    errore, provati = None, min(3, orizzonte)
+    if n - provati >= MIN_PERIODI:
+        try:
+            prova, _ = prevedi(storia[:-provati], provati)
+            scarti = [abs(p[1] - v) / abs(v) for p, (_, v) in zip(prova, storia[-provati:]) if v]
+            errore = sum(scarti) / len(scarti) if scarti else None
+        except ErroreStrumento:
+            errore = None
+    giudizi = ["buono" if n >= STORIA_SOLIDA else "debole" if n < STORIA_MINIMA else "medio"]
+    motivi = [f"Storia: {n} {uno if n == 1 else molti}" + ("" if n >= STORIA_SOLIDA else
+              f" (per una previsione solida ne servono almeno {STORIA_SOLIDA})")]
+    if larghezza is not None:
+        giudizi.append("buono" if larghezza <= LARGHEZZA_BUONA else "debole" if larghezza > LARGHEZZA_MASSIMA else "medio")
+        motivi.append(f"Intervallo 10-90 %: in media ±{round(larghezza * 50)}% della mediana")
+    if errore is not None:
+        giudizi.append("buono" if errore <= ERRORE_BUONO else "debole" if errore > ERRORE_MASSIMO else "medio")
+        motivi.append(f"Errore sugli ultimi {provati} {uno if provati == 1 else molti} già noti: {round(errore * 100)}% "
+                      "(la previsione rifatta senza di loro, confrontata con il vero)")
+    livello = "bassa" if "debole" in giudizi else "alta" if errore is not None and set(giudizi) == {"buono"} else "media"
+    return {"livello": livello, "periodi_di_storia": n, "larghezza": round(larghezza, 3) if larghezza is not None else None,
+            "errore": round(errore, 3) if errore is not None else None, "motivi": motivi}
 
 
 def totale(futuro):

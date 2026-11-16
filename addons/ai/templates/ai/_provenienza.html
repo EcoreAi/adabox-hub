@@ -1,5 +1,5 @@
 {% load humanize %}{# Da dove vengono i dati della risposta (calcolato dal codice a fine turno, non dichiarato dal modello). Ogni chip si apre con una card di dettaglio: fonti consultate, dati personali protetti, token e costo. Con <details> funziona anche senza script; chat.js chiude le altre card, Esc e clic fuori. #}
-{% if pv and pv.esito != "conversazione" or pv.pii or pv.token %}
+{% if pv and pv.esito != "conversazione" or pv.pii or pv.token or pv.previsioni %}
 <div class="ai-provenienza" aria-label="Provenienza della risposta">
   {% if "fonti" in pv %}
   {% if pv.fonti %}<details class="ai-pv"><summary class="ai-chip{% if pv.letture_web %} is-avviso{% elif pv.esito == 'verificato' %} is-ok{% endif %}"><svg><use href="#icon-search"/></svg>{{ pv.fonti|length }} {{ pv.fonti|length|pluralize:"fonte consultata,fonti consultate" }}</summary>
@@ -32,6 +32,13 @@
       <p class="ai-pv-nota">Verifica automatica ({{ c.metodo }}): può sbagliare.</p>
     </div>
   </details>{% endif %}{% endwith %}
+  {% for p in pv.previsioni %}<details class="ai-pv"><summary class="ai-chip{% if p.livello == 'alta' %} is-ok{% elif p.livello == 'bassa' %} is-avviso{% endif %}" title="Affidabilità della previsione, calcolata dal codice"><svg><use href="#icon-trending-up"/></svg>Affidabilità: {{ p.livello }}</summary>
+    <div class="ai-pv-card">
+      <p class="ai-pv-titolo"><strong>Affidabilità della previsione: {{ p.livello }}</strong>{% if p.titolo %}<br><small>{{ p.titolo }}</small>{% endif %}</p>
+      <ul class="ai-pv-motivi">{% for m in p.motivi %}<li>{{ m }}</li>{% endfor %}</ul>
+      <p class="ai-pv-nota">È una stima{% if p.modello %} del modello {{ p.modello }}{% endif %} sulla storia del gestionale, non un dato: con più storia l'affidabilità sale.</p>
+    </div>
+  </details>{% endfor %}
   {% if pv.esito == "parziale" %}<span class="ai-badge is-avviso" title="Numeri non trovati nei dati letti: {{ pv.non_verificati|join:', ' }}">⚠ {{ pv.n_non_verificati }} {{ pv.n_non_verificati|pluralize:"numero non trovato,numeri non trovati" }} nei dati letti</span>{% endif %}
   {% if pv.esito == "senza fonti" %}<span class="ai-badge is-neutro" title="La risposta non viene da dati letti con gli strumenti">Senza dati del gestionale</span>{% endif %}
   {% if pv.pii %}<details class="ai-pv"><summary class="ai-chip is-protetto"><svg><use href="#icon-lock"/></svg>{{ pv.pii }} {{ pv.pii|pluralize:"dato personale protetto,dati personali protetti" }}</summary>

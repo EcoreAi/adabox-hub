@@ -5,6 +5,13 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-16
 
+- **AI 1.45.0 — affidabilità delle previsioni e chat più larga** (nessuna migrazione).
+  - Sotto ogni previsione il chip «Affidabilità: alta / media / bassa», calcolato dal codice da tre misure: quanta
+    storia c'è (solida da 24 periodi), quanto è largo l'intervallo 10-90 %, e l'errore sugli ultimi periodi già noti
+    (la stessa previsione rifatta senza di loro). La card dice i motivi; Ada lo dice anche a parole.
+  - La colonna della chat si allarga: Normale (760 px), Larga (1100 px), Piena, oppure trascinando la maniglia sul
+    bordo (doppio clic: normale; frecce da tastiera). Il browser ricorda la scelta; il testo resta a una larghezza
+    comoda, tabelle e grafici usano lo spazio. Sul telefono non cambia nulla.
 - **AI 1.44.0 — risposte più affidabili** (nessuna migrazione).
   - Guardia sui numeri più precisa: non segnala più date a parole («16 novembre»), misure («15 pollici», «500 W»),
     aliquote IVA, valori dichiarati approssimati vicini al dato vero, e conta come fonti i dati letti prima nella stessa

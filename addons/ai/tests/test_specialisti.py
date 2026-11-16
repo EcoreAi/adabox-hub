@@ -157,3 +157,44 @@ def test_totale_sull_orizzonte_ed_etichette_dell_asse(scena, servizi):
     assert disegno.count('transform="rotate(-35') <= 11                     # una decina di etichette, non 40
     pagina = scena["client"].get(f"/ai/artifact/{Artifact.objects.get().pk}/").content.decode()
     assert "Totale (13 periodi)" in pagina
+
+
+def test_previsione_dice_l_affidabilita_con_la_prova_sul_passato(scena, servizi):
+    r = strumenti_specialisti.previsione(_contesto(scena), "core.lavoro", "creato", per="mese", orizzonte=3)
+    a = r["affidabilita"]
+    assert a["livello"] == "bassa" and a["periodi_di_storia"] == 8                      # 8 mesi: troppo pochi
+    assert a["motivi"][0].startswith("Storia: 8 mesi (per una previsione solida ne servono almeno 24)")
+    # con 8 mesi la prova sul passato lascerebbe 5 mesi, sotto il minimo del servizio: si salta
+    assert len(servizi) == 1 and a["errore"] is None
+
+
+def test_prova_sul_passato_con_storia_sufficiente(servizi):
+    storia = [(None, float(v)) for v in range(10, 22)]                                 # 12 mesi
+    a = specialisti.affidabilita(storia, [(18.0, 20.0, 22.0)] * 3, 3)
+    prova = servizi[0][2]                                                              # la stessa previsione senza gli ultimi 3
+    assert prova["horizon"] == 3 and prova["series"][0]["values"] == [float(v) for v in range(10, 19)]
+    assert a["errore"] is not None and any("già noti" in m for m in a["motivi"])
+
+
+def test_livelli_di_affidabilita(monkeypatch):
+    storia = [(None, 100.0 + i) for i in range(30)]
+    monkeypatch.setattr(specialisti, "prevedi", lambda s, k: ([(v - 5, v, v + 5) for _, v in storia[len(s):len(s) + k]], "finto"))
+    alta = specialisti.affidabilita(storia, [(120.0, 130.0, 140.0)] * 3, 3)
+    assert alta["livello"] == "alta" and alta["errore"] == 0.0
+    larga = specialisti.affidabilita(storia, [(0.0, 100.0, 300.0)] * 3, 3)              # intervallo enorme
+    assert larga["livello"] == "bassa" and any("±150%" in m for m in larga["motivi"])
+    corta = specialisti.affidabilita(storia[:15], [(120.0, 130.0, 140.0)] * 3, 3)         # 15 mesi: media
+    assert corta["livello"] == "media"
+
+
+def test_l_affidabilita_va_sotto_la_risposta():
+    import json
+    from django.template.loader import render_to_string
+    from ai import provenienza
+    contenuto = json.dumps({"titolo": "Previsione fatturato", "modello": "Timestral",
+                            "affidabilita": {"livello": "bassa", "motivi": ["Storia: 10 mesi"]}})
+    p = provenienza._affidabilita(contenuto)
+    assert p == {"titolo": "Previsione fatturato", "livello": "bassa", "motivi": ["Storia: 10 mesi"], "modello": "Timestral"}
+    assert provenienza._affidabilita("non è json") is None
+    html = render_to_string("ai/_provenienza.html", {"pv": {"esito": "verificato", "fonti": [], "previsioni": [p]}})
+    assert "Affidabilità: bassa" in html and "is-avviso" in html and "Storia: 10 mesi" in html
