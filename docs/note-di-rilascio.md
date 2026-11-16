@@ -5,6 +5,11 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-16
 
+- **AI 1.39.0 — trascrizione del parlato in cloud** (migrazione `ai.0039`). Nei servizi di «Voce» c'è il campo *uso*:
+  con «Trascrizione del parlato» e tipo Mistral (Voxtral) o OVH (Whisper) la dettatura e «Parla con Ada» trascrivono in
+  circa un secondo invece dei 6-8 del Whisper locale. Serve il consenso dell'azienda *Trascrizione del parlato con un
+  fornitore cloud* (l'audio esce dal server); se il fornitore non risponde si usa il Whisper locale. I servizi già
+  configurati restano di lettura.
 - **AI 1.38.0 — «Parla con Ada»** (nessuna migrazione). Conversazione a voce a schermo intero (`/ai/parla/`): fine
   della frase automatica, risposte brevi, voce che parte mentre la risposta si scrive, riascolto dopo la risposta,
   interruzione con un tocco. **Sul telefono la chat si apre già così** quando la voce è accesa (dettatura e lettura);

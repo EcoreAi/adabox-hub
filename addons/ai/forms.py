@@ -196,11 +196,27 @@ class ServizioVoceForm(forms.ModelForm):
 
     class Meta:
         model = ServizioVoce
-        fields = ["nome", "tipo", "azienda", "regione", "modello", "voce_it", "voce_en", "attivo"]
+        fields = ["nome", "tipo", "uso", "azienda", "regione", "modello", "voce_it", "voce_en", "attivo"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if "uso" in self.fields:
+            self.fields["uso"].required = False             # chi non lo indica crea un servizio di lettura, come prima
+
+    def clean_uso(self):
+        return self.cleaned_data.get("uso") or ServizioVoce.LETTURA
 
     def clean(self):
         dati = super().clean()
-        tipo = dati.get("tipo")
+        tipo, uso = dati.get("tipo"), dati.get("uso") or ServizioVoce.LETTURA
+        if tipo and tipo not in ServizioVoce.PER_USO[uso]:
+            ammessi = ", ".join(str(n) for t, n in ServizioVoce.TIPI if t in ServizioVoce.PER_USO[uso])
+            self.add_error("tipo", f"Per «{dict(ServizioVoce.USI)[uso]}» si può usare: {ammessi}.")
+            return dati
+        if uso == ServizioVoce.TRASCRIZIONE:
+            if not (dati.get("nuova_chiave") or self.instance.chiave_cifrata):
+                self.add_error("nuova_chiave", "Per la trascrizione in cloud serve la chiave API.")
+            return dati
         if tipo == ServizioVoce.AZURE and not re.fullmatch(r"[a-z0-9]{2,30}", dati.get("regione") or ""):
             self.add_error("regione", "Per Azure serve la regione, es. westeurope.")
         if tipo == ServizioVoce.CARTESIA and not (dati.get("voce_it") and dati.get("voce_en")):

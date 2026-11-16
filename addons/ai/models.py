@@ -697,10 +697,15 @@ class VersioneDocumento(models.Model):
 
 
 class ServizioVoce(models.Model):
-    """Un servizio che legge ad alta voce le risposte: Kokoro sui nostri server oppure un fornitore cloud con chiave."""
-    KOKORO, CARTESIA, MISTRAL, AZURE, GEMINI = "kokoro", "cartesia", "mistral", "azure", "gemini"
+    """Un servizio vocale: legge ad alta voce le risposte (Kokoro sui nostri server o un fornitore cloud) oppure
+    trascrive il parlato in cloud (Mistral Voxtral, OVH Whisper), più veloce del Whisper locale."""
+    KOKORO, CARTESIA, MISTRAL, AZURE, GEMINI, OVH = "kokoro", "cartesia", "mistral", "azure", "gemini", "ovh"
     TIPI = [(KOKORO, "Kokoro (locale, sui nostri server)"), (CARTESIA, "Cartesia"), (MISTRAL, "Mistral (Voxtral)"),
-            (AZURE, "Azure AI Speech"), (GEMINI, "Google Gemini TTS")]
+            (AZURE, "Azure AI Speech"), (GEMINI, "Google Gemini TTS"), (OVH, "OVH AI Endpoints (Whisper)")]
+    LETTURA, TRASCRIZIONE = "lettura", "trascrizione"
+    USI = [(LETTURA, "Lettura delle risposte"), (TRASCRIZIONE, "Trascrizione del parlato")]
+    PER_USO = {LETTURA: {KOKORO, CARTESIA, MISTRAL, AZURE, GEMINI}, TRASCRIZIONE: {MISTRAL, OVH}}
+    MODELLI_TRASCRIZIONE = {MISTRAL: "voxtral-mini-latest", OVH: "whisper-large-v3-turbo"}
     PREDEFINITI = {                                      # modello, voce italiana, voce inglese
         KOKORO: ("speaches-ai/Kokoro-82M-v1.0-ONNX", "if_sara", "af_heart"),
         CARTESIA: ("sonic-3.6", "", ""),
@@ -710,6 +715,8 @@ class ServizioVoce(models.Model):
     }
     nome = models.CharField("nome", max_length=80)
     tipo = models.CharField("tipo", max_length=10, choices=TIPI)
+    uso = models.CharField("uso", max_length=12, choices=USI, default=LETTURA,
+                           help_text="trascrizione: Mistral o OVH, al posto del Whisper locale (con il consenso dell'azienda)")
     azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, related_name="+",
                                 verbose_name="azienda", help_text="vuota = per tutte le aziende")
     chiave_cifrata = models.TextField(blank=True, editable=False)
@@ -734,6 +741,8 @@ class ServizioVoce(models.Model):
     def valore(self, campo):
         """modello, voce_it o voce_en: quello scelto o quello consigliato per il tipo."""
         indice = {"modello": 0, "voce_it": 1, "voce_en": 2}[campo]
+        if self.uso == self.TRASCRIZIONE:
+            return getattr(self, campo) or (self.MODELLI_TRASCRIZIONE.get(self.tipo, "") if campo == "modello" else "")
         return getattr(self, campo) or self.PREDEFINITI.get(self.tipo, ("", "", ""))[indice]
 
     def chiave(self):

@@ -52,7 +52,7 @@ def test_conversazione_di_un_altro_non_si_apre(client, s):
 
 def test_ascolta_trascrive_in_italiano(client, s, monkeypatch):
     lingue = []
-    monkeypatch.setattr(parla.voce, "trascrivi", lambda f, lingua="": lingue.append(lingua) or "  quante   fatture  ")
+    monkeypatch.setattr(parla.voce, "trascrivi", lambda f, lingua="", azienda=None: lingue.append(lingua) or "  quante   fatture  ")
     r = client.post(reverse("ai:parla_ascolta"), {"audio": SimpleUploadedFile("v.webm", b"x", content_type="audio/webm")})
     assert r.json() == {"testo": "quante fatture"} and lingue == ["it"]
 

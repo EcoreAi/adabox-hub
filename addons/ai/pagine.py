@@ -745,7 +745,7 @@ def trascrivi_voce(request):
     if not voce.dettatura_disponibile(azienda) or file is None:
         return JsonResponse({"errore": "La dettatura non è attiva."}, status=400)
     try:
-        return JsonResponse({"testo": voce.trascrivi(file, request.POST.get("lingua", ""))})
+        return JsonResponse({"testo": voce.trascrivi(file, request.POST.get("lingua", ""), azienda=azienda)})
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
 

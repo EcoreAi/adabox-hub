@@ -1,7 +1,7 @@
 {
     "name": "Assistente AI",
     "summary": "Chat con l'assistente: cronologia delle conversazioni, artifact e documenti salvati",
-    "version": "1.38.0",
+    "version": "1.39.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -76,6 +76,9 @@
          "per_azienda": True, "help": "la dettatura usa Whisper sui nostri server; per la lettura serve un servizio in «Voce»"},
         {"chiave": "voce_cloud", "funzione": "voce", "label": "Lettura delle risposte con un fornitore cloud", "tipo": "booleano", "default": False,
          "per_azienda": True, "help": "il testo delle risposte, dati personali compresi, arriva al fornitore così com'è; senza, solo Kokoro in locale"},
+        {"chiave": "trascrizione_cloud", "funzione": "voce", "label": "Trascrizione del parlato con un fornitore cloud", "tipo": "booleano",
+         "default": False, "per_azienda": True,
+         "help": "l'audio di chi parla arriva al fornitore (Mistral o OVH, servizio in «Voce» con uso «Trascrizione»): circa un secondo invece dei 6-8 del Whisper locale"},
         {"chiave": "url_voce", "funzione": "voce", "label": "URL del servizio vocale locale (Speaches: Whisper e Kokoro)", "tipo": "testo", "default": "",
          "help": "es. http://adabox_hub_speaches:8000; vuoto = niente dettatura né Kokoro"},
         {"chiave": "modello_trascrizione", "funzione": "voce", "label": "Modello Whisper per la dettatura", "tipo": "testo",
