@@ -51,6 +51,8 @@ def test_testo_da_leggere_e_parti():
     assert len(lunga[0]) == voce.CARATTERI_PRIMA and "".join(lunga) == "x" * 1000
     assert voce.lingua_di("The order is late and we are sorry for that") == "en"
     assert voce.lingua_di("L'ordine è in ritardo e ci scusiamo per il disagio") == "it"
+    assert voce.lingua_di("Oggi hai sei appuntamenti in calendario.") == "it"           # «in» non è inglese
+    assert voce.lingua_di("Ok, thanks") == "it" and voce.lingua_di("Ciao") == "it"       # nel dubbio, italiano
 
 
 def test_quale_servizio(s):

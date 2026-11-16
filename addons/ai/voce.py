@@ -158,13 +158,18 @@ def _trascrivi_locale(file, tipo, lingua, http_client):
 
 # ---------- che cosa si legge ----------
 
-_PAROLE_IT = {"il", "la", "di", "che", "e", "per", "un", "una", "non", "sono", "del", "della", "con", "le", "gli", "ho", "è", "nel"}
-_PAROLE_EN = {"the", "and", "of", "to", "is", "in", "that", "for", "with", "you", "are", "this", "it", "on", "have", "be", "not"}
+_PAROLE_IT = {"il", "la", "di", "che", "e", "per", "un", "una", "non", "sono", "del", "della", "con", "le", "gli", "ho", "è", "nel",
+              "hai", "oggi", "ci", "al", "alle", "dei", "delle", "questo", "questa", "mi", "ti", "si", "anche", "più", "ora"}
+# niente parole che esistono anche in italiano («in», «a»): con «Oggi hai sei appuntamenti in calendario» vinceva l'inglese
+_PAROLE_EN = {"the", "and", "of", "to", "is", "that", "for", "with", "you", "are", "this", "it", "on", "have", "be", "not"}
 
 
 def lingua_di(testo):
+    """«en» solo se l'inglese è evidente (almeno tre parole tipiche e il doppio delle italiane): i clienti sono
+    italiani, e un pezzo breve letto con la voce inglese suona sbagliato."""
     parole = re.findall(r"[a-zàèéìòù']+", testo.lower())
-    return "en" if sum(p in _PAROLE_EN for p in parole) > sum(p in _PAROLE_IT for p in parole) else "it"
+    inglesi, italiane = sum(p in _PAROLE_EN for p in parole), sum(p in _PAROLE_IT for p in parole)
+    return "en" if inglesi >= 3 and inglesi > 2 * italiane else "it"
 
 
 def da_leggere(markdown):

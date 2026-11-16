@@ -122,7 +122,8 @@ def audio(request, pk, inizio, fine):
     if not testo.strip():
         return HttpResponse(status=204)
     try:
-        dati, tipo = voce.audio_di(servizio, testo, voce.lingua_di(testo))
+        # la lingua si decide sulla risposta intera: un pezzo breve non deve cambiare voce a metà
+        dati, tipo = voce.audio_di(servizio, testo, voce.lingua_di(voce.da_leggere(turno.testo)))
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
     risposta = HttpResponse(dati, content_type=tipo)
