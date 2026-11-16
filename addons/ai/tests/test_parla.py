@@ -52,9 +52,9 @@ def test_conversazione_di_un_altro_non_si_apre(client, s):
 
 def test_ascolta_trascrive_in_italiano(client, s, monkeypatch):
     lingue = []
-    monkeypatch.setattr(parla.voce, "trascrivi", lambda f, lingua="", azienda=None: lingue.append(lingua) or "  quante   fatture  ")
+    monkeypatch.setattr(parla.voce, "trascrivi", lambda f, lingua="", azienda=None, parole=(): lingue.append((lingua, parole)) or "  quante   fatture  ")
     r = client.post(reverse("ai:parla_ascolta"), {"audio": SimpleUploadedFile("v.webm", b"x", content_type="audio/webm")})
-    assert r.json() == {"testo": "quante fatture"} and lingue == ["it"]
+    assert r.json() == {"testo": "quante fatture"} and lingue[0][0] == "it" and lingue[0][1][0] == "Ada"
 
 
 def test_chiedi_avvia_il_turno_con_la_nota_della_voce(client, s, monkeypatch):
@@ -69,7 +69,8 @@ def test_chiedi_avvia_il_turno_con_la_nota_della_voce(client, s, monkeypatch):
     assert c.utente == s["u"] and c.titolo == "Quante fatture ho?"
     assert r["flusso"] == reverse("ai:flusso", args=[r["turno"]]) and r["parla"] == reverse("ai:parla_conversazione", args=[c.pk])
     testo, opzioni = chiamate[0]
-    assert testo == "Quante fatture ho?" and opzioni["web"] is False and parla.NOTA_VOCE in opzioni["nota"]
+    assert testo == "Quante fatture ho?" and opzioni["web"] is False and opzioni["voce"] is True
+    assert "L'utente si chiama anna" in opzioni["nota"] and "telefonata" in opzioni["nota"]
     # stessa conversazione, dopo un'interruzione: il modello sa fin dove l'utente ha sentito
     client.post(reverse("ai:parla_chiedi"), {"testo": "e quelle scadute?", "conversazione": c.pk, "sentito": "Hai dodici fatture"})
     assert Conversazione.objects.filter(utente=s["u"]).count() == 1

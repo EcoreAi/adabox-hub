@@ -122,7 +122,7 @@ def riparti(conversazione, messaggio, testo, utente, azienda=None):
 
 
 def avvia(conversazione, testo, utente, azienda=None, compito="chat", sincrono=False, nota="", file=(), messaggio=None, web=True,
-          immagini_confermate=None):
+          immagini_confermate=None, voce=False):
     """Registra la domanda e avvia il turno: in un thread, oppure nel processo stesso con `sincrono` (worker delle
     pianificate) o AI_TURNI_SINCRONI (test). `nota` va al modello nel <contesto>, non nella chat. `file`: gli allegati
     del messaggio, già controllati. `messaggio`: quello esistente, quando si riparte da lì."""
@@ -131,7 +131,7 @@ def avvia(conversazione, testo, utente, azienda=None, compito="chat", sincrono=F
     if in_corso is not None:
         return in_corso
     with transaction.atomic():
-        turno = Turno.objects.create(conversazione=conversazione, utente=utente, azienda=azienda, compito=compito, web=web)
+        turno = Turno.objects.create(conversazione=conversazione, utente=utente, azienda=azienda, compito=compito, web=web, voce=voce)
         esiti = proposte.da_comunicare(conversazione)
         if messaggio is None:
             messaggio = MessaggioChat.objects.create(conversazione=conversazione, ruolo=MessaggioChat.UTENTE, testo=testo)
@@ -220,7 +220,10 @@ def esegui(turno_id):
         if assistente is not None and assistente.profilo_id and assistente.profilo.attivo:
             profilo, anelli = assistente.profilo, catalogo.catena(assistente.profilo, turno.azienda)
         else:
-            profilo = catalogo.profilo_per(turno.compito, turno.azienda, conversazione.ambito)
+            # a voce: il profilo «voce» (un modello veloce e regolare, risposte corte) se l'amministratore l'ha creato,
+            # altrimenti quello della chat con «Automatico»
+            profilo = catalogo.profilo_per("voce" if turno.voce and turno.compito == "chat" else turno.compito,
+                                           turno.azienda, conversazione.ambito)
             anelli = (catalogo.automatico(profilo, turno.azienda) if profilo.compito == "chat"
                       else catalogo.catena(profilo, turno.azienda))
         from .. import funzioni

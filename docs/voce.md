@@ -25,6 +25,11 @@ Quattro funzioni:
   0 = si tocca ogni volta). **Toccando mentre pensa o parla la interrompi**: la risposta si ferma anche sul server e
   nel turno dopo il modello sa fin dove l'avevi sentita.
 - Lo schermo resta acceso mentre la conversazione è attiva; da ferma il microfono si spegne.
+- **Modello**: con un profilo di compito *Parla con Ada (conversazione a voce)* in Assistente AI → Profili, i turni a
+  voce usano la sua catena (conviene un modello veloce e regolare, es. Claude Haiku, e un tetto ai token di 1000-2000);
+  senza, vale il profilo della chat con «Automatico». I turni a voce contano comunque come chat (licenza, cruscotto).
+- Ada saluta l'utente per nome; a Mistral vanno come parole da favorire «Ada», il marchio, l'azienda e nome e cognome
+  dell'utente (senza, «Ada, quali…» diventava «Ha da quali…»).
 - Serve che ci siano sia la dettatura sia la lettura; la conversazione resta una chat normale, nella cronologia.
 
 Limiti di questa prima versione: con il Whisper locale la trascrizione impiega 6-8 secondi a frase (con la

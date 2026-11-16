@@ -195,7 +195,7 @@ class Profilo(models.Model):
     """Quale catena di modelli usare per un compito, per tutti o per un'app o un'azienda."""
     COMPITI = [("chat", "Chat e agente"), ("titoli", "Titoli delle chat"), ("riassunti", "Riassunti"),
                ("pianificate", "Attività pianificate"), ("classificazione", "Classificazione"),
-               ("ricerca", "Ricerca approfondita")]
+               ("ricerca", "Ricerca approfondita"), ("voce", "Parla con Ada (conversazione a voce)")]
     EFFORT = [("", "Predefinito del modello"), ("low", "Basso"), ("medium", "Medio"), ("high", "Alto"),
               ("xhigh", "Molto alto"), ("max", "Massimo")]
     nome = models.CharField("nome", max_length=80)
@@ -242,6 +242,8 @@ class Turno(models.Model):
                                verbose_name="utente")
     azienda = models.ForeignKey("core.Azienda", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="azienda")
     compito = models.CharField("compito", max_length=20, default="chat")
+    voce = models.BooleanField("a voce", default=False,
+                               help_text="da «Parla con Ada»: usa il profilo «voce» se c'è (conta comunque come chat)")
     web = models.BooleanField("ricerca sul web", default=True,
                               help_text="in chat solo se l'utente l'ha scelta per quel messaggio; le attività pianificate la usano se l'azienda l'ha accesa")
     stato = models.CharField("stato", max_length=10, choices=STATI, default=IN_CORSO)

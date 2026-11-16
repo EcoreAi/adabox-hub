@@ -76,7 +76,22 @@ TEMPO_CLOUD = 30
 log = logging.getLogger(__name__)
 
 
-def trascrivi(file, lingua="", http_client=None, azienda=None):
+def parole_note(utente, azienda):
+    """Le parole da riconoscere anche se rare: il nome dell'assistente, il marchio, l'azienda e il nome dell'utente.
+    Senza, «Ada, quali appuntamenti…» diventava «Ha da quali…»."""
+    from django.conf import settings
+    parole = ["Ada", getattr(settings, "THEME", {}).get("brand", ""), getattr(azienda, "nome", ""),
+              getattr(utente, "first_name", ""), getattr(utente, "last_name", "")]
+    visti, uniche = set(), []
+    for p in parole:
+        p = " ".join(str(p or "").split())[:40]
+        if p and p.lower() not in visti:
+            visti.add(p.lower())
+            uniche.append(p)
+    return uniche[:10]
+
+
+def trascrivi(file, lingua="", http_client=None, azienda=None, parole=()):
     """Il testo detto: con il servizio cloud dell'azienda se c'è (e se non risponde, con il Whisper locale), altrimenti
     con il Whisper locale."""
     if file.size > MASSIMO_AUDIO:
@@ -88,7 +103,7 @@ def trascrivi(file, lingua="", http_client=None, azienda=None):
     if servizio is not None:
         dati_audio = file.read()
         try:
-            return trascrivi_cloud(servizio, dati_audio, file.name or "voce.webm", tipo, lingua, http_client)
+            return trascrivi_cloud(servizio, dati_audio, file.name or "voce.webm", tipo, lingua, http_client, parole=parole)
         except ErroreVoce:
             if not url_locale():
                 raise
@@ -99,7 +114,7 @@ def trascrivi(file, lingua="", http_client=None, azienda=None):
     return _trascrivi_locale(file, tipo, lingua, http_client)
 
 
-def trascrivi_cloud(servizio, audio, nome, tipo, lingua="", http_client=None):
+def trascrivi_cloud(servizio, audio, nome, tipo, lingua="", http_client=None, parole=()):
     """Mistral Voxtral e OVH (Whisper) parlano la stessa lingua di OpenAI: multipart con file, modello e lingua."""
     if not servizio.chiave():
         raise ErroreVoce(f"«{servizio.nome}»: manca la chiave API.")
@@ -111,8 +126,11 @@ def trascrivi_cloud(servizio, audio, nome, tipo, lingua="", http_client=None):
         dati["language"] = lingua
     client = http_client or httpx.Client(timeout=TEMPO_CLOUD, trust_env=False, follow_redirects=False)
     try:
+        file = [("file", (nome, audio, tipo))]
+        if servizio.tipo == ServizioVoce.MISTRAL:          # Voxtral: parole da favorire (nomi propri, marchi)
+            file += [("context_bias", (None, p)) for p in parole]
         r = client.post(f"{url}/audio/transcriptions", headers={"Authorization": f"Bearer {servizio.chiave()}"},
-                        files={"file": (nome, audio, tipo)}, data=dati)
+                        files=file, data=dati)
         _controlla(r, servizio.nome, "trascrizione")
         return str(r.json().get("text", "")).strip()
     except (httpx.HTTPError, ValueError, AttributeError) as e:
