@@ -58,7 +58,8 @@ def _passo(turno_id, stato, request=None):
         messaggio = MessaggioChat.objects.filter(turno_id=turno_id, ruolo=MessaggioChat.ASSISTENTE).order_by("-pk").first()
         # con la richiesta: i form delle schede (proposte, salva) hanno il token CSRF
         html = render_to_string("ai/_messaggi.html", {"messaggi": [messaggio]}, request=request) if messaggio else ""
-        eventi.append(_evento("fine", {"stato": turno.stato, "html": html}))
+        # il testo completo serve a «Parla con Ada» per leggere l'ultimo tratto (scritto dopo l'ultima lettura)
+        eventi.append(_evento("fine", {"stato": turno.stato, "html": html, "testo": turno.testo}))
         return eventi, True
     return eventi, False
 

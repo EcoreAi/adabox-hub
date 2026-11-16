@@ -678,3 +678,6 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-fonte mark { background: #fff1a8; color: inherit; border-radius: 3px; padding: 0 1px; }
 @media (prefers-color-scheme: dark) { .ai-fonte mark { background: #6b5a00; } }
 .ai-msg-testo a.is-citata { background: #fff1a8; border-radius: 4px; }
+
+/* «Parla con Ada» nella barra del messaggio: un link con l'aspetto dei bottoni tondi */
+.ai-parla, .ai-parla:hover { text-decoration: none; }

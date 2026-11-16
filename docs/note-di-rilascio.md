@@ -3,6 +3,13 @@
 Ciò che chi aggiorna un'istanza deve sapere: cambi di comportamento, azioni da fare, migrazioni. Il dettaglio è nei
 commit; qui solo ciò che si vede o che chiede un intervento.
 
+## 2026-11-16
+
+- **AI 1.38.0 — «Parla con Ada»** (nessuna migrazione). Conversazione a voce a schermo intero (`/ai/parla/`): fine
+  della frase automatica, risposte brevi, voce che parte mentre la risposta si scrive, riascolto dopo la risposta,
+  interruzione con un tocco. **Sul telefono la chat si apre già così** quando la voce è accesa (dettatura e lettura);
+  si spegne per azienda in Impostazioni → Assistente AI. Dettagli in `docs/voce.md`.
+
 ## 2026-11-15
 
 - **Nuovo modulo SharePoint 1.0.0** (dipende da Documenti, migrazione `sharepoint.0001`). Una cartella dei Documenti

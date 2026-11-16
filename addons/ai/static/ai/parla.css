@@ -1,0 +1,48 @@
+/* «Parla con Ada»: schermo intero, cerchio al centro, un grande pulsante in basso. Usa i token del tema. */
+body.pa-pagina { height: 100vh; height: 100dvh; overflow: hidden; background: var(--ui-surface); }
+.pa {
+  height: 100%; display: flex; flex-direction: column; align-items: center;
+  padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+}
+.pa-testa { width: 100%; max-width: 640px; display: flex; align-items: center; gap: 8px; padding: 10px 0; }
+.pa-titolo { flex: 1; text-align: center; font-size: 15px; font-weight: 600; color: var(--ui-text-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pa-tasto { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%;
+  color: var(--ui-text-2); }
+.pa-tasto:hover { background: var(--ui-surface-2); color: var(--ui-text); text-decoration: none; }
+.pa-tasto svg { width: 20px; height: 20px; }
+
+.pa-centro { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+.pa-cerchio { width: min(68vw, 300px, 40vh); height: min(68vw, 300px, 40vh); }
+.pa-stato { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; color: var(--ui-text); }
+.pa[data-stato="penso"] .pa-stato, .pa[data-stato="trascrivo"] .pa-stato { color: var(--ui-text-2); }
+
+.pa-testi { width: 100%; max-width: 560px; min-height: 96px; max-height: 32vh; overflow-y: auto; scrollbar-width: none;
+  display: flex; flex-direction: column; gap: 8px; text-align: center; }
+.pa-detto { margin: 0; font-size: 15px; color: var(--ui-text-2); }
+.pa-detto::before { content: "Tu: "; font-weight: 600; }
+.pa-risposta { margin: 0; font-size: 17px; line-height: 1.45; color: var(--ui-text); }
+
+.pa-piede { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 14px 0 22px; }
+.pa-microfono {
+  width: 76px; height: 76px; border-radius: 50%; border: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--ui-primary-lift); color: #fff; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  transition: transform 160ms var(--ease-out), background-color 160ms var(--ease-out);
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.pa-microfono:active { transform: scale(0.94); }
+.pa-microfono:focus-visible { outline: 3px solid var(--ui-primary-tint); outline-offset: 4px; }
+.pa-microfono svg { width: 32px; height: 32px; }
+.pa-icona-stop { display: none; }
+.pa[data-stato="ascolto"] .pa-microfono { background: var(--ui-danger); }
+.pa[data-stato="penso"] .pa-icona-mic, .pa[data-stato="parlo"] .pa-icona-mic, .pa[data-stato="trascrivo"] .pa-icona-mic { display: none; }
+.pa[data-stato="penso"] .pa-icona-stop, .pa[data-stato="parlo"] .pa-icona-stop, .pa[data-stato="trascrivo"] .pa-icona-stop { display: block; }
+.pa[data-stato="trascrivo"] .pa-microfono { opacity: .6; }
+.pa-link { font-size: 14px; font-weight: 600; color: var(--ui-primary); }
+
+.pa-spenta { max-width: 420px; text-align: center; }
+.pa-spenta h1 { font-size: 22px; margin: 0 0 8px; }
+.pa-spenta p { color: var(--ui-text-2); margin: 0 0 18px; }
+
+@media (prefers-reduced-motion: reduce) { .pa-microfono { transition: none; } }

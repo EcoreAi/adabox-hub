@@ -1,10 +1,34 @@
 # Voce nella chat di Ada
 
-Tre funzioni nella chat:
+Quattro funzioni:
 
 - **Microfono**: l'utente detta, il testo arriva nel campo da rileggere prima di inviare (massimo 2 minuti).
 - **Ascolta**: sotto ogni risposta, la legge ad alta voce. Tabelle e codice non si leggono: la voce dice che ci sono.
 - **Risposta vocale**: l'icona dell'altoparlante nella casella, accanto al microfono; legge ogni nuova risposta. La scelta resta nel browser.
+- **Parla con Ada** (`/ai/parla/`, l'icona delle onde accanto al microfono): una conversazione a voce a schermo intero,
+  pensata per il telefono. Sul telefono la chat si apre già così (la prima volta nella sessione e dopo mezz'ora
+  lontano); «Apri nella chat» o la X riportano alla chat scritta.
+
+## Parla con Ada
+
+- **Tocchi e parli**: la pagina capisce da sola quando hai finito (silenzio dopo la voce, *secondi di silenzio per
+  chiudere la frase*, 1,3 di default). Se non parli entro 8 secondi si ferma. Sotto i 150 ms di voce non manda nulla:
+  Whisper sul silenzio si inventa frasi.
+- **Risposte brevi**: la domanda va al motore della chat con una nota «modalità voce» (poche frasi parlate, niente
+  tabelle né elenchi lunghi, numeri come si dicono, conferma a voce prima di creare o modificare). Senza ricerca sul
+  web, per rispondere prima.
+- **La voce parte mentre la risposta si scrive**: il browser chiede l'audio una frase alla volta (la prima corta, due
+  pezzi preparati in anticipo). Il server legge solo il testo della risposta del turno, indicato per posizione: non
+  si può usare il servizio di lettura per altri testi. Codice e tabelle non si leggono; dopo 30 secondi di voce Ada si
+  ferma e il resto è nella chat.
+- **Turni**: finita la risposta riascolta per qualche secondo (*secondi di ascolto dopo la risposta*, 6 di default;
+  0 = si tocca ogni volta). **Toccando mentre pensa o parla la interrompi**: la risposta si ferma anche sul server e
+  nel turno dopo il modello sa fin dove l'avevi sentita.
+- Lo schermo resta acceso mentre la conversazione è attiva; da ferma il microfono si spegne.
+- Serve che ci siano sia la dettatura sia la lettura; la conversazione resta una chat normale, nella cronologia.
+
+Limiti di questa prima versione: la trascrizione è quella locale (6-8 secondi a frase sulla CPU di oggi); non ci si
+interrompe ancora con la voce, solo toccando.
 
 Il microfono funziona solo su pagine **https** (o `localhost`): è una regola dei browser.
 
@@ -51,6 +75,8 @@ di ogni risposta è corta (160 caratteri) per far partire la voce subito; le alt
    - *URL del servizio vocale locale*: `http://adabox_hub_speaches:8000`
    - *Modello Whisper per la dettatura*: lascia quello predefinito
    - per ogni azienda: *Voce nella chat* (spenta di default) e, solo se serve, *Lettura delle risposte con un fornitore cloud*
+   - per ogni azienda, per «Parla con Ada»: *Sul telefono la chat si apre con «Parla con Ada»* (accesa), *secondi di
+     silenzio per chiudere la frase* (1,3), *secondi di ascolto dopo la risposta* (6)
 2. **Assistente AI → Voce**: aggiungi il servizio di lettura e usa «Prova il servizio» (legge una frase in italiano e una
    in inglese). Con l'azienda vuota vale per tutte; un servizio di un'azienda ha la precedenza. Si usa il primo attivo
    ammesso: Kokoro se c'è l'URL locale, un cloud solo con il consenso dell'azienda.

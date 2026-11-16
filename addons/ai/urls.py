@@ -2,7 +2,7 @@
 from django.urls import path
 from django.views.generic import RedirectView
 
-from . import flusso, pagine
+from . import flusso, pagine, parla
 
 urlpatterns = [
     path("", RedirectView.as_view(pattern_name="ai:chat"), name="indice"),
@@ -34,6 +34,11 @@ urlpatterns = [
     path("chat/<int:pk>/condividi/", pagine.condividi_chat, name="condividi_chat"),
     path("salva-documenti/<slug:tipo>/<int:pk>/", pagine.salva_documenti, name="salva_documenti"),
     path("voce/trascrivi/", pagine.trascrivi_voce, name="trascrivi_voce"),
+    path("parla/", parla.pagina, name="parla"),
+    path("parla/<int:pk>/", parla.pagina, name="parla_conversazione"),
+    path("parla/ascolta/", parla.ascolta, name="parla_ascolta"),
+    path("parla/chiedi/", parla.chiedi, name="parla_chiedi"),
+    path("parla/audio/<int:pk>/<int:inizio>-<int:fine>/", parla.audio, name="parla_audio"),
     path("scrivi/<slug:campo>/", pagine.scrivi_con_ada, name="scrivi_con_ada"),
     path("riassumi/<int:ct>/<int:pk>/", pagine.riassumi_record, name="riassumi_record"),
     path("scrivi/esito/<int:pk>/", pagine.esito_scrittura, name="esito_scrittura"),
