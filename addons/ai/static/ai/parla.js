@@ -74,7 +74,9 @@
   const detto_el = radice.querySelector('[data-pa-detto]');
   const risposta_el = radice.querySelector('[data-pa-risposta]');
   const tocco = radice.querySelector('[data-pa-tocco]');
-  const tela = radice.querySelector('.pa-cerchio');
+  const tela = radice.querySelector('.pa-sfera');
+  const tastiera = radice.querySelector('[data-pa-tastiera]');
+  const scrivi = radice.querySelector('[data-pa-scrivi]');
   const ETICHETTE = { fermo: 'Tocca e parla', ascolto: 'Ti ascolto…', trascrivo: 'Un attimo…', penso: 'Un attimo…', parlo: 'Ada' };
 
   let stato = 'fermo';
@@ -86,7 +88,11 @@
   let turno = null;                        // risposta in corso
   let sentito = '';                        // quanto della risposta interrotta l'utente ha sentito
 
+  let daTastiera = false;                  // domanda scritta: dopo la risposta non si riapre il microfono
   function imposta(nuovo, messaggio) {
+    if (nuovo !== stato && (nuovo === 'ascolto' || nuovo === 'parlo') && navigator.vibrate) {
+      try { navigator.vibrate(12); } catch (e) { /* non supportata */ }
+    }
     stato = nuovo;
     radice.dataset.stato = nuovo;
     stato_el.textContent = messaggio || ETICHETTE[nuovo];
@@ -216,7 +222,7 @@
       if (!r.ok) throw new Error(j.errore || 'Non sono riuscita a capire.');
       if (!j.testo) { imposta('fermo', 'Non ho capito, tocca e riprova'); return; }
       mostra(detto_el, j.testo);
-      mostra(risposta_el, '');
+      svuotaSottotitoli();
       chiedi(j.testo);
     } catch (e) {
       imposta('fermo', e.message || 'Errore di rete, riprova');
@@ -252,14 +258,13 @@
     t.fonte.addEventListener('testo', (e) => {
       if (turno !== t) return;
       t.testo += JSON.parse(e.data).delta;
-      mostra(risposta_el, testoVisibile(t.testo));
       prepara(t);
     });
     t.fonte.addEventListener('fine', (e) => {
       t.fonte.close();
       if (turno !== t) return;
       const dati = JSON.parse(e.data);
-      if (dati.stato === 'errore') { turno = null; imposta('fermo', 'Ada non è riuscita a rispondere: riprova o apri la chat'); return; }
+      if (dati.stato === 'errore') { turno = null; notaSottotitoli('Non sono riuscita a rispondere: riprova o apri la chat.'); imposta('fermo'); return; }
       if (typeof dati.testo === 'string') riallinea(t, dati.testo);
       t.finito = true;
       prepara(t);
@@ -275,7 +280,6 @@
     t.testo = finale;
     t.letto = Math.max(0, t.letto - spostamento);
     if (spostamento) t.coda.forEach((p) => { if (!p.audio) { p.inizio = Math.max(0, p.inizio - spostamento); p.fine -= spostamento; } });
-    mostra(risposta_el, testoVisibile(t.testo));
   }
 
   function testoVisibile(testo) {
@@ -334,6 +338,7 @@
     analizzatore.connect(audio().destination);
     p.sorgente = sorgente;
     p.partito = audio().currentTime;
+    aggiungiSottotitolo(p.testo, p.partito, buffer.duration);
     sorgente.onended = () => {
       if (turno !== t || t.suona !== p) return;
       t.parlatoS += buffer.duration;
@@ -342,7 +347,7 @@
       t.suona = null;
       if (t.parlatoS >= PARLATO_MAX_S && (t.coda.length || !t.finito)) {
         t.tagliato = true; t.coda = [];
-        mostra(risposta_el, 'La risposta continua nella chat: tocca «Apri nella chat» per leggerla tutta.');
+        notaSottotitoli('La risposta continua nella chat: tocca «Apri nella chat» per leggerla tutta.');
       }
       suonaProssimo(t);
     };
@@ -352,7 +357,7 @@
   function finePossibile(t) {
     if (turno !== t || t.suona || t.coda.length || !(t.finito || t.tagliato)) return;
     turno = null;
-    if (ASCOLTO_DOPO_MS > 0) ascolta(ASCOLTO_DOPO_MS);
+    if (ASCOLTO_DOPO_MS > 0 && !daTastiera) ascolta(ASCOLTO_DOPO_MS);
     else imposta('fermo');
   }
 
@@ -373,10 +378,70 @@
     if (!t.finito) fetch(t.stop, { method: 'POST', headers: { 'X-CSRFToken': csrf } }).catch(() => {});
   }
 
+  // ---------- sottotitoli ----------
+  // Ogni pezzo letto entra come parole nascoste; il disegno le scopre man mano, in proporzione al tempo dell'audio.
+  const righe = [];
+  function svuotaSottotitoli() { righe.length = 0; risposta_el.textContent = ''; }
+  function notaSottotitoli(testo) {
+    const nota = document.createElement('span');
+    nota.className = 'pa-nota';
+    nota.textContent = testo;
+    risposta_el.append(document.createElement('br'), nota);
+  }
+  function aggiungiSottotitolo(testo, inizio, durata) {
+    const parole = testoVisibile(testo).split(' ').filter(Boolean);
+    const blocco = document.createElement('span');
+    const spans = parole.map((parola) => {
+      const el = document.createElement('span');
+      el.className = 'pa-parola';
+      el.textContent = parola + ' ';
+      blocco.append(el);
+      return el;
+    });
+    risposta_el.append(blocco);
+    righe.push({ spans, inizio, durata: Math.max(durata, 0.3) });
+    while (risposta_el.childElementCount > 6) risposta_el.firstElementChild.remove();
+  }
+  function scopriParole() {
+    if (!contesto || !righe.length) return;
+    const ora = contesto.currentTime;
+    for (const riga of righe) {
+      const quante = Math.ceil(riga.spans.length * Math.min(1, (ora - riga.inizio) / riga.durata));
+      for (let k = 0; k < quante; k += 1) riga.spans[k].classList.add('is-detta');
+    }
+    while (righe.length && righe[0].spans.every((el) => el.classList.contains('is-detta'))) righe.shift();
+  }
+
+  // ---------- scrivi invece di parlare ----------
+  tastiera.addEventListener('click', () => {
+    const apri = scrivi.hidden;
+    scrivi.hidden = !apri;
+    tastiera.setAttribute('aria-pressed', String(apri));
+    if (apri) {
+      if (stato === 'ascolto') { smettiDiAscoltare(true); imposta('fermo'); }
+      scrivi.querySelector('input').focus();
+    }
+  });
+  scrivi.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const campo = scrivi.querySelector('input');
+    const testo = campo.value.trim();
+    if (!testo || stato === 'trascrivo') return;
+    audio();
+    smettiDiAscoltare(true);
+    interrompi();
+    campo.value = '';
+    daTastiera = true;
+    mostra(detto_el, testo);
+    svuotaSottotitoli();
+    chiedi(testo);
+  });
+
   // ---------- tocchi ----------
   tocco.addEventListener('click', () => {
     audio();
-    if (stato === 'fermo') { mostra(risposta_el, ''); ascolta(SENZA_VOCE_MS); }
+    daTastiera = false;
+    if (stato === 'fermo') { svuotaSottotitoli(); ascolta(SENZA_VOCE_MS); }
     else if (stato === 'ascolto') {
       if (reg && reg.sentita) reg.registratore.stop();          // ho finito: si manda subito
       else { smettiDiAscoltare(true); imposta('fermo'); }
@@ -395,45 +460,106 @@
   }));
   try { sessionStorage.setItem('ai-parla-vista', '1'); } catch (e) { /* idem */ }
 
-  // ---------- cerchio ----------
+  // ---------- sfera ----------
+  // Una sfera di luce: respira da ferma, si deforma con la voce mentre ascolta (con anelli che si allargano),
+  // fa girare i colori mentre pensa, pulsa con la voce di Ada mentre parla. Colori dalle variabili CSS dello stato,
+  // sfumati da un colore all'altro qui (le variabili CSS non si animano da sole).
   const ctx = tela.getContext && tela.getContext('2d');
   const piano = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function colore(nome, riserva) { return getComputedStyle(document.documentElement).getPropertyValue(nome).trim() || riserva; }
-  function disegna(ora) {
-    if (!ctx) return;
-    const lato = tela.clientWidth, dpr = window.devicePixelRatio || 1;
-    if (tela.width !== lato * dpr) { tela.width = lato * dpr; tela.height = lato * dpr; }
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, lato, lato);
-    const c = lato / 2, base = lato * 0.30;
-    let liv = 0;
+  const colori = { c1: [43, 158, 166], c2: [27, 111, 209], c3: [127, 211, 216] };
+  const anelli = [];
+  let livelloLiscio = 0, ultimoAnello = 0;
+  function rgb(testo) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(testo.trim());
+    if (!m) return null;
+    const n = parseInt(m[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function verso(chiave) {
+    const obiettivo = rgb(getComputedStyle(radice).getPropertyValue('--pa-' + chiave)) || colori[chiave];
+    colori[chiave] = colori[chiave].map((v, k) => v + (obiettivo[k] - v) * 0.06);
+  }
+  const css = (c, a) => `rgba(${c[0] | 0}, ${c[1] | 0}, ${c[2] | 0}, ${a})`;
+  function livelloVoce() {
     if (stato === 'parlo' && analizzatore) {
       const d = new Float32Array(analizzatore.fftSize);
       analizzatore.getFloatTimeDomainData(d);
-      let s = 0; for (let k = 0; k < d.length; k += 1) s += d[k] * d[k];
-      liv = Math.min(1, Math.sqrt(s / d.length) * 6);
-    } else if (stato === 'ascolto') liv = livello;
-    const primario = colore('--ui-accent', colore('--ui-primary', '#1e3a8a'));
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = primario;
+      let somma = 0;
+      for (let k = 0; k < d.length; k += 1) somma += d[k] * d[k];
+      return Math.min(1, Math.sqrt(somma / d.length) * 5);
+    }
+    return stato === 'ascolto' ? livello : 0;
+  }
+  function disegna(ora) {
+    requestAnimationFrame(disegna);
+    scopriParole();
+    if (!ctx) return;
+    ['c1', 'c2', 'c3'].forEach(verso);
+    const lato = tela.clientWidth, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    if (!lato) return;
+    if (tela.width !== Math.round(lato * dpr)) { tela.width = Math.round(lato * dpr); tela.height = Math.round(lato * dpr); }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, lato, lato);
+    livelloLiscio += (livelloVoce() - livelloLiscio) * 0.25;
+    const liv = piano ? 0 : livelloLiscio;
+    tocco.style.setProperty('--pa-livello', liv.toFixed(3));
+    const c = lato / 2, t = piano ? 0 : ora;
+    const respiro = stato === 'fermo' && !piano ? Math.sin(ora / 1700) * 0.025 : 0;
+    const base = lato * 0.25 * (1 + respiro + liv * 0.07);
+    const ampiezza = piano ? 0 : { fermo: 0.012, ascolto: 0.025 + liv * 0.09, trascrivo: 0.025, penso: 0.025, parlo: 0.02 + liv * 0.07 }[stato];
+
+    // anelli che si allargano quando la voce sale (mentre ascolta)
+    if (stato === 'ascolto' && liv > 0.3 && ora - ultimoAnello > 260 && !piano) { anelli.push({ r: base, a: 0.45 }); ultimoAnello = ora; }
+    for (let k = anelli.length - 1; k >= 0; k -= 1) {
+      const anello = anelli[k];
+      anello.r += lato * 0.004; anello.a -= 0.009;
+      if (anello.a <= 0 || anello.r > lato * 0.47) { anelli.splice(k, 1); continue; }
+      ctx.beginPath(); ctx.arc(c, c, anello.r, 0, Math.PI * 2);
+      ctx.strokeStyle = css(colori.c3, anello.a); ctx.lineWidth = 2; ctx.stroke();
+    }
+
+    // contorno morbido: somma di onde che scorrono a velocità diverse
+    const punti = 120;
     ctx.beginPath();
-    const punti = 96;
     for (let k = 0; k <= punti; k += 1) {
       const a = (k / punti) * Math.PI * 2;
-      const onda = piano ? 0 : Math.sin(a * 5 + ora / 260) * liv * 0.12 + Math.sin(a * 3 - ora / 410) * liv * 0.08;
-      const r = base * (1 + liv * 0.15 + onda) + (stato === 'fermo' && !piano ? Math.sin(ora / 900) * 2 : 0);
+      const onda = Math.sin(a * 3 + t / 900) * 0.5 + Math.sin(a * 5 - t / 640 + 1.3) * 0.3 + Math.sin(a * 7 + t / 420 + 2.1) * 0.2;
+      const r = base * (1 + ampiezza * onda);
       const x = c + Math.cos(a) * r, y = c + Math.sin(a) * r;
       if (k) ctx.lineTo(x, y); else ctx.moveTo(x, y);
     }
-    ctx.stroke();
-    if (stato === 'penso' || stato === 'trascrivo') {               // un punto che gira: sto pensando
-      const a = piano ? 0 : ora / 380;
-      ctx.fillStyle = primario;
-      ctx.beginPath();
-      ctx.arc(c + Math.cos(a) * base, c + Math.sin(a) * base, 6, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    requestAnimationFrame(disegna);
+    ctx.closePath();
+
+    // alone e riempimento: luce in alto a sinistra, colore pieno al bordo
+    ctx.save();
+    ctx.shadowColor = css(colori.c1, 0.55 + liv * 0.3);
+    ctx.shadowBlur = (28 + liv * 26) * dpr;              // l'alone resta dentro la tela: niente bordo quadrato
+    const luce = ctx.createRadialGradient(c - base * 0.35, c - base * 0.4, base * 0.05, c, c, base * 1.1);
+    luce.addColorStop(0, css(colori.c3, 1));
+    luce.addColorStop(0.45, css(colori.c1, 1));
+    luce.addColorStop(1, css(colori.c2, 1));
+    ctx.fillStyle = luce;
+    ctx.fill();
+    ctx.restore();
+
+    // dentro: due nuvole di colore che girano (veloci mentre pensa)
+    ctx.save();
+    ctx.clip();
+    const giro = t / (stato === 'penso' || stato === 'trascrivo' ? 650 : 2600);
+    [[colori.c3, 0], [colori.c2, Math.PI]].forEach(([colore, fase]) => {
+      const x = c + Math.cos(giro + fase) * base * 0.45, y = c + Math.sin(giro + fase) * base * 0.45;
+      const nuvola = ctx.createRadialGradient(x, y, 0, x, y, base * 0.9);
+      nuvola.addColorStop(0, css(colore, 0.55));
+      nuvola.addColorStop(1, css(colore, 0));
+      ctx.fillStyle = nuvola;
+      ctx.fillRect(c - base * 1.3, c - base * 1.3, base * 2.6, base * 2.6);
+    });
+    const riflesso = ctx.createRadialGradient(c - base * 0.38, c - base * 0.48, 0, c - base * 0.38, c - base * 0.48, base * 0.55);
+    riflesso.addColorStop(0, 'rgba(255, 255, 255, 0.38)');
+    riflesso.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = riflesso;
+    ctx.fillRect(c - base * 1.3, c - base * 1.3, base * 2.6, base * 2.6);
+    ctx.restore();
   }
   requestAnimationFrame(disegna);
   imposta('fermo');
