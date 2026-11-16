@@ -72,7 +72,7 @@ def ascolta(request):
     if not disponibile(azienda) or file is None:
         return JsonResponse({"errore": "La voce non è attiva."}, status=400)
     try:
-        testo = voce.trascrivi(file, "it")
+        testo = voce.trascrivi(file, "it", azienda=azienda)
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
     return JsonResponse({"testo": " ".join(testo.split())})

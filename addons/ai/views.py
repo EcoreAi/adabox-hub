@@ -513,14 +513,14 @@ class ServerMCPView(ModelView):
 @register
 class ServizioVoceView(ModelView):
     funzione = "voce"
-    """I servizi che leggono le risposte ad alta voce: Kokoro in locale o un fornitore cloud con la sua chiave."""
+    """I servizi vocali: chi legge le risposte (Kokoro in locale o un fornitore cloud) e chi trascrive in cloud."""
     model = ServizioVoce
     api = False                   # contiene segreti o credenziali: niente API
     slug = "voce"
     tra_aziende = True
-    list_display = ["nome", "tipo", "azienda", "chiave", "attivo"]
+    list_display = ["nome", "uso", "tipo", "azienda", "chiave", "attivo"]
     form_class = ServizioVoceForm
-    form_layout = [("Servizio", [("nome", "tipo"), ("azienda", "attivo"), "nuova_chiave", "regione"]),
+    form_layout = [("Servizio", [("nome", "uso"), ("tipo", "azienda"), "attivo", "nuova_chiave", "regione"]),
                    ("Voci (vuoto = quelle consigliate)", [("modello",), ("voce_it", "voce_en")])]
     storico = False
     personale = True
@@ -540,6 +540,12 @@ class ServizioVoceView(ModelView):
 
     def prova(self, request, obj):
         from . import voce
+        if obj.uso == obj.TRASCRIZIONE:
+            try:                                    # un secondo di silenzio: basta a sapere se chiave e modello vanno
+                voce.trascrivi_cloud(obj, voce.silenzio_wav(), "prova.wav", "audio/wav", "it")
+            except voce.ErroreVoce as e:
+                return f"Prova non riuscita: {e}"
+            return "Prova riuscita: il servizio risponde e accetta la chiave e il modello."
         try:
             for lingua, frase in (("it", "Buongiorno, sono Ada."), ("en", "Hello, I am Ada.")):
                 voce.sintetizza(obj, frase, lingua)

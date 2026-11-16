@@ -27,8 +27,8 @@ Quattro funzioni:
 - Lo schermo resta acceso mentre la conversazione è attiva; da ferma il microfono si spegne.
 - Serve che ci siano sia la dettatura sia la lettura; la conversazione resta una chat normale, nella cronologia.
 
-Limiti di questa prima versione: la trascrizione è quella locale (6-8 secondi a frase sulla CPU di oggi); non ci si
-interrompe ancora con la voce, solo toccando.
+Limiti di questa prima versione: con il Whisper locale la trascrizione impiega 6-8 secondi a frase (con la
+trascrizione in cloud circa uno); non ci si interrompe ancora con la voce, solo toccando.
 
 Il microfono funziona solo su pagine **https** (o `localhost`): è una regola dei browser.
 
@@ -36,11 +36,25 @@ Il microfono funziona solo su pagine **https** (o `localhost`): è una regola de
 
 | | Servizio | Che cosa esce dal server |
 |---|---|---|
-| Dettatura | Whisper, sempre locale (Speaches) | niente |
+| Dettatura | Whisper locale (Speaches) | niente |
+| Dettatura | Mistral Voxtral o OVH Whisper (con il consenso) | **l'audio** di chi parla, al fornitore |
 | Lettura | Kokoro, locale (Speaches) | niente |
 | Lettura | Cartesia, Mistral, Azure, Gemini | il testo della risposta, **dati personali compresi**, al fornitore |
 
-Per questo la lettura con un fornitore cloud ha un consenso apposito per azienda, spento di default.
+Per questo la lettura e la trascrizione con un fornitore cloud hanno ciascuna un consenso apposito per azienda,
+spento di default.
+
+## Trascrizione in cloud
+
+Il Whisper locale impiega 6-8 secondi a frase sulla CPU del server; in cloud circa un secondo. Per usarla:
+
+1. **Assistente AI → Voce → Nuovo**: *uso* «Trascrizione del parlato», *tipo* **Mistral (Voxtral)** (modello
+   `voxtral-mini-latest`) oppure **OVH AI Endpoints (Whisper)** (`whisper-large-v3-turbo`), la chiave API. «Prova il
+   servizio» manda un secondo di silenzio: dice se chiave e modello vanno, senza la voce di nessuno.
+2. **Impostazioni → Assistente AI**, per l'azienda: *Trascrizione del parlato con un fornitore cloud*.
+
+Vale per il microfono della chat e per «Parla con Ada». Se il fornitore non risponde si usa il Whisper locale (se c'è
+l'URL di Speaches). La stessa chiave Mistral può servire anche per la lettura: è un secondo servizio, con uso «Lettura».
 
 ## Installazione del servizio locale (Speaches)
 

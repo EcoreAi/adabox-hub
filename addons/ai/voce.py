@@ -4,6 +4,7 @@ locale o con un fornitore cloud (Cartesia, Mistral, Azure, Gemini).
 Verso un fornitore cloud va il testo della risposta così com'è, dati personali compresi: per questo serve un consenso
 apposito dell'azienda (ai.voce_cloud), come per le immagini. Tabelle e codice non si leggono."""
 import base64
+import logging
 import re
 import struct
 from xml.sax.saxutils import escape
@@ -39,7 +40,20 @@ def accesa(azienda):
 
 
 def dettatura_disponibile(azienda):
-    return accesa(azienda) and bool(url_locale())
+    return accesa(azienda) and (bool(url_locale()) or trascrizione_cloud(azienda) is not None)
+
+
+def trascrizione_cloud(azienda):
+    """Il servizio che trascrive in cloud per l'azienda (il suo, poi quello di tutte), solo con il consenso: l'audio
+    di chi parla esce dal server. None = Whisper locale."""
+    if not accesa(azienda) or not parametri.leggi("ai.trascrizione_cloud", azienda):
+        return None
+    base = ServizioVoce.objects.filter(attivo=True, uso=ServizioVoce.TRASCRIZIONE)
+    for qs in (base.filter(azienda=azienda), base.filter(azienda=None)):
+        servizio = qs.order_by("pk").first()
+        if servizio is not None:
+            return servizio
+    return None
 
 
 def servizio_per(azienda):
@@ -47,7 +61,8 @@ def servizio_per(azienda):
     if not accesa(azienda):
         return None
     cloud = bool(parametri.leggi("ai.voce_cloud", azienda))
-    for qs in (ServizioVoce.objects.filter(attivo=True, azienda=azienda), ServizioVoce.objects.filter(attivo=True, azienda=None)):
+    lettura = ServizioVoce.objects.filter(attivo=True, uso=ServizioVoce.LETTURA)
+    for qs in (lettura.filter(azienda=azienda), lettura.filter(azienda=None)):
         for s in qs.order_by("pk"):
             if (s.locale and url_locale()) or (not s.locale and cloud):
                 return s
@@ -56,12 +71,58 @@ def servizio_per(azienda):
 
 # ---------- dettatura ----------
 
-def trascrivi(file, lingua="", http_client=None):
+OVH_URL = "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+TEMPO_CLOUD = 30
+log = logging.getLogger(__name__)
+
+
+def trascrivi(file, lingua="", http_client=None, azienda=None):
+    """Il testo detto: con il servizio cloud dell'azienda se c'è (e se non risponde, con il Whisper locale), altrimenti
+    con il Whisper locale."""
     if file.size > MASSIMO_AUDIO:
         raise ErroreVoce("Registrazione troppo lunga.")
     tipo = (file.content_type or "").split(";")[0]
     if tipo not in TIPI_AUDIO:
         raise ErroreVoce("Formato audio non riconosciuto.")
+    servizio = trascrizione_cloud(azienda) if azienda is not None else None
+    if servizio is not None:
+        dati_audio = file.read()
+        try:
+            return trascrivi_cloud(servizio, dati_audio, file.name or "voce.webm", tipo, lingua, http_client)
+        except ErroreVoce:
+            if not url_locale():
+                raise
+            log.warning("trascrizione con «%s» non riuscita: si usa il Whisper locale", servizio.nome, exc_info=True)
+            file.seek(0)
+    if not url_locale():
+        raise ErroreVoce("La dettatura non è configurata.")
+    return _trascrivi_locale(file, tipo, lingua, http_client)
+
+
+def trascrivi_cloud(servizio, audio, nome, tipo, lingua="", http_client=None):
+    """Mistral Voxtral e OVH (Whisper) parlano la stessa lingua di OpenAI: multipart con file, modello e lingua."""
+    if not servizio.chiave():
+        raise ErroreVoce(f"«{servizio.nome}»: manca la chiave API.")
+    url = {ServizioVoce.MISTRAL: "https://api.mistral.ai/v1", ServizioVoce.OVH: OVH_URL}.get(servizio.tipo)
+    if url is None:
+        raise ErroreVoce(f"«{servizio.nome}» non trascrive.")
+    dati = {"model": servizio.valore("modello")}
+    if lingua in ("it", "en"):
+        dati["language"] = lingua
+    client = http_client or httpx.Client(timeout=TEMPO_CLOUD, trust_env=False, follow_redirects=False)
+    try:
+        r = client.post(f"{url}/audio/transcriptions", headers={"Authorization": f"Bearer {servizio.chiave()}"},
+                        files={"file": (nome, audio, tipo)}, data=dati)
+        _controlla(r, servizio.nome, "trascrizione")
+        return str(r.json().get("text", "")).strip()
+    except (httpx.HTTPError, ValueError, AttributeError) as e:
+        raise ErroreVoce(f"«{servizio.nome}» non risponde: {type(e).__name__}") from e
+    finally:
+        if http_client is None:
+            client.close()
+
+
+def _trascrivi_locale(file, tipo, lingua, http_client):
     dati = {"model": parametri.leggi("ai.modello_trascrizione") or "Systran/faster-whisper-small"}
     if lingua in ("it", "en"):
         dati["language"] = lingua
@@ -140,18 +201,23 @@ def parti(testo):
 
 # ---------- lettura ----------
 
+def silenzio_wav(secondi=1, frequenza=16000):
+    """Un breve WAV muto, per provare un servizio di trascrizione senza mandare la voce di nessuno."""
+    return _wav(b"\x00\x00" * int(secondi * frequenza), frequenza)
+
+
 def _wav(pcm, frequenza=24000):
     return (b"RIFF" + struct.pack("<I", 36 + len(pcm)) + b"WAVEfmt " + struct.pack("<IHHIIHH", 16, 1, 1, frequenza, frequenza * 2, 2, 16)
             + b"data" + struct.pack("<I", len(pcm)) + pcm)
 
 
-def _controlla(r, nome):
+def _controlla(r, nome, azione="lettura"):
     if r.status_code in (401, 403):
-        raise ErroreVoce(f"{nome}: chiave non valida o testo rifiutato (HTTP {r.status_code}).")
+        raise ErroreVoce(f"{nome}: chiave non valida o richiesta rifiutata (HTTP {r.status_code}).")
     if r.status_code == 402:
         raise ErroreVoce(f"{nome}: credito esaurito.")
     if r.status_code != 200:
-        raise ErroreVoce(f"{nome}: lettura non riuscita (HTTP {r.status_code}).")
+        raise ErroreVoce(f"{nome}: {azione} non riuscita (HTTP {r.status_code}).")
 
 
 def sintetizza(servizio, testo, lingua="it", http_client=None):
