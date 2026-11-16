@@ -266,7 +266,8 @@
     t.fonte.addEventListener('avanzamento', (e) => {
       if (turno !== t || t.conDati) return;
       const voci = JSON.parse(e.data);
-      if (voci.some((v) => v.strumento && !STRUMENTI_SENZA_DATI.has(v.strumento))) { t.conDati = true; prepara(t); }
+      const conDati = voci.find((v) => v.strumento && !STRUMENTI_SENZA_DATI.has(v.strumento));
+      if (conDati) { t.conDati = true; attesa(t, conDati.strumento); prepara(t); }
     });
     t.fonte.addEventListener('fine', (e) => {
       t.fonte.close();
@@ -351,12 +352,11 @@
     analizzatore.connect(audio().destination);
     p.sorgente = sorgente;
     p.partito = audio().currentTime;
-    aggiungiSottotitolo(p.testo, p.partito, buffer.duration);
+    if (!p.frase) aggiungiSottotitolo(p.testo, p.partito, buffer.duration);
     sorgente.onended = () => {
       if (turno !== t || t.suona !== p) return;
-      t.parlatoS += buffer.duration;
+      if (!p.frase) { t.parlatoS += buffer.duration; t.sentito = (t.sentito || '') + p.testo; }
       p.finito = true;
-      t.sentito = (t.sentito || '') + p.testo;
       t.suona = null;
       if (t.parlatoS >= PARLATO_MAX_S && (t.coda.length || !t.finito)) {
         t.tagliato = true; t.coda = [];
@@ -389,6 +389,30 @@
     }
     sentito = parte.trim() || (t.testo ? '(niente: mi hai interrotto prima che parlassi)' : '');
     if (!t.finito) fetch(t.stop, { method: 'POST', headers: { 'X-CSRFToken': csrf } }).catch(() => {});
+  }
+
+  // ---------- frasi d'attesa: «Guardo il calendario.» mentre lo strumento lavora ----------
+  // Una per risposta, la prima volta che parte uno strumento che legge dati e solo se Ada non sta già parlando.
+  // L'audio si scarica al primo tocco (il server lo tiene in cache): così parte subito.
+  let frasiPerStrumento = {};
+  try { frasiPerStrumento = JSON.parse(document.getElementById('pa-frasi').textContent); } catch (e) { /* senza frasi */ }
+  const audioFrasi = {};
+  function urlFrase(chiave) { return cfg.frase.replace('/attimo/', `/${chiave}/`); }
+  function preparaFrasi() {
+    if (Object.keys(audioFrasi).length) return;
+    new Set(Object.values(frasiPerStrumento)).forEach((chiave) => {
+      audioFrasi[chiave] = fetch(urlFrase(chiave)).then((r) => (r.ok ? r.arrayBuffer() : null))
+        .then((b) => (b ? audio().decodeAudioData(b) : null)).catch(() => null);
+    });
+  }
+  function attesa(t, strumento) {
+    const chiave = frasiPerStrumento[strumento];
+    if (t.attesa || !chiave || !audioFrasi[chiave] || t.suona || t.numero) return;
+    t.attesa = true;
+    stato_el.textContent = { calendario: 'Guardo il calendario…', dati: 'Controllo nei dati…', documenti: 'Cerco nei documenti…',
+                             comunicazioni: 'Guardo le comunicazioni…' }[chiave] || 'Un attimo…';
+    t.coda.unshift({ frase: true, testo: '', audio: audioFrasi[chiave] });
+    if (!t.suona) suonaProssimo(t);
   }
 
   // ---------- verifica: da dove vengono i dati della risposta ----------
@@ -460,6 +484,7 @@
     const testo = campo.value.trim();
     if (!testo || stato === 'trascrivo') return;
     audio();
+    preparaFrasi();
     smettiDiAscoltare(true);
     interrompi();
     campo.value = '';
@@ -472,6 +497,7 @@
   // ---------- tocchi ----------
   tocco.addEventListener('click', () => {
     audio();
+    preparaFrasi();
     daTastiera = false;
     if (stato === 'fermo') { svuotaSottotitoli(); ascolta(SENZA_VOCE_MS); }
     else if (stato === 'ascolto') {

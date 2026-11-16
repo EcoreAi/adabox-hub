@@ -5,6 +5,8 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-16
 
+- **AI 1.42.0 — «Parla con Ada» più rapida** (nessuna migrazione). A voce 18 strumenti invece di 39 (meno token, meno
+  attesa) e frasi d'attesa quando parte uno strumento. Consigliato nel profilo «Parla con Ada»: Mistral Medium 3.5.
 - **AI 1.41.0 — «Parla con Ada» non legge dati inventati** (nessuna migrazione). Guardia «dati senza fonti» sulle
   risposte a voce: cifre che non vengono da nessuno strumento → la risposta si rifà una volta, poi un avviso a voce;
   sotto i sottotitoli le fonti o l'avviso. Cifre nel testo e parole solo nella voce; niente emoji lette. Nuova domanda

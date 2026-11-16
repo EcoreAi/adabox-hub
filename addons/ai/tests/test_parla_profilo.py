@@ -39,3 +39,17 @@ def test_con_il_profilo_voce_si_usa_il_suo_modello(scena):
     scritta = motore.avvia(Conversazione.objects.create(utente=scena["utente"], titolo="y"), "ciao", scena["utente"])
     scritta.refresh_from_db()
     assert scritta.modello == scena["lento"]                                          # la chat scritta non cambia
+
+
+def test_a_voce_solo_gli_strumenti_utili_al_telefono(scena):
+    from ai import parla
+    from ai.gateway import finto
+    User.objects.filter(pk=scena["utente"].pk).update(is_superuser=True)
+    utente = User.objects.get(pk=scena["utente"].pk)
+    with finto.con_copione([["ok"], ["Titolo"], ["ok"], ["Titolo"]]) as chiamate:
+        motore.avvia(scena["c"], "ciao", utente, voce=True)
+        a_voce = set(chiamate[0]["strumenti"])
+        motore.avvia(Conversazione.objects.create(utente=utente, titolo="y"), "ciao", utente)
+        scritta = set(chiamate[2]["strumenti"])
+    assert a_voce and a_voce <= parla.STRUMENTI_VOCE and len(scritta) > len(a_voce)
+    assert "elimina_record" in scritta and "elimina_record" not in a_voce and "grafico" not in a_voce

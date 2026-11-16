@@ -35,6 +35,13 @@ Quattro funzioni:
   risposta scartata non si sente. Sotto i sottotitoli: «Verificata · Calendario» o l'avviso.
 - **Cifre nel testo, parole nella voce**: Ada scrive 13:30 e 1.250 € (così la guardia sui numeri le controlla), la
   lettura le pronuncia («13 e 30», «1250 euro»); le emoji non si leggono.
+- **Strumenti a voce**: 18 su 39, quelli utili al telefono (agenda, record, totali, conoscenza, documenti,
+  comunicazioni, proposte di modifica, ricorda, previsioni); fuori grafici, tabelle, Analisi, documenti lunghi,
+  pianificazioni, agenti ed eliminazioni (`parla.STRUMENTI_VOCE`). Meno token per passo, circa il 40% di attesa in meno.
+- **Frasi d'attesa**: quando parte il primo strumento che legge dati, Ada dice «Guardo il calendario.», «Controllo nei
+  dati.», «Cerco nei documenti.»… (Kokoro le legge una volta, poi in cache; la pagina le scarica al primo tocco).
+- **Modello consigliato** (misurato il 2026-11-16): Mistral Medium 3.5, europeo, 0,6-1,1 s alla prima parola o allo
+  strumento, nessun dato inventato nelle prove; Mistral Small inventava appuntamenti, Large è 2-7 volte più lento.
 - Ada saluta l'utente per nome; a Mistral vanno come parole da favorire «Ada», il marchio, l'azienda e nome e cognome
   dell'utente (senza, «Ada, quali…» diventava «Ha da quali…»).
 - Serve che ci siano sia la dettatura sia la lettura; la conversazione resta una chat normale, nella cronologia.

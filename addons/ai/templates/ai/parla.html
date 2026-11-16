@@ -17,7 +17,7 @@
 {% include 'theme/partials/_icons.html' %}
 <main class="pa" data-parla
       data-ascolta="{% url 'ai:parla_ascolta' %}" data-chiedi="{% url 'ai:parla_chiedi' %}"
-      data-audio="{% url 'ai:parla_audio' 0 0 1 %}" data-chat="{{ url_chat }}" data-nuova="{% url 'ai:parla' %}"
+      data-audio="{% url 'ai:parla_audio' 0 0 1 %}" data-frase="{% url 'ai:parla_frase' 'attimo' %}" data-chat="{{ url_chat }}" data-nuova="{% url 'ai:parla' %}"
       data-conversazione="{{ conversazione.pk|default:'' }}" data-silenzio="{{ impostazioni.silenzio_ms }}"
       data-ascolto-dopo="{{ impostazioni.ascolto_dopo_ms }}" data-stato="fermo">
   {% csrf_token %}
@@ -72,6 +72,6 @@
   </section>
   {% endif %}
 </main>
-{% if disponibile %}<script src="{% statico 'ai/parla.js' %}" defer></script>{% endif %}
+{% if disponibile %}{{ frasi|json_script:"pa-frasi" }}<script src="{% statico 'ai/parla.js' %}" defer></script>{% endif %}
 </body>
 </html>
