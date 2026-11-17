@@ -288,3 +288,15 @@ def test_senza_servizio_di_protezione_non_esce_niente(client, token, contatti, a
     parametri.scrivi("connettore_ai.maschera", False, azienda)
     assert "Rossi Srl" in chiama(client, token, "cerca_record", {"vista": "contatti.contatti"})["content"][0]["text"]
     assert protezione.maschera(ChatCollegata.objects.get(), "Rossi Srl") == ("Rossi Srl", 0)
+
+
+def test_misure_aziendali_anche_nelle_chat_esterne(client, token):
+    strumenti = {t["name"]: t for t in rpc(client, token, "tools/list").json()["result"]["tools"]}
+    m = strumenti["misura"]
+    assert m["title"] == "Misure aziendali" and m["annotations"]["readOnlyHint"] is True
+    assert "aziende" not in m["inputSchema"]["properties"]
+    assert "fatturazione.fatturato" in m["description"]            # la chat esterna non ha il prompt di Ada: l'elenco sta qui
+    # la persona del collegamento non vede le fatture: la misura risponde con i suoi permessi, non con un numero parziale
+    r = rpc(client, token, "tools/call", {"name": "misura", "arguments": {"nome": "fatturazione.fatturato", "periodo": "anno"}})
+    risultato = r.json()["result"]
+    assert risultato["isError"] is True and "Misura «Fatturato»" in risultato["content"][0]["text"]

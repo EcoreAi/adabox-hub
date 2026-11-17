@@ -15,10 +15,11 @@ class Command(BaseCommand):
         parser.add_argument("--file", help="file JSON delle domande (default: quello del modulo)")
         parser.add_argument("--ricerca", action="store_true",
                             help="solo la ricerca nella conoscenza, senza modello: il file ha {domanda, fonte} (serve --file)")
+        parser.add_argument("--modello", help="id_api di un modello attivo: tutte le domande con quel solo modello")
         parser.add_argument("--copioni", action="store_true",
                             help="modello finto con i copioni delle domande (percorso degli strumenti, senza costi)")
 
-    def handle(self, utente, assistente, file, copioni, ricerca=False, **_):
+    def handle(self, utente, assistente, file, copioni, ricerca=False, modello=None, **_):
         Utente = get_user_model()
         persona = (Utente.objects.filter(username=utente).first() if utente
                    else Utente.objects.filter(is_superuser=True, is_active=True).order_by("pk").first())
@@ -46,12 +47,24 @@ class Command(BaseCommand):
         domande = scelto.domande_oro if scelto and not file else valutazione.carica(file)
         if not domande:
             raise CommandError("nessuna domanda d'oro")
-        risultati = valutazione.valuta(domande, persona, Azienda.objects.order_by("pk").first(), scelto, copioni)
+        azienda = Azienda.objects.order_by("pk").first()
+        if modello:
+            from ai.models import Modello
+            scelto_modello = Modello.objects.filter(id_api=modello, attivo=True).first()
+            if scelto_modello is None:
+                raise CommandError(f"nessun modello attivo con id_api «{modello}»")
+            self.stdout.write(f"Modello: {scelto_modello.etichetta} ({modello})")
+            with valutazione.solo_modello(scelto_modello):
+                risultati = valutazione.valuta(domande, persona, azienda, scelto, copioni)
+        else:
+            risultati = valutazione.valuta(domande, persona, azienda, scelto, copioni)
         for r in risultati:
             self.stdout.write(f"{'OK ' if r['ok'] else 'NO '} {r['domanda'][:70]:<70} {r['secondi']:>5}s "
-                              f"{r['costo']:.4f}$  [{', '.join(r['strumenti']) or '-'}]")
+                              f"{r['passi']} passi {r['costo']:.4f}$  [{', '.join(r['strumenti']) or '-'}]")
             for p in r["problemi"]:
                 self.stdout.write(f"      - {p}")
+        mediana, p90 = valutazione.tempi(risultati)
+        self.stdout.write(f"Tempi: mediana {mediana} s, 90% entro {p90} s.")
         riusciti = sum(r["ok"] for r in risultati)
         self.stdout.write(f"Riuscite {riusciti} su {len(risultati)}; costo {sum(r['costo'] for r in risultati):.4f} $.")
         if riusciti < len(risultati):

@@ -39,7 +39,30 @@ def _strumenti_usati(turno):
     return usati
 
 
-def controlla(domanda, turno, usati):
+def varianti(valore):
+    """Come un numero può comparire in una risposta: intero con i punti delle migliaia e, se ha decimali, con due
+    decimali alla italiana («579.831», «579.831,40»)."""
+    intero = f"{int(round(valore)):,}".replace(",", ".")
+    if float(valore).is_integer():
+        return [intero]
+    return [intero, f"{valore:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")]
+
+
+def _richiesta(utente, azienda):
+    from core.viste.interroga import richiesta_di
+    return richiesta_di(utente, azienda)
+
+
+def valori_attesi(domanda, utente=None, azienda=None):
+    """I numeri che la risposta deve contenere: il valore della misura (o dei suoi gruppi), calcolato adesso."""
+    from core import misure
+    m = dict(domanda["misura"])
+    nome = m.pop("nome")
+    r = misure.calcola(nome, _richiesta(utente, azienda), **m)
+    return nome, ([g["valore"] for g in r["gruppi"]][:5] if m.get("per") else [r["valore"]])
+
+
+def controlla(domanda, turno, usati, utente=None, azienda=None):
     problemi = []
     if turno.stato != "completato":
         problemi.append(f"turno {turno.get_stato_display().lower()}: {turno.errore[:200]}")
@@ -57,6 +80,14 @@ def controlla(domanda, turno, usati):
         problemi.append(f"esito {esito}, atteso {' o '.join(domanda['esito'])}")
     if domanda.get("fonte") and not any(domanda["fonte"].lower() in t.lower() for t in _titoli_trovati(turno)):
         problemi.append(f"fonte «{domanda['fonte']}» non trovata da cerca_conoscenza")
+    if domanda.get("misura"):
+        nome, valori = valori_attesi(domanda, utente, azienda)
+        for v in valori:
+            forme = varianti(v)
+            if not any(f in turno.testo for f in forme):
+                problemi.append(f"manca il valore {forme[0]} ({nome})")
+    if domanda.get("passi_massimi") and turno.passi > domanda["passi_massimi"]:
+        problemi.append(f"lenta: {turno.passi} passi (massimo {domanda['passi_massimi']})")
     if domanda.get("citazioni_verificate"):
         c = (turno.provenienza or {}).get("citazioni") or {}
         if not c.get("totale"):
@@ -109,6 +140,26 @@ def concreto(testo):
 
 
 @contextmanager
+def solo_modello(modello):
+    """Ogni profilo usa solo `modello` (ai_eval --modello): per confrontare i modelli sulle stesse domande."""
+    from .. import catalogo
+    originali = catalogo.catena, catalogo.automatico
+    catalogo.catena = catalogo.automatico = lambda profilo, azienda=None: [(modello, "")]
+    try:
+        yield
+    finally:
+        catalogo.catena, catalogo.automatico = originali
+
+
+def tempi(risultati):
+    """(mediana, 90° percentile) dei secondi."""
+    secondi = sorted(r["secondi"] for r in risultati)
+    if not secondi:
+        return 0, 0
+    return secondi[len(secondi) // 2], secondi[min(len(secondi) - 1, int(len(secondi) * 0.9))]
+
+
+@contextmanager
 def _modello_finto():
     """Con i copioni la catena di ogni profilo è il modello finto: mai il modello vero, mai costi."""
     from .. import catalogo
@@ -139,7 +190,8 @@ def valuta(domande, utente, azienda=None, assistente=None, copioni=False):
             titolo=f"Valutazione del {timezone.localtime():%d/%m/%Y %H:%M}")
         inizio = time.monotonic()
         if copioni:                                      # dal JSON i pezzi arrivano come liste: il finto vuole tuple
-            copione = [[tuple(p) if isinstance(p, list) else concreto(p) for p in risposta]
+            valore = varianti(valori_attesi(d, utente, azienda)[1][0])[0] if d.get("misura") and not d["misura"].get("per") else ""
+            copione = [[tuple(p) if isinstance(p, list) else concreto(p).replace("{valore}", valore) for p in risposta]
                        for risposta in d.get("copione", [])]
             with finto.con_copione(copione), _modello_finto():
                 turno = motore.avvia(conversazione, d["domanda"], utente, azienda, compito="valutazione", sincrono=True)
@@ -149,8 +201,8 @@ def valuta(domande, utente, azienda=None, assistente=None, copioni=False):
         for p in conversazione.proposte.filter(stato=Proposta.IN_ATTESA):
             proposte.annulla(p)
         usati = _strumenti_usati(turno)
-        problemi = controlla(d, turno, usati)
+        problemi = controlla(d, turno, usati, utente, azienda)
         risultati.append({"domanda": d["domanda"], "ok": not problemi, "problemi": problemi, "strumenti": usati,
-                          "costo": turno.costo, "secondi": round(time.monotonic() - inizio, 1),
+                          "costo": turno.costo, "secondi": round(time.monotonic() - inizio, 1), "passi": turno.passi,
                           "risposta": turno.testo[:300]})
     return risultati

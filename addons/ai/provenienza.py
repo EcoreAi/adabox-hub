@@ -32,6 +32,7 @@ NON_FONTI = {"data_e_ora", "app_disponibili", "elenco_viste", "descrivi_vista", 
 SUI_RECORD = {"cerca_record": "ricerca", "leggi_record": "record", "aggrega_record": "totali", "grafico": "grafico",
               "tabella": "tabella", "previsione": "previsione"}
 MAX_FONTI = 30
+MAX_NUMERI = 8                      # «Numeri usati»: i risultati dello strumento misura del turno
 
 
 def _vista(nome):
@@ -220,7 +221,7 @@ def calcola(turno, testo, protetti=0, segnaposto=None):
     strumenti, letture, fonti, nomi, chiamate_per_id, consultate = [], 0, [], {}, {}, []
     fuori = {"web": 0, "allegati": 0, "esterni": 0, "documento": 0}
     fonti += fonti_precedenti(turno, eventi)
-    previsioni = []
+    previsioni, numeri_usati = [], []
     for ev in eventi:
         if ev.tipo == Evento.UTENTE and not ev.dati.get("richiamo"):    # il richiamo della guardia non è una fonte
             fonti += [v for _, v in numeri(ev.dati.get("testo", ""))]
@@ -233,6 +234,10 @@ def calcola(turno, testo, protetti=0, segnaposto=None):
             for r in ev.dati.get("risultati", []):
                 if not r.get("errore"):
                     chiamata = chiamate_per_id.get(r.get("id"), {})
+                    if chiamata.get("nome") == "misura" and len(numeri_usati) < MAX_NUMERI:
+                        n = _numero_usato(r.get("contenuto"))
+                        if n:
+                            numeri_usati.append(n)
                     if chiamata.get("nome") == "previsione" and len(previsioni) < 5:
                         p = _affidabilita(r.get("contenuto"))
                         if p:
@@ -262,7 +267,7 @@ def calcola(turno, testo, protetti=0, segnaposto=None):
             "letture_esterne": fuori["esterni"], "pii": len(segnaposto) if segnaposto is not None else protetti,
             "segnaposto": sorted(segnaposto or []), "fonti": consultate,
             "non_verificati": non_verificati[:MAX_SEGNALATI], "n_non_verificati": len(non_verificati),
-            **({"previsioni": previsioni} if previsioni else {})}
+            **({"previsioni": previsioni} if previsioni else {}), **({"numeri": numeri_usati} if numeri_usati else {})}
 
 
 def _affidabilita(contenuto):
@@ -277,3 +282,21 @@ def _affidabilita(contenuto):
         return None
     return {"titolo": str(dati.get("titolo", ""))[:120], "livello": a["livello"],
             "motivi": [str(m)[:200] for m in a.get("motivi", [])][:4], "modello": str(dati.get("modello", ""))[:80]}
+
+
+def _numero_usato(contenuto):
+    """{etichetta, valore, valore_testo, unita, periodo, definizione, url} dal risultato dello strumento misura: la
+    definizione e il link li mette il codice (core.misure), non il modello."""
+    import json
+    from core.viste.gruppi import numero
+    try:
+        dati = json.loads(contenuto)
+        valore = dati["valore"]
+    except (TypeError, ValueError, KeyError, AttributeError):
+        return None
+    unita = str(dati.get("unita") or "")
+    periodo = (dati.get("periodo") or {}).get("etichetta", "")
+    return {"etichetta": str(dati.get("etichetta", ""))[:80], "valore": valore, "unita": unita,
+            "valore_testo": f"{numero(valore)} {unita}".strip(), "periodo": str(periodo)[:80],
+            "definizione": str(dati.get("definizione", ""))[:300], "url": str(dati.get("url", ""))[:500],
+            "nota_lista": str(dati.get("nota_lista", ""))[:300]}

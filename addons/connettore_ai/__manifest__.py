@@ -1,11 +1,11 @@
 {
     "name": "Connettore AI",
     "summary": "adabox dentro Claude, ChatGPT, Gemini e Le Chat: ognuno interroga dalla chat che usa già i dati che può vedere, con il suo abbonamento",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Integrazioni",
     "depends": ["ai"],
-    "min_core": "1.2",
+    "min_core": "1.3",
     "application": True,
     "nav_label": "Chat AI esterne",
     "icon": "connettore_ai/icon.svg",

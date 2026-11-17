@@ -53,9 +53,25 @@ usalo, ma non citarlo se non serve. Un giorno della settimana («martedì», anc
 scambiarlo per una persona. Lo stesso per «domani», «dopodomani», «la settimana prossima»."""
 
 
+MISURE = """
+
+Misure aziendali (definizioni fisse dell'azienda):
+{elenco}
+- Per le domande su una di queste misure usa lo strumento misura (o grafico/previsione con misura_aziendale): senza \
+elenco_viste né descrivi_vista, e senza ricostruirla con aggrega_record.
+- «Vendite» è il fatturato; se l'utente parla di ordini usa vendite.ordinato. Di' quale misura hai usato.
+- Periodo detto a parole («quest'anno», «il mese scorso») → periodo; anni o date precise («2026», «da marzo a \
+giugno») → dal e al.
+- Grafici e tabelle compaiono da soli sotto la risposta: non richiamarli nel testo con ![titolo](artifact:N)."""
+
+
 def sistema(assistente=None):
-    """Il prompt di sistema: uguale per tutti, più le istruzioni dell'assistente (stabili per assistente)."""
+    """Il prompt di sistema: uguale per tutti, più le misure aziendali dei moduli installati (cambiano solo con i
+    moduli) e le istruzioni dell'assistente (stabili per assistente)."""
+    from core import misure
     testo = SISTEMA.format(marchio=getattr(settings, "THEME", {}).get("brand") or "adabox-hub")
+    if elenco := misure.testo_prompt():
+        testo += MISURE.format(elenco=elenco)
     if assistente is not None:
         testo += f"\n\nSei l'assistente «{assistente.nome}»" + (f" dell'app {assistente.app}" if assistente.app else "")
         testo += "." + (f" Istruzioni:\n{assistente.istruzioni.strip()}" if assistente.istruzioni.strip() else "")

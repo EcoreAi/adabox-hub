@@ -83,6 +83,9 @@ def dati_di(tipo, spec, request):
         return _previsione(spec, request)
     if tipo == Grafico.TABELLA:
         return _tabella(spec, request)
+    if spec.get("misura_aziendale"):                       # la definizione fissa della misura (core.misure)
+        from core import misure
+        return misure.kpi(spec, request) if tipo == Grafico.KPI else misure.serie(spec, request)
     if tipo == Grafico.KPI:
         return interroga.kpi(spec, request)
     return interroga.calcola(spec, request)
@@ -109,6 +112,9 @@ def aggiorna(grafico, request, forza=False):
 def vista_di(spec, request):
     """La ModelView della specifica, se chi guarda può vederla; altrimenti None."""
     try:
+        if spec.get("misura_aziendale"):
+            from core import misure
+            return misure.vista_principale(spec["misura_aziendale"], request)
         return interroga.vista_per_nome(spec.get("vista", ""), request)
     except ErroreInterrogazione:
         return None
@@ -187,6 +193,14 @@ def serie_di(grafico, dati, vista=None):
 
 def descrizione(spec, request=None, vista=None, tipo=""):
     """«Somma di totale per mese · Ordini di vendita · 2 filtri»: che cosa calcola la specifica, a parole."""
+    if spec.get("misura_aziendale"):
+        from core import misure
+        try:
+            m = misure.per_nome(spec["misura_aziendale"])
+        except ErroreInterrogazione:
+            return spec["misura_aziendale"]
+        return " · ".join(x for x in (m.etichetta + (f" per {spec['per']}" if spec.get("per") else ""),
+                                      m.definizione) if x)
     if vista is None and request is not None:
         vista = vista_di(spec, request)
     misura = spec.get("misura", "count") or "count"

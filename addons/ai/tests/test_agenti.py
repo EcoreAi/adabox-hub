@@ -150,3 +150,45 @@ def test_con_i_copioni_mai_il_modello_vero_neanche_con_i_livelli(scena, monkeypa
     r, = valutazione.valuta([{"domanda": "Che giorno è?", "contiene": ["{oggi_giorno}"],
                               "copione": [["Oggi è {oggi_giorno}."]]}], scena["capo"], copioni=True)
     assert r["ok"] and r["costo"] == 0 and provati == []                     # il vero non è mai stato chiamato
+
+
+def test_controlla_misura_trova_valore(monkeypatch):
+    from types import SimpleNamespace
+
+    from core import misure
+    monkeypatch.setattr(misure, "calcola", lambda nome, request, **k: {"valore": 579831.4, "gruppi": []})
+    monkeypatch.setattr(valutazione, "_richiesta", lambda utente, azienda: None)
+    turno = SimpleNamespace(stato="completato", errore="", provenienza={}, passi=2, testo="Il fatturato è 579.831 €.")
+    domanda = {"domanda": "Fatturato?", "misura": {"nome": "fatturazione.fatturato", "periodo": "anno"}}
+    assert valutazione.controlla(domanda, turno, ["misura"]) == []
+    turno.testo = "Il fatturato è 580.000 €."
+    assert valutazione.controlla(domanda, turno, ["misura"]) == ["manca il valore 579.831 (fatturazione.fatturato)"]
+    assert valutazione.varianti(579831.4) == ["579.831", "579.831,40"]
+    assert valutazione.varianti(3) == ["3"]
+
+
+def test_controlla_passi_massimi():
+    from types import SimpleNamespace
+    turno = SimpleNamespace(stato="completato", errore="", provenienza={}, passi=4, testo="Ecco.")
+    assert valutazione.controlla({"domanda": "x", "passi_massimi": 2}, turno, []) == ["lenta: 4 passi (massimo 2)"]
+    turno.passi = 2
+    assert valutazione.controlla({"domanda": "x", "passi_massimi": 2}, turno, []) == []
+
+
+def test_valuta_riporta_passi_e_valore_nel_copione(scena):
+    r, = valutazione.valuta([{"domanda": "Quanto abbiamo fatturato quest'anno?", "strumenti": ["misura"], "passi_massimi": 2,
+                              "misura": {"nome": "fatturazione.fatturato", "periodo": "anno"},
+                              "copione": [[["strumento", "misura", {"nome": "fatturazione.fatturato", "periodo": "anno"}]],
+                                          ["Il fatturato dell'anno è {valore} €."]]}],
+                            scena["capo"], scena["azienda"], copioni=True)
+    assert r["ok"], r["problemi"]
+    assert r["passi"] == 2 and "0 €" in r["risposta"]
+
+
+def test_ai_eval_tempi_e_modello(scena, capsys):
+    from django.core.management.base import CommandError
+    call_command("ai_eval", "--copioni")
+    uscita = capsys.readouterr().out
+    assert "Tempi: mediana" in uscita and "90%" in uscita and " passi " in uscita
+    with pytest.raises(CommandError, match="nessun modello"):
+        call_command("ai_eval", "--modello", "non-esiste")

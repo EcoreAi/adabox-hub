@@ -235,10 +235,18 @@ def leggi_record(contesto, vista, id):
     return risultato
 
 
-def aggrega_record(contesto, vista, per="", misura="count", filtri=None, testo="", aziende=None):
-    from core.viste.interroga import aziende_di
+def aggrega_record(contesto, vista, per="", misura="count", filtri=None, testo="", aziende=None, ordina="", primi=None,
+                   limite=None):
+    from core.viste.interroga import GRUPPI_MASSIMI, aziende_di, ordina_gruppi
     request = richiesta.per(contesto)
-    return aggrega(vista_per(contesto, vista), request, per, misura, filtri, testo, aziende=aziende_di(request, aziende))
+    primi = primi or limite                       # «limite» è come lo chiamano spesso i modelli
+    r = aggrega(vista_per(contesto, vista), request, per, misura, filtri, testo, aziende=aziende_di(request, aziende),
+                massimo=None if (ordina or primi) else GRUPPI_MASSIMI)      # i primi N veri: tutti i gruppi, poi si taglia
+    if r.get("gruppi") and (ordina or primi):
+        r["gruppi"] = ordina_gruppi(r["gruppi"], per, ordina, primi)
+        if primi:
+            r["nota"] = f"Mostrati i primi {len(r['gruppi'])} gruppi; «totale» resta il totale di tutti."
+    return r
 
 
 # ---------- registrazione ----------
@@ -249,6 +257,9 @@ FILTRI = {"type": "object", "description": "filtri {campo: valore}; operatori co
                                            "cliente__nome__icontains. Date in formato AAAA-MM-GG.",
           "additionalProperties": True}
 TESTO = {"type": "string", "description": "ricerca libera (nomi, numeri di documento...)"}
+ORDINA_GRUPPI = {"type": "string", "description": "ordine dei gruppi: -valore (dal più grande), valore, oppure il campo "
+                                                  "del raggruppamento"}
+PRIMI = {"type": "integer", "description": "solo i primi N gruppi (con -valore: i più grandi), es. 5 per «i 5 clienti migliori»"}
 
 registra(Strumento(
     "elenco_viste", "Le viste (tabelle di dati) delle app che l'utente può consultare, con il nome da usare negli "
@@ -284,5 +295,6 @@ registra(Strumento(
         "misura": {"type": "string", "description": "count (default) oppure sum:campo, avg:campo, min:campo, "
                                                     "max:campo"},
         "aziende": {"description": "per il consolidato di più aziende dell'utente: \"tutte\" oppure una lista di id; "
-                                   "vuoto = solo l'azienda corrente"}},
+                                   "vuoto = solo l'azienda corrente"},
+        "ordina": ORDINA_GRUPPI, "primi": PRIMI},
      "required": ["vista"]}, aggrega_record))
