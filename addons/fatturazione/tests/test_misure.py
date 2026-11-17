@@ -92,3 +92,22 @@ def test_scaduto_solo_passate(scena, capo):
     Scadenza.objects.create(fattura=f, data=OGGI + datetime.timedelta(days=1), importo=Decimal("700"))
     assert misure.calcola("fatturazione.scaduto", _req(capo))["valore"] == 300
     assert misure.calcola("fatturazione.da_incassare", _req(capo))["valore"] == 1000
+
+
+def test_link_della_misura_mostra_i_record_sommati(scena, capo):
+    """La lista aperta dal link contiene le fatture sommate (più le note di credito, come dice la nota)."""
+    from urllib.parse import parse_qsl, urlsplit
+
+    from core.viste import filtri, registry
+    from fatturazione.models import Fattura
+    azienda, cliente, monitor, corso = scena
+    _fattura(azienda, cliente, [(monitor, "5")], stato="emessa")
+    _fattura(azienda, cliente, [(monitor, "2")], stato="emessa")
+    _fattura(azienda, cliente, [(monitor, "1")])                                     # bozza: fuori
+    req = _req(capo)
+    r = misure.calcola("fatturazione.fatturato", req, periodo="anno")
+    assert "note di credito" in r["nota_lista"]
+    vista = registry.per_modello(Fattura)
+    qs = filtri.applica(vista, req, vista.get_queryset(req), parametri=dict(parse_qsl(urlsplit(r["url"]).query)))
+    assert qs.count() == 2
+    assert misure.calcola("fatturazione.scaduto", req)["url"] == ""                 # le scadenze non hanno filtri in lista

@@ -298,4 +298,5 @@ def _numero_usato(contenuto):
     periodo = (dati.get("periodo") or {}).get("etichetta", "")
     return {"etichetta": str(dati.get("etichetta", ""))[:80], "valore": valore, "unita": unita,
             "valore_testo": f"{numero(valore)} {unita}".strip(), "periodo": str(periodo)[:80],
-            "definizione": str(dati.get("definizione", ""))[:300], "url": str(dati.get("url", ""))[:500]}
+            "definizione": str(dati.get("definizione", ""))[:300], "url": str(dati.get("url", ""))[:500],
+            "nota_lista": str(dati.get("nota_lista", ""))[:300]}

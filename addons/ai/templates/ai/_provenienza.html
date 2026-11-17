@@ -37,7 +37,7 @@
       <ul class="ai-pv-fonti ai-pv-misure">{% for n in pv.numeri %}<li>
         <span class="ai-pv-origine is-gestionale">Misura</span>
         <strong>{{ n.etichetta }}{% if n.periodo %} {{ n.periodo }}{% endif %}: {{ n.valore_testo }}</strong>
-        <small>{{ n.definizione }}{% if n.url %} · <a href="{{ n.url }}">Apri i record</a>{% endif %}</small></li>{% endfor %}</ul>
+        <small>{{ n.definizione }}{% if n.url %} · <a href="{{ n.url }}">Apri i record</a>{% if n.nota_lista %} ({{ n.nota_lista }}){% endif %}{% endif %}</small></li>{% endfor %}</ul>
       <p class="ai-pv-nota">Definizioni fisse dell'azienda, uguali a quelle della dashboard: il modello non le sceglie.</p>
     </div>
   </details>{% endif %}

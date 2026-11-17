@@ -75,7 +75,8 @@ def calcola(spec, contesto):
     if spec["tipo"] == Artifact.GRAFICO:
         from core.viste.interroga import aziende_di
         r = aggrega(v, request, spec["per"], spec.get("misura", "count"), spec.get("filtri"), spec.get("testo", ""),
-                    aziende=aziende_di(request, spec.get("aziende")))
+                    aziende=aziende_di(request, spec.get("aziende")),
+                    massimo=None if (spec.get("primi") or spec.get("ordina")) else 100)
         return {"serie": _serie_scelta(r.get("gruppi", []), spec), "totale": r["totale"]}
     if spec.get("per"):
         return _tabella_raggruppata(v, request, spec)

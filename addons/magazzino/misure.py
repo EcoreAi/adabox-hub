@@ -25,4 +25,5 @@ registra(Misura(
     nome="magazzino.sotto_scorta", etichetta="Prodotti sotto scorta", unita="",
     definizione="prodotti attivi la cui giacenza prevista (giacenza + in arrivo − impegnato) è sotto la scorta minima "
                 "o sotto il punto di riordino di un magazzino; il valore di ogni prodotto è la quantità che manca",
-    sinonimi=("scorte basse", "da riordinare"), funzione=sotto_scorta))
+    sinonimi=("scorte basse", "da riordinare"), funzione=sotto_scorta,
+    permesso="magazzino.view_movimento"))           # senza i movimenti ogni giacenza sembrerebbe zero

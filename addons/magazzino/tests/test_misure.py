@@ -22,3 +22,15 @@ def test_sotto_scorta_come_situazione(scena, superuser):
     assert r["gruppi"][0]["gruppo"] == "Monitor" and r["gruppi"][0]["valore"] == 3
     assert "sotto_scorta=1" in r["url"]
     assert dashboard.kpi(req)["kpi"][0]["valore"] == 1
+
+
+def test_sotto_scorta_senza_permesso_rifiuta(scena):
+    """Senza poter vedere i movimenti la giacenza sembrerebbe zero: la misura rifiuta invece di contare tutto."""
+    import pytest
+    from django.contrib.auth.models import Permission, User
+
+    from core.viste.interroga import ErroreInterrogazione
+    u = User.objects.create_user("mario", "m@example.com", "x")
+    u.user_permissions.add(Permission.objects.get(codename="view_prodotto"))
+    with pytest.raises(ErroreInterrogazione, match="permesso"):
+        misure.calcola("magazzino.sotto_scorta", richiesta_di(User.objects.get(pk=u.pk)))

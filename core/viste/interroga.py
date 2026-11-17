@@ -316,7 +316,7 @@ def _unisci(valori, funzione):
     return round(sum(valori), 2) if any(isinstance(v, float) for v in valori) else sum(valori)
 
 
-def _aggrega_aziende(vista, request, aziende, per, misura, filtri, testo, lista, con_chiavi):
+def _aggrega_aziende(vista, request, aziende, per, misura, filtri, testo, lista, con_chiavi, massimo=GRUPPI_MASSIMI):
     """Ogni azienda con le sue regole (la vista e il suo queryset, come se l'utente ci lavorasse), poi si sommano i
     gruppi con la stessa chiave; le medie vengono da somme e conteggi, così restano giuste."""
     funzione, _, campo = (misura or "count").partition(":")
@@ -330,7 +330,8 @@ def _aggrega_aziende(vista, request, aziende, per, misura, filtri, testo, lista,
         if per:
             risultato["gruppi"] = gruppi if con_chiavi else [{k: v for k, v in g.items() if k != "chiave"} for g in gruppi]
         return risultato
-    parziali = [aggrega(vista, richiesta_di(request.user, a), per, misura, filtri, testo, lista, con_chiavi=True) for a in aziende]
+    parziali = [aggrega(vista, richiesta_di(request.user, a), per, misura, filtri, testo, lista, con_chiavi=True, massimo=massimo)
+                for a in aziende]
     risultato = {"vista": id_vista(vista), "misura": misura or "count", "totale": _unisci([r["totale"] for r in parziali], funzione),
                  "aziende": [str(a) for a in aziende]}
     if not per:
@@ -343,19 +344,20 @@ def _aggrega_aziende(vista, request, aziende, per, misura, filtri, testo, lista,
             etichette.setdefault(chiave, g["gruppo"])
     gruppi = [{"gruppo": etichette[k], "valore": _unisci(valori[k], funzione), **({"chiave": k} if con_chiavi else {})}
               for k in _ordina_chiavi(list(valori))]
-    risultato.update(per=per, gruppi=gruppi[:GRUPPI_MASSIMI])
-    if len(gruppi) > GRUPPI_MASSIMI or any(r.get("nota") for r in parziali):
+    risultato.update(per=per, gruppi=gruppi[:massimo] if massimo else gruppi)
+    if (massimo and len(gruppi) > massimo) or any(r.get("nota") for r in parziali):
         risultato["nota"] = f"Più di {GRUPPI_MASSIMI} gruppi: mostrati i primi. Restringi i filtri."
     return risultato
 
 
-def aggrega(vista, request, per="", misura="count", filtri=None, testo="", lista=None, con_chiavi=False, aziende=None):
+def aggrega(vista, request, per="", misura="count", filtri=None, testo="", lista=None, con_chiavi=False, aziende=None,
+            massimo=GRUPPI_MASSIMI):
     """{"misura", "per", "gruppi": [{"gruppo", "valore"[, "chiave"]}], "totale"} con i dati aggregati nel database;
     con `con_chiavi` ogni gruppo porta anche il valore grezzo, per aprire la lista filtrata su quel gruppo.
     Con `aziende` (vedi aziende_di) il consolidato di più aziende."""
     controlla_nascosti(vista, request, per, misura)
     if aziende:
-        return _aggrega_aziende(vista, request, aziende, per, misura, filtri, testo, lista, con_chiavi)
+        return _aggrega_aziende(vista, request, aziende, per, misura, filtri, testo, lista, con_chiavi, massimo)
     espressione, f_misura = _misura(vista, misura or "count")
     qs = filtra(vista, request, vista.get_queryset(request), testo, filtri, lista).order_by()
     if qs.query.distinct:                     # filtro su una relazione multipla: senza doppioni nelle somme
@@ -376,15 +378,16 @@ def aggrega(vista, request, per="", misura="count", filtri=None, testo="", lista
         raise ErroreInterrogazione("Non si raggruppa per un testo lungo.")
     else:
         chiave = F(lookup)
-    righe = list(qs.annotate(_g=chiave).values("_g").annotate(_v=espressione).order_by("_g")[:GRUPPI_MASSIMI + 1])
+    righe = qs.annotate(_g=chiave).values("_g").annotate(_v=espressione).order_by("_g")
+    righe = list(righe[:massimo + 1] if massimo else righe)       # massimo=None: tutti (i primi N veri, le serie lunghe)
     etichette = _etichette_gruppi(f, parte, [r["_g"] for r in righe])
-    gruppi = [{"gruppo": etichette[r["_g"]], "valore": _numero(r["_v"], f_misura)} for r in righe[:GRUPPI_MASSIMI]]
+    gruppi = [{"gruppo": etichette[r["_g"]], "valore": _numero(r["_v"], f_misura)} for r in (righe[:massimo] if massimo else righe)]
     if con_chiavi:
         for g, r in zip(gruppi, righe):
             g["chiave"] = _chiave(r["_g"])
     risultato.update(per=per, gruppi=gruppi)
-    if len(righe) > GRUPPI_MASSIMI:
-        risultato["nota"] = f"Più di {GRUPPI_MASSIMI} gruppi: mostrati i primi. Restringi i filtri."
+    if massimo and len(righe) > massimo:
+        risultato["nota"] = f"Più di {massimo} gruppi: mostrati i primi. Restringi i filtri."
     return risultato
 
 
@@ -453,7 +456,8 @@ def calcola(spec, request):
     if not per:
         raise ErroreInterrogazione("Un grafico ha bisogno di «per»: un campo o una data (data:mese, data:anno…).")
     r = aggrega(vista, request, per, spec.get("misura", "count"), spec.get("filtri"), spec.get("testo", ""),
-                spec.get("lista"), con_chiavi=True, aziende=aziende_di(request, spec.get("aziende")))
+                spec.get("lista"), con_chiavi=True, aziende=aziende_di(request, spec.get("aziende")),
+                massimo=None if spec.get("primi") else GRUPPI_MASSIMI)
     if spec.get("primi") and ":" not in per:          # le prime N per valore più «Altro» (grafici dell'assistente)
         valori, chiavi = _primi_con_chiavi(r.get("gruppi", []), int(spec["primi"]))
     else:

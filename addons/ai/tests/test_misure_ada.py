@@ -104,6 +104,7 @@ def test_provenienza_numeri_usati(scena, contesto, client):
     assert (n["etichetta"], n["valore"], n["unita"]) == ("Fatturato", 1000, "€")
     assert n["periodo"] == "dell'anno in corso" and "note di credito" in n["definizione"]
     assert n["url"].startswith("/fatturazione/fatture/?")
+    assert "note di credito" in n["nota_lista"]
     assert turno.provenienza["esito"] == "verificato"
     client.force_login(contesto.utente)
     pagina = client.get(f"/ai/chat/{contesto.conversazione.pk}/").content.decode()

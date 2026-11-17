@@ -50,6 +50,11 @@ class Misura:
     filtri_dinamici: object = None
     periodo_predefinito: str = "anno"
     app: str = ""
+    permesso: str | None = None                 # "app.codename" richiesto (le calcolate non passano dalle viste)
+    # parametri della lista per il link «apri i record» quando i filtri non si traducono da soli (es. tipo__in),
+    # con la nota su ciò che la lista mostra in più; senza, un filtro che la lista non sa applicare toglie il link
+    filtri_lista: dict | None = None
+    nota_lista: str = ""
 
 
 @dataclass(frozen=True)
@@ -93,7 +98,7 @@ def tutte():
     """Le misure dei moduli attivi, in ordine di nome (il prompt dell'assistente deve restare identico)."""
     carica()
     from .registry import modules
-    attivi = set(modules.manifests_attivi())
+    attivi = set(modules.manifests_attivi()) - set(modules.disattivati())     # spenti a mano o fuori licenza: fuori
     return sorted((m for m in _registro.values() if not m.app or m.app in attivi), key=lambda m: m.nome)
 
 
@@ -177,9 +182,24 @@ def _a_oggi(p, oggi):
     return Periodo(p.dal, oggi, p.etichetta, p.relativo) if p.dal <= oggi < p.al else p
 
 
-def _confronto(p, confronta):
+# di quanto si torna indietro per «il periodo prima» di un periodo con nome: mesi o giorni di calendario
+PASSI = {"mese": (1, 0), "mese_scorso": (1, 0), "trimestre": (3, 0), "trimestre_scorso": (3, 0), "anno": (12, 0),
+         "anno_scorso": (12, 0), "ultimi_12_mesi": (12, 0), "settimana": (0, 7), "settimana_scorsa": (0, 7),
+         "settimana_prossima": (0, 7), "oggi": (0, 1), "ieri": (0, 1), "domani": (0, 1)}
+
+
+def _confronto(p, confronta, nome=""):
     if confronta == "anno_prima":
         return Periodo(_sposta_mesi(p.dal, -12), _sposta_mesi(p.al, -12), "", False)
+    if nome in PASSI:                                # il mese prima, il trimestre prima...: stesso tratto di calendario
+        mesi, giorni = PASSI[nome]
+        if mesi:
+            al = _sposta_mesi(p.al, -mesi)
+            if p.al == _fine_mese(p.al.year, p.al.month):           # fine mese resta fine mese (31/10 → 30/09)
+                al = _fine_mese(al.year, al.month)
+            return Periodo(_sposta_mesi(p.dal, -mesi), al, "", False)
+        passo = datetime.timedelta(days=giorni)
+        return Periodo(p.dal - passo, p.al - passo, "", False)
     durata = p.al - p.dal
     al = p.dal - datetime.timedelta(days=1)
     return Periodo(al - durata, al, "", False)
@@ -213,7 +233,7 @@ def _aggrega(m, request, periodo, per, aziende, di):
         try:
             vista = interroga.vista_per_nome(c.vista, request)
             r = interroga.aggrega(vista, request, per, c.misura, _filtri(m, c, request, periodo, di),
-                                  con_chiavi=bool(per), aziende=aziende)
+                                  con_chiavi=bool(per), aziende=aziende, massimo=None)   # tutti: si taglia dopo
         except ErroreInterrogazione as e:
             raise ErroreInterrogazione(f"Misura «{m.etichetta}»: {e}")
         prima = prima or vista
@@ -231,17 +251,46 @@ def _tondo(v):
     return round(v, 2) if isinstance(v, float) else v
 
 
-def _url_lista(vista, filtri_fissi, m, periodo, extra=None):
-    """La lista della vista con i parametri che capisce (f_<campo>, f_<data>_da/_a: core/viste/filtri.py)."""
+def _parametro_lista(vista, chiave, valore):
+    """(nome, valore) del parametro della lista per un filtro, o None se la lista non lo sa applicare."""
+    if "__" in chiave or isinstance(valore, (list, dict, tuple)) or chiave not in (vista.list_filter or []):
+        return None
+    if isinstance(valore, bool):
+        return f"f_{chiave}", "1" if valore else "0"            # core/viste/filtri.py vuole 1/0 per i booleani
+    return f"f_{chiave}", valore
+
+
+def _url_lista(vista, m, request, periodo, di, extra=None):
+    """La lista della vista filtrata come la misura (f_<campo>, f_<data>_da/_a: core/viste/filtri.py), oppure "" se un
+    filtro non si può esprimere: un link che mostra altri record sarebbe una bugia."""
+    if vista is None:
+        return ""
     try:
         base = vista.url("lista")
     except Exception:
         return ""
-    parametri = {f"f_{k}": v for k, v in filtri_fissi.items() if "__" not in k and not isinstance(v, (list, dict))}
+    parametri = {}
+    if m.filtri_lista is not None:
+        parametri.update(m.filtri_lista)
+    else:
+        filtri = dict(m.componenti[0].filtri)
+        if m.filtri_dinamici:
+            filtri.update(m.filtri_dinamici(request, di) or {})
+        for chiave, valore in filtri.items():
+            coppia = _parametro_lista(vista, chiave, valore)
+            if coppia is None:
+                return ""
+            parametri[coppia[0]] = coppia[1]
     if periodo is not None and m.periodo_su:
+        if m.periodo_su not in (vista.list_filter or []):
+            return ""
         parametri[f"f_{m.periodo_su}_da"] = periodo.dal.isoformat()
         parametri[f"f_{m.periodo_su}_a"] = periodo.al.isoformat()
-    parametri.update(extra or {})
+    for chiave, valore in (extra or {}).items():
+        campo = chiave[2:].removesuffix("_da").removesuffix("_a")
+        if campo not in (vista.list_filter or []):
+            return ""
+        parametri[chiave] = valore
     return f"{base}?{urlencode(parametri)}" if parametri else base
 
 
@@ -257,12 +306,20 @@ def _extra_gruppo(per, chiave):
 def calcola(nome, request, periodo="", dal=None, al=None, per="", primi=None, confronta="", aziende=None, di=""):
     """Il valore di una misura con la sua definizione e i link ai record. Vedi il docstring del modulo."""
     m = per_nome(nome)
+    if m.permesso and not request.user.has_perm(m.permesso):
+        raise ErroreInterrogazione(f"Misura «{m.etichetta}»: non hai il permesso di vedere questi dati.")
     risultato = {"nome": m.nome, "etichetta": m.etichetta, "definizione": m.definizione, "unita": m.unita,
                  "periodo": None, "gruppi": [], "confronto": None, "url": ""}
     try:
         primi = max(1, min(int(primi), MAX_PRIMI)) if primi not in (None, "") else None
     except (TypeError, ValueError):
         raise ErroreInterrogazione("«primi» è un numero intero.")
+    ignorati = [n for n, v in (("periodo", periodo or dal or al), ("confronta", confronta)) if v and not m.periodo_su]
+    if m.funzione is not None:
+        ignorati += [n for n, v in (("per", per), ("aziende", aziende)) if v]
+    if ignorati:
+        risultato["nota"] = (f"«{m.etichetta}» è la situazione di oggi dell'azienda corrente: {', '.join(ignorati)} "
+                             "non si applica. Dillo all'utente se l'aveva chiesto.")
     if m.funzione is not None:
         r = m.funzione(request, di=di)
         righe = sorted(r.get("righe", []), key=lambda x: x["valore"], reverse=True)
@@ -281,9 +338,10 @@ def calcola(nome, request, periodo="", dal=None, al=None, per="", primi=None, co
     aziende = interroga.aziende_di(request, aziende)
     per_campo = _per(m, per)
     totale, gruppi, ordine, vista = _aggrega(m, request, periodo_scelto, per_campo, aziende, di)
-    principale = m.componenti[0]
     risultato["valore"] = totale
-    risultato["url"] = _url_lista(vista, principale.filtri, m, periodo_scelto)
+    risultato["url"] = _url_lista(vista, m, request, periodo_scelto, di)
+    if risultato["url"] and m.nota_lista:
+        risultato["nota_lista"] = m.nota_lista
     if per_campo:
         elenco = [(k, gruppi[k][0], _tondo(gruppi[k][1])) for k in ordine]
         if ":" not in per_campo or primi:
@@ -291,12 +349,12 @@ def calcola(nome, request, periodo="", dal=None, al=None, per="", primi=None, co
         if primi:
             elenco = elenco[:primi]
         risultato["gruppi"] = [{"gruppo": e, "valore": v, "chiave": k,
-                                "url": _url_lista(vista, principale.filtri, m, periodo_scelto, _extra_gruppo(per_campo, k))
-                                if k is not None else ""} for k, e, v in elenco]
+                                "url": _url_lista(vista, m, request, periodo_scelto, di, _extra_gruppo(per_campo, k))
+                                if k is not None and risultato["url"] else ""} for k, e, v in elenco]
     if confronta and periodo_scelto is not None:
-        p = _confronto(periodo_scelto, confronta)
+        p = _confronto(periodo_scelto, confronta, "" if dal or al else (periodo or m.periodo_predefinito))
         precedente, _, _, _ = _aggrega(m, request, p, "", aziende, di)
-        delta = round((totale - precedente) * 100 / precedente, 1) if precedente else None
+        delta = round((totale - precedente) * 100 / abs(precedente), 1) if precedente else None
         risultato["confronto"] = {"valore": precedente, "delta_percento": delta,
                                   "periodo": {**p.come_dict(), "etichetta": _etichetta_intervallo(p.dal, p.al)}}
     return risultato

@@ -237,10 +237,11 @@ def leggi_record(contesto, vista, id):
 
 def aggrega_record(contesto, vista, per="", misura="count", filtri=None, testo="", aziende=None, ordina="", primi=None,
                    limite=None):
-    from core.viste.interroga import aziende_di, ordina_gruppi
+    from core.viste.interroga import GRUPPI_MASSIMI, aziende_di, ordina_gruppi
     request = richiesta.per(contesto)
-    r = aggrega(vista_per(contesto, vista), request, per, misura, filtri, testo, aziende=aziende_di(request, aziende))
     primi = primi or limite                       # «limite» è come lo chiamano spesso i modelli
+    r = aggrega(vista_per(contesto, vista), request, per, misura, filtri, testo, aziende=aziende_di(request, aziende),
+                massimo=None if (ordina or primi) else GRUPPI_MASSIMI)      # i primi N veri: tutti i gruppi, poi si taglia
     if r.get("gruppi") and (ordina or primi):
         r["gruppi"] = ordina_gruppi(r["gruppi"], per, ordina, primi)
         if primi:

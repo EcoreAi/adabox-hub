@@ -137,3 +137,16 @@ def test_primi_anche_nei_grafici_salvati_di_analisi(scena):
                           interroga.richiesta_di(scena["capo"], scena["azienda"]))
     assert r["serie"] == [("CA", 3), ("MI", 2), ("Altro", 2)]
     assert r["chiavi"] == ["CA", "MI", None]
+
+
+def test_primi_veri_oltre_100_gruppi_negli_strumenti(scena):
+    """aggrega_record e grafico con «primi» scelgono tra tutti i gruppi, non tra i primi 100 per chiave."""
+    from ai.strumenti import viste
+    Azienda.objects.bulk_create([Azienda(nome=f"Az {i}", provincia=f"P{i:03d}") for i in range(105)])
+    Azienda.objects.create(nome="Az doppia", provincia="P104")
+    Azienda.objects.create(nome="Az tripla", provincia="P104")          # 3: più di MI (2) della scena
+    c = strumenti.Contesto(utente=scena["capo"], azienda=scena["azienda"], conversazione=scena["conversazione"])
+    r = viste.aggrega_record(c, "core.aziende", per="provincia", primi=1)
+    assert [(g["gruppo"], g["valore"]) for g in r["gruppi"]] == [("P104", 3)]
+    g = artifact.grafico(c, "core.aziende", per="provincia", primi=1)
+    assert g["serie"][0] == ("P104", 3)

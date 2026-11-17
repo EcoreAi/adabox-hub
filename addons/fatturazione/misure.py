@@ -10,6 +10,8 @@ VENDITE = [t for t, _ in Fattura.TIPI if t != Fattura.NOTA_CREDITO and t not in 
 EMESSE_DI_VENDITA = {"stato": Fattura.EMESSA, "tipo__in": VENDITE}
 NOTE_DI_CREDITO = {"stato": Fattura.EMESSA, "tipo": Fattura.NOTA_CREDITO}
 APERTE = {"pagata": False, "fattura__stato": Fattura.EMESSA}
+# la lista non filtra per «tipo in [...]»: il link apre le emesse del periodo e dice che cosa c'è in più
+LISTA_EMESSE = {"f_stato": Fattura.EMESSA}
 
 registra(Misura(
     nome="fatturazione.fatturato", etichetta="Fatturato",
@@ -17,14 +19,16 @@ registra(Misura(
     sinonimi=("vendite", "ricavi", "fatturato"),
     raggruppamenti={"cliente": "cliente", "giorno": "data:giorno", "settimana": "data:settimana", "mese": "data:mese",
                     "anno": "data:anno"},
-    periodo_su="data",
+    periodo_su="data", filtri_lista=LISTA_EMESSE,
+    nota_lista="La lista comprende anche le note di credito (che il fatturato sottrae) ed eventuali autofatture.",
     componenti=(Componente("fatturazione.fatture", "sum:imponibile", EMESSE_DI_VENDITA),
                 Componente("fatturazione.fatture", "sum:imponibile", NOTE_DI_CREDITO, segno=-1))))
 
 registra(Misura(
     nome="fatturazione.fatture_emesse", etichetta="Fatture emesse", unita="",
     definizione="numero di fatture di vendita emesse, note di credito escluse, per data della fattura",
-    raggruppamenti={"cliente": "cliente", "mese": "data:mese"}, periodo_su="data",
+    raggruppamenti={"cliente": "cliente", "mese": "data:mese"}, periodo_su="data", filtri_lista=LISTA_EMESSE,
+    nota_lista="La lista comprende anche le note di credito, che qui non si contano.",
     componenti=(Componente("fatturazione.fatture", "count", EMESSE_DI_VENDITA),)))
 
 registra(Misura(
