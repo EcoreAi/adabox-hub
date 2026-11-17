@@ -6,7 +6,7 @@
     "author": "ICHNOBYTE S.R.L.",
     "category": "Acquisti",
     "depends": ["prodotti", "contatti"],
-    "min_core": "1.0",
+    "min_core": "1.3",
     "riepilogo": "acquisti.riepilogo.voci",
     "application": True,
     "icon": "acquisti/icon.svg",

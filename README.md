@@ -510,8 +510,35 @@ completate.
   - conversazioni lunghe: oltre ~150.000 caratteri la parte conclusa diventa un riassunto strutturato (evento
     `riassunto`, il log non si riscrive);
   - `python manage.py ai_eval` valuta le domande d'oro (`addons/ai/valutazione/domande.json` o quelle di un
-    assistente con `--assistente`) con il modello vero e ne riporta esito e costo; `--copioni` usa il modello finto
-    (in CI, nei test). Le proposte create durante la valutazione si annullano.
+    assistente con `--assistente`) con il modello vero e ne riporta esito, passi e costo, più mediana e 90° percentile
+    dei secondi; `--copioni` usa il modello finto (in CI, nei test); `--modello <id_api>` fa rispondere a tutte le
+    domande un solo modello, per confrontarli. Una domanda può chiedere il numero esatto di una misura
+    (`"misura": {"nome", "periodo", ...}`: la valutazione lo calcola e lo cerca nella risposta, e nei copioni
+    `{valore}` diventa quel numero) e un tetto di passi (`"passi_massimi"`). Le proposte create durante la
+    valutazione si annullano.
+- **Misure aziendali** (`core/misure.py`): i numeri che un'azienda chiama per nome hanno una definizione fissata nel
+  codice, uguale per Ada, la dashboard, Analisi e le chat esterne. Il fatturato è l'imponibile delle fatture emesse
+  meno le note di credito, non la somma che sceglie il modello.
+  - le dichiarano le app con la chiave `"misure": "<app>.misure"` del manifest (un modulo che chiama `registra`).
+    Una misura **aggregata** è fatta di componenti `{vista, misura, filtri, segno}` sulle `ModelView`, quindi con i
+    permessi, l'azienda e le regole di chi chiede; una **calcolata** è una funzione (i prodotti sotto scorta).
+    `filtri_dinamici(request, di)` aggiunge filtri che dipendono da chi chiede o da oggi;
+  - quelle di partenza: `fatturazione.fatturato`, `fatture_emesse`, `da_incassare`, `scaduto`, `incassato`;
+    `vendite.ordinato`, `preventivi_aperti`, `valore_preventivi_aperti`; `acquisti.acquistato`;
+    `magazzino.sotto_scorta`; `calendario.appuntamenti` (di default quelli dell'utente). «Vendite» è il fatturato;
+  - le dashboard della Fatturazione e del Magazzino usano le stesse misure: se un ruolo non vede un campo di una
+    misura, la scheda dice «non disponibile»;
+  - Ada usa lo strumento `misura` (periodo, raggruppamento, primi N, confronto con il periodo prima o con lo stesso
+    tratto dell'anno prima) e `misura_aziendale` in `grafico`, `previsione` e `analisi_salva_grafico`. Un periodo
+    detto a parole («quest'anno») resta relativo anche nei grafici salvati; un anno o date precise restano fissi.
+    L'elenco delle misure installate è nel prompt di sistema (cambia solo con i moduli: la cache regge);
+  - sotto la risposta il chip «N numeri usati»: valore, periodo, definizione e il link alla lista filtrata dei record,
+    calcolati dal codice;
+  - nelle chat esterne (connettore) lo strumento si chiama «Misure aziendali» e porta l'elenco nella descrizione;
+  - `aggrega_record` e `grafico` hanno anche `ordina` (`-valore`) e `primi` (i primi N, con «Altro» nei grafici);
+    `tabella` con `per` e `misura` fa una tabella raggruppata;
+  - per le demo conviene un modello rapido come «Veloce» (Claude Haiku 5.5 è stato il più rapido a novembre 2026):
+    si sceglie in `/ai/modelli/`.
 - **Produzione**: lo streaming lo serve il servizio `stream` del compose (uvicorn, ASGI), e nginx gli instrada
   `/ai/flusso/`; il resto resta su gunicorn (WSGI). Quando cambiano i moduli installati, `stream` risponde 503 e
   si riavvia da solo, come il worker.

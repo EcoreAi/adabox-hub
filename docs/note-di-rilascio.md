@@ -3,6 +3,25 @@
 Ciò che chi aggiorna un'istanza deve sapere: cambi di comportamento, azioni da fare, migrazioni. Il dettaglio è nei
 commit; qui solo ciò che si vede o che chiede un intervento.
 
+## 2026-11-17
+
+- **Misure aziendali** — Kernel 1.3.0, AI 1.46.0, Analisi 1.6.0, Fatturazione 1.7.0, Vendite 1.9.0, Acquisti 1.6.0,
+  Magazzino 1.15.0, Calendario 1.2.0, Connettore AI 1.1.0 (nessuna migrazione; i moduli con le misure chiedono il
+  kernel 1.3).
+  - Fatturato, fatture emesse, da incassare, scaduto, incassato, ordinato, preventivi aperti, acquistato, prodotti sotto
+    scorta e appuntamenti hanno una definizione fissa. Ada, dashboard, Analisi e chat esterne danno lo stesso numero.
+    **Cambia il numero che Ada dava per il fatturato**: prima dipendeva dal modello (ordini confermati, fatture con
+    le bozze, totale IVA inclusa), ora è sempre l'imponibile delle fatture emesse meno le note di credito.
+  - Sotto la risposta il chip «numeri usati» con la definizione e il link ai record.
+  - I «primi 5 clienti» e simili funzionano anche negli strumenti generici (`ordina`, `primi`), senza i tentativi
+    a vuoto di prima.
+  - Le dashboard della Fatturazione e del Magazzino usano le stesse misure: un ruolo che non vede l'imponibile ora
+    legge «non disponibile» invece del numero.
+  - `ai_eval`: numero esatto delle misure, passi, tempi e `--modello`; 18 domande d'oro nuove sulle aree da demo.
+  - Chat: con «Larga» e «Piena» la risposta, i grafici e le tabelle si allargano con la colonna (prima restavano
+    stretti a sinistra); in «Piena» il testo si ferma a circa 120 battute, i grafici a 420 px di altezza. Ada non
+    lascia più nel testo segnaposto come `![grafico](artifact:44)`.
+
 ## 2026-11-16
 
 - **AI 1.45.0 — affidabilità delle previsioni e chat più larga** (nessuna migrazione).

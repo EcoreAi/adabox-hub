@@ -6,7 +6,7 @@
     "author": "ICHNOBYTE S.R.L.",
     "category": "Vendite",
     "depends": ["prodotti", "contatti"],
-    "min_core": "1.0",
+    "min_core": "1.3",
     "riepilogo": "vendite.riepilogo.voci",
     "application": True,
     "icon": "vendite/icon.svg",

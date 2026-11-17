@@ -5,7 +5,7 @@
     "author": "ICHNOBYTE S.R.L.",
     "category": "Contabilità",
     "depends": ["vendite", "fiscale"],
-    "min_core": "1.0",
+    "min_core": "1.3",
     "riepilogo": "fatturazione.riepilogo.voci",
     "application": True,
     "icon": "fatturazione/icon.svg",

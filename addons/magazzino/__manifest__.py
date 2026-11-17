@@ -6,7 +6,7 @@
     "author": "ICHNOBYTE S.R.L.",
     "category": "Magazzino",
     "depends": ["prodotti", "contatti"],
-    "min_core": "1.0",
+    "min_core": "1.3",
     "riepilogo": "magazzino.riepilogo.voci",
     "application": True,
     "icon": "magazzino/icon.svg",

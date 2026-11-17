@@ -5,7 +5,7 @@
     "author": "ICHNOBYTE S.R.L.",
     "category": "Integrazioni",
     "depends": ["ai"],
-    "min_core": "1.2",
+    "min_core": "1.3",
     "application": True,
     "nav_label": "Chat AI esterne",
     "icon": "connettore_ai/icon.svg",

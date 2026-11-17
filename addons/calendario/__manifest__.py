@@ -6,7 +6,7 @@
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": ["contatti"],
-    "min_core": "1.0",
+    "min_core": "1.3",
     "riepilogo": "calendario.riepilogo.voci",
     "dashboard": "calendario.dashboard.kpi",
     "application": True,

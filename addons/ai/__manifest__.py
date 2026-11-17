@@ -5,7 +5,7 @@
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
-    "min_core": "1.1",
+    "min_core": "1.3",
     "application": True,
     "nav_label": "Chat",
     "icon": "ai/icon.svg",
