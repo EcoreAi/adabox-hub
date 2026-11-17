@@ -5,6 +5,10 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-17
 
+- **Cerca ovunque trova grafici, pagine e menu** — Kernel 1.4.0, Analisi 1.7.0, AI 1.47.0 (nessuna migrazione).
+  - «grafico vendite quest'anno» trova i grafici salvati e le pagine di Analisi che l'utente vede, e le voci di menu,
+    anche con i sinonimi delle misure («vendite» trova «Fatturato»). Se nessun grafico corrisponde, «Chiedi ad Ada»
+    apre una chat nuova con la domanda già scritta.
 - **Misure aziendali** — Kernel 1.3.0, AI 1.46.0, Analisi 1.6.0, Fatturazione 1.7.0, Vendite 1.9.0, Acquisti 1.6.0,
   Magazzino 1.15.0, Calendario 1.2.0, Connettore AI 1.1.0 (nessuna migrazione; i moduli con le misure chiedono il
   kernel 1.3).

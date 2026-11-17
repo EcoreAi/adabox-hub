@@ -10,6 +10,7 @@ _widget = []                   # [dict(funzione, modulo, permission)] altri widg
 _portale = []                  # prefissi degli indirizzi che i clienti del portale possono aprire
 _pagine_app = []               # pagine che un modulo aggiunge dentro le altre app (es. «Aree di lavoro» dell'assistente)
 _parti_dashboard = set()       # app le cui pagine sono schede della dashboard (es. Analisi)
+_fonti_ricerca = []            # [dict(funzione, modulo, permission)] altre cose da trovare con «Cerca ovunque»
 
 
 def _chiave(model):
@@ -98,6 +99,23 @@ def widget_extra(request):
     return [v["funzione"] for v in _widget if v["modulo"] not in spenti and (v["permission"] is None or user.is_superuser or user.has_perm(v["permission"]))]
 
 
+def fonte_ricerca(funzione, modulo, permission=None):
+    """Da chiamare nel ready() dell'app: `funzione` (percorso puntato, riceve la richiesta) dà altre cose che «Cerca
+    ovunque» trova per titolo, con la visibilità di chi cerca: {"gruppo": "Grafici e pagine di Analisi", "grafici": True,
+    "voci": [{"titolo", "url", "sotto"}]}. `grafici`: se nessuna voce corrisponde, la ricerca propone di chiedere ad Ada."""
+    voce = {"funzione": funzione, "modulo": modulo, "permission": permission}
+    if voce not in _fonti_ricerca:
+        _fonti_ricerca.append(voce)
+
+
+def fonti_ricerca(request):
+    from .modules import disattivati
+    user = request.user
+    spenti = disattivati()
+    return [v["funzione"] for v in _fonti_ricerca if v["modulo"] not in spenti
+            and (v["permission"] is None or user.is_superuser or user.has_perm(v["permission"]))]
+
+
 def azione(chiave, template, order=100, permission=None, pubblica=False):
     """Da chiamare nel ready() dell'app: dove un template altrui scrive {% agganci "chiave" %} compare `template`,
     con il contesto di quel punto (es. «Salva in Analisi» sotto un grafico dell'assistente: chiave «ai.artifact»).
@@ -120,6 +138,7 @@ def svuota():
     _dashboard.clear()
     _azioni.clear()
     _widget.clear()
+    _fonti_ricerca.clear()
 
 
 def percorso_portale(prefisso):
