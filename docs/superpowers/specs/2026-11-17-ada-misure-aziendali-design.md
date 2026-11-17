@@ -181,6 +181,37 @@ confermati del mese, preventivi aperti, prodotti sotto scorta, appuntamenti di d
 `ai_eval --modello <id>` (se non c'è già) per far girare le stesse domande su ciascun modello configurato: il criterio
 di successo è che tutti diano lo stesso numero.
 
+### 8. La chat che si allarga (aggiunto su richiesta dell'utente, 2026-11-17)
+
+Dagli screenshot dell'utente: scegliendo «Larga» o «Piena» la colonna si allarga e il messaggio dell'utente va a
+destra, ma testo e grafici della risposta restano stretti a sinistra. Così si allontanano dalla domanda invece di
+allargarsi.
+
+Cause trovate in `addons/ai/static/ai/chat.css`:
+
+- `.ai-msg-corpo` è un elemento flex che si stringe sul contenuto: non ha `flex: 1` né `width: 100%`. Il grafico,
+  largo `100%` di un contenitore che si adatta a lui, resta della larghezza del testo;
+- `.ai-chat.is-larga .ai-md > :is(p, ul, ...) { max-width: 82ch; }` ferma il testo a 82 caratteri da «Larga» in su.
+
+Correzione:
+
+- il corpo della risposta occupa tutta la colonna; grafici, tabelle, codice e provenienza ne seguono la larghezza;
+- il testo si allarga con la colonna. Nella modalità «Piena» si ferma a una misura ancora leggibile, circa 120
+  caratteri [scelta mia: righe più lunghe si leggono male];
+- grafici larghi senza diventare enormi: altezza massima, e nella torta la legenda accanto alla torta con la torta di
+  diametro limitato. Le barre si allungano in orizzontale;
+- test a 760 px, 1100 px e «Piena» su uno schermo di 1920 px, con risposta di solo testo, con grafico a barre, con
+  torta e con tabella.
+
+Due difetti visibili negli stessi screenshot, corretti qui:
+
+- **Il segnaposto `![Top 5 clienti...](artifact:44)` compare come testo.** Alcuni modelli (qui Mistral) inventano una
+  sintassi immagine per il grafico. Il rendering del Markdown toglie le righe `![...](artifact:N)`, e il prompt ricorda
+  che grafici e tabelle compaiono da soli sotto la risposta;
+- **«5 clienti» con 4 spicchi nella torta.** Ada aveva filtrato per gli id presi dalle fatture più alte, e uno era
+  sbagliato. Lo risolvono `primi` nel grafico e la misura `fatturato` per cliente (punto 3); una domanda d'oro lo
+  controlla.
+
 ## Criteri di successo
 
 - Le domande d'oro da demo passano con Haiku 5.5, Mistral Medium 3.5 e GLM flash, con lo stesso numero per ciascuna.
