@@ -1,7 +1,8 @@
 {
     "name": "Acquisti",
     "summary": "Ordini ai fornitori con listini, gare, contratti quadro, approvazioni, riordino, riscontro con merce e fatture, resi e valutazione dei fornitori",
-    "version": "1.5.0",
+    "version": "1.6.0",
+    "misure": "acquisti.misure",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Acquisti",
     "depends": ["prodotti", "contatti"],
