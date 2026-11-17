@@ -13,6 +13,10 @@
 /* menu ⋯ (card e pagina) */
 .an-menu { position: relative; } .an-menu > summary { list-style: none; cursor: pointer; } .an-menu > summary::-webkit-details-marker { display: none; }
 .an-menu > summary svg { width: 16px; height: 16px; }
+.an-aggiorna { margin: 0; } .an-aggiorna svg { width: 16px; height: 16px; }
+.an-ora { font-size: 11px; color: var(--ui-text-3); white-space: nowrap; }
+.htmx-request .an-aggiorna svg, .an-aggiorna button[disabled] svg { animation: an-gira 0.8s linear infinite; }
+@keyframes an-gira { to { transform: rotate(360deg); } }
 .an-menu-pannello { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; min-width: 230px; padding: 6px; border-radius: 12px; border: 1px solid var(--ui-border); background: var(--ui-surface); box-shadow: 0 18px 50px rgba(15, 23, 42, .18); display: flex; flex-direction: column; gap: 2px; animation: df-entra .18s ease-out both; }
 .an-menu-largo { min-width: 320px; }
 .an-menu-pannello a, .an-menu-pannello button { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 8px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--ui-text); font: inherit; font-size: 13px; text-decoration: none; cursor: pointer; }

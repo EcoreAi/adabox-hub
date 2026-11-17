@@ -151,6 +151,7 @@ def chat(request, pk=None, progetto=None):
     aperto = _mio_documento(request, request.GET.get("documento"), conversazione) if conversazione and not sola_lettura else None
     progetto_nuova = (progetto_aperto or _mio_progetto(request, request.GET.get("progetto")) or area_corrente) if conversazione is None else None
     return render(request, "ai/chat.html", {
+        "chiedi": request.GET.get("chiedi", "").strip()[:300] if conversazione is None else "",   # da «Cerca ovunque»
         "sola_lettura": sola_lettura, "autore_chat": aree.nome(conversazione.utente) if sola_lettura else "",
         "puo_condividere": bool(con_aree and conversazione and not sola_lettura and conversazione.progetto_id),
         "documento": aperto, "versioni": aperto.versioni.all()[:20] if aperto else [],
@@ -619,6 +620,25 @@ def salva_artifact(request, pk):
     a = _mio_artifact(request, pk)
     a.salvato = not a.salvato
     a.save(update_fields=["salvato"])
+    if request.headers.get("HX-Request"):
+        return render(request, "ai/_artifact.html", {"a": a})
+    return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
+
+
+@require_POST
+@login_required
+def aggiorna_artifact(request, pk):
+    """Ricalcola il grafico o la tabella lì dov'è, con i dati di oggi (stessi permessi e azienda di quando è stato chiesto)."""
+    from core.viste.interroga import ErroreInterrogazione
+
+    from . import artifact as modulo
+    a = _mio_artifact(request, pk)
+    try:
+        a.dati = modulo.ricalcola(a)
+    except ErroreInterrogazione as e:
+        messages.error(request, f"Non si è potuto aggiornare: {e}")
+    else:
+        a.save(update_fields=["dati"])
     if request.headers.get("HX-Request"):
         return render(request, "ai/_artifact.html", {"a": a})
     return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")

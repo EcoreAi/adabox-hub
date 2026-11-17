@@ -601,7 +601,11 @@ credenziali dei fornitori: è la chat che chiama adabox. Progetto, scelte e font
 Valgono per ogni lista di ogni modulo, compresi quelli su misura, senza scrivere codice:
 
 - **Ricerche salvate**: il menu «Ricerche» della lista salva filtri, ricerca, raggruppamento e ordine, per sé o per chi lavora nella stessa azienda. La stella la fa aprire da sola; `?tutti=1` apre la lista completa.
-- **Cerca ovunque**: la casella in alto, o `/cerca/`, usa i `search_fields` di ogni vista che l'utente può vedere, con i suoi permessi e la sua azienda.
+- **Cerca ovunque**: la casella in alto, o `/cerca/`, usa i `search_fields` di ogni vista che l'utente può vedere, con i suoi permessi e la sua azienda. Trova anche, per parole, le voci di menu e ciò che i moduli dichiarano con
+  `hooks.fonte_ricerca("<app>.cerca.voci", "<app>", permission=...)` (Analisi: i grafici salvati e le pagine che
+  l'utente vede). Le parole vuote («grafico», «di», «quest'anno») non sono obbligatorie e valgono i sinonimi delle
+  misure aziendali: «grafico vendite quest'anno» trova «Fatturato per mese». Se nessun grafico corrisponde, la pagina
+  propone «Chiedi ad Ada» con la domanda già scritta in una chat nuova (`/ai/chat/?chiedi=...`, da inviare a mano).
 - **Pivot**: compare accanto alla lista se la vista dichiara `list_group_by`. Righe, colonne e fino a tre misure, con i filtri della lista ed esportazione in Excel.
 - **Registro delle modifiche**: chi ha cambiato cosa, quando e da dove (pagine, API, assistente, lavoro in background), su ogni record con una vista e sulle righe dei documenti. `storico = False` esclude i modelli che cambiano troppo spesso. Si legge da `/core/registro/` e sul dettaglio del record, con il permesso `core.view_registromodifica`. Non vede `QuerySet.update()`, `bulk_create()` e i campi molti-a-molti, e non ha una pulizia automatica: la tabella cresce.
 

@@ -381,3 +381,9 @@ def test_il_titolo_automatico_non_sovrascrive_quello_scelto(s, monkeypatch):
     titoli.genera(c, s["u"], s["az"])
     c.refresh_from_db()
     assert c.titolo == "Scelto da me"
+
+
+def test_chat_con_domanda_precompilata(client, superuser):
+    """Da «Cerca ovunque»: la chat nuova si apre con la domanda già scritta nel campo, da inviare a mano."""
+    html = client.get("/ai/chat/", {"chiedi": "grafico vendite <quest'anno>"}).content.decode()
+    assert "grafico vendite &lt;quest&#x27;anno&gt;</textarea>" in html

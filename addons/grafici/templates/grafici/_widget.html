@@ -10,6 +10,8 @@
   <div class="ui-card wd-card">
     <div class="ui-card-head"><div><div class="ui-card-title">{{ w.titolo }}</div><div class="ui-card-sub" title="{{ w.sotto }}">{{ w.sotto }}</div></div><div class="spacer"></div>
       {% if not w.serie.vuoto and w.serie.tipo != "kpi" and w.serie.tipo != "tabella" %}<button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-tabella aria-pressed="false" aria-controls="{{ w.dom }}-tab">Tabella</button>{% endif %}
+      <span class="an-ora" title="Dati calcolati il {{ w.aggiornato|date:'d/m/Y H:i' }}">dati delle {{ w.aggiornato|date:"H:i" }}</span>
+      <form method="post" class="an-aggiorna" action="{% url 'grafici:grafico_aggiorna' w.grafico.pk %}" hx-post="{% url 'grafici:grafico_aggiorna' w.grafico.pk %}" hx-target="#an-widget-{{ w.grafico.pk }}" hx-swap="outerHTML" hx-disabled-elt="find button">{% csrf_token %}<button type="submit" class="ui-btn ui-btn-ghost ui-btn-sm" title="Aggiorna con i dati di oggi" aria-label="Aggiorna {{ w.titolo }}"><svg><use href="#icon-refresh"/></svg></button></form>
       <details class="an-menu"><summary class="ui-btn ui-btn-ghost ui-btn-sm" aria-label="Azioni su {{ w.titolo }}"><svg><use href="#icon-more"/></svg></summary>
         <div class="an-menu-pannello">
           <form method="post" action="{% url 'grafici:grafico_aggiorna' w.grafico.pk %}" hx-post="{% url 'grafici:grafico_aggiorna' w.grafico.pk %}" hx-target="#an-widget-{{ w.grafico.pk }}" hx-swap="outerHTML">{% csrf_token %}<button type="submit"><svg><use href="#icon-refresh"/></svg> Aggiorna ora</button></form>

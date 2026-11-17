@@ -5,9 +5,17 @@
 <div class="ui-card is-revealed">
   <form class="ui-filtri" method="get"><div class="ui-search ui-filtri-q"><input class="ui-input" type="search" name="q" value="{{ q }}" placeholder="Cerca…" aria-label="Cerca" autofocus></div><button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Cerca</button></form>
   {% if troppo_corta %}<div class="ui-card-body"><p>Scrivi almeno due caratteri.</p></div>
-  {% elif q and not gruppi %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun risultato per «{{ q }}».</p></div></div>{% endif %}
+  {% elif q and not gruppi and not scorciatoie and not ada %}<div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun risultato per «{{ q }}».</p></div></div>{% endif %}
   {% if not completa %}<div class="ui-card-body"><p class="ui-help">La ricerca si è fermata dopo qualche secondo: alcune app non sono state controllate. Prova con un termine più preciso.</p></div>{% endif %}
 </div>
+{% for g in scorciatoie %}<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">{{ g.gruppo }}</div></div>
+  <div class="ui-card-body">{% for v in g.voci %}<div><a class="ui-link" href="{{ v.url }}">{{ v.titolo }}</a>{% if v.sotto %} <small class="ui-help">{{ v.sotto }}</small>{% endif %}</div>{% endfor %}</div>
+</section>{% endfor %}
+{% if ada %}<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-body"><p>Nessun grafico salvato con questo nome. Ada può disegnarlo con i dati di oggi.</p>
+    <a class="ui-btn ui-btn-primary ui-btn-sm" href="{{ ada }}">Chiedi ad Ada: «{{ q }}»</a></div>
+</section>{% endif %}
 {% for g in gruppi %}<section class="ui-card is-revealed ui-section">
   <div class="ui-card-head"><div class="ui-card-title">{{ g.vista }}</div>{% if g.altri %}<a class="ui-link" href="{{ g.url }}{{ q|urlencode }}">Vedi tutti</a>{% endif %}</div>
   <div class="ui-card-body">{% for v in g.voci %}<div><a class="ui-link" href="{{ v.url }}">{{ v.titolo }}</a></div>{% endfor %}</div>

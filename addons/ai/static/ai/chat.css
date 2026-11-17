@@ -239,6 +239,7 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-artifact-testa .ai-azione { width: 32px; height: 32px; border-radius: 9px; }
 .ai-artifact-testa .ai-azione svg { width: 17px; height: 17px; }
 .ai-artifact-titolo { font-size: 14px; font-weight: 600; color: var(--ui-text); }
+.ai-artifact-ora { margin-left: 8px; font-size: 12px; color: var(--ui-text-3); white-space: nowrap; }
 .ai-artifact-grafico svg { display: block; width: 100%; height: auto; max-height: 420px; }
 .ai-artifact-tabella { max-height: 420px; overflow: auto; margin: 0; }
 .ai-artifact-nota, .ai-artifact-vuoto { margin: 6px 0 0; font-size: 13px; color: var(--ui-text-2); }
