@@ -627,6 +627,25 @@ def salva_artifact(request, pk):
 
 @require_POST
 @login_required
+def aggiorna_artifact(request, pk):
+    """Ricalcola il grafico o la tabella lì dov'è, con i dati di oggi (stessi permessi e azienda di quando è stato chiesto)."""
+    from core.viste.interroga import ErroreInterrogazione
+
+    from . import artifact as modulo
+    a = _mio_artifact(request, pk)
+    try:
+        a.dati = modulo.ricalcola(a)
+    except ErroreInterrogazione as e:
+        messages.error(request, f"Non si è potuto aggiornare: {e}")
+    else:
+        a.save(update_fields=["dati"])
+    if request.headers.get("HX-Request"):
+        return render(request, "ai/_artifact.html", {"a": a})
+    return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
+
+
+@require_POST
+@login_required
 @permission_required("ai.change_servermcp", raise_exception=True)
 @funzioni.richiede("mcp")
 def strumenti_mcp(request, pk):

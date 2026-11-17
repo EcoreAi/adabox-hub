@@ -2,7 +2,12 @@
 <figure class="ai-artifact" id="ai-artifact-{{ a.pk }}">
   <figcaption class="ai-artifact-testa">
     <span class="ai-artifact-titolo">{{ a.titolo }}</span>
+    <span class="ai-artifact-ora">dati delle {{ a.aggiornato|default:a.creato|date:"H:i" }} del {{ a.aggiornato|default:a.creato|date:"d/m" }}</span>
     <span class="ai-spazio"></span>
+    {% if a.utente_id == request.user.pk %}<form method="post" action="{% url 'ai:aggiorna_artifact' a.pk %}" hx-post="{% url 'ai:aggiorna_artifact' a.pk %}"
+          hx-target="#ai-artifact-{{ a.pk }}" hx-swap="outerHTML" hx-disabled-elt="find button">{% csrf_token %}
+      <button type="submit" class="ai-azione" data-tip="Aggiorna con i dati di oggi" aria-label="Aggiorna con i dati di oggi"><svg><use href="#icon-refresh"/></svg></button>
+    </form>{% endif %}
     <form method="post" action="{% url 'ai:salva_artifact' a.pk %}" hx-post="{% url 'ai:salva_artifact' a.pk %}"
           hx-target="#ai-artifact-{{ a.pk }}" hx-swap="outerHTML">{% csrf_token %}
       <button type="submit" class="ai-azione{% if a.salvato %} is-preferita{% endif %}" aria-pressed="{{ a.salvato|yesno:'true,false' }}"

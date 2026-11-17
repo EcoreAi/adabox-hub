@@ -9,6 +9,8 @@ commit; qui solo ciò che si vede o che chiede un intervento.
   - «grafico vendite quest'anno» trova i grafici salvati e le pagine di Analisi che l'utente vede, e le voci di menu,
     anche con i sinonimi delle misure («vendite» trova «Fatturato»). Se nessun grafico corrisponde, «Chiedi ad Ada»
     apre una chat nuova con la domanda già scritta.
+  - Grafici salvati: l'icona ↻ accanto al titolo ricalcola subito, con l'ora dei dati («dati delle 12:35»); prima
+    era solo nel menu ⋯. In chat grafici e tabelle si aggiornano lì dove sono (↻), senza aprire un'altra scheda.
 - **Misure aziendali** — Kernel 1.3.0, AI 1.46.0, Analisi 1.6.0, Fatturazione 1.7.0, Vendite 1.9.0, Acquisti 1.6.0,
   Magazzino 1.15.0, Calendario 1.2.0, Connettore AI 1.1.0 (nessuna migrazione; i moduli con le misure chiedono il
   kernel 1.3).

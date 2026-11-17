@@ -61,6 +61,7 @@ urlpatterns = [
     path("artifact/<int:pk>/", pagine.pagina_artifact, name="artifact"),
     path("artifact/<int:pk>/csv/", pagine.csv_artifact, name="artifact_csv"),
     path("artifact/<int:pk>/salva/", pagine.salva_artifact, name="salva_artifact"),
+    path("artifact/<int:pk>/aggiorna/", pagine.aggiorna_artifact, name="aggiorna_artifact"),
     path("proposta/<int:pk>/conferma/", pagine.conferma_proposta, name="conferma_proposta"),
     path("proposta/<int:pk>/annulla/", pagine.annulla_proposta, name="annulla_proposta"),
     path("licenza/", pagine.pagina_licenza, name="licenza"),
