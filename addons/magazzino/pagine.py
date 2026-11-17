@@ -33,13 +33,23 @@ def situazione(request, solo_sotto_scorta=False, cerca="", alla=None):
         impegnato = sum((impegni.get((p.pk, m.pk), 0) for m in magazzini), 0)
         in_arrivo = sum((arrivi.get((p.pk, m.pk), 0) for m in magazzini), 0)
         previsto = totale + in_arrivo - impegnato
-        sotto_magazzino = [m.nome for m in magazzini if (p.pk, m.pk) in scorte and
-                           saldi.get((p.pk, m.pk), 0) + arrivi.get((p.pk, m.pk), 0) - impegni.get((p.pk, m.pk), 0) < scorte[(p.pk, m.pk)]]
-        sotto = (p.scorta_minima > 0 and previsto < p.scorta_minima) or bool(sotto_magazzino)
+        sotto_magazzino = []
+        mancano = 0                           # pezzi che servono per tornare sopra la soglia superata (la peggiore)
+        for m in magazzini:
+            if (p.pk, m.pk) not in scorte:
+                continue
+            previsto_m = saldi.get((p.pk, m.pk), 0) + arrivi.get((p.pk, m.pk), 0) - impegni.get((p.pk, m.pk), 0)
+            if previsto_m < scorte[(p.pk, m.pk)]:
+                sotto_magazzino.append(m.nome)
+                mancano = max(mancano, scorte[(p.pk, m.pk)] - previsto_m)
+        sotto_minima = p.scorta_minima > 0 and previsto < p.scorta_minima
+        if sotto_minima:
+            mancano = max(mancano, p.scorta_minima - previsto)
+        sotto = sotto_minima or bool(sotto_magazzino)
         if solo_sotto_scorta and not sotto:
             continue
         righe.append({"prodotto": p, "per_magazzino": per_magazzino, "totale": totale, "sotto_scorta": sotto, "impegnato": impegnato,
-                      "in_arrivo": in_arrivo, "previsto": previsto, "sotto_magazzino": sotto_magazzino})
+                      "in_arrivo": in_arrivo, "previsto": previsto, "sotto_magazzino": sotto_magazzino, "mancano": mancano})
     return magazzini, righe
 
 

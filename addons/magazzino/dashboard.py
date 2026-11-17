@@ -14,5 +14,5 @@ def kpi(request):
                      "etichetta": "ricevimenti attesi"}],
             "grafici": [{"titolo": "Prodotti sotto scorta", "tipo": "barre",
                          "url": reverse("magazzino:giacenze") + "?sotto_scorta=1",
-                         "dati": [(str(r["prodotto"].nome)[:18], float(r["prodotto"].scorta_minima - r["totale"]))
+                         "dati": [(str(r["prodotto"].nome)[:18], float(r["mancano"]))
                                   for r in sotto[:10]]}] if sotto else []}
