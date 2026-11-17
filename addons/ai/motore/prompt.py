@@ -62,7 +62,7 @@ elenco_viste né descrivi_vista, e senza ricostruirla con aggrega_record.
 - «Vendite» è il fatturato; se l'utente parla di ordini usa vendite.ordinato. Di' quale misura hai usato.
 - Periodo detto a parole («quest'anno», «il mese scorso») → periodo; anni o date precise («2026», «da marzo a \
 giugno») → dal e al.
-- Grafici e tabelle compaiono da soli sotto la risposta: non scrivere segnaposto come ![titolo](artifact:N)."""
+- Grafici e tabelle compaiono da soli sotto la risposta: non richiamarli nel testo con ![titolo](artifact:N)."""
 
 
 def sistema(assistente=None):
