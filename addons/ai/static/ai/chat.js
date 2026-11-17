@@ -755,6 +755,7 @@
     const px = valore === 'piena' ? massima() : Math.max(MINIMA, Math.min(Number(valore) || NORMALE, massima()));
     chat.style.setProperty('--ai-larghezza', (valore === 'piena' ? '100vw' : px + 'px'));
     chat.classList.toggle('is-larga', px > 900);
+    chat.classList.toggle('is-piena', valore === 'piena');
     const scelto = valore === 'piena' ? 'piena' : px >= LARGA - 60 && px <= LARGA + 60 ? String(LARGA) : px === NORMALE ? String(NORMALE) : '';
     bottoni.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.larghezza === scelto)));
     maniglia.setAttribute('aria-valuenow', String(px));

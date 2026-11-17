@@ -99,6 +99,8 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-msg-utente { justify-content: flex-end; }
 .ai-msg-corpo { display: flex; flex-direction: column; min-width: 0; max-width: 100%; }
 .ai-msg-utente .ai-msg-corpo { align-items: flex-end; max-width: 80%; }
+/* la risposta occupa tutta la colonna: con «Larga» e «Piena» testo, grafici e tabelle si allargano con lei */
+.ai-msg-assistente .ai-msg-corpo { flex: 1 1 auto; width: 100%; }
 .ai-msg-testo { font-size: 15px; line-height: 1.6; overflow-wrap: anywhere; color: var(--ui-text); }
 .ai-msg-utente .ai-msg-testo { background: var(--ui-surface-2); padding: 10px 16px; border-radius: 18px; }
 .ai-msg-avatar { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: var(--ui-primary-tint); color: var(--ui-primary); margin-top: 1px; }
@@ -237,7 +239,7 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-artifact-testa .ai-azione { width: 32px; height: 32px; border-radius: 9px; }
 .ai-artifact-testa .ai-azione svg { width: 17px; height: 17px; }
 .ai-artifact-titolo { font-size: 14px; font-weight: 600; color: var(--ui-text); }
-.ai-artifact-grafico svg { display: block; width: 100%; height: auto; }
+.ai-artifact-grafico svg { display: block; width: 100%; height: auto; max-height: 420px; }
 .ai-artifact-tabella { max-height: 420px; overflow: auto; margin: 0; }
 .ai-artifact-nota, .ai-artifact-vuoto { margin: 6px 0 0; font-size: 13px; color: var(--ui-text-2); }
 
@@ -702,6 +704,6 @@ body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface);
 .ai-maniglia:hover::before, .ai-maniglia:focus-visible::before, .ai-maniglia.is-attiva::before { opacity: .5; }
 .ai-maniglia:focus-visible { outline: none; }
 body.ai-trascino, body.ai-trascino * { cursor: col-resize !important; user-select: none; }
-/* più larga: tabelle, grafici e codice usano lo spazio; il testo resta a una larghezza comoda da leggere */
-.ai-chat.is-larga .ai-md > :is(p, ul, ol, blockquote, h1, h2, h3, h4) { max-width: 82ch; }
+/* più larga: testo, tabelle, grafici e codice seguono la colonna; in «Piena» il testo si ferma a una riga ancora leggibile */
+.ai-chat.is-piena .ai-md > :is(p, ul, ol, blockquote, h1, h2, h3, h4) { max-width: 120ch; }
 @media (max-width: 900px) { .ai-larghezza, .ai-maniglia { display: none; } .ai-chat { --ai-larghezza: 760px !important; } }
