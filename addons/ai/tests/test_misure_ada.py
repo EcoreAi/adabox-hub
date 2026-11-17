@@ -78,3 +78,33 @@ def test_misura_non_installata(scena, contesto, monkeypatch):
         strumento_misure.misura(contesto, nome="magazzino.sotto_scorta")
     assert "magazzino.sotto_scorta" not in misure.testo_prompt()
     assert "fatturazione.fatturato" in misure.testo_prompt()
+
+
+def _con_modello_finto():
+    from ai.models import AnelloCatena, Modello, Profilo, Provider
+    provider = Provider.objects.create(nome="Finto", tipo="finto", locale=True)
+    modello = Modello.objects.create(provider=provider, id_api="finto-1", etichetta="Finto")
+    AnelloCatena.objects.create(profilo=Profilo.objects.create(nome="Chat", compito="chat"), modello=modello)
+
+
+def test_provenienza_numeri_usati(scena, contesto, client):
+    from ai import motore
+    from ai.gateway import finto
+    azienda, cliente, monitor, _ = scena
+    _fattura(azienda, cliente, [(monitor, "5")], stato="emessa")
+    _con_modello_finto()
+    with finto.con_copione([[("strumento", "misura", {"nome": "fatturazione.fatturato", "periodo": "anno"}),
+                             ("strumento", "misura", {"nome": "fatturazione.inesistente"})],
+                            ["Il fatturato dell'anno è 1.000 €."]]):
+        turno = motore.avvia(contesto.conversazione, "Fatturato?", contesto.utente, azienda)
+    turno.refresh_from_db()
+    numeri = turno.provenienza["numeri"]
+    assert len(numeri) == 1
+    n = numeri[0]
+    assert (n["etichetta"], n["valore"], n["unita"]) == ("Fatturato", 1000, "€")
+    assert n["periodo"] == "dell'anno in corso" and "note di credito" in n["definizione"]
+    assert n["url"].startswith("/fatturazione/fatture/?")
+    assert turno.provenienza["esito"] == "verificato"
+    client.force_login(contesto.utente)
+    pagina = client.get(f"/ai/chat/{contesto.conversazione.pk}/").content.decode()
+    assert "1 numero usato" in pagina and "Apri i record" in pagina and "1.000 €" in pagina
