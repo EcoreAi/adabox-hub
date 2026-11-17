@@ -52,8 +52,32 @@ def analisi_leggi_pagina(contesto, pagina):
             "nota": "Numeri calcolati adesso con i permessi dell'utente; i grafici con «query» sono salvati nella pagina."}
 
 
-def _specifica(contesto, titolo, vista, tipo, misura, per, data, periodo, orizzonte, filtri, testo, artifact):
+def _specifica_misura(misura_aziendale, tipo, per, periodo, orizzonte, titolo):
+    """La spec su una misura aziendale: KPI per periodo, previsione per mese/settimana/giorno, grafico per raggruppamento."""
+    from core import misure
+    if tipo not in TIPI or tipo == Grafico.TABELLA:
+        raise ErroreStrumento(f"«tipo» è uno tra: {', '.join(t for t in TIPI if t != Grafico.TABELLA)}.")
+    spec = {"misura_aziendale": misura_aziendale}
+    if tipo == Grafico.KPI:
+        spec["periodo"] = periodo or "mese"
+    elif tipo == Grafico.PREVISIONE:
+        spec["per"], spec["orizzonte"] = periodo or "mese", max(1, min(int(orizzonte or 3), 24))
+    else:
+        if not per:
+            raise ErroreStrumento("Un grafico ha bisogno di «per» (un raggruppamento della misura, es. cliente o mese).")
+        spec["per"] = per
+    try:
+        etichetta = misure.per_nome(misura_aziendale).etichetta
+    except ErroreInterrogazione as e:
+        raise ErroreStrumento(str(e))
+    return tipo, spec, titolo or (f"{etichetta} del {spec['periodo']}" if tipo == Grafico.KPI else etichetta)
+
+
+def _specifica(contesto, titolo, vista, tipo, misura, per, data, periodo, orizzonte, filtri, testo, artifact,
+               misura_aziendale=""):
     """(tipo, spec, titolo) da controllare: dall'artifact già in chat oppure dai campi."""
+    if misura_aziendale and not artifact:
+        return _specifica_misura(misura_aziendale, tipo, per, periodo, orizzonte, titolo)
     if artifact:
         from ai.models import Artifact
         a = Artifact.objects.filter(pk=artifact, utente=contesto.utente).first()
@@ -92,7 +116,7 @@ def _specifica(contesto, titolo, vista, tipo, misura, per, data, periodo, orizzo
 def _controlla(contesto, tipo, spec):
     request = richiesta.per(contesto)
     vista = motore.vista_di(spec, request)
-    if vista is None:
+    if vista is None and not spec.get("misura_aziendale"):          # le misure calcolate non hanno una vista
         raise ErroreStrumento(f"Vista «{spec.get('vista')}» inesistente o non accessibile.")
     try:
         dati = motore.dati_di(tipo, spec, request)
@@ -119,8 +143,9 @@ def _dove(contesto, pagina):
 
 
 def anteprima_salva(contesto, titolo="", vista="", tipo="barre", misura="count", per="", data="", periodo="mese",
-                    orizzonte=3, filtri=None, testo="", pagina="", artifact=None, obiettivo=None):
-    tipo, spec, titolo = _specifica(contesto, titolo, vista, tipo, misura, per, data, periodo, orizzonte, filtri, testo, artifact)
+                    orizzonte=3, filtri=None, testo="", pagina="", artifact=None, obiettivo=None, misura_aziendale=""):
+    tipo, spec, titolo = _specifica(contesto, titolo, vista, tipo, misura, per, data, periodo, orizzonte, filtri, testo, artifact,
+                                    misura_aziendale)
     vista_obj, _ = _controlla(contesto, tipo, spec)
     descrizione = motore.descrizione(spec, vista=vista_obj, tipo=tipo)
     titolo = (titolo or descrizione)[:200]
@@ -131,8 +156,9 @@ def anteprima_salva(contesto, titolo="", vista="", tipo="barre", misura="count",
 
 
 def salva_grafico(contesto, titolo="", vista="", tipo="barre", misura="count", per="", data="", periodo="mese",
-                  orizzonte=3, filtri=None, testo="", pagina="", artifact=None, obiettivo=None):
-    tipo, spec, titolo = _specifica(contesto, titolo, vista, tipo, misura, per, data, periodo, orizzonte, filtri, testo, artifact)
+                  orizzonte=3, filtri=None, testo="", pagina="", artifact=None, obiettivo=None, misura_aziendale=""):
+    tipo, spec, titolo = _specifica(contesto, titolo, vista, tipo, misura, per, data, periodo, orizzonte, filtri, testo, artifact,
+                                    misura_aziendale)
     vista_obj, dati = _controlla(contesto, tipo, spec)
     testo_pagina = str(pagina or "").strip()
     try:
@@ -199,7 +225,9 @@ registra(Strumento(
                                                     "app:slug per la scheda di un'app, area:id per la dashboard dell'area di "
                                                     "lavoro (quella della chat, se è in un'area); vuoto = libreria"},
         "artifact": {"type": "integer", "description": "id del grafico o della tabella già mostrati in chat: ne copia la query"},
-        "obiettivo": {"type": "number", "description": "valore obiettivo: una linea sul grafico, la barra di avanzamento sul KPI"}},
+        "obiettivo": {"type": "number", "description": "valore obiettivo: una linea sul grafico, la barra di avanzamento sul KPI"},
+        "misura_aziendale": {"type": "string", "description": "una misura dell'elenco «Misure aziendali» al posto di vista e "
+                                                              "misura (per i KPI: periodo = giorno, settimana, mese o anno)"}},
      "required": []}, salva_grafico, rischio="scrittura", concorrente=False, anteprima=anteprima_salva,
     permesso="grafici.add_grafico"))
 registra(Strumento(

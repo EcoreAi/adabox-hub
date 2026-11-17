@@ -101,6 +101,12 @@ def serie_storica(vista, request, data, misura="count", per="mese", filtri=None,
     for r in righe:
         if r["_p"] is not None:
             valori[_come_data(r["_p"])] = float(r["_v"] or 0)
+    return periodi_completi(valori, per)
+
+
+def periodi_completi(valori, per):
+    """([(periodo, valore)] dei periodi completi, con gli zeri dei periodi vuoti, fino a quello in corso escluso;
+    periodo in corso) da {inizio del periodo: valore}."""
     attuale = inizio(timezone.localdate(), per)
     passati = [p for p in valori if p < attuale]
     if not passati:
@@ -134,9 +140,19 @@ def prevedi(storia, orizzonte):
 def calcola_previsione(spec, contesto):
     from .strumenti import richiesta
     from .strumenti.viste import vista_per
-    vista = vista_per(contesto, spec["vista"])
-    storia, attuale = serie_storica(vista, richiesta.per(contesto), spec["data"], spec.get("misura", "count"),
-                                    spec.get("per", "mese"), spec.get("filtri"), spec.get("testo", ""), spec.get("lista"))
+    if spec.get("misura_aziendale"):                     # la storia di una misura aziendale (note di credito comprese)
+        from core import misure
+        if spec.get("per", "mese") not in UNITA:
+            raise ErroreStrumento("«per» è mese, settimana o giorno.")
+        valori = {inizio(d, spec.get("per", "mese")): v for d, v in
+                  misure.storia(spec["misura_aziendale"], richiesta.per(contesto), spec.get("per", "mese")).items()}
+        if not valori:
+            raise ErroreStrumento("Nessun dato nei periodi passati: non c'è una storia da cui prevedere.")
+        storia, attuale = periodi_completi(valori, spec.get("per", "mese"))
+    else:
+        vista = vista_per(contesto, spec["vista"])
+        storia, attuale = serie_storica(vista, richiesta.per(contesto), spec["data"], spec.get("misura", "count"),
+                                        spec.get("per", "mese"), spec.get("filtri"), spec.get("testo", ""), spec.get("lista"))
     futuro, modello = prevedi(storia, spec.get("orizzonte", 3))
     per = spec.get("per", "mese")
     return {"storico": [[etichetta(p, per), round(v, 2)] for p, v in storia],

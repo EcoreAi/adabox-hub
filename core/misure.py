@@ -315,3 +315,85 @@ def testo_prompt():
             riga += " Situazione di oggi (senza periodo)."
         righe.append(riga)
     return "\n".join(righe)
+
+
+# ---------- grafici, KPI e previsioni sulle misure (spec con "misura_aziendale") ----------
+
+def vista_principale(nome, request):
+    """La vista della prima componente (per i link e i permessi dei grafici salvati); None per le calcolate."""
+    m = per_nome(nome)
+    if not m.componenti:
+        return None
+    try:
+        return interroga.vista_per_nome(m.componenti[0].vista, request)
+    except ErroreInterrogazione:
+        return None
+
+
+def titolo(nome, spec=None):
+    """«Fatturato dell'anno in corso» (periodo relativo) oppure «Fatturato 2026» (date fisse)."""
+    m = per_nome(nome)
+    spec = spec or {}
+    if not m.periodo_su:
+        return m.etichetta
+    p = risolvi_periodo(spec.get("periodo") or ("" if spec.get("dal") or spec.get("al") else m.periodo_predefinito),
+                        spec.get("dal"), spec.get("al"))
+    return f"{m.etichetta} {p.etichetta}"
+
+
+def _parametri(spec):
+    return {"periodo": spec.get("periodo", ""), "dal": spec.get("dal"), "al": spec.get("al"), "di": spec.get("di", ""),
+            "aziende": spec.get("aziende")}
+
+
+def serie(spec, request):
+    """La serie di un grafico su una misura: stessa forma di interroga.calcola."""
+    nome, per = spec["misura_aziendale"], spec.get("per", "")
+    m = per_nome(nome)
+    if not per:
+        raise ErroreInterrogazione(f"Un grafico ha bisogno di «per»: {', '.join(m.raggruppamenti) or 'nessuno'}.")
+    r = calcola(nome, request, per=per, **_parametri(spec))
+    temporale = ":" in m.raggruppamenti.get(per, "")
+    gruppi = r["gruppi"]
+    primi = spec.get("primi")
+    if primi and not temporale:
+        primi = int(primi)
+        valori = interroga.con_altro([(g["gruppo"], g["valore"]) for g in gruppi], primi)
+        chiavi = [g.get("chiave") for g in gruppi[:primi]] + ([None] if len(gruppi) > primi else [])
+    else:
+        valori, chiavi = [(g["gruppo"], g["valore"]) for g in gruppi], [g.get("chiave") for g in gruppi]
+    return {"serie": valori, "chiavi": chiavi, "totale": r["valore"], "misura": nome, "per": per}
+
+
+def kpi(spec, request, storia=12):
+    """Il KPI di una misura: valore del periodo in corso, quello prima, delta % e gli ultimi `storia` periodi
+    (stessa forma di interroga.kpi)."""
+    nome = spec["misura_aziendale"]
+    m = per_nome(nome)
+    if not m.periodo_su:
+        r = calcola(nome, request, di=spec.get("di", ""), aziende=spec.get("aziende"))
+        return {"valore": r["valore"], "precedente": None, "delta": None, "storico": [], "periodo": "", "unita": m.unita}
+    periodo = spec.get("periodo", "mese") or "mese"
+    if periodo not in m.raggruppamenti or periodo not in interroga.PERIODI:
+        raise ErroreInterrogazione(f"Il KPI di «{m.etichetta}» va per: "
+                                   f"{', '.join(p for p in interroga.PERIODI if p in m.raggruppamenti)}.")
+    attuale = interroga.inizio_periodo(_oggi(), periodo)
+    primo = interroga.avanti_periodo(attuale, periodo, -(storia - 1))
+    fine = interroga.avanti_periodo(attuale, periodo, 1) - datetime.timedelta(days=1)
+    r = calcola(nome, request, dal=primo, al=fine, per=periodo, di=spec.get("di", ""), aziende=spec.get("aziende"))
+    valori = {g["chiave"]: g["valore"] for g in r["gruppi"]}
+    periodi = [interroga.avanti_periodo(primo, periodo, i) for i in range(storia)]
+    valore = valori.get(attuale.isoformat(), 0)
+    precedente = valori.get(interroga.avanti_periodo(attuale, periodo, -1).isoformat(), 0)
+    delta = round((valore - precedente) * 100 / precedente, 1) if precedente else None
+    return {"valore": valore, "precedente": precedente, "delta": delta, "periodo": periodo, "unita": m.unita,
+            "storico": [(interroga.etichetta_periodo(p, periodo), valori.get(p.isoformat(), 0)) for p in periodi]}
+
+
+def storia(nome, request, per, aziende=None, di=""):
+    """{inizio del periodo: valore} di tutta la storia fino a oggi, per le previsioni."""
+    m = per_nome(nome)
+    if not m.periodo_su or per not in m.raggruppamenti:
+        raise ErroreInterrogazione(f"La misura «{m.etichetta}» non ha una storia per {per}.")
+    r = calcola(nome, request, dal=datetime.date(1900, 1, 1), al=_oggi(), per=per, aziende=aziende, di=di)
+    return {_data(g["chiave"]): float(g["valore"] or 0) for g in r["gruppi"] if g.get("chiave")}

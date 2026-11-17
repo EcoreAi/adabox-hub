@@ -67,6 +67,9 @@ def calcola(spec, contesto):
     if spec.get("grafico") == "previsione":
         from .specialisti import calcola_previsione
         return calcola_previsione(spec, contesto)
+    if spec.get("misura_aziendale"):
+        from core import misure
+        return misure.serie(spec, richiesta.per(contesto))
     v = vista_per(contesto, spec["vista"])
     request = richiesta.per(contesto)
     if spec["tipo"] == Artifact.GRAFICO:
@@ -137,11 +140,33 @@ def _crea(contesto, tipo, titolo, spec, dati):
                                    dati=dati)
 
 
-def grafico(contesto, vista, per, misura="count", tipo="barre", filtri=None, testo="", titolo="", aziende=None, ordina="",
-            primi=None, limite=None):
+def _grafico_misura(contesto, misura_aziendale, per, tipo, titolo, aziende, primi, periodo, dal, al, di):
+    """Un grafico su una misura aziendale: la spec tiene il nome della misura e il periodo come l'ha detto l'utente
+    (relativo: «quest'anno» resta l'anno in corso; date precise: fisse)."""
+    from core import misure
+    spec = {"tipo": Artifact.GRAFICO, "grafico": tipo, "misura_aziendale": misura_aziendale, "per": per}
+    if dal or al:
+        spec.update({k: v for k, v in (("dal", dal), ("al", al)) if v})
+    elif periodo:
+        spec["periodo"] = periodo
+    for chiave, valore in (("primi", primi), ("di", di), ("aziende", aziende)):
+        if valore:
+            spec[chiave] = valore
+    dati = calcola(spec, contesto)
+    a = _crea(contesto, Artifact.GRAFICO, titolo or misure.titolo(misura_aziendale, spec), spec, dati)
+    return {"artifact": a.pk, "titolo": a.titolo, "totale": dati["totale"], "serie": dati["serie"],
+            "nota": "Il grafico è disegnato sotto la tua risposta: non rifarlo in testo e non elencare tutti i valori."}
+
+
+def grafico(contesto, vista="", per="", misura="count", tipo="barre", filtri=None, testo="", titolo="", aziende=None,
+            ordina="", primi=None, limite=None, misura_aziendale="", periodo="", dal="", al="", di=""):
     primi = primi or limite                       # «limite» è come lo chiamano spesso i modelli
     if tipo not in TIPI_GRAFICO:
         raise ErroreStrumento(f"«tipo» è uno tra: {', '.join(TIPI_GRAFICO)}.")
+    if misura_aziendale:
+        return _grafico_misura(contesto, misura_aziendale, per, tipo, titolo, aziende, primi, periodo, dal, al, di)
+    if not vista:
+        raise ErroreStrumento("Indica «vista» oppure «misura_aziendale».")
     if not per:
         raise ErroreStrumento("Un grafico ha bisogno di «per» (campo o data:mese...).")
     spec = {"tipo": Artifact.GRAFICO, "vista": vista, "per": per, "misura": misura or "count", "grafico": tipo,
@@ -198,8 +223,13 @@ registra(Strumento(
         "aziende": {"description": "consolidato di più aziende dell'utente: \"tutte\" o una lista di id; vuoto = solo la corrente "
                                    "(con per=azienda il confronto tra aziende)"},
         "ordina": ORDINA_GRUPPI, "primi": {"type": "integer", "description": "solo le prime N categorie per valore, "
-                                                                               "il resto in «Altro» (es. 5 per i 5 clienti migliori)"}},
-     "required": ["vista", "per"]}, grafico))
+                                                                               "il resto in «Altro» (es. 5 per i 5 clienti migliori)"},
+        "misura_aziendale": {"type": "string", "description": "una misura dell'elenco «Misure aziendali» al posto di vista e "
+                                                              "misura; «per» è un suo raggruppamento (es. cliente, mese)"},
+        "periodo": {"type": "string", "description": "con misura_aziendale: periodo detto a parole (anno, mese_scorso...)"},
+        "dal": {"type": "string", "description": "con misura_aziendale: AAAA-MM-GG, per anni o date precise"},
+        "al": {"type": "string", "description": "con misura_aziendale: AAAA-MM-GG"}},
+     "required": ["per"]}, grafico))
 registra(Strumento(
     "tabella", "Mostra sotto la risposta una tabella di record (fino a 200) con link ed export CSV: per elenchi lunghi "
                "invece di scriverli nel testo.",

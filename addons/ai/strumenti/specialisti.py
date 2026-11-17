@@ -7,7 +7,8 @@ from .viste import FILTRI, TESTO, VISTA
 MAX_ORIZZONTE = 24                # = specialisti.MAX_ORIZZONTE (qui serve già all'import, per lo schema)
 
 
-def previsione(contesto, vista, data, misura="count", per="mese", orizzonte=3, filtri=None, testo="", titolo=""):
+def previsione(contesto, vista="", data="", misura="count", per="mese", orizzonte=3, filtri=None, testo="", titolo="",
+               misura_aziendale=""):
     from .. import artifact
     from ..models import Artifact
     try:
@@ -16,11 +17,19 @@ def previsione(contesto, vista, data, misura="count", per="mese", orizzonte=3, f
         raise ErroreStrumento("«orizzonte» è un numero intero di periodi.")
     if contesto.conversazione is None:
         raise ErroreStrumento("Le previsioni si mostrano solo in una chat.")
-    spec = {"tipo": Artifact.GRAFICO, "grafico": "previsione", "vista": vista, "data": data,
-            "misura": misura or "count", "per": per, "orizzonte": orizzonte, "filtri": filtri or {}, "testo": testo or ""}
+    if misura_aziendale:
+        from core import misure
+        spec = {"tipo": Artifact.GRAFICO, "grafico": "previsione", "misura_aziendale": misura_aziendale, "per": per,
+                "orizzonte": orizzonte}
+        predefinito = f"Previsione {misure.per_nome(misura_aziendale).etichetta.lower()} per {per}"
+    elif vista and data:
+        spec = {"tipo": Artifact.GRAFICO, "grafico": "previsione", "vista": vista, "data": data,
+                "misura": misura or "count", "per": per, "orizzonte": orizzonte, "filtri": filtri or {}, "testo": testo or ""}
+        predefinito = f"Previsione {vista}: {misura or 'count'} per {per}"
+    else:
+        raise ErroreStrumento("Indica «misura_aziendale» oppure «vista» e «data».")
     dati = specialisti.calcola_previsione(spec, contesto)
-    a = artifact._crea(contesto, Artifact.GRAFICO, titolo or f"Previsione {vista}: {misura or 'count'} per {per}",
-                       spec, dati)
+    a = artifact._crea(contesto, Artifact.GRAFICO, titolo or predefinito, spec, dati)
     return {"artifact": a.pk, "titolo": a.titolo, "ultimi_periodi": dati["storico"][-6:],
             "previsione": [{"periodo": p, "basso_10": b, "mediana": m, "alto_90": a_} for p, b, m, a_ in dati["futuro"]],
             "totale_orizzonte": {**dati["totale"], "periodi": len(dati["futuro"])},
@@ -49,8 +58,10 @@ registra(Strumento(
         "misura": {"type": "string", "description": "count (default) oppure sum:campo, es. sum:totale"},
         "per": {"type": "string", "enum": ["mese", "settimana", "giorno"], "description": "periodo (default mese)"},
         "orizzonte": {"type": "integer", "description": f"periodi da prevedere (1-{MAX_ORIZZONTE}, default 3)"},
-        "filtri": FILTRI, "testo": TESTO, "titolo": {"type": "string"}},
-     "required": ["vista", "data"]}, previsione, disponibile=lambda: bool(specialisti.url("url_forecast"))))
+        "filtri": FILTRI, "testo": TESTO, "titolo": {"type": "string"},
+        "misura_aziendale": {"type": "string", "description": "una misura dell'elenco «Misure aziendali» (es. "
+                                                              "fatturazione.fatturato) al posto di vista, data e misura"}},
+     "required": []}, previsione, disponibile=lambda: bool(specialisti.url("url_forecast"))))
 registra(Strumento(
     "classifica", "Valuta un testo con il decisore locale e restituisce probabilità: sì/no, scelta tra opzioni o "
                   "punteggio su livelli (es. urgenza di un ticket, categoria di una richiesta).",
