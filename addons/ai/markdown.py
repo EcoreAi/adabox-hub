@@ -15,6 +15,8 @@ LINK = re.compile(r"\[([^\]\n]+)\]\((https?://[^\s)]+|/(?!/)[^\s)]*)\)")
 URL = re.compile(r"(?<![\"'=>])\bhttps?://[^\s<]+[^\s<.,;:!?)\]'\"]")
 SEPARATORE = re.compile(r"^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?$")
 TITOLO = re.compile(r"^(#{1,4})\s+(.*)$")
+# alcuni modelli scrivono il grafico come immagine Markdown: il grafico è già sotto la risposta, il segnaposto si toglie
+SEGNAPOSTO_ARTIFACT = re.compile(r"[ \t]*!\[[^\]\n]*\]\(artifact:\d+\)")
 
 
 def _ancora(titolo, usate):
@@ -89,7 +91,7 @@ def _celle(riga):
 
 def rendi(testo, ancore=False):
     """Con ancore=True i titoli hanno un id (le pagine della wiki: le citazioni puntano alla sezione)."""
-    righe = escape(testo or "").replace("\r\n", "\n").split("\n")
+    righe = escape(SEGNAPOSTO_ARTIFACT.sub("", testo or "")).replace("\r\n", "\n").split("\n")
     html, i, usate = [], 0, {}
     paragrafo = []
 
