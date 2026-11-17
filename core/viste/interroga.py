@@ -388,6 +388,34 @@ def aggrega(vista, request, per="", misura="count", filtri=None, testo="", lista
     return risultato
 
 
+def ordina_gruppi(gruppi, per="", ordina="", primi=None):
+    """I gruppi di aggrega ordinati e tagliati ai primi N. `ordina`: per valore («valore», «-valore»; anche il nome
+    della misura o «totale», come lo chiamano i modelli) oppure per il campo del raggruppamento. Con `primi` e senza
+    ordine esplicito, i più grandi."""
+    ordina = (ordina or "").strip()
+    discendente = ordina.startswith("-")
+    chiave = ordina.lstrip("-")
+    campo = (per or "").split(":", 1)[0]
+    if chiave and chiave == campo:
+        gruppi = sorted(gruppi, key=lambda g: str(g["gruppo"]), reverse=discendente)
+    elif chiave or primi:
+        gruppi = sorted(gruppi, key=lambda g: g["valore"] or 0, reverse=discendente or not chiave)
+    if primi:
+        try:
+            primi = max(1, min(int(primi), GRUPPI_MASSIMI))
+        except (TypeError, ValueError):
+            raise ErroreInterrogazione("«primi» è un numero intero.")
+        gruppi = gruppi[:primi]
+    return list(gruppi)
+
+
+def con_altro(coppie, primi):
+    """[(etichetta, valore)]: le prime `primi` per valore più «Altro» con la somma delle restanti."""
+    ordinate = sorted(coppie, key=lambda c: c[1] or 0, reverse=True)
+    resto = ordinate[primi:]
+    return ordinate[:primi] + ([("Altro", round(sum(v or 0 for _, v in resto), 2))] if resto else [])
+
+
 def serie(gruppi, per, massimo=MAX_CATEGORIE):
     """[(etichetta, valore)] da disegnare: oltre `massimo` categorie le prime per valore più «Altro» (per le date:
     le ultime, in ordine di tempo)."""
@@ -426,8 +454,17 @@ def calcola(spec, request):
         raise ErroreInterrogazione("Un grafico ha bisogno di «per»: un campo o una data (data:mese, data:anno…).")
     r = aggrega(vista, request, per, spec.get("misura", "count"), spec.get("filtri"), spec.get("testo", ""),
                 spec.get("lista"), con_chiavi=True, aziende=aziende_di(request, spec.get("aziende")))
-    valori, chiavi = serie_con_chiavi(r.get("gruppi", []), per, int(spec.get("massimo") or MAX_CATEGORIE), spec.get("ordine", ""))
+    if spec.get("primi") and ":" not in per:          # le prime N per valore più «Altro» (grafici dell'assistente)
+        valori, chiavi = _primi_con_chiavi(r.get("gruppi", []), int(spec["primi"]))
+    else:
+        valori, chiavi = serie_con_chiavi(r.get("gruppi", []), per, int(spec.get("massimo") or MAX_CATEGORIE), spec.get("ordine", ""))
     return {"serie": valori, "chiavi": chiavi, "totale": r["totale"], "misura": r["misura"], "per": per}
+
+
+def _primi_con_chiavi(gruppi, primi):
+    ordinati = sorted(gruppi, key=lambda g: g["valore"] or 0, reverse=True)
+    valori = con_altro([(g["gruppo"], g["valore"]) for g in ordinati], primi)
+    return valori, [g.get("chiave") for g in ordinati[:primi]] + ([None] if len(ordinati) > primi else [])
 
 
 # ---------- periodi e KPI ----------

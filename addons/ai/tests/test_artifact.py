@@ -81,3 +81,59 @@ def test_grafico_oltre_trenta_categorie_e_errori(scena):
     contesto = strumenti.Contesto(utente=scena["capo"], azienda=scena["azienda"])
     with pytest.raises(strumenti.ErroreStrumento, match="solo in una chat"):
         artifact.grafico(contesto, "core.aziende", "provincia")
+
+
+def _piu_province():
+    for provincia in ("CA", "CA", "CA", "TO"):
+        Azienda.objects.create(nome=f"Az {provincia} {Azienda.objects.count()}", provincia=provincia)
+
+
+def test_aggrega_primi_decrescente(scena):
+    _piu_province()                      # MI 2, RM 1, CA 3, TO 1
+    from ai.strumenti import viste
+    c = strumenti.Contesto(utente=scena["capo"], azienda=scena["azienda"], conversazione=scena["conversazione"])
+    r = viste.aggrega_record(c, "core.aziende", per="provincia", ordina="-valore", primi=2)
+    assert [(g["gruppo"], g["valore"]) for g in r["gruppi"]] == [("CA", 3), ("MI", 2)]
+    assert r["totale"] == 7
+    crescente = viste.aggrega_record(c, "core.aziende", per="provincia", ordina="valore")
+    assert [g["valore"] for g in crescente["gruppi"]] == [1, 1, 2, 3]
+
+
+def test_grafico_primi_con_altro(scena):
+    _piu_province()
+    risultati = _turno(scena, [("grafico", {"vista": "core.aziende", "per": "provincia", "primi": 2})])
+    assert not risultati[0]["errore"]
+    a = Artifact.objects.get()
+    assert a.dati["serie"] == [["CA", 3], ["MI", 2], ["Altro", 2]]
+    assert artifact.ricalcola(a)["serie"] == [("CA", 3), ("MI", 2), ("Altro", 2)]
+
+
+def test_tabella_raggruppata(scena):
+    _piu_province()
+    risultati = _turno(scena, [("tabella", {"vista": "core.aziende", "per": "provincia", "misura": "count"})])
+    assert not risultati[0]["errore"], risultati[0]["contenuto"]
+    a = Artifact.objects.get()
+    assert len(a.dati["colonne"]) == 2
+    assert a.dati["righe"][0] == ["CA", 3] and len(a.dati["righe"]) == 4
+
+
+def test_argomenti_del_12_novembre(scena):
+    """Le tre chiamate fallite del turno 537 (5 clienti in torta): ora sono argomenti validi."""
+    _piu_province()
+    risultati = _turno(scena, [
+        ("aggrega_record", {"vista": "core.aziende", "per": "provincia", "ordina": "-totale", "limite": 2}),
+        ("grafico", {"vista": "core.aziende", "per": "provincia", "tipo": "torta", "limite": 2}),
+        ("tabella", {"vista": "core.aziende", "per": "provincia", "ordina": "-totale", "limite": 2})])
+    assert [r["errore"] for r in risultati] == [False, False, False], [r["contenuto"] for r in risultati]
+    assert '"gruppo": "CA"' in risultati[0]["contenuto"] and '"MI"' in risultati[0]["contenuto"]
+    assert '"RM"' not in risultati[0]["contenuto"]
+
+
+def test_primi_anche_nei_grafici_salvati_di_analisi(scena):
+    """Un grafico con «primi» salvato in Analisi (stessa spec) si ricalcola con le prime N più «Altro»."""
+    from core.viste import interroga
+    _piu_province()
+    r = interroga.calcola({"vista": "core.aziende", "per": "provincia", "primi": 2},
+                          interroga.richiesta_di(scena["capo"], scena["azienda"]))
+    assert r["serie"] == [("CA", 3), ("MI", 2), ("Altro", 2)]
+    assert r["chiavi"] == ["CA", "MI", None]
