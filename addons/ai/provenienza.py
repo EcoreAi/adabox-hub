@@ -266,6 +266,7 @@ def calcola(turno, testo, protetti=0, segnaposto=None):
     return {"esito": esito, "strumenti": sorted(set(strumenti)), "letture": letture, "letture_web": fuori["web"], "letture_allegati": fuori["allegati"],
             "letture_esterne": fuori["esterni"], "pii": len(segnaposto) if segnaposto is not None else protetti,
             "segnaposto": sorted(segnaposto or []), "fonti": consultate,
+            "riservata": bool(getattr(turno.conversazione, "riservata", False)),
             "non_verificati": non_verificati[:MAX_SEGNALATI], "n_non_verificati": len(non_verificati),
             **({"previsioni": previsioni} if previsioni else {}), **({"numeri": numeri_usati} if numeri_usati else {})}
 

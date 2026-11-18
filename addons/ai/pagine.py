@@ -446,6 +446,16 @@ def preferita(request, pk):
 
 @require_POST
 @login_required
+def riservata(request, pk):
+    """La chat diventa riservata per sempre: da qui solo modelli locali. Non si torna indietro."""
+    from . import riservatezza
+    c = get_object_or_404(_mie(request), pk=pk)
+    riservatezza.segna(c, "segnata dall'utente")
+    return redirect("ai:conversazione", pk=c.pk)
+
+
+@require_POST
+@login_required
 @permission_required("ai.delete_conversazione", raise_exception=True)
 def elimina(request, pk):
     c = get_object_or_404(_mie(request), pk=pk)

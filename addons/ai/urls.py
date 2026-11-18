@@ -12,6 +12,7 @@ urlpatterns = [
     path("chat/invia/", pagine.invia, name="invia"),
     path("chat/<int:pk>/invia/", pagine.invia, name="invia_conversazione"),
     path("chat/<int:pk>/preferita/", pagine.preferita, name="preferita"),
+    path("chat/<int:pk>/riservata/", pagine.riservata, name="riservata"),
     path("chat/<int:pk>/rinomina/", pagine.rinomina, name="rinomina"),
     path("chat/<int:pk>/rigenera/", pagine.rigenera, name="rigenera"),
     path("chat/<int:pk>/esporta/", pagine.esporta, name="esporta"),
