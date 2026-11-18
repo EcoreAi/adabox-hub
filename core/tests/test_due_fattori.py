@@ -178,3 +178,24 @@ def test_admin_non_aggira_la_verifica(client, db):
     User.objects.create_superuser("mario", "m@example.com", PASSWORD)
     r = client.get("/admin/login/")
     assert r.status_code == 302 and r.url.startswith(reverse("login"))
+
+
+def test_ricordami_allunga_la_sessione(client, mario):
+    """Senza «Ricordami» la sessione scade dopo 30 minuti senza uso; con, dopo 30 giorni (telefono, app installata)."""
+    _password(client)
+    assert _collegato(client) and client.session.get_expiry_age() == 30 * 60
+    client.logout()
+    _password(client, ricordami="on")
+    assert _collegato(client) and client.session.get_expiry_age() == 30 * 24 * 3600
+
+
+def test_ricordami_passa_dal_secondo_fattore(client, mario):
+    df = _attiva(mario)
+    _password(client, ricordami="on")
+    assert not _collegato(client)
+    client.post(reverse("due_fattori_accesso"), {"codice": _codice(df)}, REMOTE_ADDR="10.0.0.1")
+    assert _collegato(client) and client.session.get_expiry_age() == 30 * 24 * 3600
+
+
+def test_casella_ricordami_nel_login(client, db):
+    assert 'name="ricordami"' in client.get(reverse("login")).content.decode()

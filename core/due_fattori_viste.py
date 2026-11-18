@@ -13,6 +13,12 @@ from . import due_fattori as df2
 ATTESA = "due_fattori_attesa"
 CODICI_NUOVI = "due_fattori_codici"
 MINUTI_ATTESA = 5
+GIORNI_RICORDAMI = 30            # «Ricordami»: la sessione dura 30 giorni dall'ultimo uso invece di 30 minuti
+
+
+def _ricorda(request, ricordami):
+    if ricordami:
+        request.session.set_expiry(GIORNI_RICORDAMI * 24 * 3600)
 
 
 class Accedi(LoginView):
@@ -22,10 +28,13 @@ class Accedi(LoginView):
     def form_valid(self, form):
         utente = form.get_user()
         df = df2.di(utente)
+        ricordami = bool(self.request.POST.get("ricordami"))
         if df is None or df.attiva_dal is None or df2.dispositivo_fidato(self.request, df):
-            return super().form_valid(form)
+            risposta = super().form_valid(form)
+            _ricorda(self.request, ricordami)
+            return risposta
         self.request.session[ATTESA] = {"u": utente.pk, "b": utente.backend, "t": time.time(),
-                                        "next": self.get_success_url()}
+                                        "next": self.get_success_url(), "r": ricordami}
         return redirect("due_fattori_accesso")
 
 
@@ -47,6 +56,7 @@ def accesso(request):
         if esito:
             del request.session[ATTESA]
             login(request, utente, backend=attesa["b"])
+            _ricorda(request, attesa.get("r"))
             risposta = redirect(attesa["next"])
             if request.POST.get("ricorda"):
                 df2.ricorda_dispositivo(risposta, df)

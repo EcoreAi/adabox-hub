@@ -28,6 +28,9 @@
           </button>
         </div>
       </div>
+      <label class="ui-check" style="display:flex;align-items:center;gap:8px;margin:4px 0 6px;font-size:14px;">
+        <input type="checkbox" name="ricordami" value="on"> Ricordami su questo dispositivo per 30 giorni
+      </label>
       <input type="hidden" name="next" value="{{ next }}">
       <button class="ui-btn ui-btn-primary" type="submit" style="width:100%; justify-content:center; margin-top:8px;">Accedi</button>
       <p style="margin:14px 0 0;text-align:center;font-size:13px;"><a href="{% url 'password_reset' %}">Password dimenticata?</a></p>

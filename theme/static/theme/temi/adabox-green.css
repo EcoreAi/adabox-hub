@@ -111,3 +111,12 @@ body.ai-pagina { background: #fcfcfb; }
 #header #user-tools { color: rgba(255, 255, 255, 0.75); }
 #header #user-tools a:hover { background: rgba(255, 255, 255, 0.10); }
 #header #user-tools button { color: #fff; }
+
+/* telefono: il menu aperto è un pannello scuro come l'intestazione, con le voci chiare */
+@media (max-width: 767px) {
+  .ui-header .ui-nav.is-open { background: var(--ui-header); border-top-color: rgba(255, 255, 255, 0.12); }
+  .ui-header .ui-nav.is-open .ui-dropdown-menu a { color: rgba(255, 255, 255, 0.92); }
+  .ui-header .ui-nav.is-open .ui-dropdown-menu a:hover, .ui-header .ui-nav.is-open .ui-dropdown-menu a.is-active { color: #fff; background: var(--ui-header-voce); }
+  .ui-header .ui-nav.is-open .ui-menucol-titolo { color: rgba(255, 255, 255, 0.55); }
+  .ui-header .ui-nav.is-open .ui-menucol-colonna { border-top-color: rgba(255, 255, 255, 0.12); }
+}

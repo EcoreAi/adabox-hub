@@ -41,7 +41,7 @@ body.pa-pagina {
 
 /* ---------- sfera e stato ---------- */
 .pa-centro { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
-.pa-sfera { width: min(86vw, 380px, 46vh); height: min(86vw, 380px, 46vh); }
+.pa-sfera { width: min(86vw, 380px, 46vh, 40dvh); height: min(86vw, 380px, 46vh, 40dvh); flex: 0 1 auto; max-height: 100%; }
 .pa-stato { margin: 0; font-size: 17px; font-weight: 500; letter-spacing: .01em; color: var(--pa-testo-2); transition: color .4s ease; }
 .pa[data-stato="ascolto"] .pa-stato, .pa[data-stato="parlo"] .pa-stato { color: var(--pa-testo); }
 
@@ -113,6 +113,15 @@ body.pa-pagina {
 .pa-spenta p { color: var(--pa-testo-2); margin: 0 0 18px; }
 .pa-bottone { display: inline-block; padding: 12px 20px; border-radius: 24px; background: var(--pa-c1); color: #04121a; font-weight: 600; text-decoration: none; }
 
+/* telefoni: tutto in una schermata, senza scorrere per arrivare al microfono */
+@media (max-height: 760px) {
+  .pa-sfera { width: min(80vw, 32dvh); height: min(80vw, 32dvh); }
+  .pa-testi { min-height: 84px; }
+  .pa-scrivi { margin-top: 6px; }
+  .pa-piede { padding: 10px 12px calc(14px + env(safe-area-inset-bottom)); }
+  .pa-microfono { width: 72px; height: 72px; }
+  .pa-laterale { width: 50px; height: 50px; }
+}
 @media (max-height: 640px) { .pa-testi { min-height: 84px; } .pa-sottotitoli { font-size: 17px; } .pa-piede { padding-top: 10px; } }
 @media (prefers-reduced-motion: reduce) {
   .pa-sfondo span { animation: none; }

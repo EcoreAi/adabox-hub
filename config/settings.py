@@ -224,6 +224,7 @@ SESSION_COOKIE_AGE = 60 * 30
 # Nomi diversi per due istanze sullo stesso indirizzo: i browser non separano i cookie per porta
 SESSION_COOKIE_NAME = env("SESSION_COOKIE_NAME", default="sessionid")
 CSRF_COOKIE_NAME = env("CSRF_COOKIE_NAME", default="csrftoken")
+CSRF_FAILURE_VIEW = "core.csrf.errore_csrf"          # sul login un token vecchio ricarica la pagina, niente 403
 SESSION_SAVE_EVERY_REQUEST = True
 SESSION_COOKIE_HTTPONLY = True
 X_FRAME_OPTIONS = "DENY"
