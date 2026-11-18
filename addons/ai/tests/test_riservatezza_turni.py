@@ -177,3 +177,89 @@ def test_esperto_eredita_e_propaga(s):
         chiedi_esperto(contesto, "Aziende", "E poi?")
     assert Conversazione.objects.filter(nascosta=True).latest("pk").riservata and interna.pk
     assert [x["modello"] for x in chiamate] == ["finto-locale"]
+
+
+# --- Revisione finale: dati nel primo messaggio, aree, strumenti verso l'esterno, riassunti per app ---
+
+@pytest.fixture
+def sincroni(settings):
+    settings.AI_TURNI_SINCRONI = True
+
+
+def test_riassunto_di_record_riservato_in_locale(s, sincroni):
+    from ai import aiuto_testi
+    from core.viste import registry
+    vista = registry.per_modello(Azienda)
+    with finto.con_copione([["Riassunto."]]) as chiamate:
+        turno = aiuto_testi.avvia_riassunto(s["capo"], s["azienda"], vista, s["azienda"])
+    assert turno.conversazione.riservata and [c["modello"] for c in chiamate] == ["finto-locale"]
+
+
+def test_scrivi_con_ada_con_record_riservato(client, s, sincroni):
+    from django.contrib.contenttypes.models import ContentType
+    from django.urls import reverse
+    client.force_login(s["capo"])
+    ct = ContentType.objects.get_for_model(Azienda)
+    with finto.con_copione([["Testo."]]) as chiamate:
+        r = client.post(reverse("ai:scrivi_con_ada", args=["libero"]),
+                        {"testo": "", "istruzione": "Scrivi una nota", "record": f"{ct.pk}:{s['azienda'].pk}"})
+    assert r.status_code == 200
+    assert Conversazione.objects.latest("pk").riservata and [c["modello"] for c in chiamate] == ["finto-locale"]
+
+
+def test_chiedi_ad_ada_su_pagina_riservata(client, s, sincroni):
+    client.force_login(s["capo"])
+    with finto.con_copione([["È la pagina delle aziende."]]) as chiamate:
+        r = client.post("/askada/chiedi/", {"testo": "Cosa mostra?", "url": "/core/aziende/", "titolo": "Aziende",
+                                            "pagina": "Adabox Hub, partita IVA 123"})
+    assert r.status_code == 200
+    assert Conversazione.objects.latest("pk").riservata and [c["modello"] for c in chiamate] == ["finto-locale"]
+
+
+def test_area_con_cartella_riservata(s):
+    from ai.models import ProgettoChat
+    from documenti.models import Cartella
+    cartella = Cartella.objects.create(azienda=s["azienda"], nome="Personale", riservata=True)
+    area = ProgettoChat.objects.create(utente=s["capo"], azienda=s["azienda"], nome="HR", cartella_documenti=cartella.pk)
+    c = Conversazione.objects.create(utente=s["capo"], progetto=area)
+    _, modelli = _turno(s, c, [["Ciao."]])
+    assert c.riservata and c.riservata_motivo == "cartella «Personale»" and modelli == ["finto-locale"]
+
+
+def test_strumenti_verso_l_esterno_tolti_nelle_chat_riservate(s):
+    c = Conversazione.objects.create(utente=s["capo"])
+    with finto.con_copione([LETTURA, ["Una."]]) as chiamate:
+        motore.avvia(c, "Quante aziende?", s["capo"], s["azienda"], sincrono=True)
+    dopo = chiamate[1]["strumenti"]                  # il web può essere spento nei test: copre anche senza_uscite
+    assert not {"cerca_web", "leggi_pagina"} & set(dopo)
+    assert not [n for n in dopo if n.startswith("mcp")]
+
+
+def test_strumenti_web_tolti_dal_primo_passo(s, monkeypatch):
+    from ai import riservatezza as r
+    ammessi = {"cerca_web": 1, "leggi_pagina": 2, "mcp3_cerca": 3, "cerca_record": 4}
+    assert set(r.senza_uscite(ammessi, Conversazione(riservata=True))) == {"cerca_record"}
+    assert r.senza_uscite(ammessi, Conversazione()) == ammessi
+
+
+def test_riassunto_documento_con_app_documenti_riservata(base):
+    from ai import conoscenza
+    from ai.models import IndiceDocumento
+    from documenti.models import Cartella, Documento
+    parametri.scrivi("ai.app_riservate", "documenti", base["azienda"])
+    d = Documento.objects.create(azienda=base["azienda"], cartella=Cartella.objects.create(azienda=base["azienda"], nome="X"),
+                                 nome="listino.pdf", proprietario=base["capo"])
+    indice = IndiceDocumento.objects.create(documento_id=d.pk, azienda=base["azienda"], nome=d.nome,
+                                            stato=IndiceDocumento.INDICIZZATO, impronta="a")
+    with finto.con_copione([["Riassunto."]]) as chiamate:
+        conoscenza.riassumi(d, {"indice": indice, "testo": "Listino riservato"})
+    assert [x["modello"] for x in chiamate] == ["finto-locale"]
+
+
+def test_riassunti_di_discuss_riservata_in_locale(base, monkeypatch):
+    from discuss import ia
+    monkeypatch.setattr(ia, "disponibile", lambda utente: True)
+    parametri.scrivi("ai.app_riservate", "discuss", base["azienda"])
+    with finto.con_copione([["Sintesi."]]) as chiamate:
+        ia.genera("Riassumi.", "Messaggi del canale riservato", base["capo"], base["azienda"])
+    assert [x["modello"] for x in chiamate] == ["finto-locale"]

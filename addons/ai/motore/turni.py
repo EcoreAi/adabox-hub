@@ -137,6 +137,9 @@ def avvia(conversazione, testo, utente, azienda=None, compito="chat", sincrono=F
             messaggio = MessaggioChat.objects.create(conversazione=conversazione, ruolo=MessaggioChat.UTENTE, testo=testo)
         for f in file:
             core_allegati.salva(messaggio, f, utente)
+        from .. import riservatezza
+        if (motivo := riservatezza.motivo_area(conversazione, azienda)):    # la nota dell'area elenca i documenti
+            riservatezza.segna(conversazione, motivo)
         nota = "\n".join(n for n in (contesto_utente.nota_memoria_per(conversazione, utente, azienda), contesto_utente.nota_progetto(conversazione),
                                      nota, allegati_chat.nota(messaggio)) if n)
         immagini = [a.pk for a in allegati_chat.immagini_di(messaggio)]
@@ -241,6 +244,7 @@ def esegui(turno_id):
         if turno.compito == "aiuto":                      # «Scrivi con Ada»: solo letture del gestionale
             from .. import aiuto_testi
             ammessi = aiuto_testi.filtra_strumenti(ammessi)
+        ammessi = riservatezza.senza_uscite(ammessi, conversazione)   # chat riservata: niente web né sistemi esterni
         copia, con_immagine, nell_ultimo = allegati_chat.con_immagini(messaggi_del_modello(conversazione))
         senza_immagini = False
         if con_immagine:
@@ -336,6 +340,7 @@ def esegui(turno_id):
                         c.nome, c.argomenti, r["contenuto"], turno.azienda, getattr(ammessi.get(c.nome), "app", ""))):
                     riservatezza.segna(conversazione, motivo)
             catena = riservatezza.filtra(catena, conversazione, turno.azienda)
+            ammessi = riservatezza.senza_uscite(ammessi, conversazione)
             Evento.objects.create(conversazione=conversazione, turno=turno, tipo=Evento.STRUMENTO,
                                   dati={"ruolo": "strumento", "risultati": risultati})
             e.avanzamento({"passo": passo, "fatti": [{"strumento": c.nome, "errore": r["errore"]}

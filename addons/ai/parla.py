@@ -149,7 +149,7 @@ def chiedi(request):
 def audio(request, pk, inizio, fine):
     """L'audio di un tratto della risposta del turno (posizioni nel testo, come le dà lo streaming)."""
     turno = get_object_or_404(Turno, pk=pk, conversazione__utente=request.user)
-    servizio = voce.servizio_per(getattr(request, "azienda", None))
+    servizio = voce.servizio_per(getattr(request, "azienda", None), solo_locale=turno.conversazione.riservata)
     if servizio is None or not 0 <= inizio < fine <= len(turno.testo) or fine - inizio > CARATTERI_PEZZO:
         raise Http404
     testo = voce.da_leggere(turno.testo[inizio:fine])

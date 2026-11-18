@@ -229,6 +229,11 @@ def chiama(nome, argomenti, meta):
 
     from ai.strumenti import Contesto
     contesto = Contesto(utente=agente.utente, azienda=azienda)
+    from ai import riservatezza
+    if riservatezza.fonte_riservata(esposta.strumento.nome, argomenti, "", azienda, esposta.strumento.app):
+        _registra(agente, esposta, argomenti, Chiamata.RIFIUTATA, "fonte riservata")
+        return _risultato("Fonte riservata: si consulta solo dentro adabox, con modelli locali.",
+                          {"stato": "fonte_riservata"}, errore=True)
     if esposta.effetto == "read":
         return _leggi(agente, esposta, contesto, argomenti)
     return _scrivi(agente, esposta, contesto, argomenti, meta, collegamento)
@@ -278,6 +283,9 @@ def _leggi(agente, esposta, contesto, argomenti):
     if errore:
         return errore
     _registra(agente, esposta, argomenti, Chiamata.ESEGUITA)
+    if isinstance(risultato, dict) and isinstance(risultato.get("risultati"), list):   # cerca_conoscenza
+        from ai import riservatezza
+        risultato = {**risultato, "risultati": riservatezza.risultati_ammessi(risultato["risultati"], contesto.azienda)}
     dati = _uscita(risultato)
     return _risultato(json.dumps(dati, ensure_ascii=False), dati)
 

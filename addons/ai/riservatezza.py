@@ -90,6 +90,26 @@ def _motivo_coppie(coppie, azienda, app):
     return ""
 
 
+def _motivo_viste_documenti(nome, argomenti, azienda):
+    """cerca_record, leggi_record, aggrega_record e anteprime sulle viste documenti.*: mostrano nomi, descrizioni e
+    percorsi. Con un id si guarda il record; senza, se ci sono cartelle riservate la lettura conta come riservata."""
+    vista = argomenti.get("vista")
+    if not isinstance(vista, str) or vista.partition(".")[0] != "documenti":
+        return ""
+    cartelle = cartelle_riservate(azienda)
+    if not cartelle:
+        return ""
+    slug = vista.partition(".")[2]
+    try:
+        pk = int(argomenti.get("id"))
+    except (TypeError, ValueError):
+        pk = None
+    if nome == "leggi_record" and pk is not None and slug in ("documenti", "cartelle"):
+        percorso = _documenti_riservati(azienda, [pk]).get(pk) if slug == "documenti" else cartelle.get(pk)
+        return f"cartella «{percorso}»" if percorso else ""
+    return "Documenti con cartelle riservate"
+
+
 def fonte_riservata(nome, argomenti, contenuto, azienda, app_strumento=""):
     """Il motivo per cui lo strumento `nome`, chiamato con `argomenti` e con risultato `contenuto`, ha letto una fonte
     riservata; "" se non l'ha fatto. Chi chiama passa solo i risultati riusciti."""
@@ -109,6 +129,8 @@ def fonte_riservata(nome, argomenti, contenuto, azienda, app_strumento=""):
                 return f"app «{a}»"
         if nome == "analisi_leggi_pagina":                # una pagina di Analisi può mostrare dati di ogni app
             return "pagina di Analisi con app riservate"
+    if (motivo := _motivo_viste_documenti(nome, argomenti, azienda)):
+        return motivo
     if nome in STRUMENTI_DOCUMENTO:
         try:
             pk = int(argomenti.get("id"))
@@ -154,8 +176,80 @@ def filtra(catena, conversazione, azienda=None):
     attivi se la catena non ne ha. Nessuno: NessunModello, e non parte nulla."""
     if conversazione is None or not getattr(conversazione, "riservata", False):
         return catena
+    return solo_locali(catena, azienda)
+
+
+# ---------- dati che entrano nella chat prima di qualunque strumento ----------
+
+PAGINE_DI_TUTTE = {"", "grafici", "riepilogo"}           # home, Analisi, riepilogo: dati di ogni app
+_PAGINA_DOCUMENTI = re.compile(r"^/documenti/(documenti|cartelle)/(\d+)")
+USCITE = {"cerca_web", "leggi_pagina"}                   # strumenti che portano testo fuori dal server
+
+
+def motivo_record(vista, obj, azienda):
+    """Il motivo per cui il record `obj` (della vista `vista`) è riservato; "" se non lo è."""
+    modulo = (getattr(vista, "modulo", "") or "").lower()
+    if modulo and modulo in app_riservate(azienda):
+        return f"app «{modulo}»"
+    cartelle = cartelle_riservate(azienda)
+    if not cartelle:
+        return ""
+    from documenti.models import Cartella
+    pk = obj.pk if isinstance(obj, Cartella) else getattr(obj, "cartella_id", None)
+    return f"cartella «{cartelle[pk]}»" if pk in cartelle else ""
+
+
+def motivo_pagina(url, azienda):
+    """Il motivo per cui una pagina (Chiedi ad Ada) mostra dati riservati; "" se non li mostra."""
+    from urllib.parse import urlsplit
+    percorso = "/" + urlsplit(url or "").path.lstrip("/")
+    slug = percorso.lstrip("/").split("/", 1)[0].lower()
+    app = app_riservate(azienda)
+    if slug in app:
+        return f"app «{slug}»"
+    if app and slug in PAGINE_DI_TUTTE:
+        return "pagina con dati di app riservate"
+    if (m := _PAGINA_DOCUMENTI.match(percorso)):
+        pk = int(m.group(2))
+        percorso_cartella = (_documenti_riservati(azienda, [pk]).get(pk) if m.group(1) == "documenti"
+                             else cartelle_riservate(azienda).get(pk))
+        return f"cartella «{percorso_cartella}»" if percorso_cartella else ""
+    return ""
+
+
+def motivo_area(conversazione, azienda):
+    """Un'area di lavoro la cui cartella è riservata, o ne contiene una: la sua nota elenca i documenti."""
+    progetto = getattr(conversazione, "progetto", None) if getattr(conversazione, "progetto_id", None) else None
+    radice = getattr(progetto, "cartella_documenti", None)
+    if not radice:
+        return ""
+    cartelle = cartelle_riservate(azienda or progetto.azienda)
+    if radice in cartelle:
+        return f"cartella «{cartelle[radice]}»"
+    from documenti.models import Cartella
+    padri = dict(Cartella.objects.filter(pk__in=cartelle).values_list("pk", "padre_id"))
+    for pk in cartelle:                                  # una cartella riservata dentro quella dell'area
+        visti, corrente = set(), padri.get(pk)
+        while corrente and corrente not in visti and len(visti) < PROFONDITA:
+            if corrente == radice:
+                return f"cartella «{cartelle[pk]}»"
+            visti.add(corrente)
+            corrente = padri.get(corrente) if corrente in padri else \
+                Cartella.objects.filter(pk=corrente).values_list("padre_id", flat=True).first()
+    return ""
+
+
+def solo_locali(catena, azienda=None):
+    """Gli anelli locali della catena, o i modelli locali attivi; nessuno: NessunModello, e non parte nulla."""
     restanti = [anello for anello in catena if anello[0].provider.locale] or locali(azienda)
     if not restanti:
         from .catalogo import NessunModello
         raise NessunModello(MESSAGGIO_SENZA_LOCALE)
     return restanti
+
+
+def senza_uscite(ammessi, conversazione):
+    """In una chat riservata, via gli strumenti che portano testo fuori: web e sistemi esterni (MCP)."""
+    if not getattr(conversazione, "riservata", False):
+        return ammessi
+    return {n: s for n, s in ammessi.items() if n not in USCITE and not n.startswith("mcp")}

@@ -60,3 +60,13 @@ def test_conoscenza_filtrata(coll, azienda, monkeypatch):
 def test_app_riservata_non_elencata(coll):
     esito = catalogo.chiama(coll, "app_disponibili", {})
     assert "contatti" not in [r["app"] for r in json.loads(esito.testo)]
+
+
+def test_documenti_con_le_viste_generiche_rifiutati(coll, azienda):
+    from documenti.models import Cartella, Documento
+    cartella = Cartella.objects.create(azienda=azienda, nome="Personale", riservata=True)
+    d = Documento.objects.create(azienda=azienda, cartella=cartella, nome="busta.pdf")
+    for nome, argomenti in (("cerca_record", {"vista": "documenti.documenti"}),
+                            ("leggi_record", {"vista": "documenti.documenti", "id": d.pk})):
+        esito = catalogo.chiama(coll, nome, argomenti)
+        assert esito.errore and esito.testo == RIFIUTO, nome

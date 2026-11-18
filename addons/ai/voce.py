@@ -56,15 +56,16 @@ def trascrizione_cloud(azienda):
     return None
 
 
-def servizio_per(azienda):
-    """Il servizio di lettura dell'azienda: prima il suo, poi quello di tutte; i cloud solo con il consenso."""
+def servizio_per(azienda, solo_locale=False):
+    """Il servizio di lettura dell'azienda: prima il suo, poi quello di tutte; i cloud solo con il consenso e mai con
+    `solo_locale` (chat riservate)."""
     if not accesa(azienda):
         return None
     cloud = bool(parametri.leggi("ai.voce_cloud", azienda))
     lettura = ServizioVoce.objects.filter(attivo=True, uso=ServizioVoce.LETTURA)
     for qs in (lettura.filter(azienda=azienda), lettura.filter(azienda=None)):
         for s in qs.order_by("pk"):
-            if (s.locale and url_locale()) or (not s.locale and cloud):
+            if (s.locale and url_locale()) or (not s.locale and cloud and not solo_locale):
                 return s
     return None
 

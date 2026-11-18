@@ -185,3 +185,13 @@ def test_senza_azienda_niente_operazioni(client, collegato, ammesse, attivita):
     Collegamento.objects.filter(pk=1).update(azienda=None)
     r = chiama(client, "leggi_record", {"vista": "todo.attivita", "id": attivita.pk})
     assert r["isError"] is True and r["structuredContent"]["stato"] == "non_configurato"
+
+
+def test_fonte_riservata_rifiutata_agli_agenti(client, collegato, ammesse, attivita):
+    """Gli agenti esterni non leggono le fonti riservate (app o cartelle), come le chat esterne."""
+    from core import parametri
+    parametri.scrivi("ai.app_riservate", "todo", Azienda.objects.get(pk=1))
+    r = chiama(client, "leggi_record", {"vista": "todo.attivita", "id": attivita.pk}, {"agentlia/agent": "Buyer"})
+    assert r["isError"] is True and "Ordinare la carta" not in r["content"][0]["text"]
+    assert "riservata" in r["content"][0]["text"]
+    assert Chiamata.objects.filter(strumento="leggi_record", esito="rifiutata").exists()
