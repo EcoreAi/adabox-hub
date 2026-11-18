@@ -126,6 +126,20 @@ def _solo_app(nome, risultato, app):
     return risultato
 
 
+RISERVATA = "Fonte riservata: si consulta solo dentro adabox, con modelli locali."
+
+
+def _senza_riservate(nome, risultato, azienda):
+    """Via dai risultati ciò che viene da app o cartelle riservate: nelle chat esterne non escono mai."""
+    from ai import riservatezza
+    if nome in ("elenco_viste", "app_disponibili") and isinstance(risultato, list):
+        app = riservatezza.app_riservate(azienda)
+        return [r for r in risultato if str(r.get("app", "")).lower() not in app] if app else risultato
+    if nome == "cerca_conoscenza" and isinstance(risultato, dict) and isinstance(risultato.get("risultati"), list):
+        return {**risultato, "risultati": riservatezza.risultati_ammessi(risultato["risultati"], azienda)}
+    return risultato
+
+
 def _link_assoluti(valore, base):
     """I link ai record («url»: "/contatti/contatti/7/") con l'indirizzo dell'istanza davanti: nella chat esterna un
     link relativo non porta da nessuna parte."""
@@ -186,6 +200,10 @@ def chiama(collegamento, nome, argomenti):
     if _fuori_dalle_app(collegamento, argomenti):
         registra(Chiamata.RIFIUTATA, "app fuori dal collegamento")
         return Esito("Questa app non è tra quelle comprese nel collegamento: l'utente può aggiungerla ricollegando adabox.", errore=True)
+    from ai import riservatezza
+    if riservatezza.fonte_riservata(nome, argomenti, "", collegamento.azienda, strumento.app):
+        registra(Chiamata.RIFIUTATA, "fonte riservata")
+        return Esito(RISERVATA, errore=True)
 
     from . import protezione, stato
     try:
@@ -195,7 +213,8 @@ def chiama(collegamento, nome, argomenti):
             return Esito(protezione.maschera(collegamento, messaggio)[0], errore=True)
         if isinstance(risultato, dict):
             risultato = {k: v for k, v in risultato.items() if k not in SENZA_CHIAVI.get(nome, ())}
-        risultato = _link_assoluti(_solo_app(nome, risultato, collegamento.app), stato.base())
+        risultato = _senza_riservate(nome, _solo_app(nome, risultato, collegamento.app), collegamento.azienda)
+        risultato = _link_assoluti(risultato, stato.base())
         testo, troncato = _testo(risultato)
         testo, mascherati = protezione.maschera(collegamento, testo)
     except protezione.NonDisponibile:
