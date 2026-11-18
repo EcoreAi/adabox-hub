@@ -130,10 +130,21 @@ def test_frasi_d_attesa_solo_quelle_dell_elenco(client, s, monkeypatch):
     letti = []
     monkeypatch.setattr(parla.voce, "audio_di", lambda servizio, testo, lingua: letti.append(testo) or (b"RIFF", "audio/wav"))
     r = client.get(reverse("ai:parla_frase", args=["calendario"]))
-    assert r.status_code == 200 and letti == ["Guardo il calendario."]
-    assert client.get(reverse("ai:parla_frase", args=["qualsiasi-testo"])).status_code == 404
+    assert r.status_code == 200 and letti == [parla.FRASI["calendario"][0]]
+    assert client.get(reverse("ai:parla_frase", args=["calendario-2"])).status_code == 200 and letti[-1] == parla.FRASI["calendario"][2]
+    for chiave in ["qualsiasi-testo", "calendario-9", "calendario-x", "attimo-"]:
+        assert client.get(reverse("ai:parla_frase", args=[chiave])).status_code == 404
     html = client.get(reverse("ai:parla")).content.decode()
-    assert 'id="pa-frasi"' in html and "calendario_agenda" in html
+    assert 'id="pa-frasi"' in html and "calendario_agenda" in html and '"varianti"' in html
+
+
+def test_saluto_solo_al_primo_turno(client, s, monkeypatch):
+    note = []
+    monkeypatch.setattr(parla.motore, "avvia", lambda c, t, u, a=None, **o: note.append(o["nota"]) or Turno.objects.create(conversazione=c, utente=u))
+    r = client.post(reverse("ai:parla_chiedi"), {"testo": "Ciao Ada"}).json()
+    assert "come posso aiutarti?»" in note[0] and "inizio della conversazione" in note[0]
+    client.post(reverse("ai:parla_chiedi"), {"testo": "Che appuntamenti ho?", "conversazione": r["conversazione"]})
+    assert "non salutare di nuovo" in note[1] and "inizio della conversazione" not in note[1]
 
 
 def test_parla_con_ada_nella_testata_di_ogni_app(client, s):

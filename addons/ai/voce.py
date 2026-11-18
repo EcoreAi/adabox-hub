@@ -81,14 +81,17 @@ def parole_note(utente, azienda):
     """Le parole da riconoscere anche se rare: il nome dell'assistente, il marchio, l'azienda e il nome dell'utente.
     Senza, «Ada, quali appuntamenti…» diventava «Ha da quali…»."""
     from django.conf import settings
-    parole = ["Ada", getattr(settings, "THEME", {}).get("brand", ""), getattr(azienda, "nome", ""),
-              getattr(utente, "first_name", ""), getattr(utente, "last_name", "")]
+    frasi = ["Ada", getattr(settings, "THEME", {}).get("brand", ""), getattr(azienda, "nome", ""),
+             getattr(utente, "first_name", ""), getattr(utente, "last_name", "")]
+    # parole singole: Mistral rifiuta con 400 quelle con spazi o virgole («Adabox v3»), e allora ogni trascrizione
+    # ripiegava sul Whisper locale piccolo («Ciao Ada» → «Ciao Vado»); sotto le tre lettere non aiutano
     visti, uniche = set(), []
-    for p in parole:
-        p = " ".join(str(p or "").split())[:40]
-        if p and p.lower() not in visti:
-            visti.add(p.lower())
-            uniche.append(p)
+    for frase in frasi:
+        for p in str(frase or "").replace(",", " ").split():
+            p = p[:40]
+            if len(p) >= 3 and p.lower() not in visti:
+                visti.add(p.lower())
+                uniche.append(p)
     return uniche[:10]
 
 
@@ -112,7 +115,7 @@ def trascrivi(file, lingua="", http_client=None, azienda=None, parole=()):
             file.seek(0)
     if not url_locale():
         raise ErroreVoce("La dettatura non è configurata.")
-    return _trascrivi_locale(file, tipo, lingua, http_client)
+    return _trascrivi_locale(file, tipo, lingua, http_client, parole)
 
 
 def trascrivi_cloud(servizio, audio, nome, tipo, lingua="", http_client=None, parole=()):
@@ -141,10 +144,12 @@ def trascrivi_cloud(servizio, audio, nome, tipo, lingua="", http_client=None, pa
             client.close()
 
 
-def _trascrivi_locale(file, tipo, lingua, http_client):
+def _trascrivi_locale(file, tipo, lingua, http_client, parole=()):
     dati = {"model": parametri.leggi("ai.modello_trascrizione") or "Systran/faster-whisper-small"}
     if lingua in ("it", "en"):
         dati["language"] = lingua
+    if parole:                                             # Whisper: il prompt iniziale favorisce nomi e marchi
+        dati["prompt"] = ", ".join(parole) + "."
     client = http_client or httpx.Client(timeout=TEMPO, trust_env=False)
     try:
         r = client.post(f"{url_locale()}/v1/audio/transcriptions", files={"file": (file.name or "voce.webm", file.read(), tipo)}, data=dati)

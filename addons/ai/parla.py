@@ -17,14 +17,17 @@ from . import aree, funzioni, motore, voce
 from .models import Conversazione, Turno
 
 NOTA_VOCE = (
-    "L'utente si chiama {nome}: quando saluti o rispondi a un saluto chiamalo per nome, senza formule fatte come «come "
-    "posso aiutarti oggi?». L'utente ti parla a voce dal telefono e ascolta la risposta letta ad alta voce. Rispondi in poche frasi brevi e "
+    "L'utente si chiama {nome}. L'utente ti parla a voce dal telefono e ascolta la risposta letta ad alta voce. Rispondi in poche frasi brevi e "
     "parlate, come in una telefonata: niente tabelle, elenchi puntati, titoli, emoji, codice o link. Numeri, importi, "
     "date e orari scrivili in cifre (13:30, 1.250 €, 16/11): la lettura li pronuncia da sola. Se i risultati sono più di tre o quattro, dai il totale e i più importanti e chiedi se "
     "vuole il dettaglio. Per agenda, scadenze e attività parti da quello che deve ancora succedere; di quello già "
     "passato di' solo quanti sono e chiedi se vuole sentirli. Prima di creare o modificare qualcosa ripeti in una "
     "frase cosa farai e chiedi conferma. Se ti chiedono qualcosa che a voce non puoi fare (grafici, tabelle, documenti "
     "lunghi, attività pianificate), dillo in una frase e suggerisci di aprire la chat con «Apri nella chat».")
+# il saluto: la prima volta come in una telefonata, poi niente formule ripetute
+NOTA_PRIMO_TURNO = ("È l'inizio della conversazione: se l'utente ti saluta soltanto, rispondi «Ciao {nome}, come posso "
+                    "aiutarti?»; se chiede già qualcosa, rispondi subito chiamandolo per nome.")
+NOTA_TURNI_DOPO = "Vi siete già salutati: non salutare di nuovo e non usare formule fatte come «come posso aiutarti?»."
 NOTA_INTERROTTA = ("Nel turno precedente l'utente ti ha interrotto mentre parlavi: ha sentito solo fin qui: «{sentito}». "
                    "Tienine conto e non ripetere quello che ha già sentito, a meno che lo chieda.")
 # A voce solo gli strumenti utili al telefono: da 39 a 18, circa il 40% di attesa in meno sul primo passo e meno token.
@@ -33,9 +36,13 @@ STRUMENTI_VOCE = frozenset({
     "data_e_ora", "calendario_agenda", "cerca_record", "leggi_record", "aggrega_record", "elenco_viste", "descrivi_vista",
     "cerca_conoscenza", "leggi_documento", "comunicazioni_cerca", "comunicazioni_leggi", "comunicazioni_scrivi",
     "crea_record", "modifica_record", "pianifica_attivita", "esegui_bottone", "ricorda", "previsione", "notifiche_leggi"})
-# Frasi d'attesa: lette quando parte uno strumento, prima della risposta (Kokoro le prepara una volta, poi in cache)
-FRASI = {"calendario": "Guardo il calendario.", "dati": "Controllo nei dati.", "documenti": "Cerco nei documenti.",
-         "comunicazioni": "Guardo le comunicazioni.", "attimo": "Un attimo."}
+# Frasi d'attesa: «attimo» se la risposta tarda, le altre quando parte uno strumento, prima della risposta. Più
+# varianti per non ripetere sempre la stessa; la pagina ne sceglie una a caso (audio preparato una volta, poi in cache).
+FRASI = {"calendario": ["Ok, guardo il calendario.", "Vediamo l'agenda.", "Controllo gli appuntamenti."],
+         "dati": ["Ok, ora controllo.", "Ora vedo i dati.", "Controllo nei dati."],
+         "documenti": ["Cerco nei documenti.", "Ok, guardo nei documenti.", "Vediamo nei documenti."],
+         "comunicazioni": ["Guardo le comunicazioni.", "Ok, controllo i messaggi.", "Vediamo i messaggi."],
+         "attimo": ["Ok, un attimo.", "Va bene, ci penso.", "Ok, vediamo."]}
 FRASE_PER_STRUMENTO = {"calendario_agenda": "calendario", "cerca_record": "dati", "leggi_record": "dati",
                        "aggrega_record": "dati", "previsione": "dati", "cerca_conoscenza": "documenti",
                        "leggi_documento": "documenti", "comunicazioni_cerca": "comunicazioni",
@@ -50,10 +57,13 @@ SENTITO_MASSIMO = 500
 def frase(request, chiave):
     """L'audio di una frase d'attesa: solo quelle dell'elenco, mai un testo del browser."""
     servizio = voce.servizio_per(getattr(request, "azienda", None))
-    if servizio is None or chiave not in FRASI:
+    gruppo, trattino, numero = chiave.partition("-")      # «calendario» è la prima variante, «calendario-2» la terza
+    varianti = FRASI.get(gruppo, [])
+    indice = int(numero) if numero.isdigit() else (-1 if trattino else 0)
+    if servizio is None or not 0 <= indice < len(varianti):
         raise Http404
     try:
-        dati, tipo = voce.audio_di(servizio, FRASI[chiave], "it")
+        dati, tipo = voce.audio_di(servizio, varianti[indice], "it")
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
     risposta = HttpResponse(dati, content_type=tipo)
@@ -111,7 +121,7 @@ def pagina(request, pk=None):
     scelta = conversazione.ambito if conversazione else request.GET.get("app", "")
     return render(request, "ai/parla.html", {
         "disponibile": disponibile(azienda), "conversazione": conversazione, "impostazioni": impostazioni(azienda),
-        "frasi": FRASE_PER_STRUMENTO, "app": app, "ambito": scelta if scelta in {a["slug"] for a in app} else "",
+        "frasi": {"strumenti": FRASE_PER_STRUMENTO, "varianti": {k: len(v) for k, v in FRASI.items()}}, "app": app, "ambito": scelta if scelta in {a["slug"] for a in app} else "",
         "notifiche": _notifiche(request.user), "nome": request.user.first_name,
         "url_chat": reverse("ai:conversazione", args=[conversazione.pk]) if conversazione else reverse("ai:chat")})
 
@@ -146,14 +156,16 @@ def chiedi(request):
     if not testo:
         return JsonResponse({"errore": "Non ho sentito la domanda."}, status=400)
     pk = request.POST.get("conversazione", "")
-    if pk.isdigit():
+    nuova = not pk.isdigit()
+    if not nuova:
         conversazione = get_object_or_404(Conversazione, pk=int(pk), utente=request.user, nascosta=False)
     else:
         app = request.POST.get("app", "")                     # la conversazione limitata all'app scelta in alto
         conversazione = Conversazione.objects.create(utente=request.user, progetto=aree.corrente(request.user, azienda),
                                                      titolo=testo[:60] + ("…" if len(testo) > 60 else ""),
                                                      ambito=app if app in {a["slug"] for a in _app(request.user)} else "")
-    note = [NOTA_VOCE.format(nome=request.user.first_name or request.user.get_full_name() or request.user.username)]
+    nome = request.user.first_name or request.user.get_full_name() or request.user.username
+    note = [NOTA_VOCE.format(nome=nome), NOTA_PRIMO_TURNO.format(nome=nome) if nuova else NOTA_TURNI_DOPO]
     sentito = " ".join(request.POST.get("sentito", "").split())[-SENTITO_MASSIMO:]
     if sentito:
         note.append(NOTA_INTERROTTA.format(sentito=sentito))
