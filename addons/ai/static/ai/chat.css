@@ -1,7 +1,12 @@
 /* Chat dell'assistente: header del tema in alto (come in tutte le app), sotto tre colonne a tutta altezza:
    cronologia (barra di icone e pannello), conversazione, elementi salvati (pannello e barra di icone).
    Usa i token del tema (tokens.css): stessi colori del resto dell'applicazione. */
-body.ai-pagina { height: 100vh; overflow: hidden; background: var(--ui-surface); }
+body.ai-pagina { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; background: var(--ui-surface); }
+/* app installata sul telefono: Chrome disegna la pagina anche sotto la barra di Android senza dichiararne
+   l'altezza (env() resta 0): il fondo della barra di icone (impostazioni) finiva lì sotto. Come in parla.css */
+@media (display-mode: standalone) and (pointer: coarse) {
+  body.ai-pagina { padding-bottom: max(env(safe-area-inset-bottom), 52px); box-sizing: border-box; }
+}
 
 .ai-chat { flex: 1; min-height: 0; display: flex; position: relative; }
 
