@@ -2,9 +2,19 @@
 
 I blocchi della risposta (ragionamento compreso) si rimandano invariati nei turni successivi: la storia non si
 riscrive mai (richiesto dal "preserved thinking" dei modelli Claude 5.x)."""
+import logging
+
 import anthropic
 
 from .tipi import ChiamataStrumento, ErroreModello, Fine, Testo, Uso
+
+log = logging.getLogger("ai.gateway")
+# La firma di un blocco di ragionamento lega il blocco al prefisso che l'ha prodotto (sistema, strumenti, messaggi):
+# un rilascio che cambia il prompt o uno strumento, o un insieme di strumenti diverso a metà chat (web, voce),
+# lo invalida e Anthropic rifiuterebbe la chat per sempre con un 400. Con drop_block scarta i blocchi non più validi
+# (e quelli dopo) e risponde lo stesso; li elenca in input_transformations.
+BETA_LEGAME = "thinking-binding-controls-2026-08-01"
+RAGIONAMENTO_TOLLERANTE = {"type": "adaptive", "block_binding": {"prefix_mismatch_behavior": "drop_block"}}
 
 MOTIVI = {"end_turn": "fine", "tool_use": "strumenti", "max_tokens": "limite", "refusal": "rifiuto",
           "stop_sequence": "fine", "pause_turn": "altro"}
@@ -71,6 +81,18 @@ def client(chiave, base_url="", http_client=None):
     return anthropic.Anthropic(**argomenti)
 
 
+def _con_ragionamento(messaggi):
+    """Se la storia rimanda blocchi di ragionamento di Anthropic: solo allora il modello pensava già e il legame conta."""
+    return any(b.get("type") in ("thinking", "redacted_thinking")
+               for m in messaggi if m["role"] == "assistant" and isinstance(m["content"], list) for b in m["content"])
+
+
+def _scartati(finale):
+    for t in getattr(finale, "input_transformations", None) or []:
+        if getattr(t, "type", "") == "thinking_dropped":
+            log.warning("ragionamento scartato in %s: %s", getattr(t, "path", "?"), getattr(t, "reason", "?"))
+
+
 def flusso(modello, chiave, *, sistema, messaggi, strumenti=(), max_token=16000, effort="", http_client=None):
     parametri = {
         "model": modello.id_api, "max_tokens": min(max_token, modello.max_output),
@@ -81,14 +103,21 @@ def flusso(modello, chiave, *, sistema, messaggi, strumenti=(), max_token=16000,
         parametri["tools"] = _strumenti(strumenti)
     if effort and modello.ragionamento:
         parametri["output_config"] = {"effort": effort}
+    sdk = client(chiave, modello.provider.base_url, http_client)
+    if _con_ragionamento(parametri["messages"]):
+        messaggi_api = sdk.beta.messages
+        parametri.update(thinking=RAGIONAMENTO_TOLLERANTE, betas=[BETA_LEGAME])
+    else:
+        messaggi_api = sdk.messages
     try:
-        with client(chiave, modello.provider.base_url, http_client).messages.stream(**parametri) as stream:
+        with messaggi_api.stream(**parametri) as stream:
             for evento in stream:
                 if evento.type == "text" and evento.text:
                     yield Testo(evento.text)
             finale = stream.get_final_message()
     except anthropic.APIError as e:
         raise _errore(e) from e
+    _scartati(finale)
     contenuto = finale.to_dict()["content"]
     blocchi = []
     for b in finale.content:

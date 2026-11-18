@@ -97,6 +97,45 @@ def test_anthropic_rimanda_il_contenuto_nativo(modelli):
                                          "is_error": True}
 
 
+def test_anthropic_ragionamento_non_piu_valido_si_scarta(modelli, caplog):
+    """Un rilascio che cambia prompt o strumenti, o uno strumento acceso a metà chat, invalida i blocchi di
+    ragionamento già nella storia: senza drop_block Anthropic rifiuta la richiesta con un 400 per sempre."""
+    ricevute = []
+    risposta = [dict(RISPOSTA_ANTHROPIC[0], message={**RISPOSTA_ANTHROPIC[0]["message"], "input_transformations": [
+        {"type": "thinking_dropped", "path": "messages.1.content.0", "reason": "prefix_binding_mismatch"}]}),
+        *RISPOSTA_ANTHROPIC[1:]]
+
+    def gestore(richiesta):
+        ricevute.append((richiesta.headers, json.loads(richiesta.content)))
+        return httpx2.Response(200, content=_sse(risposta), headers={"content-type": "text/event-stream"})
+
+    nativo = [{"type": "thinking", "thinking": "", "signature": "firma"}, {"type": "text", "text": "Ciao"}]
+    storia = [*MESSAGGI, {"ruolo": "assistente", "blocchi": [{"tipo": "testo", "testo": "Ciao"}],
+                          "nativo": {"provider": "anthropic", "contenuto": nativo}}, {"ruolo": "utente", "testo": "E poi?"}]
+    with caplog.at_level("WARNING", logger="ai.gateway"):
+        pezzi = list(anthropic_api.flusso(modelli["haiku"], "k", sistema="s", messaggi=storia, effort="low",
+                                          http_client=_http(gestore)))
+    intestazioni, corpo = ricevute[0]
+    assert "thinking-binding-controls-2026-08-01" in intestazioni["anthropic-beta"]
+    assert corpo["thinking"] == {"type": "adaptive", "block_binding": {"prefix_mismatch_behavior": "drop_block"}}
+    assert corpo["messages"][1] == {"role": "assistant", "content": nativo}       # la storia resta invariata
+    assert corpo["output_config"] == {"effort": "low"}
+    assert isinstance(pezzi[-1], Fine)
+    assert "prefix_binding_mismatch" in caplog.text
+
+
+def test_anthropic_senza_ragionamento_nella_storia_richiesta_invariata(modelli):
+    ricevute = []
+
+    def gestore(richiesta):
+        ricevute.append((richiesta.headers, json.loads(richiesta.content)))
+        return httpx2.Response(200, content=_sse(RISPOSTA_ANTHROPIC), headers={"content-type": "text/event-stream"})
+
+    list(anthropic_api.flusso(modelli["haiku"], "k", sistema="s", messaggi=MESSAGGI, http_client=_http(gestore)))
+    intestazioni, corpo = ricevute[0]
+    assert "thinking" not in corpo and "thinking-binding" not in intestazioni.get("anthropic-beta", "")
+
+
 @pytest.mark.parametrize("stato,codice", [(429, "RATE_LIMIT"), (401, "AUTENTICAZIONE"), (500, "SERVER"),
                                           (400, "RICHIESTA")])
 def test_anthropic_errori_normalizzati(modelli, stato, codice):
