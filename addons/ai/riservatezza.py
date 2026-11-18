@@ -136,3 +136,26 @@ def segna(conversazione, motivo):
         return
     conversazione.riservata, conversazione.riservata_motivo = True, motivo[:200]
     conversazione.save(update_fields=["riservata", "riservata_motivo"])
+
+
+MESSAGGIO_SENZA_LOCALE = ("Questa chat contiene dati riservati: può rispondere solo un modello locale, e nessuno è "
+                          "attivo. Non ho inviato nulla.")
+
+
+def locali(azienda=None):
+    """I modelli sui nostri server che usano strumenti: [(modello, chiave)]."""
+    from .models import Modello
+    return [(m, m.provider.chiave_per(azienda)) for m in Modello.objects.filter(
+        attivo=True, strumenti=True, provider__attivo=True, provider__locale=True).select_related("provider").order_by("pk")]
+
+
+def filtra(catena, conversazione, azienda=None):
+    """La catena per questa chat: invariata se non è riservata; altrimenti i soli anelli locali, o i modelli locali
+    attivi se la catena non ne ha. Nessuno: NessunModello, e non parte nulla."""
+    if conversazione is None or not getattr(conversazione, "riservata", False):
+        return catena
+    restanti = [anello for anello in catena if anello[0].provider.locale] or locali(azienda)
+    if not restanti:
+        from .catalogo import NessunModello
+        raise NessunModello(MESSAGGIO_SENZA_LOCALE)
+    return restanti

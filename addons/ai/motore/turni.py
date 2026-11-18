@@ -230,6 +230,8 @@ def esegui(turno_id):
         from .. import funzioni
         scelto = conversazione.modello if funzioni.attiva("piu_modelli") else None
         catena = limiti.ammessi(catalogo.con_scelta(anelli, scelto, turno.azienda), utente)
+        from .. import riservatezza
+        catena = riservatezza.filtra(catena, conversazione, turno.azienda)   # chat riservata: solo modelli locali
         from ..strumenti import web
         ammessi = {s.nome: s for s in assistenti.filtra_strumenti(
             web.filtra(strumenti.disponibili(utente, conversazione.ambito, turno.azienda), turno.azienda, turno.web), assistente, esperto=turno.compito == "esperto")}
@@ -329,6 +331,11 @@ def esegui(turno_id):
             for c in chiamate:
                 e.avanzamento({"strumento": c.nome, "stato": "in corso", "passo": passo})
             risultati = strumenti.esegui(chiamate, contesto, ammessi)
+            for c, r in zip(chiamate, risultati):         # letture da fonti riservate: da qui solo modelli locali
+                if not r["errore"] and (motivo := riservatezza.fonte_riservata(
+                        c.nome, c.argomenti, r["contenuto"], turno.azienda, getattr(ammessi.get(c.nome), "app", ""))):
+                    riservatezza.segna(conversazione, motivo)
+            catena = riservatezza.filtra(catena, conversazione, turno.azienda)
             Evento.objects.create(conversazione=conversazione, turno=turno, tipo=Evento.STRUMENTO,
                                   dati={"ruolo": "strumento", "risultati": risultati})
             e.avanzamento({"passo": passo, "fatti": [{"strumento": c.nome, "errore": r["errore"]}
