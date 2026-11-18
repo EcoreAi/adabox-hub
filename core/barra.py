@@ -43,8 +43,9 @@ def voci(apps):
     Le app che sono parte della dashboard (hooks.parte_della_dashboard) non hanno una voce loro: si aprono dalle schede."""
     from .registry import hooks
     dentro = hooks.parti_dashboard()
-    voci_app = [{"label": a["nav_label"], "url_name": a["url_name"], "slug": a["slug"], "categoria": a["category"]}
-                for a in apps if a["slug"] not in dentro]
+    solo_computer = set(getattr(settings, "NAV_SOLO_COMPUTER", ()))
+    voci_app = [{"label": a["nav_label"], "url_name": a["url_name"], "slug": a["slug"], "categoria": a["category"],
+                 "solo_computer": a["slug"] in solo_computer} for a in apps if a["slug"] not in dentro]
     return voci_app, {"label": "Dashboard", "url_name": "core:dashboard", "slug": DASHBOARD, "categoria": "Direzione"}
 
 

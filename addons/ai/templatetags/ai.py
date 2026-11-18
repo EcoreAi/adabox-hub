@@ -179,4 +179,7 @@ def parla_disponibile(context):
     """L'icona «Parla con Ada» nella testata: con la funzione voce in licenza e dettatura e lettura configurate."""
     from .. import funzioni, parla
     request = context.get("request")
-    return funzioni.attiva("voce") and parla.disponibile(getattr(request, "azienda", None))
+    try:
+        return funzioni.attiva("voce") and parla.disponibile(getattr(request, "azienda", None))
+    except KeyError:                                       # parametri della voce non registrati: niente icona
+        return False

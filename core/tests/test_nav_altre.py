@@ -98,4 +98,17 @@ def test_app_in_testa_sempre_per_prime(client, superuser, settings):
 
 def test_etichetta_della_barra_dal_manifest(client, superuser):
     tema = client.get("/dashboard/").context["theme"]
-    assert tema["nav_principale"][0] == {"label": "Chat", "url_name": "ai:chat", "slug": "ai", "categoria": "Produttività"}
+    assert tema["nav_principale"][0] == {"label": "Chat", "url_name": "ai:chat", "slug": "ai", "categoria": "Produttività", "solo_computer": False}
+
+
+def test_menu_del_telefono_con_ricerca_e_app_solo_computer(client, superuser, settings):
+    """Nel menu del telefono c'è la ricerca; le app di configurazione (NAV_SOLO_COMPUTER) sono marcate per nasconderle."""
+    from core import barra
+    settings.NAV_SOLO_COMPUTER = ["ai"]
+    voci, _ = barra.voci([{"nav_label": "Chat", "url_name": "ai:chat", "slug": "ai", "category": "Produttività"},
+                          {"nav_label": "CRM", "url_name": "crm:home", "slug": "crm", "category": "Vendite"}])
+    assert [v["solo_computer"] for v in voci] == [True, False]
+    client.force_login(superuser)
+    from django.urls import reverse
+    html = client.get(reverse("core:dashboard"), follow=True).content.decode()
+    assert "data-nav-cerca" in html and "Cerca un'app" in html

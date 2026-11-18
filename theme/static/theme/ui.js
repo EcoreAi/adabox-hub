@@ -62,6 +62,30 @@
       nav.classList.remove('is-open');
       toggle.setAttribute('aria-expanded', 'false');
     });
+    // ricerca per nome nel menu del telefono: senza accenti né maiuscole; Invio apre la prima trovata
+    const cerca = nav.querySelector('[data-nav-cerca]');
+    const vuota = nav.querySelector('[data-nav-vuota]');
+    if (cerca) {
+      const semplice = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+      cerca.addEventListener('click', (e) => e.stopPropagation());       // toccarla non chiude il menu
+      cerca.addEventListener('input', () => {
+        const q = semplice(cerca.value);
+        nav.classList.toggle('is-cerca', !!q);
+        let trovate = 0;
+        nav.querySelectorAll('a').forEach((a) => {
+          const si = !!q && semplice(a.textContent).includes(q);
+          a.classList.toggle('is-trovata', si);
+          if (si) trovate += 1;
+        });
+        nav.querySelectorAll('.ui-menucol-colonna').forEach((c) => c.classList.toggle('is-trovata', !!c.querySelector('a.is-trovata')));
+        if (vuota) vuota.hidden = !q || trovate > 0;
+      });
+      cerca.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        const prima = nav.querySelector('a.is-trovata');
+        if (prima) { e.preventDefault(); window.location.href = prima.href; }
+      });
+    }
   }
 
   // --- Mostra/nascondi password: <button data-toggle-password="id_campo">
