@@ -65,7 +65,10 @@ def manifest(request):
             "description": "Il gestionale con l'assistente: attività, approvazioni, note spese e notifiche anche dal telefono.",
             "icons": [{"src": reverse("theme:icona", args=[192]), "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
                       {"src": reverse("theme:icona", args=[512]), "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}],
-            "shortcuts": [{"name": "Da approvare", "url": "/approvazioni/"}, {"name": "Le mie attività", "url": "/attivita/"}]}
+            # le scorciatoie passano da «In tasca»: è il kernel a sapere se la pagina esiste e se la persona la può usare
+            "shortcuts": [{"name": "Parla con Ada", "url": "/tasca/?apri=parla"}, {"name": "Chat con Ada", "url": "/tasca/?apri=chat"},
+                          {"name": "In tasca", "url": "/tasca/?apri=tasca"}, {"name": "Da approvare", "url": "/approvazioni/"},
+                          {"name": "Le mie attività", "url": "/attivita/"}]}
     return HttpResponse(json.dumps(dati, ensure_ascii=False), content_type="application/manifest+json")
 
 

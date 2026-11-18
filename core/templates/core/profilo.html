@@ -41,6 +41,18 @@
 </div>
 {% endif %}
 
+<div class="ui-card is-revealed" style="max-width:560px;">
+  <div class="ui-card-head"><div><div class="ui-card-title">Quando apri l'app</div>
+    <div class="ui-card-sub">La pagina con cui si apre l'app installata sul telefono. Tenendo premuta l'icona trovi anche le scorciatoie per le altre.</div></div></div>
+  <div class="ui-card-body">
+    <form method="post" action="{% url 'core:apertura_app' %}" class="ui-form-row">
+      {% csrf_token %}
+      <div class="ui-form-group"><label class="ui-label" for="{{ form_apertura.apertura_app.id_for_label }}">Si apre su</label>{{ form_apertura.apertura_app }}</div>
+      <div class="ui-form-group" style="align-self:end;"><button type="submit" class="ui-btn ui-btn-primary"><svg><use href="#icon-save"/></svg> Salva</button></div>
+    </form>
+  </div>
+</div>
+
 <div class="ui-card is-revealed" style="max-width:760px;">
   <div class="ui-card-head"><div><div class="ui-card-title">Notifiche sul telefono e sul computer</div>
     <div class="ui-card-sub">Installa l'app dal menu del browser («Installa» o «Aggiungi alla schermata Home») e attiva le notifiche: arrivano anche ad app chiusa.</div></div></div>

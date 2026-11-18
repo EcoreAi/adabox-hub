@@ -38,6 +38,14 @@ class TokenApiForm(forms.ModelForm):
         widgets = {"nome": forms.TextInput(attrs={"class": "ui-input", "placeholder": "es. integrazione adabox"})}
 
 
+class AperturaAppForm(forms.ModelForm):
+    """La pagina con cui si apre l'app installata sul telefono."""
+    class Meta:
+        model = ProfiloUtente
+        fields = ["apertura_app"]
+        widgets = {"apertura_app": forms.Select(attrs={"class": "ui-input"})}
+
+
 class AziendaPredefinitaForm(forms.ModelForm):
     """Azienda proposta all'apertura della sessione: solo tra quelle consentite e attive."""
     class Meta:

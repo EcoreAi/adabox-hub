@@ -19,7 +19,7 @@ from . import moduli as mod
 from . import attivita as attivita_servizio
 from . import barra, due_fattori, lavori, licenza, parametri
 
-from .forms import AziendaPredefinitaForm, CampoPersonalizzatoForm, ProfiloForm, TokenApiForm
+from .forms import AperturaAppForm, AziendaPredefinitaForm, CampoPersonalizzatoForm, ProfiloForm, TokenApiForm
 from django.db.models import Q
 
 from .models import LicenzaIstanza, RichiestaModulo
@@ -184,10 +184,20 @@ def profilo(request):
     if len(az.consentite(request.user)) > 1:
         form_azienda = AziendaPredefinitaForm(instance=crea_profilo(request.user))
     return render(request, "core/profilo.html", {
-        "form": form, "form_azienda": form_azienda, "due_fattori_attiva": due_fattori.attiva(request.user),
+        "form": form, "form_azienda": form_azienda, "form_apertura": AperturaAppForm(instance=crea_profilo(request.user)), "due_fattori_attiva": due_fattori.attiva(request.user),
         "form_token": TokenApiForm(utente=request.user), "token": request.user.token_api.all(),
         "token_chiaro": request.session.pop(CHIAVE_TOKEN_NUOVO, None),   # mostrato una sola volta
     })
+
+
+@require_POST
+@login_required
+def apertura_app(request):
+    form = AperturaAppForm(request.POST, instance=crea_profilo(request.user))
+    if form.is_valid():
+        form.save()
+        messages.success(request, f"L'app si aprirà su: {form.instance.get_apertura_app_display()}.")
+    return redirect("core:profilo")
 
 
 @require_POST
@@ -1114,7 +1124,14 @@ def prova_push(request):
 
 @login_required
 def tasca(request):
-    """«In tasca»: la pagina per il telefono, con le cose da fare in giro (solo quelle che l'utente può usare)."""
+    """«In tasca»: la pagina per il telefono, con le cose da fare in giro (solo quelle che l'utente può usare).
+    Aperta dall'app (?da=app) porta alla pagina scelta nel profilo; ?apri= è la scorciatoia dell'icona."""
+    from core import apertura
+    scelta = request.GET.get("apri") or ""
+    if not scelta and request.GET.get("da") == "app":
+        scelta = ProfiloUtente.objects.filter(utente=request.user).values_list("apertura_app", flat=True).first() or ""
+    if (url := apertura.destinazione(request.user, scelta)):
+        return redirect(url)
     from core import approvazioni
     voci = []
 
