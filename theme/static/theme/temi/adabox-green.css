@@ -120,3 +120,6 @@ body.ai-pagina { background: #fcfcfb; }
   .ui-header .ui-nav.is-open .ui-menucol-titolo { color: rgba(255, 255, 255, 0.55); }
   .ui-header .ui-nav.is-open .ui-menucol-colonna { border-top-color: rgba(255, 255, 255, 0.12); }
 }
+
+/* colori del cubo del logo, per chi li usa fuori dalla testata (Parla con Ada) */
+:root { --ui-cubo-1: #7fd3d8; --ui-cubo-2: #2b9ea6; --ui-cubo-3: #1b7f86; }

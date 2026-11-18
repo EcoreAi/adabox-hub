@@ -94,3 +94,31 @@ registra(Strumento(
     "comunicazioni_scrivi", "Manda un messaggio a nome dell'utente in un canale o a una persona. Si propone all'utente, che conferma.",
     {"type": "object", "properties": {"dove": {"type": "string", "description": "#canale oppure @persona"}, "testo": {"type": "string"}},
      "required": ["dove", "testo"]}, invia, rischio="scrittura", concorrente=False, anteprima=anteprima_invia, permesso="discuss.add_messaggio", app="discuss"))
+
+
+def notifiche(contesto, anche_lette=False, quanti=20):
+    """Le notifiche delle Comunicazioni della persona, le più recenti prima. Leggerle con Ada non le segna come lette."""
+    from django.utils import timezone
+
+    from .models import Notifica
+    qs = Notifica.objects.filter(utente=contesto.utente).select_related("autore")
+    non_lette = qs.filter(letta=False).count()
+    if not anche_lette:
+        qs = qs.filter(letta=False)
+    try:
+        quanti = max(1, min(int(quanti), 50))
+    except (TypeError, ValueError):
+        quanti = 20
+    return {"non_lette": non_lette, "notifiche": [
+        {"tipo": n.get_tipo_display(), "titolo": n.titolo, "testo": n.testo[:300], "url": n.url,
+         "da": (n.autore.get_full_name() or n.autore.username) if n.autore else "",
+         "quando": timezone.localtime(n.creata).strftime("%d/%m/%Y %H:%M"), "letta": n.letta}
+        for n in qs[:quanti]]}
+
+
+registra(Strumento(
+    "notifiche_leggi", "Le notifiche dell'utente nelle Comunicazioni (menzioni, messaggi diretti, risposte, attività, "
+                       "condivisioni): per «che notifiche ho?». Di default solo le non lette.",
+    {"type": "object", "properties": {"anche_lette": {"type": "boolean", "description": "anche quelle già lette"},
+                                      "quanti": {"type": "integer", "description": "quante, massimo 50 (default 20)"}},
+     "required": []}, notifiche, permesso="discuss.view_canale", app="discuss"))

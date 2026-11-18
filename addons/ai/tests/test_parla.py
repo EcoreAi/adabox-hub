@@ -141,3 +141,30 @@ def test_parla_con_ada_nella_testata_di_ogni_app(client, s):
     assert 'class="ai-parla-testata"' in html and f'href="{reverse("ai:parla")}"' in html
     s["valori"]["ai.voce"] = False                                               # voce spenta: niente icona
     assert 'ai-parla-testata' not in client.get(reverse("core:profilo")).content.decode()
+
+
+def test_pagina_con_le_app_e_le_notifiche(client, s):
+    """In alto: l'elenco delle app a cui limitarsi e la campanella con le notifiche non lette."""
+    from discuss.models import Notifica
+    s["u"].user_permissions.add(*Permission.objects.filter(codename__in=["view_contatto", "view_canale"]))
+    client.force_login(User.objects.get(pk=s["u"].pk))
+    Notifica.objects.create(utente=s["u"], tipo=Notifica.DIRETTO, titolo="Mario ti ha scritto", url="/discuss/")
+    Notifica.objects.create(utente=s["u"], tipo=Notifica.DIRETTO, titolo="Già letta", url="/discuss/", letta=True)
+    html = client.get(reverse("ai:parla") + "?app=contatti").content.decode()
+    assert 'data-pa-app="contatti"' in html and 'data-ambito="contatti"' in html
+    assert 'data-pa-notifiche' in html and '>1<' in html
+    assert "cosa posso fare per te?" in html
+
+
+def test_chiedi_limitata_a_un_app(client, s, monkeypatch):
+    s["u"].user_permissions.add(*Permission.objects.filter(codename="view_contatto"))
+    client.force_login(User.objects.get(pk=s["u"].pk))
+    monkeypatch.setattr(parla.motore, "avvia", lambda c, t, u, a=None, **o: Turno.objects.create(conversazione=c, utente=u))
+    r = client.post(reverse("ai:parla_chiedi"), {"testo": "Chi sono i clienti?", "app": "contatti"}).json()
+    assert Conversazione.objects.get(pk=r["conversazione"]).ambito == "contatti"
+    r = client.post(reverse("ai:parla_chiedi"), {"testo": "Altro", "app": "inventata"}).json()
+    assert Conversazione.objects.get(pk=r["conversazione"]).ambito == ""
+
+
+def test_a_voce_ada_legge_le_notifiche():
+    assert "notifiche_leggi" in parla.STRUMENTI_VOCE
