@@ -42,6 +42,11 @@ body.pa-pagina {
 /* ---------- sfera e stato ---------- */
 .pa-centro { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
 .pa-sfera { width: min(86vw, 380px, 46vh, 40dvh); height: min(86vw, 380px, 46vh, 40dvh); flex: 0 1 auto; max-height: 100%; }
+/* la sfera prende lo spazio che resta: intestazione, testi e microfono stanno sempre interi nello schermo */
+@supports (container-type: size) {
+  .pa-centro { container-type: size; }
+  .pa-sfera { width: min(86vw, 380px, calc(100cqh - 40px)); height: min(86vw, 380px, calc(100cqh - 40px)); }
+}
 .pa-stato { margin: 0; font-size: 17px; font-weight: 500; letter-spacing: .01em; color: var(--pa-testo-2); transition: color .4s ease; }
 .pa[data-stato="ascolto"] .pa-stato, .pa[data-stato="parlo"] .pa-stato { color: var(--pa-testo); }
 
@@ -115,7 +120,6 @@ body.pa-pagina {
 
 /* telefoni: tutto in una schermata, senza scorrere per arrivare al microfono */
 @media (max-height: 760px) {
-  .pa-sfera { width: min(80vw, 32dvh); height: min(80vw, 32dvh); }
   .pa-testi { min-height: 84px; }
   .pa-scrivi { margin-top: 6px; }
   .pa-piede { padding: 10px 12px calc(14px + env(safe-area-inset-bottom)); }
