@@ -267,6 +267,7 @@
                 fonte: new EventSource(j.flusso), stop: j.stop, id: j.turno, tagliato: false };
     turno = t;
     mostraVerifica(null);
+    setTimeout(() => attesaBreve(t), ATTIMO_MS);
     t.fonte.addEventListener('testo', (e) => {
       if (turno !== t) return;
       t.testo += JSON.parse(e.data).delta;
@@ -402,25 +403,38 @@
   // ---------- frasi d'attesa: «Guardo il calendario.» mentre lo strumento lavora ----------
   // Una per risposta, la prima volta che parte uno strumento che legge dati e solo se Ada non sta già parlando.
   // L'audio si scarica al primo tocco (il server lo tiene in cache): così parte subito.
-  let frasiPerStrumento = {};
-  try { frasiPerStrumento = JSON.parse(document.getElementById('pa-frasi').textContent); } catch (e) { /* senza frasi */ }
+  let frasi = {};
+  try { frasi = JSON.parse(document.getElementById('pa-frasi').textContent) || {}; } catch (e) { /* senza frasi */ }
+  const frasiPerStrumento = frasi.strumenti || {};
+  const varianti = frasi.varianti || {};
   const audioFrasi = {};
+  const ATTIMO_MS = 1200;                  // senza ancora nulla da dire dopo questo tempo: «Ok, un attimo.»
   function urlFrase(chiave) { return cfg.frase.replace('/attimo/', `/${chiave}/`); }
-  function preparaFrasi() {
+  function preparaFrasi() {                // una variante a caso per gruppo, così non è sempre la stessa frase
     if (Object.keys(audioFrasi).length) return;
-    new Set(Object.values(frasiPerStrumento)).forEach((chiave) => {
-      audioFrasi[chiave] = fetch(urlFrase(chiave)).then((r) => (r.ok ? r.arrayBuffer() : null))
+    new Set([...Object.values(frasiPerStrumento), 'attimo']).forEach((gruppo) => {
+      const k = Math.floor(Math.random() * (varianti[gruppo] || 1));
+      audioFrasi[gruppo] = fetch(urlFrase(k ? `${gruppo}-${k}` : gruppo)).then((r) => (r.ok ? r.arrayBuffer() : null))
         .then((b) => (b ? audio().decodeAudioData(b) : null)).catch(() => null);
     });
   }
+  function accodaFrase(t, audioFrase) {    // dopo le altre frasi d'attesa, prima del testo della risposta
+    const k = t.coda.findIndex((p) => !p.frase);
+    t.coda.splice(k < 0 ? t.coda.length : k, 0, { frase: true, testo: '', audio: audioFrase });
+    if (!t.suona) suonaProssimo(t);
+  }
+  function attesaBreve(t) {
+    if (turno !== t || t.attimo || t.attesa || t.numero || t.suona || t.finito || !audioFrasi.attimo) return;
+    t.attimo = true;
+    accodaFrase(t, audioFrasi.attimo);
+  }
   function attesa(t, strumento) {
     const chiave = frasiPerStrumento[strumento];
-    if (t.attesa || !chiave || !audioFrasi[chiave] || t.suona || t.numero) return;
+    if (t.attesa || !chiave || !audioFrasi[chiave] || t.numero) return;
     t.attesa = true;
     stato_el.textContent = { calendario: 'Guardo il calendario…', dati: 'Controllo nei dati…', documenti: 'Cerco nei documenti…',
                              comunicazioni: 'Guardo le comunicazioni…' }[chiave] || 'Un attimo…';
-    t.coda.unshift({ frase: true, testo: '', audio: audioFrasi[chiave] });
-    if (!t.suona) suonaProssimo(t);
+    accodaFrase(t, audioFrasi[chiave]);
   }
 
   // ---------- verifica: da dove vengono i dati della risposta ----------

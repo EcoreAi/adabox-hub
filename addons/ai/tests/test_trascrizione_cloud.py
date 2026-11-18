@@ -123,6 +123,7 @@ def test_parole_da_favorire_solo_per_mistral(s):
     u = User(first_name="Enrico", last_name="Corellas", username="ec")
     parole = voce.parole_note(u, s["az"])
     assert parole[0] == "Ada" and "Enrico" in parole and "Corellas" in parole and len(parole) == len({p.lower() for p in parole})
+    assert not any(" " in p or "," in p for p in parole)                       # Mistral rifiuta (400) spazi e virgole
     _mistral()
     s["valori"]["ai.trascrizione_cloud"] = True
     viste = []
@@ -133,3 +134,16 @@ def test_parole_da_favorire_solo_per_mistral(s):
     viste = []
     voce.trascrivi_cloud(ovh, b"x", "v.webm", "audio/webm", "it", _client(viste, lambda r: (200, {"text": "ok"})), parole=["Ada"])
     assert "context_bias" not in viste[0].read().decode(errors="replace")       # OVH non lo conosce
+
+
+def test_parole_divise_e_prompt_al_whisper_locale(s, settings):
+    """«Adabox v3» con lo spazio faceva rispondere 400 a Mistral su ogni trascrizione."""
+    from django.contrib.auth.models import User
+    settings.THEME = {**settings.THEME, "brand": "Adabox v3"}
+    parole = voce.parole_note(User(first_name="Enrico", username="e"), s["az"])
+    assert "Adabox" in parole and "v3" not in parole and not any(" " in p for p in parole)
+    viste = []
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    voce._trascrivi_locale(SimpleUploadedFile("v.webm", b"x", "audio/webm"), "audio/webm", "it",
+                           _client(viste, lambda r: (200, {"text": "ciao Ada"})), ["Ada", "Enrico"])
+    assert 'name="prompt"' in viste[0].read().decode(errors="replace")
