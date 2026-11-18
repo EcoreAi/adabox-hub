@@ -185,3 +185,17 @@ body.ui-body.pa-pagina { background: radial-gradient(120% 75% at 50% 38%, color-
 .pa-chiudi { background: rgba(255, 255, 255, .04); color: var(--pa-testo); }
 .pa-microfono { background: linear-gradient(145deg, var(--pa-cubo-1), var(--pa-cubo-2)); color: #04121a;
   box-shadow: 0 0 0 10px color-mix(in srgb, var(--pa-cubo-2) 22%, transparent), 0 12px 36px -8px var(--pa-cubo-2); }
+
+/* senza voce: l'icona barrata, evidenziata finché resta spenta */
+.pa-muto .pa-voce-no, .pa-muto[aria-pressed="true"] .pa-voce-si { display: none; }
+.pa-muto[aria-pressed="true"] .pa-voce-no { display: block; }
+.pa-muto[aria-pressed="true"] { color: #04121a; background: var(--pa-cubo-1); border-color: var(--pa-cubo-1); }
+/* telefoni: con tre icone a destra il marchio e il menu delle app devono stare nella stessa riga */
+@media (max-width: 440px) {
+  .pa-testa { grid-template-columns: auto 1fr auto; gap: 8px; }
+  .pa-marchio { font-size: 20px; }
+  .pa-azioni { gap: 6px; }
+  .pa-icona { width: 40px; height: 40px; }
+  .pa-icona svg { width: 19px; height: 19px; }
+  .pa-chip { max-width: 34vw; padding: 0 10px; }
+}
