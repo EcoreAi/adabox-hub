@@ -81,7 +81,11 @@
 
   let stato = 'fermo';
   let conversazione = cfg.conversazione || '';
-  let contesto = null, analizzatore = null, livello = 0;
+  let contesto = null, analizzatore = null, volume = null, livello = 0;
+  // «senza voce» (per la riservatezza): Ada risponde solo con i sottotitoli. L'audio passa comunque per l'analizzatore,
+  // quindi tempi dei sottotitoli e cubo che pulsa restano gli stessi; si azzera solo il volume. Ricordato sul dispositivo.
+  let muto = false;
+  try { muto = localStorage.getItem('ai-parla-muto') === '1'; } catch (e) { /* senza storage: con la voce */ }
   let microfono = null, sorgenteMic = null;
   let blocco = null;                       // wake lock dello schermo
   let reg = null;                          // registrazione in corso
@@ -112,6 +116,10 @@
       contesto = new AC();
       analizzatore = contesto.createAnalyser();
       analizzatore.fftSize = 1024;
+      volume = contesto.createGain();
+      volume.gain.value = muto ? 0 : 1;
+      analizzatore.connect(volume);
+      volume.connect(contesto.destination);
     }
     if (contesto.state === 'suspended') contesto.resume();          // sblocco dopo un tocco (iOS, Chrome)
     return contesto;
@@ -349,8 +357,7 @@
     if (stato !== 'parlo') imposta('parlo');
     const sorgente = audio().createBufferSource();
     sorgente.buffer = buffer;
-    sorgente.connect(analizzatore);
-    analizzatore.connect(audio().destination);
+    sorgente.connect(analizzatore);              // analizzatore → volume → altoparlante (audio())
     p.sorgente = sorgente;
     p.partito = audio().currentTime;
     if (!p.frase) aggiungiSottotitolo(p.testo, p.partito, buffer.duration);
@@ -508,6 +515,21 @@
     document.addEventListener('click', (e) => { if (!menuApp.contains(e.target)) chiudiMenu(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') chiudiMenu(); });
   }
+  const tastoMuto = radice.querySelector('[data-pa-muto]');
+  function mostraMuto() {
+    if (!tastoMuto) return;
+    tastoMuto.setAttribute('aria-pressed', String(muto));
+    const testo = muto ? 'Voce di Ada spenta: risponde solo per iscritto. Tocca per riaccenderla' : 'Spegni la voce di Ada: risponde solo per iscritto';
+    tastoMuto.setAttribute('aria-label', testo);
+    tastoMuto.title = muto ? 'Riaccendi la voce' : 'Senza voce';
+  }
+  if (tastoMuto) tastoMuto.addEventListener('click', () => {
+    muto = !muto;
+    try { localStorage.setItem('ai-parla-muto', muto ? '1' : '0'); } catch (e) { /* vale per questa pagina */ }
+    if (volume) volume.gain.setTargetAtTime(muto ? 0 : 1, contesto.currentTime, 0.03);   // subito, anche a metà frase
+    mostraMuto();
+  });
+  mostraMuto();
   const campanella = radice.querySelector('[data-pa-notifiche]');
   if (campanella) campanella.addEventListener('click', () => {      // «che notifiche ho?», come se l'avessi detto
     const testo = campanella.dataset.domanda;

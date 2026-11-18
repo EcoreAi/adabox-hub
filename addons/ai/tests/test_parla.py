@@ -168,3 +168,9 @@ def test_chiedi_limitata_a_un_app(client, s, monkeypatch):
 
 def test_a_voce_ada_legge_le_notifiche():
     assert "notifiche_leggi" in parla.STRUMENTI_VOCE
+
+
+def test_pulsante_senza_voce(client, s):
+    """Per la riservatezza si può spegnere la voce di Ada: risponde solo con i sottotitoli."""
+    html = client.get(reverse("ai:parla")).content.decode()
+    assert "data-pa-muto" in html and 'aria-pressed="false"' in html
