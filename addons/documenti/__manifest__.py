@@ -1,7 +1,7 @@
 {
     "name": "Documenti",
     "summary": "Archivio di file per cartelle con permessi, tag, anteprima, condivisione e richieste",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],

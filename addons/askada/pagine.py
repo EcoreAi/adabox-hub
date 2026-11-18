@@ -78,6 +78,9 @@ def chiedi(request):
         nome = f"{titolo or 'Chiedi ad Ada'} · {' '.join(testo.split())}"
         conversazione = Conversazione.objects.create(utente=request.user, ambito=_app(url, request.user), titolo_generato=True,
                                                      titolo=nome[:117] + ("…" if len(nome) > 117 else ""))
+    from ai import riservatezza
+    if (motivo := riservatezza.motivo_pagina(url, getattr(request, "azienda", None))):   # la pagina va nel messaggio
+        riservatezza.segna(conversazione, motivo)
     primo = conversazione.messaggi.order_by("-pk").values_list("pk", flat=True).first() or 0
     turno = motore.avvia(conversazione, testo, request.user, getattr(request, "azienda", None), nota=_nota(url, titolo, contesto, pagina))
     conversazione.save(update_fields=["aggiornata"])

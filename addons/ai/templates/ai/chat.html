@@ -100,8 +100,10 @@
         <div class="ai-titolo-chat">
           <h1 data-titolo>{{ conversazione.titolo }}</h1>
           <form class="ai-rinomina" method="post" action="{% url 'ai:rinomina' conversazione.pk %}" data-rinomina hidden>{% csrf_token %}<input class="ui-input" name="titolo" value="{{ conversazione.titolo }}" maxlength="120" aria-label="Titolo della chat" required><button type="submit" class="ui-btn ui-btn-sm ui-btn-primary">Salva</button></form>
+          {% if conversazione.riservata %}<span class="ai-chip is-protetto" title="Motivo: {{ conversazione.riservata_motivo }}. Da qui risponde solo un modello sui vostri server."><svg aria-hidden="true"><use href="#icon-lock"/></svg>Riservata · solo modelli locali</span>{% endif %}
           <span class="ai-spazio"></span>
           {% if not sola_lettura %}
+          {% if not conversazione.riservata %}<form method="post" action="{% url 'ai:riservata' conversazione.pk %}" onsubmit="return confirm('Rendere riservata questa chat? Da qui risponderanno solo modelli locali, e non si torna indietro.')">{% csrf_token %}<button type="submit" class="ai-azione" data-tip="Rendi riservata: solo modelli locali" aria-label="Rendi riservata la chat"><svg><use href="#icon-lock"/></svg></button></form>{% endif %}
           {% if puo_condividere %}<form method="post" action="{% url 'ai:condividi_chat' conversazione.pk %}">{% csrf_token %}<button type="submit" class="ai-azione{% if conversazione.condivisa %} is-preferita{% endif %}" aria-pressed="{{ conversazione.condivisa|yesno:'true,false' }}" data-tip="{% if conversazione.condivisa %}Condivisa con l'area: torna privata{% else %}Condividi con l'area di lavoro (gli altri membri la leggono){% endif %}" aria-label="Condividi con l'area di lavoro"><svg><use href="#ai-persone"/></svg></button></form>{% endif %}
           <button type="button" class="ai-azione" data-apri-rinomina data-tip="Rinomina" aria-label="Rinomina la chat"><svg><use href="#icon-edit"/></svg></button>
           <a class="ai-azione" href="{% url 'ai:esporta' conversazione.pk %}" data-tip="Esporta in Markdown" aria-label="Esporta la chat"><svg><use href="#icon-download"/></svg></a>

@@ -446,6 +446,16 @@ def preferita(request, pk):
 
 @require_POST
 @login_required
+def riservata(request, pk):
+    """La chat diventa riservata per sempre: da qui solo modelli locali. Non si torna indietro."""
+    from . import riservatezza
+    c = get_object_or_404(_mie(request), pk=pk)
+    riservatezza.segna(c, "segnata dall'utente")
+    return redirect("ai:conversazione", pk=c.pk)
+
+
+@require_POST
+@login_required
 @permission_required("ai.delete_conversazione", raise_exception=True)
 def elimina(request, pk):
     c = get_object_or_404(_mie(request), pk=pk)
@@ -840,7 +850,8 @@ def parti_voce(request, pk):
 @funzioni.richiede("voce")
 def audio_voce(request, pk, parte):
     m = _messaggio_da_leggere(request, pk)
-    servizio = voce.servizio_per(getattr(request, "azienda", None))
+    # chat riservata: la risposta la legge solo un servizio sui nostri server
+    servizio = voce.servizio_per(getattr(request, "azienda", None), solo_locale=m.conversazione.riservata)
     if servizio is None:
         raise Http404
     testo = voce.da_leggere(m.testo)
@@ -873,35 +884,37 @@ def scrivi_con_ada(request, campo):
         risposte = {}
     azienda = getattr(request, "azienda", None)
     if campo == aiuto_testi.LIBERO:
+        record, motivo = _record_per_ada(request, request.POST.get("record", ""), azienda)
         turno = aiuto_testi.avvia_libero(request.user, azienda, request.POST.get("testo", ""), request.POST.get("istruzione", ""),
-                                         request.POST.get("etichetta", ""), _record_per_ada(request, request.POST.get("record", "")))
+                                         request.POST.get("etichetta", ""), record, riservata=motivo)
     else:
         turno = aiuto_testi.avvia(request.user, azienda, campo, request.POST.get("testo", ""),
                                   risposte if isinstance(risposte, dict) else {})
     return JsonResponse({"esito": reverse("ai:esito_scrittura", args=[turno.pk])})
 
 
-def _record_per_ada(request, valore):
-    """«ct:pk» (o solo «ct» per un record nuovo) → il record in parole, solo se l'utente lo vede; altrimenti niente."""
+def _record_per_ada(request, valore, azienda=None):
+    """«ct:pk» (o solo «ct» per un record nuovo) → (il record in parole, il motivo se è riservato), solo se l'utente
+    lo vede; altrimenti ("", "")."""
     from django.contrib.contenttypes.models import ContentType
     from django.core.exceptions import PermissionDenied
 
     from core.generici import vista_e_oggetto
     from core.viste import registry
 
-    from . import aiuto_testi
+    from . import aiuto_testi, riservatezza
     ct, _, pk = (valore or "").partition(":")
     if not ct.isdigit():
-        return ""
+        return "", ""
     try:
         if pk.isdigit():
             vista, obj = vista_e_oggetto(request, int(ct), int(pk), "view")
-            return aiuto_testi.descrivi_record(vista, obj, messaggi=10, massimo=4000)
+            return aiuto_testi.descrivi_record(vista, obj, messaggi=10, massimo=4000), riservatezza.motivo_record(vista, obj, azienda)
         modello = ContentType.objects.get_for_id(int(ct)).model_class()
         vista = registry.per_modello(modello) if modello else None
-        return f"Un nuovo record di tipo {vista.verbose_name}" if vista and vista.has_add_permission(request) else ""
+        return (f"Un nuovo record di tipo {vista.verbose_name}", "") if vista and vista.has_add_permission(request) else ("", "")
     except (Http404, PermissionDenied, ContentType.DoesNotExist):
-        return ""
+        return "", ""
 
 
 @require_POST

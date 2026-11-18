@@ -1,5 +1,5 @@
 {% load humanize %}{# Da dove vengono i dati della risposta (calcolato dal codice a fine turno, non dichiarato dal modello). Ogni chip si apre con una card di dettaglio: fonti consultate, dati personali protetti, token e costo. Con <details> funziona anche senza script; chat.js chiude le altre card, Esc e clic fuori. #}
-{% if pv and pv.esito != "conversazione" or pv.pii or pv.token or pv.previsioni or pv.numeri %}
+{% if pv and pv.esito != "conversazione" or pv.pii or pv.token or pv.previsioni or pv.numeri or pv.riservata %}
 <div class="ai-provenienza" aria-label="Provenienza della risposta">
   {% if "fonti" in pv %}
   {% if pv.fonti %}<details class="ai-pv"><summary class="ai-chip{% if pv.letture_web %} is-avviso{% elif pv.esito == 'verificato' %} is-ok{% endif %}"><svg><use href="#icon-search"/></svg>{{ pv.fonti|length }} {{ pv.fonti|length|pluralize:"fonte consultata,fonti consultate" }}</summary>
@@ -50,6 +50,7 @@
   </details>{% endfor %}
   {% if pv.esito == "parziale" %}<span class="ai-badge is-avviso" title="Numeri non trovati nei dati letti: {{ pv.non_verificati|join:', ' }}">⚠ {{ pv.n_non_verificati }} {{ pv.n_non_verificati|pluralize:"numero non trovato,numeri non trovati" }} nei dati letti</span>{% endif %}
   {% if pv.esito == "senza fonti" %}<span class="ai-badge is-neutro" title="La risposta non viene da dati letti con gli strumenti">Senza dati del gestionale</span>{% endif %}
+  {% if pv.riservata %}<span class="ai-chip is-protetto" title="Questa chat ha letto dati riservati: risponde solo un modello sui vostri server"><svg><use href="#icon-lock"/></svg>Riservata · solo modelli locali</span>{% endif %}
   {% if pv.pii %}<details class="ai-pv"><summary class="ai-chip is-protetto"><svg><use href="#icon-lock"/></svg>{{ pv.pii }} {{ pv.pii|pluralize:"dato personale protetto,dati personali protetti" }}</summary>
     <div class="ai-pv-card">
       <p class="ai-pv-nota">Sostituiti con segnaposto prima dell'invio al modello cloud: il modello non li ha visti, nella risposta sono stati rimessi i valori veri.</p>

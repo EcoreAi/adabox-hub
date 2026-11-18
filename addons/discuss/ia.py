@@ -73,6 +73,9 @@ def genera(sistema, testo, utente, azienda=None, titolo="Comunicazioni", di_serv
         pezzi, modello = [], None
         try:
             catena = limiti.ammessi(catalogo.catena(profilo, azienda), None if di_servizio else utente)
+            from ai import riservatezza
+            if "discuss" in riservatezza.app_riservate(azienda):          # comunicazioni riservate: solo in locale
+                catena = riservatezza.solo_locali(catena, azienda)
             for pezzo in gateway(catena, protezione=Protezione(conversazione), sistema=sistema,
                                  messaggi=[{"ruolo": "utente", "testo": testo[-MASSIMO_TESTO:]}], max_token=2000, effort=profilo.effort):
                 if isinstance(pezzo, Inizio):

@@ -494,6 +494,18 @@ completate.
     consumi;
   - «Registro modifiche» (`/ai/registro/`, amministratori): ogni proposta dell'assistente con utente, azienda,
     operazione, argomenti ed esito.
+  - **Fonti riservate** (`ai/riservatezza.py`): ciò che non deve arrivare a un modello cloud, nemmeno pseudonimizzato
+    (prezzi, clausole, dati del personale), si segna come riservato. Tre modi: le **app riservate** dell'azienda
+    (impostazione `ai.app_riservate`, slug separati da virgola), le **cartelle dei Documenti** con «riservata per
+    l'assistente» (vale anche per le sottocartelle) e la **singola chat** («Rendi riservata» nella riga del titolo).
+    Quando uno strumento legge una fonte riservata, la chat diventa riservata per sempre e da lì ogni chiamata usa solo
+    modelli con provider **locale**: le risposte, il titolo, il riassunto delle chat lunghe, la verifica delle
+    citazioni, gli esperti (che ereditano e riportano la riservatezza) e il riassunto dei documenti riservati. Se la
+    catena non ha un modello locale si usa uno locale attivo dell'istanza; se non ce n'è nessuno il turno si ferma con
+    un messaggio e non parte nulla. In chat e sotto le risposte compare «Riservata · solo modelli locali». Il
+    connettore verso le chat esterne rifiuta le letture riservate e toglie i risultati riservati dalle ricerche.
+    Limiti del primo giro: le aree di lavoro non si segnano ancora come riservate; con almeno un'app riservata, la
+    lettura di una pagina di Analisi conta come riservata (può mostrare dati di ogni app).
 - **Specialisti** (AI-6), facoltativi, attivi solo con l'URL del servizio nelle impostazioni:
   - `previsione`: la storia di una misura (conteggio o somma per mese, settimana o giorno) la costruisce il codice
     dai dati, con i permessi dell'utente e senza il periodo in corso; i prossimi periodi li calcola il servizio

@@ -90,6 +90,8 @@ class Cartella(AziendaMixin):
                                 help_text="gli allegati caricati sui record di questo tipo finiscono qui")
     spazio = models.ForeignKey(Spazio, on_delete=models.CASCADE, null=True, blank=True, related_name="cartelle",
                                verbose_name="spazio di lavoro", help_text="vuoto = archivio aziendale")
+    riservata = models.BooleanField("riservata per l'assistente", default=False,
+                                    help_text="l'assistente legge questa cartella e le sottocartelle solo con modelli locali")
 
     class Meta(AziendaMixin.Meta):
         verbose_name = "cartella"

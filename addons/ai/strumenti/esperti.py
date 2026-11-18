@@ -26,12 +26,19 @@ def chiedi_esperto(contesto, esperto, domanda):
         raise ErroreStrumento(f"Esperto «{esperto}» inesistente o non disponibile. Esperti: {nomi}.")
     if not (domanda or "").strip():
         raise ErroreStrumento("Scrivi la domanda per l'esperto, completa di tutto il contesto che gli serve.")
+    chiamante = contesto.conversazione                   # l'esperto eredita la riservatezza e la riporta indietro
     interna = Conversazione.objects.create(utente=contesto.utente, ambito=scelto.app, assistente=scelto, nascosta=True,
-                                           titolo=f"Esperto: {scelto.nome}"[:120], titolo_generato=True)
+                                           titolo=f"Esperto: {scelto.nome}"[:120], titolo_generato=True,
+                                           riservata=getattr(chiamante, "riservata", False),
+                                           riservata_motivo=getattr(chiamante, "riservata_motivo", ""))
     turno = motore.avvia(interna, domanda, contesto.utente, contesto.azienda, compito="esperto", sincrono=True,
                          nota="Ti consulta l'assistente principale, non l'utente: rispondi in modo completo e conciso "
                               "con i dati trovati e i loro link. Non puoi modificare dati.")
     turno.refresh_from_db()
+    interna.refresh_from_db()
+    if interna.riservata:
+        from .. import riservatezza
+        riservatezza.segna(chiamante, interna.riservata_motivo)
     if turno.stato != Turno.COMPLETATO:
         raise ErroreStrumento(f"L'esperto non ha risposto ({turno.get_stato_display().lower()}): {turno.errore[:300]}")
     return {"esperto": scelto.nome, "risposta": turno.testo}

@@ -56,6 +56,9 @@ class Conversazione(models.Model):
     condivisa = models.BooleanField("condivisa con l'area", default=False,
                                     help_text="gli altri membri dell'area di lavoro la leggono, senza poterci scrivere")
     nascosta = models.BooleanField("interna", default=False, help_text="conversazione di un esperto: non in cronologia")
+    riservata = models.BooleanField("riservata", default=False, editable=False,
+                                    help_text="ha letto dati riservati: da qui in poi solo modelli locali, per sempre")
+    riservata_motivo = models.CharField("motivo della riservatezza", max_length=200, blank=True, editable=False)
     segnaposto = models.JSONField("segnaposto dei dati personali", default=dict, blank=True, editable=False,
                                   help_text="[FULLNAME_1] -> valore: stabili per conversazione (ai.protezione)")
     creata = models.DateTimeField("creata il", auto_now_add=True)

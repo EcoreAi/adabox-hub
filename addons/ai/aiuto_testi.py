@@ -96,10 +96,12 @@ def descrivi_record(vista, obj, messaggi=30, massimo=8000):
     return "\n".join(righe)[:massimo]
 
 
-def avvia_libero(utente, azienda, testo_attuale, istruzione, etichetta="", record=""):
+def avvia_libero(utente, azienda, testo_attuale, istruzione, etichetta="", record="", riservata=""):
+    """`riservata`: il motivo, se `record` viene da una fonte riservata (la chat nasce riservata: solo modelli locali)."""
     from . import motore
     regole, corpo = richiesta_libera(testo_attuale[:6000], istruzione[:1000], etichetta[:100], record)
-    conversazione = Conversazione.objects.create(utente=utente, titolo="Scrivi con Ada", nascosta=True)
+    conversazione = Conversazione.objects.create(utente=utente, titolo="Scrivi con Ada", nascosta=True,
+                                                 riservata=bool(riservata), riservata_motivo=riservata[:200])
     return motore.avvia(conversazione, corpo, utente, azienda, compito=COMPITO, nota=regole, web=False)
 
 
@@ -110,7 +112,10 @@ def avvia_riassunto(utente, azienda, vista, obj):
               "Testo semplice, senza formattazione Markdown (niente asterischi né cancelletti). "
               "Usa solo i dati che hai (puoi leggere il gestionale con gli strumenti di sola lettura); non inventare. "
               "Rispondi solo con il riassunto.")
-    conversazione = Conversazione.objects.create(utente=utente, titolo=f"Riassunto: {str(obj)[:150]}", nascosta=True)
+    from . import riservatezza
+    motivo = riservatezza.motivo_record(vista, obj, azienda)        # record riservato: la chat nasce riservata
+    conversazione = Conversazione.objects.create(utente=utente, titolo=f"Riassunto: {str(obj)[:150]}", nascosta=True,
+                                                 riservata=bool(motivo), riservata_motivo=motivo)
     return motore.avvia(conversazione, descrivi_record(vista, obj), utente, azienda, compito=COMPITO, nota=regole, web=False)
 
 

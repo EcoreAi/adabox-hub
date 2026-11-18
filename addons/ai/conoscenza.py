@@ -452,6 +452,10 @@ def riassumi(d, analisi):
     try:
         profilo = catalogo.profilo_per("riassunti", d.azienda)
         catena = limiti.ammessi(catalogo.catena(profilo, d.azienda), utente)
+        from . import riservatezza
+        if d.cartella_id in riservatezza.cartelle_riservate(d.azienda) or \
+                "documenti" in riservatezza.app_riservate(d.azienda):        # documento riservato: solo in locale
+            catena = riservatezza.solo_locali(catena, d.azienda)
         domanda = f"Documento «{d.nome}»:\n\n{analisi['testo'][:RIASSUNTO_MAX_TESTO]}"
         for pezzo in gateway(catena, protezione=Protezione(None), sistema=RIASSUNTO_SISTEMA,
                              messaggi=[{"ruolo": "utente", "testo": domanda}], max_token=800, effort=profilo.effort):

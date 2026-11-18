@@ -1,7 +1,7 @@
 {
     "name": "Assistente AI",
     "summary": "Chat con l'assistente: cronologia delle conversazioni, artifact e documenti salvati",
-    "version": "1.47.0",
+    "version": "1.48.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -118,5 +118,8 @@
         {"chiave": "pii_escludi", "label": "Categorie da non mascherare", "tipo": "testo",
          "default": "DATE,TIME,AMOUNT,AGE,GENDER",
          "help": "separate da virgole: date, ore, importi servono ai calcoli"},
+        {"chiave": "app_riservate", "label": "App riservate: solo modelli locali", "tipo": "testo", "default": "",
+         "per_azienda": True,
+         "help": "slug delle app separati da virgola, es. personale, banca: una chat che ne legge i dati usa solo modelli locali"},
     ],
 }

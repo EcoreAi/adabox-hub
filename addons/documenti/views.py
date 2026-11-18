@@ -21,7 +21,7 @@ class CartellaView(ModelView):
     list_display = ["__str__", "modello"]
     search_fields = ["nome", "descrizione"]
     form_layout = [("Cartella", [("nome", "padre"), "descrizione"]),
-                   ("Permessi", [("gruppi_lettura", "gruppi_scrittura")]),
+                   ("Permessi", [("gruppi_lettura", "gruppi_scrittura"), "riservata"]),
                    ("Allegati dei record", ["modello"])]
     company_field = "azienda"
 
