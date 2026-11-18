@@ -126,11 +126,6 @@ body.pa-pagina {
   .pa-microfono { width: 72px; height: 72px; }
   .pa-laterale { width: 50px; height: 50px; }
 }
-/* app installata sul telefono: Chrome disegna la pagina anche sotto la barra di Android (tasti o gesti) senza
-   dichiararne l'altezza (env() resta 0): il microfono finiva lì sotto. Spazio minimo di 52px, o quello dichiarato */
-@media (display-mode: standalone) and (pointer: coarse) {
-  .pa-piede { padding-bottom: calc(10px + max(env(safe-area-inset-bottom), 52px)); }
-}
 @media (max-height: 640px) { .pa-testi { min-height: 84px; } .pa-sottotitoli { font-size: 17px; } .pa-piede { padding-top: 10px; } }
 @media (prefers-reduced-motion: reduce) {
   .pa-sfondo span { animation: none; }
@@ -199,3 +194,20 @@ body.ui-body.pa-pagina { background: radial-gradient(120% 75% at 50% 38%, color-
   .pa-icona svg { width: 19px; height: 19px; }
   .pa-chip { max-width: 34vw; padding: 0 10px; }
 }
+
+/* ---------- tutto in una schermata, sempre ----------
+   La pagina è fissata alla finestra: aprendo la tastiera per «Scrivi» il browser la spostava per mostrare il campo e,
+   chiusa la tastiera, restava spostata (marchio e icone fuori dallo schermo). Con interactive-widget=resizes-content
+   (meta viewport) la tastiera accorcia la pagina invece di coprirla: il cubo si rimpicciolisce, il campo resta in vista. */
+html:has(body.pa-pagina) { height: 100%; overflow: hidden; }
+body.ui-body.pa-pagina { position: fixed; inset: 0; width: 100%; height: auto; }
+
+/* ---------- la risposta prende lo spazio che le serve ----------
+   I sottotitoli tengono tutta la risposta e scorrono; il cubo cede spazio (fino a un minimo) e sale piano, come nella v2. */
+.pa-centro { flex: 1 1 0; min-height: 132px; }
+.pa-testi { flex: 0 1 auto; min-height: 84px; }
+.pa-sottotitoli { flex: 0 1 auto; min-height: 0; max-height: none; position: relative; overflow-y: auto; overscroll-behavior: contain;
+  justify-content: flex-start; -webkit-mask-image: none; mask-image: none; scrollbar-width: none; }
+.pa-sottotitoli::-webkit-scrollbar { display: none; }
+.pa-sottotitoli.is-scorsa { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 1.4em); mask-image: linear-gradient(to bottom, transparent 0, #000 1.4em); }
+@media (max-height: 640px) { .pa-centro { min-height: 96px; } }
