@@ -141,10 +141,11 @@ def concreto(testo):
 
 @contextmanager
 def solo_modello(modello):
-    """Ogni profilo usa solo `modello` (ai_eval --modello): per confrontare i modelli sulle stesse domande."""
+    """Ogni profilo usa solo `modello` (ai_eval --modello): per confrontare i modelli sulle stesse domande.
+    La chiave è quella che userebbe la chat (dell'azienda se c'è, altrimenti del provider): senza, la chiamata fallisce."""
     from .. import catalogo
     originali = catalogo.catena, catalogo.automatico
-    catalogo.catena = catalogo.automatico = lambda profilo, azienda=None: [(modello, "")]
+    catalogo.catena = catalogo.automatico = lambda profilo, azienda=None: [(modello, modello.provider.chiave_per(azienda))]
     try:
         yield
     finally:

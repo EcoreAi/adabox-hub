@@ -185,6 +185,21 @@ def test_valuta_riporta_passi_e_valore_nel_copione(scena):
     assert r["passi"] == 2 and "0 €" in r["risposta"]
 
 
+def test_solo_modello_porta_la_chiave_del_provider(scena):
+    """ai_eval --modello con un modello vero: senza chiave Anthropic dà «Connection error», Mistral «chiave non valida»."""
+    from ai import catalogo
+    from ai.models import ChiaveAzienda
+    provider = Provider.objects.create(nome="Vero", tipo="anthropic", chiave_cifrata=cifratura.cifra("sk-globale"))
+    modello = Modello.objects.create(provider=provider, id_api="vero-1", etichetta="Vero")
+    profilo = Profilo.objects.get(nome="Chat")
+    with valutazione.solo_modello(modello):
+        assert catalogo.catena(profilo, scena["azienda"]) == [(modello, "sk-globale")]
+        assert catalogo.automatico(profilo, None) == [(modello, "sk-globale")]
+    ChiaveAzienda.objects.create(provider=provider, azienda=scena["azienda"], chiave_cifrata=cifratura.cifra("sk-azienda"))
+    with valutazione.solo_modello(modello):
+        assert catalogo.catena(profilo, scena["azienda"]) == [(modello, "sk-azienda")]
+
+
 def test_ai_eval_tempi_e_modello(scena, capsys):
     from django.core.management.base import CommandError
     call_command("ai_eval", "--copioni")
