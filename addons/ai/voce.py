@@ -206,6 +206,9 @@ def per_la_voce(testo):
     13:30 → «13 e 30», 1.250,50 € → «1250 euro e 50», 16/11/2026 → «16 novembre 2026», 12% → «12 per cento»;
     le emoji non si leggono."""
     testo = EMOJI.sub("", testo)
+    # gli indirizzi email come si dicono: passati così, la voce li compitava con suoni inglesi
+    testo = re.sub(r"\b([\w.+-]+)@([\w-]+(?:\.[\w-]+)+)\b",
+                   lambda m: f"{m.group(1).replace('.', ' punto ')} chiocciola {m.group(2).replace('.', ' punto ')}", testo)
 
     def importo(m):
         intero, cent = m.group("intero").replace(".", ""), (m.group("cent") or "").ljust(2, "0") if m.group("cent") else ""
@@ -224,7 +227,12 @@ def per_la_voce(testo):
                    lambda m: f"{int(m.group(1))}" + (f" e {int(m.group(2))}" if int(m.group(2)) else ""), testo)
     testo = re.sub(r"\b\d{1,3}(?:\.\d{3})+\b", lambda m: m.group(0).replace(".", ""), testo)
     testo = re.sub(r"(\d),(\d)", r"\1 virgola \2", testo)
-    return re.sub(r"\s?%", " per cento", testo)
+    testo = re.sub(r"\s?%", " per cento", testo)
+    # simboli che la voce leggerebbe: «#12» è «numero 12», le barre sono pause o spazi, «&» è «e»
+    testo = re.sub(r"#\s?(\d+)", r"numero \1", testo).replace("#", "")
+    testo = re.sub(r"\s+/\s+", ", ", testo)
+    testo = re.sub(r"\s*&\s*", " e ", testo)
+    return testo.replace("/", " ")
 
 
 def parti(testo):
