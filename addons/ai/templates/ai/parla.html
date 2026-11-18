@@ -11,8 +11,9 @@
   <link rel="manifest" href="{% url 'theme:manifest' %}">
   {% include "theme/partials/_tema.html" %}
 </head>
-{% comment %} Conversazione a voce a schermo intero, scura e immersiva: una sfera che respira, ascolta (si deforma con la
-   voce), pensa (i colori girano) e parla (pulsa con la voce di Ada); sottotitoli sincronizzati con l'audio.
+{% comment %} Conversazione a voce a schermo intero, scura e immersiva: il cubo del logo in una galassia (canvas .pa-cielo a
+   tutto schermo; .pa-sfera è solo lo spazio del cubo) che respira, ascolta, pensa (gira) e parla (pulsa con la voce
+   di Ada); sottotitoli sincronizzati con l'audio.
    Tocchi e parli, Ada capisce quando hai finito; toccando mentre pensa o parla la interrompi. {% endcomment %}
 <body class="ui-body pa-pagina">
 {% include 'theme/partials/_icons.html' %}
@@ -23,6 +24,7 @@
       data-ascolto-dopo="{{ impostazioni.ascolto_dopo_ms }}" data-ambito="{{ ambito }}" data-stato="fermo">
   {% csrf_token %}
   <div class="pa-sfondo" aria-hidden="true"><span></span><span></span></div>
+  {% if disponibile %}<canvas class="pa-cielo" aria-hidden="true"></canvas>{% endif %}
 
   {# in alto: il marchio, l'app a cui limitarsi, nuova conversazione e le notifiche (toccandole lo si chiede ad Ada) #}
   <header class="pa-testa">
@@ -48,7 +50,7 @@
 
   {% if disponibile %}
   <section class="pa-centro">
-    <canvas class="pa-sfera" aria-hidden="true"></canvas>
+    <div class="pa-sfera" aria-hidden="true"></div>
     <p class="pa-stato" aria-live="polite" data-pa-stato>Tocca e parla</p>
   </section>
 

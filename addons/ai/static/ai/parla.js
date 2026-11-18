@@ -549,17 +549,35 @@
   try { sessionStorage.setItem('ai-parla-vista', '1'); } catch (e) { /* idem */ }
 
   // ---------- cubo e galassia ----------
-  // Il cubo del logo nei colori del tema: respira da fermo, pulsa con la voce (mentre ascolta e mentre Ada parla,
-  // con onde che si allargano), luccica mentre pensa. Attorno, stelle che girano come una galassia: più veloci
-  // mentre pensa, più larghe mentre ascolta. Colori dalle variabili CSS --pa-cubo-1..3 (sfumati qui).
-  const ctx = tela.getContext && tela.getContext('2d');
+  // Cielo a tutto schermo, come nella v2: stelle lontane che brillano e scorrono piano; una galassia di stelle che gira
+  // attorno al cubo su un piano inclinato (quelle davanti passano sopra il cubo, quelle dietro sotto, come attorno a un
+  // pianeta); una luna in orbita che mentre Ada pensa accelera e lascia la scia; onde quando la voce sale; ogni tanto
+  // una stella cadente. Al centro il cubo del logo, in 3D e nei colori del tema: da fermo respira e oscilla attorno
+  // alla posa del logo, ascoltando cresce con la voce, pensando gira su se stesso e luccica, parlando pulsa.
+  // Colori dalle variabili CSS --pa-cubo-1..3 (sfumati qui). Con «riduci movimento» resta un cielo fermo.
+  const cielo = radice.querySelector('.pa-cielo');
+  const ctx = cielo && cielo.getContext && cielo.getContext('2d');
   const piano = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const colori = { cubo1: [127, 211, 216], cubo2: [43, 158, 166], cubo3: [27, 127, 134] };
-  const onde = [];
-  const stelle = Array.from({ length: piano ? 0 : 54 }, () => ({
-    a: Math.random() * Math.PI * 2, r: 1.35 + Math.random() * 1.0, v: 0.0006 + Math.random() * 0.0016, z: 0.35 + Math.random() * 0.65,
+  const onde = [], scia = [];
+  const lontane = Array.from({ length: 120 }, () => ({
+    x: Math.random(), y: Math.random(), z: 0.25 + Math.random() * 0.75, f: Math.random() * 6.28, v: 0.0006 + Math.random() * 0.0022,
   }));
-  let livelloLiscio = 0, ultimaOnda = 0;
+  const galassia = Array.from({ length: piano ? 0 : 110 }, () => {
+    const r = 1.45 + Math.pow(Math.random(), 0.8) * 2.1;                 // in raggi del cubo
+    const braccio = Math.random() < 0.5 ? 0 : Math.PI;                    // due bracci a spirale
+    return { a: braccio + r * 1.25 + (Math.random() - 0.5) * 0.9, r, z: 0.35 + Math.random() * 0.65 };
+  });
+  const INCLINAZIONE = -0.2;                                              // il piano della galassia, ruotato sullo schermo
+  const SCHIACCIATA = 0.3;                                                // e visto di sbieco
+  const POSA = Math.PI / 4, PENDENZA = Math.atan(1 / Math.SQRT2);         // la posa isometrica del logo
+  const VERTICI = [[-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1], [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]];
+  const FACCE = [                                                         // [vertici, normale]
+    [[3, 2, 6, 7], [0, 1, 0]], [[0, 1, 5, 4], [0, -1, 0]], [[4, 5, 6, 7], [0, 0, 1]],
+    [[1, 0, 3, 2], [0, 0, -1]], [[5, 1, 2, 6], [1, 0, 0]], [[0, 4, 7, 3], [-1, 0, 0]],
+  ];
+  let livelloLiscio = 0, ultimaOnda = 0, prima = 0, giro = POSA, velocitaGiro = 0, luna = -0.6, velocitaLuna = 0;
+  let cadente = null, prossimaCadente = 4000;
   function rgb(testo) {
     const m = /^#?([0-9a-f]{6})$/i.exec((testo || '').trim());
     if (!m) return null;
@@ -572,6 +590,7 @@
   }
   const css = (c, a) => `rgba(${c[0] | 0}, ${c[1] | 0}, ${c[2] | 0}, ${a})`;
   const chiaro = (c, f) => c.map((v) => v + (255 - v) * f);
+  const misto = (a, b, f) => a.map((v, k) => v + (b[k] - v) * f);
   function livelloVoce() {
     if (stato === 'parlo' && analizzatore) {
       const d = new Float32Array(analizzatore.fftSize);
@@ -582,40 +601,162 @@
     }
     return stato === 'ascolto' ? livello : 0;
   }
-  function faccia(punti, colore) {
+  // un punto del piano della galassia: posizione sullo schermo e se sta davanti (sopra il cubo) o dietro
+  function sulPiano(cx, cy, raggio, angolo) {
+    const x = Math.cos(angolo) * raggio, y = Math.sin(angolo) * raggio * SCHIACCIATA;
+    const c = Math.cos(INCLINAZIONE), s = Math.sin(INCLINAZIONE);
+    return { x: cx + x * c - y * s, y: cy + x * s + y * c, davanti: Math.sin(angolo) > 0 };
+  }
+  function stella(x, y, r, colore, a) {
     ctx.beginPath();
-    punti.forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
-    ctx.closePath();
-    ctx.fillStyle = colore; ctx.strokeStyle = colore;
-    ctx.fill(); ctx.stroke();                              // il bordo dello stesso colore arrotonda gli spigoli
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = css(colore, a);
+    ctx.fill();
+  }
+  function disegnaGalassia(cx, cy, R, liv, pensa, davanti) {
+    const colore = chiaro(colori.cubo1, 0.6);
+    galassia.forEach((s) => {
+      const p = sulPiano(cx, cy, R * (s.r + (stato === 'ascolto' ? liv * 0.35 : 0)), s.a);
+      if (p.davanti !== davanti) return;
+      const vicino = davanti ? 1.25 : 0.8;                                 // davanti più grandi e luminose
+      stella(p.x, p.y, 1.2 * s.z * vicino, colore, Math.min(1, (0.22 + 0.4 * s.z * (0.55 + liv + (pensa ? 0.35 : 0))) * vicino));
+    });
+  }
+  function disegnaLuna(cx, cy, R, liv, davanti) {
+    const colore = chiaro(colori.cubo1, 0.15);
+    scia.forEach((q, k) => {
+      if (q.davanti !== davanti) return;
+      stella(q.x, q.y, R * 0.08 * (k + 1) / scia.length, colore, 0.3 * (k + 1) / scia.length);
+    });
+    const p = sulPiano(cx, cy, R * 1.7, luna);
+    if (p.davanti !== davanti) return;
+    const r = R * 0.085 * (davanti ? 1.1 : 0.85) * (1 + liv * 0.25);
+    const g = ctx.createRadialGradient(p.x - r * 0.35, p.y - r * 0.35, 1, p.x, p.y, r * 1.2);
+    g.addColorStop(0, css(chiaro(colori.cubo1, 0.6), 1));
+    g.addColorStop(1, css(colori.cubo2, 1));
+    ctx.save();
+    ctx.shadowColor = css(colori.cubo1, 0.9);
+    ctx.shadowBlur = R * 0.25 + liv * 20;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.restore();
+  }
+  function disegnaCubo(cx, cy, R, liv, pensa, ora, beccheggio) {
+    const s = R / 1.633;                                                  // semilato: nella posa del logo l'esagono ha raggio R
+    const cg = Math.cos(giro), sg = Math.sin(giro), cp = Math.cos(PENDENZA + beccheggio), sp = Math.sin(PENDENZA + beccheggio);
+    const ruota = ([x, y, z]) => {
+      const x1 = x * cg + z * sg, z1 = -x * sg + z * cg;
+      return [x1, y * cp - z1 * sp, y * sp + z1 * cp];
+    };
+    const punti = VERTICI.map((v) => { const [x, y] = ruota(v); return [cx + x * s, cy - y * s]; });
+    const luccichio = pensa && !piano ? 0.1 + 0.12 * Math.sin(ora / 160) : 0;
+    const visibili = FACCE.map(([idx, n]) => ({ idx, n: ruota(n) })).filter((f) => f.n[2] > 0.001)
+      .sort((a, b) => a.n[1] - b.n[1]);                                   // la faccia in alto per ultima
+    ctx.save();
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = R * 0.14;                                             // il bordo dello stesso colore arrotonda gli spigoli
+    visibili.forEach((f, k) => {
+      // in alto il colore chiaro; sui fianchi dal medio (a sinistra) allo scuro (a destra), sfumato mentre gira
+      const fianco = misto(colori.cubo3, colori.cubo2, (1 - f.n[0]) / 2);
+      const colore = chiaro(misto(fianco, colori.cubo1, Math.max(0, f.n[1])), luccichio * (f.n[1] > 0.5 ? 0.6 : 1));
+      ctx.beginPath();
+      f.idx.forEach((i, j) => (j ? ctx.lineTo(punti[i][0], punti[i][1]) : ctx.moveTo(punti[i][0], punti[i][1])));
+      ctx.closePath();
+      ctx.fillStyle = ctx.strokeStyle = css(colore, 1);
+      if (k === 0) { ctx.shadowColor = css(colori.cubo2, 0.8); ctx.shadowBlur = R * 0.35 + liv * 34 + (pensa ? 12 : 0); }
+      ctx.fill(); ctx.stroke();
+      ctx.shadowBlur = 0;
+    });
+    // spigoli in luce tra le facce visibili, come nel logo
+    ctx.beginPath();
+    for (let a = 0; a < visibili.length; a += 1) {
+      for (let b = a + 1; b < visibili.length; b += 1) {
+        const comuni = visibili[a].idx.filter((i) => visibili[b].idx.includes(i));
+        if (comuni.length !== 2) continue;
+        const [p, q] = comuni.map((i) => punti[i]);
+        const mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2;
+        ctx.moveTo(mx + (p[0] - mx) * 0.86, my + (p[1] - my) * 0.86);    // un po' più corti: non toccano il bordo
+        ctx.lineTo(mx + (q[0] - mx) * 0.86, my + (q[1] - my) * 0.86);
+      }
+    }
+    ctx.strokeStyle = `rgba(255, 255, 255, ${0.3 + liv * 0.3 + luccichio})`;
+    ctx.lineWidth = Math.max(1, R * 0.045);
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    ctx.restore();
   }
   function disegna(ora) {
     requestAnimationFrame(disegna);
     scopriParole();
     if (!ctx) return;
+    const dt = prima ? Math.min(50, ora - prima) : 16;
+    prima = ora;
     verso('cubo1', '--pa-cubo-1'); verso('cubo2', '--pa-cubo-2'); verso('cubo3', '--pa-cubo-3');
-    const lato = tela.clientWidth, dpr = Math.min(window.devicePixelRatio || 1, 2);
-    if (!lato) return;
-    if (tela.width !== Math.round(lato * dpr)) { tela.width = Math.round(lato * dpr); tela.height = Math.round(lato * dpr); }
+    const larga = cielo.clientWidth, alta = cielo.clientHeight, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    if (!larga || !alta) return;
+    if (cielo.width !== Math.round(larga * dpr) || cielo.height !== Math.round(alta * dpr)) {
+      cielo.width = Math.round(larga * dpr); cielo.height = Math.round(alta * dpr);
+    }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, lato, lato);
+    ctx.clearRect(0, 0, larga, alta);
     livelloLiscio += (livelloVoce() - livelloLiscio) * 0.22;
     const liv = piano ? 0 : livelloLiscio;
     tocco.style.setProperty('--pa-livello', liv.toFixed(3));
     const t = piano ? 0 : ora;
     const pensa = stato === 'penso' || stato === 'trascrivo';
-    const respiro = stato === 'fermo' && !piano ? Math.sin(ora / 1500) * 0.03 : 0;
-    const R = lato * 0.2 * (1 + respiro + (stato === 'parlo' ? liv * 0.1 : stato === 'ascolto' ? liv * 0.06 : 0));
-    const cx = lato / 2, cy = lato / 2 + (piano ? 0 : Math.sin(ora / 1900) * R * 0.03);
 
-    // alone del colore del tema, più forte con la voce
-    const forza = pensa ? 0.24 : 0.16 + liv * 0.34;
-    const alone = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * (2.4 + liv * 0.7));
+    // il cubo sta al centro dello spazio libero (.pa-sfera), il cielo copre tutta la pagina
+    const box = tela.getBoundingClientRect(), base = cielo.getBoundingClientRect();
+    const lato = Math.min(box.width, box.height);
+    const respiro = stato === 'fermo' ? Math.sin(t / 1500) * 0.035 : 0;
+    const R = Math.max(14, lato * 0.21) * (1 + respiro + (stato === 'parlo' ? liv * 0.12 : stato === 'ascolto' ? liv * 0.07 : 0));
+    const cx = box.left - base.left + box.width / 2;
+    const cy = box.top - base.top + box.height / 2 + Math.sin(t / 1900) * R * 0.05;
+
+    // stelle lontane: brillano e scorrono piano, più vive con la voce
+    const lontana = chiaro(colori.cubo1, 0.75);
+    lontane.forEach((s) => {
+      const x = ((s.x + t * 0.0000035 * s.z) % 1) * larga, y = s.y * alta;
+      const brilla = piano ? 0.6 : 0.5 + 0.5 * Math.sin(s.f + t * s.v);
+      stella(x, y, 0.5 + s.z * 0.9, lontana, (0.1 + 0.45 * s.z * brilla) * (1 + liv * 0.6));
+    });
+
+    // nebulosa e alone del colore del tema, più forti con la voce e mentre pensa
+    const nebulosa = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 6);
+    nebulosa.addColorStop(0, css(colori.cubo1, 0.07 + 0.03 * Math.sin(t / 2300)));
+    nebulosa.addColorStop(1, css(colori.cubo1, 0));
+    ctx.fillStyle = nebulosa;
+    ctx.fillRect(0, 0, larga, alta);
+    const forza = pensa ? 0.3 + 0.08 * Math.sin(t / 300) : 0.18 + liv * 0.38;
+    const alone = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * (2.6 + liv * 0.9));
     alone.addColorStop(0, css(colori.cubo2, forza));
     alone.addColorStop(0.5, css(colori.cubo2, forza * 0.35));
     alone.addColorStop(1, css(colori.cubo2, 0));
     ctx.fillStyle = alone;
-    ctx.fillRect(0, 0, lato, lato);
+    ctx.fillRect(0, 0, larga, alta);
+
+    // stella cadente, ogni tanto
+    if (!piano) {
+      prossimaCadente -= dt;
+      if (!cadente && prossimaCadente <= 0) {
+        cadente = { x: Math.random() * larga * 0.8, y: Math.random() * alta * 0.35, inizio: ora };
+        prossimaCadente = 5000 + Math.random() * 7000;
+      }
+      if (cadente) {
+        const p = (ora - cadente.inizio) / 900;
+        if (p >= 1) cadente = null;
+        else {
+          const x = cadente.x + p * larga * 0.35, y = cadente.y + p * alta * 0.12;
+          const coda = ctx.createLinearGradient(x, y, x - larga * 0.12, y - alta * 0.04);
+          coda.addColorStop(0, css(lontana, 0.8 * (1 - p)));
+          coda.addColorStop(1, css(lontana, 0));
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - larga * 0.12, y - alta * 0.04);
+          ctx.strokeStyle = coda; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.stroke();
+        }
+      }
+    }
 
     // onde che si allargano quando la voce sale (ascolto e parola)
     if ((stato === 'parlo' || stato === 'ascolto') && !piano && liv > 0.35 && ora - ultimaOnda > 260) { onde.push(ora); ultimaOnda = ora; }
@@ -623,47 +764,33 @@
       const p = (ora - onde[k]) / 1600;
       if (p >= 1) { onde.splice(k, 1); continue; }
       ctx.beginPath();
-      ctx.arc(cx, cy, R * (1.05 + p * 1.25), 0, Math.PI * 2);
-      ctx.strokeStyle = css(chiaro(colori.cubo1, 0.3), (1 - p) * 0.38);
-      ctx.lineWidth = 2 * (1 - p) + 0.5;
+      ctx.arc(cx, cy, R * (1.1 + p * 1.6), 0, Math.PI * 2);
+      ctx.strokeStyle = css(chiaro(colori.cubo1, 0.3), (1 - p) * 0.4);
+      ctx.lineWidth = 2.2 * (1 - p) + 0.5;
       ctx.stroke();
     }
 
-    // la galassia: stelle su orbite leggermente schiacciate
-    stelle.forEach((s) => {
-      s.a += s.v * (pensa ? 4 : 1) * 16;
-      const rr = R * (s.r + (stato === 'ascolto' ? liv * 0.3 : 0));
-      const x = cx + Math.cos(s.a) * rr, y = cy + Math.sin(s.a) * rr * 0.9;
-      if (x < 0 || y < 0 || x > lato || y > lato) return;
-      ctx.beginPath();
-      ctx.arc(x, y, 1.15 * s.z, 0, Math.PI * 2);
-      ctx.fillStyle = css(chiaro(colori.cubo1, 0.55), 0.2 + 0.32 * s.z * (0.5 + liv + (pensa ? 0.4 : 0)));
-      ctx.fill();
-    });
+    // la galassia gira: le stelle vicine più veloci (come in un vortice), tutte molto più veloci mentre pensa
+    if (!piano) galassia.forEach((s) => { s.a += (0.00042 / s.r) * (pensa ? 5 : 1) * dt; });
+    velocitaLuna += ((pensa ? 0.0034 : 0.00045) - velocitaLuna) * 0.04;
+    if (!piano) luna += velocitaLuna * dt;
+    scia.push(sulPiano(cx, cy, R * 1.7, luna));
+    while (scia.length > (pensa && !piano ? 26 : 8)) scia.shift();
 
-    // il cubo isometrico: faccia alta chiara, sinistra media, destra scura
-    const dx = R * 0.866, dy = R * 0.5;
-    const alto = [cx, cy - R], sx = [cx - dx, cy - dy], dxp = [cx + dx, cy - dy], centro = [cx, cy];
-    const sxb = [cx - dx, cy + dy], dxb = [cx + dx, cy + dy], basso = [cx, cy + R];
-    const luccichio = pensa && !piano ? 0.12 + 0.12 * Math.sin(ora / 160) : 0;
-    ctx.save();
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = R * 0.14;
-    ctx.shadowColor = css(colori.cubo2, 0.75);
-    ctx.shadowBlur = (18 + liv * 30 + (pensa ? 10 : 0)) * dpr;
-    faccia([sx, centro, basso, sxb], css(chiaro(colori.cubo2, luccichio), 1));
-    ctx.shadowBlur = 0;
-    faccia([dxp, dxb, basso, centro], css(chiaro(colori.cubo3, luccichio), 1));
-    faccia([alto, dxp, centro, sx], css(chiaro(colori.cubo1, luccichio * 0.6), 1));
-    // spigoli in luce, come nel logo
-    ctx.beginPath();
-    ctx.moveTo(sx[0] + R * 0.06, sx[1] + R * 0.035); ctx.lineTo(centro[0], centro[1]); ctx.lineTo(dxp[0] - R * 0.06, dxp[1] + R * 0.035);
-    ctx.moveTo(centro[0], centro[1]); ctx.lineTo(basso[0], basso[1] - R * 0.08);
-    ctx.strokeStyle = `rgba(255, 255, 255, ${0.32 + liv * 0.25})`;
-    ctx.lineWidth = Math.max(1, R * 0.045);
-    ctx.lineCap = 'round';
-    ctx.stroke();
-    ctx.restore();
+    // il cubo: oscilla attorno alla posa del logo; pensando gira e poi torna alla posa
+    velocitaGiro += ((pensa && !piano ? 0.0026 : 0) - velocitaGiro) * 0.05;
+    if (velocitaGiro > 0.0003) giro += velocitaGiro * dt;
+    else {
+      const posa = POSA + Math.round((giro - POSA) / (Math.PI / 2)) * (Math.PI / 2) + (piano ? 0 : Math.sin(t / 2600) * 0.16);
+      giro += (posa - giro) * 0.06;
+    }
+    const beccheggio = piano ? 0 : Math.sin(t / 3100) * 0.05;
+
+    disegnaGalassia(cx, cy, R, liv, pensa, false);                        // dietro il cubo
+    disegnaLuna(cx, cy, R, liv, false);
+    disegnaCubo(cx, cy, R, liv, pensa, ora, beccheggio);
+    disegnaGalassia(cx, cy, R, liv, pensa, true);                         // davanti
+    disegnaLuna(cx, cy, R, liv, true);
   }
   requestAnimationFrame(disegna);
   imposta('fermo');

@@ -145,7 +145,11 @@ body.pa-pagina {
   --pa-c1: var(--pa-cubo-2); --pa-c2: var(--pa-cubo-3); --pa-c3: var(--pa-cubo-1);
 }
 .pa[data-stato] { --pa-c1: var(--pa-cubo-2); --pa-c2: var(--pa-cubo-3); --pa-c3: var(--pa-cubo-1); }
-body.pa-pagina { background: radial-gradient(120% 75% at 50% 38%, color-mix(in srgb, var(--ui-cubo-3, #1e3a8a) 32%, #071017), #050a0e 78%); }
+/* body.ui-body.pa-pagina: il foglio del tema arriva dopo e mette body.ui-body chiaro (pagina bianca, icone invisibili) */
+html:has(body.pa-pagina) { background: #050a0e; }
+body.ui-body.pa-pagina { background: radial-gradient(120% 75% at 50% 38%, color-mix(in srgb, var(--ui-cubo-3, #1e3a8a) 32%, #071017), #050a0e 78%); color-scheme: dark; }
+/* il cielo (stelle, galassia, cubo) copre tutta la pagina, sotto testi e pulsanti */
+.pa-cielo { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
 .pa-sfondo span { opacity: .12; }
 .pa[data-stato="fermo"] .pa-sfondo span { opacity: .08; }
 
