@@ -126,6 +126,11 @@ body.pa-pagina {
   .pa-microfono { width: 72px; height: 72px; }
   .pa-laterale { width: 50px; height: 50px; }
 }
+/* app installata sul telefono: Chrome disegna la pagina anche sotto la barra di Android (tasti o gesti) senza
+   dichiararne l'altezza (env() resta 0): il microfono finiva lì sotto. Spazio minimo di 52px, o quello dichiarato */
+@media (display-mode: standalone) and (pointer: coarse) {
+  .pa-piede { padding-bottom: calc(10px + max(env(safe-area-inset-bottom), 52px)); }
+}
 @media (max-height: 640px) { .pa-testi { min-height: 84px; } .pa-sottotitoli { font-size: 17px; } .pa-piede { padding-top: 10px; } }
 @media (prefers-reduced-motion: reduce) {
   .pa-sfondo span { animation: none; }
