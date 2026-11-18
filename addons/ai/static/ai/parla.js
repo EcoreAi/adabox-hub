@@ -445,12 +445,31 @@
   // ---------- sottotitoli ----------
   // Ogni pezzo letto entra come parole nascoste; il disegno le scopre man mano, in proporzione al tempo dell'audio.
   const righe = [];
-  function svuotaSottotitoli() { righe.length = 0; risposta_el.textContent = ''; }
+  // la risposta resta tutta (si svuota a ogni domanda) e scorre: segue l'ultima parola detta, finché chi legge non
+  // torna su da sé; in alto sfuma solo quando c'è altro testo sopra
+  let seguiRisposta = true, ultimaDetta = null, scorroIo = false;
+  risposta_el.addEventListener('scroll', () => {
+    risposta_el.classList.toggle('is-scorsa', risposta_el.scrollTop > 4);
+    if (scorroIo) { scorroIo = false; return; }
+    const fondo = ultimaDetta ? ultimaDetta.offsetTop + ultimaDetta.offsetHeight : risposta_el.scrollHeight;
+    seguiRisposta = fondo - risposta_el.scrollTop - risposta_el.clientHeight < 40;
+  }, { passive: true });
+  function seguiUltimaParola() {
+    if (!seguiRisposta || !ultimaDetta) return;
+    const obiettivo = ultimaDetta.offsetTop + ultimaDetta.offsetHeight + 6 - risposta_el.clientHeight;
+    if (obiettivo > risposta_el.scrollTop + 1) { scorroIo = true; risposta_el.scrollTop = obiettivo; }
+  }
+  function svuotaSottotitoli() {
+    righe.length = 0; risposta_el.textContent = ''; ultimaDetta = null; seguiRisposta = true;
+    risposta_el.scrollTop = 0; risposta_el.classList.remove('is-scorsa');
+  }
   function notaSottotitoli(testo) {
     const nota = document.createElement('span');
     nota.className = 'pa-nota';
     nota.textContent = testo;
     risposta_el.append(document.createElement('br'), nota);
+    ultimaDetta = nota;
+    seguiUltimaParola();
   }
   function aggiungiSottotitolo(testo, inizio, durata) {
     const parole = testoVisibile(testo).split(' ').filter(Boolean);
@@ -464,7 +483,6 @@
     });
     risposta_el.append(blocco);
     righe.push({ spans, inizio, durata: Math.max(durata, 0.3) });
-    while (risposta_el.childElementCount > 6) risposta_el.firstElementChild.remove();
   }
   function scopriParole() {
     if (!contesto || !righe.length) return;
@@ -472,7 +490,9 @@
     for (const riga of righe) {
       const quante = Math.ceil(riga.spans.length * Math.min(1, (ora - riga.inizio) / riga.durata));
       for (let k = 0; k < quante; k += 1) riga.spans[k].classList.add('is-detta');
+      if (quante > 0) ultimaDetta = riga.spans[quante - 1];   // le frasi non ancora partite danno quante <= 0
     }
+    seguiUltimaParola();
     while (righe.length && righe[0].spans.every((el) => el.classList.contains('is-detta'))) righe.shift();
   }
 
@@ -486,6 +506,9 @@
       scrivi.querySelector('input').focus();
     }
   });
+  // aprendo la tastiera il browser può spostare la pagina per mostrare il campo: chiusa, si torna in cima
+  scrivi.querySelector('input').addEventListener('blur', () => setTimeout(() => window.scrollTo(0, 0), 60));
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { if (window.scrollY) window.scrollTo(0, 0); });
   scrivi.addEventListener('submit', (e) => {
     e.preventDefault();
     const campo = scrivi.querySelector('input');
@@ -599,7 +622,7 @@
     [[1, 0, 3, 2], [0, 0, -1]], [[5, 1, 2, 6], [1, 0, 0]], [[0, 4, 7, 3], [-1, 0, 0]],
   ];
   let livelloLiscio = 0, ultimaOnda = 0, prima = 0, giro = POSA, velocitaGiro = 0, luna = -0.6, velocitaLuna = 0;
-  let cadente = null, prossimaCadente = 4000;
+  let cadente = null, prossimaCadente = 4000, dimensione = null;
   function rgb(testo) {
     const m = /^#?([0-9a-f]{6})$/i.exec((testo || '').trim());
     if (!m) return null;
@@ -733,9 +756,13 @@
     const box = tela.getBoundingClientRect(), base = cielo.getBoundingClientRect();
     const lato = Math.min(box.width, box.height);
     const respiro = stato === 'fermo' ? Math.sin(t / 1500) * 0.035 : 0;
-    const R = Math.max(14, lato * 0.21) * (1 + respiro + (stato === 'parlo' ? liv * 0.12 : stato === 'ascolto' ? liv * 0.07 : 0));
+    const obiettivoR = Math.max(14, lato * 0.21), obiettivoY = box.top - base.top + box.height / 2;
+    if (!dimensione) dimensione = { r: obiettivoR, y: obiettivoY };
+    dimensione.r += (obiettivoR - dimensione.r) * (piano ? 1 : 0.1);
+    dimensione.y += (obiettivoY - dimensione.y) * (piano ? 1 : 0.1);
+    const R = dimensione.r * (1 + respiro + (stato === 'parlo' ? liv * 0.12 : stato === 'ascolto' ? liv * 0.07 : 0));
     const cx = box.left - base.left + box.width / 2;
-    const cy = box.top - base.top + box.height / 2 + Math.sin(t / 1900) * R * 0.05;
+    const cy = dimensione.y + Math.sin(t / 1900) * R * 0.05;
 
     // stelle lontane: brillano e scorrono piano, più vive con la voce
     const lontana = chiaro(colori.cubo1, 0.75);
