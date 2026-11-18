@@ -164,3 +164,15 @@ def test_form_del_servizio(s, client):
     assert sv.chiave() == "segreta" and b"segreta" not in client.get(reverse("ai:voce_lista")).content
     r = client.post(reverse("ai:voce_nuovo"), {"nome": "Cart", "tipo": "cartesia", "attivo": "on", "nuova_chiave": "k"})
     assert r.status_code == 200 and ServizioVoce.objects.count() == 1           # Cartesia senza voci
+
+
+def test_simboli_ed_email_si_leggono_in_italiano():
+    """Email, barre e cancelletti passati così a Kokoro venivano compitati con suoni inglesi."""
+    from ai import voce
+    letto = voce.da_leggere("1. Barbieri Automazioni Srl – info@barbieriautomazion.it")
+    assert "info chiocciola barbieriautomazion punto it" in letto and "@" not in letto
+    letto = voce.da_leggere("Ticket #12 – stampante HP/ufficio 2 non stampa; utente: m.rossi / priorità alta")
+    assert "/" not in letto and "#" not in letto
+    assert "Ticket numero 12" in letto and "HP ufficio 2" in letto and "m.rossi, priorità alta" in letto
+    assert voce.da_leggere("Rossi & Figli") == "Rossi e Figli"
+    assert voce.da_leggere("Scade il 16/11/2026") == "Scade il 16 novembre 2026"      # le date restano date
