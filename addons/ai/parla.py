@@ -32,14 +32,14 @@ NOTA_INTERROTTA = ("Nel turno precedente l'utente ti ha interrotto mentre parlav
 STRUMENTI_VOCE = frozenset({
     "data_e_ora", "calendario_agenda", "cerca_record", "leggi_record", "aggrega_record", "elenco_viste", "descrivi_vista",
     "cerca_conoscenza", "leggi_documento", "comunicazioni_cerca", "comunicazioni_leggi", "comunicazioni_scrivi",
-    "crea_record", "modifica_record", "pianifica_attivita", "esegui_bottone", "ricorda", "previsione"})
+    "crea_record", "modifica_record", "pianifica_attivita", "esegui_bottone", "ricorda", "previsione", "notifiche_leggi"})
 # Frasi d'attesa: lette quando parte uno strumento, prima della risposta (Kokoro le prepara una volta, poi in cache)
 FRASI = {"calendario": "Guardo il calendario.", "dati": "Controllo nei dati.", "documenti": "Cerco nei documenti.",
          "comunicazioni": "Guardo le comunicazioni.", "attimo": "Un attimo."}
 FRASE_PER_STRUMENTO = {"calendario_agenda": "calendario", "cerca_record": "dati", "leggi_record": "dati",
                        "aggrega_record": "dati", "previsione": "dati", "cerca_conoscenza": "documenti",
                        "leggi_documento": "documenti", "comunicazioni_cerca": "comunicazioni",
-                       "comunicazioni_leggi": "comunicazioni"}
+                       "comunicazioni_leggi": "comunicazioni", "notifiche_leggi": "comunicazioni"}
 CARATTERI_PEZZO = 600                    # un pezzo da leggere: il browser li fa di 110-300 caratteri
 SENTITO_MASSIMO = 500
 
@@ -84,15 +84,35 @@ def apri_sul_telefono(azienda):
         return False
 
 
+def _app(utente):
+    """Le app a cui limitare la conversazione (menu in alto): quelle che la persona vede, tranne l'assistente."""
+    from .pagine import app_selezionabili
+    return [{"slug": a["slug"], "label": a["label"]} for a in app_selezionabili(utente)]
+
+
+def _notifiche(utente):
+    """Le notifiche non lette delle Comunicazioni, per la campanella; None se la persona non le usa."""
+    if not utente.has_perm("discuss.view_canale"):
+        return None
+    try:
+        from discuss.notifiche import non_lette
+    except ImportError:
+        return None
+    return non_lette(utente)
+
+
 @login_required
 @permission_required("ai.add_conversazione", raise_exception=True)
 @funzioni.richiede("voce")
 def pagina(request, pk=None):
     azienda = getattr(request, "azienda", None)
     conversazione = get_object_or_404(Conversazione, pk=pk, utente=request.user, nascosta=False) if pk else None
+    app = _app(request.user)
+    scelta = conversazione.ambito if conversazione else request.GET.get("app", "")
     return render(request, "ai/parla.html", {
         "disponibile": disponibile(azienda), "conversazione": conversazione, "impostazioni": impostazioni(azienda),
-        "frasi": FRASE_PER_STRUMENTO,
+        "frasi": FRASE_PER_STRUMENTO, "app": app, "ambito": scelta if scelta in {a["slug"] for a in app} else "",
+        "notifiche": _notifiche(request.user), "nome": request.user.first_name,
         "url_chat": reverse("ai:conversazione", args=[conversazione.pk]) if conversazione else reverse("ai:chat")})
 
 
@@ -129,8 +149,10 @@ def chiedi(request):
     if pk.isdigit():
         conversazione = get_object_or_404(Conversazione, pk=int(pk), utente=request.user, nascosta=False)
     else:
+        app = request.POST.get("app", "")                     # la conversazione limitata all'app scelta in alto
         conversazione = Conversazione.objects.create(utente=request.user, progetto=aree.corrente(request.user, azienda),
-                                                     titolo=testo[:60] + ("…" if len(testo) > 60 else ""))
+                                                     titolo=testo[:60] + ("…" if len(testo) > 60 else ""),
+                                                     ambito=app if app in {a["slug"] for a in _app(request.user)} else "")
     note = [NOTA_VOCE.format(nome=request.user.first_name or request.user.get_full_name() or request.user.username)]
     sentito = " ".join(request.POST.get("sentito", "").split())[-SENTITO_MASSIMO:]
     if sentito:
