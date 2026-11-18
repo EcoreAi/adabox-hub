@@ -774,7 +774,7 @@ textarea.ui-input { min-height: 96px; resize: vertical; }
    ============================================================ */
 @media (max-width: 767px) {
   html, body { overflow-x: hidden; }
-  .ui-header-inner { gap: 10px; }
+  .ui-header-inner { gap: 6px; }
   .ui-nav { display: none; }
   .ui-nav-toggle { display: inline-flex; }
   .ui-nav.is-open {
@@ -800,6 +800,10 @@ textarea.ui-input { min-height: 96px; resize: vertical; }
   .ui-logo { font-size: 15px; gap: 6px; white-space: nowrap; }
   .ui-logo-mark { width: 26px; height: 26px; }
   .ui-profile-name { display: none; }
+  /* testata compatta: con riepilogo, posta e Parla con Ada le icone devono stare in una riga anche a 360px */
+  .ui-header .ui-container { padding: 0 12px; }
+  .ui-profile-trigger { padding: 3px; }
+  .ui-profile-trigger .chev { display: none; }
   .ui-avatar { font-size: 11px; letter-spacing: 0.3px; }
   .ui-pagehead { flex-direction: column; align-items: flex-start; gap: 10px; }
   .ui-pagehead h1 { font-size: 18px; }
@@ -1548,6 +1552,8 @@ body.is-trascinando, body.is-trascinando * { cursor: move !important; user-selec
 /* ---------- riepilogo giornaliero */
 .rp-icona { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; color: var(--ui-text-2); }
 .rp-icona:hover { background: var(--ui-surface-2); color: var(--ui-text); } .rp-icona svg { width: 18px; height: 18px; }
+.ai-parla-testata { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 36px; height: 36px; border-radius: 10px; color: var(--ui-text-2); text-decoration: none; }
+.ai-parla-testata:hover { background: var(--ui-surface-2); color: var(--ui-text); text-decoration: none; } .ai-parla-testata svg { width: 18px; height: 18px; }
 .rp-modal { align-items: flex-start; padding-top: 40px; overflow-y: auto; }
 .rp-box { max-width: 820px; padding: 0; overflow: hidden; animation: df-entra .35s cubic-bezier(.2, .8, .2, 1) both; }
 .rp-testa { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; padding: 20px 24px 14px; border-bottom: 1px solid var(--ui-border); }

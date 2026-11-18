@@ -65,8 +65,8 @@ body.ui-body { background: #fcfcfb; }
 .ui-header .ui-cerca-globale .ui-input { background: rgba(255, 255, 255, 0.10); border-color: rgba(255, 255, 255, 0.18); color: #fff; }
 .ui-header .ui-cerca-globale .ui-input::placeholder { color: rgba(255, 255, 255, 0.65); }
 .ui-header .ui-cerca-globale .ui-input:focus { background: #fff; color: var(--ui-text); border-color: var(--ui-accent); }
-.ui-header .rp-icona, .ui-header .ds-campanella { color: rgba(255, 255, 255, 0.9) !important; }
-.ui-header .rp-icona:hover, .ui-header .ds-campanella:hover { background: rgba(255, 255, 255, 0.08); color: #fff !important; }
+.ui-header .rp-icona, .ui-header .ds-campanella, .ui-header .ai-parla-testata { color: rgba(255, 255, 255, 0.9) !important; }
+.ui-header .rp-icona:hover, .ui-header .ds-campanella:hover, .ui-header .ai-parla-testata:hover { background: rgba(255, 255, 255, 0.08); color: #fff !important; }
 .ui-header .ts-crono { background: rgba(255, 255, 255, 0.10); }
 .ui-header .ts-crono-tempo { color: #fff; }
 

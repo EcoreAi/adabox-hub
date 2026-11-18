@@ -19,6 +19,7 @@ class AiConfig(AppConfig):
         funzioni.fonte("ai", lambda: licenza.comprese())  # l'assistente può avere una licenza sua (ai.licenza)
         hooks.sezione_dettaglio("ai.ValutazioneRisposta", "ai/_valutazione.html", order=5)
         hooks.sezione_dettaglio("ai.ProgettoChat", "ai/_progetto.html", order=5)
+        hooks.voce_testata("ai/_parla_testata.html", order=50, permission="ai.add_conversazione")
         hooks.voce_testata("ai/_scrivi_con_ada.html", order=200, permission="ai.add_conversazione")
         hooks.azione("core.vista_dettaglio", "ai/_riassumi_record.html", order=15, permission="ai.add_conversazione")
         from . import pagine

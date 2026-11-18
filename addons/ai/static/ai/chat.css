@@ -689,7 +689,6 @@ body.ai-pagina { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden;
 .ai-msg-testo a.is-citata { background: #fff1a8; border-radius: 4px; }
 
 /* «Parla con Ada» nella barra del messaggio: un link con l'aspetto dei bottoni tondi */
-.ai-parla, .ai-parla:hover { text-decoration: none; }
 
 /* affidabilità di una previsione: motivi nella card del chip */
 .ai-pv-titolo { margin: 0 0 6px; font-size: 13px; }

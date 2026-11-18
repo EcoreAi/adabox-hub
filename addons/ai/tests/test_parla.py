@@ -106,11 +106,11 @@ def test_fine_del_flusso_porta_il_testo_completo(client, s):
 
 def test_la_chat_sul_telefono_apre_parla_con_ada(client, s):
     html = client.get(reverse("ai:chat")).content.decode()
-    assert "pointer: coarse" in html and reverse("ai:parla") in html and 'class="ai-tondo ai-parla"' in html
+    assert "pointer: coarse" in html and reverse("ai:parla") in html and 'class="ai-parla-testata"' in html
     c = Conversazione.objects.create(utente=s["u"], titolo="x")
     html = client.get(reverse("ai:conversazione", args=[c.pk])).content.decode()
     assert "pointer: coarse" not in html                                         # dentro una chat non si salta via
-    assert reverse("ai:parla_conversazione", args=[c.pk]) in html               # il pulsante tiene la conversazione
+    assert reverse("ai:parla_conversazione", args=[c.pk]) in html               # l'icona in testata tiene la conversazione
     s["valori"]["ai.voce_telefono"] = False
     assert "pointer: coarse" not in client.get(reverse("ai:chat")).content.decode()
 
@@ -134,3 +134,10 @@ def test_frasi_d_attesa_solo_quelle_dell_elenco(client, s, monkeypatch):
     assert client.get(reverse("ai:parla_frase", args=["qualsiasi-testo"])).status_code == 404
     html = client.get(reverse("ai:parla")).content.decode()
     assert 'id="pa-frasi"' in html and "calendario_agenda" in html
+
+
+def test_parla_con_ada_nella_testata_di_ogni_app(client, s):
+    html = client.get(reverse("core:profilo")).content.decode()
+    assert 'class="ai-parla-testata"' in html and f'href="{reverse("ai:parla")}"' in html
+    s["valori"]["ai.voce"] = False                                               # voce spenta: niente icona
+    assert 'ai-parla-testata' not in client.get(reverse("core:profilo")).content.decode()
