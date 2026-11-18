@@ -172,3 +172,11 @@ def indice_documento(documento):
     """Lo stato del documento nell'indice dell'assistente, o None se non è ancora stato letto."""
     from ai.models import IndiceDocumento
     return IndiceDocumento.objects.filter(documento_id=documento.pk).first()
+
+
+@register.simple_tag(takes_context=True)
+def parla_disponibile(context):
+    """L'icona «Parla con Ada» nella testata: con la funzione voce in licenza e dettatura e lettura configurate."""
+    from .. import funzioni, parla
+    request = context.get("request")
+    return funzioni.attiva("voce") and parla.disponibile(getattr(request, "azienda", None))

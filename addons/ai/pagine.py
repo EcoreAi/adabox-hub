@@ -175,7 +175,6 @@ def chat(request, pk=None, progetto=None):
         "ricerca_disponibile": ricerca.disponibile(azienda),
         "conferma_immagini": _fornitore_immagini(azienda) if allegati_chat.serve_conferma(azienda) else "",
         "dettatura": voce.dettatura_disponibile(azienda), "lettura": voce.servizio_per(azienda) is not None,
-        "parla": parla.disponibile(azienda) and request.user.has_perm("ai.add_conversazione"),
         "parla_telefono": parla.apri_sul_telefono(azienda) and request.user.has_perm("ai.add_conversazione"),
         **_salva_nei_documenti(request, azienda, conversazione, progetto_aperto),
     })
