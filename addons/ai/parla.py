@@ -13,8 +13,8 @@ from django.views.decorators.http import require_POST
 
 from core import parametri
 
-from . import aree, funzioni, motore, voce
-from .models import Conversazione, Turno
+from . import apertura, aree, funzioni, motore, voce
+from .models import Apertura, Conversazione, Turno
 
 NOTA_VOCE = (
     "L'utente si chiama {nome}. L'utente ti parla a voce dal telefono e ascolta la risposta letta ad alta voce. Rispondi in poche frasi brevi e "
@@ -102,13 +102,7 @@ def _app(utente):
 
 def _notifiche(utente):
     """Le notifiche non lette delle Comunicazioni, per la campanella; None se la persona non le usa."""
-    if not utente.has_perm("discuss.view_canale"):
-        return None
-    try:
-        from discuss.notifiche import non_lette
-    except ImportError:
-        return None
-    return non_lette(utente)
+    return apertura.notifiche_non_lette(utente)
 
 
 @login_required
@@ -119,11 +113,49 @@ def pagina(request, pk=None):
     conversazione = get_object_or_404(Conversazione, pk=pk, utente=request.user, nascosta=False) if pk else None
     app = _app(request.user)
     scelta = conversazione.ambito if conversazione else request.GET.get("app", "")
+    ambito = scelta if scelta in {a["slug"] for a in app} else ""
+    attiva = disponibile(azienda)
+    # Ada apre lei la conversazione (ai.apertura): solo in una conversazione nuova e non limitata a un'app, dove
+    # l'agenda che propone non si potrebbe leggere. «?da_capo=1», per le demo, la fa salutare come la prima volta.
+    saluto = None
+    if attiva and conversazione is None and not ambito:
+        saluto = apertura.componi(request, da_capo=request.GET.get("da_capo") == "1")
+    # la modifica in sospeso si conferma nella chat dov'è nata: «Chiudi» porta lì
+    da_aprire = saluto.conversazione if saluto is not None and saluto.tipo == Apertura.SOSPESO else conversazione
     return render(request, "ai/parla.html", {
-        "disponibile": disponibile(azienda), "conversazione": conversazione, "impostazioni": impostazioni(azienda),
-        "frasi": {"strumenti": FRASE_PER_STRUMENTO, "varianti": {k: len(v) for k, v in FRASI.items()}}, "app": app, "ambito": scelta if scelta in {a["slug"] for a in app} else "",
-        "notifiche": _notifiche(request.user), "nome": request.user.first_name,
-        "url_chat": reverse("ai:conversazione", args=[conversazione.pk]) if conversazione else reverse("ai:chat")})
+        "disponibile": attiva, "conversazione": conversazione, "impostazioni": impostazioni(azienda),
+        "frasi": {"strumenti": FRASE_PER_STRUMENTO, "varianti": {k: len(v) for k, v in FRASI.items()}}, "app": app, "ambito": ambito,
+        "notifiche": _notifiche(request.user), "nome": request.user.first_name, "apertura": saluto,
+        "gia_qui": attiva and saluto is None and conversazione is None and apertura.presente_oggi(request.user, azienda),
+        "url_chat": reverse("ai:conversazione", args=[da_aprire.pk]) if da_aprire else reverse("ai:chat")})
+
+
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+@funzioni.richiede("voce")
+def apertura_audio(request, pk):
+    """L'audio dell'apertura: come per le risposte, il server legge solo un testo suo, mai uno mandato dal browser."""
+    saluto = get_object_or_404(Apertura, pk=pk, utente=request.user)
+    servizio = voce.servizio_per(getattr(request, "azienda", None))
+    if servizio is None:
+        raise Http404
+    try:
+        dati, tipo = voce.audio_di(servizio, voce.da_leggere(saluto.testo), "it")
+    except voce.ErroreVoce as e:
+        return JsonResponse({"errore": str(e)}, status=502)
+    risposta = HttpResponse(dati, content_type=tipo)
+    risposta["Cache-Control"] = "private, max-age=3600"
+    return risposta
+
+
+@require_POST
+@login_required
+@permission_required("ai.view_conversazione", raise_exception=True)
+@funzioni.richiede("voce")
+def apertura_detta(request, pk):
+    """Al primo tocco, quando Ada comincia a dirla: da qui l'apertura conta come sentita e non si ripete."""
+    apertura.segna_detta(get_object_or_404(Apertura, pk=pk, utente=request.user))
+    return HttpResponse(status=204)
 
 
 @require_POST
@@ -157,15 +189,31 @@ def chiedi(request):
         return JsonResponse({"errore": "Non ho sentito la domanda."}, status=400)
     pk = request.POST.get("conversazione", "")
     nuova = not pk.isdigit()
+    # la prima cosa detta dopo l'apertura: il modello deve sapere che cosa Ada ha appena proposto
+    saluto, numero = None, request.POST.get("apertura", "")
+    if nuova and numero.isdigit():
+        saluto = Apertura.objects.filter(pk=int(numero), utente=request.user).select_related("conversazione").first()
+    accettata = saluto is not None and apertura.accetta(testo)
+    ripresa = accettata and saluto.tipo == Apertura.RIPRENDI and saluto.conversazione is not None and not saluto.conversazione.nascosta
+    if saluto is not None:
+        apertura.segna_detta(saluto)                          # con la voce spenta è la risposta a dire che l'ha letta
     if not nuova:
         conversazione = get_object_or_404(Conversazione, pk=int(pk), utente=request.user, nascosta=False)
+    elif ripresa:
+        conversazione = saluto.conversazione                  # «sì, riprendiamo»: si continua in quella di prima
     else:
         app = request.POST.get("app", "")                     # la conversazione limitata all'app scelta in alto
+        titolo = (apertura.titolo(saluto) if accettata else "") or testo[:60] + ("…" if len(testo) > 60 else "")
         conversazione = Conversazione.objects.create(utente=request.user, progetto=aree.corrente(request.user, azienda),
-                                                     titolo=testo[:60] + ("…" if len(testo) > 60 else ""),
+                                                     titolo=titolo,
                                                      ambito=app if app in {a["slug"] for a in _app(request.user)} else "")
-    nome = request.user.first_name or request.user.get_full_name() or request.user.username
-    note = [NOTA_VOCE.format(nome=nome), NOTA_PRIMO_TURNO.format(nome=nome) if nuova else NOTA_TURNI_DOPO]
+    nome = apertura.nome_di(request.user)
+    if saluto is not None:
+        note = [NOTA_VOCE.format(nome=nome), apertura.nota(saluto, ripresa)]
+    else:
+        note = [NOTA_VOCE.format(nome=nome), NOTA_PRIMO_TURNO.format(nome=nome) if nuova else NOTA_TURNI_DOPO]
+    if nuova and not ripresa and (oggi := apertura.nota_oggi(request.user, azienda)):
+        note.append(oggi)                                     # la memoria della giornata, solo al primo turno
     sentito = " ".join(request.POST.get("sentito", "").split())[-SENTITO_MASSIMO:]
     if sentito:
         note.append(NOTA_INTERROTTA.format(sentito=sentito))

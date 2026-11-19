@@ -42,7 +42,28 @@ Quattro funzioni:
   dati.», «Cerco nei documenti.»… (Kokoro le legge una volta, poi in cache; la pagina le scarica al primo tocco).
 - **Modello consigliato** (misurato il 2026-11-16): Mistral Medium 3.5, europeo, 0,6-1,1 s alla prima parola o allo
   strumento, nessun dato inventato nelle prove; Mistral Small inventava appuntamenti, Large è 2-7 volte più lento.
-- Ada saluta l'utente per nome; a Mistral vanno come parole da favorire «Ada», il marchio, l'azienda e nome e cognome
+- **Ada apre lei la conversazione** (`ai/apertura.py`): quando ha qualcosa da dire la frase è già scritta nei
+  sottotitoli e al primo tocco la dice a voce, poi ascolta (toccando di nuovo la si interrompe). Prima di un tocco un
+  browser non lascia suonare nulla, per questo non parla da sola. Dice una cosa sola, la più utile in quel momento:
+  - *la prima volta nella giornata*: il saluto per l'ora («Buongiorno», «Buon pomeriggio», «Buonasera») e gli
+    appuntamenti che restano oggi («Oggi hai 3 appuntamenti, il primo alle 10:00: «…». Vuoi sapere cosa hai in agenda
+    per oggi?»); senza appuntamenti le notifiche non lette; senza niente «Come posso aiutarti?»;
+  - *tornando dopo almeno 10 minuti*, nell'ordine: l'appuntamento che comincia entro un'ora («Tra 20 minuti, alle
+    15:00, hai «…»»), la modifica preparata da Ada che aspetta ancora la conferma (si conferma nella chat: «Chiudi»
+    porta lì), la conversazione a voce di prima da riprendere (almeno due domande; a un «sì» si continua in quella);
+  - *tornando entro 10 minuti*, o se non c'è niente di nuovo: non dice nulla, ascolta e basta.
+
+  Ogni cosa si dice una volta sola: il saluto una volta al giorno, ogni appuntamento, modifica e conversazione una
+  volta. Un'apertura mai sentita (pagina aperta e richiusa senza toccare) non conta. La frase la compone il server dai
+  dati, non il modello: è pronta subito, non costa, e orari e numeri non si possono inventare. Gli appuntamenti sono
+  quelli dello strumento dell'agenda, gli stessi che Ada elenca se dici di sì. Con la voce spenta la frase resta
+  scritta; dentro una conversazione già aperta o limitata a un'app non c'è. Le app riservate (calendario,
+  comunicazioni) e le chat riservate non entrano nell'apertura. Le aperture restano due giorni, poi si cancellano.
+  Per le demo: `/ai/parla/?da_capo=1` dimentica quelle già dette e Ada saluta come la prima volta.
+- **Memoria della giornata**: una conversazione a voce nuova riceve come nota la frase d'apertura (così un «sì» fa ciò
+  che Ada ha proposto) e le conversazioni a voce di oggi, al massimo tre, con l'ultima domanda e l'ultima risposta: «come
+  dicevamo prima» funziona anche in una conversazione nuova. Le chat riservate non ci entrano.
+- Ada chiama l'utente per nome; a Mistral vanno come parole da favorire «Ada», il marchio, l'azienda e nome e cognome
   dell'utente (senza, «Ada, quali…» diventava «Ha da quali…»).
 - Serve che ci siano sia la dettatura sia la lettura; la conversazione resta una chat normale, nella cronologia.
 

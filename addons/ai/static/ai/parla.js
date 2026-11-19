@@ -1,6 +1,7 @@
 /* «Parla con Ada»: tocchi e parli; la pagina capisce da sola quando hai finito (silenzio dopo la voce), trascrive,
    manda la domanda e legge la risposta un pezzo alla volta mentre si scrive. Finita la risposta riascolta per qualche
    secondo; toccando mentre Ada pensa o parla la interrompi e tocca a te.
+   Quando Ada ha qualcosa da dire per prima (l'apertura) il primo tocco la fa parlare, poi ascolta.
    Stati: fermo → ascolto → trascrivo → penso → parlo → (ascolto | fermo). */
 (function () {
   'use strict';
@@ -93,6 +94,13 @@
   let sentito = '';                        // quanto della risposta interrotta l'utente ha sentito
 
   let daTastiera = false;                  // domanda scritta: dopo la risposta non si riapre il microfono
+  let gesti = 0;                           // tocchi e invii: chi aspetta qualcosa si accorge se nel frattempo è cambiato
+  // L'apertura (ai.apertura): la frase con cui Ada accoglie chi si collega è già scritta nei sottotitoli. L'audio si
+  // scarica subito, così al primo tocco parte senza attese; prima di un tocco un browser non lascia suonare nulla.
+  const apertura = cfg.apertura ? {
+    id: cfg.apertura, testo: risposta_el.textContent.trim(), fatta: false,
+    dati: fetch(cfg.aperturaAudio).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null),
+  } : null;
   function imposta(nuovo, messaggio) {
     if (nuovo !== stato && (nuovo === 'ascolto' || nuovo === 'parlo') && navigator.vibrate) {
       try { navigator.vibrate(12); } catch (e) { /* non supportata */ }
@@ -243,6 +251,7 @@
     const dati = new FormData();
     dati.append('testo', testo);
     if (conversazione) dati.append('conversazione', conversazione);
+    else if (apertura) dati.append('apertura', apertura.id);    // la prima cosa detta risponde all'apertura
     if (cfg.ambito) dati.append('app', cfg.ambito);             // l'app scelta in alto
     if (sentito) dati.append('sentito', sentito);
     sentito = '';
@@ -379,8 +388,31 @@
   function finePossibile(t) {
     if (turno !== t || t.suona || t.coda.length || !(t.finito || t.tagliato)) return;
     turno = null;
-    if (ASCOLTO_DOPO_MS > 0 && !daTastiera) ascolta(ASCOLTO_DOPO_MS);
+    if (t.apertura) ascolta(SENZA_VOCE_MS);                     // dopo l'apertura tocca a te, anche con «si tocca ogni volta»
+    else if (ASCOLTO_DOPO_MS > 0 && !daTastiera) ascolta(ASCOLTO_DOPO_MS);
     else imposta('fermo');
+  }
+
+  // Il primo tocco quando c'è un'apertura: Ada la dice (stessi sottotitoli e stesso cubo di una risposta, e toccando
+  // la si interrompe) e poi ascolta. Se l'audio non arriva la frase resta scritta e si ascolta subito.
+  async function apri() {
+    const mio = gesti;
+    apertura.fatta = true;
+    fetch(cfg.aperturaDetta, { method: 'POST', headers: { 'X-CSRFToken': csrf } }).catch(() => {});
+    imposta('penso', 'Ada');
+    let buffer = null;
+    try {
+      const dati = await apertura.dati;
+      buffer = dati ? await audio().decodeAudioData(dati) : null;
+    } catch (e) { buffer = null; }
+    if (gesti !== mio) return;                                  // nel frattempo ha toccato di nuovo o ha scritto
+    if (!buffer) { ascolta(SENZA_VOCE_MS); return; }
+    const pezzo = { inizio: 0, fine: apertura.testo.length, testo: apertura.testo, audio: Promise.resolve(buffer) };
+    const t = { testo: apertura.testo, letto: apertura.testo.length, numero: 1, finito: true, coda: [pezzo], suona: null,
+                parlatoS: 0, conDati: true, fonte: { close() {} }, stop: '', id: 0, tagliato: false, apertura: true };
+    turno = t;
+    svuotaSottotitoli();
+    suonaProssimo(t);
   }
 
   function interrompi() {
@@ -530,6 +562,8 @@
     if (!testo || stato === 'trascrivo') return;
     audio();
     preparaFrasi();
+    gesti += 1;
+    if (apertura) apertura.fatta = true;
     smettiDiAscoltare(true);
     interrompi();
     campo.value = '';
@@ -573,6 +607,8 @@
     if (!testo || stato === 'trascrivo') return;
     audio();
     preparaFrasi();
+    gesti += 1;
+    if (apertura) apertura.fatta = true;
     smettiDiAscoltare(true);
     interrompi();
     daTastiera = false;
@@ -588,14 +624,19 @@
     audio();
     preparaFrasi();
     daTastiera = false;
-    if (stato === 'fermo') { svuotaSottotitoli(); ascolta(SENZA_VOCE_MS); }
-    else if (stato === 'ascolto') {
+    gesti += 1;
+    if (stato === 'fermo') {
+      // la prima volta, se Ada ha qualcosa da dire, parla lei; con la voce spenta la frase resta solo scritta
+      if (apertura && !apertura.fatta && !conversazione && !muto) { apri(); return; }
+      if (apertura) apertura.fatta = true;
+      svuotaSottotitoli(); ascolta(SENZA_VOCE_MS);
+    } else if (stato === 'ascolto') {
       if (reg && reg.sentita) reg.registratore.stop();          // ho finito: si manda subito
       else { smettiDiAscoltare(true); imposta('fermo'); }
     } else if (stato === 'penso' || stato === 'parlo') { interrompi(); ascolta(SENZA_VOCE_MS); }
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { smettiDiAscoltare(true); interrompi(); imposta('fermo'); }
+    if (e.key === 'Escape') { gesti += 1; smettiDiAscoltare(true); interrompi(); imposta('fermo'); }
   });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && stato === 'ascolto') { smettiDiAscoltare(true); imposta('fermo'); }
@@ -856,5 +897,5 @@
     disegnaLuna(cx, cy, R, liv, true);
   }
   requestAnimationFrame(disegna);
-  imposta('fermo');
+  imposta('fermo', apertura && !muto ? 'Tocca per iniziare' : undefined);
 })();
