@@ -23,6 +23,42 @@ RICHIAMO = ("Controllo automatico: la tua risposta contiene dati precisi ({esemp
             "controllo: rispondi di nuovo all'utente, breve.")
 AVVISO = "\n\nAttenzione: non ho trovato questi dati negli strumenti, verificali prima di usarli."
 
+# ---------- grafico scritto come testo ----------
+# Alcuni modelli scrivono il grafico come markup nel testo (<graph>{…}</graph>, un blocco JSON con «datasets», un
+# blocco mermaid) invece di chiamare lo strumento grafico: in chat resta testo, niente disegno né clic sui record. Il
+# motore chiede una volta di rifarlo con lo strumento; se resta, il markup si toglie (i numeri sono già nel testo).
+_TAG_GRAFICO = re.compile(r"[ \t]*<(graph|chart|grafico)\b[^>]*>.*?</\1>[ \t]*\n?", re.S | re.I)
+_BLOCCO = re.compile(r"[ \t]*```[ \t]*([\w-]*)[^\n]*\n(.*?)```[ \t]*\n?", re.S)
+_MERMAID = re.compile(r"^\s*(pie|xychart(-beta)?|bar|line)\b", re.I)
+RICHIAMO_GRAFICO = ("Controllo automatico: hai scritto il grafico come testo, ma in chat il testo non diventa un grafico. "
+                    "Chiama lo strumento grafico con la stessa vista, raggruppamento, misura e filtri (o con "
+                    "misura_aziendale) e poi commentalo in una frase, senza riscrivere il grafico. Non scusarti e non "
+                    "citare questo controllo.")
+
+
+def _blocco_grafico(linguaggio, corpo):
+    linguaggio = linguaggio.lower()
+    if linguaggio == "mermaid":
+        return bool(_MERMAID.match(corpo))
+    return linguaggio in ("", "json", "chart", "chartjs", "vega", "vega-lite") and '"datasets"' in corpo
+
+
+def grafico_nel_testo(testo):
+    testo = testo or ""
+    return bool(_TAG_GRAFICO.search(testo)) or any(_blocco_grafico(m.group(1), m.group(2)) for m in _BLOCCO.finditer(testo))
+
+
+def senza_grafico_testo(testo):
+    """Il testo senza il markup dei grafici (resta il resto, con i numeri che il modello ha scritto)."""
+    testo = _TAG_GRAFICO.sub("", testo or "")
+    testo = _BLOCCO.sub(lambda m: "" if _blocco_grafico(m.group(1), m.group(2)) else m.group(0), testo)
+    return re.sub(r"\n{3,}", "\n\n", testo).strip()
+
+
+def richiama_grafico(conversazione, turno):
+    Evento.objects.create(conversazione=conversazione, turno=turno, tipo=Evento.UTENTE, dati={
+        "ruolo": "utente", "testo": RICHIAMO_GRAFICO, "richiamo": True})
+
 
 def strumenti_di_dati(turno):
     """Gli strumenti del turno che hanno letto dati (non quelli che orientano o preparano scritture)."""
