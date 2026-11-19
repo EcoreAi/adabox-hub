@@ -418,9 +418,12 @@ def serie(spec, request):
         primi = int(primi)
         valori = interroga.con_altro([(g["gruppo"], g["valore"]) for g in gruppi], primi)
         chiavi = [g.get("chiave") for g in gruppi[:primi]] + ([None] if len(gruppi) > primi else [])
+        link = [g.get("url") or None for g in gruppi[:primi]] + ([None] if len(gruppi) > primi else [])
     else:
         valori, chiavi = [(g["gruppo"], g["valore"]) for g in gruppi], [g.get("chiave") for g in gruppi]
-    return {"serie": valori, "chiavi": chiavi, "totale": r["valore"], "misura": nome, "per": per}
+        link = [g.get("url") or None for g in gruppi]
+    # il link di ogni gruppo con i filtri della misura (bozze escluse…): il clic sul grafico mostra quei record
+    return {"serie": valori, "chiavi": chiavi, "link": link, "totale": r["valore"], "misura": nome, "per": per}
 
 
 def kpi(spec, request, storia=12):

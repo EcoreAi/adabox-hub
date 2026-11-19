@@ -7,7 +7,6 @@ non scrive niente."""
 import csv
 import datetime
 import io
-from urllib.parse import urlencode
 
 from django.conf import settings
 from django.db.models import Q
@@ -121,29 +120,8 @@ def vista_di(spec, request):
 
 
 def link_lista(vista, spec, chiave):
-    """L'indirizzo della lista filtrata sul gruppo con quella chiave (drill-down), o None se il campo del
-    raggruppamento non è tra i filtri della lista: un link che non filtra sarebbe una bugia."""
-    per = spec.get("per", "") or ""
-    nome, _, parte = per.partition(":")
-    if vista is None or chiave is None or nome not in vista.list_filter:
-        return None
-    parametri_lista = dict(spec.get("lista") or {})
-    for k, v in (spec.get("filtri") or {}).items():          # i filtri semplici dell'assistente su campi della lista
-        if "__" not in k and k in vista.list_filter and not isinstance(v, (list, dict)):
-            parametri_lista[f"f_{k}"] = v
-    if parte:
-        try:
-            inizio = datetime.date.fromisoformat(str(chiave))
-        except ValueError:
-            return None
-        fine = interroga.avanti_periodo(inizio, parte) - datetime.timedelta(days=1)
-        parametri_lista[f"f_{nome}_da"], parametri_lista[f"f_{nome}_a"] = inizio.isoformat(), fine.isoformat()
-    else:
-        parametri_lista[f"f_{nome}"] = "1" if chiave is True else "0" if chiave is False else str(chiave)
-    try:
-        return vista.url("lista") + "?" + urlencode(parametri_lista)
-    except Exception:
-        return None
+    """Il clic su un punto: vedi interroga.link_gruppo (nel kernel, lo usa anche la chat)."""
+    return interroga.link_gruppo(vista, spec, chiave)
 
 
 def testo_valore(valore, unita=""):
