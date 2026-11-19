@@ -5,6 +5,14 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-19
 
+- **Grafici: elenco sempre in una scheda nuova; niente grafici scritti come testo** — Kernel 1.5.1, AI 1.51.0
+  (nessuna migrazione).
+  - Il clic su un punto di un grafico apre l'elenco in una scheda nuova anche in Analisi, nelle dashboard e nel
+    costruttore, come in chat: il grafico resta dov'era.
+  - Se il modello scrive il grafico come testo (`<graph>{…}</graph>`, un blocco JSON o mermaid) invece di usare lo
+    strumento, Ada gli chiede una volta di rifarlo con lo strumento grafico; se insiste, il markup si toglie e restano
+    i numeri. Visto con Mistral Medium 3.5.
+
 - **Grafici cliccabili** — Kernel 1.5.0, AI 1.50.0, Analisi 1.8.0 (nessuna migrazione; AI e Analisi chiedono il kernel 1.5).
   - In chat e nella pagina del grafico barre, linee e torta sono quelli di Analisi: il valore compare subito passando
     col mouse, e il clic su una barra, un punto o una fetta apre l'elenco dei record di quel gruppo in una scheda nuova.

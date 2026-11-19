@@ -90,13 +90,12 @@ window.adaboxGrafici = (function () {
   const asseCategorie = { grid: { display: false }, border: { color: bordo }, ticks: { color: testo2, maxRotation: 0, autoSkip: true, font: { size: 11 } } };
   const asseValori = { beginAtZero: true, grid: { color: bordo }, border: { display: false }, ticks: { color: testo2, font: { size: 11 }, callback: (v) => fmt(v) } };
 
-  // drill-down: se la serie porta un link per punto, il clic apre la lista filtrata su quella categoria
+  // drill-down: se la serie porta un link per punto, il clic apre la lista filtrata su quella categoria (scheda nuova)
   const linkDi = (serie, el) => (el && el.length && serie.link ? serie.link[el[0].index] : null);
-  // con nuova_scheda (grafici della chat) l'elenco si apre accanto, la conversazione resta lì
+  // dappertutto (chat, Analisi, dashboard) l'elenco si apre in una scheda nuova: il grafico resta dov'era
   const apri = (serie) => (e, el) => {
     const url = linkDi(serie, el);
-    if (!url) return;
-    if (serie.nuova_scheda) window.open(url, '_blank', 'noopener'); else window.location.href = url;
+    if (url) window.open(url, '_blank', 'noopener');
   };
   const mano = (serie) => (e, el) => { const t = e.native && e.native.target; if (t) t.style.cursor = linkDi(serie, el) ? 'pointer' : ''; };
 

@@ -98,7 +98,7 @@ def test_la_chat_disegna_il_grafico_cliccabile(client, contesto):
     assert f'data-grafico="ai-serie-{a.pk}"' in html and "core/grafici.js" in html and "chart.umd.js" in html
     serie = _serie_nella_pagina(html, a.pk)
     assert serie["tipo"] == "barre" and serie["etichette"] == ["Aperta"] and serie["valori"] == [2]
-    assert serie["link"] == [reverse("todo:attivita_lista") + "?f_stato=aperta"] and serie["nuova_scheda"] is True
+    assert serie["link"] == [reverse("todo:attivita_lista") + "?f_stato=aperta"]
     assert "<noscript>" in html and "<svg" in html                       # senza JavaScript resta il disegno di prima
 
 
@@ -141,7 +141,7 @@ def test_pagina_del_grafico_cliccabile(client, contesto):
     client.force_login(contesto.utente)
     html = client.get(reverse("ai:artifact", args=[a.pk])).content.decode()
     serie = _serie_nella_pagina(html, a.pk)
-    assert serie["tipo"] == "torta" and len(serie["link"]) == 2 and serie["nuova_scheda"] is True    # i dati di oggi
+    assert serie["tipo"] == "torta" and len(serie["link"]) == 2    # i dati di oggi
     assert "core/grafici.js" in html and "chart.umd.js" in html
 
 
