@@ -95,3 +95,11 @@ def test_domande_fatte_solo_per_chi_le_puo_vedere(scena, client):
     scena.groups.add(Group.objects.get(name="Chiedi ad Ada / Responsabile"))
     client.force_login(User.objects.get(pk=scena.pk))
     assert "Che cos" in client.get("/askada/domande/").content.decode()
+
+
+def test_i_grafici_di_ada_si_disegnano_anche_nella_finestra(scena, client):
+    """Le risposte di Ada possono avere grafici (canvas di core/grafici.js): la finestra sa dove prendere gli script,
+    caricati solo quando arriva un grafico, non su ogni pagina."""
+    html = client.get("/todo/attivita/").content.decode()
+    assert 'data-grafici="' in html and "theme/vendor/chart.umd.js" in html and "core/grafici.js" in html
+    assert '<script src="/static/core/grafici.js' not in html

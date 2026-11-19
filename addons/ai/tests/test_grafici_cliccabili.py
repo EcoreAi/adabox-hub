@@ -143,3 +143,47 @@ def test_pagina_del_grafico_cliccabile(client, contesto):
     serie = _serie_nella_pagina(html, a.pk)
     assert serie["tipo"] == "torta" and len(serie["link"]) == 2 and serie["nuova_scheda"] is True    # i dati di oggi
     assert "core/grafici.js" in html and "chart.umd.js" in html
+
+
+# ---------- i filtri del grafico nel link (revisione finale) ----------
+
+def _vista_finta(*filtri):
+    from types import SimpleNamespace
+    return SimpleNamespace(list_filter=list(filtri), model=Attivita, url=lambda nome: "/todo/attivita/")
+
+
+def _parametri(link):
+    from urllib.parse import parse_qs, urlsplit
+    return {k: v[0] for k, v in parse_qs(urlsplit(link).query).items()}
+
+
+def test_il_link_porta_i_filtri_del_grafico():
+    from core.viste.interroga import link_gruppo
+    vista = _vista_finta("stato", "assegnatario", "scadenza")
+    spec = {"per": "assegnatario", "testo": "rossi", "filtri": {"stato": "aperta", "scadenza__gte": "2026-01-01",
+                                                                   "scadenza__lte": "2026-12-31"}}
+    assert _parametri(link_gruppo(vista, spec, 7)) == {"f_assegnatario": "7", "q": "rossi", "f_stato": "aperta",
+                                                       "f_scadenza_da": "2026-01-01", "f_scadenza_a": "2026-12-31"}
+    anno = link_gruppo(vista, {"per": "stato", "filtri": {"scadenza__year": 2026}}, "aperta")
+    assert _parametri(anno) == {"f_stato": "aperta", "f_scadenza_da": "2026-01-01", "f_scadenza_a": "2026-12-31"}
+    giorno = link_gruppo(vista, {"per": "stato", "filtri": {"scadenza": "2026-11-03"}}, "aperta")
+    assert _parametri(giorno)["f_scadenza_da"] == _parametri(giorno)["f_scadenza_a"] == "2026-11-03"
+    # il mese del gruppo dentro l'anno del filtro: vale l'intersezione
+    mese = link_gruppo(vista, {"per": "scadenza:mese", "filtri": {"scadenza__gte": "2026-11-10"}}, "2026-11-01")
+    assert _parametri(mese) == {"f_scadenza_da": "2026-11-10", "f_scadenza_a": "2026-11-30"}
+
+
+def test_un_filtro_che_la_lista_non_sa_applicare_toglie_il_link():
+    from core.viste.interroga import link_gruppo
+    vista = _vista_finta("stato", "assegnatario", "scadenza")
+    for filtri in ({"titolo__icontains": "x"}, {"stato__in": ["aperta", "fatta"]}, {"descrizione": "x"},
+                   {"scadenza__gt": "2026-01-01"}, {"assegnatario__username": "capo"}):
+        assert link_gruppo(vista, {"per": "stato", "filtri": filtri}, "aperta") is None, filtri
+    assert link_gruppo(vista, {"per": "stato", "aziende": "tutte"}, "aperta") is None
+
+
+def test_filtri_scritti_come_testo_json():
+    from core.viste.interroga import link_gruppo
+    vista = _vista_finta("stato", "assegnatario")
+    assert _parametri(link_gruppo(vista, {"per": "assegnatario", "filtri": '{"stato": "fatta"}'}, 3)) == \
+        {"f_assegnatario": "3", "f_stato": "fatta"}
