@@ -131,3 +131,39 @@ def test_i_codici_dei_documenti_non_sono_cifre_da_verificare():
     from ai import guardia
     assert guardia.CIFRE.findall("Il preventivo PV/2026/0002 e l'ordine S00012 di [S00012](/vendite/ordini/12/)") == []
     assert guardia.CIFRE.findall("alle 13:30 per 1.250,50 €") == ["13:30", "1.250,50"]
+
+
+# ---------- grafico scritto come testo ----------
+# Alcuni modelli (visto con Mistral Medium 3.5 il 2026-11-19) scrivono il grafico come markup nel testo (<graph>{…}</graph>)
+# invece di chiamare lo strumento grafico: in chat non si vede nulla e non si può cliccare.
+GRAFICO_TESTO = ('Ecco il grafico:\n\n<graph>\n{"type": "barre", "data": {"labels": ["Da fare", "Fatto"], '
+                 '"datasets": [{"data": [15, 40]}]}}\n</graph>\n\nDa fare: 15\nFatto: 40')
+
+
+def test_riconosce_il_grafico_scritto_come_testo():
+    from ai import guardia
+    assert guardia.grafico_nel_testo(GRAFICO_TESTO)
+    assert guardia.grafico_nel_testo('```json\n{"type": "bar", "data": {"labels": ["a"], "datasets": [{"data": [1]}]}}\n```')
+    assert guardia.grafico_nel_testo("```mermaid\npie title Stati\n  \"Aperta\" : 3\n```")
+    assert not guardia.grafico_nel_testo("| Stato | N |\n|---|---|\n| Aperta | 3 |")
+    assert not guardia.grafico_nel_testo('```python\ndati = {"labels": [1]}\n```')
+    assert not guardia.grafico_nel_testo("Il grafico è sotto la risposta: 15 da fare, 40 fatte.")
+
+
+def test_grafico_scritto_come_testo_si_rifa_con_lo_strumento(scena):
+    from ai.models import Artifact
+    t, _ = _turno(scena, "Grafico delle aziende per provincia", [
+        [("strumento", "aggrega_record", {"vista": "core.aziende", "per": "provincia"})],
+        [GRAFICO_TESTO],
+        [("strumento", "grafico", {"vista": "core.aziende", "per": "provincia"})],
+        ["Ecco le aziende per provincia."]], a_voce=False)
+    assert "<graph>" not in t.testo and t.testo.endswith("Ecco le aziende per provincia.")
+    assert Artifact.objects.filter(turno=t, tipo=Artifact.GRAFICO).exists()
+    richiamo = Evento.objects.get(turno=t, tipo=Evento.UTENTE, dati__richiamo=True)
+    assert "strumento grafico" in richiamo.dati["testo"]
+
+
+def test_se_lo_riscrive_come_testo_il_markup_sparisce(scena):
+    t, _ = _turno(scena, "Grafico delle aziende per provincia", [[GRAFICO_TESTO], [GRAFICO_TESTO]], a_voce=False)
+    assert "<graph>" not in t.testo and "datasets" not in t.testo and "Da fare: 15" in t.testo
+    assert Evento.objects.filter(turno=t, dati__richiamo=True).count() == 1          # si chiede una volta sola

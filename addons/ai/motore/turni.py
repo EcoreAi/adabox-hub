@@ -186,6 +186,7 @@ class _Esecuzione:
         self.testo_turno = []                     # tutto il testo visibile del turno (tra un passo e l'altro)
         self.protezione = None
         self.ricontrollato = False                # la guardia dei dati senza fonti (solo a voce) ha già chiesto di rifare
+        self.grafico_richiamato = False           # il grafico scritto come testo: chiesto una volta di usare lo strumento
 
     def salva_testo(self, forza=False):
         adesso = time.monotonic()
@@ -308,6 +309,17 @@ def esegui(turno_id):
                 dati["mascherato"] = True                 # i blocchi nativi contengono i segnaposto
             Evento.objects.create(conversazione=conversazione, turno=turno, tipo=Evento.ASSISTENTE, dati=dati)
             if not chiamate:
+                from .. import guardia as _grafici
+                if _grafici.grafico_nel_testo("".join(e.testo_turno)):
+                    gia_disegnato = Artifact.objects.filter(turno=turno, tipo=Artifact.GRAFICO).exists()
+                    if "grafico" in ammessi and not gia_disegnato and not e.grafico_richiamato:
+                        e.grafico_richiamato = True
+                        log.info("turno %s: grafico scritto come testo, si chiede lo strumento", turno.pk)
+                        _grafici.richiama_grafico(conversazione, turno)
+                        e.testo_turno = []
+                        e.salva_testo(forza=True)
+                        continue
+                    e.testo_turno = [_grafici.senza_grafico_testo("".join(e.testo_turno))]
                 # a voce e nelle attività pianificate (nessuno guarda mentre si scrive): niente dati senza fonti
                 if turno.voce or turno.compito == "pianificate":
                     from .. import guardia
