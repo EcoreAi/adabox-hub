@@ -755,6 +755,35 @@ class ServizioVoce(models.Model):
         return cifratura.decifra(self.chiave_cifrata) if self.chiave_cifrata else ""
 
 
+class Apertura(models.Model):
+    """La frase con cui Ada apre «Parla con Ada» quando qualcuno si collega: la compone il server dai dati (ai.apertura),
+    mai il modello. Resta due giorni, il tempo che serve a non ripetere la stessa cosa nella giornata."""
+    GIORNO, APPUNTAMENTO, SOSPESO, RIPRENDI = "giorno", "appuntamento", "sospeso", "riprendi"
+    TIPI = [(GIORNO, "Saluto del giorno"), (APPUNTAMENTO, "Appuntamento vicino"), (SOSPESO, "Modifica in sospeso"),
+            (RIPRENDI, "Conversazione da riprendere")]
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+", verbose_name="utente")
+    azienda = models.ForeignKey("core.Azienda", on_delete=models.CASCADE, null=True, blank=True, related_name="+",
+                                verbose_name="azienda")
+    tipo = models.CharField("tipo", max_length=12, choices=TIPI)
+    testo = models.TextField("testo")
+    riferimento = models.CharField("riferimento", max_length=40, blank=True,
+                                   help_text="l'appuntamento, la modifica o la conversazione di cui parla: non si ripete")
+    conversazione = models.ForeignKey(Conversazione, on_delete=models.CASCADE, null=True, blank=True, related_name="+",
+                                      verbose_name="conversazione", help_text="quella da riprendere o con la modifica in sospeso")
+    creata = models.DateTimeField("creata il", default=timezone.now)
+    detta = models.DateTimeField("detta il", null=True, blank=True,
+                                 help_text="quando l'utente l'ha sentita o le ha risposto; vuota = pagina aperta e richiusa")
+
+    class Meta:
+        verbose_name = "apertura di Parla con Ada"
+        verbose_name_plural = "aperture di Parla con Ada"
+        ordering = ["-pk"]
+        indexes = [models.Index(fields=["utente", "detta"])]
+
+    def __str__(self):
+        return self.testo[:60]
+
+
 class CollegamentoProgetto(models.Model):
     """Un record del gestionale (commessa, cliente, opportunità, campagna, ticket...) legato a un progetto della chat:
     Ada lo riceve come contesto in tutte le chat del progetto, e dal record si torna al progetto."""

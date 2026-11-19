@@ -3,6 +3,18 @@
 Ciò che chi aggiorna un'istanza deve sapere: cambi di comportamento, azioni da fare, migrazioni. Il dettaglio è nei
 commit; qui solo ciò che si vede o che chiede un intervento.
 
+## 2026-11-19
+
+- **AI 1.49.0 — «Parla con Ada» apre lei la conversazione** (una migrazione: `modulo aggiorna ai`).
+  - La prima volta nella giornata Ada saluta e parte dall'agenda («Oggi hai 3 appuntamenti, il primo alle 10:00… Vuoi
+    sapere cosa hai in agenda per oggi?»); tornando dopo un po' ricorda l'appuntamento che comincia entro un'ora, la
+    modifica rimasta in attesa di conferma o propone di riprendere la conversazione di prima; tornando dopo pochi
+    minuti non dice nulla. Ogni cosa una volta sola.
+  - La frase è scritta appena si apre la pagina e Ada la dice **al primo tocco** (prima un browser non lascia suonare
+    nulla), poi ascolta. La compone il server dai dati, non il modello.
+  - Una conversazione a voce nuova sa di che cosa si è parlato a voce nella giornata («come dicevamo prima»).
+  - Per le demo: `/ai/parla/?da_capo=1` fa ripartire il saluto del giorno. Dettagli in `docs/voce.md`.
+
 ## 2026-11-17
 
 - **Cerca ovunque trova grafici, pagine e menu** — Kernel 1.4.0, Analisi 1.7.0, AI 1.47.0 (nessuna migrazione).

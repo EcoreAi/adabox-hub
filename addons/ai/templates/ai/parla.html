@@ -14,14 +14,17 @@
 {% comment %} Conversazione a voce a schermo intero, scura e immersiva: il cubo del logo in una galassia (canvas .pa-cielo a
    tutto schermo; .pa-sfera è solo lo spazio del cubo) che respira, ascolta, pensa (gira) e parla (pulsa con la voce
    di Ada); sottotitoli sincronizzati con l'audio.
-   Tocchi e parli, Ada capisce quando hai finito; toccando mentre pensa o parla la interrompi. {% endcomment %}
+   Tocchi e parli, Ada capisce quando hai finito; toccando mentre pensa o parla la interrompi.
+   Quando ha qualcosa da dire apre lei (ai.apertura): la frase è già scritta nei sottotitoli e al primo tocco la dice a
+   voce, poi ascolta. Un browser non lascia suonare nulla prima di un tocco, per questo non parla da sola. {% endcomment %}
 <body class="ui-body pa-pagina">
 {% include 'theme/partials/_icons.html' %}
 <main class="pa" data-parla
       data-ascolta="{% url 'ai:parla_ascolta' %}" data-chiedi="{% url 'ai:parla_chiedi' %}"
       data-audio="{% url 'ai:parla_audio' 0 0 1 %}" data-frase="{% url 'ai:parla_frase' 'attimo' %}" data-chat="{{ url_chat }}" data-nuova="{% url 'ai:parla' %}"
       data-conversazione="{{ conversazione.pk|default:'' }}" data-silenzio="{{ impostazioni.silenzio_ms }}"
-      data-ascolto-dopo="{{ impostazioni.ascolto_dopo_ms }}" data-ambito="{{ ambito }}" data-stato="fermo">
+      data-ascolto-dopo="{{ impostazioni.ascolto_dopo_ms }}" data-ambito="{{ ambito }}" data-stato="fermo"
+      data-apertura="{{ apertura.pk|default:'' }}"{% if apertura %} data-apertura-audio="{% url 'ai:parla_apertura' apertura.pk %}" data-apertura-detta="{% url 'ai:parla_apertura_detta' apertura.pk %}"{% endif %}>
   {% csrf_token %}
   <div class="pa-sfondo" aria-hidden="true"><span></span><span></span></div>
   {% if disponibile %}<canvas class="pa-cielo" aria-hidden="true"></canvas>{% endif %}
@@ -55,12 +58,12 @@
   {% if disponibile %}
   <section class="pa-centro">
     <div class="pa-sfera" aria-hidden="true"></div>
-    <p class="pa-stato" aria-live="polite" data-pa-stato>Tocca e parla</p>
+    <p class="pa-stato" aria-live="polite" data-pa-stato>{% if apertura %}Tocca per iniziare{% else %}Tocca e parla{% endif %}</p>
   </section>
 
   <section class="pa-testi">
     <p class="pa-detto" data-pa-detto hidden></p>
-    <div class="pa-sottotitoli" data-pa-risposta aria-live="polite">{% if not conversazione %}Ciao{% if nome %} {{ nome }}{% endif %}, cosa posso fare per te?{% endif %}</div>
+    <div class="pa-sottotitoli" data-pa-risposta aria-live="polite">{% if apertura %}{{ apertura.testo }}{% elif gia_qui %}Dimmi pure{% if nome %}, {{ nome }}{% endif %}.{% elif not conversazione %}Ciao{% if nome %} {{ nome }}{% endif %}, cosa posso fare per te?{% endif %}</div>
     <p class="pa-fonti" data-pa-fonti hidden></p>
   </section>
 
