@@ -161,8 +161,13 @@ def serie_di(grafico, dati, vista=None):
                 "etichette": [e for e, _ in storico], "valori": [float(v) for _, v in storico], "righe": storico,
                 "vuoto": dati.get("valore") is None}
     coppie = [tuple(c) for c in dati.get("serie", [])]
-    chiavi = dati.get("chiavi") or [None] * len(coppie)
-    link = [link_lista(vista, grafico.spec, k) for k in chiavi] if vista is not None else []
+    if "link" in dati:                    # le misure portano il link di ogni gruppo con i loro filtri (solo le emesse…)
+        link = [x or None for x in dati["link"]] if vista is not None else []
+    elif grafico.spec.get("misura_aziendale"):   # salvati prima dei link: senza i filtri della misura sarebbe una bugia
+        link = []
+    else:
+        chiavi = dati.get("chiavi") or [None] * len(coppie)
+        link = [link_lista(vista, grafico.spec, k) for k in chiavi] if vista is not None else []
     return {"tipo": grafico.tipo if grafico.tipo in Grafico.INTERCAMBIABILI else Grafico.BARRE, "titolo": grafico.titolo,
             "etichette": [e for e, _ in coppie], "valori": [float(v) for _, v in coppie], "righe": coppie,
             "vuoto": not any(v for _, v in coppie), "totale": dati.get("totale"),
