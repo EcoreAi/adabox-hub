@@ -19,8 +19,13 @@
     <button type="button" class="ai-azione" data-salva-documenti="{% url 'ai:salva_documenti' 'artifact' a.pk %}" data-cosa="{% if a.tipo == 'grafico' %}il grafico «{{ a.titolo }}» (PDF con i valori, dati di oggi){% else %}la tabella «{{ a.titolo }}» (CSV, con i dati di oggi){% endif %}" hidden data-tip="Salva nei Documenti" aria-label="Salva nei Documenti"><svg><use href="#ai-cartella"/></svg></button>
     {% agganci "ai.artifact" %}
   </figcaption>
-  {% if a.tipo == "grafico" %}
+  {% if a.tipo == "grafico" %}{% with s=a|serie_artifact %}{% if s %}
+    {# lo stesso grafico di Analisi: valore al passaggio, clic sul punto → i record (scheda nuova); senza JS l'SVG #}
+    <div class="wd-canvas ai-artifact-canvas"><canvas data-grafico="{{ s.dom }}" role="img" aria-label="{{ a.titolo }}"></canvas></div>
+    {{ s.dati|json_script:s.dom }}<noscript><div class="ai-artifact-grafico">{{ a|svg_artifact }}</div></noscript>
+  {% else %}
     {% with disegno=a|svg_artifact %}{% if disegno %}<div class="ai-artifact-grafico">{{ disegno }}</div>{% else %}<p class="ai-artifact-vuoto">Nessun dato per questo grafico.</p>{% endif %}{% endwith %}
+  {% endif %}{% endwith %}
   {% else %}
     {% include "ai/_artifact_tabella.html" with dati=a.dati %}
   {% endif %}

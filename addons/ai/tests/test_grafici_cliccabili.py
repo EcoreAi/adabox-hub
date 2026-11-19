@@ -70,3 +70,76 @@ def test_aggiorna_ricalcola_i_link(contesto):
     a = Artifact.objects.get(pk=r["artifact"])
     _attivita("fatta", 1)
     assert len(artifact.ricalcola(a)["link"]) == 2
+
+
+# ---------- la chat e la pagina del grafico ----------
+
+def _in_chat(contesto, **opzioni):
+    """Un grafico sotto una risposta di Ada, come lo lascia un turno."""
+    from ai.models import MessaggioChat, Turno
+    contesto.turno = Turno.objects.create(conversazione=contesto.conversazione, utente=contesto.utente, stato=Turno.COMPLETATO)
+    MessaggioChat.objects.create(conversazione=contesto.conversazione, ruolo=MessaggioChat.ASSISTENTE, testo="Ecco.",
+                                 turno=contesto.turno)
+    return Artifact.objects.get(pk=artifact.grafico(contesto, vista="todo.attivita", per="stato", **opzioni)["artifact"])
+
+
+def _serie_nella_pagina(html, pk):
+    import json
+    import re
+    trovato = re.search(rf'<script id="ai-serie-{pk}" type="application/json">(.*?)</script>', html, re.S)
+    return json.loads(trovato.group(1)) if trovato else None
+
+
+def test_la_chat_disegna_il_grafico_cliccabile(client, contesto):
+    _attivita("aperta", 2)
+    a = _in_chat(contesto)
+    client.force_login(contesto.utente)
+    html = client.get(reverse("ai:conversazione", args=[contesto.conversazione.pk])).content.decode()
+    assert f'data-grafico="ai-serie-{a.pk}"' in html and "core/grafici.js" in html and "chart.umd.js" in html
+    serie = _serie_nella_pagina(html, a.pk)
+    assert serie["tipo"] == "barre" and serie["etichette"] == ["Aperta"] and serie["valori"] == [2]
+    assert serie["link"] == [reverse("todo:attivita_lista") + "?f_stato=aperta"] and serie["nuova_scheda"] is True
+    assert "<noscript>" in html and "<svg" in html                       # senza JavaScript resta il disegno di prima
+
+
+def test_aggiorna_ridisegna_con_i_link(client, contesto):
+    _attivita("aperta", 1)
+    a = _in_chat(contesto)
+    _attivita("fatta", 1)
+    client.force_login(contesto.utente)
+    html = client.post(reverse("ai:aggiorna_artifact", args=[a.pk]), HTTP_HX_REQUEST="true").content.decode()
+    assert html.count(f'data-grafico="ai-serie-{a.pk}"') == 1 and html.count(f'id="ai-serie-{a.pk}"') == 1
+    assert len(_serie_nella_pagina(html, a.pk)["link"]) == 2
+
+
+def test_grafico_salvato_prima_dei_link_si_disegna_senza_clic(client, contesto):
+    _attivita("aperta", 1)
+    a = _in_chat(contesto)
+    a.dati = {k: v for k, v in a.dati.items() if k != "link"}
+    a.save(update_fields=["dati"])
+    client.force_login(contesto.utente)
+    html = client.get(reverse("ai:conversazione", args=[contesto.conversazione.pk])).content.decode()
+    assert _serie_nella_pagina(html, a.pk)["link"] == []
+
+
+def test_previsione_resta_svg(client, contesto):
+    from ai.models import MessaggioChat, Turno
+    turno = Turno.objects.create(conversazione=contesto.conversazione, utente=contesto.utente, stato=Turno.COMPLETATO)
+    MessaggioChat.objects.create(conversazione=contesto.conversazione, ruolo=MessaggioChat.ASSISTENTE, testo="Ecco.", turno=turno)
+    a = Artifact.objects.create(conversazione=contesto.conversazione, turno=turno, utente=contesto.utente, tipo=Artifact.GRAFICO,
+                                titolo="Previsione", spec={"tipo": "grafico", "grafico": "previsione"},
+                                dati={"storico": [["ott", 3], ["nov", 4]], "futuro": [["dic", 3, 4, 5]]})
+    client.force_login(contesto.utente)
+    html = client.get(reverse("ai:conversazione", args=[contesto.conversazione.pk])).content.decode()
+    assert f"ai-serie-{a.pk}" not in html and "<svg" in html
+
+
+def test_pagina_del_grafico_cliccabile(client, contesto):
+    _attivita("aperta", 1)
+    a = _in_chat(contesto, tipo="torta")
+    _attivita("fatta", 1)
+    client.force_login(contesto.utente)
+    html = client.get(reverse("ai:artifact", args=[a.pk])).content.decode()
+    serie = _serie_nella_pagina(html, a.pk)
+    assert serie["tipo"] == "torta" and len(serie["link"]) == 2 and serie["nuova_scheda"] is True    # i dati di oggi
+    assert "core/grafici.js" in html and "chart.umd.js" in html
