@@ -13,6 +13,7 @@ import datetime
 import json
 import re
 from decimal import Decimal
+from urllib.parse import urlencode
 
 from django.core.exceptions import FieldDoesNotExist, FieldError, ValidationError
 from django.db import models
@@ -389,6 +390,84 @@ def aggrega(vista, request, per="", misura="count", filtri=None, testo="", lista
     if massimo and len(righe) > massimo:
         risultato["nota"] = f"Più di {massimo} gruppi: mostrati i primi. Restringi i filtri."
     return risultato
+
+
+def _campo_lista(vista, nome):
+    try:
+        return vista.model._meta.get_field(nome)
+    except FieldDoesNotExist:
+        return None
+
+
+def _filtro_in_lista(vista, chiave, valore):
+    """{parametro: valore} della lista per un filtro del grafico, o None se la lista non lo sa applicare uguale."""
+    nome, _, operatore = chiave.partition("__")
+    f = _campo_lista(vista, nome) if nome in (vista.list_filter or []) else None
+    if f is None or isinstance(valore, (list, dict, tuple)) or "__" in operatore:
+        return None
+    data = isinstance(f, (models.DateField, models.DateTimeField))
+    testo = str(valore).strip()
+    if data:
+        if operatore == "year" and testo.isdigit():
+            return {f"f_{nome}_da": f"{testo}-01-01", f"f_{nome}_a": f"{testo}-12-31"}
+        if not SOLO_DATA.fullmatch(testo):
+            return None
+        if operatore in ("", "exact"):
+            return {f"f_{nome}_da": testo, f"f_{nome}_a": testo}
+        return {"gte": {f"f_{nome}_da": testo}, "lte": {f"f_{nome}_a": testo}}.get(operatore)
+    if operatore not in ("", "exact"):
+        return None
+    if isinstance(f, models.BooleanField):
+        return {f"f_{nome}": "1" if valore in (True, "true", "True", "1", 1) else "0"}
+    return {f"f_{nome}": testo}
+
+
+def _unisci_parametri(parametri, nuovi):
+    """Due limiti sullo stesso campo data (il filtro e il periodo del gruppo): vale l'intersezione."""
+    for k, v in nuovi.items():
+        if k in parametri and k.endswith("_da"):
+            parametri[k] = max(parametri[k], v)
+        elif k in parametri and k.endswith("_a"):
+            parametri[k] = min(parametri[k], v)
+        else:
+            parametri[k] = v
+
+
+def link_gruppo(vista, spec, chiave):
+    """L'indirizzo della lista filtrata come il grafico e sul gruppo con quella chiave (il clic su un punto), o None se
+    la lista non sa applicare tutto (un filtro con un operatore che non ha, un campo che non filtra, più aziende):
+    un link che mostra altri record sarebbe una bugia. La ricerca libera diventa «q», che cerca negli stessi campi."""
+    per = spec.get("per", "") or ""
+    nome, _, parte = per.partition(":")
+    if vista is None or chiave is None or nome not in (vista.list_filter or []) or spec.get("aziende"):
+        return None
+    try:
+        filtri = _decodifica(spec.get("filtri"), "filtri")
+    except ErroreInterrogazione:
+        return None
+    if not isinstance(filtri, dict):
+        return None
+    parametri_lista = dict(spec.get("lista") or {})
+    if (testo := (spec.get("testo") or "").strip()):
+        parametri_lista["q"] = testo
+    for k, v in filtri.items():
+        tradotto = _filtro_in_lista(vista, k, v)
+        if tradotto is None:
+            return None
+        _unisci_parametri(parametri_lista, tradotto)
+    if parte:
+        try:
+            inizio = datetime.date.fromisoformat(str(chiave))
+        except ValueError:
+            return None
+        fine = avanti_periodo(inizio, parte) - datetime.timedelta(days=1)
+        _unisci_parametri(parametri_lista, {f"f_{nome}_da": inizio.isoformat(), f"f_{nome}_a": fine.isoformat()})
+    else:
+        parametri_lista[f"f_{nome}"] = "1" if chiave is True else "0" if chiave is False else str(chiave)
+    try:
+        return vista.url("lista") + "?" + urlencode(parametri_lista)
+    except Exception:
+        return None
 
 
 def ordina_gruppi(gruppi, per="", ordina="", primi=None):

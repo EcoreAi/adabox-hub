@@ -282,6 +282,7 @@
   }
   function decora() {
     decoraCodice(messaggi);
+    if (window.adaboxGrafici) window.adaboxGrafici.tutti(messaggi);     // i grafici arrivati con la risposta
     const risposte = messaggi.querySelectorAll('.ai-msg-assistente:not(.is-in-corso)');
     messaggi.querySelectorAll('[data-solo-ultima]').forEach((f) => { f.hidden = true; });
     const ultima = risposte[risposte.length - 1];

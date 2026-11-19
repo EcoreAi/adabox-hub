@@ -23,6 +23,22 @@
   const scorri = () => { const t = modale.querySelector('#ak-thread'); if (t) t.scrollTop = t.scrollHeight; };
   const abilita = (si) => { const b = modale.querySelector('[data-ak-invia]'); if (b) b.disabled = !si; };
 
+  // I grafici nelle risposte sono di core/grafici.js (Chart.js): gli script si caricano solo quando ne arriva uno,
+  // nell'ordine, poi si disegnano. Sulle pagine che li hanno già (Analisi, dashboard) si disegna subito.
+  let script = null;
+  const carica = (src) => new Promise((ok, ko) => {
+    const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = ko; document.head.append(s);
+  });
+  const disegnaGrafici = async () => {
+    if (!modale.querySelector('canvas[data-grafico]:not([data-disegnato])')) return;
+    if (!window.adaboxGrafici) {
+      const sorgenti = (etichetta.dataset.grafici || '').split(' ').filter(Boolean);
+      script = script || sorgenti.reduce((p, src) => p.then(() => (src.includes('chart.umd') && window.Chart ? null : carica(src))), Promise.resolve());
+      try { await script; } catch (e) { script = null; return; }
+    }
+    if (window.adaboxGrafici) window.adaboxGrafici.tutti(modale);
+  };
+
   const segui = (bolla) => {
     if (!bolla || bolla.dataset.seguita) return;
     bolla.dataset.seguita = '1';
@@ -39,7 +55,7 @@
       sorgente.close();
       const dati = JSON.parse(e.data);
       if (dati.html) bolla.outerHTML = dati.html; else bolla.remove();
-      abilita(true); scorri();
+      abilita(true); scorri(); disegnaGrafici();
       const campo = modale.querySelector('textarea'); if (campo) campo.focus();
     });
     sorgente.addEventListener('error', () => {

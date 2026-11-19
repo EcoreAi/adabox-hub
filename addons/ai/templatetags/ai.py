@@ -46,6 +46,20 @@ def svg_artifact(a):
 
 
 @register.filter
+def serie_artifact(a, dati=None):
+    """Il grafico come lo disegna core/grafici.js (lo stesso di Analisi), con il link ai record di ogni punto: si apre in
+    una scheda nuova, la conversazione resta lì. None per le previsioni e senza dati: resta il disegno del server."""
+    dati = dati if dati is not None else a.dati
+    if a.spec.get("grafico") == "previsione" or not dati or not dati.get("serie"):
+        return None
+    serie = [tuple(c) for c in dati["serie"]]
+    link = [x or None for x in dati.get("link", [])]        # salvati prima dei link: nessun clic finché non si aggiorna
+    return {"dom": f"ai-serie-{a.pk}", "dati": {
+        "tipo": a.spec.get("grafico", "barre"), "titolo": a.titolo, "etichette": [str(e) for e, _ in serie],
+        "valori": [float(v) for _, v in serie], "link": link if any(link) else [], "nuova_scheda": True}}
+
+
+@register.filter
 def righe_con_link(dati):
     righe = dati.get("righe", [])
     return zip(righe, list(dati.get("link", [])) + [""] * (len(righe) - len(dati.get("link", []))))

@@ -202,3 +202,20 @@ def test_parametri_che_non_valgono_lo_dicono(registro, capo):
                                   componenti=(misure.Componente("todo.attivita", "count"),)))
     r = misure.calcola("prova.oggi", richiesta_di(capo), periodo="mese_scorso")
     assert "situazione di oggi" in r["nota"]
+
+
+def test_serie_porta_il_link_di_ogni_gruppo(registro, capo):
+    """Il grafico su una misura sa quali record ci sono dietro ogni punto: il link del gruppo con i filtri della misura."""
+    misure.registra(misure.Misura(
+        nome="prova.aperte", etichetta="Aperte", definizione="attività aperte", unita="",
+        raggruppamenti={"assegnatario": "assegnatario"},
+        componenti=(misure.Componente("todo.attivita", "count", {"stato": "aperta"}),)))
+    altro = User.objects.create_user("bruno", "b@example.com", "x")
+    for i in range(2):
+        Attivita.objects.create(azienda=Azienda.objects.get(pk=1), titolo=f"a{i}", stato="aperta", assegnatario=capo)
+    Attivita.objects.create(azienda=Azienda.objects.get(pk=1), titolo="b", stato="aperta", assegnatario=altro)
+    r = misure.serie({"misura_aziendale": "prova.aperte", "per": "assegnatario"}, richiesta_di(capo))
+    assert r["link"] == [f"/todo/attivita/?f_stato=aperta&f_assegnatario={capo.pk}",
+                         f"/todo/attivita/?f_stato=aperta&f_assegnatario={altro.pk}"]
+    r = misure.serie({"misura_aziendale": "prova.aperte", "per": "assegnatario", "primi": 1}, richiesta_di(capo))
+    assert len(r["link"]) == len(r["serie"]) == 2 and r["serie"][1][0] == "Altro" and r["link"][1] is None

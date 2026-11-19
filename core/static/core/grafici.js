@@ -16,12 +16,13 @@ window.adaboxGrafici = (function () {
   const ridotto = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const fmt = (v) => Number(v).toLocaleString('it-IT', { maximumFractionDigits: 2 });
 
-  const fette = (etichette, valori) => {
-    const coppie = etichette.map((e, i) => [e, valori[i]]).filter(([, v]) => v > 0);
+  // [etichetta, valore, link]: il link segue la sua fetta anche quando si riordinano e si riuniscono in «Altro»
+  const fette = (etichette, valori, link) => {
+    const coppie = etichette.map((e, i) => [e, valori[i], (link && link[i]) || null]).filter(([, v]) => v > 0);
     if (coppie.length <= TAVOLOZZA.length) return coppie;
     coppie.sort((a, b) => b[1] - a[1]);
     const prime = coppie.slice(0, TAVOLOZZA.length - 1);
-    return [...prime, ['Altro', coppie.slice(TAVOLOZZA.length - 1).reduce((s, [, v]) => s + v, 0)]];
+    return [...prime, ['Altro', coppie.slice(TAVOLOZZA.length - 1).reduce((s, [, v]) => s + v, 0), null]];
   };
   const sfumatura = (canvas, colore, forza) => {
     const g = canvas.getContext('2d').createLinearGradient(0, 0, 0, canvas.clientHeight || 300);
@@ -91,7 +92,12 @@ window.adaboxGrafici = (function () {
 
   // drill-down: se la serie porta un link per punto, il clic apre la lista filtrata su quella categoria
   const linkDi = (serie, el) => (el && el.length && serie.link ? serie.link[el[0].index] : null);
-  const apri = (serie) => (e, el) => { const url = linkDi(serie, el); if (url) window.location.href = url; };
+  // con nuova_scheda (grafici della chat) l'elenco si apre accanto, la conversazione resta lì
+  const apri = (serie) => (e, el) => {
+    const url = linkDi(serie, el);
+    if (!url) return;
+    if (serie.nuova_scheda) window.open(url, '_blank', 'noopener'); else window.location.href = url;
+  };
   const mano = (serie) => (e, el) => { const t = e.native && e.native.target; if (t) t.style.cursor = linkDi(serie, el) ? 'pointer' : ''; };
 
   // KPI: una linea nuda degli ultimi periodi, senza assi
@@ -115,13 +121,14 @@ window.adaboxGrafici = (function () {
     if (serie.tipo === 'previsione') return previsione(canvas, serie, comune);
     if (serie.tipo === 'kpi') return sparkline(canvas, serie, comune);
     if (serie.tipo === 'torta') {
-      const coppie = fette(serie.etichette, serie.valori);
+      const coppie = fette(serie.etichette, serie.valori, serie.link);
       const totale = coppie.reduce((s, [, v]) => s + v, 0);
+      const fetta = { ...serie, link: serie.link ? coppie.map(([, , l]) => l) : null };    // link nell'ordine delle fette
       return new Chart(canvas, {
         type: 'doughnut',
         data: { labels: coppie.map(([e]) => e), datasets: [{ data: coppie.map(([, v]) => v), borderColor: '#fff', borderWidth: 2, hoverOffset: 6,
           backgroundColor: coppie.map(([e], i) => (e === 'Altro' ? ALTRO : TAVOLOZZA[i])) }] },
-        options: { ...comune, cutout: '62%', centro: { valore: fmt(totale), etichetta: 'totale' }, plugins: {
+        options: { ...comune, onClick: apri(fetta), onHover: mano(fetta), cutout: '62%', centro: { valore: fmt(totale), etichetta: 'totale' }, plugins: {
           legend: { display: true, position: 'right', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, color: testo2, font: { size: 12 } } },
           tooltip: { callbacks: { label: (c) => ` ${fmt(c.parsed)} (${totale ? Math.round(c.parsed * 100 / totale) : 0}%)` } } } },
         plugins: [sfondo, centro],

@@ -5,6 +5,16 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-19
 
+- **Grafici cliccabili** — Kernel 1.5.0, AI 1.50.0, Analisi 1.8.0 (nessuna migrazione; AI e Analisi chiedono il kernel 1.5).
+  - In chat e nella pagina del grafico barre, linee e torta sono quelli di Analisi: il valore compare subito passando
+    col mouse, e il clic su una barra, un punto o una fetta apre l'elenco dei record di quel gruppo in una scheda nuova.
+    I grafici già presenti nelle chat diventano cliccabili dopo ↻. Le previsioni restano come prima.
+  - I grafici sulle misure aziendali (fatturato per mese, da incassare per cliente…) sono cliccabili anche in Analisi,
+    con i filtri della misura: il clic su un cliente del fatturato mostra le sue fatture emesse del periodo.
+  - **Corretto**: in Analisi il clic su un grafico del fatturato per cliente apriva anche le bozze; nelle torte con più
+    di 5 fette il clic poteva aprire la fetta sbagliata. Dove un link mostrerebbe altri record (fetta «Altro», campo
+    che l'elenco non filtra) il punto non è cliccabile.
+
 - **AI 1.49.0 — «Parla con Ada» apre lei la conversazione** (una migrazione: `modulo aggiorna ai`).
   - La prima volta nella giornata Ada saluta e parte dall'agenda («Oggi hai 3 appuntamenti, il primo alle 10:00… Vuoi
     sapere cosa hai in agenda per oggi?»); tornando dopo un po' ricorda l'appuntamento che comincia entro un'ora, la
