@@ -109,3 +109,11 @@ def test_provenienza_numeri_usati(scena, contesto, client):
     client.force_login(contesto.utente)
     pagina = client.get(f"/ai/chat/{contesto.conversazione.pk}/").content.decode()
     assert "1 numero usato" in pagina and "Apri i record" in pagina and "1.000 €" in pagina
+
+
+def test_grafico_su_misura_ha_i_link(scena, contesto):
+    azienda, cliente, monitor, _ = scena
+    _fattura(azienda, cliente, [(monitor, "5")], stato="emessa")
+    r = artifact.grafico(contesto, misura_aziendale="fatturazione.fatturato", per="cliente", periodo="anno", tipo="torta")
+    link = artifact.Artifact.objects.get(pk=r["artifact"]).dati["link"]
+    assert len(link) == 1 and "f_stato=emessa" in link[0] and f"f_cliente={cliente.pk}" in link[0]

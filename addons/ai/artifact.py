@@ -8,7 +8,7 @@ import io
 from django.utils import timezone
 
 from core import svg
-from core.viste.interroga import con_altro, etichetta_misura, ordina_gruppi, serie
+from core.viste.interroga import etichetta_misura, link_gruppo, ordina_gruppi, serie
 
 from .models import Artifact
 from .strumenti import Contesto, ErroreStrumento, Strumento, registra, richiesta
@@ -24,17 +24,26 @@ def _serie(gruppi, per):
     return serie(gruppi, per, MAX_CATEGORIE)
 
 
-def _serie_scelta(gruppi, spec):
-    """La serie del grafico: con «primi» le prime N più «Altro» (sulle date: gli ultimi N periodi), con «ordina» in
-    quell'ordine, altrimenti come sempre."""
+def _terne(gruppi, spec):
+    """[(etichetta, valore, chiave)] da disegnare: con «primi» le prime N più «Altro» (sulle date: gli ultimi N periodi),
+    con «ordina» in quell'ordine, altrimenti oltre MAX_CATEGORIE le prime più «Altro» (sulle date: le ultime). La chiave
+    resta accanto al suo punto per il link ai record; «Altro» non ne ha."""
     per, primi, ordina = spec["per"], spec.get("primi"), spec.get("ordina", "")
+    terne = [(g["gruppo"], g["valore"], g.get("chiave")) for g in gruppi]
     if primi and ":" not in per:
-        return con_altro([(g["gruppo"], g["valore"]) for g in gruppi], int(primi))
+        ordinate = sorted(terne, key=lambda t: t[1] or 0, reverse=True)
+        resto = ordinate[int(primi):]
+        return ordinate[:int(primi)] + ([("Altro", round(sum(v or 0 for _, v, _ in resto), 2), None)] if resto else [])
     if primi:
-        return [(g["gruppo"], g["valore"]) for g in gruppi][-int(primi):]
+        return terne[-int(primi):]
     if ordina:
-        return [(g["gruppo"], g["valore"]) for g in ordina_gruppi(gruppi, per, ordina)][:MAX_CATEGORIE]
-    return _serie(gruppi, per)
+        return [(g["gruppo"], g["valore"], g.get("chiave")) for g in ordina_gruppi(gruppi, per, ordina)][:MAX_CATEGORIE]
+    if len(terne) <= MAX_CATEGORIE:
+        return terne
+    if ":" in per:
+        return terne[-MAX_CATEGORIE:]
+    ordinate = sorted(terne, key=lambda t: t[1], reverse=True)
+    return ordinate[:MAX_CATEGORIE - 1] + [("Altro", round(sum(v for _, v, _ in ordinate[MAX_CATEGORIE - 1:]), 2), None)]
 
 
 def _tabella_raggruppata(v, request, spec):
@@ -75,9 +84,12 @@ def calcola(spec, contesto):
     if spec["tipo"] == Artifact.GRAFICO:
         from core.viste.interroga import aziende_di
         r = aggrega(v, request, spec["per"], spec.get("misura", "count"), spec.get("filtri"), spec.get("testo", ""),
-                    aziende=aziende_di(request, spec.get("aziende")),
+                    aziende=aziende_di(request, spec.get("aziende")), con_chiavi=True,
                     massimo=None if (spec.get("primi") or spec.get("ordina")) else 100)
-        return {"serie": _serie_scelta(r.get("gruppi", []), spec), "totale": r["totale"]}
+        terne = _terne(r.get("gruppi", []), spec)
+        # il link ai record di ogni punto, calcolato ora e salvato con l'istantanea (↻ lo rifà)
+        return {"serie": [(e, val) for e, val, _ in terne], "totale": r["totale"],
+                "link": [link_gruppo(v, spec, k) for _, _, k in terne]}
     if spec.get("per"):
         return _tabella_raggruppata(v, request, spec)
     r = cerca(v, request, spec.get("testo", ""), spec.get("filtri"), spec.get("ordina", ""), spec.get("limite", 50),
