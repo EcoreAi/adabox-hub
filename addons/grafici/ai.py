@@ -155,6 +155,12 @@ def anteprima_salva(contesto, titolo="", vista="", tipo="barre", misura="count",
                          {"campo": "Dove", "dopo": _dove(contesto, pagina)}]}
 
 
+def _origine_url(contesto):
+    if getattr(contesto, "conversazione_id", None):
+        return reverse("ai:conversazione", args=[contesto.conversazione_id])
+    return reverse("ai:conversazione", args=[contesto.conversazione.pk]) if contesto.conversazione else ""
+
+
 def salva_grafico(contesto, titolo="", vista="", tipo="barre", misura="count", per="", data="", periodo="mese",
                   orizzonte=3, filtri=None, testo="", pagina="", artifact=None, obiettivo=None, misura_aziendale=""):
     tipo, spec, titolo = _specifica(contesto, titolo, vista, tipo, misura, per, data, periodo, orizzonte, filtri, testo, artifact,
@@ -173,9 +179,7 @@ def salva_grafico(contesto, titolo="", vista="", tipo="barre", misura="count", p
     g = Grafico.objects.create(
         utente=contesto.utente, titolo=(titolo or motore.descrizione(spec, vista=vista_obj, tipo=tipo))[:200],
         tipo=tipo, spec=spec, dati=dati, aggiornato=timezone.now(), origine=Grafico.CHAT,
-        opzioni={"obiettivo": float(obiettivo)} if obiettivo else {},
-        origine_url=reverse("ai:conversazione", args=[contesto.conversazione_id]) if getattr(contesto, "conversazione_id", None)
-        else (reverse("ai:conversazione", args=[contesto.conversazione.pk]) if contesto.conversazione else ""))
+        opzioni={"obiettivo": float(obiettivo)} if obiettivo else {}, origine_url=_origine_url(contesto))
     if p is not None:
         motore.metti_in_pagina(p, g)
     url = _url(p) if p else reverse("grafici:grafico", args=[g.pk])
@@ -196,6 +200,110 @@ def anteprima_crea_pagina(contesto, titolo, icona="bar-chart"):
 def crea_pagina(contesto, titolo, icona="bar-chart"):
     p = motore.nuova_pagina(contesto.utente, titolo, icona)
     return {"esito": f"Pagina «{p.titolo}» creata.", "url": _url(p), "pagina": p.pk}
+
+
+
+# ---------- dashboard fatte da Ada: una pagina nuova con più pezzi, una sola conferma ----------
+
+MAX_PEZZI = 8
+MIN_PEZZI = 2
+
+
+def _titolo_libero(contesto, titolo):
+    titolo = (titolo or "").strip()[:100]
+    if not titolo:
+        raise ErroreStrumento("Serve un titolo per la dashboard.")
+    if Pagina.objects.filter(utente=contesto.utente, titolo__iexact=titolo).exists():
+        raise ErroreStrumento(f"La pagina «{titolo}» esiste già: scegli un altro titolo (per aggiungere un grafico a una "
+                              "pagina che c'è già usa analisi_salva_grafico).")
+    return titolo
+
+
+def _periodo_del_grafico(spec, tipo, periodo):
+    """Un grafico su una misura con una data parte dal periodo chiesto, se è uno dei pulsanti, altrimenti dall'anno."""
+    from core import misure
+    if not spec.get("misura_aziendale") or tipo in (Grafico.KPI, Grafico.PREVISIONE):
+        return spec
+    con = {**spec, "periodo": periodo if periodo in dict(misure.PULSANTI_PERIODO) else "anno"}
+    return con if misure.periodo_grafico(con) is not None else spec
+
+
+def _vuoto(tipo, dati):
+    if tipo == Grafico.KPI:
+        return False                                    # «scaduto: 0 €» è una notizia
+    return not (dati or {}).get("storico" if tipo == Grafico.PREVISIONE else "serie")
+
+
+def prepara_pezzi(contesto, pezzi):
+    """(validi, tolti): ogni pezzo calcolato adesso con i permessi dell'utente; i grafici vuoti o sbagliati sono tolti
+    con il motivo. Validi: {"tipo", "spec", "titolo", "dati", "descrizione", "obiettivo"}, prima gli indicatori."""
+    if not isinstance(pezzi, list) or not all(isinstance(p, dict) for p in pezzi):
+        raise ErroreStrumento("«pezzi» è un elenco di oggetti, uno per indicatore o grafico.")
+    if len(pezzi) > MAX_PEZZI:
+        raise ErroreStrumento(f"Al massimo {MAX_PEZZI} pezzi in una dashboard.")
+    validi, tolti = [], []
+    for n, pezzo in enumerate(pezzi, 1):
+        nome = pezzo.get("titolo") or pezzo.get("misura_aziendale") or pezzo.get("vista") or f"pezzo {n}"
+        try:
+            if pezzo.get("tipo") == Grafico.TABELLA:
+                raise ErroreStrumento("le tabelle non vanno nelle dashboard")
+            tipo, spec, titolo = _specifica(
+                contesto, pezzo.get("titolo") or "", pezzo.get("vista") or "", pezzo.get("tipo") or Grafico.BARRE,
+                pezzo.get("misura") or "count", pezzo.get("per") or "", pezzo.get("data") or "", pezzo.get("periodo") or "mese",
+                pezzo.get("orizzonte") or 3, pezzo.get("filtri"), pezzo.get("testo") or "", None, pezzo.get("misura_aziendale") or "")
+            spec = _periodo_del_grafico(spec, tipo, pezzo.get("periodo"))
+            vista, dati = _controlla(contesto, tipo, spec)
+            obiettivo = float(pezzo["obiettivo"]) if pezzo.get("obiettivo") not in (None, "") else None
+        except (ErroreStrumento, ErroreInterrogazione, ValueError, TypeError) as e:
+            tolti.append(f"{nome} — {e}")
+            continue
+        if _vuoto(tipo, dati):
+            tolti.append(f"{nome} — nessun dato")
+            continue
+        descrizione = motore.descrizione(spec, vista=vista, tipo=tipo)
+        validi.append({"tipo": tipo, "spec": spec, "titolo": (titolo or descrizione)[:200], "dati": dati,
+                       "descrizione": descrizione, "obiettivo": obiettivo})
+    validi.sort(key=lambda v: v["tipo"] != Grafico.KPI)          # ordinamento stabile: KPI in testa, poi l'ordine di Ada
+    return validi, tolti
+
+
+def _abbastanza(validi, tolti):
+    if len(validi) < MIN_PEZZI:
+        motivo = ("; tolti: " + "; ".join(tolti)) if tolti else ""
+        raise ErroreStrumento(f"Una dashboard ha bisogno di almeno {MIN_PEZZI} pezzi con dei dati, ne restano "
+                              f"{len(validi)}{motivo}.")
+
+
+def anteprima_crea_dashboard(contesto, titolo, pezzi, icona="bar-chart"):
+    titolo = _titolo_libero(contesto, titolo)
+    validi, tolti = prepara_pezzi(contesto, pezzi)
+    _abbastanza(validi, tolti)
+    tipi = dict(Grafico.TIPI)
+    return {"titolo": f"Crea la dashboard «{titolo}» con {len(validi)} pezzi",
+            "dettagli": [*({"campo": v["titolo"], "dopo": f"{tipi[v['tipo']]} · {v['descrizione']}"} for v in validi),
+                         *({"campo": "Tolti", "dopo": t} for t in tolti),
+                         {"campo": "Dove", "dopo": "una pagina nuova di Analisi, in coda alle tue"}]}
+
+
+def crea_dashboard(contesto, titolo, pezzi, icona="bar-chart"):
+    from django.db import transaction
+    from django.utils import timezone
+    titolo = _titolo_libero(contesto, titolo)
+    validi, tolti = prepara_pezzi(contesto, pezzi)               # ricalcolati: i dati possono essere cambiati
+    _abbastanza(validi, tolti)
+    adesso, origine = timezone.now(), _origine_url(contesto)
+    with transaction.atomic():
+        p = motore.nuova_pagina(contesto.utente, titolo, icona)
+        grafici = [Grafico.objects.create(
+            utente=contesto.utente, titolo=v["titolo"], tipo=v["tipo"], spec=v["spec"], dati=v["dati"], aggiornato=adesso,
+            origine=Grafico.CHAT, origine_url=origine, opzioni={"obiettivo": v["obiettivo"]} if v["obiettivo"] is not None else {})
+            for v in validi]
+        p.layout = {"widget": [{"id": g.id_widget, "w": 1 if g.tipo == Grafico.KPI else 2} for g in grafici]}
+        p.save(update_fields=["layout", "aggiornata"])
+    esito = f"Dashboard «{p.titolo}» creata con {len(grafici)} pezzi."
+    if tolti:
+        esito += " Tolti: " + "; ".join(tolti) + "."
+    return {"esito": esito, "url": _url(p), "pagina": p.pk, "grafici": [g.pk for g in grafici]}
 
 
 registra(Strumento(
