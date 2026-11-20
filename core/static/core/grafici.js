@@ -93,7 +93,10 @@ window.adaboxGrafici = (function () {
   // drill-down: se la serie porta un link per punto, il clic apre la lista filtrata su quella categoria
   const linkDi = (serie, el) => (el && el.length && serie.link ? serie.link[el[0].index] : null);
   // dappertutto (chat, Analisi, dashboard) nella stessa pagina: con Indietro si torna al grafico, niente schede in più
-  const apri = (serie) => (e, el) => {
+  // con il confronto i link sono del periodo scelto: la barra o il punto dell'anno prima non apre nulla
+  const apri = (serie) => (e, el, chart) => {
+    const toccato = chart && chart.getElementsAtEventForMode ? chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, false) : [];
+    if (toccato.length && toccato[0].datasetIndex !== 0) return;
     const url = linkDi(serie, el);
     if (url) window.location.href = url;
   };
@@ -136,13 +139,23 @@ window.adaboxGrafici = (function () {
     const linee = serie.tipo === 'linee' || serie.tipo === 'area';
     const area = serie.tipo === 'area';
     const orizzontale = serie.tipo === 'barre_orizzontali';
+    const datasets = [{ label: serie.confronto ? 'Periodo scelto' : serie.titolo, data: serie.valori, borderColor: tinta, backgroundColor: linee ? sfumatura(canvas, TINTA, area ? 0.4 : 0.22) : tinta,
+      borderWidth: linee ? 2 : 0, borderRadius: 4, borderSkipped: 'start', maxBarThickness: 28, tension: area ? 0.4 : 0.3, fill: linee,
+      pointRadius: area ? 0 : 3, pointHoverRadius: 6, pointBackgroundColor: '#fff', pointBorderWidth: 2 }];
+    // il confronto con l'anno prima: la stessa tinta, chiara (barre) o tratteggiata (linee), accanto a ogni punto
+    if (serie.confronto) {
+      const chiara = `rgba(${TINTA[0]}, ${TINTA[1]}, ${TINTA[2]}, 0.35)`;
+      datasets.push({ label: serie.confronto.etichetta, data: serie.confronto.valori, borderColor: linee ? chiara : 'transparent',
+        backgroundColor: linee ? 'transparent' : chiara, borderWidth: linee ? 2 : 0, borderDash: linee ? [5, 4] : [], borderRadius: 4,
+        borderSkipped: 'start', maxBarThickness: 28, tension: 0.3, fill: false, pointRadius: linee ? 2 : 0, pointHoverRadius: 5,
+        pointBackgroundColor: '#fff', pointBorderColor: chiara, pointBorderWidth: 2 });
+    }
     return new Chart(canvas, {
       type: linee ? 'line' : 'bar',
-      data: { labels: serie.etichette, datasets: [{ data: serie.valori, borderColor: tinta, backgroundColor: linee ? sfumatura(canvas, TINTA, area ? 0.4 : 0.22) : tinta,
-        borderWidth: linee ? 2 : 0, borderRadius: 4, borderSkipped: 'start', maxBarThickness: 28, tension: area ? 0.4 : 0.3, fill: linee,
-        pointRadius: area ? 0 : 3, pointHoverRadius: 6, pointBackgroundColor: '#fff', pointBorderWidth: 2 }] },
+      data: { labels: serie.etichette, datasets },
       options: { ...comune, indexAxis: orizzontale ? 'y' : 'x', interaction: { mode: 'index', intersect: false }, obiettivo: serie.obiettivo ?? null,
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` ${fmt(orizzontale ? c.parsed.x : c.parsed.y)}` } } },
+        plugins: { legend: { display: !!serie.confronto, position: 'top', align: 'end', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, color: testo2, font: { size: 12 } } },
+          tooltip: { callbacks: { label: (c) => ` ${serie.confronto ? `${c.dataset.label}: ` : ''}${fmt(orizzontale ? c.parsed.x : c.parsed.y)}` } } },
         scales: orizzontale ? { x: conObiettivo(asseValori, serie.obiettivo), y: asseCategorie } : { x: asseCategorie, y: conObiettivo(asseValori, serie.obiettivo) } },
       plugins: [sfondo, obiettivo],
     });
