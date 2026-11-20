@@ -12,6 +12,8 @@ commit; qui solo ciò che si vede o che chiede un intervento.
   - Ada parte da quattro composizioni (Panoramica dell'azienda, Vendite, Fatturazione e incassi, Acquisti e scorte),
     solo con le misure dei moduli installati, e le adatta alla richiesta; per richieste diverse sceglie lei i pezzi.
   - Crea sempre una pagina nuova: per aggiungere a una pagina esistente resta il salvataggio di un grafico alla volta.
+  - Nella scheda di conferma ogni pezzo ha una **casella**: togli la spunta a quelli che non vuoi e confermi gli altri.
+    Se ne restano meno di 2 la scheda lo dice e resta da confermare.
   - La dashboard e «salva in Analisi» funzionano anche nelle chat limitate a un'app (pulsante **App**): Analisi
     raccoglie i numeri di tutte le app, quindi nella chat del CRM la dashboard può avere anche fatturato e scaduto.
   - I grafici sulle misure per cliente o fornitore mostrano i primi 10 più «Altro». Una dashboard con un pezzo di

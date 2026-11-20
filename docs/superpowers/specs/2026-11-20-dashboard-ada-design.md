@@ -36,6 +36,9 @@ e filtri. Oggi Ada salva un grafico alla volta: per sei pezzi servono sette conf
   ad Ada solo con le misure installate.
 - **Anche nelle chat limitate a un'app** (aggiunto il 2026-11-20, scelta A dell'utente): la dashboard e il salvataggio
   di un grafico in Analisi sono offerti in ogni chat, con le stesse regole; gli altri strumenti di Analisi no.
+- **Caselle nella scheda di conferma** (aggiunto il 2026-11-20 su richiesta dell'utente): una per pezzo, spuntate;
+  si confermano solo i pezzi spuntati, con titolo e dettagli della scheda rifatti. Meccanismo generico delle proposte
+  (`Strumento.voci`), usato solo dalla dashboard. Da un canale senza caselle si crea tutto.
 - **Dopo la conferma** l'esito porta il link della pagina; Ada risponde con «Apri la dashboard» (stessa scheda).
 
 ## Da evitare

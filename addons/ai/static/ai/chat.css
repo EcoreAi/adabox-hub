@@ -229,6 +229,8 @@ body.ai-pagina { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden;
 .ai-proposta-esito { margin: 10px 0 0; font-size: 13px; color: var(--ui-text-2); }
 .ai-proposta-azioni { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
 .ai-proposta-azioni form { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0; }
+.ai-proposta-voce { display: inline-flex; align-items: flex-start; gap: 6px; cursor: pointer; color: var(--ui-text); }
+.ai-proposta-voce input { margin-top: 2px; }
 .ai-proposta-spunta { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ui-text); }
 .ai-proposta-link { display: inline-block; margin-top: 8px; font-size: 13px; }
 

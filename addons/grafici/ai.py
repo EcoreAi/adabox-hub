@@ -249,7 +249,8 @@ def _vuoto(tipo, dati):
 
 def prepara_pezzi(contesto, pezzi):
     """(validi, tolti): ogni pezzo calcolato adesso con i permessi dell'utente; i grafici vuoti o sbagliati sono tolti
-    con il motivo. Validi: {"tipo", "spec", "titolo", "dati", "descrizione", "obiettivo"}, prima gli indicatori."""
+    con il motivo. Validi: {"tipo", "spec", "titolo", "dati", "descrizione", "obiettivo", "indice"} (indice = posizione
+    in `pezzi`), prima gli indicatori."""
     if not isinstance(pezzi, list) or not all(isinstance(p, dict) for p in pezzi):
         raise ErroreStrumento("«pezzi» è un elenco di oggetti, uno per indicatore o grafico.")
     if len(pezzi) > MAX_PEZZI:
@@ -275,7 +276,7 @@ def prepara_pezzi(contesto, pezzi):
             continue
         descrizione = motore.descrizione(spec, vista=vista, tipo=tipo)
         validi.append({"tipo": tipo, "spec": spec, "titolo": (titolo or descrizione)[:200], "dati": dati,
-                       "descrizione": descrizione, "obiettivo": obiettivo})
+                       "descrizione": descrizione, "obiettivo": obiettivo, "indice": n - 1})
     validi.sort(key=lambda v: v["tipo"] != Grafico.KPI)          # ordinamento stabile: KPI in testa, poi l'ordine di Ada
     return validi, tolti
 
@@ -293,7 +294,9 @@ def anteprima_crea_dashboard(contesto, titolo, pezzi, icona="bar-chart"):
     _abbastanza(validi, tolti)
     tipi = dict(Grafico.TIPI)
     return {"titolo": f"Crea la dashboard «{titolo}» con {len(validi)} pezzi",
-            "dettagli": [*({"campo": v["titolo"], "dopo": f"{tipi[v['tipo']]} · {v['descrizione']}"} for v in validi),
+            # "voce": la casella della scheda di conferma per togliere quel pezzo (Strumento.voci = "pezzi")
+            "dettagli": [*({"campo": v["titolo"], "dopo": f"{tipi[v['tipo']]} · {v['descrizione']}", "voce": v["indice"]}
+                           for v in validi),
                          *({"campo": "Tolti", "dopo": t} for t in tolti),
                          {"campo": "Dove", "dopo": "una pagina nuova di Analisi, in coda alle tue"}]}
 
@@ -443,4 +446,5 @@ registra(_StrumentoDashboard(
                   "items": {"type": "object", "properties": _PEZZO, "required": ["tipo"]}}},
      "required": ["titolo", "pezzi"]}, crea_dashboard, rischio="scrittura", concorrente=False,
     anteprima=anteprima_crea_dashboard, permesso="grafici.add_grafico", timeout=90.0,   # ogni pezzo si calcola
-    ovunque=True))                                   # Analisi raccoglie i numeri di tutte le app: anche dalla chat del CRM
+    ovunque=True,                                    # Analisi raccoglie i numeri di tutte le app: anche dalla chat del CRM
+    voci="pezzi"))                                   # nella scheda di conferma si tolgono i pezzi che non si vogliono

@@ -36,6 +36,9 @@ class Strumento:
     disponibile: object = None                          # funzione() -> bool: es. solo se il suo servizio è configurato
     funzione_licenza: str = ""                          # funzione dell'assistente che lo comprende (ai.funzioni)
     ovunque: bool = False                               # anche nelle chat limitate a un'altra app (es. le dashboard)
+    # scritture: l'argomento lista di cui l'utente può togliere elementi nella scheda di conferma (le righe dei
+    # dettagli con "voce": indice hanno una casella); vuoto = la proposta si conferma o si annulla tutta
+    voci: str = ""
 
     def definizione(self):
         return {"nome": self.nome, "descrizione": self.descrizione, "schema": self.schema}
