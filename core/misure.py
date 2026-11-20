@@ -553,3 +553,25 @@ def con_confronto(dati, prima, temporale):
     chiavi = dati.get("chiavi") or [None] * len(dati.get("serie", []))
     return {**dati, "confronto": {"etichetta": ETICHETTA_CONFRONTO,
                                   "valori": [valori.get(str(k) if temporale else k, 0) if k is not None else 0 for k in chiavi]}}
+
+
+def scelta_dal_form(dati):
+    """(periodo, confronta) dal form dei pulsanti: un pulsante del periodo manda «periodo»; «Confronta» rimanda il
+    periodo attuale e inverte il confronto."""
+    periodo = dati["periodo"] if "periodo" in dati else dati.get("periodo_attuale", "")
+    confronta = dati.get("confronta") == "1"
+    return periodo, (not confronta) if dati.get("inverti") == "1" else confronta
+
+
+def scegli_periodo(spec, periodo, confronta):
+    """La specifica con il periodo scelto dai pulsanti («» = Sempre, solo per i grafici su una vista) e il confronto.
+    Un periodo con nome toglie le date fisse. ErroreInterrogazione se il grafico non ha periodo o la scelta non vale."""
+    p = periodo_grafico(spec)
+    validi = {k for k, _ in PULSANTI_PERIODO} | ({""} if p and p["sempre"] else set())
+    if p is None or periodo not in validi:
+        raise ErroreInterrogazione("Periodo non valido per questo grafico.")
+    nuova = {k: v for k, v in spec.items() if k not in ("periodo", "dal", "al", "confronta")}
+    if periodo:
+        nuova["periodo"] = periodo
+    nuova["confronta"] = bool(confronta) and spec_anno_prima(nuova) is not None
+    return nuova

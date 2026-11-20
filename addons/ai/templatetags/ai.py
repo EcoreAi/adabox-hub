@@ -56,7 +56,21 @@ def serie_artifact(a, dati=None):
     link = [x or None for x in dati.get("link", [])]        # salvati prima dei link: nessun clic finché non si aggiorna
     return {"dom": f"ai-serie-{a.pk}", "dati": {
         "tipo": a.spec.get("grafico", "barre"), "titolo": a.titolo, "etichette": [str(e) for e, _ in serie],
-        "valori": [float(v) for _, v in serie], "link": link if any(link) else []}}
+        "valori": [float(v) for _, v in serie], "link": link if any(link) else [],
+        **({"confronto": dati["confronto"]} if dati.get("confronto") and a.spec.get("grafico") != "torta" else {})}}
+
+
+@register.filter
+def periodo_artifact(a):
+    """I pulsanti del periodo per un grafico della chat (core/_periodo_grafico.html), o None se non ne ha."""
+    from django.urls import reverse
+
+    from core import misure
+    p = misure.periodo_grafico(a.spec) if a.tipo == "grafico" else None
+    if p is None:
+        return None
+    return {**p, "url": reverse("ai:periodo_artifact", args=[a.pk]), "bersaglio": f"#ai-artifact-{a.pk}",
+            "confronto_possibile": a.spec.get("grafico") != "torta"}
 
 
 @register.filter

@@ -60,3 +60,54 @@ def test_analisi_calcola_allo_stesso_modo(contesto):
     assert sum(v for _, v in dati["serie"]) == 3
     serie = motore.serie_di(Grafico(tipo=Grafico.BARRE, titolo="x", spec=spec), dati, motore.vista_di(spec, req))
     assert serie["confronto"]["valori"] and serie["confronto"]["etichetta"] == "Anno prima"
+
+
+# ---------- i pulsanti in chat ----------
+
+def _in_chat(contesto, spec):
+    from ai.models import Artifact, MessaggioChat, Turno
+    turno = Turno.objects.create(conversazione=contesto.conversazione, utente=contesto.utente, stato=Turno.COMPLETATO)
+    MessaggioChat.objects.create(conversazione=contesto.conversazione, ruolo=MessaggioChat.ASSISTENTE, testo="Ecco.", turno=turno)
+    return Artifact.objects.create(conversazione=contesto.conversazione, turno=turno, utente=contesto.utente, azienda=contesto.azienda, tipo="grafico",
+                                   titolo="Scadenze", spec=spec, dati=artifact.calcola(spec, contesto))
+
+
+def test_la_chat_mostra_i_pulsanti_del_periodo(client, contesto):
+    from django.urls import reverse
+    a = _in_chat(contesto, _spec())
+    per_stato = _in_chat(contesto, _spec(per="stato"))
+    client.force_login(contesto.utente)
+    html = client.get(reverse("ai:conversazione", args=[contesto.conversazione.pk])).content.decode()
+    assert reverse("ai:periodo_artifact", args=[a.pk]) in html
+    for etichetta in (">Mese<", ">Trimestre<", ">Anno<", ">Anno scorso<", ">Sempre<", "Confronta"):
+        assert etichetta in html, etichetta
+    assert reverse("ai:periodo_artifact", args=[per_stato.pk]) not in html          # senza una data: niente pulsanti
+
+
+def test_scegliere_il_periodo_ricalcola_e_salva(client, contesto):
+    import json
+    import re
+    from django.urls import reverse
+    a = _in_chat(contesto, _spec())
+    client.force_login(contesto.utente)
+    url = reverse("ai:periodo_artifact", args=[a.pk])
+    html = client.post(url, {"periodo": "anno", "confronta": "1"}, HTTP_HX_REQUEST="true").content.decode()
+    a.refresh_from_db()
+    assert a.spec["periodo"] == "anno" and a.spec["confronta"] is True and sum(v for _, v in a.dati["serie"]) == 3
+    serie = json.loads(re.search(rf'<script id="ai-serie-{a.pk}" type="application/json">(.*?)</script>', html, re.S).group(1))
+    assert serie["confronto"]["etichetta"] == "Anno prima" and 'value="anno" aria-pressed="true"' in html
+    client.post(url, {"periodo": "anno", "confronta": "1", "inverti": "1"}, HTTP_HX_REQUEST="true")     # Confronta spento
+    a.refresh_from_db()
+    assert a.spec["confronta"] is False and "confronto" not in a.dati
+    client.post(url, {"periodo": ""}, HTTP_HX_REQUEST="true")                                          # Sempre
+    a.refresh_from_db()
+    assert "periodo" not in a.spec and sum(v for _, v in a.dati["serie"]) == 4
+    assert client.post(url, {"periodo": "secolo"}).status_code == 400
+
+
+def test_solo_il_proprietario_cambia_il_periodo(client, contesto):
+    from django.urls import reverse
+    a = _in_chat(contesto, _spec())
+    altro = User.objects.create_user("bruno", "b@example.com", "x")
+    client.force_login(altro)
+    assert client.post(reverse("ai:periodo_artifact", args=[a.pk]), {"periodo": "anno"}).status_code == 404
