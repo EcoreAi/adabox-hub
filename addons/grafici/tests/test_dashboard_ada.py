@@ -82,3 +82,25 @@ def test_pezzi_non_lista(contesto):
         strumenti_analisi.anteprima_crea_dashboard(contesto, "Testo", '[{"tipo": "kpi"}]')
     with pytest.raises(ErroreStrumento):
         strumenti_analisi.anteprima_crea_dashboard(contesto, "Testo", [KPI_FATTURATO, "fatturato"])
+
+
+def test_composizioni_solo_misure_installate(db, monkeypatch):
+    from core import misure
+    testo = strumenti_analisi.testo_composizioni()
+    assert "- Vendite:" in testo and "vendite.ordinato" in testo and "fatturazione.scaduto" in testo
+    senza_vendite = [m for m in misure.tutte() if not m.nome.startswith("vendite.")]
+    monkeypatch.setattr(misure, "tutte", lambda: senza_vendite)
+    testo = strumenti_analisi.testo_composizioni()
+    assert "- Vendite:" not in testo and "vendite." not in testo            # modulo non installato: niente traccia
+    assert "- Fatturazione e incassi:" in testo
+
+
+def test_strumento_registrato_con_le_composizioni(db):
+    from ai.strumenti.registro import _registro
+    s = _registro["analisi_crea_dashboard"]
+    d = s.definizione()
+    assert "Vendite:" in d["descrizione"] and s.rischio == "scrittura" and s.anteprima is not None
+    pezzi = d["schema"]["properties"]["pezzi"]
+    assert pezzi["type"] == "array" and pezzi["maxItems"] == 8 and pezzi["minItems"] == 2
+    assert "misura_aziendale" in pezzi["items"]["properties"] and "pagina" not in pezzi["items"]["properties"]
+    assert d["schema"]["required"] == ["titolo", "pezzi"]

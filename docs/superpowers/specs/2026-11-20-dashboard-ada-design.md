@@ -31,7 +31,8 @@ e filtri. Oggi Ada salva un grafico alla volta: per sei pezzi servono sette conf
 - **Disposizione**: prima gli indicatori (larghezza 1), poi grafici e previsioni (larghezza 2), nell'ordine dato da Ada.
 - I grafici su una misura con una data partono da **Anno** (`periodo: "anno"`) se Ada non indica un periodo;
   si cambia con i pulsanti del periodo.
-- **Composizioni come traccia** per Vendite, Fatturazione, Acquisti e Magazzino, scritte come dati nel modulo, mostrate
+- **Composizioni come traccia** (Panoramica dell'azienda, Vendite, Fatturazione e incassi, Acquisti e scorte: il
+  magazzino ha una sola misura e sta con gli acquisti), scritte come dati nel modulo, mostrate
   ad Ada solo con le misure installate.
 - **Dopo la conferma** l'esito porta il link della pagina; Ada risponde con «Apri la dashboard» (stessa scheda).
 

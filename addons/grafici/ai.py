@@ -306,6 +306,71 @@ def crea_dashboard(contesto, titolo, pezzi, icona="bar-chart"):
     return {"esito": esito, "url": _url(p), "pagina": p.pk, "grafici": [g.pk for g in grafici]}
 
 
+
+# Tracce per Ada: le dashboard tipiche, da adattare alla richiesta. Solo misure aziendali (numeri già verificati);
+# Ada mostra solo i pezzi delle misure installate. Il magazzino ha una sola misura e sta con gli acquisti.
+COMPOSIZIONI = {
+    "Panoramica dell'azienda": [
+        {"tipo": "kpi", "misura_aziendale": "fatturazione.fatturato", "periodo": "mese"},
+        {"tipo": "kpi", "misura_aziendale": "fatturazione.incassato", "periodo": "mese"},
+        {"tipo": "kpi", "misura_aziendale": "fatturazione.scaduto"},
+        {"tipo": "kpi", "misura_aziendale": "vendite.ordinato", "periodo": "mese"},
+        {"tipo": "barre", "misura_aziendale": "fatturazione.fatturato", "per": "mese"},
+        {"tipo": "barre_orizzontali", "misura_aziendale": "fatturazione.fatturato", "per": "cliente"}],
+    "Vendite": [
+        {"tipo": "kpi", "misura_aziendale": "vendite.ordinato", "periodo": "mese"},
+        {"tipo": "kpi", "misura_aziendale": "vendite.preventivi_aperti"},
+        {"tipo": "kpi", "misura_aziendale": "vendite.valore_preventivi_aperti"},
+        {"tipo": "barre", "misura_aziendale": "vendite.ordinato", "per": "mese"},
+        {"tipo": "barre_orizzontali", "misura_aziendale": "vendite.ordinato", "per": "cliente"},
+        {"tipo": "torta", "misura_aziendale": "vendite.ordinato", "per": "commerciale"}],
+    "Fatturazione e incassi": [
+        {"tipo": "kpi", "misura_aziendale": "fatturazione.fatturato", "periodo": "mese"},
+        {"tipo": "kpi", "misura_aziendale": "fatturazione.incassato", "periodo": "mese"},
+        {"tipo": "kpi", "misura_aziendale": "fatturazione.da_incassare"},
+        {"tipo": "kpi", "misura_aziendale": "fatturazione.scaduto"},
+        {"tipo": "linee", "misura_aziendale": "fatturazione.fatturato", "per": "mese"},
+        {"tipo": "barre_orizzontali", "misura_aziendale": "fatturazione.scaduto", "per": "cliente"}],
+    "Acquisti e scorte": [
+        {"tipo": "kpi", "misura_aziendale": "acquisti.acquistato", "periodo": "mese"},
+        {"tipo": "kpi", "misura_aziendale": "magazzino.sotto_scorta"},
+        {"tipo": "barre", "misura_aziendale": "acquisti.acquistato", "per": "mese"},
+        {"tipo": "barre_orizzontali", "misura_aziendale": "acquisti.acquistato", "per": "fornitore"}],
+}
+
+
+def _pezzo_a_parole(p):
+    parti = [p["tipo"], p["misura_aziendale"]]
+    if p.get("per"):
+        parti.append(f"per {p['per']}")
+    if p.get("periodo"):
+        parti.append(f"periodo {p['periodo']}")
+    return " ".join(parti)
+
+
+def testo_composizioni():
+    """Le composizioni con le sole misure installate; quelle che restano con meno di 2 pezzi non si mostrano."""
+    from core import misure
+    installate = {m.nome for m in misure.tutte()}
+    righe = []
+    for nome, pezzi in COMPOSIZIONI.items():
+        ci_sono = [p for p in pezzi if p["misura_aziendale"] in installate]
+        if len(ci_sono) >= MIN_PEZZI:
+            righe.append(f"- {nome}: " + "; ".join(_pezzo_a_parole(p) for p in ci_sono) + ".")
+    if not righe:
+        return ""
+    return ("\nDashboard tipiche, da adattare alla richiesta (per una richiesta diversa scegli tu i pezzi, anche su "
+            "viste):\n" + "\n".join(righe))
+
+
+class _StrumentoDashboard(Strumento):
+    """La descrizione porta le composizioni delle misure installate: cambia solo con i moduli."""
+
+    def definizione(self):
+        d = super().definizione()
+        return {**d, "descrizione": d["descrizione"] + testo_composizioni()}
+
+
 registra(Strumento(
     "analisi_pagine", "Le pagine di Analisi dell'utente (le schede della sua dashboard) e quelle condivise con lui, "
                       "con quanti widget hanno.",
@@ -315,28 +380,30 @@ registra(Strumento(
                             "dati, previsioni. Per commentare o riassumere una pagina, anche nelle attività pianificate.",
     {"type": "object", "properties": {"pagina": {"type": "string", "description": "titolo o id della pagina, oppure area:id per la dashboard di un'area di lavoro"}},
      "required": ["pagina"]}, analisi_leggi_pagina, permesso="grafici.view_pagina"))
+_SCHEMA_SALVA = {"type": "object", "properties": {
+    "titolo": {"type": "string"}, "vista": VISTA,
+    "tipo": {"type": "string", "enum": TIPI, "description": "barre (default), barre_orizzontali, linee, area, torta, "
+                                                             "kpi (numero con variazione sul periodo prima), previsione"},
+    "misura": {"type": "string", "description": "count (default) oppure sum:campo, avg:campo"},
+    "per": {"type": "string", "description": "raggruppamento per i grafici: campo o data:mese, data:anno…"},
+    "data": {"type": "string", "description": "campo data per kpi (periodo in corso) e previsione (serie storica)"},
+    "periodo": {"type": "string", "enum": ["giorno", "settimana", "mese", "anno"], "description": "per kpi e previsione (default mese)"},
+    "orizzonte": {"type": "integer", "description": "periodi da prevedere (1-24, default 3)"},
+    "filtri": FILTRI, "testo": TESTO,
+    "pagina": {"type": "string", "description": "titolo di una pagina dell'utente (se non esiste viene creata), oppure "
+                                                "app:slug per la scheda di un'app, area:id per la dashboard dell'area di "
+                                                "lavoro (quella della chat, se è in un'area); vuoto = libreria"},
+    "artifact": {"type": "integer", "description": "id del grafico o della tabella già mostrati in chat: ne copia la query"},
+    "obiettivo": {"type": "number", "description": "valore obiettivo: una linea sul grafico, la barra di avanzamento sul KPI"},
+    "misura_aziendale": {"type": "string", "description": "una misura dell'elenco «Misure aziendali» al posto di vista e "
+                                                          "misura (per i KPI: periodo = giorno, settimana, mese o anno)"}},
+ "required": []}
+
 registra(Strumento(
     "analisi_salva_grafico", "Salva in una pagina di Analisi un grafico, un KPI o una previsione che si ricalcolano "
                              "da soli: passa «artifact» per salvare il grafico appena disegnato in chat, oppure la "
                              "query (vista, misura, per o data). Si propone all'utente, che conferma.",
-    {"type": "object", "properties": {
-        "titolo": {"type": "string"}, "vista": VISTA,
-        "tipo": {"type": "string", "enum": TIPI, "description": "barre (default), barre_orizzontali, linee, area, torta, "
-                                                                 "kpi (numero con variazione sul periodo prima), previsione"},
-        "misura": {"type": "string", "description": "count (default) oppure sum:campo, avg:campo"},
-        "per": {"type": "string", "description": "raggruppamento per i grafici: campo o data:mese, data:anno…"},
-        "data": {"type": "string", "description": "campo data per kpi (periodo in corso) e previsione (serie storica)"},
-        "periodo": {"type": "string", "enum": ["giorno", "settimana", "mese", "anno"], "description": "per kpi e previsione (default mese)"},
-        "orizzonte": {"type": "integer", "description": "periodi da prevedere (1-24, default 3)"},
-        "filtri": FILTRI, "testo": TESTO,
-        "pagina": {"type": "string", "description": "titolo di una pagina dell'utente (se non esiste viene creata), oppure "
-                                                    "app:slug per la scheda di un'app, area:id per la dashboard dell'area di "
-                                                    "lavoro (quella della chat, se è in un'area); vuoto = libreria"},
-        "artifact": {"type": "integer", "description": "id del grafico o della tabella già mostrati in chat: ne copia la query"},
-        "obiettivo": {"type": "number", "description": "valore obiettivo: una linea sul grafico, la barra di avanzamento sul KPI"},
-        "misura_aziendale": {"type": "string", "description": "una misura dell'elenco «Misure aziendali» al posto di vista e "
-                                                              "misura (per i KPI: periodo = giorno, settimana, mese o anno)"}},
-     "required": []}, salva_grafico, rischio="scrittura", concorrente=False, anteprima=anteprima_salva,
+    _SCHEMA_SALVA, salva_grafico, rischio="scrittura", concorrente=False, anteprima=anteprima_salva,
     permesso="grafici.add_grafico"))
 registra(Strumento(
     "analisi_crea_pagina", "Crea una pagina di Analisi vuota (una scheda nuova sulla dashboard). Si propone all'utente, che conferma.",
@@ -344,3 +411,20 @@ registra(Strumento(
                                       "icona": {"type": "string", "enum": [i for i, _ in motore.ICONE]}},
      "required": ["titolo"]}, crea_pagina, rischio="scrittura", concorrente=False, anteprima=anteprima_crea_pagina,
     permesso="grafici.add_pagina"))
+
+_PEZZO = {**{k: v for k, v in _SCHEMA_SALVA["properties"].items() if k not in ("pagina", "artifact")},
+          "periodo": {"type": "string", "enum": ["giorno", "settimana", "mese", "trimestre", "anno", "anno_scorso"],
+                      "description": "kpi: giorno, settimana, mese o anno (default mese); grafici sulle misure: mese, "
+                                     "trimestre, anno o anno_scorso (default anno); previsione: mese, settimana, giorno"}}
+registra(_StrumentoDashboard(
+    "analisi_crea_dashboard", "Crea in un colpo una pagina nuova di Analisi con 2-8 pezzi (indicatori, grafici, "
+                              "previsioni) che si ricalcolano da soli: per «fammi una dashboard di…». Metti prima gli "
+                              "indicatori, poi 2-4 grafici; i grafici sulle misure partono dall'anno in corso. I pezzi "
+                              "senza dati vengono tolti. Si propone all'utente, che conferma una volta sola.",
+    {"type": "object", "properties": {
+        "titolo": {"type": "string", "description": "titolo della pagina nuova, es. «Vendite»"},
+        "icona": {"type": "string", "enum": [i for i, _ in motore.ICONE]},
+        "pezzi": {"type": "array", "minItems": MIN_PEZZI, "maxItems": MAX_PEZZI,
+                  "items": {"type": "object", "properties": _PEZZO, "required": ["tipo"]}}},
+     "required": ["titolo", "pezzi"]}, crea_dashboard, rischio="scrittura", concorrente=False,
+    anteprima=anteprima_crea_dashboard, permesso="grafici.add_grafico"))
