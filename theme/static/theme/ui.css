@@ -749,6 +749,11 @@ table.ui-table .actions .ui-icon-btn { vertical-align: middle; }
 /* ============================================================
    Alert (messages di Django: success, info, warning, error)
    ============================================================ */
+/* «← Torna alla chat»: sulle pagine aperte da una proposta di Ada */
+.ui-torna { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 12px; padding: 4px 12px 4px 8px;
+  border: 1px solid var(--ui-border); border-radius: 999px; font-size: 13px; color: var(--ui-text-2); text-decoration: none; }
+.ui-torna svg { width: 14px; height: 14px; }
+.ui-torna:hover, .ui-torna:focus-visible { color: var(--ui-text); border-color: var(--ui-text-3); }
 .ui-alert {
   padding: 12px 16px; margin-bottom: 16px;
   border-radius: var(--radius-input);

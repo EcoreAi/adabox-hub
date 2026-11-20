@@ -31,5 +31,22 @@ def piattaforma(request):
         "aziende": azienda.consentite(request.user), "azienda": getattr(request, "azienda", None),
         "voci_testata": hooks.voci_testata(request), "voci_profilo": modules.voci_profilo(request.user),
         "avviso_licenza": licenza.avviso() if request.user.has_perm("core.view_modulo") else "",
-        "sandbox": sandbox, "funzioni": funzioni.PerPagina(),
+        "sandbox": sandbox, "funzioni": funzioni.PerPagina(), "torna_alla_chat": _torna_alla_chat(request),
     }
+
+
+def _torna_alla_chat(request):
+    """«← Torna alla chat» sulle pagine aperte da una proposta di Ada (?da_chat=<id>): solo per le proprie chat e se
+    l'assistente è installato (il kernel non dipende dal modulo AI)."""
+    pk = request.GET.get("da_chat", "")
+    if not pk.isdigit():
+        return ""
+    from django.apps import apps
+    from django.urls import NoReverseMatch, reverse
+    try:
+        Conversazione = apps.get_model("ai", "Conversazione")
+        if not Conversazione.objects.filter(pk=int(pk), utente=request.user).exists():
+            return ""
+        return reverse("ai:conversazione", args=[int(pk)])
+    except (LookupError, NoReverseMatch):
+        return ""

@@ -1,4 +1,4 @@
-{# Scheda di una proposta dell'assistente: anteprima della modifica, poi «Conferma» / «Annulla», poi l'esito. #}
+{% load ai %}{# Scheda di una proposta dell'assistente: anteprima della modifica, poi «Conferma» / «Annulla», poi l'esito. #}
 <section class="ai-proposta{% if p.irreversibile %} is-irreversibile{% endif %}" id="ai-proposta-{{ p.pk }}" aria-labelledby="ai-proposta-{{ p.pk }}-titolo">
   <header class="ai-proposta-testa">
     <h3 id="ai-proposta-{{ p.pk }}-titolo">{{ p.titolo }}</h3>
@@ -31,5 +31,5 @@
     </form>
   </div>
   {% elif p.esito %}<p class="ai-proposta-esito">{{ p.esito }}</p>{% endif %}
-  {% if p.url and p.stato != "annullata" %}<a class="ai-proposta-link" href="{{ p.url }}" target="_blank" rel="noopener">Apri ↗</a>{% endif %}
+  {% if p.url and p.stato != "annullata" %}<a class="ai-proposta-link" href="{{ p.url|con_ritorno:p.conversazione_id }}">Apri →</a>{% endif %}
 </section>

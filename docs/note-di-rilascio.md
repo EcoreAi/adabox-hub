@@ -5,6 +5,12 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-20
 
+- **Chat di Ada: link nella stessa finestra e Ferma al posto di Invia** — Kernel 1.8.0, AI 1.56.0.
+  - Il link «Apri →» delle proposte confermate si apre nella stessa finestra; la pagina aperta mostra
+    **← Torna alla chat** (solo per le proprie chat). Funziona anche il tasto Indietro del browser.
+  - Mentre Ada risponde, il pulsante d'invio diventa **Ferma** (quadrato), nello stesso punto: sparisce la barra
+    larga sotto i puntini.
+
 - **Dashboard fatte da Ada** — Analisi 1.12.0, AI 1.56.0 (nessuna migrazione).
   - «Fammi una dashboard delle vendite»: Ada propone in una sola conferma una pagina nuova di Analisi con 2-8 pezzi
     (indicatori in testa, poi grafici e previsioni), calcolati prima di proporli. I grafici senza dati o sbagliati
