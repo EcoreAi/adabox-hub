@@ -35,7 +35,7 @@ registra(Misura(
     nome="vendite.venduto", etichetta="Venduto",
     definizione="importo delle righe degli ordini di vendita confermati (IVA esclusa), per prodotto, cliente o periodo; "
                 "stesso totale dell'ordinato",
-    sinonimi=("vendite per prodotto", "prodotti più venduti", "articoli più venduti", "fatturato per prodotto"),
+    sinonimi=("vendite per prodotto", "prodotti più venduti", "articoli più venduti"),
     raggruppamenti=RAGGRUPPAMENTI_RIGHE, periodo_su="ordine__data",
     componenti=(Componente("vendite.righe_vendute", "sum:importo"),)))
 

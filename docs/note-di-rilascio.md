@@ -5,6 +5,13 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-20
 
+- **Pagina Statistiche in due colonne** — Analisi 1.14.0, Vendite 1.11.1 (nessuna migrazione).
+  - A sinistra le tue pagine in tessere (con «Nuova pagina» come ultima tessera) e le schede delle app come chip con
+    il numero di grafici; sotto la **Libreria** in righe basse con ricerca, filtro Tutti · Indicatori · Grafici ·
+    Previsioni e le prime 12 righe («Mostra tutti»). A destra Grafici delle app, Condivise con te e l'invito a
+    chiedere ad Ada una dashboard. Sotto i 920 px una colonna sola.
+  - Vendite: tolto il sinonimo «fatturato per prodotto» dal Venduto (viene dagli ordini, non dalle fatture).
+
 - **Venduto per prodotto** — Vendite 1.11.0, AI 1.57.0, Analisi 1.13.0 (nessuna migrazione).
   - Due misure nuove: **Venduto** (importo) e **Quantità venduta**, dalle righe degli ordini confermati che contano
     nel totale (le opzionali solo se scelte); per prodotto, cliente, commerciale, mese, anno. Il totale del venduto

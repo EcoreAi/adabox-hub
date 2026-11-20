@@ -2,41 +2,95 @@
 {% load tema static %}
 {% block title %}Statistiche · Dashboard · {{ theme.brand }}{% endblock %}
 {% block app_content %}
+{% comment %}
+Due colonne: a sinistra il lavoro (le pagine in tessere con le schede delle app come chip, la libreria in righe con
+ricerca e filtro per tipo), a destra le parti corte (grafici delle app, condivise, l'invito ad Ada). Sotto i 920 px
+una colonna sola. La ricerca e «Mostra tutti» li fa grafici/statistiche.js; senza, la libreria è tutta visibile.
+{% endcomment %}
 <div class="ui-pagehead">
   <div><h1>Statistiche</h1><div class="sub">Esplora i dati delle app, costruisci grafici e appuntali sulle schede della dashboard</div></div>
   <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-secondary" href="{% url 'grafici:salvati_lista' %}">Grafici salvati</a>{% if perms.grafici.add_grafico %}<a class="ui-btn ui-btn-primary" href="{% url 'grafici:costruttore' %}"><svg><use href="#icon-plus"/></svg> Nuovo grafico</a>{% endif %}</div>
 </div>
 {% include "grafici/_schede.html" with scheda_attiva="statistiche" %}
-<div class="an-gestione">
-  {% if grafici_app %}
-  <section class="ui-card is-revealed">
-    <div class="ui-card-head"><div><div class="ui-card-title">Grafici delle app</div><div class="ui-card-sub">Le liste viste come grafico: filtra, raggruppa e salva quello che ti serve in una scheda</div></div></div>
-    <div class="ui-card-body"><ul class="an-elenco">{% for a in grafici_app %}{% for v in a.voci %}<li><a href="{{ v.url }}">{% if "/" in a.icona %}<img src="{% static a.icona %}" alt="" width="18" height="18">{% else %}<svg><use href="#icon-{{ a.icona|default:'bar-chart' }}"/></svg>{% endif %}<strong>{{ a.app }}</strong><small>{{ v.label }}</small></a></li>{% endfor %}{% endfor %}</ul></div>
-  </section>
-  {% endif %}
-  <section class="ui-card is-revealed">
-    <div class="ui-card-head"><div><div class="ui-card-title">Le tue pagine</div><div class="ui-card-sub">{{ libere|length }} liber{{ libere|length|pluralize:"a,e" }} · {{ app_pagine|length }} sched{{ app_pagine|length|pluralize:"a,e" }} di app personalizzat{{ app_pagine|length|pluralize:"a,e" }}</div></div></div>
-    <div class="ui-card-body">
-      <form class="an-form-riga an-crea" method="post" action="{% url 'grafici:nuova' %}">{% csrf_token %}
-        <input class="ui-input" name="titolo" placeholder="Titolo della nuova pagina" maxlength="100" required>
-        <select class="ui-input" name="icona" aria-label="Icona">{% for v, e in icone %}<option value="{{ v }}">{{ e }}</option>{% endfor %}</select>
-        <button class="ui-btn ui-btn-primary" type="submit"><svg><use href="#icon-plus"/></svg> Crea</button>
-      </form>
-      {% if libere %}<ul class="an-elenco">{% for p in libere %}<li><a href="{% url 'grafici:pagina' p.pk %}"><svg><use href="#icon-{{ p.icona }}"/></svg><strong>{{ p.titolo }}</strong><small>{{ p.n_widget }} widget{% if p.condivisa %} · condivisa con l'azienda{% elif p.ruoli.exists or p.gruppi.exists %} · condivisa con alcuni ruoli o gruppi{% endif %}</small></a></li>{% endfor %}</ul>
-      {% else %}<p class="ui-help">Nessuna pagina libera: creane una qui o con «Nuova pagina» tra le schede.</p>{% endif %}
-      {% if app_pagine %}<h3 class="an-h3">Schede delle app</h3>
-      <ul class="an-elenco">{% for p in app_pagine %}<li><a href="{% url 'grafici:pagina_app' p.app %}"><svg><use href="#icon-{{ p.icona|default:'zap' }}"/></svg><strong>{{ p.titolo }}</strong><small>{{ p.n_widget }} widget{% if p.nascosta %} · scheda nascosta{% endif %}</small></a>
-        {% if p.nascosta %}<form method="post" action="{% url 'grafici:nascondi_app' p.app %}">{% csrf_token %}<button class="ui-btn ui-btn-ghost ui-btn-sm" type="submit"><svg><use href="#icon-eye"/></svg> Mostra</button></form>{% endif %}</li>{% endfor %}</ul>{% endif %}
-    </div>
-  </section>
-  <section class="ui-card is-revealed">
-    <div class="ui-card-head"><div><div class="ui-card-title">Condivise con te</div><div class="ui-card-sub">Pagine di colleghi: i dati sono quelli che i tuoi permessi ti fanno vedere</div></div></div>
-    <div class="ui-card-body">{% if condivise %}<ul class="an-elenco">{% for p in condivise %}<li><a href="{% url 'grafici:pagina' p.pk %}"><svg><use href="#icon-{{ p.icona }}"/></svg><strong>{{ p.titolo }}</strong><small>di {{ p.utente.get_full_name|default:p.utente.username }}</small></a></li>{% endfor %}</ul>{% else %}<p class="ui-help">Nessuna pagina condivisa da altri.</p>{% endif %}</div>
-  </section>
-  <section class="ui-card is-revealed">
-    <div class="ui-card-head"><div><div class="ui-card-title">Libreria</div><div class="ui-card-sub">I tuoi grafici e quelli condivisi con te: ognuno può stare in più pagine</div></div></div>
-    <div class="ui-card-body">{% if libreria %}<ul class="an-elenco">{% for g in libreria %}<li><a href="{% url 'grafici:grafico' g.pk %}"><svg><use href="#icon-bar-chart"/></svg><strong>{{ g.titolo }}</strong><small>{{ g.get_tipo_display }}{% if g.utente_id != user.id %} · condiviso da {{ g.utente.get_full_name|default:g.utente.username }}{% endif %}</small></a></li>{% endfor %}</ul>
-      {% else %}<p class="ui-help">Vuota: crea il primo con «Nuovo grafico» o chiedilo ad Ada.</p>{% endif %}</div>
-  </section>
+<div class="an-statistiche">
+  <div class="an-colonna">
+    <section class="an-blocco" aria-labelledby="an-t-pagine">
+      <div class="an-blocco-testa"><div><h2 id="an-t-pagine">Le tue pagine <span class="an-conta">{{ libere|length }}</span></h2><p class="an-blocco-sub">Le schede che hai creato tu o che ha preparato Ada</p></div></div>
+      <div class="an-blocco-corpo">
+        <div class="an-tessere">
+          {% for p in libere %}<a class="an-tessera" href="{% url 'grafici:pagina' p.pk %}" title="{{ p.titolo }}"><span class="an-tessera-ico"><svg><use href="#icon-{{ p.icona }}"/></svg></span><strong>{{ p.titolo }}</strong><small>{{ p.n_widget }} grafic{{ p.n_widget|pluralize:"o,i" }}{% if p.condivisa %} · condivisa{% elif p.ruoli.exists or p.gruppi.exists %} · condivisa con alcuni{% endif %}</small></a>{% endfor %}
+          {% if perms.grafici.add_pagina %}
+          <details class="an-tessera an-tessera-nuova"{% if not libere %} open{% endif %}>
+            <summary><span class="an-tessera-ico"><svg><use href="#icon-plus"/></svg></span><strong>Nuova pagina</strong><small>vuota, la riempi tu</small></summary>
+            <form class="an-nuova-form" method="post" action="{% url 'grafici:nuova' %}">{% csrf_token %}
+              <input class="ui-input" name="titolo" placeholder="Titolo" maxlength="100" required aria-label="Titolo della nuova pagina">
+              <select class="ui-input" name="icona" aria-label="Icona">{% for v, e in icone %}<option value="{{ v }}">{{ e }}</option>{% endfor %}</select>
+              <button class="ui-btn ui-btn-primary ui-btn-sm" type="submit">Crea</button>
+            </form>
+          </details>
+          {% endif %}
+        </div>
+        {% if not libere %}<p class="ui-help an-vuoto">Nessuna pagina libera: creane una qui o chiedi ad Ada «fammi una dashboard».</p>{% endif %}
+        {% if app_pagine %}
+        <h3 class="an-sottotitolo">Schede delle app</h3>
+        <div class="an-chip-app">{% for p in app_pagine %}<span class="an-chip{% if not p.n_widget %} is-vuota{% endif %}{% if p.nascosta %} is-nascosta{% endif %}"><a href="{% url 'grafici:pagina_app' p.app %}">{{ p.titolo }} <b>{{ p.n_widget }}</b>{% if p.nascosta %}<small>scheda nascosta</small>{% endif %}</a>{% if p.nascosta %}<form method="post" action="{% url 'grafici:nascondi_app' p.app %}">{% csrf_token %}<button class="an-chip-mostra" type="submit" title="Mostra di nuovo la scheda"><svg><use href="#icon-eye"/></svg><span>Mostra</span></button></form>{% endif %}</span>{% endfor %}</div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="an-blocco" aria-labelledby="an-t-libreria" data-libreria>
+      <div class="an-blocco-testa"><div><h2 id="an-t-libreria">Libreria <span class="an-conta">{{ libreria|length }}</span></h2><p class="an-blocco-sub">I tuoi grafici e quelli condivisi con te: ognuno può stare in più pagine</p></div></div>
+      {% if libreria %}
+      <div class="an-strumenti" data-strumenti hidden>
+        <label class="an-cerca"><svg><use href="#icon-search"/></svg><input type="search" placeholder="Cerca un grafico…" aria-label="Cerca un grafico" data-cerca></label>
+        <div class="an-segmenti" role="group" aria-label="Tipo di grafico">
+          <button type="button" data-tipo="" aria-pressed="true">Tutti</button>
+          <button type="button" data-tipo="kpi" aria-pressed="false">Indicatori</button>
+          <button type="button" data-tipo="grafico" aria-pressed="false">Grafici</button>
+          <button type="button" data-tipo="previsione" aria-pressed="false">Previsioni</button>
+        </div>
+      </div>
+      <div class="an-tabella-scorre">
+        <table class="an-libreria">
+          <thead><tr><th scope="col">Titolo</th><th scope="col">Tipo</th><th scope="col">Creato da</th><th scope="col">Aggiornato</th></tr></thead>
+          <tbody>
+            {% for g in libreria %}{% with fam=g.famiglia %}
+            <tr data-tipo="{{ fam }}" data-titolo="{{ g.titolo|lower }}">
+              <td class="an-lib-titolo"><a href="{% url 'grafici:grafico' g.pk %}">{{ g.titolo }}</a>{% if g.utente_id != user.id %}<small>condiviso da {{ g.utente.get_full_name|default:g.utente.username }}</small>{% endif %}</td>
+              <td><span class="an-tipo is-{{ fam }}"><svg><use href="#icon-{% if fam == 'kpi' %}target{% elif fam == 'previsione' %}trending-up{% else %}bar-chart{% endif %}"/></svg>{% if g.tipo == "kpi" %}Indicatore{% else %}{{ g.get_tipo_display }}{% endif %}</span></td>
+              <td class="an-lib-origine">{% if g.origine == "chat" %}Ada{% elif g.origine == "vista" %}Da una lista{% else %}Costruttore{% endif %}</td>
+              <td class="an-lib-data">{% if g.aggiornato %}{{ g.aggiornato|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+            </tr>{% endwith %}{% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="ui-help an-vuoto" data-nessuno hidden>Nessun grafico con questo nome o tipo.</p>
+      <div class="an-piede" data-piede hidden><span data-mostrati></span><button class="ui-btn ui-btn-secondary ui-btn-sm" type="button" data-tutti>Mostra tutti</button></div>
+      {% else %}
+      <p class="ui-help an-vuoto">Vuota: crea il primo con «Nuovo grafico» o chiedilo ad Ada.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <aside class="an-colonna">
+    {% if grafici_app %}
+    <section class="an-blocco" aria-labelledby="an-t-app">
+      <div class="an-blocco-testa"><div><h2 id="an-t-app">Grafici delle app</h2><p class="an-blocco-sub">Le liste viste come grafico: filtra, raggruppa e salva quello che ti serve</p></div></div>
+      <div class="an-blocco-corpo"><ul class="an-righe-app">{% for a in grafici_app %}{% for v in a.voci %}<li><a href="{{ v.url }}"><span class="an-righe-ico">{% if "/" in a.icona %}<img src="{% static a.icona %}" alt="" width="16" height="16">{% else %}<svg><use href="#icon-{{ a.icona|default:'bar-chart' }}"/></svg>{% endif %}</span>{{ a.app }}{% if a.voci|length > 1 %} · {{ v.label }}{% endif %}<svg class="an-righe-freccia"><use href="#icon-chevron-down"/></svg></a></li>{% endfor %}{% endfor %}</ul></div>
+    </section>
+    {% endif %}
+    <section class="an-blocco" aria-labelledby="an-t-condivise">
+      <div class="an-blocco-testa"><div><h2 id="an-t-condivise">Condivise con te{% if condivise %} <span class="an-conta">{{ condivise|length }}</span>{% endif %}</h2><p class="an-blocco-sub">Pagine di colleghi: i dati sono quelli che i tuoi permessi ti fanno vedere</p></div></div>
+      <div class="an-blocco-corpo">{% if condivise %}<ul class="an-righe-app">{% for p in condivise %}<li><a href="{% url 'grafici:pagina' p.pk %}"><span class="an-righe-ico"><svg><use href="#icon-{{ p.icona }}"/></svg></span><span class="an-righe-testo">{{ p.titolo }}<small>di {{ p.utente.get_full_name|default:p.utente.username }}</small></span><svg class="an-righe-freccia"><use href="#icon-chevron-down"/></svg></a></li>{% endfor %}</ul>{% else %}<p class="ui-help">Nessuna pagina condivisa da altri.</p>{% endif %}</div>
+    </section>
+    {% url 'ai:chat' as url_chat %}{% if url_chat %}
+    <section class="an-blocco an-ada" aria-labelledby="an-t-ada">
+      <div class="an-blocco-testa"><h2 id="an-t-ada">Una dashboard in una frase</h2></div>
+      <div class="an-blocco-corpo"><p>Chiedi ad Ada <q>fammi una dashboard delle vendite</q>: prepara la pagina con indicatori e grafici, tu confermi.</p>
+        <a class="ui-btn ui-btn-secondary ui-btn-sm" href="{{ url_chat }}">Apri la chat</a></div>
+    </section>
+    {% endif %}
+  </aside>
 </div>
+<script src="{% statico 'grafici/statistiche.js' %}" defer></script>
 {% endblock %}
