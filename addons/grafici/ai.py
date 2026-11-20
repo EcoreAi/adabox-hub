@@ -213,25 +213,38 @@ def _titolo_libero(contesto, titolo):
     titolo = (titolo or "").strip()[:100]
     if not titolo:
         raise ErroreStrumento("Serve un titolo per la dashboard.")
-    if Pagina.objects.filter(utente=contesto.utente, titolo__iexact=titolo).exists():
+    # solo le pagine libere: la scheda di un'app («Vendite») o la dashboard di un'area non impediscono il titolo
+    if Pagina.objects.filter(utente=contesto.utente, app="", area__isnull=True, titolo__iexact=titolo).exists():
         raise ErroreStrumento(f"La pagina «{titolo}» esiste già: scegli un altro titolo (per aggiungere un grafico a una "
                               "pagina che c'è già usa analisi_salva_grafico).")
     return titolo
 
 
-def _periodo_del_grafico(spec, tipo, periodo):
-    """Un grafico su una misura con una data parte dal periodo chiesto, se è uno dei pulsanti, altrimenti dall'anno."""
+PRIMI_PREDEFINITI = 10
+
+
+def _periodo_e_primi(spec, tipo, periodo, primi):
+    """Un grafico su una misura con una data parte dal periodo chiesto, se è uno dei pulsanti, altrimenti dall'anno;
+    raggruppato per cliente, fornitore… mostra i primi N (10 se Ada non dice altro) più «Altro», non 60 barre."""
     from core import misure
     if not spec.get("misura_aziendale") or tipo in (Grafico.KPI, Grafico.PREVISIONE):
         return spec
     con = {**spec, "periodo": periodo if periodo in dict(misure.PULSANTI_PERIODO) else "anno"}
-    return con if misure.periodo_grafico(con) is not None else spec
+    spec = con if misure.periodo_grafico(con) is not None else spec
+    if ":" not in misure.per_nome(spec["misura_aziendale"]).raggruppamenti.get(spec.get("per", ""), ":"):
+        spec = {**spec, "primi": max(1, min(int(primi), 50)) if primi not in (None, "") else PRIMI_PREDEFINITI}
+    return spec
 
 
 def _vuoto(tipo, dati):
+    """Come la card decide che non c'è niente da mostrare (motore.serie_di): KPI senza valore, previsione senza
+    storico, grafico senza nessun valore diverso da zero. Un KPI a zero resta: «scaduto: 0 €» è una notizia."""
+    dati = dati or {}
     if tipo == Grafico.KPI:
-        return False                                    # «scaduto: 0 €» è una notizia
-    return not (dati or {}).get("storico" if tipo == Grafico.PREVISIONE else "serie")
+        return dati.get("valore") is None
+    if tipo == Grafico.PREVISIONE:
+        return not dati.get("storico")
+    return not any(r[1] for r in dati.get("serie") or [] if len(r) > 1)
 
 
 def prepara_pezzi(contesto, pezzi):
@@ -251,7 +264,7 @@ def prepara_pezzi(contesto, pezzi):
                 contesto, pezzo.get("titolo") or "", pezzo.get("vista") or "", pezzo.get("tipo") or Grafico.BARRE,
                 pezzo.get("misura") or "count", pezzo.get("per") or "", pezzo.get("data") or "", pezzo.get("periodo") or "mese",
                 pezzo.get("orizzonte") or 3, pezzo.get("filtri"), pezzo.get("testo") or "", None, pezzo.get("misura_aziendale") or "")
-            spec = _periodo_del_grafico(spec, tipo, pezzo.get("periodo"))
+            spec = _periodo_e_primi(spec, tipo, pezzo.get("periodo"), pezzo.get("primi"))
             vista, dati = _controlla(contesto, tipo, spec)
             obiettivo = float(pezzo["obiettivo"]) if pezzo.get("obiettivo") not in (None, "") else None
         except (ErroreStrumento, ErroreInterrogazione, ValueError, TypeError) as e:
@@ -415,7 +428,9 @@ registra(Strumento(
 _PEZZO = {**{k: v for k, v in _SCHEMA_SALVA["properties"].items() if k not in ("pagina", "artifact")},
           "periodo": {"type": "string", "enum": ["giorno", "settimana", "mese", "trimestre", "anno", "anno_scorso"],
                       "description": "kpi: giorno, settimana, mese o anno (default mese); grafici sulle misure: mese, "
-                                     "trimestre, anno o anno_scorso (default anno); previsione: mese, settimana, giorno"}}
+                                     "trimestre, anno o anno_scorso (default anno); previsione: mese, settimana, giorno"},
+          "primi": {"type": "integer", "description": "grafici sulle misure per cliente, fornitore…: solo i primi N più "
+                                                      "«Altro» (default 10)"}}
 registra(_StrumentoDashboard(
     "analisi_crea_dashboard", "Crea in un colpo una pagina nuova di Analisi con 2-8 pezzi (indicatori, grafici, "
                               "previsioni) che si ricalcolano da soli: per «fammi una dashboard di…». Metti prima gli "
@@ -427,4 +442,4 @@ registra(_StrumentoDashboard(
         "pezzi": {"type": "array", "minItems": MIN_PEZZI, "maxItems": MAX_PEZZI,
                   "items": {"type": "object", "properties": _PEZZO, "required": ["tipo"]}}},
      "required": ["titolo", "pezzi"]}, crea_dashboard, rischio="scrittura", concorrente=False,
-    anteprima=anteprima_crea_dashboard, permesso="grafici.add_grafico"))
+    anteprima=anteprima_crea_dashboard, permesso="grafici.add_grafico", timeout=90.0))   # ogni pezzo si calcola

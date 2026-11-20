@@ -104,3 +104,29 @@ def test_strumento_registrato_con_le_composizioni(db):
     assert pezzi["type"] == "array" and pezzi["maxItems"] == 8 and pezzi["minItems"] == 2
     assert "misura_aziendale" in pezzi["items"]["properties"] and "pagina" not in pezzi["items"]["properties"]
     assert d["schema"]["required"] == ["titolo", "pezzi"]
+
+
+def test_scheda_dell_app_non_blocca_il_titolo(contesto):
+    Pagina.objects.create(utente=contesto.utente, titolo="Fatturazione", app="fatturazione")
+    r = strumenti_analisi.crea_dashboard(contesto, "Fatturazione", [KPI_FATTURATO, PER_CLIENTE])
+    assert Pagina.objects.get(pk=r["pagina"]).app == ""
+
+
+def test_grafico_a_somma_zero_tolto(contesto, scena):
+    """Una fattura e una nota di credito uguali: la serie ha il cliente ma a zero, la card sarebbe vuota."""
+    azienda, cliente, monitor, _ = scena
+    altro = cliente.__class__.objects.create(azienda=azienda, nome="Bianchi Spa", cliente=True)
+    _fattura(azienda, altro, [(monitor, "1")], stato="emessa")
+    _fattura(azienda, altro, [(monitor, "1")], stato="emessa", tipo="TD04")
+    validi, tolti = strumenti_analisi.prepara_pezzi(contesto, [{**PER_CLIENTE, "filtri": None}])
+    assert len(validi) == 1 and not tolti                                 # Rossi c'è: il grafico resta
+    assert strumenti_analisi._vuoto("barre", {"serie": [("Bianchi Spa", 0)]})
+    assert not strumenti_analisi._vuoto("kpi", {"valore": 0}) and strumenti_analisi._vuoto("kpi", {"valore": None})
+
+
+def test_grafico_per_cliente_mostra_i_primi(contesto):
+    validi, _ = strumenti_analisi.prepara_pezzi(contesto, [PER_CLIENTE, {**PER_MESE, "titolo": "mese"},
+                                                           {**PER_CLIENTE, "titolo": "cinque", "primi": 5}])
+    per_titolo = {v["titolo"]: v["spec"] for v in validi}
+    assert per_titolo["Fatturato per cliente"]["primi"] == 10 and per_titolo["cinque"]["primi"] == 5
+    assert "primi" not in per_titolo["mese"]                             # per mese: tutti i mesi

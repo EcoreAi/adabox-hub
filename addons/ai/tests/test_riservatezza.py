@@ -158,3 +158,10 @@ def test_lettura_ad_alta_voce_solo_locale_nelle_chat_riservate(azienda, monkeypa
     assert voce.servizio_per(azienda, solo_locale=True) is None
     locale = ServizioVoce.objects.create(nome="Kokoro", tipo=ServizioVoce.KOKORO)
     assert voce.servizio_per(azienda, solo_locale=True) == locale
+
+
+def test_dashboard_con_un_pezzo_riservato(azienda):
+    _riserva_app(azienda, "personale")
+    pezzi = [{"tipo": "kpi", "misura_aziendale": "fatturazione.fatturato"}, {"tipo": "barre", "vista": "personale.dipendenti", "per": "reparto"}]
+    assert riservatezza.fonte_riservata("analisi_crea_dashboard", {"titolo": "X", "pezzi": pezzi}, "{}", azienda) == "app «personale»"
+    assert riservatezza.fonte_riservata("analisi_crea_dashboard", {"titolo": "X", "pezzi": pezzi[:1]}, "{}", azienda) == ""
