@@ -9,7 +9,8 @@ registra(Misura(
     nome="vendite.ordinato", etichetta="Ordinato",
     definizione="imponibile degli ordini di vendita confermati (IVA esclusa), per data dell'ordine",
     sinonimi=("ordini", "ordini confermati", "portafoglio ordini"),
-    raggruppamenti={"cliente": "cliente", "settimana": "data:settimana", "mese": "data:mese", "anno": "data:anno"},
+    raggruppamenti={"cliente": "cliente", "commerciale": "commerciale", "settimana": "data:settimana", "mese": "data:mese",
+                    "anno": "data:anno"},
     periodo_su="data",
     componenti=(Componente("vendite.ordini", "sum:imponibile", {"stato": OrdineVendita.CONFERMATO}),)))
 

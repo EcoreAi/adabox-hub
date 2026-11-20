@@ -5,6 +5,16 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-20
 
+- **Filtri sul grafico** — Kernel 1.7.0, AI 1.54.0, Analisi 1.10.0, Vendite 1.10.0 (nessuna migrazione; AI e Analisi
+  chiedono il kernel 1.7).
+  - Accanto ai pulsanti del periodo, **Filtra**: un menu per filtro con i valori presenti nei dati, dal più grande.
+    La scelta compare come etichetta con la ×, il grafico si ricalcola lì dov'è e i clic sui record portano il filtro.
+    Vale nei grafici della chat e sulle card di Analisi; solo per chi possiede il grafico. Il confronto con l'anno
+    prima usa lo stesso filtro.
+  - Misure aziendali: si filtrano per i loro raggruppamenti (fatturato: cliente; ordinato: cliente e, nuovo,
+    **commerciale**). Grafici sugli elenchi: per i filtri dell'elenco che non sono date.
+  - I filtri scelti si leggono accanto al titolo, anche nei grafici condivisi e nella pagina «Apri in grande».
+
 - **Periodo sul grafico** — Kernel 1.6.0, AI 1.53.0, Analisi 1.9.0 (nessuna migrazione; AI e Analisi chiedono il
   kernel 1.6).
   - Sopra i grafici della chat e sulle card dei grafici salvati in Analisi: **Mese · Trimestre · Anno · Anno scorso**.
