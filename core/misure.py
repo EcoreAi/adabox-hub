@@ -12,6 +12,7 @@ import logging
 from dataclasses import dataclass, field
 from urllib.parse import urlencode
 
+from django.db import models
 from django.utils import timezone
 
 from .viste import interroga
@@ -207,10 +208,11 @@ def _confronto(p, confronta, nome=""):
 
 # ---------- calcolo ----------
 
-def _filtri(m, componente, request, periodo, di):
+def _filtri(m, componente, request, periodo, di, scelti=None):
     filtri = dict(componente.filtri)
     if m.filtri_dinamici:
         filtri.update(m.filtri_dinamici(request, di) or {})
+    filtri.update(scelti or {})                          # i filtri scelti sopra il grafico ({percorso: valore})
     if periodo is not None and m.periodo_su:
         filtri[f"{m.periodo_su}__gte"] = periodo.dal.isoformat()
         filtri[f"{m.periodo_su}__lte"] = periodo.al.isoformat()
@@ -226,13 +228,13 @@ def _per(m, per):
     return m.raggruppamenti[per]
 
 
-def _aggrega(m, request, periodo, per, aziende, di):
+def _aggrega(m, request, periodo, per, aziende, di, scelti=None):
     """(totale, {chiave: [etichetta, valore]}, ordine delle chiavi, vista della prima componente) sommando le componenti."""
     totale, gruppi, ordine, prima = 0, {}, [], None
     for c in m.componenti:
         try:
             vista = interroga.vista_per_nome(c.vista, request)
-            r = interroga.aggrega(vista, request, per, c.misura, _filtri(m, c, request, periodo, di),
+            r = interroga.aggrega(vista, request, per, c.misura, _filtri(m, c, request, periodo, di, scelti),
                                   con_chiavi=bool(per), aziende=aziende, massimo=None)   # tutti: si taglia dopo
         except ErroreInterrogazione as e:
             raise ErroreInterrogazione(f"Misura «{m.etichetta}»: {e}")
@@ -303,9 +305,24 @@ def _extra_gruppo(per, chiave):
     return {f"f_{nome}_da": inizio.isoformat(), f"f_{nome}_a": fine.isoformat()}
 
 
-def calcola(nome, request, periodo="", dal=None, al=None, per="", primi=None, confronta="", aziende=None, di=""):
-    """Il valore di una misura con la sua definizione e i link ai record. Vedi il docstring del modulo."""
+def _percorsi_scelti(m, scelti):
+    """{percorso: valore} dei filtri scelti sopra il grafico, per nome di raggruppamento (non per data)."""
+    percorsi = {}
+    for nome, valore in (scelti or {}).items():
+        percorso = m.raggruppamenti.get(nome, "")
+        if not percorso or ":" in percorso:
+            raise ErroreInterrogazione(f"La misura «{m.etichetta}» non si filtra per «{nome}».")
+        percorsi[percorso] = valore
+    return percorsi
+
+
+def calcola(nome, request, periodo="", dal=None, al=None, per="", primi=None, confronta="", aziende=None, di="",
+            scelti=None):
+    """Il valore di una misura con la sua definizione e i link ai record. Vedi il docstring del modulo. `scelti`:
+    {raggruppamento: valore} scelti sopra il grafico (cliente, commerciale…), anche nei link."""
     m = per_nome(nome)
+    scelti = _percorsi_scelti(m, scelti)
+    extra_scelti = {f"f_{k}": ("1" if v else "0") if isinstance(v, bool) else v for k, v in scelti.items()}
     if m.permesso and not request.user.has_perm(m.permesso):
         raise ErroreInterrogazione(f"Misura «{m.etichetta}»: non hai il permesso di vedere questi dati.")
     risultato = {"nome": m.nome, "etichetta": m.etichetta, "definizione": m.definizione, "unita": m.unita,
@@ -337,9 +354,9 @@ def calcola(nome, request, periodo="", dal=None, al=None, per="", primi=None, co
         risultato["periodo"] = periodo_scelto.come_dict()
     aziende = interroga.aziende_di(request, aziende)
     per_campo = _per(m, per)
-    totale, gruppi, ordine, vista = _aggrega(m, request, periodo_scelto, per_campo, aziende, di)
+    totale, gruppi, ordine, vista = _aggrega(m, request, periodo_scelto, per_campo, aziende, di, scelti)
     risultato["valore"] = totale
-    risultato["url"] = _url_lista(vista, m, request, periodo_scelto, di)
+    risultato["url"] = _url_lista(vista, m, request, periodo_scelto, di, extra_scelti)
     if risultato["url"] and m.nota_lista:
         risultato["nota_lista"] = m.nota_lista
     if per_campo:
@@ -349,11 +366,11 @@ def calcola(nome, request, periodo="", dal=None, al=None, per="", primi=None, co
         if primi:
             elenco = elenco[:primi]
         risultato["gruppi"] = [{"gruppo": e, "valore": v, "chiave": k,
-                                "url": _url_lista(vista, m, request, periodo_scelto, di, _extra_gruppo(per_campo, k))
+                                "url": _url_lista(vista, m, request, periodo_scelto, di, {**extra_scelti, **_extra_gruppo(per_campo, k)})
                                 if k is not None and risultato["url"] else ""} for k, e, v in elenco]
     if confronta and periodo_scelto is not None:
         p = _confronto(periodo_scelto, confronta, "" if dal or al else (periodo or m.periodo_predefinito))
-        precedente, _, _, _ = _aggrega(m, request, p, "", aziende, di)
+        precedente, _, _, _ = _aggrega(m, request, p, "", aziende, di, scelti)
         delta = round((totale - precedente) * 100 / abs(precedente), 1) if precedente else None
         risultato["confronto"] = {"valore": precedente, "delta_percento": delta,
                                   "periodo": {**p.come_dict(), "etichetta": _etichetta_intervallo(p.dal, p.al)}}
@@ -399,9 +416,14 @@ def titolo(nome, spec=None):
     return f"{m.etichetta} {p.etichetta}"
 
 
+def _scelti(spec, senza=""):
+    """{campo: chiave} dei filtri scelti sopra il grafico (spec["scelti"] = {campo: {chiave, etichetta}})."""
+    return {k: v["chiave"] for k, v in (spec.get("scelti") or {}).items() if k != senza and isinstance(v, dict)}
+
+
 def _parametri(spec):
     return {"periodo": spec.get("periodo", ""), "dal": spec.get("dal"), "al": spec.get("al"), "di": spec.get("di", ""),
-            "aziende": spec.get("aziende")}
+            "aziende": spec.get("aziende"), "scelti": _scelti(spec)}
 
 
 def serie(spec, request):
@@ -520,9 +542,17 @@ def _filtri_periodo(spec, p, indietro=False):
     return filtri
 
 
+def _con_scelti(spec):
+    """Per i grafici su una vista: i filtri scelti sopra il grafico aggiunti a quelli di Ada (senza toccarli)."""
+    if spec.get("misura_aziendale") or not spec.get("scelti"):
+        return spec
+    return {**spec, "filtri": {**interroga._decodifica(spec.get("filtri"), "filtri"), **_scelti(spec)}}
+
+
 def spec_per_calcolo(spec):
-    """La specifica da calcolare: per i grafici su una vista il periodo diventa un filtro sulla data del
-    raggruppamento (le misure il periodo lo applicano da sé)."""
+    """La specifica da calcolare: per i grafici su una vista i filtri scelti si aggiungono a quelli di Ada e il periodo
+    diventa un filtro sulla data del raggruppamento (le misure filtri e periodo li applicano da sé)."""
+    spec = _con_scelti(spec)
     if spec.get("misura_aziendale") or not spec.get("periodo") or ":" not in (spec.get("per") or ""):
         return spec
     return {**spec, "filtri": _filtri_periodo(spec, risolvi_periodo(spec["periodo"]))}
@@ -543,7 +573,7 @@ def spec_anno_prima(spec):
     if not spec.get("periodo") or ":" not in (spec.get("per") or ""):
         return None
     try:
-        return {**resto, "filtri": _filtri_periodo(spec, _confronto(risolvi_periodo(spec["periodo"]), "anno_prima"), indietro=True)}
+        return {**resto, "scelti": {}, "filtri": _filtri_periodo(_con_scelti(spec), _confronto(risolvi_periodo(spec["periodo"]), "anno_prima"), indietro=True)}
     except _NonSpostabile:
         return None
 
@@ -633,3 +663,130 @@ def etichetta_periodo(spec):
     else:
         return ""
     return testo + (", a confronto con l'anno prima" if spec.get("confronta") else "")
+
+
+# ---------- filtri sul grafico ----------
+# «Filtra» sopra un grafico: un valore per filtro, salvato in spec["scelti"] separato dai filtri di Ada. Misure: i
+# raggruppamenti non per data (cliente, commerciale…); viste: i filtri dell'elenco che non sono date.
+MAX_VALORI_FILTRO = 30
+
+
+def _senza_filtri(spec):
+    return spec.get("grafico") == "previsione" or spec.get("tipo") in ("tabella", "kpi")
+
+
+def _etichetta_campo(vista, percorso, nome):
+    try:
+        return str(interroga._percorso(vista, percorso, con_operatore=False)[1].verbose_name).capitalize()
+    except Exception:
+        return nome.replace("__", " ").replace("_", " ").capitalize()
+
+
+def filtri_possibili(spec):
+    """Il grafico può avere filtri? Veloce (senza cercare le viste): serve a mostrare «Filtra» su ogni grafico; quali
+    filtri e con quali valori lo dice il pannello quando si apre."""
+    if _senza_filtri(spec or {}):
+        return False
+    if spec.get("misura_aziendale"):
+        m = _misura_di(spec)
+        return bool(m) and m.funzione is None and any(
+            ":" not in percorso and k != spec.get("per") for k, percorso in m.raggruppamenti.items())
+    return bool(spec.get("vista"))
+
+
+def filtri_grafico(spec, request):
+    """[{"campo", "etichetta", "scelto"}] dei filtri che si possono scegliere sopra il grafico."""
+    if _senza_filtri(spec):
+        return []
+    scelti, per = spec.get("scelti") or {}, spec.get("per", "") or ""
+    try:
+        if spec.get("misura_aziendale"):
+            m = per_nome(spec["misura_aziendale"])
+            if m.funzione is not None:
+                return []
+            vista = vista_principale(m.nome, request)
+            campi = [(k, percorso) for k, percorso in m.raggruppamenti.items() if ":" not in percorso and k != per]
+        else:
+            vista = interroga.vista_per_nome(spec.get("vista", ""), request)
+            nome_per = per.partition(":")[0]
+            campi = []
+            for f in vista.list_filter or []:
+                campo = interroga._campo_lista(vista, f)
+                if campo is not None and f != nome_per and not isinstance(campo, (models.DateField, models.DateTimeField)):
+                    try:
+                        interroga.controlla_nascosti(vista, request, f)    # un campo nascosto al ruolo non si offre
+                    except ErroreInterrogazione:
+                        continue
+                    campi.append((f, f))
+    except ErroreInterrogazione:
+        return []
+    return [{"campo": k, "etichetta": _etichetta_campo(vista, percorso, k), "scelto": scelti.get(k)} for k, percorso in campi]
+
+
+def valori_filtro(spec, campo, request):
+    """[{"chiave", "etichetta"}] dei valori del filtro presenti nei dati del grafico (con il periodo e gli altri
+    filtri scelti), dal più grande; al massimo MAX_VALORI_FILTRO."""
+    if campo not in [f["campo"] for f in filtri_grafico(spec, request)]:
+        raise ErroreInterrogazione(f"«{campo}» non è un filtro di questo grafico.")
+    if spec.get("misura_aziendale"):
+        parametri = {**_parametri(spec), "scelti": _scelti(spec, senza=campo)}
+        gruppi = calcola(spec["misura_aziendale"], request, per=campo, **parametri)["gruppi"]
+        coppie = [(g.get("chiave"), g["gruppo"], g["valore"]) for g in gruppi]
+    else:
+        altro = spec_per_calcolo({**spec, "scelti": {k: v for k, v in (spec.get("scelti") or {}).items() if k != campo}})
+        vista = interroga.vista_per_nome(spec["vista"], request)
+        r = interroga.aggrega(vista, request, campo, spec.get("misura", "count") or "count", altro.get("filtri"),
+                              spec.get("testo", ""), con_chiavi=True, aziende=interroga.aziende_di(request, spec.get("aziende")),
+                              massimo=None)               # tutti: i più grandi si scelgono dopo, non i primi per chiave
+        coppie = [(g.get("chiave"), g["gruppo"], g["valore"]) for g in r.get("gruppi", [])]
+    coppie = sorted((c for c in coppie if c[0] is not None), key=lambda c: c[2] or 0, reverse=True)
+    return [{"chiave": k, "etichetta": str(e)} for k, e, _ in coppie[:MAX_VALORI_FILTRO]]
+
+
+def _come_chiave(testo):
+    if testo in ("True", "False"):
+        return testo == "True"
+    return int(testo) if str(testo).lstrip("-").isdigit() else testo
+
+
+def scegli_filtro(spec, campo, chiave, etichetta, request):
+    """La specifica con il filtro scelto (chiave vuota = toglierlo). ErroreInterrogazione se non è un filtro del grafico;
+    un filtro già scelto si toglie sempre, anche se il grafico non lo offre più."""
+    togli_scelto = chiave in ("", None) and campo in (spec.get("scelti") or {})
+    if not togli_scelto and campo not in [f["campo"] for f in filtri_grafico(spec, request)]:
+        raise ErroreInterrogazione(f"«{campo}» non è un filtro di questo grafico.")
+    scelti = {k: v for k, v in (spec.get("scelti") or {}).items() if k != campo}
+    if chiave not in ("", None):
+        scelti[campo] = {"chiave": chiave if not isinstance(chiave, str) else _come_chiave(chiave), "etichetta": str(etichetta or chiave)[:120]}
+    nuova = {k: v for k, v in spec.items() if k != "scelti"}
+    if scelti:
+        nuova["scelti"] = scelti
+    return nuova
+
+
+def etichetta_filtri(spec):
+    """«Cliente: Rossi Srl · Commerciale: Anna»: i filtri scelti, da scrivere accanto al titolo."""
+    return " · ".join(f"{k.replace('__', ' ').replace('_', ' ').capitalize()}: {v.get('etichetta', v.get('chiave'))}"
+                      for k, v in (spec.get("scelti") or {}).items() if isinstance(v, dict))
+
+
+def filtri_con_valori(spec, request):
+    """I filtri del pannello con i loro valori; un filtro che non si riesce a calcolare si salta (non blocca gli altri)."""
+    risultato = []
+    for f in filtri_grafico(spec, request):
+        try:
+            risultato.append({**f, "valori": valori_filtro(spec, f["campo"], request)})
+        except ErroreInterrogazione:
+            log.info("filtro «%s» non disponibile per il grafico", f["campo"])
+    return risultato
+
+
+def valore_scelto(spec, campo, testo, request):
+    """(chiave, etichetta) del valore scelto nel pannello, con la chiave del tipo giusto presa dai valori offerti
+    («007» resta «007»); vuoto = togliere il filtro. Un valore non offerto: ErroreInterrogazione."""
+    if testo in ("", None):
+        return "", ""
+    for v in valori_filtro(spec, campo, request):
+        if str(v["chiave"]) == testo:
+            return v["chiave"], v["etichetta"]
+    raise ErroreInterrogazione("Valore non disponibile per questo filtro.")

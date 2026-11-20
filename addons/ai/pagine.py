@@ -634,6 +634,43 @@ def salva_artifact(request, pk):
     return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
 
 
+@login_required
+def filtri_artifact(request, pk):
+    """Il pannello di «Filtra» di un grafico della chat: i filtri con i valori presenti nei dati."""
+    from core import misure
+    from core.viste.interroga import ErroreInterrogazione
+    a = _mio_artifact(request, pk)
+    if a.tipo != Artifact.GRAFICO:
+        raise Http404
+    return render(request, "core/_filtri_pannello.html", {"filtri": misure.filtri_con_valori(a.spec, request), "url": reverse("ai:filtro_artifact", args=[a.pk]),
+                                                          "bersaglio": f"#ai-artifact-{a.pk}"})
+
+
+@require_POST
+@login_required
+def filtro_artifact(request, pk):
+    """Il filtro scelto (o tolto) sopra il grafico: si salva nella specifica e il grafico si ricalcola lì dov'è."""
+    from django.http import HttpResponseBadRequest
+
+    from core import misure
+    from core.viste.interroga import ErroreInterrogazione
+
+    from . import artifact as modulo
+    a = _mio_artifact(request, pk)
+    if a.tipo != Artifact.GRAFICO:
+        raise Http404
+    campo, chiave = request.POST.get("campo", ""), request.POST.get("chiave", "")
+    try:
+        a.spec = misure.scegli_filtro(a.spec, campo, *misure.valore_scelto(a.spec, campo, chiave, request), request)
+        a.dati = modulo.ricalcola(a)
+    except ErroreInterrogazione as e:
+        return HttpResponseBadRequest(str(e))
+    a.save(update_fields=["spec", "dati"])
+    if request.headers.get("HX-Request"):
+        return render(request, "ai/_artifact.html", {"a": a})
+    return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
+
+
 @require_POST
 @login_required
 def periodo_artifact(request, pk):

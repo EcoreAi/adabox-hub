@@ -1,0 +1,9 @@
+{% comment %}Il pannello di «Filtra»: un menu per filtro con i valori presenti nei dati (dal più grande); scegliendo un
+valore il grafico si ricalcola lì dov'è. Parametri: filtri (misure.filtri_grafico con «valori»), url, bersaglio.{% endcomment %}
+{% for filtro in filtri %}<form method="post" class="ui-filtra-voce" action="{{ url }}" hx-post="{{ url }}" hx-target="{{ bersaglio }}" hx-swap="outerHTML" hx-trigger="change">{% csrf_token %}
+  <input type="hidden" name="campo" value="{{ filtro.campo }}">
+  <label>{{ filtro.etichetta }}<select name="chiave">
+    <option value="">Tutti</option>
+    {% for v in filtro.valori %}<option value="{{ v.chiave }}"{% if filtro.scelto and filtro.scelto.chiave|stringformat:"s" == v.chiave|stringformat:"s" %} selected{% endif %}>{{ v.etichetta }}</option>{% endfor %}
+  </select></label>
+</form>{% empty %}<p class="ui-help">Questo grafico non ha filtri.</p>{% endfor %}

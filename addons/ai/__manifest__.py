@@ -1,11 +1,11 @@
 {
     "name": "Assistente AI",
     "summary": "Chat con l'assistente: cronologia delle conversazioni, artifact e documenti salvati",
-    "version": "1.53.0",
+    "version": "1.54.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
-    "min_core": "1.6",
+    "min_core": "1.7",
     "application": True,
     "nav_label": "Chat",
     "icon": "ai/icon.svg",

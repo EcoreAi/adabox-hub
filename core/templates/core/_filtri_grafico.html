@@ -1,0 +1,9 @@
+{% comment %}I filtri scelti sopra un grafico (etichette con la × per toglierli) e «Filtra», che apre il pannello dei filtri
+caricandolo alla prima apertura. Parametri: f = {url (POST della scelta), url_pannello, bersaglio, etichette: [(campo, testo)]}.{% endcomment %}
+<div class="ui-filtri">
+  {% for campo, testo in f.etichette %}<form method="post" class="ui-filtro-attivo" action="{{ f.url }}" hx-post="{{ f.url }}" hx-target="{{ f.bersaglio }}" hx-swap="outerHTML">{% csrf_token %}
+    <input type="hidden" name="campo" value="{{ campo }}"><span>{{ testo }}</span><button type="submit" name="chiave" value="" aria-label="Togli il filtro {{ testo }}" title="Togli il filtro">×</button></form>{% endfor %}
+  <details class="ui-filtra" hx-get="{{ f.url_pannello }}" hx-trigger="toggle once" hx-target="find .ui-filtra-pannello">
+    <summary>Filtra</summary><div class="ui-filtra-pannello"><p class="ui-help">Un attimo…</p></div>
+  </details>
+</div>
