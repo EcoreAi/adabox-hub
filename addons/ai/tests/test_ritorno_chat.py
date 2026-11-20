@@ -59,3 +59,10 @@ def test_ferma_nel_composer_non_nella_bolla(capo, client):
     html = client.get(f"/ai/chat/{c.pk}/").content.decode()
     assert "data-flusso" in html                                          # la risposta in corso c'è
     assert "data-ferma-composer" in html and "data-ferma>" not in html and 'class="ai-stop"' not in html
+
+
+def test_regola_dati_non_calcolabili(db):
+    """Senza la misura o il campo giusto Ada lo dice subito: niente letture una per una né classifiche a mano."""
+    from ai.motore import prompt
+    testo = prompt.sistema(None)
+    assert "uno per uno" in testo and "mai da una parte" in testo

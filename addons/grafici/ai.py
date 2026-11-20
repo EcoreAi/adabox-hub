@@ -339,7 +339,8 @@ COMPOSIZIONI = {
         {"tipo": "kpi", "misura_aziendale": "vendite.valore_preventivi_aperti"},
         {"tipo": "barre", "misura_aziendale": "vendite.ordinato", "per": "mese"},
         {"tipo": "barre_orizzontali", "misura_aziendale": "vendite.ordinato", "per": "cliente"},
-        {"tipo": "torta", "misura_aziendale": "vendite.ordinato", "per": "commerciale"}],
+        {"tipo": "torta", "misura_aziendale": "vendite.ordinato", "per": "commerciale"},
+        {"tipo": "barre_orizzontali", "misura_aziendale": "vendite.venduto", "per": "prodotto"}],
     "Fatturazione e incassi": [
         {"tipo": "kpi", "misura_aziendale": "fatturazione.fatturato", "periodo": "mese"},
         {"tipo": "kpi", "misura_aziendale": "fatturazione.incassato", "periodo": "mese"},

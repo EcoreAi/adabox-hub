@@ -5,6 +5,15 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-20
 
+- **Venduto per prodotto** — Vendite 1.11.0, AI 1.57.0, Analisi 1.13.0 (nessuna migrazione).
+  - Due misure nuove: **Venduto** (importo) e **Quantità venduta**, dalle righe degli ordini confermati che contano
+    nel totale (le opzionali solo se scelte); per prodotto, cliente, commerciale, mese, anno. Il totale del venduto
+    coincide con l'ordinato. «I 10 prodotti più venduti» ora ha una risposta, con grafico cliccabile.
+  - Nuova lista in sola lettura **Righe vendute** (/vendite/righe_vendute/): è quella che si apre dal clic sui grafici.
+  - Ada: se un dato non si può calcolare lo dice subito, senza aprire i record uno per uno e senza classifiche o
+    totali costruiti su una parte dei record.
+  - La dashboard «Vendite» suggerita ad Ada comprende il venduto per prodotto.
+
 - **Chat di Ada: link nella stessa finestra e Ferma al posto di Invia** — Kernel 1.8.0, AI 1.56.0.
   - Il link «Apri →» delle proposte confermate si apre nella stessa finestra; la pagina aperta mostra
     **← Torna alla chat** (solo per le proprie chat). Funziona anche il tasto Indietro del browser.

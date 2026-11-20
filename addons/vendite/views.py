@@ -159,6 +159,46 @@ class OrdineView(ModelView):
 
 
 @register
+class RigaVendutaView(ModelView):
+    """Le righe vendute: righe degli ordini confermati che contano nel totale (le opzionali solo se il cliente le ha
+    scelte). Sola lettura: le righe si modificano dall'ordine. È la base di «Venduto» e «Quantità venduta» (misure) e
+    la lista che si apre dal clic sui loro grafici."""
+    model = RigaVendita
+    slug = "righe_vendute"
+    verbose_name = "riga venduta"
+    verbose_name_plural = "righe vendute"
+    list_display = ["ordine", "prodotto", "descrizione", "quantita", "importo"]
+    list_filter = ["prodotto", "ordine__cliente", "ordine__commerciale", "ordine__data"]
+    search_fields = ["descrizione", "prodotto__nome", "ordine__numero_ordine", "ordine__cliente__nome"]
+    ordering = ("-ordine__data", "pk")
+    list_group_by = ["prodotto"]
+    list_sum = ["quantita", "importo"]
+    ai_descrizione = ("righe degli ordini di vendita confermati che contano nel totale: per i prodotti più venduti, "
+                      "quantità e importo per prodotto, cliente o periodo (meglio le misure vendite.venduto e "
+                      "vendite.quantita_venduta)")
+    api = False
+    storico = False
+
+    def get_queryset(self, request):
+        from django.db.models import Q
+        qs = super().get_queryset(request)
+        azienda_id = getattr(getattr(request, "azienda", None), "pk", None)
+        if azienda_id is None:                     # senza azienda corrente non si vede nulla, mai tutto
+            return qs.none()
+        return (qs.filter(ordine__azienda_id=azienda_id, ordine__stato=OrdineVendita.CONFERMATO)
+                .filter(Q(opzionale=False) | Q(scelta=True)).select_related("ordine", "prodotto"))
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@register
 class RegolaScontoView(ModelView):
     """Sconti automatici sulle righe d'ordine, per cliente, prodotto, categoria, quantità e periodo."""
     model = RegolaSconto
