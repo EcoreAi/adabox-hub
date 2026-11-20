@@ -88,5 +88,10 @@ class Grafico(models.Model):
         return f"g:{self.pk}"
 
     @property
+    def famiglia(self):
+        """kpi, previsione o grafico: il filtro per tipo della libreria nella pagina Statistiche."""
+        return self.tipo if self.tipo in (self.KPI, self.PREVISIONE) else "grafico"
+
+    @property
     def vista(self):
         return (self.spec or {}).get("vista", "")
