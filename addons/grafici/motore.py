@@ -263,7 +263,7 @@ def widget_salvato(grafico, request, forza=False):
 def _filtri(grafico, request):
     """«Filtra» e le etichette dei filtri scelti della card (core/_filtri_grafico.html), o None se non ne ha."""
     from core import misure
-    if grafico.tipo not in Grafico.INTERCAMBIABILI or not misure.filtri_grafico(grafico.spec, request):
+    if grafico.tipo not in Grafico.INTERCAMBIABILI or (not misure.filtri_possibili(grafico.spec) and not grafico.spec.get("scelti")):
         return None
     return {"url": reverse("grafici:grafico_filtro", args=[grafico.pk]), "url_pannello": reverse("grafici:grafico_filtri", args=[grafico.pk]),
             "bersaglio": f"#an-widget-{grafico.pk}",

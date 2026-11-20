@@ -12,7 +12,6 @@ from django.core.mail import send_mail
 from django.http import Http404, HttpResponse, HttpResponseBadRequest, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils.html import escape
 from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
@@ -366,13 +365,7 @@ def grafico_filtri(request, pk):
     g = _mio_grafico(request, pk)
     if g.tipo not in Grafico.INTERCAMBIABILI:
         raise Http404
-    filtri = misure.filtri_grafico(g.spec, request)
-    try:
-        for f in filtri:
-            f["valori"] = misure.valori_filtro(g.spec, f["campo"], request)
-    except ErroreInterrogazione as e:
-        return HttpResponse(f'<p class="ui-help">Filtri non disponibili: {escape(str(e))}</p>')
-    return render(request, "core/_filtri_pannello.html", {"filtri": filtri, "url": reverse("grafici:grafico_filtro", args=[g.pk]),
+    return render(request, "core/_filtri_pannello.html", {"filtri": misure.filtri_con_valori(g.spec, request), "url": reverse("grafici:grafico_filtro", args=[g.pk]),
                                                           "bersaglio": f"#an-widget-{g.pk}"})
 
 
@@ -387,8 +380,7 @@ def grafico_filtro(request, pk):
         raise Http404
     campo, chiave = request.POST.get("campo", ""), request.POST.get("chiave", "")
     try:
-        etichetta = next((v["etichetta"] for v in misure.valori_filtro(g.spec, campo, request) if str(v["chiave"]) == chiave), chiave) if chiave else ""
-        g.spec = misure.scegli_filtro(g.spec, campo, chiave, etichetta, request)
+        g.spec = misure.scegli_filtro(g.spec, campo, *misure.valore_scelto(g.spec, campo, chiave, request), request)
     except ErroreInterrogazione as e:
         return HttpResponseBadRequest(str(e))
     g.save(update_fields=["spec", "modificato"])

@@ -70,7 +70,7 @@ def filtri_artifact(context, a):
     request = context.get("request")
     if request is None or a.tipo != "grafico" or a.utente_id != request.user.pk:
         return None
-    if not misure.filtri_grafico(a.spec, request):
+    if not misure.filtri_possibili(a.spec) and not a.spec.get("scelti"):      # le etichette scelte restano da togliere
         return None
     return {"url": reverse("ai:filtro_artifact", args=[a.pk]), "url_pannello": reverse("ai:filtri_artifact", args=[a.pk]),
             "bersaglio": f"#ai-artifact-{a.pk}", "etichette": [(campo, testo) for campo, testo in _etichette_filtri(a.spec)]}

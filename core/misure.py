@@ -322,7 +322,7 @@ def calcola(nome, request, periodo="", dal=None, al=None, per="", primi=None, co
     {raggruppamento: valore} scelti sopra il grafico (cliente, commerciale…), anche nei link."""
     m = per_nome(nome)
     scelti = _percorsi_scelti(m, scelti)
-    extra_scelti = {f"f_{k}": v for k, v in scelti.items()}
+    extra_scelti = {f"f_{k}": ("1" if v else "0") if isinstance(v, bool) else v for k, v in scelti.items()}
     if m.permesso and not request.user.has_perm(m.permesso):
         raise ErroreInterrogazione(f"Misura «{m.etichetta}»: non hai il permesso di vedere questi dati.")
     risultato = {"nome": m.nome, "etichetta": m.etichetta, "definizione": m.definizione, "unita": m.unita,
@@ -682,6 +682,18 @@ def _etichetta_campo(vista, percorso, nome):
         return nome.replace("__", " ").replace("_", " ").capitalize()
 
 
+def filtri_possibili(spec):
+    """Il grafico può avere filtri? Veloce (senza cercare le viste): serve a mostrare «Filtra» su ogni grafico; quali
+    filtri e con quali valori lo dice il pannello quando si apre."""
+    if _senza_filtri(spec or {}):
+        return False
+    if spec.get("misura_aziendale"):
+        m = _misura_di(spec)
+        return bool(m) and m.funzione is None and any(
+            ":" not in percorso and k != spec.get("per") for k, percorso in m.raggruppamenti.items())
+    return bool(spec.get("vista"))
+
+
 def filtri_grafico(spec, request):
     """[{"campo", "etichetta", "scelto"}] dei filtri che si possono scegliere sopra il grafico."""
     if _senza_filtri(spec):
@@ -701,6 +713,10 @@ def filtri_grafico(spec, request):
             for f in vista.list_filter or []:
                 campo = interroga._campo_lista(vista, f)
                 if campo is not None and f != nome_per and not isinstance(campo, (models.DateField, models.DateTimeField)):
+                    try:
+                        interroga.controlla_nascosti(vista, request, f)    # un campo nascosto al ruolo non si offre
+                    except ErroreInterrogazione:
+                        continue
                     campi.append((f, f))
     except ErroreInterrogazione:
         return []
@@ -720,7 +736,8 @@ def valori_filtro(spec, campo, request):
         altro = spec_per_calcolo({**spec, "scelti": {k: v for k, v in (spec.get("scelti") or {}).items() if k != campo}})
         vista = interroga.vista_per_nome(spec["vista"], request)
         r = interroga.aggrega(vista, request, campo, spec.get("misura", "count") or "count", altro.get("filtri"),
-                              spec.get("testo", ""), con_chiavi=True, aziende=interroga.aziende_di(request, spec.get("aziende")))
+                              spec.get("testo", ""), con_chiavi=True, aziende=interroga.aziende_di(request, spec.get("aziende")),
+                              massimo=None)               # tutti: i più grandi si scelgono dopo, non i primi per chiave
         coppie = [(g.get("chiave"), g["gruppo"], g["valore"]) for g in r.get("gruppi", [])]
     coppie = sorted((c for c in coppie if c[0] is not None), key=lambda c: c[2] or 0, reverse=True)
     return [{"chiave": k, "etichetta": str(e)} for k, e, _ in coppie[:MAX_VALORI_FILTRO]]
@@ -733,12 +750,14 @@ def _come_chiave(testo):
 
 
 def scegli_filtro(spec, campo, chiave, etichetta, request):
-    """La specifica con il filtro scelto (chiave vuota = toglierlo). ErroreInterrogazione se non è un filtro del grafico."""
-    if campo not in [f["campo"] for f in filtri_grafico(spec, request)]:
+    """La specifica con il filtro scelto (chiave vuota = toglierlo). ErroreInterrogazione se non è un filtro del grafico;
+    un filtro già scelto si toglie sempre, anche se il grafico non lo offre più."""
+    togli_scelto = chiave in ("", None) and campo in (spec.get("scelti") or {})
+    if not togli_scelto and campo not in [f["campo"] for f in filtri_grafico(spec, request)]:
         raise ErroreInterrogazione(f"«{campo}» non è un filtro di questo grafico.")
     scelti = {k: v for k, v in (spec.get("scelti") or {}).items() if k != campo}
     if chiave not in ("", None):
-        scelti[campo] = {"chiave": _come_chiave(chiave), "etichetta": str(etichetta or chiave)[:120]}
+        scelti[campo] = {"chiave": chiave if not isinstance(chiave, str) else _come_chiave(chiave), "etichetta": str(etichetta or chiave)[:120]}
     nuova = {k: v for k, v in spec.items() if k != "scelti"}
     if scelti:
         nuova["scelti"] = scelti
@@ -749,3 +768,25 @@ def etichetta_filtri(spec):
     """«Cliente: Rossi Srl · Commerciale: Anna»: i filtri scelti, da scrivere accanto al titolo."""
     return " · ".join(f"{k.replace('__', ' ').replace('_', ' ').capitalize()}: {v.get('etichetta', v.get('chiave'))}"
                       for k, v in (spec.get("scelti") or {}).items() if isinstance(v, dict))
+
+
+def filtri_con_valori(spec, request):
+    """I filtri del pannello con i loro valori; un filtro che non si riesce a calcolare si salta (non blocca gli altri)."""
+    risultato = []
+    for f in filtri_grafico(spec, request):
+        try:
+            risultato.append({**f, "valori": valori_filtro(spec, f["campo"], request)})
+        except ErroreInterrogazione:
+            log.info("filtro «%s» non disponibile per il grafico", f["campo"])
+    return risultato
+
+
+def valore_scelto(spec, campo, testo, request):
+    """(chiave, etichetta) del valore scelto nel pannello, con la chiave del tipo giusto presa dai valori offerti
+    («007» resta «007»); vuoto = togliere il filtro. Un valore non offerto: ErroreInterrogazione."""
+    if testo in ("", None):
+        return "", ""
+    for v in valori_filtro(spec, campo, request):
+        if str(v["chiave"]) == testo:
+            return v["chiave"], v["etichetta"]
+    raise ErroreInterrogazione("Valore non disponibile per questo filtro.")

@@ -20,8 +20,8 @@
     <button type="button" class="ai-azione" data-salva-documenti="{% url 'ai:salva_documenti' 'artifact' a.pk %}" data-cosa="{% if a.tipo == 'grafico' %}il grafico «{{ a.titolo }}» (PDF con i valori, dati di oggi){% else %}la tabella «{{ a.titolo }}» (CSV, con i dati di oggi){% endif %}" hidden data-tip="Salva nei Documenti" aria-label="Salva nei Documenti"><svg><use href="#ai-cartella"/></svg></button>
     {% agganci "ai.artifact" %}
   </figcaption>
-  {% if a.tipo == "grafico" and a.utente_id == request.user.pk %}<div class="ui-strumenti-grafico">{% with p=a|periodo_artifact %}{% if p %}{% include "core/_periodo_grafico.html" %}{% endif %}{% endwith %}
-    {% filtri_artifact a as f %}{% if f %}{% include "core/_filtri_grafico.html" %}{% endif %}</div>{% endif %}
+  {% if a.tipo == "grafico" and a.utente_id == request.user.pk %}{% with p=a|periodo_artifact %}{% filtri_artifact a as f %}{% if p or f %}<div class="ui-strumenti-grafico">
+    {% if p %}{% include "core/_periodo_grafico.html" %}{% endif %}{% if f %}{% include "core/_filtri_grafico.html" %}{% endif %}</div>{% endif %}{% endwith %}{% endif %}
   {% if a.tipo == "grafico" %}{% with s=a|serie_artifact %}{% if s %}
     {# lo stesso grafico di Analisi: valore al passaggio, clic sul punto → i record (stessa pagina); senza JS l'SVG #}
     <div class="wd-canvas ai-artifact-canvas"><canvas data-grafico="{{ s.dom }}" role="img" aria-label="{{ a.titolo }}"></canvas></div>

@@ -9,7 +9,6 @@ from django.db.models import Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils.html import escape
 from django.utils import timezone
 from django.utils.http import content_disposition_header
 from django.utils.text import get_valid_filename
@@ -643,13 +642,7 @@ def filtri_artifact(request, pk):
     a = _mio_artifact(request, pk)
     if a.tipo != Artifact.GRAFICO:
         raise Http404
-    filtri = misure.filtri_grafico(a.spec, request)
-    try:
-        for f in filtri:
-            f["valori"] = misure.valori_filtro(a.spec, f["campo"], request)
-    except ErroreInterrogazione as e:
-        return HttpResponse(f'<p class="ui-help">Filtri non disponibili: {escape(str(e))}</p>')
-    return render(request, "core/_filtri_pannello.html", {"filtri": filtri, "url": reverse("ai:filtro_artifact", args=[a.pk]),
+    return render(request, "core/_filtri_pannello.html", {"filtri": misure.filtri_con_valori(a.spec, request), "url": reverse("ai:filtro_artifact", args=[a.pk]),
                                                           "bersaglio": f"#ai-artifact-{a.pk}"})
 
 
@@ -668,8 +661,7 @@ def filtro_artifact(request, pk):
         raise Http404
     campo, chiave = request.POST.get("campo", ""), request.POST.get("chiave", "")
     try:
-        etichetta = next((v["etichetta"] for v in misure.valori_filtro(a.spec, campo, request) if str(v["chiave"]) == chiave), chiave) if chiave else ""
-        a.spec = misure.scegli_filtro(a.spec, campo, chiave, etichetta, request)
+        a.spec = misure.scegli_filtro(a.spec, campo, *misure.valore_scelto(a.spec, campo, chiave, request), request)
         a.dati = modulo.ricalcola(a)
     except ErroreInterrogazione as e:
         return HttpResponseBadRequest(str(e))
