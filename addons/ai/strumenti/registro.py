@@ -35,6 +35,10 @@ class Strumento:
     anteprima: object = None
     disponibile: object = None                          # funzione() -> bool: es. solo se il suo servizio è configurato
     funzione_licenza: str = ""                          # funzione dell'assistente che lo comprende (ai.funzioni)
+    ovunque: bool = False                               # anche nelle chat limitate a un'altra app (es. le dashboard)
+    # scritture: l'argomento lista di cui l'utente può togliere elementi nella scheda di conferma (le righe dei
+    # dettagli con "voce": indice hanno una casella); vuoto = la proposta si conferma o si annulla tutta
+    voci: str = ""
 
     def definizione(self):
         return {"nome": self.nome, "descrizione": self.descrizione, "schema": self.schema}
@@ -71,7 +75,7 @@ def disponibili(utente, ambito="", azienda=None):
     comprese = funzioni.comprese("ai")                  # None = tutte
     a_mano = elenco_strumenti.spenti(azienda)           # spenti dalla pagina «Strumenti»
     interni = [s for _, s in sorted(_registro.items())
-            if (s.permesso is None or utente.has_perm(s.permesso)) and (not ambito or not s.app or s.app == ambito)
+            if (s.permesso is None or utente.has_perm(s.permesso)) and (not ambito or not s.app or s.app == ambito or s.ovunque)
             and s.app not in spenti and (comprese is None or funzioni_ai.di_strumento(s) in comprese | {""})
             and s.nome not in a_mano and (s.disponibile is None or s.disponibile())]
     if ambito or azienda is None or (comprese is not None and "mcp" not in comprese):

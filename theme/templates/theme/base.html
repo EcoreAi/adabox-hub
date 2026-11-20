@@ -23,6 +23,7 @@
     {% include 'theme/partials/_header.html' %}
     <main class="ui-shell">
       <div class="ui-container ui-content">
+        {% if torna_alla_chat %}<a class="ui-torna" href="{{ torna_alla_chat }}"><svg aria-hidden="true"><use href="#icon-arrow-left"/></svg> Torna alla chat</a>{% endif %}
         {% if messages %}
           {% for m in messages %}<div class="ui-alert ui-alert-{{ m.tags|default:'info' }}">{{ m }}</div>{% endfor %}
         {% endif %}

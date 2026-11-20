@@ -130,3 +130,83 @@ def test_grafico_per_cliente_mostra_i_primi(contesto):
     per_titolo = {v["titolo"]: v["spec"] for v in validi}
     assert per_titolo["Fatturato per cliente"]["primi"] == 10 and per_titolo["cinque"]["primi"] == 5
     assert "primi" not in per_titolo["mese"]                             # per mese: tutti i mesi
+
+
+def test_anche_nelle_chat_di_un_app(contesto, monkeypatch):
+    """Nella chat limitata al CRM «fammi una dashboard» deve funzionare: Analisi raccoglie i numeri di tutte le app."""
+    from ai.strumenti.registro import _registro, disponibili
+    for nome, s in _registro.items():                # come li carica ai.strumenti.app in produzione: dell'app grafici
+        if nome.startswith("analisi_"):
+            monkeypatch.setattr(s, "app", "grafici")
+    nomi = {s.nome for s in disponibili(contesto.utente, "crm", contesto.azienda)}
+    assert {"analisi_crea_dashboard", "analisi_salva_grafico"} <= nomi
+    assert "analisi_crea_pagina" not in nomi                              # gli altri strumenti di Analisi restano fuori
+
+
+# ---------- caselle di spunta nella scheda di conferma: si tolgono pezzi prima di confermare ----------
+
+def _proposta(contesto, pezzi):
+    from ai import proposte
+    from ai.models import Conversazione, Proposta
+    from ai.strumenti.registro import _registro
+    contesto.conversazione = Conversazione.objects.create(utente=contesto.utente, titolo="Dashboard")
+    proposte.prepara(_registro["analisi_crea_dashboard"], contesto, {"titolo": "Vendite", "pezzi": pezzi})
+    return Proposta.objects.get()
+
+
+def test_scheda_con_una_casella_per_pezzo(contesto):
+    p = _proposta(contesto, [PER_CLIENTE, KPI_FATTURATO, SCADUTO_PER_CLIENTE])
+    voci = [d.get("voce") for d in p.dettagli]
+    assert voci[:2] == [1, 0]                      # KPI in testa: la casella porta l'indice del pezzo chiesto da Ada
+    assert all(v is None for v in voci[2:])        # «Tolti» e «Dove» senza casella
+
+
+def test_conferma_solo_i_pezzi_spuntati(contesto):
+    from ai import proposte
+    p = _proposta(contesto, [KPI_FATTURATO, PER_CLIENTE, PER_MESE, KPI_SCADUTO])
+    proposte.conferma(p, contesto.utente, contesto.azienda, tieni={0, 2})
+    p.refresh_from_db()
+    assert p.stato == "eseguita"
+    assert sorted(Grafico.objects.values_list("tipo", flat=True)) == ["barre", "kpi"]
+    assert len(p.argomenti["pezzi"]) == 2 and "2 pezzi" in p.titolo   # la scheda dice che cosa è stato creato
+    assert len([d for d in p.dettagli if d.get("voce") is not None]) == 2
+
+
+def test_troppo_pochi_spuntati_resta_da_confermare(contesto):
+    from ai import proposte
+    p = _proposta(contesto, [KPI_FATTURATO, PER_CLIENTE, PER_MESE])
+    with pytest.raises(ErroreStrumento, match="almeno 2"):
+        proposte.conferma(p, contesto.utente, contesto.azienda, tieni={1})
+    p.refresh_from_db()
+    assert p.stato == "in_attesa" and len(p.argomenti["pezzi"]) == 3 and not Grafico.objects.exists()
+
+
+def test_scheda_html_e_conferma_dal_bottone(contesto, client):
+    p = _proposta(contesto, [KPI_FATTURATO, PER_CLIENTE, PER_MESE])
+    from django.template.loader import render_to_string
+    client.force_login(contesto.utente)
+    html = render_to_string("ai/_proposta.html", {"p": p})
+    assert html.count('name="voce"') == 3 and 'name="voci_scelte"' in html and 'value="0" checked' in html
+    assert f'form="ai-proposta-{p.pk}-conferma"' in html and f'id="ai-proposta-{p.pk}-conferma"' in html
+    r = client.post(f"/ai/proposta/{p.pk}/conferma/", {"voci_scelte": "1", "voce": ["0", "1"]}, HTTP_HX_REQUEST="true")
+    assert r.status_code == 200 and Grafico.objects.count() == 2
+    assert 'name="voce"' not in r.content.decode()                       # eseguita: niente più caselle
+    p2 = _proposta_altra(contesto, p)
+    r = client.post(f"/ai/proposta/{p2.pk}/conferma/", {"voci_scelte": "1", "voce": ["2"]}, HTTP_HX_REQUEST="true")
+    assert "almeno 2" in r.content.decode()                               # l'errore nella scheda, che resta lì
+
+
+def _proposta_altra(contesto, p):
+    from ai import proposte
+    from ai.models import Proposta
+    from ai.strumenti.registro import _registro
+    proposte.prepara(_registro["analisi_crea_dashboard"], contesto, {"titolo": "Altra", "pezzi": [KPI_FATTURATO, PER_CLIENTE, PER_MESE]})
+    return Proposta.objects.exclude(pk=p.pk).get()
+
+
+def test_conferma_senza_scelta_crea_tutto(contesto):
+    """Da un canale senza caselle (o una scheda vecchia) la conferma crea tutti i pezzi, come prima."""
+    from ai import proposte
+    p = _proposta(contesto, [KPI_FATTURATO, PER_CLIENTE, PER_MESE])
+    proposte.conferma(p, contesto.utente, contesto.azienda)
+    assert Grafico.objects.count() == 3

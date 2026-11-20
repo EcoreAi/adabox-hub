@@ -57,10 +57,27 @@ def chiudi(proposta, stato, esito, url=None):
     return _chiudi(proposta, stato, esito, url)
 
 
-def conferma(proposta, utente, azienda, *, guardie=True):
+def _scegli_voci(proposta, strumento, utente, azienda, tieni):
+    """Le voci spuntate nella scheda (Strumento.voci): la proposta diventa quella con i soli elementi tenuti, con
+    titolo e dettagli rifatti dall'anteprima. Se l'anteprima non li accetta (troppo pochi…) ErroreStrumento e la
+    proposta resta in attesa, uguale a prima."""
+    lista = proposta.argomenti.get(strumento.voci)
+    if not isinstance(lista, list):
+        return
+    scelti = [x for i, x in enumerate(lista) if i in tieni]
+    if len(scelti) == len(lista):
+        return
+    argomenti = {**proposta.argomenti, strumento.voci: scelti}
+    a = strumento.anteprima(Contesto(utente=utente, azienda=azienda, conversazione=proposta.conversazione), **argomenti)
+    proposta.argomenti, proposta.titolo, proposta.dettagli = argomenti, a["titolo"][:250], a.get("dettagli", [])
+    proposta.save(update_fields=["argomenti", "titolo", "dettagli"])
+
+
+def conferma(proposta, utente, azienda, *, guardie=True, tieni=None):
     """Esegue la proposta se è ancora valida: in attesa, non scaduta, stessa azienda, strumento ancora permesso,
     record non cambiato dopo l'anteprima. Una sola esecuzione anche con due clic. Prima passano le guardie dei
-    moduli (`registra_guardia`); `guardie=False` solo per chi le ha già passate (es. dopo un'approvazione)."""
+    moduli (`registra_guardia`); `guardie=False` solo per chi le ha già passate (es. dopo un'approvazione).
+    `tieni`: gli indici delle voci spuntate nella scheda, per gli strumenti con `voci`; None = tutte."""
     if proposta.stato != Proposta.IN_ATTESA:
         return proposta
     if proposta.scaduta:
@@ -70,6 +87,8 @@ def conferma(proposta, utente, azienda, *, guardie=True):
                               "confermarla.")
     ambito = proposta.conversazione.ambito
     strumento = next((s for s in disponibili(utente, ambito, azienda) if s.nome == proposta.strumento), None)
+    if tieni is not None and strumento is not None and strumento.voci:
+        _scegli_voci(proposta, strumento, utente, azienda, set(tieni))
     if guardie and strumento is not None:
         for guardia in GUARDIE:
             fermata = guardia(proposta, utente, azienda)

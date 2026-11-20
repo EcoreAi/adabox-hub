@@ -518,8 +518,10 @@ def conferma_proposta(request, pk):
     proposta = get_object_or_404(Proposta, pk=pk, utente=request.user, conversazione__utente=request.user)
     if proposta.irreversibile and proposta.in_attesa and not request.POST.get("consapevole"):
         return _scheda(request, proposta, "Spunta la casella per confermare un'operazione irreversibile.")
+    # le caselle della scheda (strumenti con voci, es. i pezzi di una dashboard): solo se la scheda le aveva
+    tieni = ({int(v) for v in request.POST.getlist("voce") if v.isdigit()} if request.POST.get("voci_scelte") else None)
     try:
-        proposte.conferma(proposta, request.user, getattr(request, "azienda", None))
+        proposte.conferma(proposta, request.user, getattr(request, "azienda", None), tieni=tieni)
     except ErroreStrumento as e:
         return _scheda(request, proposta, str(e))
     return _scheda(request, proposta)

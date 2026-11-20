@@ -5,13 +5,32 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-20
 
-- **Dashboard fatte da Ada** — Analisi 1.11.0, AI 1.55.0 (nessuna migrazione).
+- **Venduto per prodotto** — Vendite 1.11.0, AI 1.57.0, Analisi 1.13.0 (nessuna migrazione).
+  - Due misure nuove: **Venduto** (importo) e **Quantità venduta**, dalle righe degli ordini confermati che contano
+    nel totale (le opzionali solo se scelte); per prodotto, cliente, commerciale, mese, anno. Il totale del venduto
+    coincide con l'ordinato. «I 10 prodotti più venduti» ora ha una risposta, con grafico cliccabile.
+  - Nuova lista in sola lettura **Righe vendute** (/vendite/righe_vendute/): è quella che si apre dal clic sui grafici.
+  - Ada: se un dato non si può calcolare lo dice subito, senza aprire i record uno per uno e senza classifiche o
+    totali costruiti su una parte dei record.
+  - La dashboard «Vendite» suggerita ad Ada comprende il venduto per prodotto.
+
+- **Chat di Ada: link nella stessa finestra e Ferma al posto di Invia** — Kernel 1.8.0, AI 1.56.0.
+  - Il link «Apri →» delle proposte confermate si apre nella stessa finestra; la pagina aperta mostra
+    **← Torna alla chat** (solo per le proprie chat). Funziona anche il tasto Indietro del browser.
+  - Mentre Ada risponde, il pulsante d'invio diventa **Ferma** (quadrato), nello stesso punto: sparisce la barra
+    larga sotto i puntini.
+
+- **Dashboard fatte da Ada** — Analisi 1.12.0, AI 1.56.0 (nessuna migrazione).
   - «Fammi una dashboard delle vendite»: Ada propone in una sola conferma una pagina nuova di Analisi con 2-8 pezzi
     (indicatori in testa, poi grafici e previsioni), calcolati prima di proporli. I grafici senza dati o sbagliati
     sono tolti e la conferma lo dice; un indicatore a zero resta. I grafici sulle misure partono da **Anno**.
   - Ada parte da quattro composizioni (Panoramica dell'azienda, Vendite, Fatturazione e incassi, Acquisti e scorte),
     solo con le misure dei moduli installati, e le adatta alla richiesta; per richieste diverse sceglie lei i pezzi.
   - Crea sempre una pagina nuova: per aggiungere a una pagina esistente resta il salvataggio di un grafico alla volta.
+  - Nella scheda di conferma ogni pezzo ha una **casella**: togli la spunta a quelli che non vuoi e confermi gli altri.
+    Se ne restano meno di 2 la scheda lo dice e resta da confermare.
+  - La dashboard e «salva in Analisi» funzionano anche nelle chat limitate a un'app (pulsante **App**): Analisi
+    raccoglie i numeri di tutte le app, quindi nella chat del CRM la dashboard può avere anche fatturato e scaduto.
   - I grafici sulle misure per cliente o fornitore mostrano i primi 10 più «Altro». Una dashboard con un pezzo di
     un'app riservata passa ai modelli locali come ogni altra lettura riservata.
 

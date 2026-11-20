@@ -6,6 +6,17 @@ register = template.Library()
 
 
 @register.filter
+def con_ritorno(url, conversazione_id):
+    """Il link di una proposta con «da_chat»: la pagina aperta (nella stessa finestra) mostra «← Torna alla chat».
+    Solo per gli indirizzi del gestionale; gli altri restano com'erano."""
+    url = str(url or "")
+    if not url.startswith("/") or url.startswith("//") or not conversazione_id:
+        return url
+    indirizzo, cancelletto, ancora = url.partition("#")
+    return f"{indirizzo}{'&' if '?' in indirizzo else '?'}da_chat={conversazione_id}{cancelletto}{ancora}"
+
+
+@register.filter
 def markdown_ai(testo):
     return markdown.rendi(testo)
 

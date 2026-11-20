@@ -4,6 +4,5 @@
     {% if turno.compito == "ricerca" %}<p class="ai-ricerca-nota">Ricerca approfondita: può durare qualche minuto. Puoi chiudere la pagina, la ricerca continua e trovi il rapporto in questa chat.</p>{% endif %}
     <div class="ai-avanzamento" data-avanzamento aria-live="polite"><span class="ai-puntini" aria-label="Sto pensando"><i></i><i></i><i></i></span></div>
     <div class="ai-msg-testo ai-md ai-in-diretta" data-testo><div data-reso>{{ turno.testo|markdown_ai }}</div><span data-coda></span></div>
-    <button type="button" class="ai-stop" data-ferma><svg><use href="#icon-x"/></svg> Ferma</button>
   </div>
 </article>
