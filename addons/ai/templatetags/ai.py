@@ -61,6 +61,16 @@ def serie_artifact(a, dati=None):
 
 
 @register.filter
+def etichetta_periodo(spec):
+    """«dell'anno in corso», «del mese in corso, a confronto con l'anno prima»: accanto al titolo del grafico."""
+    from core import misure
+    try:
+        return misure.etichetta_periodo(spec or {})
+    except Exception:
+        return ""
+
+
+@register.filter
 def periodo_artifact(a):
     """I pulsanti del periodo per un grafico della chat (core/_periodo_grafico.html), o None se non ne ha."""
     from django.urls import reverse

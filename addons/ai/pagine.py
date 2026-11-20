@@ -648,11 +648,12 @@ def periodo_artifact(request, pk):
     if a.tipo != Artifact.GRAFICO or misure.periodo_grafico(a.spec) is None:
         raise Http404
     try:
-        a.spec = misure.scegli_periodo(a.spec, *misure.scelta_dal_form(request.POST))
+        vecchia, a.spec = a.spec, misure.scegli_periodo(a.spec, *misure.scelta_dal_form(request.POST))
         a.dati = modulo.ricalcola(a)
     except ErroreInterrogazione as e:
         return HttpResponseBadRequest(str(e))
-    a.save(update_fields=["spec", "dati"])
+    a.titolo = misure.titolo_dopo_il_periodo(a.titolo, vecchia, a.spec)[:200]
+    a.save(update_fields=["spec", "dati", "titolo"])
     if request.headers.get("HX-Request"):
         return render(request, "ai/_artifact.html", {"a": a})
     return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")

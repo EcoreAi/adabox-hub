@@ -187,7 +187,18 @@ def serie_di(grafico, dati, vista=None):
 
 
 def descrizione(spec, request=None, vista=None, tipo=""):
-    """«Somma di totale per mese · Ordini di vendita · 2 filtri»: che cosa calcola la specifica, a parole."""
+    """«Somma di totale per mese · Ordini di vendita · 2 filtri»: che cosa calcola la specifica, a parole; con il
+    periodo scelto sopra il grafico in testa («Del trimestre in corso · …»), così lo vede anche chi non lo possiede."""
+    from core import misure
+    try:
+        periodo = misure.etichetta_periodo(spec) if tipo not in (Grafico.KPI, Grafico.TABELLA, Grafico.PREVISIONE) else ""
+    except ErroreInterrogazione:
+        periodo = ""
+    testo = _descrizione(spec, request, vista, tipo)
+    return f"{periodo[:1].upper()}{periodo[1:]} · {testo}" if periodo else testo
+
+
+def _descrizione(spec, request=None, vista=None, tipo=""):
     if spec.get("misura_aziendale"):
         from core import misure
         try:

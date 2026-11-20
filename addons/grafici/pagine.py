@@ -367,10 +367,11 @@ def grafico_periodo(request, pk):
     if g.tipo not in Grafico.INTERCAMBIABILI or misure.periodo_grafico(g.spec) is None:
         raise Http404
     try:
-        g.spec = misure.scegli_periodo(g.spec, *misure.scelta_dal_form(request.POST))
+        vecchia, g.spec = g.spec, misure.scegli_periodo(g.spec, *misure.scelta_dal_form(request.POST))
     except ErroreInterrogazione as e:
         return HttpResponseBadRequest(str(e))
-    g.save(update_fields=["spec", "modificato"])
+    g.titolo = misure.titolo_dopo_il_periodo(g.titolo, vecchia, g.spec)[:200]
+    g.save(update_fields=["spec", "titolo", "modificato"])
     w = motore.widget_salvato(g, request, forza=True)
     if request.headers.get("HX-Request"):
         return render(request, "grafici/_widget.html", {"w": w, "mio": w["mio"]})

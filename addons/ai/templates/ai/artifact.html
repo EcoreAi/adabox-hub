@@ -4,7 +4,7 @@
 <script src="{% statico 'theme/vendor/chart.umd.js' %}" defer></script><script src="{% statico 'core/grafici.js' %}" defer></script>{% endblock %}
 {% block app_content %}
 <div class="ui-pagehead"><div><h1>{{ a.titolo }}</h1>
-  <div class="sub">{{ a.get_tipo_display }} dalla vista {{ a.spec.vista }} · dati di oggi, {{ adesso|date:"d/m/Y H:i" }}{% if not mio %} · condiviso da {{ a.utente.get_full_name|default:a.utente.username }}, con i dati che i tuoi permessi consentono{% elif a.conversazione_id %} · <a href="{% url 'ai:conversazione' a.conversazione_id %}">dalla chat</a>{% endif %}</div></div>
+  <div class="sub">{% with periodo=a.spec|etichetta_periodo %}{% if periodo %}{{ periodo|capfirst }} · {% endif %}{% endwith %}{{ a.get_tipo_display }} dalla vista {{ a.spec.vista }} · dati di oggi, {{ adesso|date:"d/m/Y H:i" }}{% if not mio %} · condiviso da {{ a.utente.get_full_name|default:a.utente.username }}, con i dati che i tuoi permessi consentono{% elif a.conversazione_id %} · <a href="{% url 'ai:conversazione' a.conversazione_id %}">dalla chat</a>{% endif %}</div></div>
   <div class="ui-pagehead-actions">
     {% if mio %}<div class="ai-condividi-pagina">{% include "ai/_condividi.html" with oggetto=a tipo="artifact" %}</div>{% endif %}
     <a class="ui-btn ui-btn-secondary" href="{% url 'ai:artifact_csv' a.pk %}?oggi=1">Scarica CSV</a>

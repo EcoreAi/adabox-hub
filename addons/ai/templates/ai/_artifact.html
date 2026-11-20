@@ -2,6 +2,7 @@
 <figure class="ai-artifact" id="ai-artifact-{{ a.pk }}">
   <figcaption class="ai-artifact-testa">
     <span class="ai-artifact-titolo">{{ a.titolo }}</span>
+    {% if a.tipo == "grafico" %}{% with periodo=a.spec|etichetta_periodo %}{% if periodo %}<span class="ai-artifact-ora">{{ periodo }}</span>{% endif %}{% endwith %}{% endif %}
     <span class="ai-artifact-ora">dati delle {{ a.aggiornato|default:a.creato|date:"H:i" }} del {{ a.aggiornato|default:a.creato|date:"d/m" }}</span>
     <span class="ai-spazio"></span>
     {% if a.utente_id == request.user.pk %}<form method="post" action="{% url 'ai:aggiorna_artifact' a.pk %}" hx-post="{% url 'ai:aggiorna_artifact' a.pk %}"

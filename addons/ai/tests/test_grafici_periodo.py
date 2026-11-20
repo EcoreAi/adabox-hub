@@ -96,7 +96,7 @@ def test_scegliere_il_periodo_ricalcola_e_salva(client, contesto):
     assert a.spec["periodo"] == "anno" and a.spec["confronta"] is True and sum(v for _, v in a.dati["serie"]) == 3
     serie = json.loads(re.search(rf'<script id="ai-serie-{a.pk}" type="application/json">(.*?)</script>', html, re.S).group(1))
     assert serie["confronto"]["etichetta"] == "Anno prima" and 'value="anno" aria-pressed="true"' in html
-    client.post(url, {"periodo": "anno", "confronta": "1", "inverti": "1"}, HTTP_HX_REQUEST="true")     # Confronta spento
+    client.post(url, {"periodo_attuale": "anno", "confronta": "1", "inverti": "1"}, HTTP_HX_REQUEST="true")   # Confronta spento
     a.refresh_from_db()
     assert a.spec["confronta"] is False and "confronto" not in a.dati
     client.post(url, {"periodo": ""}, HTTP_HX_REQUEST="true")                                          # Sempre
@@ -136,3 +136,35 @@ def test_analisi_pulsanti_nella_card_e_scelta_salvata(client, contesto):
     altro.user_permissions.add(Permission.objects.get(codename="change_grafico"))
     client.force_login(User.objects.get(pk=altro.pk))
     assert client.post(url, {"periodo": "mese"}).status_code == 404                # il grafico è di un altro
+
+
+# ---------- si vede quale periodo è (revisione finale) ----------
+
+def test_il_titolo_automatico_segue_il_periodo_e_il_periodo_si_vede(client, contesto):
+    from django.urls import reverse
+    spec = {"tipo": "grafico", "grafico": "barre", "misura_aziendale": "fatturazione.fatturato", "per": "mese", "periodo": "anno"}
+    a = _in_chat(contesto, spec)
+    a.titolo = misure.titolo("fatturazione.fatturato", spec)
+    a.save(update_fields=["titolo"])
+    scritto = _in_chat(contesto, {**spec})
+    scritto.titolo = "Fatture 2026 per mese"                       # un titolo scritto da Ada resta com'è
+    scritto.save(update_fields=["titolo"])
+    client.force_login(contesto.utente)
+    html = client.post(reverse("ai:periodo_artifact", args=[a.pk]), {"periodo": "mese"}, HTTP_HX_REQUEST="true").content.decode()
+    a.refresh_from_db()
+    assert a.titolo == "Fatturato del mese in corso" and "del mese in corso" in html
+    client.post(reverse("ai:periodo_artifact", args=[scritto.pk]), {"periodo": "mese"}, HTTP_HX_REQUEST="true")
+    scritto.refresh_from_db()
+    assert scritto.titolo == "Fatture 2026 per mese"
+    html = client.get(reverse("ai:conversazione", args=[contesto.conversazione.pk])).content.decode()
+    assert html.count("del mese in corso") >= 2                    # accanto ai due titoli
+
+
+def test_analisi_scrive_il_periodo_sotto_il_titolo(client, contesto):
+    from django.urls import reverse
+    from grafici.models import Grafico
+    g = Grafico.objects.create(utente=contesto.utente, titolo="Scadenze", tipo=Grafico.BARRE,
+                               spec={"vista": "todo.attivita", "per": "scadenza:mese", "misura": "count", "periodo": "trimestre", "confronta": True})
+    client.force_login(contesto.utente)
+    html = client.get(reverse("grafici:grafico", args=[g.pk])).content.decode()
+    assert "del trimestre in corso, a confronto con l&#x27;anno prima" in html.lower()
