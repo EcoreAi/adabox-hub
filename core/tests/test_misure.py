@@ -316,3 +316,69 @@ def test_etichetta_del_periodo(registro, db, monkeypatch):
     assert misure.etichetta_periodo({"vista": "todo.attivita", "per": "scadenza:mese", "periodo": "mese", "confronta": True}) == \
         "del mese in corso, a confronto con l'anno prima"
     assert misure.etichetta_periodo({"vista": "todo.attivita", "per": "scadenza:mese"}) == ""
+
+
+# ---------- filtri sul grafico ----------
+
+def _aperte_per_persona(registro):
+    return misure.registra(misure.Misura(
+        nome="prova.aperte", etichetta="Aperte", definizione="attività aperte", unita="",
+        raggruppamenti={"assegnatario": "assegnatario", "stato": "stato", "mese": "scadenza:mese"}, periodo_su="scadenza",
+        componenti=(misure.Componente("todo.attivita", "count", {"stato__in": ["aperta", "in_corso"]}),)))
+
+
+def test_la_misura_si_filtra_e_il_link_porta_il_filtro(registro, capo, monkeypatch):
+    monkeypatch.setattr(misure, "_oggi", lambda: OGGI)
+    misure.registra(misure.Misura(
+        nome="prova.da_fare", etichetta="Da fare", definizione="aperte", unita="",
+        raggruppamenti={"assegnatario": "assegnatario", "stato": "stato"},       # la lista non filtra la scadenza
+        componenti=(misure.Componente("todo.attivita", "count", {"stato": "aperta"}),)))
+    bruno = User.objects.create_user("bruno", "b@example.com", "x")
+    for persona, n in ((capo, 2), (bruno, 1)):
+        for i in range(n):
+            Attivita.objects.create(azienda=Azienda.objects.get(pk=1), titolo=f"{persona} {i}", stato="aperta", scadenza=OGGI, assegnatario=persona)
+    r = misure.calcola("prova.da_fare", richiesta_di(capo), per="stato", scelti={"assegnatario": bruno.pk})
+    assert r["valore"] == 1 and f"f_assegnatario={bruno.pk}" in r["url"] and f"f_assegnatario={bruno.pk}" in r["gruppi"][0]["url"]
+    s = misure.serie({"misura_aziendale": "prova.da_fare", "per": "stato", "scelti": {"assegnatario": {"chiave": capo.pk, "etichetta": "capo"}}}, richiesta_di(capo))
+    assert s["totale"] == 2
+    with pytest.raises(ErroreInterrogazione):
+        misure.calcola("prova.da_fare", richiesta_di(capo), scelti={"titolo": "x"})        # non è un filtro della misura
+
+
+def test_quali_filtri_e_quali_valori(registro, capo, monkeypatch):
+    monkeypatch.setattr(misure, "_oggi", lambda: OGGI)
+    _aperte_per_persona(registro)
+    bruno = User.objects.create_user("bruno", "b@example.com", "x")
+    for persona, n in ((capo, 1), (bruno, 3)):
+        for i in range(n):
+            Attivita.objects.create(azienda=Azienda.objects.get(pk=1), titolo=f"{persona} {i}", stato="aperta", scadenza=OGGI, assegnatario=persona)
+    req = richiesta_di(capo)
+    spec = {"misura_aziendale": "prova.aperte", "per": "mese"}
+    assert [f["campo"] for f in misure.filtri_grafico(spec, req)] == ["assegnatario", "stato"]     # non per data
+    assert [f["campo"] for f in misure.filtri_grafico({**spec, "per": "stato"}, req)] == ["assegnatario"]   # non il raggruppamento
+    valori = misure.valori_filtro(spec, "assegnatario", req)
+    assert [v["chiave"] for v in valori] == [bruno.pk, capo.pk] and valori[0]["etichetta"]   # dal più grande
+    vista = {"vista": "todo.attivita", "per": "scadenza:mese"}
+    assert [f["campo"] for f in misure.filtri_grafico(vista, req)] == ["stato", "assegnatario", "tag"]
+    assert misure.filtri_grafico({"vista": "todo.attivita", "per": "stato"}, req)[0]["campo"] == "assegnatario"
+    assert misure.filtri_grafico({"vista": "x", "grafico": "previsione", "per": "data:mese"}, req) == []
+
+
+def test_scegliere_e_togliere_un_filtro(registro, capo):
+    _aperte_per_persona(registro)
+    req = richiesta_di(capo)
+    spec = {"misura_aziendale": "prova.aperte", "per": "mese", "periodo": "anno"}
+    con = misure.scegli_filtro(spec, "assegnatario", str(capo.pk), "capo", req)
+    assert con["scelti"] == {"assegnatario": {"chiave": capo.pk, "etichetta": "capo"}} and con["periodo"] == "anno"
+    assert "scelti" not in misure.scegli_filtro(con, "assegnatario", "", "", req)
+    with pytest.raises(ErroreInterrogazione):
+        misure.scegli_filtro(spec, "inventato", "1", "x", req)
+    assert misure.etichetta_filtri(con) == "Assegnatario: capo"
+
+
+def test_il_filtro_di_una_vista_va_nel_calcolo_e_nel_confronto(monkeypatch, db):
+    monkeypatch.setattr(misure, "_oggi", lambda: OGGI)
+    spec = {"vista": "todo.attivita", "per": "scadenza:mese", "periodo": "anno", "filtri": {"tag": 3},
+            "scelti": {"stato": {"chiave": "aperta", "etichetta": "Aperta"}}}
+    assert misure.spec_per_calcolo(spec)["filtri"] == {"tag": 3, "stato": "aperta", "scadenza__gte": "2026-01-01", "scadenza__lte": "2026-12-31"}
+    assert misure.spec_anno_prima(spec)["filtri"]["stato"] == "aperta"
