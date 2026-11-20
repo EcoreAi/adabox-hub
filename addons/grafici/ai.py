@@ -417,7 +417,7 @@ registra(Strumento(
                              "da soli: passa «artifact» per salvare il grafico appena disegnato in chat, oppure la "
                              "query (vista, misura, per o data). Si propone all'utente, che conferma.",
     _SCHEMA_SALVA, salva_grafico, rischio="scrittura", concorrente=False, anteprima=anteprima_salva,
-    permesso="grafici.add_grafico"))
+    permesso="grafici.add_grafico", ovunque=True))                    # anche dalla chat di un'app: «salvalo in Analisi»
 registra(Strumento(
     "analisi_crea_pagina", "Crea una pagina di Analisi vuota (una scheda nuova sulla dashboard). Si propone all'utente, che conferma.",
     {"type": "object", "properties": {"titolo": {"type": "string"},
@@ -442,4 +442,5 @@ registra(_StrumentoDashboard(
         "pezzi": {"type": "array", "minItems": MIN_PEZZI, "maxItems": MAX_PEZZI,
                   "items": {"type": "object", "properties": _PEZZO, "required": ["tipo"]}}},
      "required": ["titolo", "pezzi"]}, crea_dashboard, rischio="scrittura", concorrente=False,
-    anteprima=anteprima_crea_dashboard, permesso="grafici.add_grafico", timeout=90.0))   # ogni pezzo si calcola
+    anteprima=anteprima_crea_dashboard, permesso="grafici.add_grafico", timeout=90.0,   # ogni pezzo si calcola
+    ovunque=True))                                   # Analisi raccoglie i numeri di tutte le app: anche dalla chat del CRM

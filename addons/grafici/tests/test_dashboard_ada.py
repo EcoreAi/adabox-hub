@@ -130,3 +130,14 @@ def test_grafico_per_cliente_mostra_i_primi(contesto):
     per_titolo = {v["titolo"]: v["spec"] for v in validi}
     assert per_titolo["Fatturato per cliente"]["primi"] == 10 and per_titolo["cinque"]["primi"] == 5
     assert "primi" not in per_titolo["mese"]                             # per mese: tutti i mesi
+
+
+def test_anche_nelle_chat_di_un_app(contesto, monkeypatch):
+    """Nella chat limitata al CRM «fammi una dashboard» deve funzionare: Analisi raccoglie i numeri di tutte le app."""
+    from ai.strumenti.registro import _registro, disponibili
+    for nome, s in _registro.items():                # come li carica ai.strumenti.app in produzione: dell'app grafici
+        if nome.startswith("analisi_"):
+            monkeypatch.setattr(s, "app", "grafici")
+    nomi = {s.nome for s in disponibili(contesto.utente, "crm", contesto.azienda)}
+    assert {"analisi_crea_dashboard", "analisi_salva_grafico"} <= nomi
+    assert "analisi_crea_pagina" not in nomi                              # gli altri strumenti di Analisi restano fuori
