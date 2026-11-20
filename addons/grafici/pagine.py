@@ -12,6 +12,7 @@ from django.core.mail import send_mail
 from django.http import Http404, HttpResponse, HttpResponseBadRequest, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.html import escape
 from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
@@ -351,6 +352,46 @@ def grafico(request, pk):
 @require_POST
 def grafico_aggiorna(request, pk):
     g = _grafico_visibile(request, pk)
+    w = motore.widget_salvato(g, request, forza=True)
+    if request.headers.get("HX-Request"):
+        return render(request, "grafici/_widget.html", {"w": w, "mio": w["mio"]})
+    return redirect("grafici:grafico", pk=pk)
+
+
+@login_required
+@permission_required("grafici.change_grafico")
+def grafico_filtri(request, pk):
+    """Il pannello di «Filtra» della card: i filtri del grafico con i valori presenti nei dati."""
+    from core import misure
+    g = _mio_grafico(request, pk)
+    if g.tipo not in Grafico.INTERCAMBIABILI:
+        raise Http404
+    filtri = misure.filtri_grafico(g.spec, request)
+    try:
+        for f in filtri:
+            f["valori"] = misure.valori_filtro(g.spec, f["campo"], request)
+    except ErroreInterrogazione as e:
+        return HttpResponse(f'<p class="ui-help">Filtri non disponibili: {escape(str(e))}</p>')
+    return render(request, "core/_filtri_pannello.html", {"filtri": filtri, "url": reverse("grafici:grafico_filtro", args=[g.pk]),
+                                                          "bersaglio": f"#an-widget-{g.pk}"})
+
+
+@login_required
+@permission_required("grafici.change_grafico")
+@require_POST
+def grafico_filtro(request, pk):
+    """Il filtro scelto (o tolto) sopra il grafico: si salva nella specifica e la card si ricalcola lì dov'è."""
+    from core import misure
+    g = _mio_grafico(request, pk)
+    if g.tipo not in Grafico.INTERCAMBIABILI:
+        raise Http404
+    campo, chiave = request.POST.get("campo", ""), request.POST.get("chiave", "")
+    try:
+        etichetta = next((v["etichetta"] for v in misure.valori_filtro(g.spec, campo, request) if str(v["chiave"]) == chiave), chiave) if chiave else ""
+        g.spec = misure.scegli_filtro(g.spec, campo, chiave, etichetta, request)
+    except ErroreInterrogazione as e:
+        return HttpResponseBadRequest(str(e))
+    g.save(update_fields=["spec", "modificato"])
     w = motore.widget_salvato(g, request, forza=True)
     if request.headers.get("HX-Request"):
         return render(request, "grafici/_widget.html", {"w": w, "mio": w["mio"]})

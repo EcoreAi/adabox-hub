@@ -64,3 +64,23 @@ def test_solo_il_proprietario(client, scena):
     client.force_login(scena["bruno"])
     assert client.get(reverse("ai:filtri_artifact", args=[scena["a"].pk])).status_code == 404
     assert client.post(reverse("ai:filtro_artifact", args=[scena["a"].pk]), {"campo": "assegnatario", "chiave": "1"}).status_code == 404
+
+
+def test_analisi_filtra_nella_card_e_lo_scrive_sotto_il_titolo(client, scena):
+    from django.contrib.auth.models import Permission
+    from grafici.models import Grafico
+    g = Grafico.objects.create(utente=scena["capo"], titolo="Attività", tipo=Grafico.BARRE,
+                               spec={"vista": "todo.attivita", "per": "stato", "misura": "count"})
+    html = client.get(reverse("grafici:grafico_filtri", args=[g.pk])).content.decode()
+    assert "Assegnatario" in html and f'value="{scena["bruno"].pk}"' in html
+    url = reverse("grafici:grafico_filtro", args=[g.pk])
+    html = client.post(url, {"campo": "assegnatario", "chiave": str(scena["bruno"].pk)}, HTTP_HX_REQUEST="true").content.decode()
+    g.refresh_from_db()
+    assert g.spec["scelti"]["assegnatario"]["chiave"] == scena["bruno"].pk and dict(g.dati["serie"]) == {"Aperta": 3, "Fatta": 2}
+    assert f'id="an-widget-{g.pk}"' in html and "Assegnatario: bruno" in html and reverse("grafici:grafico_filtri", args=[g.pk]) in html
+    pagina = client.get(reverse("grafici:grafico", args=[g.pk])).content.decode()
+    assert "Assegnatario: bruno" in pagina                                       # anche nella pagina «Apri in grande»
+    altro = User.objects.create_user("carla", "c@example.com", "x")
+    altro.user_permissions.add(Permission.objects.get(codename="change_grafico"))
+    client.force_login(User.objects.get(pk=altro.pk))
+    assert client.post(url, {"campo": "assegnatario", "chiave": ""}).status_code == 404

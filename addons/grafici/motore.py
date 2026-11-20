@@ -195,6 +195,8 @@ def descrizione(spec, request=None, vista=None, tipo=""):
     except ErroreInterrogazione:
         periodo = ""
     testo = _descrizione(spec, request, vista, tipo)
+    filtri = misure.etichetta_filtri(spec)                  # i filtri scelti con «Filtra»
+    testo = f"{filtri} · {testo}" if filtri else testo
     return f"{periodo[:1].upper()}{periodo[1:]} · {testo}" if periodo else testo
 
 
@@ -255,7 +257,17 @@ def widget_salvato(grafico, request, forza=False):
             "aggiornato": grafico.aggiornato if mio else timezone.now(),
             "larghezza": 1 if grafico.tipo == Grafico.KPI else 2,
             "tipi": TIPI_SCAMBIABILI if grafico.tipo in Grafico.INTERCAMBIABILI else [],
-            "periodo": _periodo(grafico) if mio else None}
+            "periodo": _periodo(grafico) if mio else None, "filtri": _filtri(grafico, request) if mio else None}
+
+
+def _filtri(grafico, request):
+    """«Filtra» e le etichette dei filtri scelti della card (core/_filtri_grafico.html), o None se non ne ha."""
+    from core import misure
+    if grafico.tipo not in Grafico.INTERCAMBIABILI or not misure.filtri_grafico(grafico.spec, request):
+        return None
+    return {"url": reverse("grafici:grafico_filtro", args=[grafico.pk]), "url_pannello": reverse("grafici:grafico_filtri", args=[grafico.pk]),
+            "bersaglio": f"#an-widget-{grafico.pk}",
+            "etichette": [(campo, misure.etichetta_filtri({"scelti": {campo: v}})) for campo, v in (grafico.spec.get("scelti") or {}).items()]}
 
 
 def _periodo(grafico):
