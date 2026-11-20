@@ -5,6 +5,16 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-20
 
+- **Dashboard fatte da Ada** — Analisi 1.11.0, AI 1.55.0 (nessuna migrazione).
+  - «Fammi una dashboard delle vendite»: Ada propone in una sola conferma una pagina nuova di Analisi con 2-8 pezzi
+    (indicatori in testa, poi grafici e previsioni), calcolati prima di proporli. I grafici senza dati o sbagliati
+    sono tolti e la conferma lo dice; un indicatore a zero resta. I grafici sulle misure partono da **Anno**.
+  - Ada parte da quattro composizioni (Panoramica dell'azienda, Vendite, Fatturazione e incassi, Acquisti e scorte),
+    solo con le misure dei moduli installati, e le adatta alla richiesta; per richieste diverse sceglie lei i pezzi.
+  - Crea sempre una pagina nuova: per aggiungere a una pagina esistente resta il salvataggio di un grafico alla volta.
+  - I grafici sulle misure per cliente o fornitore mostrano i primi 10 più «Altro». Una dashboard con un pezzo di
+    un'app riservata passa ai modelli locali come ogni altra lettura riservata.
+
 - **Filtri sul grafico** — Kernel 1.7.0, AI 1.54.0, Analisi 1.10.0, Vendite 1.10.0 (nessuna migrazione; AI e Analisi
   chiedono il kernel 1.7).
   - Accanto ai pulsanti del periodo, **Filtra**: un menu per filtro con i valori presenti nei dati, dal più grande.
