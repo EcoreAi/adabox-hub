@@ -5,6 +5,10 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-19
 
+- **Grafici: l'elenco si apre nella stessa pagina** — Kernel 1.5.2, AI 1.52.0 (nessuna migrazione). Il clic su un
+  punto di un grafico (chat, Analisi, dashboard, Chiedi ad Ada) e l'icona «Apri con i dati di oggi» aprono nella stessa
+  pagina, non più in una scheda nuova: con Indietro si torna al grafico. Annulla la scheda nuova introdotta oggi.
+
 - **Grafici: elenco sempre in una scheda nuova; niente grafici scritti come testo** — Kernel 1.5.1, AI 1.51.0
   (nessuna migrazione).
   - Il clic su un punto di un grafico apre l'elenco in una scheda nuova anche in Analisi, nelle dashboard e nel
