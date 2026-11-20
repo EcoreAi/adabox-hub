@@ -23,6 +23,7 @@ urlpatterns = [
     path("grafico/<int:pk>/", pagine.grafico, name="grafico"),
     path("grafico/<int:pk>/aggiorna/", pagine.grafico_aggiorna, name="grafico_aggiorna"),
     path("grafico/<int:pk>/tipo/", pagine.grafico_tipo, name="grafico_tipo"),
+    path("grafico/<int:pk>/periodo/", pagine.grafico_periodo, name="grafico_periodo"),
     path("grafico/<int:pk>/modifica/", pagine.grafico_modifica, name="grafico_modifica"),
     path("grafico/<int:pk>/elimina/", pagine.grafico_elimina, name="grafico_elimina"),
     path("grafico/<int:pk>/csv/", pagine.grafico_csv, name="grafico_csv"),

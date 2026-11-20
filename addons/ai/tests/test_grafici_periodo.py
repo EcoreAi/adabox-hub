@@ -111,3 +111,28 @@ def test_solo_il_proprietario_cambia_il_periodo(client, contesto):
     altro = User.objects.create_user("bruno", "b@example.com", "x")
     client.force_login(altro)
     assert client.post(reverse("ai:periodo_artifact", args=[a.pk]), {"periodo": "anno"}).status_code == 404
+
+
+# ---------- i pulsanti in Analisi ----------
+
+def test_analisi_pulsanti_nella_card_e_scelta_salvata(client, contesto):
+    from django.urls import reverse
+    from grafici.models import Grafico
+    g = Grafico.objects.create(utente=contesto.utente, titolo="Scadenze", tipo=Grafico.BARRE,
+                               spec={"vista": "todo.attivita", "per": "scadenza:mese", "misura": "count"})
+    client.force_login(contesto.utente)
+    url = reverse("grafici:grafico_periodo", args=[g.pk])
+    html = client.post(url, {"periodo": "anno", "confronta": "1"}, HTTP_HX_REQUEST="true").content.decode()
+    g.refresh_from_db()
+    assert g.spec["periodo"] == "anno" and g.spec["confronta"] is True and sum(v for _, v in g.dati["serie"]) == 3
+    assert f'id="an-widget-{g.pk}"' in html and url in html and 'value="anno" aria-pressed="true"' in html and ">Sempre<" in html
+    assert '"confronto"' in html
+    torta = Grafico.objects.create(utente=contesto.utente, titolo="T", tipo=Grafico.TORTA,
+                                   spec={"vista": "todo.attivita", "per": "scadenza:mese", "misura": "count"})
+    html = client.post(reverse("grafici:grafico_periodo", args=[torta.pk]), {"periodo": "anno"}, HTTP_HX_REQUEST="true").content.decode()
+    assert "Confronta" not in html                                                 # sulle torte niente confronto
+    from django.contrib.auth.models import Permission
+    altro = User.objects.create_user("bruno", "b@example.com", "x")
+    altro.user_permissions.add(Permission.objects.get(codename="change_grafico"))
+    client.force_login(User.objects.get(pk=altro.pk))
+    assert client.post(url, {"periodo": "mese"}).status_code == 404                # il grafico è di un altro

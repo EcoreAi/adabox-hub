@@ -9,7 +9,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
-from django.http import Http404, HttpResponse, JsonResponse, QueryDict
+from django.http import Http404, HttpResponse, HttpResponseBadRequest, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.text import slugify
@@ -351,6 +351,26 @@ def grafico(request, pk):
 @require_POST
 def grafico_aggiorna(request, pk):
     g = _grafico_visibile(request, pk)
+    w = motore.widget_salvato(g, request, forza=True)
+    if request.headers.get("HX-Request"):
+        return render(request, "grafici/_widget.html", {"w": w, "mio": w["mio"]})
+    return redirect("grafici:grafico", pk=pk)
+
+
+@login_required
+@permission_required("grafici.change_grafico")
+@require_POST
+def grafico_periodo(request, pk):
+    """Il periodo scelto con i pulsanti sopra il grafico: si salva nella specifica e la card si ricalcola lì dov'è."""
+    from core import misure
+    g = _mio_grafico(request, pk)
+    if g.tipo not in Grafico.INTERCAMBIABILI or misure.periodo_grafico(g.spec) is None:
+        raise Http404
+    try:
+        g.spec = misure.scegli_periodo(g.spec, *misure.scelta_dal_form(request.POST))
+    except ErroreInterrogazione as e:
+        return HttpResponseBadRequest(str(e))
+    g.save(update_fields=["spec", "modificato"])
     w = motore.widget_salvato(g, request, forza=True)
     if request.headers.get("HX-Request"):
         return render(request, "grafici/_widget.html", {"w": w, "mio": w["mio"]})

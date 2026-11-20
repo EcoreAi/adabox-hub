@@ -243,7 +243,18 @@ def widget_salvato(grafico, request, forza=False):
             "sotto": descrizione(grafico.spec, vista=vista, tipo=grafico.tipo),
             "aggiornato": grafico.aggiornato if mio else timezone.now(),
             "larghezza": 1 if grafico.tipo == Grafico.KPI else 2,
-            "tipi": TIPI_SCAMBIABILI if grafico.tipo in Grafico.INTERCAMBIABILI else []}
+            "tipi": TIPI_SCAMBIABILI if grafico.tipo in Grafico.INTERCAMBIABILI else [],
+            "periodo": _periodo(grafico) if mio else None}
+
+
+def _periodo(grafico):
+    """I pulsanti del periodo della card (core/_periodo_grafico.html), o None se il grafico non ha una data."""
+    from core import misure
+    p = misure.periodo_grafico(grafico.spec) if grafico.tipo in Grafico.INTERCAMBIABILI else None
+    if p is None:
+        return None
+    return {**p, "url": reverse("grafici:grafico_periodo", args=[grafico.pk]), "bersaglio": f"#an-widget-{grafico.pk}",
+            "confronto_possibile": grafico.tipo != Grafico.TORTA}
 
 
 def widget_leggero(grafico, request):
