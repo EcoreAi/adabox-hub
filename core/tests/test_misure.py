@@ -219,3 +219,100 @@ def test_serie_porta_il_link_di_ogni_gruppo(registro, capo):
                          f"/todo/attivita/?f_stato=aperta&f_assegnatario={altro.pk}"]
     r = misure.serie({"misura_aziendale": "prova.aperte", "per": "assegnatario", "primi": 1}, richiesta_di(capo))
     assert len(r["link"]) == len(r["serie"]) == 2 and r["serie"][1][0] == "Altro" and r["link"][1] is None
+
+
+# ---------- periodo sul grafico ----------
+
+def _misura_con_periodo(registro):
+    return misure.registra(misure.Misura(
+        nome="prova.scadenze", etichetta="Scadenze", definizione="attività per scadenza", unita="",
+        raggruppamenti={"stato": "stato", "mese": "scadenza:mese"}, periodo_su="scadenza",
+        componenti=(misure.Componente("todo.attivita", "count"),)))
+
+
+def test_periodo_del_grafico_solo_dove_c_e_una_data(registro, db):
+    _misura_con_periodo(registro)
+    p = misure.periodo_grafico({"misura_aziendale": "prova.scadenze", "per": "stato"})
+    assert p["scelto"] == "anno" and p["sempre"] is False and p["confronta"] is False
+    assert [k for k, _ in p["pulsanti"]] == ["mese", "trimestre", "anno", "anno_scorso"]
+    fissa = misure.periodo_grafico({"misura_aziendale": "prova.scadenze", "per": "stato", "dal": "2026-01-01", "al": "2026-03-31"})
+    assert fissa["scelto"] == ""                                       # date fisse: nessun pulsante acceso
+    misure.registra(misure.Misura(nome="prova.oggi", etichetta="Oggi", definizione="x", unita="",
+                                  funzione=lambda request, di="": {"valore": 0, "righe": []}))
+    assert misure.periodo_grafico({"misura_aziendale": "prova.oggi"}) is None    # situazione di oggi: niente periodo
+    v = misure.periodo_grafico({"vista": "todo.attivita", "per": "scadenza:mese", "periodo": "trimestre", "confronta": True})
+    assert v == {**v, "scelto": "trimestre", "sempre": True, "confronta": True}
+    assert misure.periodo_grafico({"vista": "todo.attivita", "per": "stato"}) is None
+    assert misure.periodo_grafico({"vista": "x", "per": "data:mese", "grafico": "previsione"}) is None
+
+
+def test_periodo_di_una_vista_filtra_la_data_del_raggruppamento(monkeypatch, db):
+    monkeypatch.setattr(misure, "_oggi", lambda: OGGI)
+    spec = {"vista": "todo.attivita", "per": "scadenza:mese", "periodo": "trimestre", "filtri": {"stato": "aperta"}}
+    assert misure.spec_per_calcolo(spec)["filtri"] == {"stato": "aperta", "scadenza__gte": "2026-10-01", "scadenza__lte": "2026-12-31"}
+    assert misure.spec_per_calcolo({"vista": "todo.attivita", "per": "scadenza:mese"}).get("filtri", {}) == {}
+    misura = {"misura_aziendale": "prova.scadenze", "per": "stato", "periodo": "mese"}
+    assert misure.spec_per_calcolo(misura) == misura                   # le misure il periodo lo applicano da sé
+
+
+def test_anno_prima_sposta_il_periodo(registro, monkeypatch, db):
+    _misura_con_periodo(registro)
+    monkeypatch.setattr(misure, "_oggi", lambda: OGGI)
+    prima = misure.spec_anno_prima({"misura_aziendale": "prova.scadenze", "per": "stato", "periodo": "mese", "confronta": True})
+    assert (prima["dal"], prima["al"]) == ("2025-11-01", "2025-11-30") and "periodo" not in prima and "confronta" not in prima
+    vista = misure.spec_anno_prima({"vista": "todo.attivita", "per": "scadenza:mese", "periodo": "anno"})
+    assert vista["filtri"] == {"scadenza__gte": "2025-01-01", "scadenza__lte": "2025-12-31"} and "periodo" not in vista
+    assert misure.spec_anno_prima({"vista": "todo.attivita", "per": "scadenza:mese"}) is None     # senza periodo
+
+
+def test_confronto_allineato_per_chiave_e_per_mese():
+    dati = {"serie": [("Aperta", 3), ("Fatta", 2)], "chiavi": ["aperta", "fatta"]}
+    prima = {"serie": [("Fatta", 5), ("In corso", 1)], "chiavi": ["fatta", "in_corso"]}
+    assert misure.con_confronto(dati, prima, temporale=False)["confronto"] == {"etichetta": "Anno prima", "valori": [0, 5]}
+    mesi = {"serie": [("gen 2026", 4), ("feb 2026", 6)], "chiavi": ["2026-01-01", "2026-02-01"]}
+    prima = {"serie": [("feb 2025", 2), ("gen 2025", 1)], "chiavi": ["2025-02-01", "2025-01-01"]}
+    assert misure.con_confronto(mesi, prima, temporale=True)["confronto"]["valori"] == [1, 2]
+
+
+# ---------- periodo sul grafico: revisione finale ----------
+
+def test_confronta_tiene_date_fisse_e_periodi_non_a_pulsante(registro, db, monkeypatch):
+    _misura_con_periodo(registro)
+    monkeypatch.setattr(misure, "_oggi", lambda: OGGI)
+    fissa = {"misura_aziendale": "prova.scadenze", "per": "stato", "dal": "2026-01-01", "al": "2026-03-31"}
+    periodo, confronta = misure.scelta_dal_form({"confronta": "", "periodo_attuale": "", "inverti": "1"})
+    nuova = misure.scegli_periodo(fissa, periodo, confronta)
+    assert (nuova["dal"], nuova["al"], nuova["confronta"]) == ("2026-01-01", "2026-03-31", True)
+    dodici = {"misura_aziendale": "prova.scadenze", "per": "stato", "periodo": "ultimi_12_mesi"}
+    assert misure.scegli_periodo(dodici, *misure.scelta_dal_form({"periodo_attuale": "ultimi_12_mesi", "inverti": "1"})) == {**dodici, "confronta": True}
+
+
+def test_il_periodo_si_interseca_con_i_filtri_sulla_stessa_data(db, monkeypatch):
+    monkeypatch.setattr(misure, "_oggi", lambda: OGGI)
+    spec = {"vista": "todo.attivita", "per": "scadenza:mese", "periodo": "anno", "filtri": {"scadenza__gte": "2026-06-01"}}
+    assert misure.spec_per_calcolo(spec)["filtri"] == {"scadenza__gte": "2026-06-01", "scadenza__lte": "2026-12-31"}
+    prima = misure.spec_anno_prima(spec)                    # anche i limiti dell'utente vanno indietro di un anno
+    assert prima["filtri"] == {"scadenza__gte": "2025-06-01", "scadenza__lte": "2025-12-31"}
+    altro = {**spec, "filtri": {"scadenza__year": 2026}}    # un filtro sulla data che non si sposta: niente confronto
+    assert misure.spec_anno_prima(altro) is None
+
+
+def test_confronto_settimanale_per_numero_di_settimana():
+    dati = {"serie": [("sett. 45", 4)], "chiavi": ["2026-11-02"]}               # lunedì della settimana 45 del 2026
+    prima = {"serie": [("sett. 45", 7)], "chiavi": ["2025-11-03"]}             # lunedì della settimana 45 del 2025
+    assert misure.con_confronto(dati, prima, temporale="settimana")["confronto"]["valori"] == [7]
+
+
+def test_anno_prima_senza_primi(registro, db, monkeypatch):
+    _misura_con_periodo(registro)
+    monkeypatch.setattr(misure, "_oggi", lambda: OGGI)
+    assert "primi" not in misure.spec_anno_prima({"misura_aziendale": "prova.scadenze", "per": "stato", "primi": 5})
+
+
+def test_etichetta_del_periodo(registro, db, monkeypatch):
+    _misura_con_periodo(registro)
+    monkeypatch.setattr(misure, "_oggi", lambda: OGGI)
+    assert misure.etichetta_periodo({"misura_aziendale": "prova.scadenze", "per": "stato"}) == "dell'anno in corso"
+    assert misure.etichetta_periodo({"vista": "todo.attivita", "per": "scadenza:mese", "periodo": "mese", "confronta": True}) == \
+        "del mese in corso, a confronto con l'anno prima"
+    assert misure.etichetta_periodo({"vista": "todo.attivita", "per": "scadenza:mese"}) == ""

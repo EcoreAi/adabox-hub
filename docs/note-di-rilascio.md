@@ -3,6 +3,18 @@
 Ciò che chi aggiorna un'istanza deve sapere: cambi di comportamento, azioni da fare, migrazioni. Il dettaglio è nei
 commit; qui solo ciò che si vede o che chiede un intervento.
 
+## 2026-11-20
+
+- **Periodo sul grafico** — Kernel 1.6.0, AI 1.53.0, Analisi 1.9.0 (nessuna migrazione; AI e Analisi chiedono il
+  kernel 1.6).
+  - Sopra i grafici della chat e sulle card dei grafici salvati in Analisi: **Mese · Trimestre · Anno · Anno scorso**.
+    Al tocco il grafico si ricalcola lì dov'è, e i clic sui record seguono il periodo. La scelta resta salvata; i
+    pulsanti li vede solo chi possiede il grafico.
+  - **Confronta** aggiunge lo stesso periodo un anno prima, accanto a ogni punto (non sulle torte). Il clic sulla
+    serie dell'anno prima non apre nulla.
+  - Solo dove c'è una data certa: misure aziendali con un periodo (fatturato, ordinato, acquistato…) e grafici
+    raggruppati per data (questi hanno anche «Sempre»). Gli altri grafici non hanno i pulsanti.
+
 ## 2026-11-19
 
 - **Grafici: l'elenco si apre nella stessa pagina** — Kernel 1.5.2, AI 1.52.0 (nessuna migrazione). Il clic su un

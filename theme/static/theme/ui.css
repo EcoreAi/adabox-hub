@@ -1864,3 +1864,13 @@ div.ui-checkbox-list input[type="checkbox"] { width: 16px; height: 16px; margin:
 .ui-nav-cerca input { width: 100%; height: 44px; padding: 0 14px 0 40px; border: 1px solid var(--ui-border); border-radius: 12px; background: var(--ui-surface-2); color: var(--ui-text); font: inherit; font-size: 16px; outline: none; }
 .ui-nav-cerca input:focus { border-color: var(--ui-primary); background: var(--ui-surface); }
 .ui-nav-vuota { margin: 6px 14px; color: var(--ui-text-3); font-size: 14px; }
+
+/* Periodo sopra un grafico (core/_periodo_grafico.html): pulsanti piccoli, quello scelto pieno; «Confronta» separato. */
+.ui-periodo { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 6px 0 2px; }
+.ui-periodo button { font: inherit; font-size: 12px; line-height: 1; padding: 5px 10px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--ui-border); background: var(--ui-surface); color: var(--ui-text-2); }
+.ui-periodo button:hover { color: var(--ui-text); border-color: var(--ui-text-2); }
+.ui-periodo button[aria-pressed="true"] { background: var(--ui-primary); border-color: var(--ui-primary); color: #fff; }
+.ui-periodo button:disabled { opacity: .45; cursor: default; }
+.ui-periodo button:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+.ui-periodo-sep { width: 1px; height: 16px; background: var(--ui-border); margin: 0 4px; }

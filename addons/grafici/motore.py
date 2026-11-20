@@ -82,12 +82,21 @@ def dati_di(tipo, spec, request):
         return _previsione(spec, request)
     if tipo == Grafico.TABELLA:
         return _tabella(spec, request)
-    if spec.get("misura_aziendale"):                       # la definizione fissa della misura (core.misure)
-        from core import misure
-        return misure.kpi(spec, request) if tipo == Grafico.KPI else misure.serie(spec, request)
+    from core import misure
     if tipo == Grafico.KPI:
-        return interroga.kpi(spec, request)
-    return interroga.calcola(spec, request)
+        return misure.kpi(spec, request) if spec.get("misura_aziendale") else interroga.kpi(spec, request)
+    dati = _serie_di_spec(spec, request)
+    # il confronto con l'anno prima scelto sopra il grafico (non sulle torte)
+    if spec.get("confronta") and tipo != Grafico.TORTA and (prima := misure.spec_anno_prima(spec)) is not None:
+        dati = misure.con_confronto(dati, _serie_di_spec(prima, request), misure.temporale(spec))
+    return dati
+
+
+def _serie_di_spec(spec, request):
+    from core import misure
+    if spec.get("misura_aziendale"):                       # la definizione fissa della misura (core.misure)
+        return misure.serie(spec, request)
+    return interroga.calcola(misure.spec_per_calcolo(spec), request)    # il periodo: un filtro sulla data
 
 
 def aggiorna(grafico, request, forza=False):
@@ -166,16 +175,30 @@ def serie_di(grafico, dati, vista=None):
     elif grafico.spec.get("misura_aziendale"):   # salvati prima dei link: senza i filtri della misura sarebbe una bugia
         link = []
     else:
+        from core import misure
         chiavi = dati.get("chiavi") or [None] * len(coppie)
-        link = [link_lista(vista, grafico.spec, k) for k in chiavi] if vista is not None else []
+        spec = misure.spec_per_calcolo(grafico.spec)            # i link seguono il periodo scelto
+        link = [link_lista(vista, spec, k) for k in chiavi] if vista is not None else []
     return {"tipo": grafico.tipo if grafico.tipo in Grafico.INTERCAMBIABILI else Grafico.BARRE, "titolo": grafico.titolo,
             "etichette": [e for e, _ in coppie], "valori": [float(v) for _, v in coppie], "righe": coppie,
             "vuoto": not any(v for _, v in coppie), "totale": dati.get("totale"),
-            "link": link if any(link) else [], "obiettivo": (grafico.opzioni or {}).get("obiettivo")}
+            "link": link if any(link) else [], "obiettivo": (grafico.opzioni or {}).get("obiettivo"),
+            **({"confronto": dati["confronto"]} if dati.get("confronto") and grafico.tipo != Grafico.TORTA else {})}
 
 
 def descrizione(spec, request=None, vista=None, tipo=""):
-    """«Somma di totale per mese · Ordini di vendita · 2 filtri»: che cosa calcola la specifica, a parole."""
+    """«Somma di totale per mese · Ordini di vendita · 2 filtri»: che cosa calcola la specifica, a parole; con il
+    periodo scelto sopra il grafico in testa («Del trimestre in corso · …»), così lo vede anche chi non lo possiede."""
+    from core import misure
+    try:
+        periodo = misure.etichetta_periodo(spec) if tipo not in (Grafico.KPI, Grafico.TABELLA, Grafico.PREVISIONE) else ""
+    except ErroreInterrogazione:
+        periodo = ""
+    testo = _descrizione(spec, request, vista, tipo)
+    return f"{periodo[:1].upper()}{periodo[1:]} · {testo}" if periodo else testo
+
+
+def _descrizione(spec, request=None, vista=None, tipo=""):
     if spec.get("misura_aziendale"):
         from core import misure
         try:
@@ -231,7 +254,18 @@ def widget_salvato(grafico, request, forza=False):
             "sotto": descrizione(grafico.spec, vista=vista, tipo=grafico.tipo),
             "aggiornato": grafico.aggiornato if mio else timezone.now(),
             "larghezza": 1 if grafico.tipo == Grafico.KPI else 2,
-            "tipi": TIPI_SCAMBIABILI if grafico.tipo in Grafico.INTERCAMBIABILI else []}
+            "tipi": TIPI_SCAMBIABILI if grafico.tipo in Grafico.INTERCAMBIABILI else [],
+            "periodo": _periodo(grafico) if mio else None}
+
+
+def _periodo(grafico):
+    """I pulsanti del periodo della card (core/_periodo_grafico.html), o None se il grafico non ha una data."""
+    from core import misure
+    p = misure.periodo_grafico(grafico.spec) if grafico.tipo in Grafico.INTERCAMBIABILI else None
+    if p is None:
+        return None
+    return {**p, "url": reverse("grafici:grafico_periodo", args=[grafico.pk]), "bersaglio": f"#an-widget-{grafico.pk}",
+            "confronto_possibile": grafico.tipo != Grafico.TORTA}
 
 
 def widget_leggero(grafico, request):

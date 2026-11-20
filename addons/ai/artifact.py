@@ -72,7 +72,16 @@ def _cella(v):
 
 
 def calcola(spec, contesto):
-    """I dati di una specifica, calcolati ora per l'utente del contesto."""
+    """I dati di una specifica, calcolati ora per l'utente del contesto. Con «confronta» (non sulle torte) anche la
+    serie dello stesso periodo un anno prima, allineata ai punti."""
+    from core import misure
+    if spec.get("tipo") == Artifact.GRAFICO and spec.get("confronta") and spec.get("grafico") != "torta" \
+            and (prima := misure.spec_anno_prima(spec)) is not None:
+        return misure.con_confronto(_calcola(spec, contesto), _calcola(prima, contesto), misure.temporale(spec))
+    return _calcola(spec, contesto)
+
+
+def _calcola(spec, contesto):
     if spec.get("grafico") == "previsione":
         from .specialisti import calcola_previsione
         return calcola_previsione(spec, contesto)
@@ -82,13 +91,15 @@ def calcola(spec, contesto):
     v = vista_per(contesto, spec["vista"])
     request = richiesta.per(contesto)
     if spec["tipo"] == Artifact.GRAFICO:
+        from core import misure
         from core.viste.interroga import aziende_di
+        spec = misure.spec_per_calcolo(spec)            # il periodo scelto sopra il grafico: un filtro sulla sua data
         r = aggrega(v, request, spec["per"], spec.get("misura", "count"), spec.get("filtri"), spec.get("testo", ""),
                     aziende=aziende_di(request, spec.get("aziende")), con_chiavi=True,
                     massimo=None if (spec.get("primi") or spec.get("ordina")) else 100)
         terne = _terne(r.get("gruppi", []), spec)
         # il link ai record di ogni punto, calcolato ora e salvato con l'istantanea (↻ lo rifà)
-        return {"serie": [(e, val) for e, val, _ in terne], "totale": r["totale"],
+        return {"serie": [(e, val) for e, val, _ in terne], "totale": r["totale"], "chiavi": [k for _, _, k in terne],
                 "link": [link_gruppo(v, spec, k) for _, _, k in terne]}
     if spec.get("per"):
         return _tabella_raggruppata(v, request, spec)

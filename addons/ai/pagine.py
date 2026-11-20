@@ -636,6 +636,31 @@ def salva_artifact(request, pk):
 
 @require_POST
 @login_required
+def periodo_artifact(request, pk):
+    """Il periodo scelto con i pulsanti sopra il grafico: si salva nella specifica e il grafico si ricalcola lì dov'è."""
+    from django.http import HttpResponseBadRequest
+
+    from core import misure
+    from core.viste.interroga import ErroreInterrogazione
+
+    from . import artifact as modulo
+    a = _mio_artifact(request, pk)
+    if a.tipo != Artifact.GRAFICO or misure.periodo_grafico(a.spec) is None:
+        raise Http404
+    try:
+        vecchia, a.spec = a.spec, misure.scegli_periodo(a.spec, *misure.scelta_dal_form(request.POST))
+        a.dati = modulo.ricalcola(a)
+    except ErroreInterrogazione as e:
+        return HttpResponseBadRequest(str(e))
+    a.titolo = misure.titolo_dopo_il_periodo(a.titolo, vecchia, a.spec)[:200]
+    a.save(update_fields=["spec", "dati", "titolo"])
+    if request.headers.get("HX-Request"):
+        return render(request, "ai/_artifact.html", {"a": a})
+    return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
+
+
+@require_POST
+@login_required
 def aggiorna_artifact(request, pk):
     """Ricalcola il grafico o la tabella lì dov'è, con i dati di oggi (stessi permessi e azienda di quando è stato chiesto)."""
     from core.viste.interroga import ErroreInterrogazione

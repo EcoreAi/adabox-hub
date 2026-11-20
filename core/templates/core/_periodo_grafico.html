@@ -1,0 +1,11 @@
+{% comment %}I pulsanti del periodo sopra un grafico (chat e Analisi): ogni tocco manda il periodo e il confronto, il server
+   ricalcola e rimanda il grafico al posto di quello di prima (HTMX). «Confronta» rimanda il periodo attuale con
+   inverti=1. Parametri: p (misure.periodo_grafico con «url», «bersaglio» e «confronto_possibile»).{% endcomment %}
+<form method="post" class="ui-periodo" action="{{ p.url }}" hx-post="{{ p.url }}" hx-target="{{ p.bersaglio }}" hx-swap="outerHTML" hx-disabled-elt="find button" aria-label="Periodo del grafico">{% csrf_token %}
+  <input type="hidden" name="confronta" value="{% if p.confronta %}1{% endif %}">
+  <input type="hidden" name="periodo_attuale" value="{{ p.scelto }}">
+  {% for k, e in p.pulsanti %}<button type="submit" name="periodo" value="{{ k }}" aria-pressed="{% if k == p.scelto %}true{% else %}false{% endif %}">{{ e }}</button>{% endfor %}
+  {% if p.sempre %}<button type="submit" name="periodo" value="" aria-pressed="{% if not p.scelto %}true{% else %}false{% endif %}">Sempre</button>{% endif %}
+  {% if p.confronto_possibile %}<span class="ui-periodo-sep" aria-hidden="true"></span>
+  <button type="submit" name="inverti" value="1" class="ui-periodo-confronta" aria-pressed="{% if p.confronta %}true{% else %}false{% endif %}"{% if not p.scelto and p.sempre %} disabled title="Scegli prima un periodo"{% else %} title="Lo stesso periodo un anno prima"{% endif %}>Confronta</button>{% endif %}
+</form>
