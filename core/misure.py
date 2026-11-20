@@ -458,3 +458,98 @@ def storia(nome, request, per, aziende=None, di=""):
         raise ErroreInterrogazione(f"La misura «{m.etichetta}» non ha una storia per {per}.")
     r = calcola(nome, request, dal=datetime.date(1900, 1, 1), al=_oggi(), per=per, aziende=aziende, di=di)
     return {_data(g["chiave"]): float(g["valore"] or 0) for g in r["gruppi"] if g.get("chiave")}
+
+
+# ---------- periodo sul grafico ----------
+# I pulsanti sopra un grafico (chat e Analisi): il periodo resta un nome relativo nella specifica, il calcolo lo
+# traduce in filtri. Solo dove c'è una data certa: le misure con un periodo e i grafici raggruppati per data.
+
+PULSANTI_PERIODO = (("mese", "Mese"), ("trimestre", "Trimestre"), ("anno", "Anno"), ("anno_scorso", "Anno scorso"))
+ETICHETTA_CONFRONTO = "Anno prima"
+
+
+def _misura_di(spec):
+    try:
+        return per_nome(spec["misura_aziendale"])
+    except ErroreInterrogazione:
+        return None
+
+
+def periodo_grafico(spec):
+    """{"scelto", "sempre", "confronta", "pulsanti"} se il grafico ha un periodo da scegliere, altrimenti None.
+    «scelto» vuoto: date fisse (misure) o nessun periodo (viste, «Sempre»)."""
+    spec = spec or {}
+    if spec.get("grafico") == "previsione" or spec.get("tipo") in ("tabella", "kpi"):
+        return None
+    comuni = {"confronta": bool(spec.get("confronta")), "pulsanti": PULSANTI_PERIODO}
+    if spec.get("misura_aziendale"):
+        m = _misura_di(spec)
+        if m is None or not m.periodo_su or m.funzione is not None:
+            return None
+        scelto = "" if spec.get("dal") or spec.get("al") else (spec.get("periodo") or m.periodo_predefinito)
+        return {"scelto": scelto, "sempre": False, **comuni}
+    if ":" in (spec.get("per") or ""):
+        return {"scelto": spec.get("periodo") or "", "sempre": True, **comuni}
+    return None
+
+
+def _campo_data(spec):
+    return (spec.get("per") or "").partition(":")[0]
+
+
+def _filtri_periodo(spec, p):
+    filtri = dict(interroga._decodifica(spec.get("filtri"), "filtri"))
+    campo = _campo_data(spec)
+    filtri[f"{campo}__gte"], filtri[f"{campo}__lte"] = p.dal.isoformat(), p.al.isoformat()
+    return filtri
+
+
+def spec_per_calcolo(spec):
+    """La specifica da calcolare: per i grafici su una vista il periodo diventa un filtro sulla data del
+    raggruppamento (le misure il periodo lo applicano da sé)."""
+    if spec.get("misura_aziendale") or not spec.get("periodo") or ":" not in (spec.get("per") or ""):
+        return spec
+    return {**spec, "filtri": _filtri_periodo(spec, risolvi_periodo(spec["periodo"]))}
+
+
+def spec_anno_prima(spec):
+    """La specifica dello stesso periodo un anno prima (per il confronto), o None se il grafico non ha un periodo."""
+    resto = {k: v for k, v in spec.items() if k not in ("periodo", "confronta", "dal", "al")}
+    if spec.get("misura_aziendale"):
+        m = _misura_di(spec)
+        if m is None or not m.periodo_su:
+            return None
+        p = risolvi_periodo(spec.get("periodo") or ("" if spec.get("dal") or spec.get("al") else m.periodo_predefinito),
+                            spec.get("dal"), spec.get("al"))
+        prima = _confronto(p, "anno_prima")
+        return {**resto, "dal": prima.dal.isoformat(), "al": prima.al.isoformat()}
+    if not spec.get("periodo") or ":" not in (spec.get("per") or ""):
+        return None
+    return {**resto, "filtri": _filtri_periodo(spec, _confronto(risolvi_periodo(spec["periodo"]), "anno_prima"))}
+
+
+def temporale(spec):
+    """Il grafico è raggruppato per data? Per le misure decide il raggruppamento dichiarato."""
+    if spec.get("misura_aziendale"):
+        m = _misura_di(spec)
+        return bool(m) and ":" in m.raggruppamenti.get(spec.get("per", ""), "")
+    return ":" in (spec.get("per") or "")
+
+
+def _un_anno_dopo(chiave):
+    try:
+        return _sposta_mesi(_data(chiave), 12).isoformat()
+    except (ErroreInterrogazione, TypeError, ValueError):
+        return None
+
+
+def con_confronto(dati, prima, temporale):
+    """I dati con la serie dell'anno prima, allineata ai punti per chiave (sulle date: la chiave di un anno dopo).
+    I punti senza un corrispondente valgono 0; «Altro» (chiave None) resta 0."""
+    valori = {}
+    for (_, v), k in zip(prima.get("serie", []), prima.get("chiavi") or []):
+        if k is not None:
+            valori[_un_anno_dopo(k) if temporale else k] = v
+    chiavi = dati.get("chiavi") or [None] * len(dati.get("serie", []))
+    return {**dati, "confronto": {"etichetta": ETICHETTA_CONFRONTO,
+                                  "valori": [valori.get(str(k) if temporale else k, 0) if k is not None else 0 for k in chiavi]}}
