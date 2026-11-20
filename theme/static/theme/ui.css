@@ -1874,3 +1874,24 @@ div.ui-checkbox-list input[type="checkbox"] { width: 16px; height: 16px; margin:
 .ui-periodo button:disabled { opacity: .45; cursor: default; }
 .ui-periodo button:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
 .ui-periodo-sep { width: 1px; height: 16px; background: var(--ui-border); margin: 0 4px; }
+
+/* Strumenti sopra un grafico: periodo e filtri sulla stessa riga (core/_periodo_grafico.html, core/_filtri_grafico.html). */
+.ui-strumenti-grafico { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0 2px; }
+.ui-strumenti-grafico .ui-periodo { margin: 0; }
+.ui-filtri { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.ui-filtro-attivo { display: inline-flex; align-items: center; gap: 2px; margin: 0; font-size: 12px; line-height: 1;
+  padding: 2px 2px 2px 10px; border-radius: 999px; background: color-mix(in srgb, var(--ui-primary) 12%, transparent); color: var(--ui-text); }
+.ui-filtro-attivo button { font: inherit; border: 0; background: none; cursor: pointer; color: var(--ui-text-2); padding: 3px 7px; border-radius: 999px; }
+.ui-filtro-attivo button:hover { background: rgba(0, 0, 0, .08); color: var(--ui-text); }
+.ui-filtra { position: relative; }
+.ui-filtra > summary { list-style: none; cursor: pointer; font-size: 12px; line-height: 1; padding: 5px 10px; border-radius: 999px;
+  border: 1px dashed var(--ui-border); color: var(--ui-text-2); }
+.ui-filtra > summary::-webkit-details-marker { display: none; }
+.ui-filtra[open] > summary, .ui-filtra > summary:hover { color: var(--ui-text); border-color: var(--ui-text-2); }
+.ui-filtra-pannello { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; min-width: 240px; padding: 10px 12px;
+  display: grid; gap: 8px; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .12); }
+.ui-filtra-voce { margin: 0; }
+.ui-filtra-voce label { display: grid; gap: 4px; font-size: 12px; color: var(--ui-text-2); }
+.ui-filtra-voce select { font: inherit; font-size: 13px; padding: 5px 8px; border: 1px solid var(--ui-border); border-radius: 8px;
+  background: var(--ui-surface); color: var(--ui-text); }
