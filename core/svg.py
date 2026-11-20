@@ -6,6 +6,13 @@ PALETTE = ["#1e3a8a", "#2f80ed", "#34c759", "#ff9f0a", "#ff3b30", "#5856d6", "#0
 TESTO, GRIGLIA, ASSE = "#6e6e73", "#e5e5ea", "#c7c7cc"
 
 
+def _corta(testo, n):
+    """Il testo accorciato a n caratteri veri (con «…») e poi reso sicuro per l'SVG: si accorcia PRIMA dell'escape,
+    altrimenti il taglio può cadere dentro un'entità («&amp;» → «&a»)."""
+    testo = str(testo)
+    return escape(testo if len(testo) <= n else testo[:n - 1].rstrip() + "…")
+
+
 def _svg(larghezza, altezza, titolo, corpo):
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {larghezza} {altezza}" role="img" '
             f'class="ui-grafico-svg" font-family="inherit" font-size="12"><title>{escape(titolo)}</title>{corpo}</svg>')
@@ -39,9 +46,9 @@ def _assi(dati, larghezza, altezza, titolo, disegna):
         x = sx + passo_x * (i + 0.5)
         if len(dati) > 8:
             parti.append(f'<text x="{x:.1f}" y="{su + h + 12}" text-anchor="end" fill="{TESTO}" '
-                         f'transform="rotate(-40 {x:.1f} {su + h + 12})">{escape(str(etichetta))[:24]}</text>')
+                         f'transform="rotate(-40 {x:.1f} {su + h + 12})">{_corta(etichetta, 24)}</text>')
         else:
-            parti.append(f'<text x="{x:.1f}" y="{su + h + 20}" text-anchor="middle" fill="{TESTO}">{escape(str(etichetta))[:24]}</text>')
+            parti.append(f'<text x="{x:.1f}" y="{su + h + 20}" text-anchor="middle" fill="{TESTO}">{_corta(etichetta, 24)}</text>')
     parti.append(f'<line x1="{sx}" y1="{su + h}" x2="{sx + w}" y2="{su + h}" stroke="{ASSE}"/>')
     parti.append(disegna(sx, su, w, h, massimo, passo_x))
     return _svg(larghezza, altezza, titolo, "".join(parti))
@@ -99,7 +106,7 @@ def torta(dati, titolo="", larghezza=720, altezza=320):
         if y < altezza - 10:
             percentuale = f"{quota * 100:.0f}%" if totale else "0%"
             parti.append(f'<rect x="340" y="{y - 10}" width="12" height="12" rx="2" fill="{colore}"/>'
-                         f'<text x="360" y="{y}" fill="#1d1d1f">{escape(str(etichetta))[:30]} '
+                         f'<text x="360" y="{y}" fill="#1d1d1f">{_corta(etichetta, 30)} '
                          f'<tspan fill="{TESTO}">{_fmt(float(v))} · {percentuale}</tspan></text>')
     return _svg(larghezza, altezza, titolo, "".join(parti))
 
