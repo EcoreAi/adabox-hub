@@ -4,7 +4,7 @@ from core import cifratura
 from core.viste import Inline, ModelView, register
 
 from .forms import AssistenteForm, ChiaveAziendaForm, PianificataForm, ProgettoChatForm, ProviderForm, ServerMCPForm, ServizioVoceForm
-from .models import (AnelloCatena, Assistente, ChiaveAzienda, IndiceDocumento, Modello, OblioDocumento, Pianificata, Profilo, Proposta, Provider, MemoriaUtente, ProgettoChat, ServerMCP, ServizioVoce, StrumentoSpento, TettoUtente,
+from .models import (AccessoModello, AnelloCatena, Assistente, ChiaveAzienda, IndiceDocumento, Modello, OblioDocumento, Pianificata, Profilo, Proposta, Provider, MemoriaUtente, ProgettoChat, ServerMCP, ServizioVoce, StrumentoSpento, TettoUtente,
                      ValutazioneRisposta, Turno)
 
 
@@ -36,6 +36,10 @@ class ProviderView(ModelView):
         if request is None:
             return base
         return type("ProviderFormUtente", (base,), {"global_admin": request.user.is_superuser})
+
+    def has_add_permission(self, request):
+        from . import limiti                          # piano con i soli provider forniti: il cliente non ne aggiunge
+        return super().has_add_permission(request) and (request.user.is_superuser or not limiti.solo_forniti())
 
     def has_change_permission(self, request, obj=None):
         return super().has_change_permission(request, obj) and not _riservato(request, obj)
@@ -131,6 +135,21 @@ class ProfiloView(ModelView):
     def col_catena_modelli(self, obj):
         return " → ".join(a.modello.etichetta for a in obj.catena.select_related("modello")) or "—"
     col_catena_modelli.short_description = "Catena"
+
+
+@register
+class AccessoModelliView(ModelView):
+    """Chi può usare ogni modello: i modelli che non sono in elenco sono di tutti."""
+    model = AccessoModello
+    slug = "accessi"
+    storico = False
+    list_display = ["modello", "ammessi"]
+    form_layout = [("Accesso al modello", ["modello", "gruppi", "utenti"])]
+
+    def col_ammessi(self, obj):
+        nomi = [g.name for g in obj.gruppi.all()] + [u.get_full_name() or u.username for u in obj.utenti.all()]
+        return ", ".join(nomi) or "tutti"
+    col_ammessi.short_description = "Chi può usarlo"
 
 
 @register

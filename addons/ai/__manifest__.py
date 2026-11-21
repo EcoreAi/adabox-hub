@@ -1,7 +1,7 @@
 {
     "name": "Assistente AI",
     "summary": "Chat con l'assistente: cronologia delle conversazioni, artifact e documenti salvati",
-    "version": "1.55.0",
+    "version": "1.56.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -18,6 +18,7 @@
         {"label": "Strumenti", "url_name": "ai:strumenti", "permission": "ai.view_strumentospento"},
         {"label": "Provider e chiavi", "url_name": "ai:provider_lista", "permission": "ai.change_provider"},
         {"label": "Consumi", "url_name": "ai:consumi_lista", "permission": "ai.view_turno"},
+        {"label": "Accesso ai modelli", "url_name": "ai:accessi_lista", "permission": "ai.change_accessomodello"},
         {"label": "Tetti per persona", "url_name": "ai:tetti_lista", "permission": "ai.change_tettoutente"},
         {"label": "Registro modifiche", "url_name": "ai:registro_lista", "permission": "ai.view_proposta", "funzione": "scritture"},
         {"label": "Voce", "url_name": "ai:voce_lista", "permission": "ai.change_serviziovoce", "funzione": "voce"},

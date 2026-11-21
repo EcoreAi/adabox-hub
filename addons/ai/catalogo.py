@@ -35,10 +35,15 @@ def catena(profilo, azienda=None):
     return risultato
 
 
-def sceglibili(azienda=None):
-    """[(modello, chiave)] che un utente può scegliere in chat: quelli abilitati e con una chiave."""
+def sceglibili(azienda=None, utente=None):
+    """[(modello, chiave)] che un utente può scegliere in chat: quelli abilitati e con una chiave. Con `utente`, senza
+    quelli a cui non è abilitato e, se la licenza lo dice, senza quelli non forniti con il piano."""
+    from . import limiti
+    vietati, solo_forniti = limiti.modelli_vietati(utente), limiti.solo_forniti()
     risultato = []
     for modello in Modello.objects.filter(sceglibile=True, attivo=True, provider__attivo=True).select_related("provider").order_by("etichetta"):
+        if modello.pk in vietati or (solo_forniti and not modello.provider.gestito):
+            continue
         chiave = modello.provider.chiave_per(azienda)
         if modello.provider.tipo not in Provider.CON_CHIAVE or chiave:
             risultato.append((modello, chiave))

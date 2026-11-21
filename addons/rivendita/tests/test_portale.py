@@ -291,12 +291,18 @@ def test_i_termini_dell_assistente_vanno_in_licenza_solo_se_servono(client, scen
     termini = ai_in_licenza()
     assert termini == {"formula": "inclusa", "quota_utente": "5.00", "quota_istanza": "200.00"}     # il ricarico resta sul portale
     assert licenza_ai.termini(termini) == {"formula": "inclusa", "quota_utente": Decimal("5.00"), "quota_istanza": Decimal("200.00"),
-                                           "tetto_istanza": Decimal("0")}
+                                           "tetto_istanza": Decimal("0"), "solo_forniti": False}
     # l'istanza può avere condizioni sue; a consumo la quota per utente non esiste
     Istanza.objects.filter(pk=istanza.pk).update(ai_formula="consumo", ai_quota_istanza=0)
     istanza.refresh_from_db()
     assert istanza.termini_ai() == {"formula": "consumo", "quota_utente": Decimal("5.00"), "quota_istanza": Decimal("0"), "tetto_istanza": Decimal("0"),
-                                    "ricarico": Decimal("30.00")}
+                                    "ricarico": Decimal("30.00"), "solo_forniti": False}
+    Piano.objects.filter(pk=istanza.piano_id).update(ai_solo_forniti=True)     # solo ciò che forniamo noi: va in licenza
+    istanza.refresh_from_db()
+    assert ai_in_licenza() == {"formula": "consumo", "quota_utente": "0", "quota_istanza": "0.00", "solo_forniti": True}
+    assert licenza_ai.termini(ai_in_licenza())["solo_forniti"] is True
+    Piano.objects.filter(pk=istanza.piano_id).update(ai_solo_forniti=False)
+    istanza.refresh_from_db()
     assert ai_in_licenza() == {"formula": "consumo", "quota_utente": "0", "quota_istanza": "0.00"}
     # mista: la quota compresa (qui 5 $ per i 10 utenti del piano) e il tetto; l'istanza li legge
     Istanza.objects.filter(pk=istanza.pk).update(ai_formula="mista", ai_quota_istanza=0, ai_tetto_istanza=120)

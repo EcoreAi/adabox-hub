@@ -97,7 +97,7 @@ class PianiView(ModelView):
     list_filter = ["attivo", "ai_formula"]
     search_fields = ["nome"]
     form_layout = [("Piano", [("nome", "attivo"), ("prezzo_mese", "prezzo_utente_mese"), "utenti", "moduli", "descrizione"]),
-                   ("Assistente AI", [("ai_formula", "ai_ricarico"), ("ai_quota_utente", "ai_quota_istanza"), "ai_tetto_istanza"]),
+                   ("Assistente AI", [("ai_formula", "ai_ricarico"), ("ai_quota_utente", "ai_quota_istanza"), "ai_tetto_istanza", "ai_solo_forniti"]),
                    ("Funzioni dei moduli", ["moduli_a_funzioni", "funzioni"])]
 
 

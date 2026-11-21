@@ -33,6 +33,15 @@ commit; qui solo ciò che si vede o che chiede un intervento.
     **Prima di vendere «mista» a un'istanza, aggiornarla ad AI 1.55**: una versione più vecchia non conosce la formula
     e la tratta come «chiave del cliente».
 
+- **Chi usa quali modelli** — AI 1.56.0, Rivendita 1.7.0 (una migrazione ciascuno). Senza configurare niente non cambia nulla.
+  - **Accesso ai modelli** (Assistente AI → «Accesso ai modelli»): l'Admin indica per un modello i gruppi (i ruoli) e le
+    persone ammesse; chi non c'è non lo vede nella scelta Veloce/Avanzato e non lo riceve dalla catena (risponde il
+    modello successivo a cui è abilitato). Un modello non in elenco è di tutti; vale anche per i modelli forniti con il
+    piano. I lavori di sistema e il Global Admin non hanno restrizioni.
+  - **Solo i modelli forniti con il piano**: spunta nel piano sul portale (o `ai_licenza --solo-forniti`), non con
+    «chiave del cliente». Sull'istanza i provider e i servizi voce aggiunti dal cliente non rispondono e l'Admin non
+    può crearne: decide tutto il Global Admin. La pagina della licenza lo dice.
+
 ## 2026-11-20
 
 - **Periodo sul grafico** — Kernel 1.6.0, AI 1.53.0, Analisi 1.9.0 (nessuna migrazione; AI e Analisi chiedono il

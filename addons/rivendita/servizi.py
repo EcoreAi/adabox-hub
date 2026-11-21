@@ -156,11 +156,12 @@ def ai_di(istanza):
     termini = istanza.termini_ai()
     if termini["formula"] == AI_PROPRIA:
         return None
+    solo = {"solo_forniti": True} if termini["solo_forniti"] else {}     # senza, la licenza resta com'era
     if termini["formula"] == AI_MISTA:                     # la quota compresa già calcolata (anche da quella per utente) e il tetto
         return {"formula": AI_MISTA, "quota_utente": "0", "quota_istanza": str(quota_ai(istanza, termini)),
-                "tetto_istanza": str(termini["tetto_istanza"])}
+                "tetto_istanza": str(termini["tetto_istanza"]), **solo}
     quota_utente = termini["quota_utente"] if termini["formula"] == AI_INCLUSA else Decimal(0)
-    return {"formula": termini["formula"], "quota_utente": str(quota_utente), "quota_istanza": str(termini["quota_istanza"])}
+    return {"formula": termini["formula"], "quota_utente": str(quota_utente), "quota_istanza": str(termini["quota_istanza"]), **solo}
 
 
 def cambio():

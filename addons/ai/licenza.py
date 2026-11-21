@@ -16,6 +16,8 @@ con termini scritti male, vale «propria»: il cliente usa la sua chiave, come p
 - consumo: si fattura l'utilizzo; la quota dell'istanza, se c'è, è il tetto massimo;
 - mista: la quota dell'istanza è compresa nel canone e l'utilizzo oltre la quota si fattura a consumo; non ferma
   niente. Il tetto massimo, se c'è, è "tetto_istanza".
+"solo_forniti": true (con una formula diversa da «propria») lascia usare solo i provider e i servizi voce forniti con
+il piano: quelli aggiunti dal cliente, con la sua chiave, non rispondono.
 Le quote contano solo il costo sui provider «forniti con il piano» (Provider.gestito): vedi ai.limiti."""
 import datetime
 import json
@@ -51,6 +53,7 @@ class Stato:
     quota_utente: Decimal = Decimal(0)                  # $ al mese sui provider forniti con il piano; 0 = senza limite
     quota_istanza: Decimal = Decimal(0)
     tetto_istanza: Decimal = Decimal(0)                 # solo «mista»: oltre, i modelli del piano si fermano; 0 = senza
+    solo_forniti: bool = False                          # si usano solo provider e servizi voce forniti con il piano
 
     @property
     def blocco_istanza(self):
@@ -107,11 +110,12 @@ def _quota(valore):
 
 
 def termini(dati):
-    """{formula, quota_utente, quota_istanza, tetto_istanza} da un pezzo di licenza. Ciò che è scritto male non vale: una formula
+    """{formula, quota_utente, quota_istanza, tetto_istanza, solo_forniti} da un pezzo di licenza. Ciò che è scritto male non vale: una formula
     sconosciuta è «propria», una quota illeggibile è nessuna quota."""
     dati = dati if isinstance(dati, dict) else {}
     formula = dati.get("formula")
-    return {"formula": formula if isinstance(formula, str) and formula in FORMULE else PROPRIA,
+    formula = formula if isinstance(formula, str) and formula in FORMULE else PROPRIA
+    return {"formula": formula, "solo_forniti": formula != PROPRIA and dati.get("solo_forniti") is True,
             "quota_utente": _quota(dati.get("quota_utente")), "quota_istanza": _quota(dati.get("quota_istanza")),
             "tetto_istanza": _quota(dati.get("tetto_istanza"))}
 

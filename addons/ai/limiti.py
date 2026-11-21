@@ -1,5 +1,7 @@
 """Prima di ogni turno: licenza valida, utenti entro il limite, spesa del mese entro il tetto dell'azienda.
 
+`ammessi` toglie dalla catena anche i modelli a cui la persona non è abilitata (AccessoModello) e, se la licenza dice
+«solo_forniti», quelli non forniti con il piano.
 Accanto al tetto dell'azienda c'è quello della persona, deciso dall'Admin (TettoUtente, o l'impostazione generale).
 Il tetto dell'azienda vale per ogni chiamata ai modelli, non solo per la chat: i lavori di contorno (titoli, riassunti,
 verifica delle citazioni) lo controllano passando l'azienda ad `ammessi`. I turni senza azienda hanno il loro conto,
@@ -141,6 +143,16 @@ def ammessi(catena, utente=None, azienda=_NON_DATA):
     che non chiamano `verifica`."""
     if azienda is not _NON_DATA:
         controlla_tetto(azienda, utente)
+    if vietati := modelli_vietati(utente):
+        catena = [anello for anello in catena if anello[0].pk not in vietati]
+        if not catena:
+            raise ErroreModello("LIMITE", "Nessuno dei modelli previsti qui è tra quelli a cui sei abilitato: "
+                                          "chiedi all'amministratore.")
+    if solo_forniti():
+        catena = [anello for anello in catena if anello[0].provider.gestito]
+        if not catena:
+            raise ErroreModello("LIMITE", "Il piano prevede solo i modelli forniti con il piano, e qui non ce n'è nessuno "
+                                          "disponibile: contatta l'amministratore.")
     if not any(modello.provider.gestito for modello, _ in catena):
         return catena
     motivo = fornito_fermo(utente)
@@ -150,6 +162,30 @@ def ammessi(catena, utente=None, azienda=_NON_DATA):
     if not restanti:
         raise ErroreModello("LIMITE", motivo)
     return restanti
+
+
+def solo_forniti():
+    """True se la licenza lascia usare solo provider e servizi voce forniti con il piano."""
+    stato = licenza.attuale()
+    return stato.valida and stato.solo_forniti
+
+
+def modelli_vietati(utente):
+    """I pk dei modelli riservati ad altri (AccessoModello): quelli con gruppi o persone ammesse tra cui questa persona
+    non c'è. Vuoto senza persona (lavori di sistema) e per il Global Admin."""
+    if utente is None or utente.is_superuser:
+        return set()
+    from .models import AccessoModello
+    miei, vietati = None, set()
+    for accesso in AccessoModello.objects.prefetch_related("gruppi", "utenti"):
+        gruppi, utenti = {g.pk for g in accesso.gruppi.all()}, {u.pk for u in accesso.utenti.all()}
+        if not gruppi and not utenti:
+            continue
+        if miei is None:
+            miei = set(utente.groups.values_list("pk", flat=True))
+        if utente.pk not in utenti and not gruppi & miei:
+            vietati.add(accesso.modello_id)
+    return vietati
 
 
 def fornito_fermo(utente=None):

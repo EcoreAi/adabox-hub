@@ -111,6 +111,9 @@ class Piano(models.Model):
     ai_ricarico = models.DecimalField(
         "ricarico sull'AI a consumo (%)", max_digits=6, decimal_places=2, default=0, validators=[MinValueValidator(0)],
         help_text="si aggiunge al costo dei modelli quando l'assistente si fattura a consumo (con «mista»: sulla parte oltre la quota)")
+    ai_solo_forniti = models.BooleanField(
+        "solo i modelli forniti con il piano", default=False,
+        help_text="non con «chiave del cliente»: il cliente non può usare fornitori suoi, risponde solo ciò che forniamo noi")
     attivo = models.BooleanField("attivo", default=True)
     moduli_a_funzioni = models.ManyToManyField(
         ModuloVendibile, blank=True, related_name="piani_a_funzioni", verbose_name="moduli con le funzioni scelte",
@@ -220,11 +223,12 @@ class Istanza(models.Model):
 
     def termini_ai(self):
         """{formula, quota_utente, quota_istanza, tetto_istanza, ricarico}: i valori dell'istanza, dove ci sono,
-        altrimenti del piano."""
+        altrimenti del piano. «solo_forniti» è sempre del piano."""
         def scelto(nome):
             proprio = getattr(self, nome)
             return getattr(self.piano, nome) if proprio is None else proprio
         return {"formula": self.ai_formula or self.piano.ai_formula, "quota_utente": scelto("ai_quota_utente"),
+                "solo_forniti": self.piano.ai_solo_forniti,
                 "quota_istanza": scelto("ai_quota_istanza"), "tetto_istanza": scelto("ai_tetto_istanza"), "ricarico": scelto("ai_ricarico")}
 
 

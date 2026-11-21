@@ -47,6 +47,8 @@ def _ammesso(servizio, utente, azienda):
         limiti.controlla_tetto(azienda, utente)
     except ErroreModello as e:
         raise ErroreVoce(e.messaggio) from e
+    if not servizio.gestito and limiti.solo_forniti():
+        raise ErroreVoce("Il piano prevede solo i servizi voce forniti con il piano.")
     if servizio.gestito and (motivo := limiti.fornito_fermo(utente)):
         raise ErroreVoce(motivo)
 

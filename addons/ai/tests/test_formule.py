@@ -64,7 +64,7 @@ def test_termini_nella_licenza_dell_assistente(db, chiavi):  # noqa: F811
     strana = licenza.leggi(_licenza(chiavi, formula="regalo", quota_utente="tanto", quota_istanza="-3"))
     assert strana.valida and (strana.formula, strana.quota_utente, strana.quota_istanza) == ("propria", 0, 0)
     assert licenza.leggi(_licenza(chiavi, formula=["inclusa"], quota_utente="NaN", quota_istanza=[1])).formula == "propria"
-    assert licenza.termini("non un dizionario") == {"formula": "propria", "quota_utente": 0, "quota_istanza": 0, "tetto_istanza": 0}
+    assert licenza.termini("non un dizionario") == {"formula": "propria", "quota_utente": 0, "quota_istanza": 0, "tetto_istanza": 0, "solo_forniti": False}
 
 
 def test_termini_dalla_licenza_dell_istanza(db, chiavi):  # noqa: F811
@@ -256,6 +256,59 @@ def test_formula_mista_la_quota_non_ferma_il_tetto_si(db, chiavi, client, superu
     with pytest.raises(ErroreModello, match="tetto mensile dell'assistente previsto dal piano"):
         limiti.ammessi(solo_piano, anna)
     assert limiti.fuori_formula() == []
+
+
+def test_modelli_riservati_a_gruppi_e_persone(db, client, monkeypatch):
+    """L'Admin decide chi usa un modello: chi non è ammesso non lo vede nella scelta e non lo riceve dalla catena."""
+    from ai import catalogo
+    from ai.models import AccessoModello
+    monkeypatch.setattr(esecuzione, "_dormi", lambda s: None)
+    veloce, avanzato = _modello("Veloce"), _modello("Avanzato")
+    Modello.objects.filter(pk=veloce.pk).update(livello_chat="veloce", sceglibile=True)
+    Modello.objects.filter(pk=avanzato.pk).update(livello_chat="avanzato", sceglibile=True)
+    catena = _catena(avanzato, veloce)
+    anna, bruno, carla = (User.objects.create_user(n) for n in ("anna", "bruno", "carla"))
+    assert limiti.ammessi(catena, anna) == catena                              # senza righe: tutti i modelli a tutti
+    direzione = Group.objects.create(name="Direzione")
+    bruno.groups.add(direzione)
+    accesso = AccessoModello.objects.create(modello=avanzato)
+    assert limiti.ammessi(catena, anna) == catena                              # riga vuota: ancora di tutti
+    accesso.gruppi.add(direzione)
+    accesso.utenti.add(carla)
+    assert [m for m, _ in limiti.ammessi(catena, anna)] == [veloce]
+    assert limiti.ammessi(catena, bruno) == catena == limiti.ammessi(catena, carla)       # per gruppo e per persona
+    assert limiti.ammessi(catena) == catena                                    # i lavori di sistema non hanno una persona
+    assert limiti.ammessi(catena, User.objects.create_superuser("root2")) == catena
+    assert [m for m, _ in catalogo.sceglibili(None, anna)] == [veloce]         # nella scelta della chat non compare
+    assert {m for m, _ in catalogo.sceglibili(None, bruno)} == {veloce, avanzato}
+    with pytest.raises(ErroreModello, match="a cui sei abilitato"):
+        limiti.ammessi([(avanzato, "")], anna)
+    with finto.con_copione([["ciao"], ["Titolo"]]) as chiamate:                # dal motore: risponde quello permesso
+        turno = motore.avvia(Conversazione.objects.create(utente=anna), "ciao", anna)
+    turno.refresh_from_db()
+    assert turno.stato == "completato" and turno.modello == veloce and {c["modello"] for c in chiamate} == {"veloce"}
+    client.force_login(User.objects.get(username="root2"))
+    pagina = client.get("/ai/accessi/").content.decode()
+    assert "Direzione" in pagina and "carla" in pagina
+
+
+def test_solo_i_modelli_forniti_con_il_piano(db, chiavi, client, amministratore):  # noqa: F811
+    """Licenza con «solo_forniti»: i provider aggiunti dal cliente non rispondono e l'Admin non ne crea."""
+    from ai import catalogo
+    piano, proprio = _modello("Piano", gestito=True), _modello("Proprio")
+    Modello.objects.update(sceglibile=True)
+    catena = [(proprio, ""), (piano, "")]
+    _con_formula(chiavi, formula="inclusa")
+    assert limiti.ammessi(catena, amministratore) == catena and not limiti.solo_forniti()
+    assert client.get("/ai/provider/nuovo/").status_code == 200
+    _con_formula(chiavi, formula="inclusa", solo_forniti=True)
+    assert limiti.solo_forniti() and limiti.ammessi(catena, amministratore) == [(piano, "")]
+    assert [m for m, _ in catalogo.sceglibili(None, amministratore)] == [piano]
+    with pytest.raises(ErroreModello, match="solo i modelli forniti con il piano"):
+        limiti.ammessi([(proprio, "")], amministratore)
+    assert client.get("/ai/provider/nuovo/").status_code == 403
+    _con_formula(chiavi, solo_forniti=True)                                    # con la chiave del cliente non ha senso: non vale
+    assert not limiti.solo_forniti()
 
 
 # ---------- chi tocca i provider del piano ----------

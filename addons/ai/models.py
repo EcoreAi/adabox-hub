@@ -845,6 +845,22 @@ class AreaCorrente(models.Model):
         constraints = [models.UniqueConstraint(fields=["utente", "azienda"], name="ai_area_corrente_unica")]
 
 
+class AccessoModello(models.Model):
+    """Chi può usare un modello: i gruppi (cioè i ruoli) e le persone indicate. Un modello senza una riga qui, o con
+    una riga vuota, è di tutti. Lo decide l'Admin, anche per i modelli forniti con il piano."""
+    modello = models.OneToOneField(Modello, on_delete=models.CASCADE, related_name="accesso", verbose_name="modello")
+    gruppi = models.ManyToManyField("auth.Group", blank=True, related_name="+", verbose_name="gruppi ammessi")
+    utenti = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="+", verbose_name="persone ammesse")
+
+    class Meta:
+        verbose_name = "accesso a un modello"
+        verbose_name_plural = "accesso ai modelli"
+        ordering = ["modello__etichetta"]
+
+    def __str__(self):
+        return f"Accesso a {self.modello}"
+
+
 class TettoUtente(models.Model):
     """Il tetto di spesa mensile dell'assistente di una persona, deciso dall'Admin: vale al posto di quello generale
     dell'impostazione «Tetto di spesa mensile per persona»."""

@@ -22,6 +22,7 @@ class Command(BaseCommand):
         parser.add_argument("--formula", choices=sorted(licenza.FORMULE), help="come si vende l'assistente (default: propria, la chiave del cliente)")
         parser.add_argument("--quota-utente", help="$ al mese per utente sui provider forniti con il piano (con «inclusa»)")
         parser.add_argument("--quota-istanza", help="$ al mese per tutta l'istanza: quota compresa con «inclusa» e «mista», tetto con «consumo»")
+        parser.add_argument("--solo-forniti", action="store_true", help="si usano solo provider e servizi voce forniti con il piano (non con «propria»)")
         parser.add_argument("--tetto-istanza", help="$ al mese: con «mista», il massimo oltre il quale i modelli del piano si fermano")
         parser.add_argument("--uscita", help="file da scrivere (default: stampa)")
 
@@ -50,6 +51,10 @@ class Command(BaseCommand):
             contenuto["funzioni"] = chiavi
         if opzioni.get("formula"):
             contenuto["formula"] = opzioni["formula"]
+        if opzioni.get("solo_forniti"):
+            if licenza.termini(contenuto)["formula"] == licenza.PROPRIA:
+                raise CommandError("--solo-forniti vale con --formula inclusa, consumo o mista")
+            contenuto["solo_forniti"] = True
         for nome in ("quota_utente", "quota_istanza", "tetto_istanza"):
             if opzioni.get(nome) is not None:
                 contenuto[nome] = self._quota(nome, opzioni[nome])

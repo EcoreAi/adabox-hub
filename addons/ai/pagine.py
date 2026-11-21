@@ -72,18 +72,18 @@ def _fornitore_immagini(azienda):
     return next((m.etichetta for m, _ in catena if m.visione and not m.provider.locale), "un modello cloud")
 
 
-def livelli_modello(azienda):
+def livelli_modello(azienda, utente=None):
     """[(livello, modello)] della scelta in chat: «standard» è Veloce, «max» è Avanzato. Valgono i modelli con il
     livello assegnato; se nessuno ne ha uno, Veloce è il più economico dei sceglibili e Avanzato il più caro.
     Con Automatico: Veloce, poi Avanzato, poi la catena del profilo della chat (catalogo.automatico).
     Senza la funzione «piu_modelli» niente scelta: risponde il modello degli amministratori."""
     if not funzioni.attiva("piu_modelli"):
         return []
-    disponibili = [m for m, _ in catalogo.sceglibili(azienda)]
+    disponibili = [m for m, _ in catalogo.sceglibili(azienda, utente)]
     assegnati = {m.livello_chat: m for m in disponibili if m.livello_chat}
     if assegnati:
         return [(livello, assegnati[nome]) for livello, nome in (("standard", "veloce"), ("max", "avanzato")) if nome in assegnati]
-    modelli = sorted((m for m, _ in catalogo.sceglibili(azienda)),
+    modelli = sorted(disponibili,
                      key=lambda m: (m.prezzo_output or 0, m.prezzo_input or 0, m.pk))   # senza prezzo conta come gratuito
     if not modelli:
         return []
@@ -170,7 +170,7 @@ def chat(request, pk=None, progetto=None):
         "progetto_nuova": progetto_nuova,
         # chat nuova in un progetto con un'app predefinita: parte limitata a quell'app (se l'utente la vede ancora)
         "ambito_nuova": progetto_nuova.ambito if progetto_nuova and progetto_nuova.ambito in {a["slug"] for a in app} else "",
-        "livelli_modello": livelli_modello(azienda),
+        "livelli_modello": livelli_modello(azienda, request.user),
         "app_gruppi": barra.gruppi([{**a, "categoria": a.get("category", "")} for a in app]),
         "ricerca_disponibile": ricerca.disponibile(azienda),
         "conferma_immagini": _fornitore_immagini(azienda) if allegati_chat.serve_conferma(azienda) else "",
@@ -277,7 +277,7 @@ def invia(request, pk=None):
         conversazione.ambito = ambito
         conversazione.save(update_fields=["ambito"])
     if "modello" in request.POST and funzioni.attiva("piu_modelli"):   # vuoto = quello degli amministratori
-        ammessi_modelli = {str(m.pk): m for m, _ in catalogo.sceglibili(getattr(request, "azienda", None))}
+        ammessi_modelli = {str(m.pk): m for m, _ in catalogo.sceglibili(getattr(request, "azienda", None), request.user)}
         scelto = ammessi_modelli.get(request.POST["modello"])
         if conversazione.modello_id != getattr(scelto, "pk", None):
             conversazione.modello = scelto
@@ -498,7 +498,7 @@ def pagina_licenza(request):
         "spesa": limiti.spesa_mese(azienda) if azienda else None,
         "tetto": limiti.tetto(azienda) if azienda else None, "utenti_mese": len(limiti.utenti_del_mese()),
         "a_formula": a_formula, "consumo_fornito": limiti.consumo_fornito(),
-        "fuori_formula": limiti.fuori_formula(),
+        "fuori_formula": limiti.fuori_formula(), "non_forniti": list(Provider.objects.filter(gestito=False, attivo=True)) if stato.valida and stato.solo_forniti else [],
         "senza_fornito": a_formula and not Provider.objects.filter(gestito=True, attivo=True).exists(),
         "consumo_per_utente": limiti.consumo_per_utente() if stato.valida and stato.formula == licenza.INCLUSA else []})
 
