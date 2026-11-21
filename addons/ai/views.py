@@ -521,10 +521,29 @@ class ServizioVoceView(ModelView):
     list_display = ["nome", "uso", "tipo", "azienda", "chiave", "attivo"]
     form_class = ServizioVoceForm
     form_layout = [("Servizio", [("nome", "uso"), ("tipo", "azienda"), "attivo", "nuova_chiave", "regione"]),
-                   ("Voci (vuoto = quelle consigliate)", [("modello",), ("voce_it", "voce_en")])]
+                   ("Voci (vuoto = quelle consigliate)", [("modello",), ("voce_it", "voce_en")]),
+                   ("Costo (per i consumi e il tetto di spesa)", [("prezzo_caratteri", "prezzo_minuto"), "gestito"])]
     storico = False
     personale = True
     buttons = ["prova"]
+
+    # un servizio fornito con il piano (chiave di chi vende, prezzi che fanno la quota) lo cambia solo il Global Admin
+    def get_form_class(self, request=None):
+        base = super().get_form_class(request)
+        if request is None:
+            return base
+        return type("ServizioVoceFormUtente", (base,), {"global_admin": request.user.is_superuser})
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj) and not _riservato(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return super().has_delete_permission(request, obj) and not _riservato(request, obj)
+
+    def save_model(self, request, obj, form, change):
+        if not request.user.is_superuser and (obj.gestito or (change and ServizioVoce.objects.filter(pk=obj.pk, gestito=True).exists())):
+            raise PermissionDenied
+        super().save_model(request, obj, form, change)
 
     def layout_dettaglio(self):
         return [(t, [[c for c in riga if c != "nuova_chiave"] for riga in righe if riga != ["nuova_chiave"]]) for t, righe in super().layout_dettaglio()]

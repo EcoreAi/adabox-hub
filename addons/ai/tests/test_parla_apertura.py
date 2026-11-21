@@ -272,7 +272,7 @@ def test_voce_spenta_niente_apertura(client, s, alle_nove):
 
 def test_l_audio_legge_solo_il_testo_dell_apertura(client, s, alle_nove, monkeypatch):
     letti = []
-    monkeypatch.setattr(parla.voce, "audio_di", lambda servizio, testo, lingua: letti.append((testo, lingua)) or (b"RIFF", "audio/wav"))
+    monkeypatch.setattr(parla.voce, "audio_di", lambda servizio, testo, lingua, utente=None, azienda=None: letti.append((testo, lingua)) or (b"RIFF", "audio/wav"))
     _evento(s, "Demo", 15, 30)
     ap = apertura.componi(s["richiesta"], _alle(9))
     r = client.get(reverse("ai:parla_apertura", args=[ap.pk]))

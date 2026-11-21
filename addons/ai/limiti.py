@@ -127,18 +127,24 @@ def ammessi(catena, utente=None, azienda=_NON_DATA):
         controlla_tetto(azienda)
     if not any(modello.provider.gestito for modello, _ in catena):
         return catena
-    stato = licenza.attuale()
-    if stato.valida and not stato.sviluppo and stato.formula == licenza.PROPRIA:
-        motivo, rimedio = FUORI_FORMULA, "Chiedi all'amministratore di configurare un provider con la chiave dell'azienda."
-    else:
-        motivo, rimedio = quota_finita(utente, stato), ("L'assistente riprende il primo del mese: per continuare prima, "
-                                                        "chiedi all'amministratore di ampliare il piano.")
+    motivo = fornito_fermo(utente)
     if not motivo:
         return catena
     restanti = [anello for anello in catena if not anello[0].provider.gestito]
     if not restanti:
-        raise ErroreModello("LIMITE", f"{motivo} {rimedio}")
+        raise ErroreModello("LIMITE", motivo)
     return restanti
+
+
+def fornito_fermo(utente=None):
+    """Perché ora ciò che è fornito con il piano (modelli, servizi voce) non si può usare, o "" se si può: la licenza
+    prevede la chiave del cliente, o la quota del mese è finita."""
+    stato = licenza.attuale()
+    if stato.valida and not stato.sviluppo and stato.formula == licenza.PROPRIA:
+        return f"{FUORI_FORMULA} Chiedi all'amministratore di configurare un provider con la chiave dell'azienda."
+    if motivo := quota_finita(utente, stato):
+        return f"{motivo} L'assistente riprende il primo del mese: per continuare prima, chiedi all'amministratore di ampliare il piano."
+    return ""
 
 
 def fuori_formula():

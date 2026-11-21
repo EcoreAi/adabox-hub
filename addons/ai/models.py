@@ -730,6 +730,13 @@ class ServizioVoce(models.Model):
     voce_it = models.CharField("voce italiana", max_length=100, blank=True, help_text="vuota = quella consigliata")
     voce_en = models.CharField("voce inglese", max_length=100, blank=True, help_text="vuota = quella consigliata")
     attivo = models.BooleanField("attivo", default=True)
+    prezzo_caratteri = models.DecimalField("lettura: $ per milione di caratteri", max_digits=10, decimal_places=4, null=True, blank=True,
+                                           help_text="il prezzo del fornitore; vuoto = la lettura non si conta nei consumi")
+    prezzo_minuto = models.DecimalField("trascrizione: $ per minuto di audio", max_digits=10, decimal_places=4, null=True, blank=True,
+                                        help_text="il prezzo del fornitore; vuoto = la trascrizione non si conta nei consumi")
+    gestito = models.BooleanField("fornito con il piano", default=False,
+                                  help_text="la chiave è di chi fornisce l'assistente: il suo costo conta sulla quota della licenza, "
+                                            "e servizio e prezzi li cambia solo il Global Admin")
 
     class Meta:
         verbose_name = "servizio voce"
@@ -753,6 +760,16 @@ class ServizioVoce(models.Model):
     def chiave(self):
         from core import cifratura
         return cifratura.decifra(self.chiave_cifrata) if self.chiave_cifrata else ""
+
+    def costo_lettura(self, testo):
+        """In dollari: i caratteri letti per il prezzo al milione. Kokoro è nostro e non costa."""
+        from decimal import Decimal
+        return Decimal(0) if self.locale else Decimal(len(testo)) * (self.prezzo_caratteri or 0) / Decimal(1_000_000)
+
+    def costo_trascrizione(self, secondi):
+        """In dollari: la durata dell'audio per il prezzo al minuto."""
+        from decimal import Decimal
+        return Decimal(str(secondi or 0)) * (self.prezzo_minuto or 0) / Decimal(60)
 
 
 class Apertura(models.Model):

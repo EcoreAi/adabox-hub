@@ -52,7 +52,7 @@ def test_conversazione_di_un_altro_non_si_apre(client, s):
 
 def test_ascolta_trascrive_in_italiano(client, s, monkeypatch):
     lingue = []
-    monkeypatch.setattr(parla.voce, "trascrivi", lambda f, lingua="", azienda=None, parole=(): lingue.append((lingua, parole)) or "  quante   fatture  ")
+    monkeypatch.setattr(parla.voce, "trascrivi", lambda f, lingua="", azienda=None, parole=(), utente=None: lingue.append((lingua, parole)) or "  quante   fatture  ")
     r = client.post(reverse("ai:parla_ascolta"), {"audio": SimpleUploadedFile("v.webm", b"x", content_type="audio/webm")})
     assert r.json() == {"testo": "quante fatture"} and lingue[0][0] == "it" and lingue[0][1][0] == "Ada"
 
@@ -80,7 +80,7 @@ def test_chiedi_avvia_il_turno_con_la_nota_della_voce(client, s, monkeypatch):
 
 def test_audio_solo_dal_testo_del_turno(client, s, monkeypatch):
     letti = []
-    monkeypatch.setattr(parla.voce, "audio_di", lambda servizio, testo, lingua: letti.append(testo) or (b"RIFF", "audio/wav"))
+    monkeypatch.setattr(parla.voce, "audio_di", lambda servizio, testo, lingua, utente=None, azienda=None: letti.append(testo) or (b"RIFF", "audio/wav"))
     c = Conversazione.objects.create(utente=s["u"], titolo="x")
     turno = Turno.objects.create(conversazione=c, utente=s["u"], testo="Hai dodici fatture. Tre sono scadute, per **mille euro**.")
     r = client.get(reverse("ai:parla_audio", args=[turno.pk, 0, 20]))
@@ -117,7 +117,7 @@ def test_la_chat_sul_telefono_apre_parla_con_ada(client, s):
 
 def test_la_voce_non_cambia_lingua_a_meta_risposta(client, s, monkeypatch):
     lingue = []
-    monkeypatch.setattr(parla.voce, "audio_di", lambda servizio, testo, lingua: lingue.append(lingua) or (b"RIFF", "audio/wav"))
+    monkeypatch.setattr(parla.voce, "audio_di", lambda servizio, testo, lingua, utente=None, azienda=None: lingue.append(lingua) or (b"RIFF", "audio/wav"))
     c = Conversazione.objects.create(utente=s["u"], titolo="x")
     testo = "Oggi hai sei appuntamenti in calendario. Ora, alle tredici e quindici, c'è la riunione commerciale."
     turno = Turno.objects.create(conversazione=c, utente=s["u"], testo=testo)
@@ -128,7 +128,7 @@ def test_la_voce_non_cambia_lingua_a_meta_risposta(client, s, monkeypatch):
 
 def test_frasi_d_attesa_solo_quelle_dell_elenco(client, s, monkeypatch):
     letti = []
-    monkeypatch.setattr(parla.voce, "audio_di", lambda servizio, testo, lingua: letti.append(testo) or (b"RIFF", "audio/wav"))
+    monkeypatch.setattr(parla.voce, "audio_di", lambda servizio, testo, lingua, utente=None, azienda=None: letti.append(testo) or (b"RIFF", "audio/wav"))
     r = client.get(reverse("ai:parla_frase", args=["calendario"]))
     assert r.status_code == 200 and letti == [parla.FRASI["calendario"][0]]
     assert client.get(reverse("ai:parla_frase", args=["calendario-2"])).status_code == 200 and letti[-1] == parla.FRASI["calendario"][2]

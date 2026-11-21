@@ -24,8 +24,41 @@ MASSIME_PARTI = 20
 TEMPO = 120
 
 
+BYTE_AL_SECONDO = 4000                                  # stima della durata se il fornitore non la dice: opus a 32 kbit/s
+
+
 class ErroreVoce(Exception):
     pass
+
+
+# ---------- costi ----------
+# Un fornitore cloud si paga: ogni lettura (a caratteri) e ogni trascrizione (a minuti) diventa una riga dei consumi
+# (Turno con compito «voce»), conta sul tetto di spesa dell'azienda e, se il servizio è fornito con il piano, sulla
+# quota della licenza. Kokoro e Whisper locali sono nostri e non si contano.
+
+def _ammesso(servizio, utente, azienda):
+    """ErroreVoce se il servizio cloud ora non si può usare: tetto dell'azienda raggiunto o, per un servizio fornito
+    con il piano, quota finita o licenza con la chiave del cliente."""
+    if servizio.locale:
+        return
+    from . import limiti
+    from .gateway import ErroreModello
+    try:
+        limiti.controlla_tetto(azienda)
+    except ErroreModello as e:
+        raise ErroreVoce(e.messaggio) from e
+    if servizio.gestito and (motivo := limiti.fornito_fermo(utente)):
+        raise ErroreVoce(motivo)
+
+
+def _addebita(servizio, costo, utente, azienda):
+    if servizio.locale or costo <= 0:
+        return
+    from django.utils import timezone
+
+    from .models import Turno
+    Turno.objects.create(utente=utente, azienda=azienda, compito="voce", stato=Turno.COMPLETATO, finito=timezone.now(),
+                         costo=costo, costo_fornito=costo if servizio.gestito else 0)
 
 
 # ---------- impostazioni ----------
@@ -95,9 +128,9 @@ def parole_note(utente, azienda):
     return uniche[:10]
 
 
-def trascrivi(file, lingua="", http_client=None, azienda=None, parole=()):
-    """Il testo detto: con il servizio cloud dell'azienda se c'è (e se non risponde, con il Whisper locale), altrimenti
-    con il Whisper locale."""
+def trascrivi(file, lingua="", http_client=None, azienda=None, parole=(), utente=None):
+    """Il testo detto: con il servizio cloud dell'azienda se c'è (e se non risponde o ha finito il budget, con il
+    Whisper locale), altrimenti con il Whisper locale. La trascrizione in cloud va nei consumi di `utente`."""
     if file.size > MASSIMO_AUDIO:
         raise ErroreVoce("Registrazione troppo lunga.")
     tipo = (file.content_type or "").split(";")[0]
@@ -107,7 +140,11 @@ def trascrivi(file, lingua="", http_client=None, azienda=None, parole=()):
     if servizio is not None:
         dati_audio = file.read()
         try:
-            return trascrivi_cloud(servizio, dati_audio, file.name or "voce.webm", tipo, lingua, http_client, parole=parole)
+            _ammesso(servizio, utente, azienda)
+            durata = []
+            testo = trascrivi_cloud(servizio, dati_audio, file.name or "voce.webm", tipo, lingua, http_client, parole=parole, durata=durata)
+            _addebita(servizio, servizio.costo_trascrizione(durata[0]), utente, azienda)
+            return testo
         except ErroreVoce:
             if not url_locale():
                 raise
@@ -118,8 +155,19 @@ def trascrivi(file, lingua="", http_client=None, azienda=None, parole=()):
     return _trascrivi_locale(file, tipo, lingua, http_client, parole)
 
 
-def trascrivi_cloud(servizio, audio, nome, tipo, lingua="", http_client=None, parole=()):
-    """Mistral Voxtral e OVH (Whisper) parlano la stessa lingua di OpenAI: multipart con file, modello e lingua."""
+def _secondi(risposta, audio):
+    """La durata dell'audio trascritto: quella che dice il fornitore (Mistral: usage.prompt_audio_seconds; Whisper:
+    duration) o, se non la dice, una stima dalla grandezza del file."""
+    uso = risposta.get("usage") if isinstance(risposta.get("usage"), dict) else {}
+    for valore in (uso.get("prompt_audio_seconds"), uso.get("seconds"), risposta.get("duration")):
+        if isinstance(valore, (int, float)) and not isinstance(valore, bool) and valore > 0:
+            return float(valore)
+    return len(audio) / BYTE_AL_SECONDO
+
+
+def trascrivi_cloud(servizio, audio, nome, tipo, lingua="", http_client=None, parole=(), durata=None):
+    """Mistral Voxtral e OVH (Whisper) parlano la stessa lingua di OpenAI: multipart con file, modello e lingua.
+    Con `durata` (una lista) vi aggiunge i secondi di audio trascritti, per il costo."""
     if not servizio.chiave():
         raise ErroreVoce(f"«{servizio.nome}»: manca la chiave API.")
     url = {ServizioVoce.MISTRAL: "https://api.mistral.ai/v1", ServizioVoce.OVH: OVH_URL}.get(servizio.tipo)
@@ -136,7 +184,10 @@ def trascrivi_cloud(servizio, audio, nome, tipo, lingua="", http_client=None, pa
         r = client.post(f"{url}/audio/transcriptions", headers={"Authorization": f"Bearer {servizio.chiave()}"},
                         files=file, data=dati)
         _controlla(r, servizio.nome, "trascrizione")
-        return str(r.json().get("text", "")).strip()
+        risposta = r.json()
+        if durata is not None:
+            durata.append(_secondi(risposta, audio))
+        return str(risposta.get("text", "")).strip()
     except (httpx.HTTPError, ValueError, AttributeError) as e:
         raise ErroreVoce(f"«{servizio.nome}» non risponde: {type(e).__name__}") from e
     finally:
@@ -341,12 +392,15 @@ def sintetizza(servizio, testo, lingua="it", http_client=None):
             client.close()
 
 
-def audio_di(servizio, testo, lingua):
-    """Con una cache di un giorno: riascoltare una risposta non la fa pagare due volte."""
+def audio_di(servizio, testo, lingua, utente=None, azienda=None):
+    """Con una cache di un giorno: riascoltare una risposta non la fa pagare due volte. Una lettura nuova con un
+    fornitore cloud va nei consumi di `utente` e sul tetto di `azienda`."""
     import hashlib
     chiave = "voce:" + hashlib.sha256(f"{servizio.pk}|{servizio.valore('modello')}|{servizio.valore('voce_it')}|{servizio.valore('voce_en')}|{lingua}|{testo}".encode()).hexdigest()
     if (salvato := cache.get(chiave)) is not None:
         return salvato
+    _ammesso(servizio, utente, azienda)
     audio = sintetizza(servizio, testo, lingua)
+    _addebita(servizio, servizio.costo_lettura(testo), utente, azienda)
     cache.set(chiave, audio, 86400)
     return audio

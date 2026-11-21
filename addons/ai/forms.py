@@ -196,10 +196,15 @@ class ServizioVoceForm(forms.ModelForm):
 
     class Meta:
         model = ServizioVoce
-        fields = ["nome", "tipo", "uso", "azienda", "regione", "modello", "voce_it", "voce_en", "attivo"]
+        fields = ["nome", "tipo", "uso", "azienda", "regione", "modello", "voce_it", "voce_en", "attivo",
+                  "prezzo_caratteri", "prezzo_minuto", "gestito"]
+
+    global_admin = False              # la vista lo mette a True per il Global Admin: solo lui decide «fornito con il piano»
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if not self.global_admin:
+            del self.fields["gestito"]
         if "uso" in self.fields:
             self.fields["uso"].required = False             # chi non lo indica crea un servizio di lettura, come prima
 

@@ -387,7 +387,8 @@ completate.
     l'istanza (Global Admin); spegnere toglie e basta, e a quale funzione appartiene uno strumento resta nel codice;
   - il tetto di spesa mensile per azienda (default 50 $) e la soglia dell'avviso agli amministratori stanno in
     `/impostazioni/`. Il tetto vale per ogni chiamata ai modelli (chat, pianificate, titoli, riassunti, verifica delle
-    citazioni); i turni senza azienda hanno un conto a parte, con il valore generale dell'impostazione. I consumi di ogni chiamata sono in `/ai/consumi/`: non si eliminano, e i turni di una chat
+    citazioni) e per la voce in cloud, che si conta con i prezzi scritti nel servizio voce (lettura a caratteri,
+    trascrizione a minuti); i turni senza azienda hanno un conto a parte, con il valore generale dell'impostazione. I consumi di ogni chiamata sono in `/ai/consumi/`: non si eliminano, e i turni di una chat
     eliminata restano come righe di costo senza più contenuto;
   - la **formula** della licenza dice come si vende l'assistente. «propria»: la chiave è del cliente, come finora.
     «inclusa»: l'assistente è nel canone, con una quota mensile per utente e per istanza. «consumo»: si fattura

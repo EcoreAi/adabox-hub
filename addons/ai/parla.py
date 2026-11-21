@@ -63,7 +63,7 @@ def frase(request, chiave):
     if servizio is None or not 0 <= indice < len(varianti):
         raise Http404
     try:
-        dati, tipo = voce.audio_di(servizio, varianti[indice], "it")
+        dati, tipo = voce.audio_di(servizio, varianti[indice], "it", request.user, getattr(request, "azienda", None))
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
     risposta = HttpResponse(dati, content_type=tipo)
@@ -140,7 +140,7 @@ def apertura_audio(request, pk):
     if servizio is None:
         raise Http404
     try:
-        dati, tipo = voce.audio_di(servizio, voce.da_leggere(saluto.testo), "it")
+        dati, tipo = voce.audio_di(servizio, voce.da_leggere(saluto.testo), "it", request.user, getattr(request, "azienda", None))
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
     risposta = HttpResponse(dati, content_type=tipo)
@@ -169,7 +169,7 @@ def ascolta(request):
     if not disponibile(azienda) or file is None:
         return JsonResponse({"errore": "La voce non è attiva."}, status=400)
     try:
-        testo = voce.trascrivi(file, "it", azienda=azienda, parole=voce.parole_note(request.user, azienda))
+        testo = voce.trascrivi(file, "it", azienda=azienda, parole=voce.parole_note(request.user, azienda), utente=request.user)
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
     return JsonResponse({"testo": " ".join(testo.split())})
@@ -239,7 +239,7 @@ def audio(request, pk, inizio, fine):
         return HttpResponse(status=204)
     try:
         # la lingua si decide sulla risposta intera: un pezzo breve non deve cambiare voce a metà
-        dati, tipo = voce.audio_di(servizio, testo, voce.lingua_di(voce.da_leggere(turno.testo)))
+        dati, tipo = voce.audio_di(servizio, testo, voce.lingua_di(voce.da_leggere(turno.testo)), request.user, getattr(request, "azienda", None))
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
     risposta = HttpResponse(dati, content_type=tipo)

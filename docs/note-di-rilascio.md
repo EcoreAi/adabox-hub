@@ -5,7 +5,7 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-21
 
-- **Limiti di spesa dell'assistente** — AI 1.53.1 (nessuna migrazione). **Cambi di comportamento, da controllare prima
+- **Limiti di spesa dell'assistente** — AI 1.54.0 (una migrazione: prezzi e «fornito con il piano» nei servizi voce). **Cambi di comportamento, da controllare prima
   di aggiornare:**
   - con la formula «propria» (chiave del cliente) i modelli dei provider «forniti con il piano» **non rispondono più**:
     prima si usavano senza quota né fattura. Un'istanza con licenza «propria» che oggi lavora su un provider segnato
@@ -13,7 +13,13 @@ commit; qui solo ciò che si vede o che chiede un intervento.
     toglie il segno. La pagina `/ai/licenza/` lo segnala con «Da sistemare»;
   - il tetto di spesa mensile dell'azienda ferma anche titoli, riassunti (delle chat e dei documenti) e verifica delle
     citazioni, non solo chat e pianificate;
-  - i turni senza azienda, prima senza tetto, contano sul valore generale dell'impostazione (default 50 $).
+  - i turni senza azienda, prima senza tetto, contano sul valore generale dell'impostazione (default 50 $);
+  - **voce in cloud nei consumi**: in Assistente AI → «Voce» ogni servizio ha il prezzo della lettura ($ per milione di
+    caratteri) e della trascrizione ($ per minuto). **Da fare:** scrivere i prezzi del fornitore, altrimenti la voce
+    continua a non contare. Con il prezzo, ogni lettura e trascrizione in cloud è una riga dei consumi (compito «voce»),
+    conta sul tetto dell'azienda e, se il servizio è «fornito con il piano» (lo segna solo il Global Admin), sulla quota
+    della licenza. A tetto o quota finiti la voce cloud si ferma; la dettatura passa al Whisper locale, se c'è. Se il
+    fornitore non dice la durata dell'audio, si stima dalla grandezza del file.
 
 ## 2026-11-20
 
