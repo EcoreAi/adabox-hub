@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -842,6 +843,22 @@ class AreaCorrente(models.Model):
         verbose_name = "area corrente"
         verbose_name_plural = "aree correnti"
         constraints = [models.UniqueConstraint(fields=["utente", "azienda"], name="ai_area_corrente_unica")]
+
+
+class TettoUtente(models.Model):
+    """Il tetto di spesa mensile dell'assistente di una persona, deciso dall'Admin: vale al posto di quello generale
+    dell'impostazione «Tetto di spesa mensile per persona»."""
+    utente = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="tetto_ai", verbose_name="persona")
+    importo = models.DecimalField("tetto mensile ($)", max_digits=9, decimal_places=2, default=0, validators=[MinValueValidator(0)],
+                                  help_text="costo dei modelli e della voce in un mese; 0 = nessun tetto per questa persona")
+
+    class Meta:
+        verbose_name = "tetto di spesa per persona"
+        verbose_name_plural = "tetti di spesa per persona"
+        ordering = ["utente__username"]
+
+    def __str__(self):
+        return f"{self.utente} · {self.importo} $"
 
 
 class StrumentoSpento(models.Model):

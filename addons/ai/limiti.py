@@ -1,5 +1,6 @@
 """Prima di ogni turno: licenza valida, utenti entro il limite, spesa del mese entro il tetto dell'azienda.
 
+Accanto al tetto dell'azienda c'è quello della persona, deciso dall'Admin (TettoUtente, o l'impostazione generale).
 Il tetto dell'azienda vale per ogni chiamata ai modelli, non solo per la chat: i lavori di contorno (titoli, riassunti,
 verifica delle citazioni) lo controllano passando l'azienda ad `ammessi`. I turni senza azienda hanno il loro conto,
 con il tetto generale dell'impostazione.
@@ -37,6 +38,21 @@ def spesa_mese(azienda):
 def tetto(azienda):
     valore = parametri.leggi("ai.tetto_mensile", azienda)
     return Decimal(str(valore or 0))
+
+
+def tetto_utente(utente, azienda=None):
+    """Il tetto mensile della persona in dollari: il suo (TettoUtente), altrimenti quello generale dell'impostazione.
+    0 = senza tetto."""
+    from .models import TettoUtente
+    proprio = TettoUtente.objects.filter(utente=utente).values_list("importo", flat=True).first()
+    if proprio is not None:
+        return proprio
+    return Decimal(str(parametri.leggi("ai.tetto_utente", azienda) or 0))
+
+
+def spesa_utente(utente):
+    """Il costo del mese della persona, in tutte le aziende, senza i lavori di servizio intestati a lei."""
+    return _del_mese().filter(utente=utente).exclude(compito=SERVIZIO).aggregate(t=Sum("costo"))["t"] or Decimal(0)
 
 
 def utenti_del_mese():
@@ -124,7 +140,7 @@ def ammessi(catena, utente=None, azienda=_NON_DATA):
     Con `azienda` (anche None = turni senza azienda) controlla prima il tetto di spesa: lo passano i lavori di contorno,
     che non chiamano `verifica`."""
     if azienda is not _NON_DATA:
-        controlla_tetto(azienda)
+        controlla_tetto(azienda, utente)
     if not any(modello.provider.gestito for modello, _ in catena):
         return catena
     motivo = fornito_fermo(utente)
@@ -157,9 +173,13 @@ def fuori_formula():
     return list(Provider.objects.filter(gestito=True, attivo=True))
 
 
-def controlla_tetto(azienda=None):
-    """LIMITE se la spesa del mese ha raggiunto il tetto dell'azienda; oltre la soglia, l'avviso agli amministratori.
-    Senza azienda: il tetto generale dell'impostazione, sui turni senza azienda."""
+def controlla_tetto(azienda=None, utente=None):
+    """LIMITE se la spesa del mese ha raggiunto il tetto dell'azienda o quello della persona; oltre la soglia del
+    tetto dell'azienda, l'avviso agli amministratori. Senza azienda: il tetto generale dell'impostazione, sui turni
+    senza azienda."""
+    if utente is not None and (personale := tetto_utente(utente, azienda)) > 0 and spesa_utente(utente) >= personale:
+        raise ErroreModello("LIMITE", f"Hai raggiunto il tuo tetto di spesa mensile dell'assistente ({personale} $): "
+                                      "riprende il primo del mese, o l'amministratore può alzarlo.")
     limite = tetto(azienda)
     if limite <= 0:
         return
@@ -181,7 +201,7 @@ def verifica(azienda=None, utente=None, funzione="chat"):
         attivi = utenti_del_mese()
         if utente.pk not in attivi and len(attivi) >= stato.utenti:
             raise ErroreModello("LIMITE", f"Raggiunto il numero di utenti della licenza ({stato.utenti} al mese).")
-    controlla_tetto(azienda)
+    controlla_tetto(azienda, utente)
 
 
 def _avvisa(azienda, spesa, limite):

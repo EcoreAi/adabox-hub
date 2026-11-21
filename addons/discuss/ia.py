@@ -64,7 +64,7 @@ def genera(sistema, testo, utente, azienda=None, titolo="Comunicazioni", di_serv
     from ai.models import Conversazione, Turno
     from ai.protezione import Protezione
     try:
-        limiti.verifica(azienda, utente)
+        limiti.verifica(azienda, None if di_servizio else utente)      # un lavoro di servizio non è consumo della persona
         conversazione = Conversazione.objects.filter(utente=utente, nascosta=True, titolo=titolo).first() or \
             Conversazione.objects.create(utente=utente, nascosta=True, titolo=titolo)
         lavoro = Turno.objects.create(conversazione=conversazione, utente=utente, azienda=azienda,

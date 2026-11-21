@@ -44,7 +44,7 @@ def _ammesso(servizio, utente, azienda):
     from . import limiti
     from .gateway import ErroreModello
     try:
-        limiti.controlla_tetto(azienda)
+        limiti.controlla_tetto(azienda, utente)
     except ErroreModello as e:
         raise ErroreVoce(e.messaggio) from e
     if servizio.gestito and (motivo := limiti.fornito_fermo(utente)):

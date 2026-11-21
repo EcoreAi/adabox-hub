@@ -176,3 +176,42 @@ def test_consumi_e_dashboard(client, superuser):
     richiesta = type("R", (), {"user": superuser, "azienda": azienda})()
     valori = {k["etichetta"].split(" su ")[0]: k["valore"] for k in kpi(richiesta)["kpi"]}
     assert valori["spesa AI del mese"] == "0.01 $" and valori["domande all'assistente oggi"] == 1
+
+
+def test_tetto_di_spesa_per_persona(db, client, monkeypatch):
+    """L'Admin dà un tetto a tutti (impostazione) o a una persona (Tetti per persona): raggiunto, si ferma solo lei."""
+    from ai.models import TettoUtente
+    monkeypatch.setattr(esecuzione, "_dormi", lambda s: None)
+    azienda = Azienda.objects.get(pk=1)
+    anna, bruno = User.objects.create_user("anna"), User.objects.create_user("bruno")
+    Turno.objects.create(utente=anna, azienda=azienda, costo=Decimal("2"))
+    Turno.objects.create(utente=anna, costo=Decimal("9"), compito=limiti.SERVIZIO)      # di servizio: non è spesa sua
+    limiti.verifica(azienda, anna)                                        # senza tetti per persona: come prima
+    parametri.scrivi("ai.tetto_utente", Decimal("2"), azienda)
+    assert limiti.spesa_utente(anna) == 2 and limiti.tetto_utente(anna, azienda) == 2
+    with pytest.raises(ErroreModello, match="tuo tetto di spesa mensile"):
+        limiti.verifica(azienda, anna)
+    limiti.verifica(azienda, bruno)                                       # gli altri continuano
+    limiti.verifica(azienda)                                              # e i lavori senza persona
+    TettoUtente.objects.create(utente=anna, importo=Decimal("5"))         # il suo vince su quello generale
+    limiti.verifica(azienda, anna)
+    TettoUtente.objects.create(utente=bruno, importo=Decimal("0"))        # 0 = nessun tetto per lui
+    Turno.objects.create(utente=bruno, azienda=azienda, costo=Decimal("4"))
+    limiti.verifica(azienda, bruno)
+    # dal motore e dai lavori di contorno
+    TettoUtente.objects.filter(utente=anna).update(importo=Decimal("1"))
+    p = Provider.objects.create(nome="F", tipo="finto")
+    m = Modello.objects.create(provider=p, id_api="f", etichetta="F")
+    AnelloCatena.objects.create(profilo=Profilo.objects.create(nome="c", compito="chat"), modello=m)
+    from ai import motore
+    with finto.con_copione([["non arriva"]]) as chiamate:
+        turno = motore.avvia(Conversazione.objects.create(utente=anna), "ciao", anna, azienda)
+    turno.refresh_from_db()
+    assert turno.stato == "errore" and "tuo tetto di spesa" in turno.testo and not chiamate
+    with pytest.raises(ErroreModello, match="tuo tetto di spesa"):
+        limiti.ammessi([(m, "")], anna, azienda)
+    # la pagina dell'Admin
+    capo = User.objects.create_superuser("capo", "capo@example.com", "x")
+    client.force_login(capo)
+    pagina = client.get("/ai/tetti/").content.decode()
+    assert "anna" in pagina and "2.00 $" in pagina.replace(",", ".")

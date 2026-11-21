@@ -4,7 +4,7 @@ from core import cifratura
 from core.viste import Inline, ModelView, register
 
 from .forms import AssistenteForm, ChiaveAziendaForm, PianificataForm, ProgettoChatForm, ProviderForm, ServerMCPForm, ServizioVoceForm
-from .models import (AnelloCatena, Assistente, ChiaveAzienda, IndiceDocumento, Modello, OblioDocumento, Pianificata, Profilo, Proposta, Provider, MemoriaUtente, ProgettoChat, ServerMCP, ServizioVoce, StrumentoSpento,
+from .models import (AnelloCatena, Assistente, ChiaveAzienda, IndiceDocumento, Modello, OblioDocumento, Pianificata, Profilo, Proposta, Provider, MemoriaUtente, ProgettoChat, ServerMCP, ServizioVoce, StrumentoSpento, TettoUtente,
                      ValutazioneRisposta, Turno)
 
 
@@ -131,6 +131,22 @@ class ProfiloView(ModelView):
     def col_catena_modelli(self, obj):
         return " → ".join(a.modello.etichetta for a in obj.catena.select_related("modello")) or "—"
     col_catena_modelli.short_description = "Catena"
+
+
+@register
+class TettiUtenteView(ModelView):
+    """Il tetto di spesa mensile di ogni persona: chi non è in elenco segue l'impostazione generale."""
+    model = TettoUtente
+    slug = "tetti"
+    storico = False
+    list_display = ["utente", "importo", "spesa_del_mese"]
+    search_fields = ["utente__username", "utente__first_name", "utente__last_name"]
+    form_layout = [("Tetto di spesa", [("utente", "importo")])]
+
+    def col_spesa_del_mese(self, obj):
+        from . import limiti
+        return f"{limiti.spesa_utente(obj.utente):.2f} $"
+    col_spesa_del_mese.short_description = "Spesa del mese"
 
 
 @register

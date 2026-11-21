@@ -18,6 +18,7 @@
         {"label": "Strumenti", "url_name": "ai:strumenti", "permission": "ai.view_strumentospento"},
         {"label": "Provider e chiavi", "url_name": "ai:provider_lista", "permission": "ai.change_provider"},
         {"label": "Consumi", "url_name": "ai:consumi_lista", "permission": "ai.view_turno"},
+        {"label": "Tetti per persona", "url_name": "ai:tetti_lista", "permission": "ai.change_tettoutente"},
         {"label": "Registro modifiche", "url_name": "ai:registro_lista", "permission": "ai.view_proposta", "funzione": "scritture"},
         {"label": "Voce", "url_name": "ai:voce_lista", "permission": "ai.change_serviziovoce", "funzione": "voce"},
         {"label": "Sistemi esterni (MCP)", "url_name": "ai:mcp_lista", "permission": "ai.change_servermcp", "funzione": "mcp"},
@@ -63,6 +64,9 @@
     "settings": [
         {"chiave": "tetto_mensile", "label": "Tetto di spesa mensile dell'assistente ($)", "tipo": "decimale",
          "default": "50", "per_azienda": True, "help": "0 = senza tetto; raggiunto il tetto l'assistente si ferma"},
+        {"chiave": "tetto_utente", "label": "Tetto di spesa mensile per persona ($)", "tipo": "decimale",
+         "default": "0", "per_azienda": True,
+         "help": "0 = senza tetto; vale per chi non ha un tetto suo in «Tetti per persona». Raggiunto, l'assistente si ferma per quella persona fino al mese dopo"},
         {"chiave": "avviso_percentuale", "label": "Avviso agli amministratori oltre la percentuale del tetto",
          "tipo": "intero", "default": 80, "per_azienda": True},
         {"chiave": "ricerca_web", "funzione": "ricerca_web", "label": "Ada può cercare sul web", "tipo": "booleano", "default": False, "per_azienda": True,
