@@ -477,6 +477,22 @@ def test_i_provider_del_piano_arrivano_alle_istanze(client, superuser, scena, se
     Piano.objects.filter(pk=istanza.piano_id).update(ai_formula="propria")
     assert config_portale.sincronizza() == "provider del piano: 0, modelli: 0, spenti: 1"
     assert not Provider.objects.get(portale="claude").attivo
+    # una chiave per la sola istanza (la chiave virtuale del gateway), con il suo indirizzo: vince su quella comune
+    from rivendita.models import ChiaveAIIstanza
+    Piano.objects.filter(pk=istanza.piano_id).update(ai_formula="consumo")
+    ChiaveAIIstanza.objects.create(provider=fornito, istanza=istanza, chiave_cifrata=cifratura.cifra("vk-rossi"), base_url="https://gateway.example/v1")
+    assert config_portale.sincronizza() == "provider del piano: 1, modelli: 1"
+    provider.refresh_from_db()
+    assert provider.attivo and provider.chiave_per() == "vk-rossi" and provider.base_url == "https://gateway.example/v1"
+    # a un'istanza sul server del cliente la chiave comune non si manda mai: senza una chiave sua, niente provider
+    Istanza.objects.filter(pk=istanza.pk).update(ospitata=False)
+    assert len(chiama()["config"]["provider"]) == 1                           # ha la sua: lo riceve
+    ChiaveAIIstanza.objects.all().delete()
+    assert chiama()["config"]["provider"] == [] and "sk-ant" not in json.dumps(chiama())
+    assert config_portale.sincronizza() == "provider del piano: 0, modelli: 0, spenti: 1"
+    r = client.post(reverse("rivendita:chiavi_ai_nuovo"), {"provider": fornito.pk, "istanza": istanza.pk, "nuova_chiave": "vk-nuova", "base_url": ""})
+    assert r.status_code == 302 and cifratura.decifra(ChiaveAIIstanza.objects.get().chiave_cifrata) == "vk-nuova"
+    assert "vk-nuova" not in client.get(reverse("rivendita:chiavi_ai_lista")).content.decode()
     # la pagina del portale: la chiave non si rilegge
     pagina = client.get(reverse("rivendita:provider_ai_lista")).content.decode()
     assert "Anthropic" in pagina and "sk-ant-ruotata" not in pagina and "tata" in pagina

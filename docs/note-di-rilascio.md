@@ -56,6 +56,13 @@ commit; qui solo ciò che si vede o che chiede un intervento.
     quello vecchio va spento a mano (quello nuovo si chiama «… (piano)» se il nome è già preso).
   - Con la formula «chiave del cliente» il portale non manda niente e i provider arrivati prima si spengono.
 
+- **Chiave AI per singola istanza** — Rivendita 1.9.0 (una migrazione; sulle istanze non cambia niente).
+  - Rivendita → «Chiavi AI delle istanze»: per un cliente e un provider fornito, una chiave sua (e, se serve, un suo
+    indirizzo dell'API) al posto di quella comune. È il posto della chiave virtuale di un gateway: si revoca a un
+    cliente senza toccare gli altri.
+  - **Cambio di comportamento:** a un'istanza non «ospitata da noi» la chiave comune non si manda più. Senza una
+    chiave sua non riceve quel provider (e, se l'aveva ricevuto, lo spegne alla prossima sincronizzazione).
+
 ## 2026-11-20
 
 - **Periodo sul grafico** — Kernel 1.6.0, AI 1.53.0, Analisi 1.9.0 (nessuna migrazione; AI e Analisi chiedono il

@@ -1,7 +1,7 @@
 {
     "name": "Rivendita",
     "summary": "Il portale di chi vende adabox: clienti e istanze, piani, suite per dipartimento, moduli pubblicati, licenze firmate e richieste dal catalogo",
-    "version": "1.8.0",
+    "version": "1.9.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Direzione",
     "depends": [],
@@ -14,6 +14,7 @@
         {"label": "Richieste", "url_name": "rivendita:richieste_lista", "permission": "rivendita.view_richiesta"},
         {"label": "Consumi AI", "url_name": "rivendita:consumi_ai_lista", "permission": "rivendita.view_consumoai"},
         {"label": "Provider AI forniti", "url_name": "rivendita:provider_ai_lista", "permission": "rivendita.view_providerfornito"},
+        {"label": "Chiavi AI delle istanze", "url_name": "rivendita:chiavi_ai_lista", "permission": "rivendita.view_chiaveaiistanza"},
         {"label": "Piani", "url_name": "rivendita:piani_lista", "permission": "rivendita.view_piano"},
         {"label": "Suite", "url_name": "rivendita:suite_lista", "permission": "rivendita.view_suite"},
         {"label": "Moduli in vendita", "url_name": "rivendita:moduli_lista", "permission": "rivendita.view_modulovendibile"},

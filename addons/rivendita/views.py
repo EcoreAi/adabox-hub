@@ -4,7 +4,7 @@ from django.utils import timezone
 from core import cifratura
 from core.viste import Inline, ModelView, register
 
-from .models import ConsumoAI, Istanza, ModelloFornito, ModuloVendibile, Pacchetto, Piano, ProviderFornito, Richiesta, Suite
+from .models import ChiaveAIIstanza, ConsumoAI, Istanza, ModelloFornito, ModuloVendibile, Pacchetto, Piano, ProviderFornito, Richiesta, Suite
 
 
 @register
@@ -211,6 +211,49 @@ class ProviderFornitiView(ModelView):
     def col_chiave(self, obj):
         try:
             return cifratura.mascherato(cifratura.decifra(obj.chiave_cifrata)) or "manca"
+        except cifratura.SegretoIlleggibile:
+            return "illeggibile"
+    col_chiave.short_description = "Chiave"
+
+
+class ChiaveAIIstanzaForm(forms.ModelForm):
+    nuova_chiave = forms.CharField(label="chiave API", required=False, strip=True,
+                                   widget=forms.PasswordInput(render_value=False, attrs={"autocomplete": "new-password"}),
+                                   help_text="di norma la chiave virtuale del gateway per questo cliente; lascia vuoto per non cambiarla")
+
+    class Meta:
+        model = ChiaveAIIstanza
+        fields = ["provider", "istanza", "base_url"]
+
+    def clean(self):
+        dati = super().clean()
+        if not (dati.get("nuova_chiave") or self.instance.chiave_cifrata):
+            self.add_error("nuova_chiave", "Scrivi la chiave.")
+        return dati
+
+    def save(self, commit=True):
+        if self.cleaned_data.get("nuova_chiave"):
+            self.instance.chiave_cifrata = cifratura.cifra(self.cleaned_data["nuova_chiave"])
+        return super().save(commit)
+
+
+@register
+class ChiaviAIIstanzeView(ModelView):
+    """La chiave di un provider fornito per un solo cliente (es. la chiave virtuale del gateway), al posto di quella comune."""
+    model = ChiaveAIIstanza
+    api = False                   # contiene segreti o credenziali: niente API
+    slug = "chiavi_ai"
+    list_display = ["istanza", "provider", "chiave", "base_url"]
+    list_filter = ["provider", "istanza"]
+    form_class = ChiaveAIIstanzaForm
+    form_layout = [("Chiave dell'istanza", [("istanza", "provider"), "base_url", "nuova_chiave"])]
+
+    def layout_dettaglio(self):
+        return [(t, [r for r in righe if r != "nuova_chiave"]) for t, righe in super().layout_dettaglio()]
+
+    def col_chiave(self, obj):
+        try:
+            return cifratura.mascherato(cifratura.decifra(obj.chiave_cifrata))
         except cifratura.SegretoIlleggibile:
             return "illeggibile"
     col_chiave.short_description = "Chiave"

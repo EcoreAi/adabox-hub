@@ -178,16 +178,21 @@ def _cifra_per(istanza, testo):
 def config_ai(istanza):
     """{"config": {...}, "firma": ...}: i provider forniti con il piano per questa istanza, con modelli, prezzi e
     chiave cifrata per lei. Con la chiave del cliente (formula «propria») l'elenco è vuoto: l'istanza spegne quelli
-    ricevuti prima."""
+    ricevuti prima. La chiave è quella dell'istanza (ChiaveAIIstanza), se c'è, altrimenti quella comune del provider;
+    a un'istanza non ospitata da noi la chiave comune non si manda mai: senza una chiave sua quel provider non lo riceve."""
     from core import cifratura
 
     from .models import ProviderFornito
     provider = []
     if istanza.termini_ai()["formula"] != AI_PROPRIA:
+        proprie = {c.provider_id: c for c in istanza.chiavi_ai.all()}
         for p in ProviderFornito.objects.filter(attivo=True).prefetch_related("modelli"):
+            propria = proprie.get(p.pk)
+            if propria is None and not istanza.ospitata:
+                continue
             provider.append({
-                "codice": p.codice, "nome": p.nome, "tipo": p.tipo, "base_url": p.base_url,
-                "chiave": _cifra_per(istanza, cifratura.decifra(p.chiave_cifrata)),
+                "codice": p.codice, "nome": p.nome, "tipo": p.tipo, "base_url": (propria.base_url if propria else "") or p.base_url,
+                "chiave": _cifra_per(istanza, cifratura.decifra(propria.chiave_cifrata if propria else p.chiave_cifrata)),
                 "modelli": [{"id_api": m.id_api, "etichetta": m.etichetta, "contesto": m.contesto, "max_output": m.max_output,
                              "prezzo_input": str(m.prezzo_input), "prezzo_output": str(m.prezzo_output),
                              "prezzo_cache_scrittura": None if m.prezzo_cache_scrittura is None else str(m.prezzo_cache_scrittura),

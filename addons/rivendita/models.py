@@ -283,6 +283,25 @@ class Istanza(models.Model):
                 "quota_istanza": scelto("ai_quota_istanza"), "tetto_istanza": scelto("ai_tetto_istanza"), "ricarico": scelto("ai_ricarico")}
 
 
+class ChiaveAIIstanza(models.Model):
+    """La chiave di un provider fornito per una sola istanza, al posto di quella comune: di norma la chiave virtuale
+    creata per quel cliente sul nostro gateway, con il suo indirizzo. Si revoca senza toccare gli altri clienti, e la
+    chiave vera non lascia i nostri server. Un'istanza non ospitata da noi riceve un provider solo se ha la sua."""
+    provider = models.ForeignKey(ProviderFornito, on_delete=models.CASCADE, related_name="chiavi_istanza", verbose_name="provider")
+    istanza = models.ForeignKey(Istanza, on_delete=models.CASCADE, related_name="chiavi_ai", verbose_name="istanza")
+    chiave_cifrata = models.TextField("chiave API (cifrata)", editable=False)
+    base_url = models.URLField("URL dell'API", blank=True, help_text="l'indirizzo del gateway per questa istanza; vuoto = quello del provider")
+
+    class Meta:
+        verbose_name = "chiave AI di un'istanza"
+        verbose_name_plural = "chiavi AI delle istanze"
+        ordering = ["istanza__cliente", "provider__nome"]
+        constraints = [models.UniqueConstraint(fields=["provider", "istanza"], name="rivendita_chiave_ai_istanza_unica")]
+
+    def __str__(self):
+        return f"{self.provider} · {self.istanza}"
+
+
 class Richiesta(models.Model):
     """Un'app chiesta dall'amministratore di un cliente dal suo catalogo."""
     NUOVA, APPROVATA, RIFIUTATA = "nuova", "approvata", "rifiutata"
