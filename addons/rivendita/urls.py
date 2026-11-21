@@ -5,6 +5,7 @@ from . import api, pagine
 urlpatterns = [
     path("api/sincronizza/", api.sincronizza, name="api_sincronizza"),
     path("api/consumi-ai/", api.consumi_ai, name="api_consumi_ai"),
+    path("api/config-ai/", api.config_ai, name="api_config_ai"),
     path("api/pacchetto/<slug:slug>/<str:versione>/", api.pacchetto, name="api_pacchetto"),
     path("carica/", pagine.carica, name="carica"),
 ]

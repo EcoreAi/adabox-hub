@@ -1,7 +1,7 @@
 {
     "name": "Assistente AI",
     "summary": "Chat con l'assistente: cronologia delle conversazioni, artifact e documenti salvati",
-    "version": "1.56.0",
+    "version": "1.57.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -41,6 +41,7 @@
               "ogni": "1m"},
              {"nome": "Indice della conoscenza dell'assistente", "funzione": "ai.conoscenza.indicizza_cron",
               "ogni": "5m"},
+             {"nome": "Provider AI forniti con il piano, dal portale", "funzione": "ai.config_portale.sincronizza", "ogni": "1h"},
              {"nome": "Consumi dell'assistente al portale", "funzione": "ai.consumi_portale.invia", "ogni": "1h"}],
     "dashboard": "ai.dashboard.kpi",
     # funzioni che il piano può comprendere o no (core.funzioni, ai.funzioni): senza «funzioni» nella licenza, tutte

@@ -1,8 +1,10 @@
+from django import forms
 from django.utils import timezone
 
-from core.viste import ModelView, register
+from core import cifratura
+from core.viste import Inline, ModelView, register
 
-from .models import ConsumoAI, Istanza, ModuloVendibile, Pacchetto, Piano, Richiesta, Suite
+from .models import ConsumoAI, Istanza, ModelloFornito, ModuloVendibile, Pacchetto, Piano, ProviderFornito, Richiesta, Suite
 
 
 @register
@@ -172,3 +174,43 @@ class ConsumiAIView(ModelView):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+class ProviderFornitoForm(forms.ModelForm):
+    """La chiave si scrive qui, si salva cifrata e non si rilegge."""
+    nuova_chiave = forms.CharField(label="chiave API", required=False, strip=True,
+                                   widget=forms.PasswordInput(render_value=False, attrs={"autocomplete": "new-password"}),
+                                   help_text="lascia vuoto per non cambiarla; arriva alle istanze alla prossima sincronizzazione")
+
+    class Meta:
+        model = ProviderFornito
+        fields = ["codice", "nome", "tipo", "base_url", "attivo"]
+
+    def save(self, commit=True):
+        if self.cleaned_data.get("nuova_chiave"):
+            self.instance.chiave_cifrata = cifratura.cifra(self.cleaned_data["nuova_chiave"])
+        return super().save(commit)
+
+
+@register
+class ProviderFornitiView(ModelView):
+    """I fornitori di modelli che diamo ai clienti con la nostra chiave: da qui arrivano a tutte le istanze."""
+    model = ProviderFornito
+    api = False                   # contiene segreti o credenziali: niente API
+    slug = "provider_ai"
+    list_display = ["nome", "codice", "tipo", "chiave", "attivo"]
+    form_class = ProviderFornitoForm
+    form_layout = [("Provider", [("nome", "codice"), ("tipo", "attivo"), "base_url", "nuova_chiave"])]
+    inlines = [Inline(ModelloFornito, "provider", ["id_api", "etichetta", "prezzo_input", "prezzo_output", "prezzo_cache_scrittura",
+                                                   "prezzo_cache_lettura", "contesto", "max_output", "livello_chat", "visione",
+                                                   "ragionamento", "residenza_ue", "attivo"], titolo="Modelli e prezzi ($ per milione di token)")]
+
+    def layout_dettaglio(self):
+        return [(t, [r for r in righe if r != "nuova_chiave"]) for t, righe in super().layout_dettaglio()]
+
+    def col_chiave(self, obj):
+        try:
+            return cifratura.mascherato(cifratura.decifra(obj.chiave_cifrata)) or "manca"
+        except cifratura.SegretoIlleggibile:
+            return "illeggibile"
+    col_chiave.short_description = "Chiave"

@@ -42,6 +42,20 @@ commit; qui solo ciò che si vede o che chiede un intervento.
     «chiave del cliente». Sull'istanza i provider e i servizi voce aggiunti dal cliente non rispondono e l'Admin non
     può crearne: decide tutto il Global Admin. La pagina della licenza lo dice.
 
+- **Provider AI forniti, dal portale** — AI 1.57.0, Rivendita 1.8.0 (una migrazione ciascuno).
+  - Sul portale, Rivendita → «Provider AI forniti»: i fornitori di modelli che diamo ai clienti con la nostra chiave,
+    con modelli, prezzi e livello (Veloce/Avanzato). **Da fare una volta:** crearli lì, con la chiave.
+  - Ogni istanza con l'assistente incluso, a consumo o misto li riceve entro un'ora (lavoro pianificato «Provider AI
+    forniti con il piano, dal portale»; si può eseguire subito da `/core/lavoro/`): crea o aggiorna il provider
+    «fornito con il piano», i modelli e i prezzi, e salva la chiave cifrata. Cambiare un prezzo o ruotare la chiave sul
+    portale vale per tutte le istanze. Un modello o un provider tolto si spegne, non si elimina.
+  - La risposta del portale è firmata (come la licenza) e la chiave è cifrata per la singola istanza; in più c'è HTTPS.
+    **Resta vero che la chiave, sull'istanza, è nel suo database**: su un server in mano al cliente va considerata
+    esposta. Per ora è una chiave sola per tutti i clienti: revocarla a uno vuol dire ruotarla per tutti.
+  - I provider segnati a mano «forniti con il piano» restano come sono; se sul portale ne crei uno uguale, sull'istanza
+    quello vecchio va spento a mano (quello nuovo si chiama «… (piano)» se il nome è già preso).
+  - Con la formula «chiave del cliente» il portale non manda niente e i provider arrivati prima si spengono.
+
 ## 2026-11-20
 
 - **Periodo sul grafico** — Kernel 1.6.0, AI 1.53.0, Analisi 1.9.0 (nessuna migrazione; AI e Analisi chiedono il

@@ -110,6 +110,8 @@ class Provider(models.Model):
                                   help_text="la chiave è di chi fornisce l'assistente: il suo costo conta sulla quota della licenza, "
                                             "e provider e modelli li cambia solo il Global Admin")
     attivo = models.BooleanField("attivo", default=True)
+    portale = models.CharField("codice sul portale", max_length=40, blank=True, editable=False,
+                               help_text="arriva dal portale di chi vende (ai.config_portale), che lo tiene aggiornato")
 
     class Meta:
         verbose_name = "provider"

@@ -411,3 +411,72 @@ def test_dashboard_con_canoni_e_assistente(rf, superuser, scena):
     richiesta.user, richiesta.azienda = superuser, None
     kpi = {k["etichetta"]: k["valore"] for k in dashboard.dati(richiesta)["kpi"]}
     assert kpi["canoni al mese"].startswith("139") and kpi["assistente a consumo, mese in corso"].startswith("10,8")
+
+
+@pytest.mark.django_db
+def test_i_provider_del_piano_arrivano_alle_istanze(client, superuser, scena, settings, monkeypatch):
+    """Provider, modelli, prezzi e chiave si scrivono sul portale e ogni istanza si allinea (ai.config_portale)."""
+    from decimal import Decimal
+
+    from ai import catalogo, config_portale
+    from ai.models import Modello, Profilo, Provider
+    from core import cifratura
+    from rivendita.models import ModelloFornito, ProviderFornito
+    istanza, token = scena
+    settings.LICENZA_PORTALE_URL, settings.LICENZA_TOKEN = "https://portale.example/rivendita/api", token
+
+    def chiama(con=None):
+        r = client.post(reverse("rivendita:api_config_ai"), "{}", content_type="application/json", headers={"Authorization": f"Bearer {con or token}"})
+        return r.json() if r.status_code == 200 else r.status_code
+    monkeypatch.setattr(config_portale, "_chiama", chiama)
+    fornito = ProviderFornito.objects.create(codice="claude", nome="Anthropic", tipo="anthropic", chiave_cifrata=cifratura.cifra("sk-ant-nostra"))
+    haiku = ModelloFornito.objects.create(provider=fornito, id_api="claude-haiku-5-5", etichetta="Claude Haiku", prezzo_input=Decimal("0.10"),
+                                          prezzo_output=Decimal("0.50"), livello_chat="veloce", visione=True)
+    ModelloFornito.objects.create(provider=fornito, id_api="claude-opus-5-5", etichetta="Claude Opus", prezzo_input=4, prezzo_output=20, livello_chat="avanzato")
+    assert chiama("sbagliato") == 401
+    # chiave del cliente: niente provider; sull'istanza quelli messi a mano restano come sono
+    catalogo.crea_iniziali()                                # l'istanza appena installata: Anthropic senza chiave e i profili
+    assert chiama()["config"]["provider"] == [] and config_portale.sincronizza() == "provider del piano: 0, modelli: 0"
+    assert not Provider.objects.filter(gestito=True).exists()
+    # assistente incluso: arrivano, con la chiave cifrata per questa istanza e la firma
+    Piano.objects.filter(pk=istanza.piano_id).update(ai_formula="inclusa")
+    risposta = chiama()
+    cifrata = risposta["config"]["provider"][0]["chiave"]
+    assert "sk-ant-nostra" not in json.dumps(risposta) and cifrata and config_portale._decifra(cifrata) == "sk-ant-nostra"
+    assert config_portale.sincronizza() == "provider del piano: 1, modelli: 2"
+    provider = Provider.objects.get(portale="claude")
+    assert provider.gestito and provider.attivo and provider.nome == "Anthropic (piano)" and provider.chiave_per() == "sk-ant-nostra"
+    veloce = Modello.objects.get(provider=provider, id_api="claude-haiku-5-5")
+    assert (veloce.prezzo_input, veloce.prezzo_output, veloce.livello_chat, veloce.sceglibile, veloce.visione) == (Decimal("0.10"), Decimal("0.50"), "veloce", True, True)
+    # i profili iniziali puntavano a un provider senza chiave: ora hanno una riserva e funzionano
+    for profilo in Profilo.objects.all():
+        assert catalogo.catena(profilo)[0][0] == veloce
+    # prezzi e chiave cambiati sul portale: l'istanza li prende; un modello tolto si spegne, non si elimina
+    ModelloFornito.objects.filter(pk=haiku.pk).update(prezzo_output=Decimal("0.75"))
+    ModelloFornito.objects.filter(id_api="claude-opus-5-5").update(attivo=False)
+    ProviderFornito.objects.filter(pk=fornito.pk).update(chiave_cifrata=cifratura.cifra("sk-ant-ruotata"))
+    assert config_portale.sincronizza() == "provider del piano: 1, modelli: 1"
+    veloce.refresh_from_db()
+    assert veloce.prezzo_output == Decimal("0.75") and Provider.objects.get(portale="claude").chiave_per() == "sk-ant-ruotata"
+    opus = Modello.objects.get(id_api="claude-opus-5-5", provider=provider)
+    assert not opus.attivo and opus.livello_chat == "" and Provider.objects.filter(portale="claude").count() == 1
+    # una risposta manomessa o cifrata per un'altra istanza non si applica
+    buona = chiama()
+    manomessa = json.loads(json.dumps(buona))
+    manomessa["config"]["provider"][0]["base_url"] = "https://ladro.example/v1"
+    monkeypatch.setattr(config_portale, "_chiama", lambda: manomessa)
+    assert config_portale.sincronizza().startswith("non allineati: firma non valida")
+    altra = Istanza.objects.create(cliente="Bianchi", piano=istanza.piano, scadenza=istanza.scadenza)
+    di_altra = chiama(altra.nuovo_token())
+    monkeypatch.setattr(config_portale, "_chiama", lambda: di_altra)
+    assert config_portale.sincronizza().startswith("non allineati: la chiave di un provider non è cifrata per questa istanza")
+    provider.refresh_from_db()
+    assert provider.base_url == "" and provider.chiave_per() == "sk-ant-ruotata"
+    # si torna alla chiave del cliente: i provider arrivati dal portale si spengono
+    monkeypatch.setattr(config_portale, "_chiama", chiama)
+    Piano.objects.filter(pk=istanza.piano_id).update(ai_formula="propria")
+    assert config_portale.sincronizza() == "provider del piano: 0, modelli: 0, spenti: 1"
+    assert not Provider.objects.get(portale="claude").attivo
+    # la pagina del portale: la chiave non si rilegge
+    pagina = client.get(reverse("rivendita:provider_ai_lista")).content.decode()
+    assert "Anthropic" in pagina and "sk-ant-ruotata" not in pagina and "tata" in pagina

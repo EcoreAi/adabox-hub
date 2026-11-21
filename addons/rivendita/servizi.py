@@ -164,6 +164,41 @@ def ai_di(istanza):
     return {"formula": termini["formula"], "quota_utente": str(quota_utente), "quota_istanza": str(termini["quota_istanza"]), **solo}
 
 
+def _cifra_per(istanza, testo):
+    """Un segreto cifrato per una sola istanza (Fernet con una chiave derivata dall'impronta del suo token): la
+    risposta, anche finita in un log o in una cache, non lo mostra, e un'altra istanza non lo legge."""
+    import base64
+    import hashlib
+
+    from cryptography.fernet import Fernet
+    chiave = base64.urlsafe_b64encode(hashlib.sha256(f"adabox-config-ai:{istanza.token_hash}".encode()).digest())
+    return Fernet(chiave).encrypt(testo.encode()).decode() if testo else ""
+
+
+def config_ai(istanza):
+    """{"config": {...}, "firma": ...}: i provider forniti con il piano per questa istanza, con modelli, prezzi e
+    chiave cifrata per lei. Con la chiave del cliente (formula «propria») l'elenco è vuoto: l'istanza spegne quelli
+    ricevuti prima."""
+    from core import cifratura
+
+    from .models import ProviderFornito
+    provider = []
+    if istanza.termini_ai()["formula"] != AI_PROPRIA:
+        for p in ProviderFornito.objects.filter(attivo=True).prefetch_related("modelli"):
+            provider.append({
+                "codice": p.codice, "nome": p.nome, "tipo": p.tipo, "base_url": p.base_url,
+                "chiave": _cifra_per(istanza, cifratura.decifra(p.chiave_cifrata)),
+                "modelli": [{"id_api": m.id_api, "etichetta": m.etichetta, "contesto": m.contesto, "max_output": m.max_output,
+                             "prezzo_input": str(m.prezzo_input), "prezzo_output": str(m.prezzo_output),
+                             "prezzo_cache_scrittura": None if m.prezzo_cache_scrittura is None else str(m.prezzo_cache_scrittura),
+                             "prezzo_cache_lettura": None if m.prezzo_cache_lettura is None else str(m.prezzo_cache_lettura),
+                             "strumenti": m.strumenti, "visione": m.visione, "ragionamento": m.ragionamento,
+                             "residenza_ue": m.residenza_ue, "livello_chat": m.livello_chat}
+                            for m in p.modelli.all() if m.attivo]})
+    config = {"istanza": str(istanza.codice), "emessa": timezone.now().isoformat(timespec="seconds"), "provider": provider}
+    return {"config": config, "firma": pacchetti.firma(pacchetti.serializza(config), chiave_privata()).decode()}
+
+
 def cambio():
     """Euro per un dollaro: i costi dei modelli sono in dollari, gli importi al cliente in euro."""
     from core import parametri

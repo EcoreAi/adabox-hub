@@ -60,6 +60,19 @@ def consumi_ai(request):
     return JsonResponse({"registrati": servizi.ricevi_consumi_ai(istanza, mesi[:12])})
 
 
+@csrf_exempt
+@require_POST
+def config_ai(request):
+    """I provider AI forniti con il piano per l'istanza (ai.config_portale): firmati, con la chiave cifrata per lei."""
+    istanza = _istanza(request)
+    if istanza is None:
+        return JsonResponse({"errore": "token non valido"}, status=401)
+    try:
+        return JsonResponse(servizi.config_ai(istanza))
+    except servizi.ChiaveMancante as e:
+        return JsonResponse({"errore": str(e)}, status=503)
+
+
 @require_GET
 def pacchetto(request, slug, versione):
     """Il pacchetto si scarica solo se la licenza dell'istanza lo copre e non è scaduta oltre la grazia."""

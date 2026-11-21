@@ -396,7 +396,8 @@ completate.
     l'utilizzo, con un tetto facoltativo. «mista»: una quota compresa nel canone e, oltre, l'utilizzo a consumo (la quota
     non ferma niente, il tetto facoltativo sì). Con «solo i modelli forniti con il piano» (spunta del piano, `--solo-forniti`)
     i provider aggiunti dal cliente non rispondono. Chi può usare ogni modello lo decide l'Admin in «Accesso ai modelli»
-    (gruppi e persone). Le quote contano il costo sui provider **forniti con il piano**
+    (gruppi e persone). Provider, modelli, prezzi e chiave del piano si scrivono una volta sul portale (Rivendita →
+    «Provider AI forniti») e arrivano alle istanze ogni ora, firmati e con la chiave cifrata (`ai.config_portale`). Le quote contano il costo sui provider **forniti con il piano**
     (`Provider.gestito`): la chiave è di chi vende, provider, modelli e prezzi li cambia solo il Global Admin, e la
     chiave dell'azienda lì non vale. A quota finita quei modelli escono dalla catena (`ai.limiti.ammessi`) fino al
     primo del mese e restano quelli con una chiave dell'azienda o locali, se ci sono; la chat avvisa dall'80%. Con

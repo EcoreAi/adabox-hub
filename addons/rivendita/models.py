@@ -150,6 +150,57 @@ class Suite(models.Model):
         return self.nome
 
 
+class ProviderFornito(models.Model):
+    """Un fornitore di modelli che diamo ai clienti con la nostra chiave. Le istanze con l'assistente incluso, a
+    consumo o misto lo ricevono a ogni sincronizzazione (ai.config_portale) come provider «fornito con il piano», con
+    i suoi modelli e i loro prezzi: qui si cambia una volta e vale per tutte, chiave compresa."""
+    TIPI = [("anthropic", "Anthropic (Claude)"), ("openai", "OpenAI (GPT)"), ("gemini", "Google (Gemini)"),
+            ("mistral", "Mistral AI (La Plateforme)"), ("openai_compat", "Compatibile OpenAI (OpenRouter, Ollama...)")]
+    codice = models.SlugField("codice", max_length=40, unique=True, help_text="il nome tecnico con cui le istanze lo riconoscono; non cambiarlo dopo")
+    nome = models.CharField("nome", max_length=70, help_text="come lo vedono i clienti")
+    tipo = models.CharField("tipo", max_length=15, choices=TIPI)
+    base_url = models.URLField("URL dell'API", blank=True, help_text="vuoto = quello predefinito del tipo")
+    chiave_cifrata = models.TextField("chiave API (cifrata)", blank=True, editable=False)
+    attivo = models.BooleanField("attivo", default=True, help_text="spento, le istanze lo spengono alla prossima sincronizzazione")
+
+    class Meta:
+        verbose_name = "provider AI fornito"
+        verbose_name_plural = "provider AI forniti"
+        ordering = ["nome"]
+
+    def __str__(self):
+        return self.nome
+
+
+class ModelloFornito(models.Model):
+    """Un modello di un provider fornito, con i prezzi che sulle istanze fanno il costo, le quote e gli importi."""
+    provider = models.ForeignKey(ProviderFornito, on_delete=models.CASCADE, related_name="modelli", verbose_name="provider")
+    id_api = models.CharField("ID del modello", max_length=120, help_text="es. claude-haiku-5-5")
+    etichetta = models.CharField("nome", max_length=80)
+    contesto = models.PositiveIntegerField("contesto (token)", default=200000)
+    max_output = models.PositiveIntegerField("output massimo (token)", default=8192)
+    prezzo_input = models.DecimalField("input $/M token", max_digits=10, decimal_places=4, default=0, validators=[MinValueValidator(0)])
+    prezzo_output = models.DecimalField("output $/M token", max_digits=10, decimal_places=4, default=0, validators=[MinValueValidator(0)])
+    prezzo_cache_scrittura = models.DecimalField("scrittura cache $/M", max_digits=10, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(0)])
+    prezzo_cache_lettura = models.DecimalField("lettura cache $/M", max_digits=10, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(0)])
+    strumenti = models.BooleanField("usa strumenti", default=True)
+    visione = models.BooleanField("legge immagini", default=False)
+    ragionamento = models.BooleanField("ragiona (effort)", default=False)
+    residenza_ue = models.BooleanField("dati in UE", default=False)
+    livello_chat = models.CharField("livello in chat", max_length=8, blank=True, choices=[("", "Nessuno"), ("veloce", "Veloce"), ("avanzato", "Avanzato")],
+                                    help_text="il modello della scelta «Veloce» o «Avanzato» sulle istanze; «Veloce» fa anche da riserva per i compiti senza un modello utilizzabile")
+    attivo = models.BooleanField("attivo", default=True)
+
+    class Meta:
+        verbose_name = "modello AI fornito"
+        verbose_name_plural = "modelli AI forniti"
+        ordering = ["provider__nome", "etichetta"]
+        constraints = [models.UniqueConstraint(fields=["provider", "id_api"], name="rivendita_modello_fornito_unico")]
+
+    def __str__(self):
+        return f"{self.etichetta} ({self.provider})"
+
+
 def _impronta(token):
     return hashlib.sha256(token.encode()).hexdigest()
 
