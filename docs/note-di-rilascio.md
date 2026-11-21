@@ -3,6 +3,18 @@
 Ciò che chi aggiorna un'istanza deve sapere: cambi di comportamento, azioni da fare, migrazioni. Il dettaglio è nei
 commit; qui solo ciò che si vede o che chiede un intervento.
 
+## 2026-11-21
+
+- **Limiti di spesa dell'assistente** — AI 1.53.1 (nessuna migrazione). **Cambi di comportamento, da controllare prima
+  di aggiornare:**
+  - con la formula «propria» (chiave del cliente) i modelli dei provider «forniti con il piano» **non rispondono più**:
+    prima si usavano senza quota né fattura. Un'istanza con licenza «propria» che oggi lavora su un provider segnato
+    «fornito con il piano» resta senza assistente finché non cambia la licenza (inclusa o a consumo) o il Global Admin
+    toglie il segno. La pagina `/ai/licenza/` lo segnala con «Da sistemare»;
+  - il tetto di spesa mensile dell'azienda ferma anche titoli, riassunti (delle chat e dei documenti) e verifica delle
+    citazioni, non solo chat e pianificate;
+  - i turni senza azienda, prima senza tetto, contano sul valore generale dell'impostazione (default 50 $).
+
 ## 2026-11-20
 
 - **Periodo sul grafico** — Kernel 1.6.0, AI 1.53.0, Analisi 1.9.0 (nessuna migrazione; AI e Analisi chiedono il

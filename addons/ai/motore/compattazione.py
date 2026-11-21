@@ -83,7 +83,7 @@ def se_serve(turno):
     try:
         from ..protezione import Protezione
         profilo = catalogo.profilo_per("riassunti", turno.azienda, conversazione.ambito)
-        catena = limiti.ammessi(catalogo.catena(profilo, turno.azienda), turno.utente)
+        catena = limiti.ammessi(catalogo.catena(profilo, turno.azienda), turno.utente, turno.azienda)
         from .. import riservatezza
         catena = riservatezza.filtra(catena, conversazione, turno.azienda)  # chat riservata: riassunto solo in locale
         for pezzo in gateway(catena, protezione=Protezione(conversazione),

@@ -107,6 +107,48 @@ def test_il_motore_rispetta_il_tetto(db, monkeypatch):
     assert turno.stato == "errore" and "tetto di spesa" in turno.testo and not chiamate
 
 
+def test_il_tetto_vale_anche_per_i_lavori_di_contorno(db, monkeypatch):
+    """Titoli, riassunti e verifiche passano da limiti.ammessi con l'azienda: a tetto raggiunto non chiamano i modelli."""
+    monkeypatch.setattr(esecuzione, "_dormi", lambda s: None)
+    azienda = Azienda.objects.get(pk=1)
+    p = Provider.objects.create(nome="F", tipo="finto")
+    m = Modello.objects.create(provider=p, id_api="f", etichetta="F")
+    AnelloCatena.objects.create(profilo=Profilo.objects.create(nome="c", compito="chat"), modello=m)
+    catena = [(m, "")]
+    utente = User.objects.create_user("u")
+    parametri.scrivi("ai.tetto_mensile", Decimal("1"), azienda)
+    assert limiti.ammessi(catena, utente, azienda) == catena
+    Turno.objects.create(azienda=azienda, costo=Decimal("1"))
+    assert limiti.ammessi(catena, utente) == catena                       # senza azienda passata: solo le quote, come prima
+    with pytest.raises(ErroreModello, match="tetto di spesa"):
+        limiti.ammessi(catena, utente, azienda)
+    from ai.models import MessaggioChat
+    from ai.motore import titoli
+    conversazione = Conversazione.objects.create(utente=utente)
+    MessaggioChat.objects.create(conversazione=conversazione, ruolo=MessaggioChat.UTENTE, testo="domanda")
+    MessaggioChat.objects.create(conversazione=conversazione, ruolo=MessaggioChat.ASSISTENTE, testo="risposta")
+    with finto.con_copione([["Titolo"]]) as chiamate:
+        titoli.genera(conversazione, utente, azienda)
+    lavoro = Turno.objects.get(compito="titoli")
+    assert not chiamate and lavoro.stato == "errore" and "tetto di spesa" in lavoro.errore and lavoro.costo == 0
+
+
+def test_i_turni_senza_azienda_hanno_il_tetto_generale(db):
+    """Prima un turno senza azienda saltava il tetto: ora conta sul tetto generale dell'impostazione."""
+    azienda = Azienda.objects.get(pk=1)
+    parametri.scrivi("ai.tetto_mensile", Decimal("3"))                     # generale (senza azienda)
+    Turno.objects.create(azienda=azienda, costo=Decimal("9"))             # dell'azienda: non conta qui
+    Turno.objects.create(costo=Decimal("2"))
+    limiti.verifica(None)
+    Turno.objects.create(costo=Decimal("1"))
+    with pytest.raises(ErroreModello, match="tetto di spesa"):
+        limiti.verifica(None)
+    with pytest.raises(ErroreModello, match="tetto di spesa"):
+        limiti.verifica(azienda)                                          # l'azienda senza un valore suo segue il generale
+    parametri.scrivi("ai.tetto_mensile", Decimal("0"))
+    limiti.verifica(None)                                                 # 0 = senza tetto
+
+
 def test_pagina_licenza_e_comando(client, superuser, chiavi, tmp_path):
     html = client.get("/ai/licenza/").content.decode()
     assert "Nessuna licenza caricata" in html

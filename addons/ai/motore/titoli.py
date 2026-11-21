@@ -25,7 +25,7 @@ def genera(conversazione, utente, azienda=None):
     try:
         profilo = catalogo.profilo_per("titoli", azienda, conversazione.ambito)
         richiesta = f"Domanda: {messaggi[0].testo[:1500]}\n\nRisposta: {messaggi[1].testo[:1500]}"
-        catena = limiti.ammessi(catalogo.catena(profilo, azienda), utente)
+        catena = limiti.ammessi(catalogo.catena(profilo, azienda), utente, azienda)
         from .. import riservatezza
         catena = riservatezza.filtra(catena, conversazione, azienda)       # chat riservata: titolo solo in locale
         for pezzo in gateway(catena, protezione=Protezione(conversazione), sistema=SISTEMA,

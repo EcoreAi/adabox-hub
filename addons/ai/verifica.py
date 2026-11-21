@@ -166,7 +166,7 @@ def _revisore(turno, coppie, protezione=None):
     pezzi, modello = [], None
     try:
         profilo = catalogo.profilo_per("classificazione", turno.azienda, getattr(conversazione, "ambito", ""))
-        catena = limiti.ammessi(catalogo.catena(profilo, turno.azienda), turno.utente)
+        catena = limiti.ammessi(catalogo.catena(profilo, turno.azienda), turno.utente, turno.azienda)
         from . import riservatezza
         catena = riservatezza.filtra(catena, conversazione, turno.azienda)  # chat riservata: verifica solo in locale
         for pezzo in gateway(catena, protezione=protezione or Protezione(conversazione), sistema=SISTEMA,

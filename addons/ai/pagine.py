@@ -498,6 +498,7 @@ def pagina_licenza(request):
         "spesa": limiti.spesa_mese(azienda) if azienda else None,
         "tetto": limiti.tetto(azienda) if azienda else None, "utenti_mese": len(limiti.utenti_del_mese()),
         "a_formula": a_formula, "consumo_fornito": limiti.consumo_fornito(),
+        "fuori_formula": limiti.fuori_formula(),
         "senza_fornito": a_formula and not Provider.objects.filter(gestito=True, attivo=True).exists(),
         "consumo_per_utente": limiti.consumo_per_utente() if stato.valida and stato.formula == licenza.INCLUSA else []})
 

@@ -190,8 +190,32 @@ def test_quota_dell_istanza_e_tetto_a_consumo(db, chiavi):  # noqa: F811
         limiti.ammessi(solo_piano, bruno)
     _con_formula(chiavi, formula="consumo", quota_utente="1")                  # a consumo la quota per utente non c'è
     assert limiti.ammessi(solo_piano, anna) == solo_piano and limiti.quota(anna) == []
-    _con_formula(chiavi)                                                       # chiave del cliente: come prima delle formule
-    assert limiti.ammessi(solo_piano, anna) == solo_piano and limiti.avviso_quota(anna) == ""
+    _con_formula(chiavi)                                                       # chiave del cliente: nessuna quota
+    assert limiti.quota(anna) == [] and limiti.avviso_quota(anna) == ""
+
+
+def test_con_la_chiave_del_cliente_i_modelli_del_piano_non_rispondono(db, chiavi, settings, monkeypatch):  # noqa: F811
+    """Formula «propria»: la chiave di chi vende non si usa, altrimenti si consumerebbe senza quota né fattura."""
+    monkeypatch.setattr(esecuzione, "_dormi", lambda s: None)
+    settings.AI_LICENZA_SVILUPPO = False
+    piano, proprio = _modello("Piano", gestito=True), _modello("Proprio")
+    utente = User.objects.create_user("u")
+    _con_formula(chiavi)
+    assert limiti.ammessi([(piano, ""), (proprio, "")], utente) == [(proprio, "")]
+    assert limiti.ammessi([(proprio, "")], utente) == [(proprio, "")]
+    with pytest.raises(ErroreModello, match="prevede la chiave del cliente"):
+        limiti.ammessi([(piano, "")], utente)
+    assert limiti.fuori_formula() == [piano.provider]
+    _catena(piano)
+    with finto.con_copione([["non arriva"]]) as chiamate:                      # anche dal motore: nessuna chiamata
+        turno = motore.avvia(Conversazione.objects.create(utente=utente), "ciao", utente)
+    turno.refresh_from_db()
+    assert turno.stato == "errore" and "chiave del cliente" in turno.testo and not chiamate and turno.costo == 0
+    _con_formula(chiavi, formula="consumo")                                    # con una formula tornano
+    assert limiti.ammessi([(piano, "")], utente) == [(piano, "")] and limiti.fuori_formula() == []
+    settings.AI_LICENZA_SVILUPPO = True                                        # in sviluppo non si toglie niente
+    Licenza.objects.all().delete()
+    assert limiti.ammessi([(piano, "")], utente) == [(piano, "")] and limiti.fuori_formula() == []
 
 
 def test_il_motore_rispetta_la_quota(db, chiavi, monkeypatch):  # noqa: F811
@@ -279,7 +303,10 @@ def test_avviso_in_chat_e_pagina_della_licenza(client, superuser, chiavi):  # no
     assert "Da sistemare" not in client.get("/ai/licenza/").content.decode()
     _con_formula(chiavi)
     pagina = client.get("/ai/licenza/").content.decode()
-    assert "Chiave del cliente" in pagina and "Consumo del mese sul piano" not in pagina and "Da sistemare" not in pagina
+    assert "Chiave del cliente" in pagina and "Consumo del mese sul piano" not in pagina
+    assert "Da sistemare" in pagina and "la licenza prevede la chiave del cliente" in pagina   # il provider del piano è rimasto
+    Provider.objects.filter(gestito=True).update(gestito=False)
+    assert "Da sistemare" not in client.get("/ai/licenza/").content.decode()
     assert "quota mensile" not in client.get("/ai/chat/").content.decode()
 
 

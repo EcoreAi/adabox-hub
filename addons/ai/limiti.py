@@ -1,5 +1,9 @@
 """Prima di ogni turno: licenza valida, utenti entro il limite, spesa del mese entro il tetto dell'azienda.
 
+Il tetto dell'azienda vale per ogni chiamata ai modelli, non solo per la chat: i lavori di contorno (titoli, riassunti,
+verifica delle citazioni) lo controllano passando l'azienda ad `ammessi`. I turni senza azienda hanno il loro conto,
+con il tetto generale dell'impostazione.
+
 Con una formula della licenza diversa da «propria» (ai.licenza) c'è anche la quota: il costo del mese sui provider
 forniti con il piano, per utente e per tutta l'istanza. A quota finita quei modelli escono dalla catena (`ammessi`):
 la chat continua sui modelli propri o locali, se ci sono. Il tetto di spesa dell'azienda resta un budget in più, che
@@ -23,6 +27,7 @@ AVVISO_QUOTA = Decimal("0.8")             # da questa parte della quota in su la
 
 
 def spesa_mese(azienda):
+    """Il costo del mese dell'azienda; con None, quello dei turni senza azienda."""
     oggi = timezone.localdate()
     from .models import Turno
     return Turno.objects.filter(azienda=azienda, iniziato__year=oggi.year, iniziato__month=oggi.month).aggregate(
@@ -107,19 +112,57 @@ def avviso_quota(utente=None, stato=None):
     return ""
 
 
-def ammessi(catena, utente=None):
-    """La catena [(modello, chiave)] senza i modelli forniti con il piano, se la loro quota del mese è finita. Se non
-    resta nessun modello: LIMITE, con il motivo per l'utente."""
+FUORI_FORMULA = ("I modelli forniti con il piano non sono compresi nella licenza di questa istanza, che prevede la "
+                 "chiave del cliente.")
+_NON_DATA = object()
+
+
+def ammessi(catena, utente=None, azienda=_NON_DATA):
+    """La catena [(modello, chiave)] senza i modelli forniti con il piano, se la loro quota del mese è finita o se la
+    licenza prevede la chiave del cliente (formula «propria»: la chiave di chi vende lì non si usa). Se non resta
+    nessun modello: LIMITE, con il motivo per l'utente.
+    Con `azienda` (anche None = turni senza azienda) controlla prima il tetto di spesa: lo passano i lavori di contorno,
+    che non chiamano `verifica`."""
+    if azienda is not _NON_DATA:
+        controlla_tetto(azienda)
     if not any(modello.provider.gestito for modello, _ in catena):
         return catena
-    motivo = quota_finita(utente)
+    stato = licenza.attuale()
+    if stato.valida and not stato.sviluppo and stato.formula == licenza.PROPRIA:
+        motivo, rimedio = FUORI_FORMULA, "Chiedi all'amministratore di configurare un provider con la chiave dell'azienda."
+    else:
+        motivo, rimedio = quota_finita(utente, stato), ("L'assistente riprende il primo del mese: per continuare prima, "
+                                                        "chiedi all'amministratore di ampliare il piano.")
     if not motivo:
         return catena
     restanti = [anello for anello in catena if not anello[0].provider.gestito]
     if not restanti:
-        raise ErroreModello("LIMITE", f"{motivo} L'assistente riprende il primo del mese: per continuare prima, "
-                                      "chiedi all'amministratore di ampliare il piano.")
+        raise ErroreModello("LIMITE", f"{motivo} {rimedio}")
     return restanti
+
+
+def fuori_formula():
+    """I provider forniti con il piano che questa licenza non lascia usare (formula «propria»): per la pagina della
+    licenza. Vuoto se è tutto a posto."""
+    from .models import Provider
+    stato = licenza.attuale()
+    if not stato.valida or stato.sviluppo or stato.formula != licenza.PROPRIA:
+        return []
+    return list(Provider.objects.filter(gestito=True, attivo=True))
+
+
+def controlla_tetto(azienda=None):
+    """LIMITE se la spesa del mese ha raggiunto il tetto dell'azienda; oltre la soglia, l'avviso agli amministratori.
+    Senza azienda: il tetto generale dell'impostazione, sui turni senza azienda."""
+    limite = tetto(azienda)
+    if limite <= 0:
+        return
+    spesa = spesa_mese(azienda)
+    if spesa >= limite:
+        raise ErroreModello("LIMITE", f"Raggiunto il tetto di spesa mensile dell'assistente ({limite} $): "
+                                      "l'amministratore può alzarlo nelle impostazioni.")
+    if spesa >= limite * Decimal(parametri.leggi("ai.avviso_percentuale", azienda) or 80) / 100:
+        _avvisa(azienda, spesa, limite)
 
 
 def verifica(azienda=None, utente=None, funzione="chat"):
@@ -132,17 +175,7 @@ def verifica(azienda=None, utente=None, funzione="chat"):
         attivi = utenti_del_mese()
         if utente.pk not in attivi and len(attivi) >= stato.utenti:
             raise ErroreModello("LIMITE", f"Raggiunto il numero di utenti della licenza ({stato.utenti} al mese).")
-    if azienda is None:
-        return
-    limite = tetto(azienda)
-    if limite <= 0:
-        return
-    spesa = spesa_mese(azienda)
-    if spesa >= limite:
-        raise ErroreModello("LIMITE", f"Raggiunto il tetto di spesa mensile dell'assistente ({limite} $): "
-                                      "l'amministratore può alzarlo nelle impostazioni.")
-    if spesa >= limite * Decimal(parametri.leggi("ai.avviso_percentuale", azienda) or 80) / 100:
-        _avvisa(azienda, spesa, limite)
+    controlla_tetto(azienda)
 
 
 def _avvisa(azienda, spesa, limite):
@@ -156,7 +189,7 @@ def _avvisa(azienda, spesa, limite):
                    if u.is_superuser or u.has_perm("ai.change_provider")]
     if destinatari:
         send_mail(f"Assistente AI: spesa del mese a {spesa:.2f} $ su {limite} $",
-                  f"La spesa dell'assistente per {azienda} questo mese è {spesa:.2f} $ su un tetto di {limite} $.\n"
+                  f"La spesa dell'assistente per {azienda or 'i turni senza azienda'} questo mese è {spesa:.2f} $ su un tetto di {limite} $.\n"
                   "Al raggiungimento del tetto l'assistente smette di rispondere fino al mese prossimo.",
                   None, destinatari, fail_silently=True)
     log.info("avviso di spesa per %s: %s su %s", azienda, spesa, limite)

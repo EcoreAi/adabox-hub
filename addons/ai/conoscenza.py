@@ -451,7 +451,7 @@ def riassumi(d, analisi):
     pezzi_testo, modello = [], None
     try:
         profilo = catalogo.profilo_per("riassunti", d.azienda)
-        catena = limiti.ammessi(catalogo.catena(profilo, d.azienda), utente)
+        catena = limiti.ammessi(catalogo.catena(profilo, d.azienda), utente, d.azienda)
         from . import riservatezza
         if d.cartella_id in riservatezza.cartelle_riservate(d.azienda) or \
                 "documenti" in riservatezza.app_riservate(d.azienda):        # documento riservato: solo in locale

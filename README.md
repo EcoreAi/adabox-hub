@@ -386,14 +386,16 @@ completate.
     disponibili (se no, perché). Si spengono per l'azienda (permesso `ai.change_strumentospento`) o per tutta
     l'istanza (Global Admin); spegnere toglie e basta, e a quale funzione appartiene uno strumento resta nel codice;
   - il tetto di spesa mensile per azienda (default 50 $) e la soglia dell'avviso agli amministratori stanno in
-    `/impostazioni/`. I consumi di ogni chiamata sono in `/ai/consumi/`: non si eliminano, e i turni di una chat
+    `/impostazioni/`. Il tetto vale per ogni chiamata ai modelli (chat, pianificate, titoli, riassunti, verifica delle
+    citazioni); i turni senza azienda hanno un conto a parte, con il valore generale dell'impostazione. I consumi di ogni chiamata sono in `/ai/consumi/`: non si eliminano, e i turni di una chat
     eliminata restano come righe di costo senza più contenuto;
   - la **formula** della licenza dice come si vende l'assistente. «propria»: la chiave è del cliente, come finora.
     «inclusa»: l'assistente è nel canone, con una quota mensile per utente e per istanza. «consumo»: si fattura
     l'utilizzo, con un tetto facoltativo. Le quote contano il costo sui provider **forniti con il piano**
     (`Provider.gestito`): la chiave è di chi vende, provider, modelli e prezzi li cambia solo il Global Admin, e la
     chiave dell'azienda lì non vale. A quota finita quei modelli escono dalla catena (`ai.limiti.ammessi`) fino al
-    primo del mese e restano quelli con una chiave dell'azienda o locali, se ci sono; la chat avvisa dall'80%. Senza
+    primo del mese e restano quelli con una chiave dell'azienda o locali, se ci sono; la chat avvisa dall'80%. Con
+    «propria» i modelli dei provider forniti con il piano non rispondono affatto (la pagina della licenza lo segnala). Senza
     portale: `ai_licenza --formula inclusa --quota-utente 5 --quota-istanza 200`. Le formule «inclusa» e «consumo»
     sono affidabili solo sulle istanze ospitate: su un server del cliente la chiave e i contatori sono in mano sua.
 - **Come funziona**:
