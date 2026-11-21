@@ -24,6 +24,9 @@ from .models import AI_CONSUMO, AI_INCLUSA, AI_MISTA, AI_PROPRIA, ConsumoAI, Fun
 from .schede import SCHEDE
 
 
+DISDETTA, DISDETTA_SUITE = "disdetta", "disdetta_suite"      # i tipi con cui l'istanza manda una disdetta (core.models.RichiestaModulo)
+
+
 class ChiaveMancante(Exception):
     pass
 
@@ -269,11 +272,84 @@ def acquistabile(voce):
     return voce.in_catalogo and voce.prezzo_mese > 0
 
 
+PERIODO_GIORNI = 30        # il contratto di un'app o di una suite comprata: si rinnova da solo, si disdice per la fine del periodo
+
+
+def fine_periodo(contratto, oggi=None):
+    """Il giorno in cui finisce il periodo di 30 giorni in corso, contati dall'attivazione: una disdetta di oggi vale da lì
+    (quel giorno l'app non c'è più; l'ultimo pagato è il precedente)."""
+    oggi = oggi or timezone.localdate()
+    inizio = timezone.localtime(contratto.decisa_il).date()
+    return inizio + datetime.timedelta(days=(max((oggi - inizio).days, 0) // PERIODO_GIORNI + 1) * PERIODO_GIORNI)
+
+
+def contratti(istanza):
+    """{(tipo, slug): Richiesta}: per i moduli in più e le suite che l'istanza ha adesso, la richiesta approvata (o
+    l'acquisto diretto) da cui sono arrivati. Ciò che è stato aggiunto a mano dal portale non ha un contratto, e non
+    si disdice dal catalogo; nemmeno le app del piano."""
+    tenuti = ({(Richiesta.INSTALLAZIONE, s) for s in istanza.moduli_extra.values_list("slug", flat=True)}
+              | {(Richiesta.SUITE, s) for s in istanza.suite.values_list("slug", flat=True)})
+    trovati = {}
+    for r in Richiesta.objects.filter(istanza=istanza, stato=Richiesta.APPROVATA, tipo__in=(Richiesta.INSTALLAZIONE, Richiesta.SUITE),
+                                      decisa_il__isnull=False).order_by("decisa_il", "pk"):
+        if (r.tipo, r.slug) in tenuti:
+            trovati[r.tipo, r.slug] = r                # l'ultima vince
+    return trovati
+
+
+def _disdetta_nel_catalogo(contratto, da_sola):
+    """Per il catalogo: «termina» (il giorno) se è già disdetta, «disdetta» (il giorno da cui varrebbe) se si può disdire."""
+    if contratto is None:
+        return {}
+    if contratto.fine:
+        return {"termina": contratto.fine.isoformat()}
+    return {"disdetta": fine_periodo(contratto).isoformat()} if da_sola else {}
+
+
+def disdici(istanza, voce):
+    """La disdetta chiesta dall'istanza (`voce` della sincronizzazione, tipo «disdetta» o «disdetta_suite», con la
+    «fine» che il cliente ha confermato): il contratto termina alla fine dei 30 giorni in corso. Fino ad allora l'app
+    resta in licenza e nel canone; poi la toglie il lavoro pianificato (chiudi_disdette). Non si esegue se l'istanza
+    non fa da sola, se non c'è un contratto aperto o se la fine confermata non è più quella: l'istanza lo rivede nel
+    catalogo. True se la disdetta è stata registrata."""
+    from core import chatter
+    slug, tipo = str(voce.get("slug", ""))[:31], Richiesta.SUITE if voce.get("tipo") == DISDETTA_SUITE else Richiesta.INSTALLAZIONE
+    with transaction.atomic():
+        istanza = Istanza.objects.select_for_update().select_related("piano").get(pk=istanza.pk)
+        contratto = contratti(istanza).get((tipo, slug))
+        if contratto is None or contratto.fine or not istanza.fa_da_sola() or voce.get("fine") != fine_periodo(contratto).isoformat():
+            return False
+        contratto.disdetta_il, contratto.fine, contratto.disdetta_da = timezone.now(), fine_periodo(contratto), str(voce.get("utente") or "")[:150]
+        contratto.save(update_fields=["disdetta_il", "fine", "disdetta_da"])
+        chatter.scrivi(istanza, None, f"Disdetta dal catalogo: {'suite ' if tipo == Richiesta.SUITE else ''}{contratto.nome}, termina il "
+                                      f"{contratto.fine:%d/%m/%Y}" + (f" (chiesta da {contratto.disdetta_da})" if contratto.disdetta_da else "") + ".")
+    return True
+
+
+def chiudi_disdette(oggi=None):
+    """Toglie alle istanze le app e le suite disdette arrivate alla fine: escono da licenza e canone (sull'istanza il
+    modulo si disinstalla alla sincronizzazione, i dati restano). Restituisce quante. Lo chiama il giro degli addebiti,
+    prima di contare il giorno."""
+    oggi = oggi or timezone.localdate()
+    chiuse = 0
+    for r in Richiesta.objects.filter(stato=Richiesta.APPROVATA, fine__lte=oggi).select_related("istanza"):
+        with transaction.atomic():
+            if r.tipo == Richiesta.SUITE:
+                r.istanza.suite.remove(*Suite.objects.filter(slug=r.slug))
+            else:
+                r.istanza.moduli_extra.remove(*ModuloVendibile.objects.filter(slug=r.slug))
+            r.stato = Richiesta.TERMINATA
+            r.save(update_fields=["stato"])
+        chiuse += 1
+    return chiuse
+
+
 def catalogo_di(istanza, base_url):
     """Il catalogo di questa istanza: i moduli licenziati con il loro pacchetto, tutti gli altri solo descritti. Con
-    l'acquisto diretto, ciò che si può comprare porta il prezzo al mese e «acquisto»; senza, il catalogo resta com'era."""
+    l'acquisto diretto, ciò che si può comprare porta il prezzo al mese e «acquisto», e ciò che si può disdire il
+    giorno da cui la disdetta varrebbe («disdetta»); una disdetta già data porta «termina». Senza, resta com'era."""
     spettanti = moduli_di(istanza)
-    diretto = istanza.acquisto_ammesso()
+    diretto, da_sola, aperti = istanza.acquisto_ammesso(), istanza.fa_da_sola(), contratti(istanza)
     voci, disponibili = [], []
     for m in ModuloVendibile.objects.all():
         descrizione = {"slug": m.slug, "nome": m.nome, "riassunto": m.riassunto, "categoria": m.categoria, "application": m.application, "icona": m.icona,
@@ -282,7 +358,8 @@ def catalogo_di(istanza, base_url):
         ultimo = m.ultimo()
         if m.slug in spettanti and ultimo:
             voci.append({**descrizione, "versione": ultimo.versione, "min_core": ultimo.min_core, "dipendenze": ultimo.dipendenze, "file": ultimo.nome_file,
-                         "url": base_url + reverse("rivendita:api_pacchetto", args=[m.slug, ultimo.versione]), "sha256": ultimo.sha256})
+                         "url": base_url + reverse("rivendita:api_pacchetto", args=[m.slug, ultimo.versione]), "sha256": ultimo.sha256,
+                         **_disdetta_nel_catalogo(aperti.get((Richiesta.INSTALLAZIONE, m.slug)), da_sola)})
         elif m.slug not in spettanti and m.in_catalogo and not m.su_misura and m.application and ultimo:
             if diretto and acquistabile(m):
                 descrizione.update(prezzo_mese=str(m.prezzo_mese), acquisto=True)
@@ -290,7 +367,8 @@ def catalogo_di(istanza, base_url):
     comprate = set(istanza.suite.values_list("pk", flat=True))
     suite = [{"slug": su.slug, "nome": su.nome, "descrizione": su.descrizione, "utenti": su.utenti, "comprata": su.pk in comprate,
               "moduli": [{"slug": m.slug, "nome": m.nome} for m in su.moduli.filter(application=True, su_misura=False).order_by("nome")],
-              **({"prezzo_mese": str(su.prezzo_mese), "acquisto": True} if diretto and su.pk not in comprate and acquistabile(su) else {})}
+              **({"prezzo_mese": str(su.prezzo_mese), "acquisto": True} if diretto and su.pk not in comprate and acquistabile(su) else {}),
+              **_disdetta_nel_catalogo(aperti.get((Richiesta.SUITE, su.slug)), da_sola)}
              for su in Suite.objects.prefetch_related("moduli") if su.in_catalogo or su.pk in comprate]
     dati = {"formato": 1, "istanza": str(istanza.codice), "creato": timezone.now().isoformat(timespec="seconds"), "moduli": voci, "disponibili": disponibili,
             "suite": suite}
@@ -333,6 +411,11 @@ def ricevi_richieste(istanza, voci):
     for v in voci or []:
         slug = str(v.get("slug", ""))[:31]
         if not slug:
+            continue
+        if v.get("tipo") in (DISDETTA, DISDETTA_SUITE):
+            disdici(istanza, v)                        # eseguita o no, è arrivata: l'esito l'istanza lo legge nel catalogo
+            if isinstance(v.get("id"), int):
+                ricevute.append(v["id"])
             continue
         if v.get("acquisto") is True and acquista(istanza, v):
             if isinstance(v.get("id"), int):

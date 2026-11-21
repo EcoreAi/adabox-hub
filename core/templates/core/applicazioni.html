@@ -20,6 +20,15 @@
   <div class="mk-piede">
     {% if s.stato == "comprata" %}<span class="mk-stato">Comprata{% if s.posti %} · {{ s.posti.occupati }} su {{ s.posti.utenti }} posti{% endif %}</span>
       {% if s.dipartimento and perms.core.change_dipartimento %}<a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'core:dipartimento' s.dipartimento.pk %}">Il dipartimento</a>{% endif %}
+      {% if s.termina %}<span class="mk-stato">Disdetta: resta fino al {{ s.termina_ultimo|date:"d/m/Y" }}</span>
+      {% elif s.in_disdetta %}<span class="mk-stato">Disdetta in corso</span>
+      {% elif s.disdetta_fine and puo_comprare %}<details class="mk-richiedi"><summary class="ui-btn ui-btn-ghost ui-btn-sm">Disdici</summary>
+        <form method="post" action="{% url 'core:applicazioni_disdici' %}" class="mk-richiedi-form">{% csrf_token %}
+          <input type="hidden" name="slug" value="{{ s.slug }}"><input type="hidden" name="tipo" value="suite"><input type="hidden" name="fine" value="{{ s.disdetta_fine|date:'Y-m-d' }}">
+          <p class="ui-help">Il contratto si rinnova ogni 30 giorni: disdicendo adesso la suite «{{ s.nome }}» resta e si paga fino al {{ s.disdetta_ultimo|date:"d/m/Y" }}, poi le sue app vengono tolte. I dati restano.</p>
+          <label><input type="checkbox" class="ui-checkbox" name="conferma" value="1" required> Confermo la disdetta della suite «{{ s.nome }}» dal {{ s.disdetta_fine|date:"d/m/Y" }}</label>
+          <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Disdici ora</button>
+        </form></details>{% endif %}
     {% elif s.stato == "richiesta" %}<span class="mk-stato">{% if s.in_acquisto %}Acquisto in corso{% else %}Richiesta inviata{% endif %}</span>
     {% elif s.prezzo_mese and puo_comprare %}<span class="mk-stato mk-prezzo">{{ s.prezzo_mese }} € al mese</span>
       <details class="mk-richiedi"><summary class="ui-btn ui-btn-primary ui-btn-sm">Acquista la suite</summary>

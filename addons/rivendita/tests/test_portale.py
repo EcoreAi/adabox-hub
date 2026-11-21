@@ -661,3 +661,65 @@ def test_acquisto_dall_istanza_al_portale_e_ritorno(client, scena):
     # l'acquisto non eseguito è arrivato, ma è una richiesta come le altre: sul portale e sull'istanza
     assert (altra.stato, altra.consegnata, altra.acquisto) == ("inviata", True, False)
     assert (Richiesta.objects.get(slug="sparito").stato, Richiesta.objects.get(slug="sparito").diretto) == ("nuova", False)
+
+
+@pytest.mark.django_db
+def test_disdetta_per_la_fine_dei_trenta_giorni(client, superuser, scena):
+    from decimal import Decimal
+
+    from rivendita import addebiti
+    istanza, token = scena
+    Piano.objects.update(acquisto_diretto=True)
+    ModuloVendibile.objects.filter(slug="premium").update(prezzo_mese=30)
+    Suite.objects.create(nome="Vendite", slug="vendite", prezzo_mese=50)
+    _post(client, token, {"richieste": [{"id": 1, "slug": "premium", "acquisto": True, "prezzo": "30.00"},
+                                        {"id": 2, "slug": "vendite", "tipo": "suite", "acquisto": True, "prezzo": "50.00"}]})
+    oggi, giorno = timezone.localdate(), datetime.timedelta(days=1)
+    Richiesta.objects.filter(slug="premium").update(decisa_il=timezone.now() - 40 * giorno)       # comprata 40 giorni fa: secondo periodo
+    contratto = Richiesta.objects.get(slug="premium")
+    inizio = timezone.localtime(contratto.decisa_il).date()
+    fine = inizio + 60 * giorno
+    assert [servizi.fine_periodo(contratto, inizio + n * giorno) - inizio for n in (0, 29, 30, 59, 60)] == [30 * giorno, 30 * giorno, 60 * giorno, 60 * giorno, 90 * giorno]
+
+    def catalogo():
+        return sincronia._verifica(_post(client, token).json())[1]
+
+    def disdici(numero, slug, quando, tipo="disdetta"):
+        return _post(client, token, {"richieste": [{"id": numero, "slug": slug, "tipo": tipo, "fine": quando.isoformat(), "utente": "mario"}]}).json()
+
+    # si disdice ciò che è stato comprato, non le app del piano
+    assert {v["slug"]: v.get("disdetta") for v in catalogo()["moduli"]} == {"base": None, "extra": None, "premium": fine.isoformat()}
+    assert [(s["slug"], s.get("disdetta")) for s in catalogo()["suite"]] == [("vendite", (oggi + 30 * giorno).isoformat())]
+    # una data che non è la fine del periodo, o un'app del piano: arrivata, ma niente disdetta
+    assert disdici(3, "premium", fine - 30 * giorno)["ricevute"] == [3] and disdici(4, "extra", fine)["ricevute"] == [4]
+    assert not Richiesta.objects.exclude(fine=None).exists() and Richiesta.objects.count() == 2
+
+    risposta = disdici(5, "premium", fine)
+    contratto.refresh_from_db()
+    assert risposta["ricevute"] == [5] and (contratto.fine, contratto.disdetta_da, contratto.stato) == (fine, "mario", "approvata")
+    voce = next(v for v in catalogo()["moduli"] if v["slug"] == "premium")
+    assert voce["termina"] == fine.isoformat() and "disdetta" not in voce                          # resta in licenza fino alla fine
+    assert Istanza.objects.get(pk=istanza.pk).canone_mese() == Decimal("179")
+    disdici(6, "premium", fine)                                                                    # due volte non cambia niente
+    assert Richiesta.objects.get(slug="premium").disdetta_il == contratto.disdetta_il
+
+    # il giro notturno: il giorno prima c'è ancora, alla fine esce da licenza e canone e torna tra le app da comprare
+    assert "disdette" not in addebiti.giro(fine - giorno) and istanza.moduli_extra.filter(slug="premium").exists()
+    assert "disdette arrivate alla fine: 1" in addebiti.giro(fine)
+    contratto.refresh_from_db()
+    assert contratto.stato == "terminata" and not istanza.moduli_extra.exists() and Istanza.objects.get(pk=istanza.pk).canone_mese() == Decimal("149")
+    dopo = catalogo()
+    assert "premium" not in {v["slug"] for v in dopo["moduli"]} and [v["slug"] for v in dopo["disponibili"]] == ["premium"]
+    assert "disdette" not in addebiti.giro(fine + giorno)
+
+    # la suite: disdetta, poi annullata dal portale; e senza «fa da sola» il catalogo non offre la disdetta
+    disdici(7, "vendite", oggi + 30 * giorno, tipo="disdetta_suite")
+    suite = Richiesta.objects.get(slug="vendite")
+    assert suite.fine == oggi + 30 * giorno and catalogo()["suite"][0]["termina"] == suite.fine.isoformat()
+    assert client.post(reverse("rivendita:richieste_bottone", args=[suite.pk, "annulla_disdetta"])).status_code == 302
+    suite.refresh_from_db()
+    assert suite.fine is None and suite.disdetta_il is None and "disdetta" in catalogo()["suite"][0]
+    Piano.objects.update(acquisto_diretto=False)
+    assert "disdetta" not in catalogo()["suite"][0]
+    disdici(8, "vendite", oggi + 30 * giorno, tipo="disdetta_suite")
+    assert Richiesta.objects.get(slug="vendite").fine is None and istanza.suite.exists()

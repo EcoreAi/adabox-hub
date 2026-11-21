@@ -60,7 +60,8 @@ def _rapporto():
                 modules.Modulo.objects.filter(slug__in=modules.installati()).values("slug", "versione_installata")}
     return {"moduli": versioni, "utenti_attivi": licenza.utenti_attivi(),
             "richieste": [{"id": r.pk, "slug": r.slug, "tipo": r.tipo, "nome": r.nome, "nota": r.nota, "utente": str(r.utente or ""),
-                           **({"acquisto": True, "prezzo": str(r.prezzo_mese)} if r.acquisto else {})}
+                           **({"acquisto": True, "prezzo": str(r.prezzo_mese)} if r.acquisto else {}),
+                           **({"fine": r.fine.isoformat()} if r.tipo in RichiestaModulo.DISDETTE and r.fine else {})}
                           for r in RichiestaModulo.objects.filter(stato=RichiestaModulo.INVIATA, consegnata=False)]}
 
 
@@ -83,7 +84,7 @@ def _verifica(risposta):
 
 def _aggiorna_richieste(stato, risposta):
     aperte = RichiestaModulo.objects.filter(stato=RichiestaModulo.INVIATA)
-    moduli, suite = aperte.exclude(tipo=RichiestaModulo.SUITE), aperte.filter(tipo=RichiestaModulo.SUITE)
+    moduli, suite = aperte.filter(tipo__in=(RichiestaModulo.INSTALLAZIONE, RichiestaModulo.DEMO)), aperte.filter(tipo=RichiestaModulo.SUITE)
     moduli.filter(slug__in=stato.moduli).update(stato=RichiestaModulo.EVASA)
     moduli.filter(slug__in=risposta.get("rifiutate") or []).update(stato=RichiestaModulo.RIFIUTATA)
     suite.filter(slug__in=[s["slug"] for s in stato.suite]).update(stato=RichiestaModulo.EVASA)
@@ -92,6 +93,8 @@ def _aggiorna_richieste(stato, risposta):
     # un acquisto arrivato al portale e non entrato in licenza non è stato eseguito (prezzo cambiato, acquisto diretto
     # tolto): là è diventato una richiesta, e così lo mostra il catalogo
     aperte.filter(acquisto=True, consegnata=True).update(acquisto=False)
+    # una disdetta arrivata è chiusa: se il portale l'ha registrata lo dice il catalogo («termina»)
+    aperte.filter(tipo__in=RichiestaModulo.DISDETTE, consegnata=True).update(stato=RichiestaModulo.EVASA)
 
 
 def _scarica(voce):

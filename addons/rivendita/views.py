@@ -41,13 +41,15 @@ class IstanzeView(ModelView):
 class RichiesteView(ModelView):
     model = Richiesta
     slug = "richieste"
-    list_display = ["creata", "istanza", "nome", "tipo", "utente", "stato", "diretto", "prezzo_mese"]
+    list_display = ["creata", "istanza", "nome", "tipo", "utente", "stato", "diretto", "prezzo_mese", "fine"]
     list_filter = ["stato", "tipo", "diretto", "istanza"]
     search_fields = ["nome", "slug", "nota"]
-    form_layout = [("Richiesta", [("istanza", "nome"), ("tipo", "utente"), "creata", "nota", ("stato", "decisa_il"), "decisa_da", ("diretto", "prezzo_mese")])]
-    readonly_fields = ["istanza", "nome", "tipo", "utente", "creata", "nota", "stato", "decisa_il", "decisa_da", "diretto", "prezzo_mese"]
+    form_layout = [("Richiesta", [("istanza", "nome"), ("tipo", "utente"), "creata", "nota", ("stato", "decisa_il"), "decisa_da", ("diretto", "prezzo_mese")]),
+                   ("Disdetta", [("disdetta_il", "disdetta_da"), "fine"])]
+    readonly_fields = ["istanza", "nome", "tipo", "utente", "creata", "nota", "stato", "decisa_il", "decisa_da", "diretto", "prezzo_mese",
+                       "disdetta_il", "disdetta_da", "fine"]
     list_group_by = ["stato", "istanza", "nome"]
-    buttons = ["approva", "gestita", "rifiuta"]
+    buttons = ["approva", "gestita", "rifiuta", "annulla_disdetta"]
     chatter = True
     tracked_fields = ["stato"]
 
@@ -55,10 +57,20 @@ class RichiesteView(ModelView):
         return False
 
     def get_buttons(self, request, obj):
+        if obj.stato == Richiesta.APPROVATA and obj.fine:                   # disdetta data, non ancora arrivata alla fine
+            return [(n, e) for n, e in super().get_buttons(request, obj) if n == "annulla_disdetta"]
         if obj.stato != Richiesta.NUOVA:
             return []
-        fuori = "approva" if obj.tipo == Richiesta.DEMO else "gestita"     # una demo non entra in licenza
-        return [(n, e) for n, e in super().get_buttons(request, obj) if n != fuori]
+        fuori = ("annulla_disdetta", "approva" if obj.tipo == Richiesta.DEMO else "gestita")     # una demo non entra in licenza
+        return [(n, e) for n, e in super().get_buttons(request, obj) if n not in fuori]
+
+    def annulla_disdetta(self, request, obj):
+        if obj.stato != Richiesta.APPROVATA or not obj.fine:
+            return "Non c'è una disdetta da annullare."
+        obj.disdetta_il, obj.disdetta_da, obj.fine = None, "", None
+        obj.save(update_fields=["disdetta_il", "disdetta_da", "fine"])
+        return f"Disdetta di {obj.nome} per {obj.istanza} annullata: il contratto continua."
+    annulla_disdetta.short_description = "Annulla la disdetta"
 
     def _decidi(self, request, obj, stato):
         obj.stato, obj.decisa_il, obj.decisa_da = stato, timezone.now(), request.user

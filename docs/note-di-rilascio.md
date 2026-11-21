@@ -76,8 +76,8 @@ commit; qui solo ciò che si vede o che chiede un intervento.
     mese risulta parziale. I mesi passati non vengono ricostruiti.
   - Non c'è l'incasso online né il sollecito: «pagato» si segna a mano.
 
-- **Acquisto diretto dal catalogo** — Kernel 1.7.0, Rivendita 1.11.0 (una migrazione ciascuno). Senza accenderlo non
-  cambia niente.
+- **Acquisto diretto e disdetta dal catalogo** — Kernel 1.7.0, Rivendita 1.11.0 (due migrazioni ciascuno). Senza
+  accenderlo non cambia niente.
   - Sul portale: «acquisto diretto dal catalogo» nel **piano** (vale per le sue istanze) e nella scheda dell'**istanza**
     («Sì» o «No» vincono sul piano; vuoto = come il piano). Si comprano da soli solo i moduli e le suite visibili in
     catalogo **con un prezzo al mese maggiore di zero**: ciò che è a 0 € resta una richiesta da approvare. **Da fare
@@ -92,7 +92,18 @@ commit; qui solo ciò che si vede o che chiede un intervento.
     notturno successivo.
   - **Con quale versione:** l'istanza deve avere il kernel 1.7; una più vecchia ignora i prezzi e continua a chiedere.
     Un'istanza 1.7 con un portale non aggiornato non vede prezzi: non cambia niente.
-  - Non c'è il pagamento online né la disdetta dal catalogo: si paga con la fattura del mese e un'app si toglie dal portale.
+  - **Disdetta**: con la stessa spunta accesa, l'Admin del cliente disdice da `/applicazioni/` una singola app o suite
+    che ha comprato («Disdici»). Il contratto corre a periodi di **30 giorni dal giorno dell'attivazione** e si rinnova
+    da solo: la disdetta vale dalla fine del periodo in corso. Fino a quel giorno l'app resta attiva e nel canone; il
+    giorno dopo il giro notturno la toglie da licenza e canone e l'istanza la disinstalla **lasciando i dati**. La
+    pagina dice la data prima della conferma e poi mostra «Disdetta: resta fino al…».
+  - Si disdice solo ciò che è arrivato da una richiesta approvata o da un acquisto diretto (è quella la data di
+    inizio): non le app del piano né quelle aggiunte a mano nella scheda dell'istanza. Disdire si può anche a licenza
+    scaduta.
+  - Sul portale la disdetta è sulla Richiesta di origine («disdetta il», «termina il»; alla fine lo stato diventa
+    «Terminata per disdetta») e nel registro dell'istanza. Finché non è arrivata alla fine, «Annulla la disdetta» la
+    toglie: il cliente da solo non può annullarla.
+  - Non c'è il pagamento online: si paga con la fattura del mese.
 
 ## 2026-11-20
 

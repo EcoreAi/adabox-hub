@@ -30,6 +30,15 @@
           <button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">Invia la richiesta</button>
         </form></details>{% endif %}
     {% endif %}
+    {% if v.termina %}<span class="mk-stato">Disdetta: resta fino al {{ v.termina_ultimo|date:"d/m/Y" }}</span>
+    {% elif v.in_disdetta %}<span class="mk-stato">Disdetta in corso</span>
+    {% elif v.disdetta_fine and puo_comprare %}<details class="mk-richiedi"><summary class="ui-btn ui-btn-ghost ui-btn-sm">Disdici</summary>
+      <form method="post" action="{% url 'core:applicazioni_disdici' %}" class="mk-richiedi-form">{% csrf_token %}
+        <input type="hidden" name="slug" value="{{ v.slug }}"><input type="hidden" name="fine" value="{{ v.disdetta_fine|date:'Y-m-d' }}">
+        <p class="ui-help">Il contratto si rinnova ogni 30 giorni: disdicendo adesso «{{ v.nome }}» resta attiva e si paga fino al {{ v.disdetta_ultimo|date:"d/m/Y" }}, poi viene tolta. I dati restano e tornano se la ricompri.</p>
+        <label><input type="checkbox" class="ui-checkbox" name="conferma" value="1" required> Confermo la disdetta di «{{ v.nome }}» dal {{ v.disdetta_fine|date:"d/m/Y" }}</label>
+        <button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Disdici ora</button>
+      </form></details>{% endif %}
   </div>
   <dialog class="mk-info" id="mk-info-{{ v.slug }}" aria-labelledby="mk-info-titolo-{{ v.slug }}">
     <div class="mk-info-testa"><div class="mk-testa"><span class="ui-app-icona mk-icona">{% if v.statica %}<img src="{% static v.statica %}" alt="">{% elif v.icona %}<img src="{{ v.icona }}" alt="">{% else %}<span class="mk-iniziale">{{ v.iniziale }}</span>{% endif %}</span>

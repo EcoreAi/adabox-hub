@@ -701,7 +701,10 @@ questa, o l'ospitare l'istanza senza dare accesso al server. Licenza e firme son
    sincronizzazione che parte subito il portale li mette in licenza (`servizi.acquista`) se l'acquisto è ammesso, la
    licenza non è scaduta e il prezzo è quello confermato; altrimenti resta una richiesta da decidere. L'acquisto è una
    Richiesta già approvata, segnata «acquisto diretto» con il suo prezzo, e pesa sugli addebiti dai giorni seguenti.
-   Ciò che ha prezzo 0 si può solo chiedere.
+   Ciò che ha prezzo 0 si può solo chiedere. Con la stessa spunta il cliente **disdice** da solo un'app o una suite
+   comprata: il contratto corre a periodi di 30 giorni dall'attivazione (`decisa_il` della Richiesta) e la disdetta
+   vale dalla fine del periodo in corso (`servizi.disdici`); quel giorno il giro degli addebiti la toglie da licenza e
+   canone (`servizi.chiudi_disdette`). «Annulla la disdetta» sulla Richiesta la ritira finché non è terminata.
 
 **Dalla parte del cliente**, l'immagine contiene kernel e tema, nessun modulo: `docker build -f deploy/Dockerfile.cliente -t adabox_hub_cliente:<versione> .`,
 `deploy/compose.cliente.yml` per l'avvio, e nel `.env`:

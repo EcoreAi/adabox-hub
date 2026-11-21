@@ -64,8 +64,11 @@ def chiudi(addebito):
 
 
 def giro(oggi=None):
-    """Voce `cron` del manifest, una volta al giorno: conta il giorno per le istanze attive e chiude i mesi finiti."""
+    """Voce `cron` del manifest, una volta al giorno: toglie le app e le suite disdette arrivate alla fine, conta il
+    giorno per le istanze attive e chiude i mesi finiti."""
+    from . import servizi
     oggi = oggi or timezone.localdate()
+    terminate = servizi.chiudi_disdette(oggi)            # prima di contare: da oggi non sono più nel canone
     contate = 0
     for istanza in Istanza.objects.filter(attiva=True).select_related("piano").prefetch_related("suite", "moduli_extra"):
         registra_giorno(istanza, oggi)
@@ -75,7 +78,7 @@ def giro(oggi=None):
     for addebito in Addebito.objects.filter(stato=Addebito.APERTO, mese__lt=limite):
         chiudi(addebito)
         chiusi += 1
-    return f"istanze contate: {contate}" + (f", mesi chiusi: {chiusi}" if chiusi else "")
+    return f"istanze contate: {contate}" + (f", mesi chiusi: {chiusi}" if chiusi else "") + (f", disdette arrivate alla fine: {terminate}" if terminate else "")
 
 
 def crea_fattura(addebito, azienda, utente=None):

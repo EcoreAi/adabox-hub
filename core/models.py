@@ -183,10 +183,12 @@ class LicenzaIstanza(models.Model):
 
 class RichiestaModulo(models.Model):
     """Un'app (o una suite di app per dipartimento) chiesta dall'amministratore del cliente: la decide ICHNOBYTE sul portale.
-    Con `acquisto` l'ha comprata al prezzo del catalogo: il portale la attiva da solo, se l'acquisto diretto è ammesso."""
+    Con `acquisto` l'ha comprata al prezzo del catalogo: il portale la attiva da solo, se l'acquisto diretto è ammesso.
+    I tipi «disdetta» portano al portale la disdetta di un'app o di una suite comprata, per la `fine` del periodo in corso."""
     INVIATA, EVASA, RIFIUTATA = "inviata", "evasa", "rifiutata"
-    INSTALLAZIONE, DEMO, SUITE = "installazione", "demo", "suite"
-    TIPI = [(INSTALLAZIONE, "Installazione"), (DEMO, "Demo"), (SUITE, "Suite")]
+    INSTALLAZIONE, DEMO, SUITE, DISDETTA, DISDETTA_SUITE = "installazione", "demo", "suite", "disdetta", "disdetta_suite"
+    DISDETTE = (DISDETTA, DISDETTA_SUITE)
+    TIPI = [(INSTALLAZIONE, "Installazione"), (DEMO, "Demo"), (SUITE, "Suite"), (DISDETTA, "Disdetta"), (DISDETTA_SUITE, "Disdetta di una suite")]
     tipo = models.CharField("tipo", max_length=15, choices=TIPI, default=INSTALLAZIONE)
     STATI = [(INVIATA, "Inviata"), (EVASA, "Attivata"), (RIFIUTATA, "Non accolta")]
     slug = models.SlugField("modulo", max_length=31)
@@ -197,6 +199,7 @@ class RichiestaModulo(models.Model):
     consegnata = models.BooleanField("arrivata al portale", default=False)
     acquisto = models.BooleanField("acquisto diretto", default=False, help_text="comprata dal catalogo al prezzo mostrato: il portale la attiva senza approvazione")
     prezzo_mese = models.DecimalField("prezzo al mese (€)", max_digits=9, decimal_places=2, null=True, blank=True)
+    fine = models.DateField("termina il", null=True, blank=True, help_text="per una disdetta: il giorno, letto dal catalogo, che chi disdice ha confermato")
     creata = models.DateTimeField("chiesta il", auto_now_add=True)
 
     class Meta:

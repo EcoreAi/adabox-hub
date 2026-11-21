@@ -280,11 +280,14 @@ class Istanza(models.Model):
         return (self.piano.prezzo_mese + self.piano.prezzo_utente_mese * self.posti()
                 + sum(su.prezzo_mese for su in self.suite.all()) + sum(m.prezzo_mese for m in self.moduli_extra.all()))
 
-    def acquisto_ammesso(self, oggi=None):
-        """Se l'Admin del cliente può comprare da solo dal catalogo: lo dice l'istanza o, senza una scelta sua, il piano.
-        Mai a licenza scaduta o a istanza spenta: lì serve una persona."""
+    def fa_da_sola(self):
+        """Se l'Admin del cliente compra e disdice da solo dal catalogo: lo dice l'istanza o, senza una scelta sua, il piano."""
         scelta = self.acquisto_diretto == "si" if self.acquisto_diretto else self.piano.acquisto_diretto
-        return bool(scelta and self.attiva and self.scadenza >= (oggi or timezone.localdate()))
+        return bool(scelta and self.attiva)
+
+    def acquisto_ammesso(self, oggi=None):
+        """Comprare, mai a licenza scaduta: lì serve una persona. Disdire si può sempre (fa_da_sola)."""
+        return self.fa_da_sola() and self.scadenza >= (oggi or timezone.localdate())
 
     def termini_ai(self):
         """{formula, quota_utente, quota_istanza, tetto_istanza, ricarico}: i valori dell'istanza, dove ci sono,
@@ -347,11 +350,13 @@ class Addebito(models.Model):
 
 class Richiesta(models.Model):
     """Un'app chiesta dall'amministratore di un cliente dal suo catalogo, o comprata da lui con l'acquisto diretto
-    (`diretto`: nasce già approvata, con il prezzo che ha confermato)."""
-    NUOVA, APPROVATA, RIFIUTATA = "nuova", "approvata", "rifiutata"
+    (`diretto`: nasce già approvata, con il prezzo che ha confermato). Approvata, è anche il contratto di quell'app o
+    suite: corre a periodi di 30 giorni da `decisa_il`, e la disdetta del cliente (`disdetta_il`) la fa terminare alla
+    `fine` del periodo in corso (rivendita.servizi.disdici, chiudi_disdette)."""
+    NUOVA, APPROVATA, RIFIUTATA, TERMINATA = "nuova", "approvata", "rifiutata", "terminata"
     INSTALLAZIONE, DEMO, SUITE = "installazione", "demo", "suite"
     tipo = models.CharField("tipo", max_length=15, choices=[(INSTALLAZIONE, "Installazione"), (DEMO, "Demo"), (SUITE, "Suite")], default=INSTALLAZIONE)
-    STATI = [(NUOVA, "Nuova"), (APPROVATA, "Approvata"), (RIFIUTATA, "Rifiutata")]
+    STATI = [(NUOVA, "Nuova"), (APPROVATA, "Approvata"), (RIFIUTATA, "Rifiutata"), (TERMINATA, "Terminata per disdetta")]
     istanza = models.ForeignKey(Istanza, on_delete=models.CASCADE, related_name="richieste", verbose_name="istanza")
     slug = models.SlugField("modulo", max_length=31)
     nome = models.CharField("nome", max_length=120)
@@ -365,6 +370,10 @@ class Richiesta(models.Model):
     diretto = models.BooleanField("acquisto diretto", default=False, editable=False, help_text="comprato dal cliente dal suo catalogo, senza approvazione")
     prezzo_mese = models.DecimalField("prezzo al mese (€)", max_digits=9, decimal_places=2, null=True, blank=True, editable=False,
                                       help_text="il prezzo confermato dal cliente al momento dell'acquisto")
+    disdetta_il = models.DateTimeField("disdetta il", null=True, blank=True, editable=False)
+    disdetta_da = models.CharField("disdetta da", max_length=150, blank=True, editable=False)
+    fine = models.DateField("termina il", null=True, blank=True, editable=False,
+                            help_text="il giorno in cui l'app o la suite esce dalla licenza e dal canone: la fine dei 30 giorni in corso alla disdetta")
 
     class Meta:
         verbose_name = "richiesta"

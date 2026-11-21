@@ -80,6 +80,7 @@ urlpatterns = [
     path("applicazioni/", applicazioni.pagina, name="applicazioni"),
     path("applicazioni/richiedi/", applicazioni.richiedi, name="applicazioni_richiedi"),
     path("applicazioni/acquista/", applicazioni.acquista, name="applicazioni_acquista"),
+    path("applicazioni/disdici/", applicazioni.disdici, name="applicazioni_disdici"),
     path("applicazioni/attivazione/", applicazioni.attivazione, name="applicazioni_attivazione"),
     path("applicazioni/<slug:slug>/", applicazioni.scheda, name="applicazione"),
     path("applicazioni/<slug:slug>/ruolo/", applicazioni.ruolo, name="applicazione_ruolo"),

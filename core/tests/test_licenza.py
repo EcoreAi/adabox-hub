@@ -192,6 +192,62 @@ def test_acquisto_diretto_dal_catalogo(client, superuser, chiave, settings, mail
 
 
 @pytest.mark.django_db
+def test_disdetta_dal_catalogo(client, superuser, chiave, settings, mailoutbox, monkeypatch):
+    from django.contrib.auth.models import Permission
+    settings.LICENZA_OBBLIGATORIA = True
+    settings.LICENZA_EMAIL_RICHIESTE = "vendite@example.com"
+    settings.LICENZA_PORTALE_URL, settings.LICENZA_TOKEN = "https://portale.example/rivendita/api", "segreto"
+    giri = []
+    monkeypatch.setattr(sincronia, "esegui", lambda: giri.append(1))
+    licenza.salva(_file(chiave, moduli=["todo", "crm", "contatti"], suite=[{"slug": "vendite", "nome": "Vendite", "utenti": 0, "moduli": []}], comuni=["todo"]),
+                  catalogo={"istanza": "abc", "disponibili": [], "moduli": [
+                      {"slug": "todo", "nome": "Todo", "disdetta": "2026-12-15"}, {"slug": "crm", "nome": "CRM", "termina": "2026-12-01"},
+                      {"slug": "contatti", "nome": "Contatti", "disdetta": "domani"}],
+                      "suite": [{"slug": "vendite", "nome": "Vendite", "moduli": [], "comprata": True, "disdetta": "2026-12-20"}]})
+    modules.sincronizza()
+    voci = {v["slug"]: v for v in applicazioni.voci()}
+    assert (voci["todo"]["disdetta_fine"], voci["todo"]["disdetta_ultimo"]) == (datetime.date(2026, 12, 15), datetime.date(2026, 12, 14))
+    assert voci["crm"]["termina"] == datetime.date(2026, 12, 1) and voci["crm"]["disdetta_fine"] is None and voci["contatti"]["disdetta_fine"] is None
+    html = client.get(reverse("core:applicazioni")).content.decode()
+    assert html.count("Disdici ora") == 2 and "si paga fino al 14/12/2026" in html and "Disdetta: resta fino al 30/11/2026" in html
+
+    url = reverse("core:applicazioni_disdici")
+    assert client.post(url, {"slug": "crm", "fine": "2026-12-01", "conferma": "1"}).status_code == 404        # già disdetta
+    assert client.post(url, {"slug": "contatti", "fine": "2026-12-15", "conferma": "1"}).status_code == 404   # non si disdice da qui
+    assert client.post(url, {"slug": "todo", "fine": "2026-12-15"}).status_code == 302                        # senza la spunta
+    assert client.post(url, {"slug": "todo", "fine": "2026-11-15", "conferma": "1"}).status_code == 302       # non è il giorno mostrato
+    assert not RichiestaModulo.objects.exists() and not giri and not mailoutbox
+
+    assert client.post(url, {"slug": "todo", "fine": "2026-12-15", "conferma": "1"}).status_code == 302
+    disdetta = RichiestaModulo.objects.get()
+    assert (disdetta.tipo, disdetta.fine, disdetta.utente) == ("disdetta", datetime.date(2026, 12, 15), superuser)
+    assert giri == [1] and "Disdetta" in mailoutbox[0].subject and "15/12/2026" in mailoutbox[0].body
+    assert sincronia._rapporto()["richieste"] == [{"id": disdetta.pk, "slug": "todo", "tipo": "disdetta", "nome": "To-Do", "nota": "",
+                                                    "utente": str(superuser), "fine": "2026-12-15"}]
+    assert client.post(url, {"slug": "todo", "fine": "2026-12-15", "conferma": "1"}).status_code == 404       # una volta sola
+    assert "Disdetta in corso" in client.get(reverse("core:applicazioni")).content.decode()
+    assert next(v for v in applicazioni.voci() if v["slug"] == "todo")["stato"] == "attiva"                  # resta attiva
+
+    # l'app è in licenza, ma la disdetta non è un'installazione: resta aperta finché il portale non l'ha ricevuta
+    sincronia._aggiorna_richieste(licenza.attuale(), {})
+    disdetta.refresh_from_db()
+    assert (disdetta.stato, disdetta.consegnata) == ("inviata", False)
+    sincronia._aggiorna_richieste(licenza.attuale(), {"ricevute": [disdetta.pk]})
+    disdetta.refresh_from_db()
+    assert (disdetta.stato, disdetta.consegnata) == ("evasa", True)
+
+    assert client.post(url, {"slug": "vendite", "tipo": "suite", "fine": "2026-12-20", "conferma": "1"}).status_code == 302
+    assert RichiestaModulo.objects.get(tipo="disdetta_suite").fine == datetime.date(2026, 12, 20)
+    assert next(s for s in applicazioni.suite() if s["slug"] == "vendite")["in_disdetta"]
+
+    lettore = User.objects.create_user("lettore")
+    lettore.user_permissions.add(Permission.objects.get(content_type__app_label="core", codename="view_modulo"))
+    client.force_login(lettore)
+    assert "Disdici ora" not in client.get(reverse("core:applicazioni")).content.decode()
+    assert client.post(url, {"slug": "todo", "fine": "2026-12-15", "conferma": "1"}).status_code == 403
+
+
+@pytest.mark.django_db
 def test_admin_dal_front_attiva_decide_chi_e_niente_admin_di_django(client, db, chiave, settings):
     settings.LICENZA_OBBLIGATORIA = True
     licenza.salva(_file(chiave, moduli=["todo", "crm", "contatti"]))
