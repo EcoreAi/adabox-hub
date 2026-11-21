@@ -723,3 +723,116 @@ def test_disdetta_per_la_fine_dei_trenta_giorni(client, superuser, scena):
     assert "disdetta" not in catalogo()["suite"][0]
     disdici(8, "vendite", oggi + 30 * giorno, tipo="disdetta_suite")
     assert Richiesta.objects.get(slug="vendite").fine is None and istanza.suite.exists()
+
+
+@pytest.mark.django_db
+def test_gateway_una_chiave_virtuale_per_istanza(client, superuser, scena, settings, monkeypatch):
+    """I provider che passano dal gateway arrivano con l'indirizzo del gateway e la chiave virtuale dell'istanza, creata
+    da sola con il tetto del piano; la chiave si aggiorna, si blocca e si rigenera senza toccare gli altri clienti."""
+    from decimal import Decimal
+
+    from ai import config_portale
+    from core import cifratura
+    from rivendita import gateway
+    from rivendita.models import ModelloFornito, ProviderFornito
+    istanza, token = scena
+    chiamate, giu = [], []
+
+    def finto(percorso, dati):
+        if giu:
+            raise gateway.GatewayNonRisponde("gateway non raggiungibile")
+        chiamate.append((percorso, dati))
+        return {"key": f"sk-virtuale-{sum(p == 'key/generate' for p, _ in chiamate)}"} if percorso == "key/generate" else {}
+    monkeypatch.setattr(gateway, "_chiama", finto)
+
+    def config(di=None):
+        r = client.post(reverse("rivendita:api_config_ai"), "{}", content_type="application/json", headers={"Authorization": f"Bearer {di or token}"})
+        return {p["codice"]: p for p in r.json()["config"]["provider"]}
+
+    def chiave(voce, con=None):
+        monkeypatch.setattr(settings, "LICENZA_TOKEN", con or token)
+        return config_portale._decifra(voce["chiave"])
+
+    claude = ProviderFornito.objects.create(codice="claude", nome="Claude", tipo="anthropic", via_gateway=True)
+    gpt = ProviderFornito.objects.create(codice="gpt", nome="GPT", tipo="openai_compat", via_gateway=True)
+    diretto = ProviderFornito.objects.create(codice="diretto", nome="Diretto", tipo="anthropic", chiave_cifrata=cifratura.cifra("sk-ant-comune"))
+    for provider, id_api in ((claude, "claude-haiku-5-5"), (gpt, "gpt-veloce"), (diretto, "claude-opus-5-5")):
+        ModelloFornito.objects.create(provider=provider, id_api=id_api, etichetta=id_api, prezzo_input=1, prezzo_output=5)
+    Piano.objects.update(ai_formula="inclusa", ai_quota_istanza=Decimal("40"))
+
+    # senza gateway configurato quei provider non arrivano, e il lavoro pianificato non fa niente
+    assert set(config()) == {"diretto"} and gateway.giro() is None and not chiamate
+    settings.RIVENDITA_GATEWAY_URL, settings.RIVENDITA_GATEWAY_CHIAVE = "http://adabox_gateway:4000", "sk-principale"
+    settings.RIVENDITA_GATEWAY_URL_ISTANZE = "https://ai.example/"
+
+    # la prima richiesta crea la chiave: tetto del piano, azzerato ogni mese, e i soli modelli che passano dal gateway
+    voci = config()
+    assert chiamate == [("key/generate", {"key_alias": f"adabox-{istanza.codice}", "metadata": {"cliente": "Rossi Srl", "istanza": str(istanza.codice)},
+                                          "budget_duration": "30d", "max_budget": 40.0, "models": ["claude-haiku-5-5", "gpt-veloce"]})]
+    assert (voci["claude"]["base_url"], voci["gpt"]["base_url"], voci["diretto"]["base_url"]) == ("https://ai.example", "https://ai.example/v1", "")
+    assert chiave(voci["claude"]) == chiave(voci["gpt"]) == "sk-virtuale-1" and chiave(voci["diretto"]) == "sk-ant-comune"
+    istanza.refresh_from_db()
+    assert "sk-virtuale" not in istanza.gateway_chiave_cifrata and "sk-principale" not in json.dumps(voci)
+    config(), gateway.giro()
+    assert len(chiamate) == 1                                                   # niente da cambiare: il gateway non si chiama
+
+    # un'altra istanza ha la sua chiave; sul server del cliente arriva solo ciò che passa dal gateway
+    altra = Istanza.objects.create(cliente="Bianchi", piano=istanza.piano, scadenza=istanza.scadenza, ospitata=False)
+    token_altra = altra.nuovo_token()
+    voci_altra = config(token_altra)
+    assert set(voci_altra) == {"claude", "gpt"} and chiave(voci_altra["claude"], token_altra) == "sk-virtuale-2"
+
+    # cambia il tetto o l'elenco dei modelli: la chiave si aggiorna, resta la stessa
+    Istanza.objects.filter(pk=istanza.pk).update(ai_quota_istanza=Decimal("75"))
+    ModelloFornito.objects.filter(id_api="gpt-veloce").update(attivo=False)
+    assert "chiavi allineate: 2" == gateway.giro()
+    assert sorted(chiamate[-2:], key=lambda c: c[1]["key"]) == [("key/update", {"key": "sk-virtuale-1", "budget_duration": "30d", "max_budget": 75.0, "models": ["claude-haiku-5-5"]}),
+                             ("key/update", {"key": "sk-virtuale-2", "budget_duration": "30d", "max_budget": 40.0, "models": ["claude-haiku-5-5"]})]
+    assert chiave(config()["claude"]) == "sk-virtuale-1"
+
+    # i tetti delle altre formule: massimo con «a consumo», tetto con «mista», nessuno se non c'è un valore
+    istanza = Istanza.objects.get(pk=istanza.pk)
+    for formula, campi, atteso in (("consumo", {"ai_quota_istanza": Decimal("0")}, None), ("consumo", {"ai_quota_istanza": Decimal("120")}, 120.0),
+                                   ("mista", {"ai_quota_istanza": Decimal("20"), "ai_tetto_istanza": Decimal("200")}, 200.0)):
+        Istanza.objects.filter(pk=istanza.pk).update(ai_formula=formula, **campi)
+        assert gateway.tetto(Istanza.objects.get(pk=istanza.pk)) == atteso
+
+    # istanza spenta: non chiama più il portale, la blocca il giro; riaccesa, si sblocca
+    quante = len(chiamate)
+    Istanza.objects.filter(pk=istanza.pk).update(attiva=False)
+    gateway.giro()
+    assert chiamate[quante:] == [("key/block", {"key": "sk-virtuale-1"})] and Istanza.objects.get(pk=istanza.pk).gateway_stato["bloccata"]
+    gateway.giro()
+    assert len(chiamate) == quante + 1                                          # già bloccata
+    Istanza.objects.filter(pk=istanza.pk).update(attiva=True)
+    gateway.giro()
+    assert chiamate[quante + 1] == ("key/unblock", {"key": "sk-virtuale-1"}) and chiamate[quante + 2][0] == "key/update"
+    # con la chiave del cliente la chiave virtuale si blocca e i provider non arrivano
+    Istanza.objects.filter(pk=istanza.pk).update(ai_formula="propria")
+    assert config() == {} and gateway.giro() and chiamate[-1] == ("key/block", {"key": "sk-virtuale-1"})
+    Istanza.objects.filter(pk=istanza.pk).update(ai_formula="")
+
+    # il gateway non risponde: l'istanza riceve gli altri provider, e la chiave salvata resta
+    giu.append(1)
+    assert set(config()) == {"diretto"} and "non riuscite: 1" in gateway.giro()      # Bianchi non ha niente da cambiare
+    assert client.post(reverse("rivendita:istanze_bottone", args=[istanza.pk, "rigenera_chiave_gateway"])).status_code == 302
+    assert cifratura.decifra(Istanza.objects.get(pk=istanza.pk).gateway_chiave_cifrata) == "sk-virtuale-1"
+    giu.clear()
+
+    # rigenerare: la vecchia si elimina sul gateway, la nuova arriva alla prossima sincronizzazione
+    config()                                                                    # torna utilizzabile (sbloccata)
+    quante = len(chiamate)
+    assert client.post(reverse("rivendita:istanze_bottone", args=[istanza.pk, "rigenera_chiave_gateway"])).status_code == 302
+    assert [p for p, _ in chiamate[quante:]] == ["key/delete", "key/generate"] and chiamate[quante][1] == {"keys": ["sk-virtuale-1"]}
+    assert chiave(config()["claude"]) == "sk-virtuale-3"
+    # una chiave scritta a mano per il cliente vince sulla virtuale
+    from rivendita.models import ChiaveAIIstanza
+    ChiaveAIIstanza.objects.create(provider=claude, istanza=istanza, chiave_cifrata=cifratura.cifra("sk-a-mano"), base_url="https://altro.example")
+    voce = config()["claude"]
+    assert chiave(voce) == "sk-a-mano" and voce["base_url"] == "https://altro.example"
+
+    # dal gateway si passa solo con i formati che espone
+    from django.core.exceptions import ValidationError
+    with pytest.raises(ValidationError):
+        ProviderFornito(codice="gem", nome="Gemini", tipo="gemini", via_gateway=True).full_clean()
+    ProviderFornito(codice="oa", nome="OpenAI", tipo="openai", via_gateway=True).full_clean()

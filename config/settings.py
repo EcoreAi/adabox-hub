@@ -207,6 +207,12 @@ MODULI_CATALOGO_URL = env("MODULI_CATALOGO_URL", default="")
 MODULI_CHIAVE_PRIVATA = env("MODULI_CHIAVE_PRIVATA", default="")
 # Il sito demo esterno per i moduli che non hanno un loro link
 RIVENDITA_URL_DEMO = env("RIVENDITA_URL_DEMO", default="")
+# Solo sul portale: il gateway dei modelli (LiteLLM) che dà a ogni istanza la sua chiave virtuale (rivendita.gateway).
+# URL = dove lo raggiunge il portale; CHIAVE = la chiave principale di LiteLLM; URL_ISTANZE = dove lo raggiungono le
+# istanze, se diverso
+RIVENDITA_GATEWAY_URL = env("RIVENDITA_GATEWAY_URL", default="")
+RIVENDITA_GATEWAY_CHIAVE = env("RIVENDITA_GATEWAY_CHIAVE", default="")
+RIVENDITA_GATEWAY_URL_ISTANZE = env("RIVENDITA_GATEWAY_URL_ISTANZE", default="")
 
 # --- Licenza dell'istanza ---------------------------------------------------
 # Con True i moduli fuori licenza sono spenti e a licenza scaduta (finita la grazia) l'istanza è in sola lettura

@@ -733,6 +733,32 @@ menu» vale per tutti; ognuno può scegliere il suo da «Le mie app nel menu». 
 caricamento, installazione). Senza portale: `manage.py licenza firma --firma chiave.pem --cliente … --moduli crm,contatti
 --scadenza AAAA-MM-GG` crea il file da caricare in `/moduli/` o con `manage.py licenza carica`; i pacchetti si caricano a mano.
 
+## Il gateway dei modelli
+
+Per i modelli che forniamo noi, le istanze non ricevono la chiave vera del fornitore: passano da un gateway
+([LiteLLM](https://docs.litellm.ai/)) accanto al portale, ognuna con una **chiave virtuale** sua. Serve soprattutto ai
+clienti con l'applicazione sul proprio server, a cui la chiave comune non si manda mai.
+
+- **Avvio**: `deploy/compose.gateway.yml` (LiteLLM e il suo Postgres) e `deploy/gateway.config.yaml`, l'esempio della
+  configurazione con i modelli e le chiavi vere, lette dall'ambiente. Nel `.env` del portale: `RIVENDITA_GATEWAY_URL`
+  (dove lo raggiunge il portale), `RIVENDITA_GATEWAY_CHIAVE` (la chiave principale di LiteLLM) e
+  `RIVENDITA_GATEWAY_URL_ISTANZE` (l'indirizzo pubblico per le istanze, dietro il proxy con TLS). Verso l'esterno vanno
+  pubblicate solo le chiamate ai modelli (`/v1/…`), non le pagine né l'API di gestione.
+- **Sul portale**: in Rivendita → «Provider AI forniti» si segna «passa dal gateway». Il tipo è «Anthropic» (le istanze
+  chiamano `/v1/messages`) o «OpenAI»/«Compatibile OpenAI» (`/v1/chat/completions`), qualunque fornitore ci sia dietro;
+  l'«ID del modello» è il `model_name` della configurazione di LiteLLM. La chiave del provider lì non serve.
+- **Le chiavi virtuali** (`rivendita/gateway.py`): la prima volta che un'istanza chiede la configurazione il portale le
+  crea la chiave (`/key/generate`), limitata ai modelli che passano dal gateway e con il **tetto mensile** della sua
+  formula: la quota con «inclusa», il tetto massimo con «a consumo», il tetto con «mista»; senza valore, nessun tetto.
+  LiteLLM lo azzera il primo del mese. Ogni ora «Chiavi virtuali del gateway AI» aggiorna tetto e modelli se sono
+  cambiati, **blocca** la chiave di un'istanza spenta o passata alla chiave del cliente e la sblocca se torna.
+  «Rigenera la chiave del gateway» nella scheda dell'istanza elimina la chiave e ne crea una nuova.
+- **Chi vince**: una chiave scritta a mano in «Chiavi AI delle istanze» vince sulla virtuale. Se il gateway non
+  risponde, quel provider salta il giro e l'istanza tiene ciò che aveva.
+- **I limiti**: il tetto del gateway è una seconda barriera, in dollari di costo calcolati da LiteLLM con i suoi
+  prezzi; quote, tetti per persona e importi da fatturare restano quelli contati dall'istanza. Il consumo visto dal
+  gateway non viene ancora confrontato con quello riferito dall'istanza.
+
 ## Funzioni attivabili dei moduli
 
 Per vendere versioni diverse dello stesso modulo (l'assistente «base» e quello completo) non serve dividerlo: il

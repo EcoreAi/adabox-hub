@@ -1,0 +1,21 @@
+# Esempio di configurazione di LiteLLM per il gateway (deploy/compose.gateway.yml): copialo come gateway.config.yaml.
+#
+# `model_name` è il nome con cui le istanze chiedono il modello: deve essere uguale all'«ID del modello» scritto sul
+# portale in Rivendita → «Provider AI forniti» (provider segnato «passa dal gateway»). `litellm_params.model` è il
+# modello vero del fornitore, con la sua chiave letta dall'ambiente: sulle istanze non arriva mai.
+model_list:
+  - model_name: claude-haiku-5-5
+    litellm_params:
+      model: anthropic/claude-haiku-5-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: claude-sonnet-5-5
+    litellm_params:
+      model: anthropic/claude-sonnet-5-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+
+litellm_settings:
+  # i tetti mensili (30d) si azzerano il primo del mese a mezzanotte di questo fuso: lo stesso dei consumi delle istanze
+  timezone: "Europe/Rome"

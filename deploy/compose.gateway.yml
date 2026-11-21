@@ -1,0 +1,49 @@
+# Il gateway dei modelli AI (LiteLLM) accanto al portale: tiene le chiavi vere dei fornitori e dà a ogni istanza una
+# chiave virtuale con il suo tetto di spesa (addons/rivendita/gateway.py, README «Il gateway dei modelli»).
+#
+#   cp deploy/gateway.config.yaml gateway.config.yaml        # e scrivi i modelli che vendi
+#   docker compose -f docker-compose.yml -f deploy/compose.gateway.yml up -d
+#
+# Nel .env del portale servono:
+#   LITELLM_VERSIONE=...                  una versione di LiteLLM provata: mai «latest» in produzione
+#   LITELLM_MASTER_KEY=sk-...             la chiave principale (comincia con sk-); la stessa va in RIVENDITA_GATEWAY_CHIAVE
+#   LITELLM_SALT_KEY=sk-...               cifra i segreti nel suo database: non cambiarla dopo il primo avvio
+#   GATEWAY_DB_PASSWORD=...               la password del suo Postgres
+#   ANTHROPIC_API_KEY=... (e le altre)    le chiavi vere dei fornitori, lette da gateway.config.yaml
+#   RIVENDITA_GATEWAY_URL=http://adabox_gateway:4000
+#   RIVENDITA_GATEWAY_URL_ISTANZE=https://ai.esempio.it     l'indirizzo pubblico, dietro il proxy con TLS
+#
+# La porta è aperta solo su 127.0.0.1: verso le istanze va pubblicata dal proxy (Caddy), con TLS. Dall'esterno devono
+# arrivare solo le chiamate ai modelli (/v1/…): le pagine e l'API di gestione di LiteLLM restano raggiungibili solo da qui.
+services:
+  gateway:
+    image: docker.litellm.ai/berriai/litellm:${LITELLM_VERSIONE:?imposta LITELLM_VERSIONE con una versione provata}
+    container_name: adabox_gateway
+    restart: unless-stopped
+    depends_on:
+      - gateway_db
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?manca LITELLM_MASTER_KEY}
+      LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:?manca LITELLM_SALT_KEY}
+      DATABASE_URL: postgresql://litellm:${GATEWAY_DB_PASSWORD:?manca GATEWAY_DB_PASSWORD}@gateway_db:5432/litellm
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    volumes:
+      - ./gateway.config.yaml:/app/config.yaml:ro
+    ports:
+      - "127.0.0.1:4000:4000"
+
+  # i tetti e le chiavi virtuali stanno qui: senza database LiteLLM non li fa rispettare
+  gateway_db:
+    image: postgres:16-alpine
+    container_name: adabox_gateway_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: litellm
+      POSTGRES_USER: litellm
+      POSTGRES_PASSWORD: ${GATEWAY_DB_PASSWORD:?manca GATEWAY_DB_PASSWORD}
+    volumes:
+      - ./volumes/gateway_db:/var/lib/postgresql/data

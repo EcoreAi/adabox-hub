@@ -105,6 +105,24 @@ commit; qui solo ciò che si vede o che chiede un intervento.
     toglie: il cliente da solo non può annullarla.
   - Non c'è il pagamento online: si paga con la fattura del mese.
 
+- **Gateway dei modelli (LiteLLM)** — Rivendita 1.12.0 (una migrazione; sulle istanze non cambia niente). Senza
+  configurarlo non cambia niente.
+  - `deploy/compose.gateway.yml` e `deploy/gateway.config.yaml` avviano LiteLLM accanto al portale. Nel `.env` del
+    portale: `RIVENDITA_GATEWAY_URL`, `RIVENDITA_GATEWAY_CHIAVE`, `RIVENDITA_GATEWAY_URL_ISTANZE`, più le variabili di
+    LiteLLM elencate nel file compose (**`LITELLM_VERSIONE` va scelta e provata: non c'è un valore predefinito**).
+  - In «Provider AI forniti» la spunta «passa dal gateway»: le istanze ricevono l'indirizzo del gateway e una chiave
+    virtuale propria, creata dal portale con il tetto mensile della formula e i soli modelli del gateway. Vale anche
+    per le istanze sul server del cliente, che così ricevono i modelli senza una chiave scritta a mano.
+  - Il lavoro pianificato «Chiavi virtuali del gateway AI» (ogni ora) aggiorna i tetti e blocca le chiavi delle istanze
+    spente. «Rigenera la chiave del gateway» nella scheda dell'istanza revoca la chiave di un solo cliente.
+  - **Da fare per passare un provider al gateway:** scrivere in `gateway.config.yaml` gli stessi nomi di modello del
+    portale, segnare «passa dal gateway», e alla sincronizzazione successiva (entro un'ora) le istanze cambiano
+    indirizzo e chiave da sole. La chiave comune va poi ruotata dal fornitore: le istanze l'hanno avuta.
+  - **Non ancora provato contro un LiteLLM vero**: le chiamate seguono la sua documentazione e sono provate solo con un
+    gateway simulato. Prima di usarlo con i clienti va fatta una prova con una istanza: creazione della chiave, una
+    chat con il tipo Anthropic e una con quello OpenAI, superamento del tetto, e togliere un tetto a una chiave che lo
+    aveva (il portale manda `max_budget: null`).
+
 ## 2026-11-20
 
 - **Periodo sul grafico** — Kernel 1.6.0, AI 1.53.0, Analisi 1.9.0 (nessuna migrazione; AI e Analisi chiedono il

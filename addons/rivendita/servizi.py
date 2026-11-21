@@ -182,21 +182,34 @@ def _cifra_per(istanza, testo):
 def config_ai(istanza):
     """{"config": {...}, "firma": ...}: i provider forniti con il piano per questa istanza, con modelli, prezzi e
     chiave cifrata per lei. Con la chiave del cliente (formula «propria») l'elenco è vuoto: l'istanza spegne quelli
-    ricevuti prima. La chiave è quella dell'istanza (ChiaveAIIstanza), se c'è, altrimenti quella comune del provider;
-    a un'istanza non ospitata da noi la chiave comune non si manda mai: senza una chiave sua quel provider non lo riceve."""
+    ricevuti prima. La chiave è quella dell'istanza (ChiaveAIIstanza), se c'è; per un provider che passa dal gateway è
+    la chiave virtuale dell'istanza, con l'indirizzo del gateway (rivendita.gateway); altrimenti quella comune del
+    provider. A un'istanza non ospitata da noi la chiave comune non si manda mai: senza una chiave sua, scritta a mano
+    o del gateway, quel provider non lo riceve."""
     from core import cifratura
 
     from .models import ProviderFornito
+    from . import gateway
     provider = []
     if istanza.termini_ai()["formula"] != AI_PROPRIA:
         proprie = {c.provider_id: c for c in istanza.chiavi_ai.all()}
+        virtuale = None                                    # la chiave del gateway: si chiede una volta, solo se serve
         for p in ProviderFornito.objects.filter(attivo=True).prefetch_related("modelli"):
             propria = proprie.get(p.pk)
-            if propria is None and not istanza.ospitata:
+            if propria is not None:                        # scritta a mano per questo cliente: vince su tutto
+                base_url, chiave = propria.base_url or p.base_url, cifratura.decifra(propria.chiave_cifrata)
+            elif p.via_gateway:                            # la sua chiave virtuale: vale anche sul server del cliente
+                virtuale = gateway.chiave_per(istanza) if virtuale is None else virtuale
+                if not virtuale:
+                    continue                               # gateway non configurato o fermo: questo provider salta il giro
+                base_url, chiave = gateway.url_per(p.tipo), virtuale
+            elif not istanza.ospitata:
                 continue
+            else:
+                base_url, chiave = p.base_url, cifratura.decifra(p.chiave_cifrata)
             provider.append({
-                "codice": p.codice, "nome": p.nome, "tipo": p.tipo, "base_url": (propria.base_url if propria else "") or p.base_url,
-                "chiave": _cifra_per(istanza, cifratura.decifra(propria.chiave_cifrata if propria else p.chiave_cifrata)),
+                "codice": p.codice, "nome": p.nome, "tipo": p.tipo, "base_url": base_url,
+                "chiave": _cifra_per(istanza, chiave),
                 "modelli": [{"id_api": m.id_api, "etichetta": m.etichetta, "contesto": m.contesto, "max_output": m.max_output,
                              "prezzo_input": str(m.prezzo_input), "prezzo_output": str(m.prezzo_output),
                              "prezzo_cache_scrittura": None if m.prezzo_cache_scrittura is None else str(m.prezzo_cache_scrittura),

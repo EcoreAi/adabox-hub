@@ -23,7 +23,7 @@ class IstanzeView(ModelView):
     list_group_by = ["piano", "ospitata", "scadenza:mese"]
     chatter = True
     tracked_fields = ["piano", "scadenza", "utenti", "attiva", "ai_formula", "acquisto_diretto"]
-    buttons = ["genera_token"]
+    buttons = ["genera_token", "rigenera_chiave_gateway"]
 
     def col_canone(self, obj):
         return f"{obj.canone_mese():.2f} €"
@@ -35,6 +35,22 @@ class IstanzeView(ModelView):
     genera_token.short_description = "Genera il token"
     genera_token.rischio = "irreversibile"
     genera_token.ai = False
+
+    def get_buttons(self, request, obj):
+        from . import gateway
+        return [(n, e) for n, e in super().get_buttons(request, obj) if n != "rigenera_chiave_gateway" or gateway.configurato()]
+
+    def rigenera_chiave_gateway(self, request, obj):
+        from . import gateway
+        try:
+            gateway.rigenera(obj)
+        except gateway.GatewayNonRisponde as e:
+            return f"Chiave non rigenerata: {e}"
+        return (f"Chiave virtuale di {obj.cliente} rigenerata: quella di prima non funziona più, la nuova arriva all'istanza alla "
+                f"prossima sincronizzazione (entro un'ora).")
+    rigenera_chiave_gateway.short_description = "Rigenera la chiave del gateway"
+    rigenera_chiave_gateway.rischio = "irreversibile"
+    rigenera_chiave_gateway.ai = False
 
 
 @register
@@ -196,7 +212,7 @@ class ProviderFornitoForm(forms.ModelForm):
 
     class Meta:
         model = ProviderFornito
-        fields = ["codice", "nome", "tipo", "base_url", "attivo"]
+        fields = ["codice", "nome", "tipo", "base_url", "attivo", "via_gateway"]
 
     def save(self, commit=True):
         if self.cleaned_data.get("nuova_chiave"):
@@ -210,9 +226,9 @@ class ProviderFornitiView(ModelView):
     model = ProviderFornito
     api = False                   # contiene segreti o credenziali: niente API
     slug = "provider_ai"
-    list_display = ["nome", "codice", "tipo", "chiave", "attivo"]
+    list_display = ["nome", "codice", "tipo", "chiave", "via_gateway", "attivo"]
     form_class = ProviderFornitoForm
-    form_layout = [("Provider", [("nome", "codice"), ("tipo", "attivo"), "base_url", "nuova_chiave"])]
+    form_layout = [("Provider", [("nome", "codice"), ("tipo", "attivo"), "base_url", "nuova_chiave", "via_gateway"])]
     inlines = [Inline(ModelloFornito, "provider", ["id_api", "etichetta", "prezzo_input", "prezzo_output", "prezzo_cache_scrittura",
                                                    "prezzo_cache_lettura", "contesto", "max_output", "livello_chat", "visione",
                                                    "ragionamento", "residenza_ue", "attivo"], titolo="Modelli e prezzi ($ per milione di token)")]

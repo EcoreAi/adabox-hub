@@ -157,7 +157,8 @@ class Suite(models.Model):
 class ProviderFornito(models.Model):
     """Un fornitore di modelli che diamo ai clienti con la nostra chiave. Le istanze con l'assistente incluso, a
     consumo o misto lo ricevono a ogni sincronizzazione (ai.config_portale) come provider «fornito con il piano», con
-    i suoi modelli e i loro prezzi: qui si cambia una volta e vale per tutte, chiave compresa."""
+    i suoi modelli e i loro prezzi: qui si cambia una volta e vale per tutte, chiave compresa. Con `via_gateway`
+    l'istanza riceve l'indirizzo del gateway e la sua chiave virtuale (rivendita.gateway) al posto della chiave comune."""
     TIPI = [("anthropic", "Anthropic (Claude)"), ("openai", "OpenAI (GPT)"), ("gemini", "Google (Gemini)"),
             ("mistral", "Mistral AI (La Plateforme)"), ("openai_compat", "Compatibile OpenAI (OpenRouter, Ollama...)")]
     codice = models.SlugField("codice", max_length=40, unique=True, help_text="il nome tecnico con cui le istanze lo riconoscono; non cambiarlo dopo")
@@ -166,6 +167,10 @@ class ProviderFornito(models.Model):
     base_url = models.URLField("URL dell'API", blank=True, help_text="vuoto = quello predefinito del tipo")
     chiave_cifrata = models.TextField("chiave API (cifrata)", blank=True, editable=False)
     attivo = models.BooleanField("attivo", default=True, help_text="spento, le istanze lo spengono alla prossima sincronizzazione")
+    via_gateway = models.BooleanField(
+        "passa dal gateway", default=False,
+        help_text="le istanze lo chiamano attraverso il nostro gateway (LiteLLM) con la loro chiave virtuale: la chiave vera "
+                  "sta solo sul gateway, e qui non serve. Gli ID dei modelli devono essere i nomi scritti nella sua configurazione")
 
     class Meta:
         verbose_name = "provider AI fornito"
@@ -174,6 +179,12 @@ class ProviderFornito(models.Model):
 
     def __str__(self):
         return self.nome
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.via_gateway and self.tipo not in ("anthropic", "openai", "openai_compat"):
+            raise ValidationError({"tipo": "Dal gateway si passa con il formato Anthropic o con quello OpenAI: scegli «Anthropic», "
+                                           "«OpenAI» o «Compatibile OpenAI» (dietro, il gateway può avere qualunque fornitore)."})
 
 
 class ModelloFornito(models.Model):
@@ -247,6 +258,8 @@ class Istanza(models.Model):
     ultimo_contatto = models.DateTimeField("ultimo contatto", null=True, blank=True, editable=False)
     moduli_presenti = models.JSONField("moduli presenti", default=dict, blank=True, editable=False)
     utenti_attivi = models.PositiveIntegerField("utenti attivi", null=True, blank=True, editable=False)
+    gateway_chiave_cifrata = models.TextField("chiave virtuale del gateway (cifrata)", blank=True, editable=False)
+    gateway_stato = models.JSONField("stato della chiave sul gateway", default=dict, blank=True, editable=False)
 
     class Meta:
         verbose_name = "istanza"

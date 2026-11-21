@@ -1,7 +1,7 @@
 {
     "name": "Rivendita",
     "summary": "Il portale di chi vende adabox: clienti e istanze, piani, suite per dipartimento, moduli pubblicati, licenze firmate e richieste dal catalogo",
-    "version": "1.11.0",
+    "version": "1.12.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Direzione",
     "depends": [],
@@ -26,7 +26,8 @@
         "Rivendita / Responsabile": ["rivendita.*"],
     },
     "dashboard": "rivendita.dashboard.dati",
-    "cron": [{"nome": "Addebiti mensili delle istanze", "funzione": "rivendita.addebiti.giro", "ogni": "1d", "alle": "03:30"}],
+    "cron": [{"nome": "Addebiti mensili delle istanze", "funzione": "rivendita.addebiti.giro", "ogni": "1d", "alle": "03:30"},
+             {"nome": "Chiavi virtuali del gateway AI", "funzione": "rivendita.gateway.giro", "ogni": "1h"}],
     "settings": [
         {"chiave": "cambio_usd_eur", "label": "Cambio dollaro → euro per l'assistente a consumo", "tipo": "decimale", "default": "1.00",
          "help": "euro per un dollaro: i costi dei modelli sono in dollari, gli importi ai clienti in euro. 1.00 è solo il valore di "
