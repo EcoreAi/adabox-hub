@@ -1,7 +1,7 @@
 {
     "name": "Rivendita",
     "summary": "Il portale di chi vende adabox: clienti e istanze, piani, suite per dipartimento, moduli pubblicati, licenze firmate e richieste dal catalogo",
-    "version": "1.9.0",
+    "version": "1.10.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Direzione",
     "depends": [],
@@ -12,6 +12,7 @@
     "menu": [
         {"label": "Istanze", "url_name": "rivendita:istanze_lista", "permission": "rivendita.view_istanza"},
         {"label": "Richieste", "url_name": "rivendita:richieste_lista", "permission": "rivendita.view_richiesta"},
+        {"label": "Addebiti", "url_name": "rivendita:addebiti_lista", "permission": "rivendita.view_addebito"},
         {"label": "Consumi AI", "url_name": "rivendita:consumi_ai_lista", "permission": "rivendita.view_consumoai"},
         {"label": "Provider AI forniti", "url_name": "rivendita:provider_ai_lista", "permission": "rivendita.view_providerfornito"},
         {"label": "Chiavi AI delle istanze", "url_name": "rivendita:chiavi_ai_lista", "permission": "rivendita.view_chiaveaiistanza"},
@@ -25,6 +26,7 @@
         "Rivendita / Responsabile": ["rivendita.*"],
     },
     "dashboard": "rivendita.dashboard.dati",
+    "cron": [{"nome": "Addebiti mensili delle istanze", "funzione": "rivendita.addebiti.giro", "ogni": "1d", "alle": "03:30"}],
     "settings": [
         {"chiave": "cambio_usd_eur", "label": "Cambio dollaro → euro per l'assistente a consumo", "tipo": "decimale", "default": "1.00",
          "help": "euro per un dollaro: i costi dei modelli sono in dollari, gli importi ai clienti in euro. 1.00 è solo il valore di "

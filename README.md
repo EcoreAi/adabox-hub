@@ -689,7 +689,10 @@ questa, o l'ospitare l'istanza senza dare accesso al server. Licenza e firme son
    condizioni sue. I termini vanno nella licenza sotto `"ai"`, che il kernel firma senza leggere. Ogni ora le istanze
    riferiscono i consumi (`ai.consumi_portale`, solo numeri): «Consumi AI» mostra l'importo da fatturare con «a consumo»
    (costo sul piano × cambio × ricarico) e il consumo sulla quota con «inclusa». Il cambio dollaro → euro è
-   un'impostazione del modulo, da aggiornare a mano. Il portale non emette fatture.
+   un'impostazione del modulo, da aggiornare a mano. **Addebiti**: ogni giorno il portale conta il canone di quel giorno
+   per ogni istanza attiva (così un cambio di piano a metà mese pesa per i suoi giorni) e dal 2 del mese dopo chiude il
+   mese con l'assistente a consumo: «Addebiti» dice che cosa fatturare e ne tiene lo stato (da fatturare, fatturato,
+   pagato). Con il modulo Fatturazione sul portale, «Crea la fattura in bozza» la prepara; emetterla resta a una persona.
    Un piano può comprendere solo alcune **funzioni** di un modulo (es. l'assistente senza ricerca sul web né aree di
    lavoro): «moduli con le funzioni scelte» e «funzioni comprese»; l'istanza può averne in più. Vedi sotto.
 4. Le **Richieste** dei clienti si approvano con un bottone: il modulo passa nella licenza dell'istanza.

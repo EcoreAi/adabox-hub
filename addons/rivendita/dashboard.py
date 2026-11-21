@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from core.dashboard import numero, queryset
 
-from .models import ConsumoAI, Istanza, Richiesta
+from .models import Addebito, ConsumoAI, Istanza, Richiesta
 
 
 def dati(request):
@@ -19,6 +19,7 @@ def dati(request):
     return {"kpi": [{"valore": istanze.count(), "etichetta": "istanze attive"},
                     {"valore": f"{numero(canone)} €", "etichetta": "canoni al mese"},
                     {"valore": f"{numero(ai)} €", "etichetta": "assistente a consumo, mese in corso"},
+                    {"valore": f"{numero(sum(a.totale for a in queryset(request, Addebito).filter(stato=Addebito.DA_FATTURARE)))} €", "etichetta": "da fatturare"},
                     {"valore": queryset(request, Richiesta).filter(stato=Richiesta.NUOVA).count(), "etichetta": "richieste nuove"},
                     {"valore": istanze.filter(scadenza__lte=oggi + datetime.timedelta(days=60)).count(), "etichetta": "licenze in scadenza entro 60 giorni"}],
             "grafici": [{"titolo": "Istanze per piano", "tipo": "torta", "dati": list(per_piano.items()), "url": reverse("rivendita:istanze_lista")}]}

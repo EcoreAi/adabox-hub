@@ -63,6 +63,19 @@ commit; qui solo ciò che si vede o che chiede un intervento.
   - **Cambio di comportamento:** a un'istanza non «ospitata da noi» la chiave comune non si manda più. Senza una
     chiave sua non riceve quel provider (e, se l'aveva ricevuto, lo spegne alla prossima sincronizzazione).
 
+- **Addebiti mensili** — Rivendita 1.10.0 (una migrazione; sulle istanze non cambia niente).
+  - Rivendita → «Addebiti»: per ogni istanza e mese, canone e assistente a consumo da fatturare. Il lavoro pianificato
+    «Addebiti mensili delle istanze» (ogni notte alle 03:30) conta il canone del giorno per le istanze attive; il canone
+    del mese è la media dei giorni, quindi cambio di piano, istanza nuova o spenta pesano per i loro giorni. Il mese si
+    chiude dal giorno 2 del mese dopo e da lì l'importo non cambia più.
+  - Stati: da fatturare → fatturato → pagato, con i bottoni nella scheda. Gli importi sono senza IVA.
+  - Con il modulo Fatturazione sul portale: «Crea la fattura in bozza» (righe canone e assistente, IVA 22%). Il cliente
+    è il contatto con lo stesso nome dell'istanza, o quello indicato nel nuovo campo «contatto del cliente (numero)».
+    La fattura resta in bozza: controllarla ed emetterla è di una persona.
+  - **Si parte dal giorno dell'aggiornamento**: i giorni precedenti del mese in corso non si contano, quindi il primo
+    mese risulta parziale. I mesi passati non vengono ricostruiti.
+  - Non c'è l'incasso online né il sollecito: «pagato» si segna a mano.
+
 ## 2026-11-20
 
 - **Periodo sul grafico** — Kernel 1.6.0, AI 1.53.0, Analisi 1.9.0 (nessuna migrazione; AI e Analisi chiedono il

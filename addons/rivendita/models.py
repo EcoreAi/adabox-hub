@@ -235,6 +235,8 @@ class Istanza(models.Model):
     ospitata = models.BooleanField("ospitata da noi", default=True, help_text="senza accesso del cliente al server")
     attiva = models.BooleanField("attiva", default=True, help_text="spenta, il portale non le risponde più")
     url = models.URLField("indirizzo dell'istanza", blank=True)
+    contatto = models.PositiveIntegerField("contatto del cliente (numero)", null=True, blank=True,
+                                           help_text="il numero del cliente in Contatti, per le fatture; vuoto = quello con lo stesso nome")
     note = models.TextField("note", blank=True)
     ultimo_contatto = models.DateTimeField("ultimo contatto", null=True, blank=True, editable=False)
     moduli_presenti = models.JSONField("moduli presenti", default=dict, blank=True, editable=False)
@@ -300,6 +302,35 @@ class ChiaveAIIstanza(models.Model):
 
     def __str__(self):
         return f"{self.provider} · {self.istanza}"
+
+
+class Addebito(models.Model):
+    """Che cosa c'è da fatturare a un'istanza per un mese: il canone dei giorni in cui ha contato e l'assistente a
+    consumo. Lo tiene aggiornato il lavoro pianificato (rivendita.addebiti); chiuso il mese, l'importo non cambia più."""
+    APERTO, DA_FATTURARE, FATTURATO, PAGATO, NIENTE = "aperto", "da_fatturare", "fatturato", "pagato", "niente"
+    STATI = [(APERTO, "Mese in corso"), (DA_FATTURARE, "Da fatturare"), (FATTURATO, "Fatturato"), (PAGATO, "Pagato"), (NIENTE, "Niente da fatturare")]
+    istanza = models.ForeignKey(Istanza, on_delete=models.PROTECT, related_name="addebiti", verbose_name="istanza")
+    mese = models.DateField("mese", help_text="il primo giorno")
+    piano = models.CharField("piano", max_length=80, blank=True)
+    giorni = models.PositiveSmallIntegerField("giorni contati", default=0)
+    somma_canoni = models.DecimalField("somma dei canoni giornalieri", max_digits=14, decimal_places=2, default=0, editable=False)
+    ultimo_giorno = models.DateField("ultimo giorno contato", null=True, blank=True, editable=False)
+    canone = models.DecimalField("canone (€)", max_digits=12, decimal_places=2, default=0)
+    ai = models.DecimalField("assistente AI (€)", max_digits=12, decimal_places=2, default=0)
+    totale = models.DecimalField("totale (€)", max_digits=12, decimal_places=2, default=0, help_text="senza IVA")
+    dettaglio = models.TextField("dettaglio", blank=True)
+    stato = models.CharField("stato", max_length=12, choices=STATI, default=APERTO)
+    chiuso_il = models.DateTimeField("chiuso il", null=True, blank=True)
+    fattura = models.PositiveIntegerField("fattura (numero interno)", null=True, blank=True, help_text="la fattura creata con il modulo Fatturazione")
+
+    class Meta:
+        verbose_name = "addebito"
+        verbose_name_plural = "addebiti"
+        ordering = ["-mese", "istanza__cliente"]
+        constraints = [models.UniqueConstraint(fields=["istanza", "mese"], name="rivendita_addebito_unico")]
+
+    def __str__(self):
+        return f"{self.istanza} · {self.mese:%m/%Y}"
 
 
 class Richiesta(models.Model):

@@ -496,3 +496,83 @@ def test_i_provider_del_piano_arrivano_alle_istanze(client, superuser, scena, se
     # la pagina del portale: la chiave non si rilegge
     pagina = client.get(reverse("rivendita:provider_ai_lista")).content.decode()
     assert "Anthropic" in pagina and "sk-ant-ruotata" not in pagina and "tata" in pagina
+
+
+@pytest.mark.django_db
+def test_addebiti_mensili_con_pro_rata_e_assistente(client, superuser, scena):
+    """Ogni giorno si conta il canone di quel giorno: un cambio di piano a metà mese pesa per i suoi giorni. A mese
+    finito l'addebito si chiude con l'assistente a consumo e passa da «da fatturare» a «fatturato» a «pagato»."""
+    from decimal import Decimal
+
+    from rivendita import addebiti
+    from rivendita.models import Addebito, ConsumoAI
+    istanza, _ = scena                                                       # piano Base: 99 € al mese
+    giugno = datetime.date(2026, 6, 1)
+    for giorno in range(1, 16):                                              # 15 giorni a 99 €
+        addebiti.giro(giugno.replace(day=giorno))
+    addebiti.giro(giugno.replace(day=15))                                    # lo stesso giorno due volte non conta doppio
+    a = Addebito.objects.get(istanza=istanza, mese=giugno)
+    assert (a.giorni, a.stato, a.canone) == (15, "aperto", Decimal("49.50"))
+    Piano.objects.filter(pk=istanza.piano_id).update(prezzo_mese=159)        # dal 16: piano più caro
+    addebiti.giro(giugno.replace(day=16))
+    addebiti.giro(giugno.replace(day=30))                                    # worker fermo dal 17 al 29: i giorni si recuperano
+    a.refresh_from_db()
+    assert a.giorni == 30 and a.canone == Decimal("129.00")                  # (15 × 99 + 15 × 159) / 30
+    ConsumoAI.objects.create(istanza=istanza, mese=giugno, formula="consumo", costo=20, costo_fornito=20, importo=Decimal("21.60"))
+    assert "mesi chiusi" not in addebiti.giro(datetime.date(2026, 7, 1))     # il primo del mese l'ultimo consumo può mancare
+    assert "mesi chiusi: 1" in addebiti.giro(datetime.date(2026, 7, 2))
+    a.refresh_from_db()
+    assert (a.stato, a.canone, a.ai, a.totale) == ("da_fatturare", Decimal("129.00"), Decimal("21.60"), Decimal("150.60"))
+    assert "30 giorni su 30" in a.dettaglio and "Assistente AI" in a.dettaglio
+    ConsumoAI.objects.filter(istanza=istanza, mese=giugno).update(importo=99)   # chiuso: l'importo non cambia più
+    addebiti.chiudi(a)
+    a.refresh_from_db()
+    assert a.totale == Decimal("150.60")
+    # un'istanza spenta non matura canone; nata a metà mese paga i suoi giorni
+    luglio = datetime.date(2026, 7, 1)
+    nuova = Istanza.objects.create(cliente="Verdi", piano=istanza.piano, scadenza=istanza.scadenza)
+    Istanza.objects.filter(pk=istanza.pk).update(attiva=False)
+    addebiti.giro(datetime.date(2026, 7, 22))
+    addebiti.giro(datetime.date(2026, 7, 31))
+    addebiti.giro(datetime.date(2026, 8, 2))
+    di_nuova = Addebito.objects.get(istanza=nuova, mese=luglio)
+    assert di_nuova.giorni == 10 and di_nuova.canone == (Decimal(159) * 10 / 31).quantize(Decimal("0.01")) and di_nuova.stato == "da_fatturare"
+    assert Addebito.objects.get(istanza=istanza, mese=luglio).giorni == 2    # solo l'1 e il 2, prima di essere spenta
+    # pagina e stati
+    pagina = client.get(reverse("rivendita:addebiti_lista")).content.decode()
+    assert "Rossi Srl" in pagina and "150,60" in pagina
+    assert client.get(reverse("rivendita:addebiti_nuovo")).status_code == 403
+    for bottone, stato in (("segna_pagato", "da_fatturare"), ("segna_fatturato", "fatturato"), ("segna_pagato", "pagato")):
+        client.post(reverse("rivendita:addebiti_bottone", args=[a.pk, bottone]))
+        a.refresh_from_db()
+        assert a.stato == stato
+
+
+@pytest.mark.django_db
+def test_fattura_in_bozza_dall_addebito(scena):
+    from decimal import Decimal
+
+    from contatti.models import Contatto
+    from core.models import Azienda
+    from fatturazione.models import Fattura
+    from rivendita import addebiti
+    from rivendita.models import Addebito
+    istanza, _ = scena
+    azienda = Azienda.objects.first()
+    a = Addebito.objects.create(istanza=istanza, mese=datetime.date(2026, 6, 1), piano="Base", giorni=30, canone=Decimal("99"), ai=Decimal("21.60"),
+                                totale=Decimal("120.60"), stato=Addebito.DA_FATTURARE)
+    with pytest.raises(ValueError, match="Non trovo un solo contatto"):
+        addebiti.crea_fattura(a, azienda)
+    cliente = Contatto.objects.create(nome="Rossi Srl", azienda=azienda)
+    from fiscale.models import AliquotaIva
+    AliquotaIva.objects.filter(percentuale=22).delete()
+    with pytest.raises(ValueError, match="aliquota IVA al 22%"):
+        addebiti.crea_fattura(a, azienda)
+    AliquotaIva.objects.create(codice="22", descrizione="IVA 22%", percentuale=22)
+    fattura = addebiti.crea_fattura(a, azienda)
+    a.refresh_from_db()
+    assert fattura.stato == Fattura.BOZZA and fattura.cliente == cliente and fattura.imponibile == Decimal("120.60")
+    assert [r.importo for r in fattura.righe.order_by("pk")] == [Decimal("99.00"), Decimal("21.60")]
+    assert (a.stato, a.fattura) == ("fatturato", fattura.pk)
+    with pytest.raises(ValueError, match="non è da fatturare"):
+        addebiti.crea_fattura(a, azienda)                                    # non si fattura due volte

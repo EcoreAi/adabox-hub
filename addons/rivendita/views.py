@@ -4,7 +4,7 @@ from django.utils import timezone
 from core import cifratura
 from core.viste import Inline, ModelView, register
 
-from .models import ChiaveAIIstanza, ConsumoAI, Istanza, ModelloFornito, ModuloVendibile, Pacchetto, Piano, ProviderFornito, Richiesta, Suite
+from .models import Addebito, ChiaveAIIstanza, ConsumoAI, Istanza, ModelloFornito, ModuloVendibile, Pacchetto, Piano, ProviderFornito, Richiesta, Suite
 
 
 @register
@@ -15,7 +15,7 @@ class IstanzeView(ModelView):
     list_display = ["cliente", "piano", "canone", "scadenza", "ultimo_contatto", "utenti_attivi", "ospitata", "attiva"]
     list_filter = ["piano", "ospitata", "attiva", "scadenza"]
     search_fields = ["cliente", "email", "url"]
-    form_layout = [("Cliente", [("cliente", "email"), ("url", "ospitata")]),
+    form_layout = [("Cliente", [("cliente", "email"), ("url", "ospitata"), "contatto"]),
                    ("Licenza", [("piano", "scadenza"), ("utenti", "grazia_giorni"), "suite", "moduli_extra", "funzioni_extra", "attiva"]),
                    ("Assistente AI (vuoto = come il piano)", [("ai_formula", "ai_ricarico"), ("ai_quota_utente", "ai_quota_istanza"), "ai_tetto_istanza"]),
                    ("Stato", [("ultimo_contatto", "utenti_attivi"), "codice"]), ("Note", ["note"])]
@@ -257,3 +257,53 @@ class ChiaviAIIstanzeView(ModelView):
         except cifratura.SegretoIlleggibile:
             return "illeggibile"
     col_chiave.short_description = "Chiave"
+
+
+@register
+class AddebitiView(ModelView):
+    """Che cosa fatturare a ogni istanza, mese per mese: canone dei giorni contati e assistente a consumo."""
+    model = Addebito
+    storico = False
+    slug = "addebiti"
+    list_display = ["mese", "istanza", "piano", "giorni", "canone", "ai", "totale", "stato"]
+    list_filter = ["stato", "istanza", "mese"]
+    search_fields = ["istanza__cliente"]
+    form_layout = [("Addebito", [("istanza", "mese"), ("piano", "giorni"), ("canone", "ai"), ("totale", "stato"), "dettaglio", ("chiuso_il", "fattura")])]
+    readonly_fields = ["istanza", "mese", "piano", "giorni", "canone", "ai", "totale", "stato", "dettaglio", "chiuso_il", "fattura"]
+    list_group_by = ["mese:mese", "istanza", "stato"]
+    list_sum = ["canone", "ai", "totale"]
+    buttons = ["crea_fattura", "segna_fatturato", "segna_pagato"]
+
+    def col_mese(self, obj):
+        return f"{obj.mese:%m/%Y}"
+    col_mese.short_description = "Mese"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def _passa(self, obj, da, a):
+        if obj.stato not in da:
+            return f"Non si può: l'addebito è «{obj.get_stato_display()}»."
+        obj.stato = a
+        obj.save(update_fields=["stato"])
+        return f"Addebito di {obj.istanza} {obj.mese:%m/%Y}: {obj.get_stato_display().lower()}."
+
+    def crea_fattura(self, request, obj):
+        from . import addebiti
+        try:
+            fattura = addebiti.crea_fattura(obj, getattr(request, "azienda", None), request.user)
+        except ValueError as e:
+            return f"Fattura non creata: {e}"
+        return f"Fattura in bozza creata per {fattura.cliente} ({obj.totale} € senza IVA): controllala ed emettila da Fatturazione."
+    crea_fattura.short_description = "Crea la fattura in bozza"
+
+    def segna_fatturato(self, request, obj):
+        return self._passa(obj, (Addebito.DA_FATTURARE,), Addebito.FATTURATO)
+    segna_fatturato.short_description = "Segna fatturato"
+
+    def segna_pagato(self, request, obj):
+        return self._passa(obj, (Addebito.FATTURATO,), Addebito.PAGATO)
+    segna_pagato.short_description = "Segna pagato"
