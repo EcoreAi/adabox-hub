@@ -1,7 +1,7 @@
 {
     "name": "Connettori",
     "summary": "Adabox accanto al software che hai già: avvisi firmati verso l'esterno, collegamenti ai record esterni e i CRM HubSpot, Salesforce, Zoho e Odoo (persone, aziende, opportunità)",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Integrazioni",
     "depends": [],

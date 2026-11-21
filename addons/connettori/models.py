@@ -26,6 +26,8 @@ class Webhook(AziendaMixin):
     fallimenti_di_fila = models.PositiveIntegerField("fallimenti di fila", default=0, editable=False)
     disattivato_il = models.DateTimeField("disattivato da solo il", null=True, blank=True, editable=False)
     creato = models.DateTimeField("creato il", auto_now_add=True)
+    da_api = models.BooleanField("abbonamento via API", default=False, editable=False,
+                                 help_text="creato da una piattaforma di automazione (Zapier, Make…): lo toglie lei quando il flusso si spegne")
 
     class Meta(AziendaMixin.Meta):
         verbose_name = "webhook"

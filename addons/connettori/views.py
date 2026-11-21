@@ -19,8 +19,8 @@ class WebhookView(ModelView):
     model = Webhook
     api = False                   # contiene segreti o credenziali: niente API
     slug = "webhook"
-    list_display = ["nome", "url", "attivo", "fallimenti_di_fila", "disattivato_il"]
-    list_filter = ["attivo"]
+    list_display = ["nome", "url", "attivo", "da_api", "fallimenti_di_fila", "disattivato_il"]
+    list_filter = ["attivo", "da_api"]
     search_fields = ["nome", "url", "eventi"]
     form_layout = [("Webhook", ["nome", "url", "eventi", "attivo"])]
     readonly_fields = ["fallimenti_di_fila", "disattivato_il"]

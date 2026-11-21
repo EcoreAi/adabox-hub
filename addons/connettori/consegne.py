@@ -77,6 +77,11 @@ def invia(consegna_id):
         _esito_negativo(consegna, f"Indirizzo rifiutato: {e}")
     except Exception as e:  # noqa: BLE001 - qualunque errore di rete si ritenta
         _esito_negativo(consegna, f"{type(e).__name__}: {e}")
+    if stato == 410 and webhook.da_api:                   # la piattaforma dice che il flusso non c'è più: l'abbonamento si chiude
+        Webhook.objects.filter(pk=webhook.pk).update(attivo=False, disattivato_il=timezone.now())
+        ConsegnaWebhook.objects.filter(pk=consegna.pk).update(stato=ConsegnaWebhook.SALTATA, tentativi=consegna.tentativi, risposta=stato,
+                                                              errore="abbonamento chiuso da chi riceve (410)")
+        return "saltata"
     if not 200 <= stato < 300:
         _esito_negativo(consegna, f"Risposta {stato}", stato)
     ConsegnaWebhook.objects.filter(pk=consegna.pk).update(stato=ConsegnaWebhook.CONSEGNATA, tentativi=consegna.tentativi, risposta=stato,

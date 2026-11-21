@@ -260,3 +260,62 @@ def test_webhook_di_altra_azienda_non_si_apre(client, azienda):
     root.profilo.aziende.set([azienda])
     client.force_login(root)
     assert client.get(f"/connettori/webhook/{w.pk}/").status_code == 404
+
+
+def test_abbonamenti_via_api_per_zapier_e_make(client, azienda, ricevitore):
+    """Lo schema «REST hook»: la piattaforma si abbona con un token, riceve gli avvisi, si toglie; un 410 chiude l'abbonamento."""
+    utente = _utente(azienda, "view_contatto", "add_webhook", "delete_webhook")
+    _, token = TokenApi.genera(utente, "zapier", moduli=["connettori", "contatti"])
+    con = {"HTTP_AUTHORIZATION": f"Bearer {token}"}
+
+    def abbona(corpo, **intestazioni):
+        return client.post("/connettori/api/abbonamenti/", json.dumps(corpo), content_type="application/json", **(intestazioni or con))
+
+    # gli eventi: solo ciò che chi chiama può vedere, con l'elenco da cui leggere gli esempi
+    assert client.get("/connettori/api/eventi/").status_code == 401
+    voci = {v["evento"]: v for v in client.get("/connettori/api/eventi/", **con).json()["eventi"]}
+    assert voci["contatti.contatto.creato"] == {"evento": "contatti.contatto.creato", "nome": "Contatto creato", "lista": "/api/v1/contatti/contatti/"}
+    assert {e.split(".")[0] for e in voci} == {"contatti"} and "contatti.contatto.eliminato" in voci
+
+    # chi non può, e le richieste sbagliate
+    buono = {"url": "https://hooks.example.com/abc", "eventi": ["contatti.contatto.creato"], "nome": "Zap dei contatti"}
+    assert abbona(buono, HTTP_AUTHORIZATION="Bearer sbagliato").status_code == 401
+    _, lettura = TokenApi.genera(utente, "l", sola_lettura=True)
+    _, altro_modulo = TokenApi.genera(utente, "m", moduli=["contatti"])
+    senza = User.objects.create_user("senza", "s@example.com", "x")
+    senza.user_permissions.add(*Permission.objects.filter(codename="view_contatto"))
+    senza.profilo.aziende.set([azienda])
+    _, senza_permesso = TokenApi.genera(User.objects.get(pk=senza.pk), "s")
+    for t in (lettura, altro_modulo, senza_permesso):
+        assert abbona(buono, HTTP_AUTHORIZATION=f"Bearer {t}").status_code == 403
+    assert abbona({**buono, "url": "http://hooks.example.com/abc"}).status_code == 400            # solo https
+    assert abbona({**buono, "eventi": ["*"]}).status_code == 400                                   # niente jolly da qui
+    assert abbona({**buono, "eventi": ["todo.attivita.creato"]}).status_code == 400                # non la può vedere
+    assert abbona({"eventi": ["contatti.contatto.creato"]}).status_code == 400 and not Webhook.objects.exists()
+
+    r = abbona(buono)
+    w = Webhook.objects.get()
+    assert r.status_code == 201 and r.json() == {"id": w.pk, "eventi": ["contatti.contatto.creato"], "segreto": w.segreto()}
+    assert (w.azienda, w.nome, w.da_api, w.attivo, w.voci_eventi()) == (azienda, "Zap dei contatti", True, True, ["contatti.contatto.creato"])
+    Contatto.objects.create(azienda=azienda, nome="Rossi Srl")
+    corpo = json.loads(ricevitore.richieste[-1].content)
+    assert ricevitore.richieste[-1].url.path == "/abc" and ricevitore.richieste[-1].headers["host"] == "hooks.example.com" and corpo["evento"] == "contatti.contatto.creato" and corpo["dati"]["nome"] == "Rossi Srl"
+
+    # si toglie solo ciò che è nato da qui, e solo nella propria azienda; togliere due volte va bene
+    a_mano = _webhook(azienda)
+    altra = Azienda.objects.create(nome="Altra")
+    di_altri = Webhook.objects.create(azienda=altra, nome="Z", url="https://hooks.example.com/z", eventi="contatti.contatto.creato", da_api=True)
+    for pk in (a_mano.pk, di_altri.pk):
+        assert client.delete(f"/connettori/api/abbonamenti/{pk}/", **con).status_code == 200
+    assert Webhook.objects.count() == 3
+    assert client.delete(f"/connettori/api/abbonamenti/{w.pk}/", HTTP_AUTHORIZATION=f"Bearer {senza_permesso}").status_code == 403
+    assert client.delete(f"/connettori/api/abbonamenti/{w.pk}/", **con).status_code == 200
+    assert client.delete(f"/connettori/api/abbonamenti/{w.pk}/", **con).status_code == 200 and not Webhook.objects.filter(pk=w.pk).exists()
+
+    # 410 da chi riceve: l'abbonamento via API si spegne subito; un webhook scritto a mano segue la regola dei tentativi
+    a_mano.delete()
+    w = Webhook.objects.get(pk=abbona(buono).json()["id"])
+    ricevitore.stati[:] = [410]
+    Contatto.objects.create(azienda=azienda, nome="Bianchi Srl")
+    w.refresh_from_db()
+    assert not w.attivo and w.disattivato_il and ConsegnaWebhook.objects.filter(webhook=w).latest("pk").stato == ConsegnaWebhook.SALTATA

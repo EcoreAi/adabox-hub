@@ -3,6 +3,19 @@
 Ciò che chi aggiorna un'istanza deve sapere: cambi di comportamento, azioni da fare, migrazioni. Il dettaglio è nei
 commit; qui solo ciò che si vede o che chiede un intervento.
 
+## 2026-11-21
+
+- **Abbonamenti ai webhook via API, per Zapier, Make e n8n** — Connettori 1.5.0 (una migrazione). Senza usarli non
+  cambia niente.
+  - Una piattaforma di automazione apre e chiude da sola i suoi webhook con un token API:
+    `POST /connettori/api/abbonamenti/`, `DELETE /connettori/api/abbonamenti/<id>/`, `GET /connettori/api/eventi/`.
+    Il token deve valere per il modulo `connettori`, non essere in sola lettura, e chi lo ha creato deve poter
+    aggiungere ed eliminare webhook; ci si abbona solo agli eventi dei record che può vedere.
+  - Gli abbonamenti compaiono in Connettori → Webhook con «abbonamento via API»; da API si tolgono solo quelli, mai i
+    webhook scritti a mano. Se chi riceve risponde 410, l'abbonamento si spegne subito.
+  - Come costruire l'app su Zapier e su Make: `docs/zapier-make.md`. **Le due app non esistono ancora**: vanno create
+    e pubblicate con un account sviluppatore di ciascuna piattaforma.
+
 ## 2026-11-20
 
 - **Periodo sul grafico** — Kernel 1.6.0, AI 1.53.0, Analisi 1.9.0 (nessuna migrazione; AI e Analisi chiedono il
