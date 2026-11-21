@@ -2,8 +2,10 @@
 
 Tre sezioni: quelle attive; quelle installate ma spente, che arrivano così dal portale e che accende lui, decidendo chi le
 usa; quelle acquistabili, in grigio, con «Guarda la demo», «Richiedi una demo» e «Richiedi l'installazione». Di queste
-ultime arriva dal portale solo la descrizione, mai il codice."""
+ultime arriva dal portale solo la descrizione, mai il codice. Se il portale ammette l'acquisto diretto, quelle con un
+prezzo si comprano da qui («Acquista»): entrano in licenza alla sincronizzazione che parte subito, senza approvazione."""
 import logging
+from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.contrib import messages
@@ -38,11 +40,22 @@ def _voce(slug, nome, riassunto, categoria, icona="", statica=""):
             "demo_chiesta": False, "icona": icona if icona.startswith(ICONA_AMMESSA) else "", "statica": statica, "iniziale": (nome or slug)[:1].upper()}
 
 
+def _prezzo(dal_catalogo):
+    """Il prezzo al mese di una voce che il portale lascia comprare da qui, o None: senza «acquisto» resta la richiesta."""
+    if dal_catalogo.get("acquisto") is not True:
+        return None
+    try:
+        prezzo = Decimal(str(dal_catalogo.get("prezzo_mese")))
+    except InvalidOperation:
+        return None
+    return prezzo.quantize(Decimal("0.01")) if prezzo.is_finite() and 0 < prezzo < 1_000_000 else None
+
+
 def _scheda(voce, dal_catalogo):
     """La parte commerciale del catalogo: che cosa fa, che cosa offre, dove si vede la demo."""
     demo = str(dal_catalogo.get("url_demo") or "")
     voce.update(descrizione=str(dal_catalogo.get("descrizione") or ""), funzioni=list(dal_catalogo.get("funzioni") or []),
-                url_demo=demo if demo.startswith(("https://", "http://")) else "")
+                url_demo=demo if demo.startswith(("https://", "http://")) else "", prezzo_mese=_prezzo(dal_catalogo))
 
 
 def voci():
@@ -65,12 +78,14 @@ def voci():
         dal_catalogo = trovate.get(slug, {})
         trovate[slug] = _voce(slug, nomi.get(slug) or m.nav_label or m.name, m.summary, m.category, dal_catalogo.get("icona", ""), statica)
         _scheda(trovate[slug], dal_catalogo)
+        trovate[slug]["prezzo_mese"] = dal_catalogo.get("prezzo_mese")      # già letto dal catalogo qui sopra
         trovate[slug]["nome_originale"] = m.nav_label or m.name
         trovate[slug]["funzioni"] = trovate[slug]["funzioni"] or [v["label"] for v in m.menu]    # senza scheda, le sue pagine
     spente = set(Modulo.objects.filter(disattivato=True).values_list("slug", flat=True))
     fuori = licenza.fuori_licenza()
     aperte = RichiestaModulo.objects.filter(stato=RichiestaModulo.INVIATA)
     chieste = set(aperte.filter(tipo=RichiestaModulo.INSTALLAZIONE).values_list("slug", flat=True))
+    in_acquisto = set(aperte.filter(tipo=RichiestaModulo.INSTALLAZIONE, acquisto=True).values_list("slug", flat=True))
     demo = set(RichiestaModulo.objects.filter(tipo=RichiestaModulo.DEMO).values_list("slug", flat=True))
     for slug, v in trovate.items():
         if slug in installati and slug not in fuori:
@@ -79,20 +94,22 @@ def voci():
             v["stato"] = IN_ARRIVO
         else:
             v["stato"] = RICHIESTA if slug in chieste else DISPONIBILE
-        v["etichetta"] = ETICHETTE[v["stato"]]
+        v["etichetta"] = "Acquisto in corso" if v["stato"] == RICHIESTA and slug in in_acquisto else ETICHETTE[v["stato"]]
         v["demo_chiesta"] = slug in demo
     return sorted(trovate.values(), key=lambda v: (v["categoria"] == ALTRE, v["categoria"].lower(), v["nome"].lower()))
 
 
 def suite():
     """Le suite del catalogo: pacchetti di app per dipartimento. [{slug, nome, descrizione, app, utenti, stato, posti}]
-    con stato «comprata», «richiesta», «rifiutata» o «disponibile»."""
+    con stato «comprata», «richiesta», «rifiutata» o «disponibile»; `prezzo_mese` se si compra da qui, `in_acquisto`
+    se l'acquisto è partito e la suite deve ancora arrivare."""
     riga = LicenzaIstanza.objects.first()
     catalogo = riga.catalogo if riga else {}
     stato = licenza.attuale()
     comprate = {s["slug"] for s in stato.suite} if stato.valida else set()
     aperte = RichiestaModulo.objects.filter(tipo=RichiestaModulo.SUITE)
     chieste = set(aperte.filter(stato=RichiestaModulo.INVIATA).values_list("slug", flat=True))
+    in_acquisto = set(aperte.filter(stato=RichiestaModulo.INVIATA, acquisto=True).values_list("slug", flat=True))
     no = set(aperte.filter(stato=RichiestaModulo.RIFIUTATA).values_list("slug", flat=True)) - chieste
     posti = {r["slug"]: r for r in dipartimenti.posti_suite()} if comprate else {}
     voci = []
@@ -103,7 +120,7 @@ def suite():
         voce = {"slug": slug, "nome": str(v.get("nome") or slug), "descrizione": str(v.get("descrizione") or ""),
                 "app": [str(m.get("nome") or m.get("slug")) for m in v.get("moduli") or [] if isinstance(m, dict)],
                 "utenti": v.get("utenti") if isinstance(v.get("utenti"), int) else 0, "posti": posti.get(slug),
-                "dipartimento": Dipartimento.objects.filter(suite=slug).first()}
+                "dipartimento": Dipartimento.objects.filter(suite=slug).first(), "prezzo_mese": _prezzo(v), "in_acquisto": slug in in_acquisto}
         voce["stato"] = "comprata" if slug in comprate else "richiesta" if slug in chieste else "rifiutata" if slug in no else "disponibile"
         voci.append(voce)
     return sorted(voci, key=lambda v: (v["stato"] != "comprata", v["nome"].lower()))
@@ -117,7 +134,8 @@ def pagina(request):
     return render(request, "core/applicazioni.html", {
         "attive": [v for v in tutte if v["stato"] == ATTIVA], "ferme": [v for v in tutte if v["stato"] in (NON_ATTIVA, IN_ARRIVO)], "altre": altre,
         "categorie": sorted({v["categoria"] for v in altre}), "licenza": licenza.attuale(), "obbligatoria": licenza.obbligatoria(), "suite": suite(),
-        "utenti_attivi": licenza.utenti_attivi(), "portale": sincronia.configurata()})
+        "utenti_attivi": licenza.utenti_attivi(), "portale": sincronia.configurata(),
+        "puo_comprare": sincronia.configurata() and request.user.has_perm(PERMESSO_ATTIVAZIONE)})
 
 
 @login_required
@@ -140,6 +158,46 @@ def richiedi(request):
         send_mail(f"Richiesta di {cosa}: {voce['nome']}", f"{request.user} ha chiesto {cosa} di «{voce['nome']}» ({slug}) su {request.get_host()}.\n\n{nota}",
                   None, [settings.LICENZA_EMAIL_RICHIESTE], fail_silently=True)
     messages.success(request, f"Richiesta inviata: ti ricontatteremo per {cosa} di «{voce['nome']}».")
+    return redirect("core:applicazioni")
+
+
+@login_required
+@permission_required(PERMESSO_ATTIVAZIONE, raise_exception=True)
+@require_POST
+def acquista(request):
+    """L'acquisto diretto di un'app o di una suite al prezzo del catalogo: parte subito la sincronizzazione, il portale
+    la mette in licenza e l'istanza la installa. Chi compra impegna l'azienda: serve il permesso di attivare le app, e
+    il prezzo confermato deve essere quello mostrato (il portale lo ricontrolla con il suo)."""
+    slug, di_suite = request.POST.get("slug", ""), request.POST.get("tipo") == RichiestaModulo.SUITE
+    if di_suite:
+        voce = next((v for v in suite() if v["slug"] == slug and v["stato"] in ("disponibile", "rifiutata")), None)
+    else:
+        voce = next((v for v in voci() if v["slug"] == slug and v["stato"] == DISPONIBILE), None)
+    if voce is None or voce["prezzo_mese"] is None or not sincronia.configurata():
+        raise Http404
+    try:
+        confermato = Decimal(request.POST.get("prezzo", ""))
+    except InvalidOperation:
+        confermato = None
+    if confermato != voce["prezzo_mese"]:
+        messages.error(request, f"Il prezzo di «{voce['nome']}» è cambiato: ora è {voce['prezzo_mese']} € al mese. Niente è stato comprato.")
+        return redirect("core:applicazioni")
+    if request.POST.get("conferma") != "1":
+        messages.error(request, f"Per comprare «{voce['nome']}» conferma il prezzo con la spunta.")
+        return redirect("core:applicazioni")
+    tipo = RichiestaModulo.SUITE if di_suite else RichiestaModulo.INSTALLAZIONE
+    with transaction.atomic():
+        aperta = RichiestaModulo.objects.select_for_update().filter(slug=slug, tipo=tipo, stato=RichiestaModulo.INVIATA).first()
+        if aperta is not None:                           # doppio clic, o una richiesta già in attesa di una persona
+            raise Http404
+        RichiestaModulo.objects.create(slug=slug, nome=voce["nome"], tipo=tipo, utente=request.user, acquisto=True, prezzo_mese=voce["prezzo_mese"])
+    lavori.accoda("core.registry.sincronia.esegui")
+    cosa = "della suite" if di_suite else "di"
+    if settings.LICENZA_EMAIL_RICHIESTE:
+        send_mail(f"Acquisto {cosa} {voce['nome']}", f"{request.user} ha comprato {'la suite ' if di_suite else ''}«{voce['nome']}» ({slug}) "
+                  f"a {voce['prezzo_mese']} € al mese su {request.get_host()}.", None, [settings.LICENZA_EMAIL_RICHIESTE], fail_silently=True)
+    messages.success(request, f"«{voce['nome']}» comprata a {voce['prezzo_mese']} € al mese: arriva tra pochi minuti"
+                              + (" con il suo dipartimento." if di_suite else " tra le app installate, da attivare."))
     return redirect("core:applicazioni")
 
 

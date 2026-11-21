@@ -20,7 +20,15 @@
   <div class="mk-piede">
     {% if s.stato == "comprata" %}<span class="mk-stato">Comprata{% if s.posti %} · {{ s.posti.occupati }} su {{ s.posti.utenti }} posti{% endif %}</span>
       {% if s.dipartimento and perms.core.change_dipartimento %}<a class="ui-btn ui-btn-secondary ui-btn-sm" href="{% url 'core:dipartimento' s.dipartimento.pk %}">Il dipartimento</a>{% endif %}
-    {% elif s.stato == "richiesta" %}<span class="mk-stato">Richiesta inviata</span>
+    {% elif s.stato == "richiesta" %}<span class="mk-stato">{% if s.in_acquisto %}Acquisto in corso{% else %}Richiesta inviata{% endif %}</span>
+    {% elif s.prezzo_mese and puo_comprare %}<span class="mk-stato mk-prezzo">{{ s.prezzo_mese }} € al mese</span>
+      <details class="mk-richiedi"><summary class="ui-btn ui-btn-primary ui-btn-sm">Acquista la suite</summary>
+      <form method="post" action="{% url 'core:applicazioni_acquista' %}" class="mk-richiedi-form">{% csrf_token %}
+        <input type="hidden" name="slug" value="{{ s.slug }}"><input type="hidden" name="tipo" value="suite"><input type="hidden" name="prezzo" value="{{ s.prezzo_mese|stringformat:'s' }}">
+        <p class="ui-help">{{ s.prezzo_mese }} € al mese senza IVA, in più sul canone: il mese in corso si paga per i giorni che restano. Le app e il dipartimento arrivano tra pochi minuti.</p>
+        <label><input type="checkbox" class="ui-checkbox" name="conferma" value="1" required> Confermo l'acquisto della suite «{{ s.nome }}» a {{ s.prezzo_mese }} € al mese</label>
+        <button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">Acquista ora</button>
+      </form></details>
     {% else %}{% if s.stato == "rifiutata" %}<span class="mk-stato">Non accolta</span>{% endif %}<details class="mk-richiedi"><summary class="ui-btn ui-btn-primary ui-btn-sm">Richiedi la suite</summary>
       <form method="post" action="{% url 'core:applicazioni_richiedi' %}" class="mk-richiedi-form">{% csrf_token %}
         <input type="hidden" name="slug" value="{{ s.slug }}"><input type="hidden" name="tipo" value="suite">

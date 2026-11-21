@@ -59,7 +59,8 @@ def _rapporto():
     versioni = {r["slug"]: r["versione_installata"] for r in
                 modules.Modulo.objects.filter(slug__in=modules.installati()).values("slug", "versione_installata")}
     return {"moduli": versioni, "utenti_attivi": licenza.utenti_attivi(),
-            "richieste": [{"id": r.pk, "slug": r.slug, "tipo": r.tipo, "nome": r.nome, "nota": r.nota, "utente": str(r.utente or "")}
+            "richieste": [{"id": r.pk, "slug": r.slug, "tipo": r.tipo, "nome": r.nome, "nota": r.nota, "utente": str(r.utente or ""),
+                           **({"acquisto": True, "prezzo": str(r.prezzo_mese)} if r.acquisto else {})}
                           for r in RichiestaModulo.objects.filter(stato=RichiestaModulo.INVIATA, consegnata=False)]}
 
 
@@ -88,6 +89,9 @@ def _aggiorna_richieste(stato, risposta):
     suite.filter(slug__in=[s["slug"] for s in stato.suite]).update(stato=RichiestaModulo.EVASA)
     suite.filter(slug__in=risposta.get("suite_rifiutate") or []).update(stato=RichiestaModulo.RIFIUTATA)
     RichiestaModulo.objects.filter(pk__in=risposta.get("ricevute") or []).update(consegnata=True)
+    # un acquisto arrivato al portale e non entrato in licenza non è stato eseguito (prezzo cambiato, acquisto diretto
+    # tolto): là è diventato una richiesta, e così lo mostra il catalogo
+    aperte.filter(acquisto=True, consegnata=True).update(acquisto=False)
 
 
 def _scarica(voce):

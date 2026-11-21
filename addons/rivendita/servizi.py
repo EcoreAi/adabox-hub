@@ -13,6 +13,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.files import File
+from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
 
@@ -260,9 +261,19 @@ def ricevi_consumi_ai(istanza, voci, oggi=None):
     return registrati
 
 
+def acquistabile(voce):
+    """Un modulo o una suite che il cliente può comprare da solo: in catalogo e con un prezzo. Senza prezzo resta una
+    richiesta: un'app a 0 € presa da sola sarebbe regalata."""
+    if isinstance(voce, ModuloVendibile) and (voce.su_misura or not voce.application or voce.ultimo() is None):
+        return False
+    return voce.in_catalogo and voce.prezzo_mese > 0
+
+
 def catalogo_di(istanza, base_url):
-    """Il catalogo di questa istanza: i moduli licenziati con il loro pacchetto, tutti gli altri solo descritti."""
+    """Il catalogo di questa istanza: i moduli licenziati con il loro pacchetto, tutti gli altri solo descritti. Con
+    l'acquisto diretto, ciò che si può comprare porta il prezzo al mese e «acquisto»; senza, il catalogo resta com'era."""
     spettanti = moduli_di(istanza)
+    diretto = istanza.acquisto_ammesso()
     voci, disponibili = [], []
     for m in ModuloVendibile.objects.all():
         descrizione = {"slug": m.slug, "nome": m.nome, "riassunto": m.riassunto, "categoria": m.categoria, "application": m.application, "icona": m.icona,
@@ -273,22 +284,59 @@ def catalogo_di(istanza, base_url):
             voci.append({**descrizione, "versione": ultimo.versione, "min_core": ultimo.min_core, "dipendenze": ultimo.dipendenze, "file": ultimo.nome_file,
                          "url": base_url + reverse("rivendita:api_pacchetto", args=[m.slug, ultimo.versione]), "sha256": ultimo.sha256})
         elif m.slug not in spettanti and m.in_catalogo and not m.su_misura and m.application and ultimo:
+            if diretto and acquistabile(m):
+                descrizione.update(prezzo_mese=str(m.prezzo_mese), acquisto=True)
             disponibili.append(descrizione)
     comprate = set(istanza.suite.values_list("pk", flat=True))
     suite = [{"slug": su.slug, "nome": su.nome, "descrizione": su.descrizione, "utenti": su.utenti, "comprata": su.pk in comprate,
-              "moduli": [{"slug": m.slug, "nome": m.nome} for m in su.moduli.filter(application=True, su_misura=False).order_by("nome")]}
+              "moduli": [{"slug": m.slug, "nome": m.nome} for m in su.moduli.filter(application=True, su_misura=False).order_by("nome")],
+              **({"prezzo_mese": str(su.prezzo_mese), "acquisto": True} if diretto and su.pk not in comprate and acquistabile(su) else {})}
              for su in Suite.objects.prefetch_related("moduli") if su.in_catalogo or su.pk in comprate]
     dati = {"formato": 1, "istanza": str(istanza.codice), "creato": timezone.now().isoformat(timespec="seconds"), "moduli": voci, "disponibili": disponibili,
             "suite": suite}
     return dati, pacchetti.firma(pacchetti.serializza(dati), chiave_privata()).decode()
 
 
+def acquista(istanza, voce):
+    """L'acquisto diretto chiesto dall'istanza (`voce` della sincronizzazione, con «acquisto» e il «prezzo» che il
+    cliente ha confermato): se si può, l'app o la suite entra subito tra quelle dell'istanza, e da lì nella licenza e
+    nel canone dei giorni che restano (rivendita.addebiti). Resta una Richiesta già approvata, con il prezzo.
+    True se l'istanza ha, o aveva già, ciò che ha comprato; False se deve deciderlo una persona: acquisto diretto non
+    ammesso, voce senza prezzo o prezzo diverso da quello confermato. Chi chiama registra allora una richiesta normale."""
+    from core import chatter
+    slug, tipo = str(voce.get("slug", ""))[:31], Richiesta.SUITE if voce.get("tipo") == Richiesta.SUITE else Richiesta.INSTALLAZIONE
+    cosa = (Suite if tipo == Richiesta.SUITE else ModuloVendibile).objects.filter(slug=slug).first()
+    if cosa is None:
+        return False
+    with transaction.atomic():
+        istanza = Istanza.objects.select_for_update().select_related("piano").get(pk=istanza.pk)     # due invii insieme: un acquisto solo
+        if istanza.suite.filter(pk=cosa.pk).exists() if tipo == Richiesta.SUITE else slug in moduli_di(istanza):
+            return True                                # già sua: l'istanza ha rimandato la stessa richiesta
+        if not istanza.acquisto_ammesso() or not acquistabile(cosa) or _decimale(voce.get("prezzo")) != cosa.prezzo_mese:
+            return False
+        (istanza.suite if tipo == Richiesta.SUITE else istanza.moduli_extra).add(cosa)
+        richiesta = Richiesta.objects.filter(istanza=istanza, slug=slug, tipo=tipo, stato=Richiesta.NUOVA).first() or Richiesta(istanza=istanza, slug=slug, tipo=tipo)
+        richiesta.nome, richiesta.utente = cosa.nome, str(voce.get("utente") or "")[:150]
+        richiesta.nota = richiesta.nota or str(voce.get("nota") or "")[:2000]
+        richiesta.id_remoto = voce.get("id") if isinstance(voce.get("id"), int) else None
+        richiesta.stato, richiesta.decisa_il, richiesta.diretto, richiesta.prezzo_mese = Richiesta.APPROVATA, timezone.now(), True, cosa.prezzo_mese
+        richiesta.save()
+        chatter.scrivi(istanza, None, f"Acquisto diretto dal catalogo: {'suite ' if tipo == Richiesta.SUITE else ''}{cosa.nome}, "
+                                      f"{cosa.prezzo_mese} € al mese" + (f" (chiesto da {richiesta.utente})" if richiesta.utente else "") + ".")
+    return True
+
+
 def ricevi_richieste(istanza, voci):
-    """Le richieste arrivate dall'istanza: una per modulo finché è aperta. Restituisce gli id locali ricevuti."""
+    """Le richieste arrivate dall'istanza: una per modulo finché è aperta. Un acquisto diretto che si può eseguire si
+    esegue subito (acquista); se no diventa una richiesta come le altre. Restituisce gli id locali ricevuti."""
     ricevute = []
     for v in voci or []:
         slug = str(v.get("slug", ""))[:31]
         if not slug:
+            continue
+        if v.get("acquisto") is True and acquista(istanza, v):
+            if isinstance(v.get("id"), int):
+                ricevute.append(v["id"])
             continue
         if v.get("tipo") == Richiesta.SUITE:
             suite = Suite.objects.filter(slug=slug).first()

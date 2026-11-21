@@ -15,7 +15,15 @@
     {% elif v.stato == "disponibile" or v.stato == "richiesta" %}
       {% if v.url_demo %}<a class="ui-btn ui-btn-secondary ui-btn-sm" href="{{ v.url_demo }}" target="_blank" rel="noopener">Guarda la demo</a>{% endif %}
       {% if v.demo_chiesta %}<span class="mk-stato">Demo richiesta</span>{% else %}<form method="post" action="{% url 'core:applicazioni_richiedi' %}">{% csrf_token %}<input type="hidden" name="slug" value="{{ v.slug }}"><input type="hidden" name="tipo" value="demo"><button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Richiedi una demo</button></form>{% endif %}
-      {% if v.stato == "disponibile" %}<details class="mk-richiedi"><summary class="ui-btn ui-btn-primary ui-btn-sm">Richiedi l'installazione</summary>
+      {% if v.stato == "disponibile" and v.prezzo_mese and puo_comprare %}<span class="mk-stato mk-prezzo">{{ v.prezzo_mese }} € al mese</span>
+      <details class="mk-richiedi"><summary class="ui-btn ui-btn-primary ui-btn-sm">Acquista</summary>
+        <form method="post" action="{% url 'core:applicazioni_acquista' %}" class="mk-richiedi-form">{% csrf_token %}
+          <input type="hidden" name="slug" value="{{ v.slug }}"><input type="hidden" name="prezzo" value="{{ v.prezzo_mese|stringformat:'s' }}">
+          <p class="ui-help">{{ v.prezzo_mese }} € al mese senza IVA, in più sul canone: il mese in corso si paga per i giorni che restano. L'app arriva tra pochi minuti tra quelle installate, con ciò che le serve per funzionare.</p>
+          <label><input type="checkbox" class="ui-checkbox" name="conferma" value="1" required> Confermo l'acquisto di «{{ v.nome }}» a {{ v.prezzo_mese }} € al mese</label>
+          <button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">Acquista ora</button>
+        </form></details>
+      {% elif v.stato == "disponibile" %}<details class="mk-richiedi"><summary class="ui-btn ui-btn-primary ui-btn-sm">Richiedi l'installazione</summary>
         <form method="post" action="{% url 'core:applicazioni_richiedi' %}" class="mk-richiedi-form">{% csrf_token %}
           <input type="hidden" name="slug" value="{{ v.slug }}"><input type="hidden" name="tipo" value="installazione">
           <textarea class="ui-input" name="nota" rows="2" maxlength="2000" placeholder="Una nota per noi (facoltativa)" aria-label="Nota per la richiesta di {{ v.nome }}"></textarea>

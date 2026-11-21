@@ -576,3 +576,88 @@ def test_fattura_in_bozza_dall_addebito(scena):
     assert (a.stato, a.fattura) == ("fatturato", fattura.pk)
     with pytest.raises(ValueError, match="non è da fatturare"):
         addebiti.crea_fattura(a, azienda)                                    # non si fattura due volte
+
+
+@pytest.mark.django_db
+def test_acquisto_diretto_dal_catalogo_alla_licenza_e_al_canone(client, scena):
+    from decimal import Decimal
+
+    from core.chatter import messaggi_di
+    istanza, token = scena
+    ModuloVendibile.objects.filter(slug="premium").update(prezzo_mese=30)
+    vendite = Suite.objects.create(nome="Vendite", slug="vendite", prezzo_mese=50)
+    Suite.objects.create(nome="Senza prezzo", slug="senza-prezzo")
+
+    def compra(numero, slug, prezzo, **altro):
+        return _post(client, token, {"richieste": [{"id": numero, "slug": slug, "nome": slug, "acquisto": True, "prezzo": prezzo, "utente": "mario", **altro}]}).json()
+
+    def in_licenza(risposta):
+        return licenza.leggi(sincronia._verifica(risposta)[0]).moduli
+
+    # senza l'acquisto diretto il catalogo resta com'era e un acquisto diventa una richiesta da decidere
+    catalogo = sincronia._verifica(_post(client, token).json())[1]
+    assert not any("prezzo_mese" in v or "acquisto" in v for v in catalogo["disponibili"] + catalogo["suite"])
+    risposta = compra(1, "premium", "30.00")
+    aperta = Richiesta.objects.get()
+    assert risposta["ricevute"] == [1] and (aperta.stato, aperta.diretto) == ("nuova", False) and "premium" not in in_licenza(risposta)
+
+    Piano.objects.update(acquisto_diretto=True)
+    catalogo = sincronia._verifica(_post(client, token).json())[1]
+    assert [(v["slug"], v.get("prezzo_mese"), v.get("acquisto")) for v in catalogo["disponibili"]] == [("premium", "30.00", True)]
+    assert {s["slug"]: s.get("prezzo_mese") for s in catalogo["suite"]} == {"vendite": "50.00", "senza-prezzo": None}
+
+    # il prezzo confermato non è più quello: niente acquisto, resta la richiesta di prima
+    risposta = compra(2, "premium", "25.00")
+    assert risposta["ricevute"] == [2] and "premium" not in in_licenza(risposta) and Richiesta.objects.get().stato == "nuova"
+    # una suite senza prezzo non si compra da soli
+    compra(3, "senza-prezzo", "0.00", tipo="suite")
+    assert not istanza.suite.exists() and Richiesta.objects.get(tipo="suite").stato == "nuova"
+
+    # il prezzo giusto: in licenza nella stessa risposta, senza approvazione, e nel canone
+    risposta = compra(4, "premium", "30.00")
+    comprata = Richiesta.objects.get(slug="premium")
+    assert risposta["ricevute"] == [4] and "premium" in in_licenza(risposta)
+    assert (comprata.pk, comprata.stato, comprata.diretto, comprata.prezzo_mese, comprata.decisa_da, comprata.utente) == (aperta.pk, "approvata", True, Decimal("30"), None, "mario")
+    assert comprata.decisa_il is not None and istanza.canone_mese() == Decimal("129")
+    assert "Premium" in messaggi_di(istanza).get().corpo and "30.00 € al mese" in messaggi_di(istanza).get().corpo
+    # la stessa richiesta rimandata non compra due volte
+    assert compra(4, "premium", "30.00")["ricevute"] == [4] and Richiesta.objects.filter(slug="premium").count() == 1
+    assert [v["slug"] for v in sincronia._verifica(_post(client, token).json())[1]["disponibili"]] == []
+
+    # la suite
+    risposta = compra(5, "vendite", "50", tipo="suite")
+    assert list(istanza.suite.all()) == [vendite] and istanza.canone_mese() == Decimal("179")
+    assert Richiesta.objects.get(slug="vendite").diretto and [s["slug"] for s in risposta["licenza"]["suite"]] == ["vendite"]
+
+    # l'istanza può non averlo anche se il piano sì; a licenza scaduta non si compra
+    istanza = Istanza.objects.get(pk=istanza.pk)
+    assert istanza.acquisto_ammesso()
+    istanza.acquisto_diretto = "no"
+    assert not istanza.acquisto_ammesso()
+    istanza.acquisto_diretto, istanza.scadenza = "si", timezone.localdate() - datetime.timedelta(days=1)
+    assert not istanza.acquisto_ammesso()
+    Piano.objects.update(acquisto_diretto=False)
+    istanza.scadenza = timezone.localdate()
+    assert istanza.acquisto_ammesso()
+
+
+@pytest.mark.django_db
+def test_acquisto_dall_istanza_al_portale_e_ritorno(client, scena):
+    """Ciò che l'istanza manda (sincronia._rapporto) è ciò che il portale esegue, e la risposta chiude la richiesta."""
+    from decimal import Decimal
+
+    from core.models import RichiestaModulo
+    istanza, token = scena
+    Piano.objects.update(acquisto_diretto=True)
+    ModuloVendibile.objects.filter(slug="premium").update(prezzo_mese=Decimal("12.50"))
+    buona = RichiestaModulo.objects.create(slug="premium", nome="Premium", acquisto=True, prezzo_mese=Decimal("12.50"))
+    altra = RichiestaModulo.objects.create(slug="sparito", nome="Sparito", acquisto=True, prezzo_mese=Decimal("9.00"))     # non più in vendita
+    risposta = _post(client, token, sincronia._rapporto()).json()
+    stato = licenza.leggi(sincronia._verifica(risposta)[0])
+    sincronia._aggiorna_richieste(stato, risposta)
+    buona.refresh_from_db(), altra.refresh_from_db()
+    assert (buona.stato, buona.consegnata) == ("evasa", True) and istanza.moduli_extra.filter(slug="premium").exists()
+    assert Richiesta.objects.get(slug="premium").prezzo_mese == Decimal("12.50")
+    # l'acquisto non eseguito è arrivato, ma è una richiesta come le altre: sul portale e sull'istanza
+    assert (altra.stato, altra.consegnata, altra.acquisto) == ("inviata", True, False)
+    assert (Richiesta.objects.get(slug="sparito").stato, Richiesta.objects.get(slug="sparito").diretto) == ("nuova", False)

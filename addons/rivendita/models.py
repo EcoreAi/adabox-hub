@@ -114,6 +114,10 @@ class Piano(models.Model):
     ai_solo_forniti = models.BooleanField(
         "solo i modelli forniti con il piano", default=False,
         help_text="non con «chiave del cliente»: il cliente non può usare fornitori suoi, risponde solo ciò che forniamo noi")
+    acquisto_diretto = models.BooleanField(
+        "acquisto diretto dal catalogo", default=False,
+        help_text="l'Admin del cliente compra da solo app e suite che hanno un prezzo: entrano subito in licenza e nel canone, "
+                  "senza passare dalle Richieste")
     attivo = models.BooleanField("attivo", default=True)
     moduli_a_funzioni = models.ManyToManyField(
         ModuloVendibile, blank=True, related_name="piani_a_funzioni", verbose_name="moduli con le funzioni scelte",
@@ -230,6 +234,8 @@ class Istanza(models.Model):
     ai_ricarico = models.DecimalField(
         "ricarico sull'AI a consumo (%)", max_digits=6, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)],
         help_text="vuoto = quello del piano")
+    acquisto_diretto = models.CharField("acquisto diretto dal catalogo", max_length=2, blank=True, choices=[("si", "Sì"), ("no", "No")],
+                                        help_text="vuoto = come il piano")
     scadenza = models.DateField("scadenza della licenza")
     grazia_giorni = models.PositiveSmallIntegerField("giorni di grazia", default=30, help_text="dopo la scadenza, prima della sola lettura")
     ospitata = models.BooleanField("ospitata da noi", default=True, help_text="senza accesso del cliente al server")
@@ -273,6 +279,12 @@ class Istanza(models.Model):
         """Il canone in euro senza l'utilizzo dell'AI: piano, prezzo per utente, suite e moduli in più."""
         return (self.piano.prezzo_mese + self.piano.prezzo_utente_mese * self.posti()
                 + sum(su.prezzo_mese for su in self.suite.all()) + sum(m.prezzo_mese for m in self.moduli_extra.all()))
+
+    def acquisto_ammesso(self, oggi=None):
+        """Se l'Admin del cliente può comprare da solo dal catalogo: lo dice l'istanza o, senza una scelta sua, il piano.
+        Mai a licenza scaduta o a istanza spenta: lì serve una persona."""
+        scelta = self.acquisto_diretto == "si" if self.acquisto_diretto else self.piano.acquisto_diretto
+        return bool(scelta and self.attiva and self.scadenza >= (oggi or timezone.localdate()))
 
     def termini_ai(self):
         """{formula, quota_utente, quota_istanza, tetto_istanza, ricarico}: i valori dell'istanza, dove ci sono,
@@ -334,7 +346,8 @@ class Addebito(models.Model):
 
 
 class Richiesta(models.Model):
-    """Un'app chiesta dall'amministratore di un cliente dal suo catalogo."""
+    """Un'app chiesta dall'amministratore di un cliente dal suo catalogo, o comprata da lui con l'acquisto diretto
+    (`diretto`: nasce già approvata, con il prezzo che ha confermato)."""
     NUOVA, APPROVATA, RIFIUTATA = "nuova", "approvata", "rifiutata"
     INSTALLAZIONE, DEMO, SUITE = "installazione", "demo", "suite"
     tipo = models.CharField("tipo", max_length=15, choices=[(INSTALLAZIONE, "Installazione"), (DEMO, "Demo"), (SUITE, "Suite")], default=INSTALLAZIONE)
@@ -349,6 +362,9 @@ class Richiesta(models.Model):
     creata = models.DateTimeField("chiesta il", auto_now_add=True)
     decisa_il = models.DateTimeField("decisa il", null=True, blank=True, editable=False)
     decisa_da = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False, verbose_name="decisa da")
+    diretto = models.BooleanField("acquisto diretto", default=False, editable=False, help_text="comprato dal cliente dal suo catalogo, senza approvazione")
+    prezzo_mese = models.DecimalField("prezzo al mese (€)", max_digits=9, decimal_places=2, null=True, blank=True, editable=False,
+                                      help_text="il prezzo confermato dal cliente al momento dell'acquisto")
 
     class Meta:
         verbose_name = "richiesta"

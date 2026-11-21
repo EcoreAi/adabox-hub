@@ -126,6 +126,72 @@ def test_catalogo_a_tre_sezioni_demo_e_installazione(client, superuser, chiave, 
 
 
 @pytest.mark.django_db
+def test_acquisto_diretto_dal_catalogo(client, superuser, chiave, settings, mailoutbox, monkeypatch):
+    from decimal import Decimal
+
+    from django.contrib.auth.models import Permission
+    settings.LICENZA_OBBLIGATORIA = True
+    settings.LICENZA_EMAIL_RICHIESTE = "vendite@example.com"
+    settings.LICENZA_PORTALE_URL, settings.LICENZA_TOKEN = "https://portale.example/rivendita/api", "segreto"
+    giri = []
+    monkeypatch.setattr(sincronia, "esegui", lambda: giri.append(1))
+    licenza.salva(_file(chiave, moduli=["todo"]), catalogo={"istanza": "abc", "moduli": [], "disponibili": [
+        {"slug": "magia", "nome": "Magia", "categoria": "Vendite", "prezzo_mese": "30.00", "acquisto": True},
+        {"slug": "senza", "nome": "Senza", "prezzo_mese": "30.00"},                      # il prezzo da solo non basta: decide il portale
+        {"slug": "rotta", "nome": "Rotta", "prezzo_mese": "<b>gratis</b>", "acquisto": True}],
+        "suite": [{"slug": "vendite", "nome": "Vendite", "moduli": [], "prezzo_mese": "50", "acquisto": True},
+                  {"slug": "altra", "nome": "Altra", "moduli": []}]})
+    modules.sincronizza()
+    voci = {v["slug"]: v for v in applicazioni.voci()}
+    assert (voci["magia"]["prezzo_mese"], voci["senza"]["prezzo_mese"], voci["rotta"]["prezzo_mese"]) == (Decimal("30.00"), None, None)
+    assert {s["slug"]: s["prezzo_mese"] for s in applicazioni.suite()} == {"vendite": Decimal("50.00"), "altra": None}
+    html = client.get(reverse("core:applicazioni")).content.decode()
+    assert html.count("Acquista ora") == 2 and "30,00 € al mese" in html and 'name="prezzo" value="30.00"' in html and "gratis" not in html
+    assert "Richiedi l'installazione" in html or "Richiedi l&#x27;installazione" in html              # chi non ha un prezzo si chiede come prima
+
+    url = reverse("core:applicazioni_acquista")
+    assert client.post(url, {"slug": "senza", "prezzo": "30.00", "conferma": "1"}).status_code == 404
+    assert client.post(url, {"slug": "magia", "prezzo": "30.00"}).status_code == 302                    # senza la spunta
+    assert client.post(url, {"slug": "magia", "prezzo": "20.00", "conferma": "1"}).status_code == 302   # un prezzo che non è quello mostrato
+    assert client.post(url, {"slug": "magia", "prezzo": "x", "conferma": "1"}).status_code == 302
+    assert not RichiestaModulo.objects.exists() and not giri and not mailoutbox
+
+    assert client.post(url, {"slug": "magia", "prezzo": "30.00", "conferma": "1"}).status_code == 302
+    comprata = RichiestaModulo.objects.get()
+    assert (comprata.tipo, comprata.acquisto, comprata.prezzo_mese, comprata.utente) == ("installazione", True, Decimal("30"), superuser)
+    assert giri == [1] and "Acquisto" in mailoutbox[0].subject and "30.00 €" in mailoutbox[0].body      # parte il giro completo, non il solo invio
+    assert sincronia._rapporto()["richieste"] == [{"id": comprata.pk, "slug": "magia", "tipo": "installazione", "nome": "Magia", "nota": "",
+                                                    "utente": str(superuser), "acquisto": True, "prezzo": "30.00"}]
+    assert next(v for v in applicazioni.voci() if v["slug"] == "magia")["etichetta"] == "Acquisto in corso"
+    assert client.post(url, {"slug": "magia", "prezzo": "30.00", "conferma": "1"}).status_code == 404   # una volta sola
+
+    assert client.post(url, {"slug": "vendite", "tipo": "suite", "prezzo": "50.00", "conferma": "1"}).status_code == 302
+    suite = RichiestaModulo.objects.get(tipo="suite")
+    assert suite.acquisto and suite.prezzo_mese == Decimal("50")
+    assert next(s for s in applicazioni.suite() if s["slug"] == "vendite")["in_acquisto"]
+    assert "Acquisto in corso" in client.get(reverse("core:applicazioni")).content.decode()
+
+    # il portale ha ricevuto l'acquisto dell'app ma non l'ha messa in licenza: resta una richiesta normale
+    sincronia._aggiorna_richieste(licenza.attuale(), {"ricevute": [comprata.pk]})
+    comprata.refresh_from_db()
+    assert (comprata.stato, comprata.acquisto, comprata.consegnata) == ("inviata", False, True)
+    assert next(v for v in applicazioni.voci() if v["slug"] == "magia")["etichetta"] == "Installazione richiesta"
+    # la suite arriva in licenza: acquisto chiuso
+    licenza.salva(_file(chiave, moduli=["todo"], suite=[{"slug": "vendite", "nome": "Vendite", "utenti": 0, "moduli": []}], comuni=["todo"]))
+    sincronia._aggiorna_richieste(licenza.attuale(), {"ricevute": [suite.pk]})
+    suite.refresh_from_db()
+    assert (suite.stato, suite.acquisto) == ("evasa", True)
+
+    # chi vede il catalogo ma non attiva le app chiede, non compra
+    RichiestaModulo.objects.all().delete()
+    lettore = User.objects.create_user("lettore")
+    lettore.user_permissions.add(Permission.objects.get(content_type__app_label="core", codename="view_modulo"))
+    client.force_login(lettore)
+    assert "Acquista ora" not in client.get(reverse("core:applicazioni")).content.decode()
+    assert client.post(url, {"slug": "magia", "prezzo": "30.00", "conferma": "1"}).status_code == 403
+
+
+@pytest.mark.django_db
 def test_admin_dal_front_attiva_decide_chi_e_niente_admin_di_django(client, db, chiave, settings):
     settings.LICENZA_OBBLIGATORIA = True
     licenza.salva(_file(chiave, moduli=["todo", "crm", "contatti"]))

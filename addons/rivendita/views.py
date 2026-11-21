@@ -16,13 +16,13 @@ class IstanzeView(ModelView):
     list_filter = ["piano", "ospitata", "attiva", "scadenza"]
     search_fields = ["cliente", "email", "url"]
     form_layout = [("Cliente", [("cliente", "email"), ("url", "ospitata"), "contatto"]),
-                   ("Licenza", [("piano", "scadenza"), ("utenti", "grazia_giorni"), "suite", "moduli_extra", "funzioni_extra", "attiva"]),
+                   ("Licenza", [("piano", "scadenza"), ("utenti", "grazia_giorni"), "suite", "moduli_extra", "funzioni_extra", ("acquisto_diretto", "attiva")]),
                    ("Assistente AI (vuoto = come il piano)", [("ai_formula", "ai_ricarico"), ("ai_quota_utente", "ai_quota_istanza"), "ai_tetto_istanza"]),
                    ("Stato", [("ultimo_contatto", "utenti_attivi"), "codice"]), ("Note", ["note"])]
     readonly_fields = ["ultimo_contatto", "utenti_attivi", "codice"]
     list_group_by = ["piano", "ospitata", "scadenza:mese"]
     chatter = True
-    tracked_fields = ["piano", "scadenza", "utenti", "attiva", "ai_formula"]
+    tracked_fields = ["piano", "scadenza", "utenti", "attiva", "ai_formula", "acquisto_diretto"]
     buttons = ["genera_token"]
 
     def col_canone(self, obj):
@@ -41,11 +41,11 @@ class IstanzeView(ModelView):
 class RichiesteView(ModelView):
     model = Richiesta
     slug = "richieste"
-    list_display = ["creata", "istanza", "nome", "tipo", "utente", "stato"]
-    list_filter = ["stato", "tipo", "istanza"]
+    list_display = ["creata", "istanza", "nome", "tipo", "utente", "stato", "diretto", "prezzo_mese"]
+    list_filter = ["stato", "tipo", "diretto", "istanza"]
     search_fields = ["nome", "slug", "nota"]
-    form_layout = [("Richiesta", [("istanza", "nome"), ("tipo", "utente"), "creata", "nota", ("stato", "decisa_il"), "decisa_da"])]
-    readonly_fields = ["istanza", "nome", "tipo", "utente", "creata", "nota", "stato", "decisa_il", "decisa_da"]
+    form_layout = [("Richiesta", [("istanza", "nome"), ("tipo", "utente"), "creata", "nota", ("stato", "decisa_il"), "decisa_da", ("diretto", "prezzo_mese")])]
+    readonly_fields = ["istanza", "nome", "tipo", "utente", "creata", "nota", "stato", "decisa_il", "decisa_da", "diretto", "prezzo_mese"]
     list_group_by = ["stato", "istanza", "nome"]
     buttons = ["approva", "gestita", "rifiuta"]
     chatter = True
@@ -98,7 +98,7 @@ class PianiView(ModelView):
     list_display = ["nome", "prezzo_mese", "prezzo_utente_mese", "utenti", "ai_formula", "attivo"]
     list_filter = ["attivo", "ai_formula"]
     search_fields = ["nome"]
-    form_layout = [("Piano", [("nome", "attivo"), ("prezzo_mese", "prezzo_utente_mese"), "utenti", "moduli", "descrizione"]),
+    form_layout = [("Piano", [("nome", "attivo"), ("prezzo_mese", "prezzo_utente_mese"), "utenti", "moduli", "descrizione", "acquisto_diretto"]),
                    ("Assistente AI", [("ai_formula", "ai_ricarico"), ("ai_quota_utente", "ai_quota_istanza"), "ai_tetto_istanza", "ai_solo_forniti"]),
                    ("Funzioni dei moduli", ["moduli_a_funzioni", "funzioni"])]
 

@@ -76,6 +76,24 @@ commit; qui solo ciò che si vede o che chiede un intervento.
     mese risulta parziale. I mesi passati non vengono ricostruiti.
   - Non c'è l'incasso online né il sollecito: «pagato» si segna a mano.
 
+- **Acquisto diretto dal catalogo** — Kernel 1.7.0, Rivendita 1.11.0 (una migrazione ciascuno). Senza accenderlo non
+  cambia niente.
+  - Sul portale: «acquisto diretto dal catalogo» nel **piano** (vale per le sue istanze) e nella scheda dell'**istanza**
+    («Sì» o «No» vincono sul piano; vuoto = come il piano). Si comprano da soli solo i moduli e le suite visibili in
+    catalogo **con un prezzo al mese maggiore di zero**: ciò che è a 0 € resta una richiesta da approvare. **Da fare
+    prima di accenderlo:** controllare i prezzi in «Moduli in vendita» e «Suite».
+  - Sull'istanza, in `/applicazioni/`, chi può attivare le app vede il prezzo e «Acquista» al posto di «Richiedi
+    l'installazione»: conferma con una spunta, parte la sincronizzazione e l'app (con le sue dipendenze) o la suite
+    arriva in pochi minuti, senza che nessuno approvi. Chi vede soltanto il catalogo continua a chiedere.
+  - Il portale ricontrolla tutto: acquisto ammesso per quell'istanza, licenza non scaduta, prezzo uguale a quello
+    confermato dal cliente. Se qualcosa non torna non si compra niente e l'acquisto diventa una normale richiesta.
+  - Ogni acquisto resta in «Richieste» (approvata, «acquisto diretto», prezzo confermato) e nel registro dell'istanza;
+    chi segue l'istanza riceve l'email. L'importo entra nel canone e quindi negli addebiti, per i giorni dal conteggio
+    notturno successivo.
+  - **Con quale versione:** l'istanza deve avere il kernel 1.7; una più vecchia ignora i prezzi e continua a chiedere.
+    Un'istanza 1.7 con un portale non aggiornato non vede prezzi: non cambia niente.
+  - Non c'è il pagamento online né la disdetta dal catalogo: si paga con la fattura del mese e un'app si toglie dal portale.
+
 ## 2026-11-20
 
 - **Periodo sul grafico** — Kernel 1.6.0, AI 1.53.0, Analisi 1.9.0 (nessuna migrazione; AI e Analisi chiedono il

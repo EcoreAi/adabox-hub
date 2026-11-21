@@ -182,7 +182,8 @@ class LicenzaIstanza(models.Model):
 
 
 class RichiestaModulo(models.Model):
-    """Un'app (o una suite di app per dipartimento) chiesta dall'amministratore del cliente: la decide ICHNOBYTE sul portale."""
+    """Un'app (o una suite di app per dipartimento) chiesta dall'amministratore del cliente: la decide ICHNOBYTE sul portale.
+    Con `acquisto` l'ha comprata al prezzo del catalogo: il portale la attiva da solo, se l'acquisto diretto è ammesso."""
     INVIATA, EVASA, RIFIUTATA = "inviata", "evasa", "rifiutata"
     INSTALLAZIONE, DEMO, SUITE = "installazione", "demo", "suite"
     TIPI = [(INSTALLAZIONE, "Installazione"), (DEMO, "Demo"), (SUITE, "Suite")]
@@ -194,6 +195,8 @@ class RichiestaModulo(models.Model):
     utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", verbose_name="chiesta da")
     stato = models.CharField("stato", max_length=10, choices=STATI, default=INVIATA)
     consegnata = models.BooleanField("arrivata al portale", default=False)
+    acquisto = models.BooleanField("acquisto diretto", default=False, help_text="comprata dal catalogo al prezzo mostrato: il portale la attiva senza approvazione")
+    prezzo_mese = models.DecimalField("prezzo al mese (€)", max_digits=9, decimal_places=2, null=True, blank=True)
     creata = models.DateTimeField("chiesta il", auto_now_add=True)
 
     class Meta:

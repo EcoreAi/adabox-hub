@@ -696,6 +696,12 @@ questa, o l'ospitare l'istanza senza dare accesso al server. Licenza e firme son
    Un piano può comprendere solo alcune **funzioni** di un modulo (es. l'assistente senza ricerca sul web né aree di
    lavoro): «moduli con le funzioni scelte» e «funzioni comprese»; l'istanza può averne in più. Vedi sotto.
 4. Le **Richieste** dei clienti si approvano con un bottone: il modulo passa nella licenza dell'istanza.
+   Con l'**acquisto diretto dal catalogo** (nel piano, o «Sì»/«No» sull'istanza) l'Admin del cliente compra da solo
+   moduli e suite che hanno un prezzo al mese: il catalogo dell'istanza porta il prezzo, lui conferma, e alla
+   sincronizzazione che parte subito il portale li mette in licenza (`servizi.acquista`) se l'acquisto è ammesso, la
+   licenza non è scaduta e il prezzo è quello confermato; altrimenti resta una richiesta da decidere. L'acquisto è una
+   Richiesta già approvata, segnata «acquisto diretto» con il suo prezzo, e pesa sugli addebiti dai giorni seguenti.
+   Ciò che ha prezzo 0 si può solo chiedere.
 
 **Dalla parte del cliente**, l'immagine contiene kernel e tema, nessun modulo: `docker build -f deploy/Dockerfile.cliente -t adabox_hub_cliente:<versione> .`,
 `deploy/compose.cliente.yml` per l'avvio, e nel `.env`:
@@ -718,7 +724,8 @@ L'Admin del cliente lavora dal front, senza admin di Django (riservato al Global
 In **`/applicazioni/`** vede tre sezioni: le app attive; quelle **installate ma non attive**, dove finisce ogni modulo
 nuovo in arrivo dal portale (al primo avvio il piano è già acceso); quelle **da acquistare**, in grigio, di cui ha solo la
 descrizione, con «Informazioni», «Guarda la demo» (`url_demo` del modulo o `RIVENDITA_URL_DEMO`), «Richiedi una demo» e
-«Richiedi l'installazione». Attivando un'app decide chi la usa: livello per ruolo ed eccezioni per persona. «Ordine nel
+«Richiedi l'installazione» o, se il portale ammette l'acquisto diretto e l'app ha un prezzo, «Acquista» (per chi può
+attivare le app: `core.change_modulo`). Attivando un'app decide chi la usa: livello per ruolo ed eccezioni per persona. «Ordine nel
 menu» vale per tutti; ognuno può scegliere il suo da «Le mie app nel menu». Il Global Admin ha `/moduli/` (licenza,
 caricamento, installazione). Senza portale: `manage.py licenza firma --firma chiave.pem --cliente … --moduli crm,contatti
 --scadenza AAAA-MM-GG` crea il file da caricare in `/moduli/` o con `manage.py licenza carica`; i pacchetti si caricano a mano.
