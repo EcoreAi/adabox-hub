@@ -64,7 +64,7 @@ def test_termini_nella_licenza_dell_assistente(db, chiavi):  # noqa: F811
     strana = licenza.leggi(_licenza(chiavi, formula="regalo", quota_utente="tanto", quota_istanza="-3"))
     assert strana.valida and (strana.formula, strana.quota_utente, strana.quota_istanza) == ("propria", 0, 0)
     assert licenza.leggi(_licenza(chiavi, formula=["inclusa"], quota_utente="NaN", quota_istanza=[1])).formula == "propria"
-    assert licenza.termini("non un dizionario") == {"formula": "propria", "quota_utente": 0, "quota_istanza": 0}
+    assert licenza.termini("non un dizionario") == {"formula": "propria", "quota_utente": 0, "quota_istanza": 0, "tetto_istanza": 0}
 
 
 def test_termini_dalla_licenza_dell_istanza(db, chiavi):  # noqa: F811
@@ -235,6 +235,27 @@ def test_il_motore_rispetta_la_quota(db, chiavi, monkeypatch):  # noqa: F811
         turno = motore.avvia(Conversazione.objects.create(utente=utente), "ciao", utente)
     turno.refresh_from_db()
     assert turno.stato == "completato" and turno.modello == proprio and {c["modello"] for c in chiamate} == {"proprio"}
+
+
+def test_formula_mista_la_quota_non_ferma_il_tetto_si(db, chiavi, client, superuser):  # noqa: F811
+    """Quota compresa nel canone, poi a consumo: oltre la quota si continua (si fattura dal portale), al tetto ci si ferma."""
+    piano = _modello("Piano", gestito=True)
+    solo_piano = [(piano, "")]
+    anna = User.objects.create_user("anna")
+    Turno.objects.create(utente=anna, costo=Decimal("12"), costo_fornito=Decimal("12"))
+    _con_formula(chiavi, formula="mista", quota_utente="1", quota_istanza="10")
+    stato = licenza.attuale()
+    assert (stato.formula, stato.quota_istanza, stato.tetto_istanza, stato.blocco_istanza) == ("mista", 10, 0, 0)
+    assert limiti.ammessi(solo_piano, anna) == solo_piano and limiti.quota(anna) == []     # oltre la quota, senza tetto: si continua
+    _con_formula(chiavi, formula="mista", quota_istanza="10", tetto_istanza="20")
+    assert limiti.ammessi(solo_piano, anna) == solo_piano
+    assert "usati 12.00 $ su 20" not in limiti.avviso_quota(anna)                          # sotto l'80% del tetto
+    pagina = client.get("/ai/licenza/").content.decode()
+    assert "Quota inclusa nel canone, poi a consumo" in pagina and "di cui 10 $ compresi nel canone" in pagina and "tetto 20 $" in pagina
+    Turno.objects.create(utente=anna, costo=Decimal("8"), costo_fornito=Decimal("8"))
+    with pytest.raises(ErroreModello, match="tetto mensile dell'assistente previsto dal piano"):
+        limiti.ammessi(solo_piano, anna)
+    assert limiti.fuori_formula() == []
 
 
 # ---------- chi tocca i provider del piano ----------

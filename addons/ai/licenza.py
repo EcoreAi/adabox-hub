@@ -13,7 +13,9 @@ stanno sotto la chiave "ai", che il kernel non legge: la firma copre comunque tu
 con termini scritti male, vale «propria»: il cliente usa la sua chiave, come prima che le formule esistessero.
 - propria: la chiave è del cliente, nessuna quota;
 - inclusa: l'assistente è nel canone, fino alla quota mensile per utente e per istanza;
-- consumo: si fattura l'utilizzo; la quota dell'istanza, se c'è, è il tetto massimo.
+- consumo: si fattura l'utilizzo; la quota dell'istanza, se c'è, è il tetto massimo;
+- mista: la quota dell'istanza è compresa nel canone e l'utilizzo oltre la quota si fattura a consumo; non ferma
+  niente. Il tetto massimo, se c'è, è "tetto_istanza".
 Le quote contano solo il costo sui provider «forniti con il piano» (Provider.gestito): vedi ai.limiti."""
 import datetime
 import json
@@ -31,8 +33,9 @@ from .models import Licenza
 
 PRODOTTO = "adabox-hub-ai"
 VECCHIO_FORMATO = {"chat", "strumenti"}                 # chiavi delle licenze emesse prima del catalogo
-PROPRIA, INCLUSA, CONSUMO = "propria", "inclusa", "consumo"
-FORMULE = {PROPRIA: "Chiave del cliente", INCLUSA: "Assistente incluso nel canone", CONSUMO: "Assistente a consumo"}
+PROPRIA, INCLUSA, CONSUMO, MISTA = "propria", "inclusa", "consumo", "mista"
+FORMULE = {PROPRIA: "Chiave del cliente", INCLUSA: "Assistente incluso nel canone", CONSUMO: "Assistente a consumo",
+           MISTA: "Quota inclusa nel canone, poi a consumo"}
 
 
 @dataclass
@@ -47,6 +50,13 @@ class Stato:
     formula: str = PROPRIA
     quota_utente: Decimal = Decimal(0)                  # $ al mese sui provider forniti con il piano; 0 = senza limite
     quota_istanza: Decimal = Decimal(0)
+    tetto_istanza: Decimal = Decimal(0)                 # solo «mista»: oltre, i modelli del piano si fermano; 0 = senza
+
+    @property
+    def blocco_istanza(self):
+        """Il costo del mese sul piano a cui i modelli forniti si fermano per tutti; 0 = mai. Con «mista» la quota è
+        solo la parte compresa nel canone: ferma il tetto."""
+        return self.tetto_istanza if self.formula == MISTA else self.quota_istanza
 
     @property
     def nome_formula(self):
@@ -97,12 +107,13 @@ def _quota(valore):
 
 
 def termini(dati):
-    """{formula, quota_utente, quota_istanza} da un pezzo di licenza. Ciò che è scritto male non vale: una formula
+    """{formula, quota_utente, quota_istanza, tetto_istanza} da un pezzo di licenza. Ciò che è scritto male non vale: una formula
     sconosciuta è «propria», una quota illeggibile è nessuna quota."""
     dati = dati if isinstance(dati, dict) else {}
     formula = dati.get("formula")
     return {"formula": formula if isinstance(formula, str) and formula in FORMULE else PROPRIA,
-            "quota_utente": _quota(dati.get("quota_utente")), "quota_istanza": _quota(dati.get("quota_istanza"))}
+            "quota_utente": _quota(dati.get("quota_utente")), "quota_istanza": _quota(dati.get("quota_istanza")),
+            "tetto_istanza": _quota(dati.get("tetto_istanza"))}
 
 
 def comprese():

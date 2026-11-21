@@ -290,12 +290,20 @@ def test_i_termini_dell_assistente_vanno_in_licenza_solo_se_servono(client, scen
     istanza.refresh_from_db()
     termini = ai_in_licenza()
     assert termini == {"formula": "inclusa", "quota_utente": "5.00", "quota_istanza": "200.00"}     # il ricarico resta sul portale
-    assert licenza_ai.termini(termini) == {"formula": "inclusa", "quota_utente": Decimal("5.00"), "quota_istanza": Decimal("200.00")}
+    assert licenza_ai.termini(termini) == {"formula": "inclusa", "quota_utente": Decimal("5.00"), "quota_istanza": Decimal("200.00"),
+                                           "tetto_istanza": Decimal("0")}
     # l'istanza può avere condizioni sue; a consumo la quota per utente non esiste
     Istanza.objects.filter(pk=istanza.pk).update(ai_formula="consumo", ai_quota_istanza=0)
     istanza.refresh_from_db()
-    assert istanza.termini_ai() == {"formula": "consumo", "quota_utente": Decimal("5.00"), "quota_istanza": Decimal("0"), "ricarico": Decimal("30.00")}
+    assert istanza.termini_ai() == {"formula": "consumo", "quota_utente": Decimal("5.00"), "quota_istanza": Decimal("0"), "tetto_istanza": Decimal("0"),
+                                    "ricarico": Decimal("30.00")}
     assert ai_in_licenza() == {"formula": "consumo", "quota_utente": "0", "quota_istanza": "0.00"}
+    # mista: la quota compresa (qui 5 $ per i 10 utenti del piano) e il tetto; l'istanza li legge
+    Istanza.objects.filter(pk=istanza.pk).update(ai_formula="mista", ai_quota_istanza=0, ai_tetto_istanza=120)
+    istanza.refresh_from_db()
+    assert ai_in_licenza() == {"formula": "mista", "quota_utente": "0", "quota_istanza": "50.00", "tetto_istanza": "120.00"}
+    stato = licenza_ai.termini(ai_in_licenza())
+    assert (stato["formula"], stato["quota_istanza"], stato["tetto_istanza"]) == ("mista", Decimal("50"), Decimal("120"))
     Istanza.objects.filter(pk=istanza.pk).update(ai_formula="propria")
     istanza.refresh_from_db()
     assert ai_in_licenza() is None
@@ -352,6 +360,15 @@ def test_consumi_dell_assistente_riferiti_dall_istanza(client, superuser, scena)
     assert (consumo.formula, consumo.quota, consumo.importo) == ("inclusa", Decimal("50"), 0)
     pagina = client.get(reverse("rivendita:consumi_ai_lista")).content.decode()
     assert "Rossi Srl" in pagina and "20%" in pagina
+    # mista: si fattura solo il costo oltre la quota compresa, con il ricarico (10 $ sul piano, 6 compresi, +20%, cambio 0,90)
+    Piano.objects.filter(pk=istanza.piano_id).update(ai_formula="mista", ai_quota_utente=0, ai_quota_istanza=6)
+    _consumi(client, token, [voce])
+    consumo.refresh_from_db()
+    assert (consumo.formula, consumo.quota, consumo.importo) == ("mista", Decimal("6"), Decimal("4.32"))
+    Piano.objects.filter(pk=istanza.piano_id).update(ai_quota_istanza=40)       # dentro la quota: niente da fatturare
+    _consumi(client, token, [voce])
+    consumo.refresh_from_db()
+    assert consumo.importo == 0
     assert client.get(reverse("rivendita:consumi_ai_nuovo")).status_code == 403
     assert client.post(reverse("rivendita:consumi_ai_elimina", args=[consumo.pk])).status_code == 403
 

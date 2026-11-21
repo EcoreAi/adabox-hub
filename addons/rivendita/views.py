@@ -15,7 +15,7 @@ class IstanzeView(ModelView):
     search_fields = ["cliente", "email", "url"]
     form_layout = [("Cliente", [("cliente", "email"), ("url", "ospitata")]),
                    ("Licenza", [("piano", "scadenza"), ("utenti", "grazia_giorni"), "suite", "moduli_extra", "funzioni_extra", "attiva"]),
-                   ("Assistente AI (vuoto = come il piano)", [("ai_formula", "ai_ricarico"), ("ai_quota_utente", "ai_quota_istanza")]),
+                   ("Assistente AI (vuoto = come il piano)", [("ai_formula", "ai_ricarico"), ("ai_quota_utente", "ai_quota_istanza"), "ai_tetto_istanza"]),
                    ("Stato", [("ultimo_contatto", "utenti_attivi"), "codice"]), ("Note", ["note"])]
     readonly_fields = ["ultimo_contatto", "utenti_attivi", "codice"]
     list_group_by = ["piano", "ospitata", "scadenza:mese"]
@@ -97,7 +97,7 @@ class PianiView(ModelView):
     list_filter = ["attivo", "ai_formula"]
     search_fields = ["nome"]
     form_layout = [("Piano", [("nome", "attivo"), ("prezzo_mese", "prezzo_utente_mese"), "utenti", "moduli", "descrizione"]),
-                   ("Assistente AI", [("ai_formula", "ai_ricarico"), ("ai_quota_utente", "ai_quota_istanza")]),
+                   ("Assistente AI", [("ai_formula", "ai_ricarico"), ("ai_quota_utente", "ai_quota_istanza"), "ai_tetto_istanza"]),
                    ("Funzioni dei moduli", ["moduli_a_funzioni", "funzioni"])]
 
 

@@ -91,8 +91,8 @@ def quota(utente=None, stato=None):
     if not stato.valida or stato.formula == licenza.PROPRIA:
         return []
     voci = []
-    if stato.quota_istanza:
-        voci.append((consumo_fornito(), stato.quota_istanza, "istanza"))
+    if stato.blocco_istanza:
+        voci.append((consumo_fornito(), stato.blocco_istanza, "istanza"))
     if stato.formula == licenza.INCLUSA and stato.quota_utente and utente is not None:
         voci.append((consumo_fornito(utente), stato.quota_utente, "utente"))
     return voci
@@ -103,7 +103,7 @@ def _finita(voci, stato):
         if consumo >= limite:
             if di_chi == "utente":
                 return f"Hai esaurito la tua quota mensile dell'assistente ({limite} $)."
-            if stato.formula == licenza.CONSUMO:
+            if stato.formula in (licenza.CONSUMO, licenza.MISTA):
                 return f"Raggiunto il tetto mensile dell'assistente previsto dal piano ({limite} $)."
             return f"La quota mensile dell'assistente compresa nel piano è esaurita ({limite} $)."
     return ""

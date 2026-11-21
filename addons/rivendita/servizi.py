@@ -19,7 +19,7 @@ from django.utils import timezone
 from core import licenza
 from core.registry import pacchetti
 
-from .models import AI_CONSUMO, AI_INCLUSA, AI_PROPRIA, ConsumoAI, FunzioneVendibile, Istanza, ModuloVendibile, Pacchetto, Richiesta, Suite
+from .models import AI_CONSUMO, AI_INCLUSA, AI_MISTA, AI_PROPRIA, ConsumoAI, FunzioneVendibile, Istanza, ModuloVendibile, Pacchetto, Richiesta, Suite
 from .schede import SCHEDE
 
 
@@ -156,6 +156,9 @@ def ai_di(istanza):
     termini = istanza.termini_ai()
     if termini["formula"] == AI_PROPRIA:
         return None
+    if termini["formula"] == AI_MISTA:                     # la quota compresa già calcolata (anche da quella per utente) e il tetto
+        return {"formula": AI_MISTA, "quota_utente": "0", "quota_istanza": str(quota_ai(istanza, termini)),
+                "tetto_istanza": str(termini["tetto_istanza"])}
     quota_utente = termini["quota_utente"] if termini["formula"] == AI_INCLUSA else Decimal(0)
     return {"formula": termini["formula"], "quota_utente": str(quota_utente), "quota_istanza": str(termini["quota_istanza"])}
 
@@ -167,16 +170,19 @@ def cambio():
 
 
 def quota_ai(istanza, termini):
-    """La quota del mese in dollari con cui confrontare il consumo: quella dell'istanza o, con «inclusa» e senza quella,
-    la somma delle quote per utente. 0 = senza quota."""
-    if termini["quota_istanza"] or termini["formula"] != AI_INCLUSA:
+    """La quota del mese in dollari con cui confrontare il consumo: quella dell'istanza o, con «inclusa» e «mista» e
+    senza quella, la somma delle quote per utente. 0 = senza quota."""
+    if termini["quota_istanza"] or termini["formula"] not in (AI_INCLUSA, AI_MISTA):
         return termini["quota_istanza"]
     return termini["quota_utente"] * istanza.posti()
 
 
-def importo_ai(costo_fornito, termini):
-    """Che cosa si fattura per l'assistente, in euro: solo con «a consumo», il costo sul piano più il ricarico."""
-    if termini["formula"] != AI_CONSUMO:
+def importo_ai(costo_fornito, termini, quota=Decimal(0)):
+    """Che cosa si fattura per l'assistente, in euro: con «a consumo» il costo sul piano più il ricarico, con «mista»
+    solo la parte del costo oltre la `quota` compresa nel canone. Con le altre formule niente."""
+    if termini["formula"] == AI_MISTA:
+        costo_fornito = max(costo_fornito - quota, Decimal(0))
+    elif termini["formula"] != AI_CONSUMO:
         return Decimal(0)
     return (costo_fornito * cambio() * (1 + termini["ricarico"] / 100)).quantize(Decimal("0.01"))
 
@@ -208,7 +214,7 @@ def ricevi_consumi_ai(istanza, voci, oggi=None):
             continue
         ConsumoAI.objects.update_or_create(istanza=istanza, mese=mese, defaults={
             "costo": costo, "costo_fornito": fornito, "turni": turni, "utenti": utenti, "formula": termini["formula"],
-            "quota": quota_ai(istanza, termini), "importo": importo_ai(fornito, termini)})
+            "quota": quota_ai(istanza, termini), "importo": importo_ai(fornito, termini, quota_ai(istanza, termini))})
         registrati.append(v["mese"])
     return registrati
 

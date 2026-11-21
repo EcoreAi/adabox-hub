@@ -387,12 +387,14 @@ completate.
     l'istanza (Global Admin); spegnere toglie e basta, e a quale funzione appartiene uno strumento resta nel codice;
   - il tetto di spesa mensile per azienda (default 50 $) e la soglia dell'avviso agli amministratori stanno in
     `/impostazioni/`. Il tetto vale per ogni chiamata ai modelli (chat, pianificate, titoli, riassunti, verifica delle
-    citazioni) e per la voce in cloud, che si conta con i prezzi scritti nel servizio voce (lettura a caratteri,
-    trascrizione a minuti); i turni senza azienda hanno un conto a parte, con il valore generale dell'impostazione. I consumi di ogni chiamata sono in `/ai/consumi/`: non si eliminano, e i turni di una chat
+    citazioni) e per la voce in cloud; accanto c'è il tetto per persona, deciso dall'Admin (impostazione generale e
+    pagina «Tetti per persona»). La voce in cloud si conta con i prezzi scritti nel servizio voce (lettura a caratteri,
+    trascrizione a minuti). I turni senza azienda hanno un conto a parte, con il valore generale dell'impostazione. I consumi di ogni chiamata sono in `/ai/consumi/`: non si eliminano, e i turni di una chat
     eliminata restano come righe di costo senza più contenuto;
   - la **formula** della licenza dice come si vende l'assistente. «propria»: la chiave è del cliente, come finora.
     «inclusa»: l'assistente è nel canone, con una quota mensile per utente e per istanza. «consumo»: si fattura
-    l'utilizzo, con un tetto facoltativo. Le quote contano il costo sui provider **forniti con il piano**
+    l'utilizzo, con un tetto facoltativo. «mista»: una quota compresa nel canone e, oltre, l'utilizzo a consumo (la quota
+    non ferma niente, il tetto facoltativo sì). Le quote contano il costo sui provider **forniti con il piano**
     (`Provider.gestito`): la chiave è di chi vende, provider, modelli e prezzi li cambia solo il Global Admin, e la
     chiave dell'azienda lì non vale. A quota finita quei modelli escono dalla catena (`ai.limiti.ammessi`) fino al
     primo del mese e restano quelli con una chiave dell'azienda o locali, se ci sono; la chat avvisa dall'80%. Con

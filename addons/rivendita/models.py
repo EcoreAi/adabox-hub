@@ -10,8 +10,9 @@ from django.utils import timezone
 from core.storage import StoragePrivato
 
 # come si vende l'assistente AI: le stesse chiavi che l'istanza legge dalla licenza (ai.licenza)
-AI_PROPRIA, AI_INCLUSA, AI_CONSUMO = "propria", "inclusa", "consumo"
-FORMULE_AI = [(AI_PROPRIA, "Chiave del cliente"), (AI_INCLUSA, "Inclusa nel canone, con una quota"), (AI_CONSUMO, "A consumo: canone più utilizzo")]
+AI_PROPRIA, AI_INCLUSA, AI_CONSUMO, AI_MISTA = "propria", "inclusa", "consumo", "mista"
+FORMULE_AI = [(AI_PROPRIA, "Chiave del cliente"), (AI_INCLUSA, "Inclusa nel canone, con una quota"), (AI_CONSUMO, "A consumo: canone più utilizzo"),
+              (AI_MISTA, "Mista: quota inclusa nel canone, poi a consumo")]
 
 class ModuloVendibile(models.Model):
     """Un modulo del catalogo commerciale: nasce pubblicando il suo primo pacchetto."""
@@ -102,10 +103,14 @@ class Piano(models.Model):
         help_text="con «inclusa»: costo dei modelli compreso per ogni utente; 0 = senza quota")
     ai_quota_istanza = models.DecimalField(
         "quota AI dell'istanza al mese ($)", max_digits=9, decimal_places=2, default=0, validators=[MinValueValidator(0)],
-        help_text="con «inclusa» è la quota compresa, con «a consumo» il tetto massimo; 0 = senza")
+        help_text="con «inclusa» e «mista» è la quota compresa, con «a consumo» il tetto massimo; 0 = senza "
+                  "(con «mista»: la quota per utente per gli utenti)")
+    ai_tetto_istanza = models.DecimalField(
+        "tetto AI dell'istanza al mese ($)", max_digits=9, decimal_places=2, default=0, validators=[MinValueValidator(0)],
+        help_text="solo con «mista»: il costo dei modelli oltre il quale l'assistente del piano si ferma; 0 = senza tetto")
     ai_ricarico = models.DecimalField(
         "ricarico sull'AI a consumo (%)", max_digits=6, decimal_places=2, default=0, validators=[MinValueValidator(0)],
-        help_text="si aggiunge al costo dei modelli quando l'assistente si fattura a consumo")
+        help_text="si aggiunge al costo dei modelli quando l'assistente si fattura a consumo (con «mista»: sulla parte oltre la quota)")
     attivo = models.BooleanField("attivo", default=True)
     moduli_a_funzioni = models.ManyToManyField(
         ModuloVendibile, blank=True, related_name="piani_a_funzioni", verbose_name="moduli con le funzioni scelte",
@@ -165,6 +170,9 @@ class Istanza(models.Model):
     ai_quota_istanza = models.DecimalField(
         "quota AI dell'istanza al mese ($)", max_digits=9, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)],
         help_text="vuoto = quella del piano; 0 = senza")
+    ai_tetto_istanza = models.DecimalField(
+        "tetto AI dell'istanza al mese ($)", max_digits=9, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)],
+        help_text="solo con «mista»; vuoto = quello del piano; 0 = senza tetto")
     ai_ricarico = models.DecimalField(
         "ricarico sull'AI a consumo (%)", max_digits=6, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)],
         help_text="vuoto = quello del piano")
@@ -211,12 +219,13 @@ class Istanza(models.Model):
                 + sum(su.prezzo_mese for su in self.suite.all()) + sum(m.prezzo_mese for m in self.moduli_extra.all()))
 
     def termini_ai(self):
-        """{formula, quota_utente, quota_istanza, ricarico}: i valori dell'istanza, dove ci sono, altrimenti del piano."""
+        """{formula, quota_utente, quota_istanza, tetto_istanza, ricarico}: i valori dell'istanza, dove ci sono,
+        altrimenti del piano."""
         def scelto(nome):
             proprio = getattr(self, nome)
             return getattr(self.piano, nome) if proprio is None else proprio
         return {"formula": self.ai_formula or self.piano.ai_formula, "quota_utente": scelto("ai_quota_utente"),
-                "quota_istanza": scelto("ai_quota_istanza"), "ricarico": scelto("ai_ricarico")}
+                "quota_istanza": scelto("ai_quota_istanza"), "tetto_istanza": scelto("ai_tetto_istanza"), "ricarico": scelto("ai_ricarico")}
 
 
 class Richiesta(models.Model):
@@ -247,7 +256,8 @@ class Richiesta(models.Model):
 
 class ConsumoAI(models.Model):
     """Il consumo dell'assistente di un'istanza in un mese, come lo riferisce lei (ai.consumi_portale). Con la formula
-    «a consumo» dice che cosa fatturare, con quella «inclusa» quanto margine resta sulla quota. Formula e importo sono
+    «a consumo» dice che cosa fatturare, con quella «inclusa» quanto margine resta sulla quota, con «mista» tutte e due
+    le cose: si fattura solo la parte oltre la quota. Formula e importo sono
     quelli dell'ultimo aggiornamento: l'istanza rimanda il mese fino alla fine di quello dopo, poi la riga resta ferma."""
     istanza = models.ForeignKey(Istanza, on_delete=models.CASCADE, related_name="consumi_ai", verbose_name="istanza")
     mese = models.DateField("mese", help_text="il primo giorno")

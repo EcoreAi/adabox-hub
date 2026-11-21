@@ -21,6 +21,18 @@ commit; qui solo ciò che si vede o che chiede un intervento.
     della licenza. A tetto o quota finiti la voce cloud si ferma; la dettatura passa al Whisper locale, se c'è. Se il
     fornitore non dice la durata dell'audio, si stima dalla grandezza del file.
 
+- **Tetto di spesa per persona e formula «mista»** — AI 1.55.0, Rivendita 1.6.0 (una migrazione ciascuno).
+  - **Tetto per persona**: in `/impostazioni/` «Tetto di spesa mensile per persona ($)» vale per tutti (0 = senza); in
+    Assistente AI → «Tetti per persona» l'Admin dà a una persona un tetto suo, che vince su quello generale (0 = nessun
+    tetto per lei). Conta il costo del mese della persona, modelli e voce, in tutte le aziende; raggiunto, l'assistente
+    si ferma solo per lei fino al primo del mese. Non serve fare niente: senza valori non cambia nulla.
+  - **Formula «mista»** per vendere l'assistente: una quota compresa nel canone e, oltre la quota, utilizzo a consumo con
+    il ricarico. La quota non ferma niente; un tetto facoltativo sì. Sul portale: piano o istanza con «Mista», quota
+    dell'istanza (o quota per utente × utenti) e «tetto AI dell'istanza»; «Consumi AI» mostra da fatturare solo la parte
+    oltre la quota. Senza portale: `ai_licenza --formula mista --quota-istanza 50 --tetto-istanza 200`.
+    **Prima di vendere «mista» a un'istanza, aggiornarla ad AI 1.55**: una versione più vecchia non conosce la formula
+    e la tratta come «chiave del cliente».
+
 ## 2026-11-20
 
 - **Periodo sul grafico** — Kernel 1.6.0, AI 1.53.0, Analisi 1.9.0 (nessuna migrazione; AI e Analisi chiedono il
