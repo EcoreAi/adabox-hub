@@ -33,6 +33,25 @@ def _contesto(utente, azienda=None, ambito=""):
     return strumenti.Contesto(utente=utente, azienda=azienda, conversazione=conversazione)
 
 
+def test_ai_al_posto_di_toglie_la_vista_sostituita_solo_ad_ada(capo, aziende, monkeypatch):
+    """Una vista che ne estende un'altra (es. zenpark.offerte su vendite.ordini) la toglie dall'elenco di Ada; la vista
+    sostituita resta per pagine, ricerca e API, e resta anche per Ada se chi sostituisce non è accessibile."""
+    from core.views import ProfiloUtenteView
+    from core.viste.interroga import id_vista, viste_accessibili
+    monkeypatch.setattr(ProfiloUtenteView, "ai_al_posto_di", ["core.aziende"])
+    contesto = _contesto(capo, aziende)
+    nomi = [v["vista"] for v in viste.elenco_viste(contesto)]
+    assert "core.profili" in nomi and "core.aziende" not in nomi
+    with pytest.raises(strumenti.ErroreStrumento):
+        viste.vista_per(contesto, "core.aziende")
+    from ai.strumenti import richiesta
+    assert "core.aziende" in [id_vista(v) for v in viste_accessibili(richiesta.per(contesto))]
+    solo_aziende = User.objects.create_user("solo")
+    solo_aziende.user_permissions.add(Permission.objects.get(codename="view_azienda"))
+    solo_aziende = User.objects.get(pk=solo_aziende.pk)
+    assert [v["vista"] for v in viste.elenco_viste(_contesto(solo_aziende, aziende))] == ["core.aziende"]
+
+
 def test_elenco_viste_solo_quelle_permesse_e_mai_le_viste_dell_assistente(capo, aziende):
     nomi = [v["vista"] for v in viste.elenco_viste(_contesto(capo, aziende))]
     assert "core.aziende" in nomi and not any(n.startswith("ai.") for n in nomi)

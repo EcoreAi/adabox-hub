@@ -1,9 +1,11 @@
 """Guardia «dati senza fonti» a voce: una risposta con cifre che non vengono da nessuna parte si rifà una volta; se
 resta senza fonti la voce lo dice. Le cifre della domanda, del contesto e degli strumenti non contano."""
+import datetime
 from decimal import Decimal
 
 import pytest
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 from ai import motore, voce
 from ai.gateway import esecuzione, finto
@@ -13,6 +15,9 @@ from ai.models import AnelloCatena, Conversazione, Evento, MessaggioChat, Modell
 @pytest.fixture
 def scena(db, monkeypatch, settings):
     settings.AI_TURNI_SINCRONI = True
+    # orologio fermo alle 09:07 di Roma: il contesto della voce elenca le conversazioni recenti con l'ora («alle 13:30»),
+    # e un test che girava alle 13:30 o alle 15:00 trovava «nota» la cifra inventata della risposta di prova
+    monkeypatch.setattr(timezone, "now", lambda: datetime.datetime(2026, 11, 23, 8, 7, tzinfo=datetime.timezone.utc))
     monkeypatch.setattr(esecuzione, "_dormi", lambda s: None)
     provider = Provider.objects.create(nome="Finto", tipo="finto", locale=True)
     m = Modello.objects.create(provider=provider, id_api="finto-1", etichetta="Finto", prezzo_input=Decimal(1), prezzo_output=Decimal(1))

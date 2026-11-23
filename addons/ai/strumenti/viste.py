@@ -14,7 +14,7 @@ from core.viste import registry
 from core.viste.interroga import (  # noqa: F401  (anche riesportati per gli altri strumenti e i test)
     AGGREGATI, ESCLUSE, GRUPPI_MASSIMI, OPERATORI, SENSIBILE, SOLO_DATA, TRONCATURE, _campo, _decodifica,
     _etichette_gruppi, _misura, _numero, _percorso, _sensibile, aggrega, campi_leggibili, filtra, id_vista,
-    viste_accessibili)
+    senza_sostituite, viste_accessibili)
 
 from . import richiesta
 from .registro import ErroreStrumento, Strumento, registra
@@ -30,8 +30,9 @@ def _ambito(contesto):
 
 
 def viste(contesto):
-    """Le viste che l'utente può vedere (personalizzate per la sua richiesta), in ordine stabile."""
-    return viste_accessibili(richiesta.per(contesto), modulo=_ambito(contesto))
+    """Le viste che l'utente può vedere (personalizzate per la sua richiesta), in ordine stabile, senza quelle che
+    un'altra vista sostituisce per l'assistente (`ai_al_posto_di`)."""
+    return senza_sostituite(viste_accessibili(richiesta.per(contesto), modulo=_ambito(contesto)))
 
 
 def vista_per(contesto, nome):

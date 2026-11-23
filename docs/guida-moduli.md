@@ -37,6 +37,10 @@ Con una `ModelView` non serve altro: Ada elenca, cerca, legge e aggrega i dati, 
 - **`ai_descrizione` è da scrivere davvero.** Di ogni vista Ada riceve solo il nome e questa frase, e con molti moduli installati sceglie da lì. Nella prova su un'istanza con 93 viste, «quante bolle abbiamo?» finiva sui ricevimenti di Magazzino finché la vista non ha detto di contenere le bolle. Esempio: `ai_descrizione = "Le bolle di accompagnamento lette con l'OCR: numero, fornitore, data, totale. Gli utenti dicono bolla o DDT."`
 - `list_display` e `search_fields` decidono cosa trova.
 - I bottoni sono azioni per Ada: `ai = False` li nasconde (download, stampe), `rischio = "irreversibile"` li segnala.
+- **Una vista che ne estende un'altra** (un'offerta che è un ordine di Vendite con dati in più) lo dichiara con
+  `ai_al_posto_di = ["vendite.ordini"]`: quando la tua vista è attiva e l'utente la vede, Ada non vede più gli ordini e
+  i link dei record aprono le tue pagine. Pagine, ricerca e API degli ordini non cambiano; per chi non vede la tua
+  vista, o in una chat limitata a Vendite, gli ordini restano.
 
 Per un'operazione specifica si aggiunge uno strumento, caricato solo se il modulo `ai` è installato. Nel manifest `"ai": "bolle.ai"` e in `bolle/ai.py`:
 
@@ -52,6 +56,26 @@ def rileggi(contesto, id):
 registra(Strumento("bolle_rileggi", "Rilegge una bolla con l'OCR.",
                    {"type": "object", "properties": {"id": {"type": "integer"}}, "required": ["id"]},
                    rileggi, permesso="bolle.change_bolla"))
+```
+
+Per **estrarre dati strutturati** da un documento chiedi al modello un JSON con lo schema che ti serve, con
+`formato` di `ai.gateway.esegui`: il testo della risposta è JSON valido per lo schema (output strutturato di Anthropic,
+`response_format` per gli endpoint compatibili OpenAI e Mistral). Non usare un `tool_choice` obbligato: Opus e Sonnet
+5.5 lo rifiutano.
+
+```python
+import json
+
+from ai import catalogo
+from ai.gateway import Testo, esegui
+from ai.models import Profilo
+
+catena = catalogo.catena(Profilo.objects.filter(compito="classificazione").first(), azienda)   # i modelli del compito
+schema = {"type": "object", "properties": {"voci": {"type": "array", "items": {"type": "string"}}},
+          "required": ["voci"], "additionalProperties": False}          # ogni oggetto: additionalProperties False
+pezzi = esegui(catena, sistema="Estrai le voci del capitolato.", messaggi=[{"ruolo": "utente", "testo": testo}],
+               formato={"nome": "voci_capitolato", "schema": schema})
+dati = json.loads("".join(p.testo for p in pezzi if isinstance(p, Testo)))
 ```
 
 ## Mandare i dati a un altro software

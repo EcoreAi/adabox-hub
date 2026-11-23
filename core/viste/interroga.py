@@ -66,6 +66,14 @@ def viste_accessibili(request, modulo="", escluse=ESCLUSE):
     return risultato
 
 
+def senza_sostituite(viste):
+    """Le viste meno quelle che un'altra vista dell'elenco sostituisce per l'assistente (`ai_al_posto_di`): con un
+    modulo che estende gli ordini di Vendite, Ada vede solo la sua vista e i link aprono le sue pagine. Se la vista che
+    sostituisce non c'è (modulo spento, permessi, chat limitata a un'altra app), resta quella sostituita."""
+    sostituite = {nome for v in viste for nome in (getattr(v, "ai_al_posto_di", None) or ())}
+    return [v for v in viste if id_vista(v) not in sostituite]
+
+
 def vista_per_nome(nome, request, **limiti):
     for v in viste_accessibili(request, **limiti):
         if id_vista(v) == nome:

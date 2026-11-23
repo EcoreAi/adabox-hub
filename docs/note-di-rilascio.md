@@ -5,6 +5,14 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-23
 
+- **Estrazioni con output strutturato e viste che ne sostituiscono altre per Ada** — Kernel 1.12.0, AI 1.58.0
+  (nessuna migrazione).
+  - `ai.gateway.esegui(..., formato={"nome": ..., "schema": {...}})`: la risposta è JSON valido per lo schema
+    (`output_config.format` per Anthropic, `response_format` per gli endpoint compatibili OpenAI e Mistral). È il modo
+    di estrarre dati da un documento: un `tool_choice` obbligato su Opus e Sonnet 5.5 darebbe errore 400.
+  - `ai_al_posto_di = ["vendite.ordini"]` su una `ModelView` che ne estende un'altra: Ada vede solo quella e i link
+    aprono le sue pagine. Pagine, ricerca globale e API della vista sostituita non cambiano.
+
 - **Mittente delle email per azienda** — Kernel 1.11.0 (migrazione `core.0042`: due campi dell'azienda).
   - Nella scheda dell'azienda, sezione **Email ai clienti**: nome e indirizzo del mittente. Le email spedite per conto
     dell'azienda partono da lì: i testi dei moduli (`modelli_email`: preventivo e risposte di Vendite, inviti del
