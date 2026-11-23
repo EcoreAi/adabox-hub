@@ -518,8 +518,10 @@ def conferma_proposta(request, pk):
     proposta = get_object_or_404(Proposta, pk=pk, utente=request.user, conversazione__utente=request.user)
     if proposta.irreversibile and proposta.in_attesa and not request.POST.get("consapevole"):
         return _scheda(request, proposta, "Spunta la casella per confermare un'operazione irreversibile.")
+    # le caselle della scheda (strumenti con voci, es. i pezzi di una dashboard): solo se la scheda le aveva
+    tieni = ({int(v) for v in request.POST.getlist("voce") if v.isdigit()} if request.POST.get("voci_scelte") else None)
     try:
-        proposte.conferma(proposta, request.user, getattr(request, "azienda", None))
+        proposte.conferma(proposta, request.user, getattr(request, "azienda", None), tieni=tieni)
     except ErroreStrumento as e:
         return _scheda(request, proposta, str(e))
     return _scheda(request, proposta)
@@ -629,6 +631,43 @@ def salva_artifact(request, pk):
     a = _mio_artifact(request, pk)
     a.salvato = not a.salvato
     a.save(update_fields=["salvato"])
+    if request.headers.get("HX-Request"):
+        return render(request, "ai/_artifact.html", {"a": a})
+    return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
+
+
+@login_required
+def filtri_artifact(request, pk):
+    """Il pannello di «Filtra» di un grafico della chat: i filtri con i valori presenti nei dati."""
+    from core import misure
+    from core.viste.interroga import ErroreInterrogazione
+    a = _mio_artifact(request, pk)
+    if a.tipo != Artifact.GRAFICO:
+        raise Http404
+    return render(request, "core/_filtri_pannello.html", {"filtri": misure.filtri_con_valori(a.spec, request), "url": reverse("ai:filtro_artifact", args=[a.pk]),
+                                                          "bersaglio": f"#ai-artifact-{a.pk}"})
+
+
+@require_POST
+@login_required
+def filtro_artifact(request, pk):
+    """Il filtro scelto (o tolto) sopra il grafico: si salva nella specifica e il grafico si ricalcola lì dov'è."""
+    from django.http import HttpResponseBadRequest
+
+    from core import misure
+    from core.viste.interroga import ErroreInterrogazione
+
+    from . import artifact as modulo
+    a = _mio_artifact(request, pk)
+    if a.tipo != Artifact.GRAFICO:
+        raise Http404
+    campo, chiave = request.POST.get("campo", ""), request.POST.get("chiave", "")
+    try:
+        a.spec = misure.scegli_filtro(a.spec, campo, *misure.valore_scelto(a.spec, campo, chiave, request), request)
+        a.dati = modulo.ricalcola(a)
+    except ErroreInterrogazione as e:
+        return HttpResponseBadRequest(str(e))
+    a.save(update_fields=["spec", "dati"])
     if request.headers.get("HX-Request"):
         return render(request, "ai/_artifact.html", {"a": a})
     return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")

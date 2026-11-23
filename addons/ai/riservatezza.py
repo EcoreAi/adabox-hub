@@ -117,11 +117,14 @@ def fonte_riservata(nome, argomenti, contenuto, azienda, app_strumento=""):
     app = app_riservate(azienda)
     if app:
         candidate = []
-        if isinstance(argomenti.get("vista"), str):
-            candidate.append(argomenti["vista"].partition(".")[0])
-        for chiave in ("misura_aziendale",) + (("nome",) if nome == "misura" else ()):
-            if isinstance(argomenti.get(chiave), str) and argomenti[chiave]:
-                candidate += _app_di_misura(argomenti[chiave])
+        # anche i pezzi di una dashboard (analisi_crea_dashboard): ognuno ha la sua vista o misura
+        pezzi = argomenti.get("pezzi") if isinstance(argomenti.get("pezzi"), list) else []
+        for a in [argomenti, *(p for p in pezzi if isinstance(p, dict))]:
+            if isinstance(a.get("vista"), str):
+                candidate.append(a["vista"].partition(".")[0])
+            for chiave in ("misura_aziendale",) + (("nome",) if nome == "misura" else ()):
+                if isinstance(a.get(chiave), str) and a[chiave]:
+                    candidate += _app_di_misura(a[chiave])
         if app_strumento:
             candidate.append(app_strumento)
         for a in candidate:

@@ -1,4 +1,4 @@
-{# Scheda di una proposta dell'assistente: anteprima della modifica, poi «Conferma» / «Annulla», poi l'esito. #}
+{% load ai %}{# Scheda di una proposta dell'assistente: anteprima della modifica, poi «Conferma» / «Annulla», poi l'esito. #}
 <section class="ai-proposta{% if p.irreversibile %} is-irreversibile{% endif %}" id="ai-proposta-{{ p.pk }}" aria-labelledby="ai-proposta-{{ p.pk }}-titolo">
   <header class="ai-proposta-testa">
     <h3 id="ai-proposta-{{ p.pk }}-titolo">{{ p.titolo }}</h3>
@@ -10,7 +10,7 @@
   </header>
   {% if p.dettagli %}
   <table class="ai-proposta-dettagli"><tbody>
-    {% for d in p.dettagli %}<tr><th scope="row">{{ d.campo }}</th><td>{% if d.prima %}<del>{{ d.prima }}</del> → {% endif %}{{ d.dopo }}</td></tr>{% endfor %}
+    {% for d in p.dettagli %}<tr><th scope="row">{% if d.voce is not None and p.in_attesa and not p.scaduta %}<label class="ai-proposta-voce"><input type="checkbox" name="voce" value="{{ d.voce }}" checked form="ai-proposta-{{ p.pk }}-conferma"><input type="hidden" name="voci_scelte" value="1" form="ai-proposta-{{ p.pk }}-conferma"> {{ d.campo }}</label>{% else %}{{ d.campo }}{% endif %}</th><td>{% if d.prima %}<del>{{ d.prima }}</del> → {% endif %}{{ d.dopo }}</td></tr>{% endfor %}
   </tbody></table>
   {% endif %}
   {% if p.riepilogo %}<p class="ai-proposta-riepilogo">{{ p.riepilogo }}</p>{% endif %}
@@ -19,7 +19,8 @@
   {% if p.in_attesa and not p.scaduta %}
   <div class="ai-proposta-azioni">
     <form method="post" action="{% url 'ai:conferma_proposta' p.pk %}" hx-post="{% url 'ai:conferma_proposta' p.pk %}"
-          hx-target="#ai-proposta-{{ p.pk }}" hx-swap="outerHTML">
+          hx-target="#ai-proposta-{{ p.pk }}" hx-swap="outerHTML" id="ai-proposta-{{ p.pk }}-conferma"
+          hx-include="[form='ai-proposta-{{ p.pk }}-conferma']">
       {% csrf_token %}
       {% if p.irreversibile %}<label class="ai-proposta-spunta"><input type="checkbox" name="consapevole" value="1" required> Ho letto il riepilogo e voglio procedere</label>{% endif %}
       <button type="submit" class="ui-btn {% if p.irreversibile %}ui-btn-danger{% else %}ui-btn-primary{% endif %}">Conferma</button>
@@ -30,5 +31,5 @@
     </form>
   </div>
   {% elif p.esito %}<p class="ai-proposta-esito">{{ p.esito }}</p>{% endif %}
-  {% if p.url and p.stato != "annullata" %}<a class="ai-proposta-link" href="{{ p.url }}" target="_blank" rel="noopener">Apri ↗</a>{% endif %}
+  {% if p.url and p.stato != "annullata" %}<a class="ai-proposta-link" href="{{ p.url|con_ritorno:p.conversazione_id }}">Apri →</a>{% endif %}
 </section>

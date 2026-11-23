@@ -30,7 +30,8 @@
       </details>
     </div>
     <div class="ui-card-body">
-      {% if w.periodo %}{% with p=w.periodo %}{% include "core/_periodo_grafico.html" %}{% endwith %}{% endif %}
+      {% if w.periodo or w.filtri %}<div class="ui-strumenti-grafico">{% if w.periodo %}{% with p=w.periodo %}{% include "core/_periodo_grafico.html" %}{% endwith %}{% endif %}
+        {% if w.filtri %}{% with f=w.filtri %}{% include "core/_filtri_grafico.html" %}{% endwith %}{% endif %}</div>{% endif %}
       {% if w.errore %}<p class="ui-help an-errore">{{ w.errore }}</p>{% endif %}
       {% if w.serie.tipo == "kpi" %}{% if not w.serie.vuoto %}{% include "grafici/_kpi.html" %}{% endif %}
       {% elif w.serie.vuoto %}{% if not w.errore %}<p class="ui-help">Ancora nessun dato.</p>{% endif %}

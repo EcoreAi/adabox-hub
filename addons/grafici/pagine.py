@@ -359,6 +359,39 @@ def grafico_aggiorna(request, pk):
 
 @login_required
 @permission_required("grafici.change_grafico")
+def grafico_filtri(request, pk):
+    """Il pannello di «Filtra» della card: i filtri del grafico con i valori presenti nei dati."""
+    from core import misure
+    g = _mio_grafico(request, pk)
+    if g.tipo not in Grafico.INTERCAMBIABILI:
+        raise Http404
+    return render(request, "core/_filtri_pannello.html", {"filtri": misure.filtri_con_valori(g.spec, request), "url": reverse("grafici:grafico_filtro", args=[g.pk]),
+                                                          "bersaglio": f"#an-widget-{g.pk}"})
+
+
+@login_required
+@permission_required("grafici.change_grafico")
+@require_POST
+def grafico_filtro(request, pk):
+    """Il filtro scelto (o tolto) sopra il grafico: si salva nella specifica e la card si ricalcola lì dov'è."""
+    from core import misure
+    g = _mio_grafico(request, pk)
+    if g.tipo not in Grafico.INTERCAMBIABILI:
+        raise Http404
+    campo, chiave = request.POST.get("campo", ""), request.POST.get("chiave", "")
+    try:
+        g.spec = misure.scegli_filtro(g.spec, campo, *misure.valore_scelto(g.spec, campo, chiave, request), request)
+    except ErroreInterrogazione as e:
+        return HttpResponseBadRequest(str(e))
+    g.save(update_fields=["spec", "modificato"])
+    w = motore.widget_salvato(g, request, forza=True)
+    if request.headers.get("HX-Request"):
+        return render(request, "grafici/_widget.html", {"w": w, "mio": w["mio"]})
+    return redirect("grafici:grafico", pk=pk)
+
+
+@login_required
+@permission_required("grafici.change_grafico")
 @require_POST
 def grafico_periodo(request, pk):
     """Il periodo scelto con i pulsanti sopra il grafico: si salva nella specifica e la card si ricalcola lì dov'è."""

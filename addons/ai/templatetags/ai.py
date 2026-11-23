@@ -6,6 +6,17 @@ register = template.Library()
 
 
 @register.filter
+def con_ritorno(url, conversazione_id):
+    """Il link di una proposta con «da_chat»: la pagina aperta (nella stessa finestra) mostra «← Torna alla chat».
+    Solo per gli indirizzi del gestionale; gli altri restano com'erano."""
+    url = str(url or "")
+    if not url.startswith("/") or url.startswith("//") or not conversazione_id:
+        return url
+    indirizzo, cancelletto, ancora = url.partition("#")
+    return f"{indirizzo}{'&' if '?' in indirizzo else '?'}da_chat={conversazione_id}{cancelletto}{ancora}"
+
+
+@register.filter
 def markdown_ai(testo):
     return markdown.rendi(testo)
 
@@ -58,6 +69,33 @@ def serie_artifact(a, dati=None):
         "tipo": a.spec.get("grafico", "barre"), "titolo": a.titolo, "etichette": [str(e) for e, _ in serie],
         "valori": [float(v) for _, v in serie], "link": link if any(link) else [],
         **({"confronto": dati["confronto"]} if dati.get("confronto") and a.spec.get("grafico") != "torta" else {})}}
+
+
+@register.simple_tag(takes_context=True)
+def filtri_artifact(context, a):
+    """«Filtra» e le etichette dei filtri scelti per un grafico della chat (core/_filtri_grafico.html): solo per il
+    proprietario e per i grafici che hanno filtri; altrimenti None."""
+    from django.urls import reverse
+
+    from core import misure
+    request = context.get("request")
+    if request is None or a.tipo != "grafico" or a.utente_id != request.user.pk:
+        return None
+    if not misure.filtri_possibili(a.spec) and not a.spec.get("scelti"):      # le etichette scelte restano da togliere
+        return None
+    return {"url": reverse("ai:filtro_artifact", args=[a.pk]), "url_pannello": reverse("ai:filtri_artifact", args=[a.pk]),
+            "bersaglio": f"#ai-artifact-{a.pk}", "etichette": [(campo, testo) for campo, testo in _etichette_filtri(a.spec)]}
+
+
+def _etichette_filtri(spec):
+    from core import misure
+    return [(campo, misure.etichetta_filtri({"scelti": {campo: v}})) for campo, v in (spec.get("scelti") or {}).items()]
+
+
+@register.filter
+def etichetta_filtri(spec):
+    from core import misure
+    return misure.etichetta_filtri(spec or {})
 
 
 @register.filter

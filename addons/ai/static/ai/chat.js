@@ -8,6 +8,7 @@
   const form = chat.querySelector('.ai-composer');
   const input = form.querySelector('.ai-input');
   const invia = form.querySelector('.ai-invia');
+  const fermaComposer = form.querySelector('[data-ferma-composer]');
 
   const campoFile = form.querySelector('[data-file]');
   const inFondo = () => { scorri.scrollTop = scorri.scrollHeight; };
@@ -63,7 +64,22 @@
     input.style.height = 'auto';
     input.style.height = `${Math.min(input.scrollHeight, 260)}px`;
     invia.disabled = (!input.value.trim() && !(campoFile && campoFile.files.length)) || !!messaggi.querySelector('[data-flusso]');
+    statoFerma();
   };
+  // mentre Ada risponde, al posto di Invia c'è Ferma (stesso punto, stessa misura)
+  function statoFerma() {
+    if (!fermaComposer) return;
+    const inCorso = !!messaggi.querySelector('[data-flusso]');
+    invia.hidden = inCorso;
+    fermaComposer.hidden = !inCorso;
+    if (!inCorso) fermaComposer.disabled = false;
+  }
+  if (fermaComposer) fermaComposer.addEventListener('click', () => {
+    const bolla = messaggi.querySelector('[data-flusso]');
+    if (!bolla) return;
+    fermaComposer.disabled = true;
+    fetch(bolla.dataset.stop, { method: 'POST', headers: { 'X-CSRFToken': csrf } });
+  });
   input.addEventListener('input', aggiorna);
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
@@ -363,6 +379,7 @@
     if (!bolla || bolla.dataset.seguita) return;
     bolla.dataset.seguita = '1';
     invia.disabled = true;
+    statoFerma();
     const coda = bolla.querySelector('[data-coda]');
     const reso = bolla.querySelector('[data-reso]');
     const avanzamento = bolla.querySelector('[data-avanzamento]');
@@ -403,11 +420,6 @@
       aggiorna();
       inFondo();
       input.focus();
-    });
-    const ferma = bolla.querySelector('[data-ferma]');
-    if (ferma) ferma.addEventListener('click', () => {
-      ferma.disabled = true;
-      fetch(bolla.dataset.stop, { method: 'POST', headers: { 'X-CSRFToken': csrf } });
     });
   };
   const seguiInCorso = () => messaggi.querySelectorAll('[data-flusso]').forEach(segui);
