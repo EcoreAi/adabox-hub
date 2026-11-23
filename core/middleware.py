@@ -1,4 +1,4 @@
-from .azienda import corrente
+from .azienda import consentite, corrente
 
 
 def esterno(user):
@@ -81,14 +81,23 @@ class DipartimentoMiddleware:
 
     def __call__(self, request):
         user = getattr(request, "user", None)
-        if user is not None and user.is_authenticated and not user.is_superuser:
+        if user is not None and user.is_authenticated:
             from django.conf import settings
             modulo = modulo_di(request.path_info)
             if modulo in settings.ADDONS_ATTIVI:
+                from django.shortcuts import render
+
                 from . import dipartimenti
-                if not dipartimenti.ammessa(user, modulo):
-                    from django.shortcuts import render
+                from .registry import modules
+                if not user.is_superuser and not dipartimenti.ammessa(user, modulo):
                     return render(request, "core/fuori_dipartimento.html", status=403)
+                if not modules.per_azienda(modulo, getattr(request, "azienda", None), user):
+                    # app riservata ad altre aziende (vale anche per i superuser): si propone di passare a una di quelle
+                    giuste = [a for a in consentite(user) if modules.per_azienda(modulo, a, user)]
+                    manifest = modules.manifests_attivi().get(modulo)
+                    nome_app = modules.etichette().get(modulo) or (manifest.name if manifest else modulo)
+                    return render(request, "core/altra_azienda.html", {
+                        "nome_app": nome_app, "giuste": giuste, "prossima": request.get_full_path()}, status=403)
         return self.get_response(request)
 
 
@@ -135,4 +144,6 @@ class AziendaCorrenteMiddleware:
     def __call__(self, request):
         user = getattr(request, "user", None)
         request.azienda = corrente(request) if user is not None and user.is_authenticated else None
+        if user is not None and user.is_authenticated:
+            user._azienda_corrente = request.azienda          # per modules.app_visibili(user), chiamata senza request
         return self.get_response(request)

@@ -21,7 +21,7 @@ def data_e_ora(contesto, fuso="Europe/Rome"):
 def app_disponibili(contesto):
     from core.registry import modules
     return [{"app": a["slug"], "nome": a["label"], "descrizione": a.get("summary", ""),
-             "sezioni": [v["label"] for v in a["menu"]]} for a in modules.app_visibili(contesto.utente)
+             "sezioni": [v["label"] for v in a["menu"]]} for a in modules.app_visibili(contesto.utente, azienda=contesto.azienda)
             if a["slug"] != "ai"]
 
 

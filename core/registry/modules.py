@@ -229,19 +229,46 @@ def models_q_ruolo(ruolo_id):
     return Q(ruolo__isnull=True) | Q(ruolo_id=ruolo_id) if ruolo_id else Q(ruolo__isnull=True)
 
 
-def app_visibili(user):
-    """App installate (application=True), ammesse dai dipartimenti dell'utente, con almeno una voce di menu permessa.
+_DALL_UTENTE = object()
+
+
+def aziende_ammesse(user=None):
+    """{slug: {azienda_id}} delle app riservate ad alcune aziende (Modulo.aziende); le altre valgono per tutte.
+    Calcolato una volta per utente e richiesta, come i dipartimenti."""
+    cache = getattr(user, "_app_aziende", None) if user is not None else None
+    if cache is None:
+        cache = {}
+        for slug, azienda_id in Modulo.aziende.through.objects.values_list("modulo__slug", "azienda_id"):
+            cache.setdefault(slug, set()).add(azienda_id)
+        if user is not None:
+            user._app_aziende = cache
+    return cache
+
+
+def per_azienda(slug, azienda, user=None):
+    """L'app `slug` vale per `azienda`? Sì se non è riservata, o se l'azienda è tra le sue. Senza azienda (worker,
+    utenti senza aziende) non si limita nulla."""
+    limiti = aziende_ammesse(user).get(slug)
+    return not limiti or azienda is None or azienda.pk in limiti
+
+
+def app_visibili(user, azienda=_DALL_UTENTE):
+    """App installate (application=True), ammesse dai dipartimenti dell'utente e dall'azienda corrente (quella che il
+    middleware ha messo sull'utente, o `azienda`), con almeno una voce di menu permessa.
     [{slug, label, summary, icon, url_name, url, menu: [{label, url_name, url}], settings_url}]"""
     from django.urls import NoReverseMatch, reverse
     if not user.is_authenticated:
         return []
+    if azienda is _DALL_UTENTE:
+        azienda = getattr(user, "_azienda_corrente", None)
     from core import dipartimenti, funzioni
     apps = []
     spenti = disattivati()
     nomi = etichette()
     cambi = voci_cambiate(user)
     for slug, m in manifests_attivi().items():
-        if not m.application or slug in spenti or not dipartimenti.ammessa(user, slug):
+        if (not m.application or slug in spenti or not dipartimenti.ammessa(user, slug)
+                or not per_azienda(slug, azienda, user)):
             continue
         menu = []
         comprese = funzioni.comprese(slug) if any(v.get("funzione") for v in m.menu) else None

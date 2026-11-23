@@ -71,7 +71,7 @@ def costruisci(contesto, nome="", istruzioni="", quando="giorni", alle="", giorn
         except ValueError:
             raise ErroreStrumento("«alle» è un'ora HH:MM.")
     ambito = getattr(contesto.conversazione, "ambito", "") if app is None else (app or "")
-    if ambito and ambito not in {a["slug"] for a in modules.app_visibili(contesto.utente)}:
+    if ambito and ambito not in {a["slug"] for a in modules.app_visibili(contesto.utente, azienda=contesto.azienda)}:
         raise ErroreStrumento(f"App «{ambito}» inesistente o non accessibile.")
     if quando == Pianificata.EVENTI and "calendario" not in settings.ADDONS_ATTIVI:
         raise ErroreStrumento("«Prima degli eventi» richiede l'app calendario.")

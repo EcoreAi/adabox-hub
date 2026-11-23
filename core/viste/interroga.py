@@ -52,13 +52,15 @@ def viste_accessibili(request, modulo="", escluse=ESCLUSE):
     limita a un'app."""
     from django.conf import settings
 
-    from core.registry.modules import disattivati
+    from core.registry.modules import disattivati, per_azienda
     registry.autodiscover(["core", *settings.ADDONS_ATTIVI])
     spenti = disattivati()
     risultato = []
     for m in ["core", *settings.ADDONS_ATTIVI]:
         if m in escluse or m in spenti or (modulo and m != modulo):
             continue
+        if not per_azienda(m, getattr(request, "azienda", None), request.user):
+            continue                                  # app riservata ad altre aziende (Modulo.aziende)
         for v in registry.viste_di(m):
             v = v.personalizzata(request)
             if getattr(v, "per_assistente", True) and v.has_view_permission(request):

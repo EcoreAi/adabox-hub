@@ -18,7 +18,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from . import dipartimenti, lavori, licenza, ruoli
-from .models import Dipartimento, LicenzaIstanza, Modulo, RichiestaModulo, Ruolo
+from .models import Azienda, Dipartimento, LicenzaIstanza, Modulo, RichiestaModulo, Ruolo
 from .registry import modules, sincronia
 from .signals import crea_profilo
 
@@ -204,6 +204,7 @@ def scheda(request, slug):
         "voci_menu": _voci_menu(slug, manifest, request.GET.get("ruolo")), "ruoli_menu": Ruolo.objects.all(),
         "ruolo_menu": request.GET.get("ruolo", ""),
         "dipartimenti": [{"d": d, "scelto": d.tutte or slug in d.app, "tutte": d.tutte} for d in Dipartimento.objects.all()],
+        "aziende": (aziende := _aziende_app(slug)), "riservata": any(x["scelta"] for x in aziende),
         "portata_da": [d for d in Dipartimento.objects.all() if not d.tutte and slug not in d.app and slug in dipartimenti.con_dipendenze(d.app)]})
 
 
@@ -271,6 +272,35 @@ def menu_app(request, slug):
             VoceMenu.objects.filter(modulo=slug, url_name=chiave, ruolo=ruolo).delete()
     messages.success(request, "Voci di menu salvate" + (f" per il ruolo {ruolo}." if ruolo else " per tutti."))
     return redirect(f"{redirect('core:applicazione', slug=slug).url}{'?ruolo=' + str(ruolo.pk) if ruolo else ''}")
+
+
+def _aziende_app(slug):
+    """Le aziende attive con la spunta di quelle a cui l'app è riservata ([] con una sola azienda: non serve)."""
+    tutte = list(Azienda.objects.filter(attiva=True))
+    if len(tutte) < 2:
+        return []
+    scelte = set(Modulo.aziende.through.objects.filter(modulo__slug=slug).values_list("azienda_id", flat=True))
+    return [{"a": a, "scelta": a.pk in scelte} for a in tutte]
+
+
+@login_required
+@permission_required(PERMESSO_ATTIVAZIONE, raise_exception=True)
+@require_POST
+def aziende_app(request, slug):
+    """Per tutte le aziende, o solo per quelle spuntate: con un'altra azienda corrente l'app non si vede e non si apre."""
+    voce, _ = _gestibile(slug)
+    if not Modulo.objects.filter(slug=slug).exists():
+        modules.sincronizza()
+    modulo = Modulo.objects.get(slug=slug)
+    scelte = Azienda.objects.filter(pk__in=[x for x in request.POST.getlist("aziende") if x.isdigit()], attiva=True)
+    if request.POST.get("tutte") == "1":
+        scelte = Azienda.objects.none()
+    modulo.aziende.set(scelte)
+    if scelte:
+        messages.success(request, f"«{voce['nome']}» vale solo per: {', '.join(str(a) for a in scelte)}.")
+    else:
+        messages.success(request, f"«{voce['nome']}» vale per tutte le aziende.")
+    return redirect("core:applicazione", slug=slug)
 
 
 @login_required
