@@ -33,7 +33,7 @@ class TemaForm(forms.ModelForm):
 
     class Meta:
         model = Tema
-        fields = ["nome", "descrizione", "attivo", "colore_barra", "css"]
+        fields = ["nome", "descrizione", "attivo", "marchio", "colore_barra", "template", "css"]
         widgets = {"css": forms.Textarea(attrs={"rows": 24, "style": "font-family: var(--font-mono); width: 100%;"}),
                    "colore_barra": forms.TextInput(attrs={"placeholder": "#22394a", "size": 9})}
 
@@ -80,7 +80,7 @@ class TemaAdmin(admin.ModelAdmin):
     readonly_fields = ["foglio_statico", "logo_attuale", "aggiornato"]
 
     def get_fieldsets(self, request, obj=None):
-        fs = [(None, {"fields": ["nome", "descrizione", "attivo", "colore_barra"]}),
+        fs = [(None, {"fields": ["nome", "descrizione", "attivo", "marchio", "colore_barra", "template"]}),
               ("Aspetto", {"fields": (["foglio_statico"] if obj and obj.foglio else []) + ["file_css", "css"]}),
               ("Logo", {"fields": (["logo_attuale", "togli_logo"] if obj and obj.logo_tipo else []) + ["file_logo"]})]
         if obj:

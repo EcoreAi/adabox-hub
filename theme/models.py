@@ -23,6 +23,13 @@ class Tema(models.Model):
                                      "tema esistente usa l'azione «Duplica» nell'elenco.")
     colore_barra = models.CharField("colore della barra del browser", max_length=7, blank=True,
                                     help_text="Esadecimale, es. #22394a: barra del telefono e app installata.")
+    marchio = models.CharField("nome del prodotto", max_length=80, blank=True,
+                               help_text="Nel titolo delle pagine e nelle email delle aziende con questo tema; vuoto: "
+                                         "quello dell'istanza.")
+    template = models.CharField("template", max_length=120, blank=True,
+                                help_text="Il pacchetto di un modulo attivo con i suoi template, es. zenpark.tema "
+                                          "(cartella addons/zenpark/tema/templates): per le aziende con questo tema "
+                                          "vengono prima degli altri.")
     logo = models.BinaryField(blank=True, null=True, editable=False)
     logo_tipo = models.CharField(max_length=40, blank=True, editable=False)
     aggiornato = models.DateTimeField(auto_now=True)
@@ -42,6 +49,11 @@ class Tema(models.Model):
             raise ValidationError({"colore_barra": "Scrivi il colore come #rrggbb."})
         if "</style" in (self.css or "").lower():
             raise ValidationError({"css": "Il CSS non può contenere «</style»."})
+        if self.template:
+            from .template_tema import cartella
+            if cartella(self.template) is None:
+                raise ValidationError({"template": "Serve il pacchetto di un modulo attivo con una cartella templates, "
+                                                   "es. zenpark.tema."})
 
     def save(self, *args, **kwargs):
         with transaction.atomic():

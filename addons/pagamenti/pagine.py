@@ -6,6 +6,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+import theme
+
 from . import fornitori, servizi
 from .models import FornitorePagamento, Pagamento
 
@@ -24,6 +26,7 @@ def fattura(request, token):
     f = servizi.da_token(token)
     if f is None:
         return render(request, "pagamenti/fattura.html", {"invalido": True}, status=400)
+    theme.per_azienda(request, f.azienda)
     if request.method == "POST" and servizi.pagabile(f):
         return _vai_a_pagare(request, f, request.path)
     return render(request, "pagamenti/fattura.html", {"fattura": f, "pagabile": servizi.pagabile(f)})
@@ -37,6 +40,7 @@ def esito(request, pk, firma):
     except signing.BadSignature:
         raise Http404
     pagamento = get_object_or_404(Pagamento.objects.select_related("fattura", "fornitore"), pk=pk)
+    theme.per_azienda(request, pagamento.fattura.azienda)
     annullato = request.GET.get("annullato") == "1" and pagamento.stato == Pagamento.AVVIATO
     errore = ""
     if not annullato:
@@ -52,6 +56,7 @@ def finto(request, pk):
     """La pagina del fornitore simulato (prove e demo): un bottone paga, l'altro annulla."""
     pagamento = get_object_or_404(Pagamento.objects.select_related("fattura", "fornitore"), pk=pk,
                                   fornitore__tipo=FornitorePagamento.FINTO)
+    theme.per_azienda(request, pagamento.fattura.azienda)
     firma = signing.dumps(pagamento.pk, salt="pagamenti.esito")
     if request.method == "POST" and pagamento.stato == Pagamento.AVVIATO:
         if request.POST.get("azione") == "paga":

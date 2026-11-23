@@ -6,7 +6,7 @@
   <title>{% block title %}{{ theme.brand }}{% endblock %}</title>
   <script>document.documentElement.classList.add('js')</script>
   <link rel="stylesheet" href="{% statico 'theme/ui.css' %}">
-  <link rel="icon" type="image/svg+xml" href="{% url 'theme:favicon' %}">
+  <link rel="icon"{% if not theme.tema.logo_url %} type="image/svg+xml"{% endif %} href="{% url 'theme:favicon' %}{% if theme.tema %}?t={{ theme.tema.pk }}.{{ theme.tema.versione }}{% endif %}">
   <link rel="manifest" href="{% url 'theme:manifest' %}">
   <link rel="apple-touch-icon" href="{% url 'theme:icona' 180 %}">
   <meta name="theme-color" content="{{ theme.theme_color }}">

@@ -74,6 +74,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "core.registro.Middleware",
     "core.middleware.AziendaCorrenteMiddleware",
+    "theme.template_tema.Middleware",          # dopo l'azienda corrente: i template del suo tema
     "core.middleware.ModuloDisattivatoMiddleware",
     "core.middleware.LicenzaScadutaMiddleware",
     "core.middleware.UtenteEsternoMiddleware",
@@ -90,8 +91,16 @@ TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [],
-        "APP_DIRS": True,
         "OPTIONS": {
+            # prima i template del tema dell'azienda (theme.template_tema, con la sua cache per tema), poi quelli di
+            # sempre: DIRS e le app, nella cache di Django
+            "loaders": [
+                "theme.template_tema.Loader",
+                ("django.template.loaders.cached.Loader", [
+                    "django.template.loaders.filesystem.Loader",
+                    "django.template.loaders.app_directories.Loader",
+                ]),
+            ],
             "context_processors": [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",

@@ -11,7 +11,7 @@ from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils.html import escape
 
-from .models import ModelloEmail
+from .models import Azienda, ModelloEmail
 from .registry import modules
 
 SEGNAPOSTO = re.compile(r"\{\{\s*(\w+)\s*\}\}")
@@ -63,17 +63,23 @@ def riempi(testo, valori):
     return SEGNAPOSTO.sub(lambda m: "" if valori.get(m.group(1)) is None else str(valori[m.group(1)]), testo)
 
 
+def _marchio(azienda):
+    """Il nome del prodotto del tema dell'azienda (theme.marchio), o quello dell'istanza."""
+    import theme
+    return theme.marchio(azienda if isinstance(azienda, Azienda) else None)
+
+
 def _html(corpo, azienda):
     def collega(m):
         return f'<a href="{m.group(0)}" style="color:#2563eb">{m.group(0)}</a>'
     paragrafi = [URL.sub(collega, escape(p)).replace("\n", "<br>") for p in re.split(r"\n\s*\n", corpo.strip())]
     return render_to_string("core/email/modello.html", {"paragrafi": paragrafi, "azienda": azienda,
-                                                        "marchio": settings.THEME.get("brand", "")})
+                                                        "marchio": _marchio(azienda)})
 
 
 def componi(oggetto, corpo, valori, azienda):
     """(oggetto, testo, html) già riempiti. L'oggetto è su una riga sola: un valore non può aggiungere intestazioni."""
-    tutti = {"azienda": str(azienda), "marchio": settings.THEME.get("brand", ""), "sito": settings.SITO_URL, **valori}
+    tutti = {"azienda": str(azienda), "marchio": _marchio(azienda), "sito": settings.SITO_URL, **valori}
     testo = riempi(corpo, tutti)
     return " ".join(riempi(oggetto, tutti).split()), testo, _html(testo, azienda)
 

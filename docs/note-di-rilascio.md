@@ -5,6 +5,19 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-23
 
+- **Tema per azienda** — Kernel 1.13.0 (migrazioni `theme.0003`: nome del prodotto e template del tema; `core.0043`:
+  tema dell'azienda).
+  - Nella scheda dell'azienda, sezione **Aspetto**, si sceglie il tema; vuoto, il tema attivo come prima.
+  - Nel tema, **Nome del prodotto** (titolo delle pagine, email spedite per conto dell'azienda) e **Template** (il
+    pacchetto di un modulo attivo, es. `zenpark.tema`: i suoi template vengono prima degli altri, solo per le aziende
+    con quel tema).
+  - Le pagine pubbliche (preventivo online, pagamenti, prenotazioni, Helpdesk, pagina del fornitore) usano il tema
+    dell'azienda del documento. La favicon segue il tema; icone e nome dell'app installata restano dell'istanza.
+  - Le conferme, gli annullamenti e i promemoria delle prenotazioni del Calendario partono dal mittente dell'azienda.
+  - Configurazione dei template: `APP_DIRS` lascia il posto a un elenco di loader, il primo è quello del tema
+    (`theme.template_tema.Loader`), con il suo middleware dopo quello dell'azienda corrente. Un'istanza con un
+    `settings.py` proprio deve riportare le due modifiche.
+
 - **Estrazioni con output strutturato e viste che ne sostituiscono altre per Ada** — Kernel 1.12.0, AI 1.58.0
   (nessuna migrazione).
   - `ai.gateway.esegui(..., formato={"nome": ..., "schema": {...}})`: la risposta è JSON valido per lo schema

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}{{ theme.brand }}{% endblock %}</title>
   <link rel="stylesheet" href="{% statico 'theme/ui.css' %}">
-  <link rel="icon" type="image/svg+xml" href="{% url 'theme:favicon' %}">
+  <link rel="icon"{% if not theme.tema.logo_url %} type="image/svg+xml"{% endif %} href="{% url 'theme:favicon' %}{% if theme.tema %}?t={{ theme.tema.pk }}.{{ theme.tema.versione }}{% endif %}">
   {% block head_extra %}{% endblock %}
   {% include "theme/partials/_tema.html" %}
 </head>

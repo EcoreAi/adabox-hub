@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from core import allegati, chatter
+import theme
 
 from .models import OrdineAcquisto
 
@@ -40,6 +41,7 @@ def pagina(request, token):
     ordine = da_token(token)
     if ordine is None or ordine.stato == OrdineAcquisto.ANNULLATO:
         return render(request, "acquisti/fornitore.html", {"invalido": True}, status=400)
+    theme.per_azienda(request, ordine.azienda)
     esito, errore = "", ""
     if request.method == "POST":
         azione, nome = request.POST.get("azione"), request.POST.get("nome", "").strip()[:120]

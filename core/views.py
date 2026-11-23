@@ -267,6 +267,7 @@ class AziendaView(ModelView):
         ("Anagrafica", ["nome", ("partita_iva", "codice_fiscale"), ("indirizzo", "cap"), ("citta", "provincia")]),
         ("Contatti", [("email", "telefono"), "logo", "attiva"]),
         ("Email ai clienti", [("email_mittente_nome", "email_mittente")]),
+        ("Aspetto", ["tema"]),
     ]
     actions = ["disattiva"]
     buttons = ["attiva"]

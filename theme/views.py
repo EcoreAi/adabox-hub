@@ -13,7 +13,26 @@ def colore_tema():
 
 @cache_control(max_age=86400)
 def favicon(request):
-    """theme/partials/_favicon.svg: di default lo stesso cubo del logo nell'header; un tema lo sostituisce."""
+    """theme/partials/_favicon.svg: di default lo stesso cubo del logo nell'header; un tema lo sostituisce.
+
+    Con ?t=<pk>.<versione> (i link dei template di base) è la favicon di quel tema, qualunque sia la sessione: il suo
+    logo, se ce l'ha, altrimenti _favicon.svg anche dai template del tema. Così la cache non mescola le aziende."""
+    from django.shortcuts import redirect
+    from django.urls import reverse
+
+    from .models import Tema
+    from .template_tema import con_pacchetto
+    pk = request.GET.get("t", "").split(".")[0]
+    if not pk.isdigit():
+        return _favicon_svg()
+    tema = Tema.objects.filter(pk=pk).only("logo_tipo", "template", "aggiornato").first()
+    if tema is not None and tema.logo_tipo:
+        return redirect(f"{reverse('theme:tema_logo', args=[tema.pk])}?v={int(tema.aggiornato.timestamp())}")
+    with con_pacchetto(tema.template if tema else ""):
+        return _favicon_svg()
+
+
+def _favicon_svg():
     svg = render_to_string("theme/partials/_favicon.svg").strip()        # il commento del template non esce
     svg = svg.replace('<svg class="ui-logo-cubo"', '<svg xmlns="http://www.w3.org/2000/svg"', 1)
     return HttpResponse(svg, content_type="image/svg+xml")

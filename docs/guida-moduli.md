@@ -109,6 +109,15 @@ L'immagine standard ha già il gruppo «documenti» (`requirements-documenti.txt
 OpenCV, numpy, PDFium, codici a barre, `.xls` e file Apple Numbers. Con `--build-arg DOCUMENTI=no` si costruisce
 senza. Niente librerie con licenza AGPL (es. PyMuPDF): finirebbero nell'immagine che diamo ai clienti.
 
+## La grafica del modulo
+
+Un modulo che porta la sua grafica (header, logo, login, pagine pubbliche) la mette in un pacchetto con i template,
+es. `bolle/tema/templates/theme/partials/_header.html` (con `bolle/tema/__init__.py`), e gli statici in
+`bolle/static/bolle/`. L'azienda che lo usa crea un tema con **Template** = `bolle.tema` e lo sceglie nella sua scheda:
+quei template valgono solo per lei, anche con altre aziende sulla stessa istanza. Nei template leggi nome e logo da
+`theme.brand` e `theme.tema`, non scriverli a mano. Una pagina senza login che mostra un documento chiama
+`theme.per_azienda(request, documento.azienda)` prima del render, così prende il tema dell'azienda del documento.
+
 ## Moduli di un solo cliente
 
 `modulo nuovo` crea moduli su misura: nel manifest c'è `"su_misura": True`. Per un modulo da catalogo, valido per tutti i clienti: `modulo nuovo crm2 --standard`.

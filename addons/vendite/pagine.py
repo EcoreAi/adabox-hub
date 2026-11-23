@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 
 from core.dashboard import queryset
+import theme
 
 from . import operazioni
 from .models import OrdineVendita
@@ -26,6 +27,7 @@ def preventivo_online(request, token):
     ordine, stato = operazioni.da_token(token)
     if ordine is None:
         return render(request, "vendite/online.html", {"stato": stato}, status=400)
+    theme.per_azienda(request, ordine.azienda)
     righe = list(ordine.righe.select_related("aliquota"))
     for r in righe:
         r.lordo = r.importo * (1 + (r.aliquota.percentuale if r.aliquota else 0) / 100)
