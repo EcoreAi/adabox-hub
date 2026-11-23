@@ -6,6 +6,7 @@ from pathlib import Path, PurePosixPath
 
 from core import __version__
 
+from . import dipendenze as _dipendenze
 from .bootstrap import SLUG_RE
 
 RISERVATI = {"core", "theme", "config", "admin", "api", "accounts", "static", "media",
@@ -16,7 +17,7 @@ PERM_RE = re.compile(r"^[a-z][a-z0-9_]*\.([a-z_][a-z0-9_]*|\*)$")
 DOTTED_RE = re.compile(r"^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)*$")
 CHIAVI = {"su_misura", "name", "summary", "version", "author", "category", "depends", "min_core", "application",
           "icon", "nav_label", "menu", "groups", "data", "demo", "hooks", "ai", "settings_url", "cron", "settings", "sequences",
-          "dashboard", "home", "menu_profilo", "email", "riepilogo", "funzioni", "misure"}
+          "dashboard", "home", "menu_profilo", "email", "riepilogo", "funzioni", "misure", "dipendenze"}
 OBBLIGATORIE = {"name", "version", "min_core"}
 CHIAVI_MENU = {"label", "url_name", "permission", "funzione"}
 CHIAVI_MENU_PROFILO = {"label", "url_name", "permission", "icon", "conteggio"}
@@ -72,6 +73,9 @@ class Manifest:
     # funzioni attivabili dalla licenza (core.funzioni): [{chiave, label, help}]; le voci di menu e le impostazioni
     # con "funzione" spariscono quando la licenza non la comprende
     funzioni: list = field(default_factory=list)
+    # librerie che il modulo chiede all'immagine: {"python": ["numpy>=2.0"], "sistema": ["tesseract-ocr"]}; senza, il
+    # modulo non si installa (core.registry.dipendenze)
+    dipendenze: dict = field(default_factory=dict)
     home: str | None = None                       # non più usata: la prima pagina segue la barra (core.barra.prima_pagina)
 
 
@@ -322,6 +326,8 @@ def valida(dati, slug, cartella):
     _riferimenti_funzione(errori, "menu", menu, dichiarate)
     _riferimenti_funzione(errori, "settings", dati.get("settings", []), dichiarate)
     _email(errori, dati.get("email", []))
+    if "dipendenze" in dati:
+        _dipendenze.valida(errori, dati["dipendenze"])
     dash = dati.get("dashboard")
     if dash is not None and not (isinstance(dash, str) and DOTTED_RE.match(dash) and "." in dash):
         errori.append(f"dashboard: {dash!r} non è una funzione (atteso modulo.funzione)")

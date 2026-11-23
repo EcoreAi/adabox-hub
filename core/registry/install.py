@@ -11,7 +11,7 @@ from django.conf import settings
 from core import backup, licenza
 from core.models import Modulo
 
-from . import bootstrap, modules, reload
+from . import bootstrap, dipendenze, modules, reload
 from .manifest import ManifestNonValido
 
 log = logging.getLogger("core.moduli")
@@ -24,6 +24,7 @@ class NienteDaAggiornare(ErroreInstallazione): ...
 class DipendentiInstallati(ErroreInstallazione): ...
 class ApplicaFallita(ErroreInstallazione): ...
 class NonLicenziato(ErroreInstallazione): ...
+class DipendenzeMancanti(ErroreInstallazione): ...
 
 
 def scrivi_stato(slugs):
@@ -98,6 +99,8 @@ def installa(slugs, demo=False, riavvia=False, conferma=None):
     piano = [s for s in modules.ordina(_chiusura(richiesti, info), info) if s not in attuali]
     if fuori := [s for s in piano if not licenza.ammesso(s)]:
         raise NonLicenziato(f"non coperti dalla licenza: {', '.join(fuori)}")
+    if assenti := dipendenze.controlla(piano, info):
+        raise DipendenzeMancanti(dipendenze.messaggio(assenti))
     extra = [s for s in piano if s not in richiesti]
     if extra and conferma and not conferma(extra):
         return []
@@ -134,6 +137,8 @@ def aggiorna(slugs=None, tutti=False, riavvia=False):
     nuove = [s for s in modules.ordina(_chiusura(piano, info), info) if s not in attuali]
     if fuori := [s for s in nuove if not licenza.ammesso(s)]:
         raise NonLicenziato(f"le versioni nuove richiedono moduli non coperti dalla licenza: {', '.join(fuori)}")
+    if assenti := dipendenze.controlla(nuove + piano, info):
+        raise DipendenzeMancanti(dipendenze.messaggio(assenti))
     backup.esegui("pre-aggiorna-" + "-".join(piano))
     if nuove:
         scrivi_stato(modules.ordina(attuali + nuove, info))

@@ -71,6 +71,31 @@ def test_min_core_troppo_alta(ambiente, settings):
     assert backups(settings) == []
 
 
+def test_dipendenze_mancanti_non_installa(ambiente, settings, monkeypatch):
+    """Un modulo che chiede librerie assenti dall'immagine non si installa: niente backup, stato invariato."""
+    from core.registry import dipendenze
+    monkeypatch.setattr(dipendenze, "mancanti", lambda m: ["sistema tesseract-ocr-ita"] if m.slug == "iem" else [])
+    ambiente.crea("contatti")
+    ambiente.crea("iem", depends=["contatti"], dipendenze={"sistema": ["tesseract-ocr-ita"]})
+    with pytest.raises(install.DipendenzeMancanti) as exc:
+        install.installa(["iem"], conferma=lambda extra: True)
+    assert "iem: sistema tesseract-ocr-ita" in str(exc.value) and "ricostruita" in str(exc.value)
+    assert stato(ambiente) is None and backups(settings) == [] and ambiente.chiamate == []
+
+
+def test_dipendenze_mancanti_non_aggiorna(ambiente, monkeypatch):
+    """Una versione nuova che chiede una libreria in più non si applica finché l'immagine non ce l'ha."""
+    from core.registry import dipendenze
+    monkeypatch.setattr(install.backup, "esegui", lambda motivo: pytest.fail("niente backup"))
+    monkeypatch.setattr(dipendenze, "mancanti", lambda m: ["Python numpy>=2.0"] if m.version == "1.1.0" else [])
+    ambiente.crea("iem", version="1.1.0", dipendenze={"python": ["numpy>=2.0"]})
+    install.scrivi_stato(["iem"])
+    Modulo.objects.create(slug="iem", nome="Iem", versione_installata="1.0.0")
+    with pytest.raises(install.DipendenzeMancanti):
+        install.aggiorna(["iem"])
+    assert ambiente.chiamate == []
+
+
 def test_applica_fallita_ripristina(ambiente, monkeypatch):
     ambiente.crea("alfa")
     ambiente.crea("beta")

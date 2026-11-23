@@ -1,0 +1,10 @@
+# Scansione e lettura di documenti: OCR dei DDT e delle fatture (OpenCV, PDFium, codici a barre, .xls per Mago4) e
+# file Apple Numbers. Nell'immagine con DOCUMENTI=si (il default, vedi Dockerfile); i moduli che li usano li
+# dichiarano in "dipendenze" del manifest, e senza di loro non si installano.
+# Niente PyMuPDF: la sua licenza AGPL non va nell'immagine che diamo ai clienti; per le pagine dei PDF c'è pypdfium2.
+opencv-python-headless==4.14.0.94
+numpy==2.5.4
+pypdfium2==5.15.0
+zxing-cpp==3.1.1
+xlwt==1.3.0
+numbers-parser==4.22.2

@@ -5,6 +5,15 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-23
 
+- **Librerie dei moduli e gruppo «documenti» nell'immagine** — Kernel 1.10.0 (nessuna migrazione). **Va ricostruita
+  l'immagine** (`docker compose build`, o `deploy/Dockerfile.cliente` per i clienti).
+  - L'immagine comprende il gruppo «documenti» per la scansione e la lettura di documenti: OpenCV, numpy, PDFium,
+    codici a barre (zxing-cpp), `.xls` (xlwt), file Apple Numbers (numbers-parser), Tesseract con l'italiano. Circa
+    500 MB in più; con `--build-arg DOCUMENTI=no` resta come prima.
+  - Nuova voce del manifest `dipendenze` (`{"python": [...], "sistema": [...]}`): un modulo che chiede librerie assenti
+    dall'immagine non si installa e non si aggiorna, con un messaggio che dice che cosa manca. Nessun effetto sui
+    moduli che non la usano.
+
 - **Dove si apre l'app installata** — Kernel 1.9.0 (migrazione `core.0041`: campo `apertura_app` del profilo).
   - Nel profilo, **Quando apri l'app**: In tasca (come prima), Parla con Ada o Chat con Ada. Vale per l'app installata
     sul telefono o sul computer; «In tasca» aperta a mano resta com'è. Se la pagina scelta non c'è (modulo AI non
