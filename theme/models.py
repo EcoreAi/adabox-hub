@@ -10,7 +10,8 @@ class Tema(models.Model):
     Il tema si appoggia sempre al foglio di base (theme/ui.css, i token di theme/tokens.css): aggiunge un foglio
     che ridefinisce i token e quello che serve. Uno solo è attivo; senza temi attivi resta l'aspetto di base.
     I temi «di sistema» (Adabox Classico, Adabox Green) arrivano con l'applicazione e prendono il foglio dagli
-    statici; quelli caricati dall'admin tengono il CSS (e il logo, se c'è) nel database: niente file da pubblicare."""
+    statici, come i temi che un modulo crea dal suo hook (theme.tema_del_modulo); quelli caricati dall'admin tengono il
+    CSS (e il logo, se c'è) nel database: niente file da pubblicare."""
 
     nome = models.CharField(max_length=80, unique=True)
     descrizione = models.CharField(max_length=255, blank=True)

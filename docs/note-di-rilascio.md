@@ -14,6 +14,9 @@ commit; qui solo ciò che si vede o che chiede un intervento.
   - Le pagine pubbliche (preventivo online, pagamenti, prenotazioni, Helpdesk, pagina del fornitore) usano il tema
     dell'azienda del documento. La favicon segue il tema; icone e nome dell'app installata restano dell'istanza.
   - Le conferme, gli annullamenti e i promemoria delle prenotazioni del Calendario partono dal mittente dell'azienda.
+  - Un modulo che porta la sua grafica crea il suo tema dall'hook `post_install` con `theme.tema_del_modulo(...)`
+    (template, foglio CSS e logo dai suoi statici); `theme.modulo_del_tema(azienda)` dice di quale modulo sono i
+    template del tema di un'azienda.
   - Configurazione dei template: `APP_DIRS` lascia il posto a un elenco di loader, il primo è quello del tema
     (`theme.template_tema.Loader`), con il suo middleware dopo quello dell'azienda corrente. Un'istanza con un
     `settings.py` proprio deve riportare le due modifiche.

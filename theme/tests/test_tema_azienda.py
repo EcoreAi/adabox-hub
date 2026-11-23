@@ -144,3 +144,31 @@ def test_per_azienda_nelle_pagine_pubbliche(due_aziende, rf):
     assert contesto(request)["theme"].get("brand") != "IEM Hub"
     theme.per_azienda(request, due_aziende.iem)
     assert contesto(request)["theme"]["brand"] == "IEM Hub" and request.azienda is None
+
+
+def test_tema_del_modulo_dall_hook(monkeypatch, tmp_path, settings):
+    """L'hook di un modulo crea il suo tema con template, foglio statico e logo copiato dagli statici; rifatto, lo
+    aggiorna invece di crearne un altro."""
+    from django.contrib.staticfiles import finders
+    logo = tmp_path / "logo.svg"
+    logo.write_bytes(b"<svg xmlns='http://www.w3.org/2000/svg'/>")
+    statici = {"iem/tema/iem.css": str(tmp_path / "iem.css"), "iem/tema/logo.svg": str(logo)}
+    monkeypatch.setattr(finders, "find", lambda percorso, *a, **k: statici.get(percorso))
+    monkeypatch.setattr(template_tema, "cartella", lambda p: tmp_path if p == "iem.tema" else None)
+    tema = theme.tema_del_modulo("IEM", template="iem.tema", foglio="iem/tema/iem.css", logo="iem/tema/logo.svg",
+                                 marchio="IEM Hub", colore_barra="#aa3300")
+    tema.refresh_from_db()
+    assert (tema.template, tema.foglio, tema.marchio, tema.logo_tipo) == ("iem.tema", "iem/tema/iem.css", "IEM Hub", "image/svg+xml")
+    assert bytes(tema.logo).startswith(b"<svg") and not tema.attivo and not tema.di_sistema
+    assert theme.tema_del_modulo("IEM", template="iem.tema", marchio="IEM").pk == tema.pk
+    assert Tema.objects.filter(nome="IEM").count() == 1
+    for sbagliato in ({"template": "altro.tema"}, {"foglio": "manca.css"}, {"logo": "iem/tema/iem.css"}):
+        with pytest.raises(ValueError):
+            theme.tema_del_modulo("IEM", **sbagliato)
+
+
+def test_modulo_del_tema(due_aziende):
+    assert theme.modulo_del_tema(due_aziende.zen) == "" and theme.modulo_del_tema(None) == ""
+    assert theme.modulo_del_tema(due_aziende.iem) == ""                       # tema senza template
+    Tema.objects.filter(pk=due_aziende.tema.pk).update(template="iem.tema")
+    assert theme.modulo_del_tema(due_aziende.iem) == "iem"

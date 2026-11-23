@@ -113,10 +113,30 @@ senza. Niente librerie con licenza AGPL (es. PyMuPDF): finirebbero nell'immagine
 
 Un modulo che porta la sua grafica (header, logo, login, pagine pubbliche) la mette in un pacchetto con i template,
 es. `bolle/tema/templates/theme/partials/_header.html` (con `bolle/tema/__init__.py`), e gli statici in
-`bolle/static/bolle/`. L'azienda che lo usa crea un tema con **Template** = `bolle.tema` e lo sceglie nella sua scheda:
-quei template valgono solo per lei, anche con altre aziende sulla stessa istanza. Nei template leggi nome e logo da
-`theme.brand` e `theme.tema`, non scriverli a mano. Una pagina senza login che mostra un documento chiama
-`theme.per_azienda(request, documento.azienda)` prima del render, così prende il tema dell'azienda del documento.
+`bolle/static/bolle/`. Il pacchetto del tema non è un'app Django: **le librerie di tag stanno in `bolle/templatetags/`**,
+quelle del modulo, non in `bolle/tema/templatetags/`.
+
+Il tema lo crea l'hook di installazione, con il foglio CSS servito come file (i suoi `url()` verso font e immagini
+funzionano) e il logo copiato dagli statici:
+
+```python
+# bolle/hooks.py — nel manifest "hooks": "bolle.hooks"
+import theme
+
+
+def post_install(modulo):
+    theme.tema_del_modulo("Bolle", template="bolle.tema", foglio="bolle/tema/bolle.css", logo="bolle/tema/logo.svg",
+                          marchio="Bolle Hub", colore_barra="#22394a")
+```
+
+L'hook non assegna il tema: chi amministra lo sceglie nella scheda dell'azienda (sezione **Aspetto**), e quei template
+valgono solo per le aziende con quel tema, anche con altre aziende sulla stessa istanza. Nei template leggi nome e logo
+da `theme.brand` e `theme.tema`, non scriverli a mano.
+
+- Una pagina senza login che mostra un documento chiama `theme.per_azienda(request, documento.azienda)` prima del
+  render, così prende il tema dell'azienda del documento.
+- Per personalizzare i moduli standard solo per le aziende con la tua grafica: `theme.modulo_del_tema(azienda) ==
+  "bolle"`.
 
 ## Moduli di un solo cliente
 
