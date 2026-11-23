@@ -26,6 +26,7 @@ urlpatterns = [
     path("profilo/", views.profilo, name="profilo"),
     path("profilo/due-fattori/", due_fattori_viste.gestione, name="due_fattori"),
     path("profilo/azienda/", views.azienda_predefinita, name="azienda_predefinita"),
+    path("profilo/apertura-app/", views.apertura_app, name="apertura_app"),
     path("profilo/token/", views.token_nuovo, name="token_nuovo"),
     path("profilo/token/<int:pk>/revoca/", views.token_revoca, name="token_revoca"),
     path("azienda/cambia/", views.cambia_azienda, name="cambia_azienda"),

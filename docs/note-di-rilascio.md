@@ -3,6 +3,16 @@
 Ciò che chi aggiorna un'istanza deve sapere: cambi di comportamento, azioni da fare, migrazioni. Il dettaglio è nei
 commit; qui solo ciò che si vede o che chiede un intervento.
 
+## 2026-11-23
+
+- **Dove si apre l'app installata** — Kernel 1.9.0 (migrazione `core.0041`: campo `apertura_app` del profilo).
+  - Nel profilo, **Quando apri l'app**: In tasca (come prima), Parla con Ada o Chat con Ada. Vale per l'app installata
+    sul telefono o sul computer; «In tasca» aperta a mano resta com'è. Se la pagina scelta non c'è (modulo AI non
+    installato) o la persona non la può usare, l'app si apre su In tasca.
+  - Tenendo premuta l'icona dell'app compaiono le scorciatoie Parla con Ada, Chat con Ada e In tasca, oltre a Da
+    approvare e Le mie attività. Le app già installate prendono le scorciatoie nuove quando il browser aggiorna il
+    manifest.
+
 ## 2026-11-20
 
 - **Pagina Statistiche in due colonne** — Analisi 1.14.0, Vendite 1.11.1 (nessuna migrazione).

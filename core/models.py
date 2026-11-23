@@ -115,6 +115,9 @@ class ProfiloUtente(models.Model):
                                             related_name="+", verbose_name="azienda predefinita")
     esterno = models.BooleanField("utente esterno", default=False,
                                   help_text="un cliente: vede solo il portale, mai le pagine interne")
+    APERTURE = [("tasca", "In tasca"), ("parla", "Parla con Ada"), ("chat", "Chat con Ada")]
+    apertura_app = models.CharField("quando apro l'app", max_length=10, choices=APERTURE, default="tasca",
+                                    help_text="la pagina con cui si apre l'app installata sul telefono")
     barra = models.JSONField("app nella barra", default=dict, blank=True, help_text='{"fisse": [slug, ...]}: l\'ordine scelto da questa persona; vuoto = quello dell\'azienda')
 
     class Meta:
