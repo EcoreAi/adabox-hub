@@ -85,6 +85,7 @@ urlpatterns = [
     path("applicazioni/<slug:slug>/ruolo/", applicazioni.ruolo, name="applicazione_ruolo"),
     path("applicazioni/<slug:slug>/nome/", applicazioni.nome, name="applicazione_nome"),
     path("applicazioni/<slug:slug>/dipartimenti/", applicazioni.dipartimenti_app, name="applicazione_dipartimenti"),
+    path("applicazioni/<slug:slug>/aziende/", applicazioni.aziende_app, name="applicazione_aziende"),
     path("applicazioni/<slug:slug>/menu/", applicazioni.menu_app, name="applicazione_menu"),
 ]
 # viste generate dalle ModelView del kernel, sotto /core/ come i moduli sotto /<slug>/

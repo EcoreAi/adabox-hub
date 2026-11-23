@@ -943,6 +943,15 @@ Le pagine senza login (preventivo online, pagamenti, prenotazioni, Helpdesk, pag
 dell'azienda del documento: un modulo con pagine pubbliche chiama `theme.per_azienda(request, documento.azienda)`
 prima del render.
 
+
+### App di una sola azienda
+
+Con più aziende sulla stessa istanza un'app può valere solo per alcune: nella scheda dell'app (**Applicazioni →**
+l'app), sezione **Aziende**, «per tutte» o «solo per queste». Con un'altra azienda corrente l'app non compare nella
+barra, nel launcher, nella ricerca e nell'elenco delle viste di Ada; le sue pagine, aperte da un link, propongono
+«Passa a …» con le aziende giuste dell'utente (vale anche per i superuser). Chi lavora in una sola azienda non vede
+differenze. Nel codice: `core.registry.modules.per_azienda(slug, azienda)`.
+
 ## Test
 
 ```bash

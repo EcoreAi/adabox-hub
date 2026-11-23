@@ -237,6 +237,10 @@ class Modulo(models.Model):
                                  help_text="la vedono anche le persone dei dipartimenti che non la elencano (es. chat, calendario)")
     disattivato = models.BooleanField("disattivato", default=False,
                                       help_text="installato ma spento per tutti: menu, pagine, API e pianificazioni")
+    aziende = models.ManyToManyField("core.Azienda", blank=True, related_name="moduli_riservati",
+                                     verbose_name="solo per le aziende",
+                                     help_text="vuoto: per tutte; altrimenti l'app si vede e si apre solo con una di "
+                                               "queste come azienda corrente (registry.modules.per_azienda)")
 
     class Meta:
         verbose_name = "modulo"

@@ -33,6 +33,15 @@
     <div><button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Salva</button></div>
   </form>{% else %}<p class="ui-help" style="margin:0">{% if comune %}Comune a tutti i dipartimenti.{% else %}{% for x in dipartimenti %}{% if x.scelto %}{{ x.d.nome }} {% endif %}{% endfor %}{% endif %}</p>{% endif %}</div>
 </section>{% endif %}
+{% if applicazione and aziende %}<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div><div class="ui-card-title">Aziende</div><div class="ui-card-sub">Con un'altra azienda corrente l'app non compare nella barra, nella ricerca e per Ada, e le sue pagine propongono di cambiare azienda</div></div></div>
+  <div class="ui-card-body"><form method="post" action="{% url 'core:applicazione_aziende' v.slug %}" class="dp-app">{% csrf_token %}
+    <label class="ut-check"><input type="radio" name="tutte" value="1"{% if not riservata %} checked{% endif %}> Per tutte le aziende</label>
+    <label class="ut-check"><input type="radio" name="tutte" value="0"{% if riservata %} checked{% endif %}> Solo per queste aziende:</label>
+    <div class="dp-persone dp-rientro">{% for x in aziende %}<label class="ut-check"><input type="checkbox" name="aziende" value="{{ x.a.pk }}"{% if x.scelta %} checked{% endif %}> {{ x.a }}</label>{% endfor %}</div>
+    <div><button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Salva</button></div>
+  </form></div>
+</section>{% endif %}
 {% if not con_permessi %}<div class="ui-card is-revealed"><div class="ui-card-body"><p class="ui-help" style="margin:0">Quest'app non ha permessi propri: accesa, la usano tutti quelli che i dipartimenti ammettono.</p></div></div>
 {% else %}
 <div class="mk-legenda">{% for nome, testo in spiegazioni %}<div><strong>{{ nome }}</strong>{{ testo }}</div>{% endfor %}</div>

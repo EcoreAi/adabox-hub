@@ -5,6 +5,13 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-23
 
+- **App di una sola azienda** — Kernel 1.14.0 (migrazione `core.0044`: aziende di un modulo).
+  - Nella scheda di un'app, sezione **Aziende** (con almeno due aziende attive): «per tutte», come prima, o «solo per
+    queste». Con un'altra azienda corrente l'app sparisce da barra, launcher, ricerca e viste di Ada, e le sue pagine
+    propongono di passare all'azienda giusta (anche ai superuser).
+  - Chi chiama `modules.app_visibili(user)` senza azienda prende quella corrente, che il middleware dell'azienda mette
+    sull'utente; fuori da una richiesta (worker) non si limita nulla.
+
 - **Discuss e Flotta dichiarano Contatti tra le dipendenze** — Discuss 1.13.2, Flotta 1.0.1 (nessuna migrazione).
   - Hanno un collegamento a `contatti.Contatto` (domande dal portale, fornitore del contratto del veicolo): su
     un'istanza senza Contatti l'avvio cadeva. Ora aggiornarli installa prima Contatti, se manca (e se la licenza lo

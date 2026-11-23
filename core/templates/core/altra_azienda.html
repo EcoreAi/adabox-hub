@@ -1,0 +1,15 @@
+{% extends 'theme/base.html' %}
+{% block title %}App di un'altra azienda · {{ theme.brand }}{% endblock %}
+{% block content %}
+<div class="ui-card is-revealed" style="max-width:560px;margin:48px auto;">
+  <div class="ui-card-head"><div><div class="ui-card-title">«{{ nome_app }}» è di un'altra azienda</div>
+    <div class="ui-card-sub">{% if request.azienda %}Con {{ request.azienda }} come azienda corrente quest'app non c'è.{% else %}Quest'app vale solo per alcune aziende.{% endif %}</div></div></div>
+  <div class="ui-card-body">
+    {% if giuste %}
+      {% for a in giuste %}<form method="post" action="{% url 'core:cambia_azienda' %}" style="display:inline-block;margin:0 8px 8px 0;">{% csrf_token %}
+        <input type="hidden" name="azienda" value="{{ a.pk }}"><input type="hidden" name="next" value="{{ prossima }}">
+        <button type="submit" class="ui-btn ui-btn-primary">Passa a {{ a }}</button></form>{% endfor %}
+    {% else %}<p class="ui-help" style="margin:0">Non lavori in nessuna delle aziende di quest'app: se ti serve, chiedi all'amministratore.</p>{% endif %}
+  </div>
+</div>
+{% endblock %}
