@@ -78,7 +78,7 @@ def _errore_http(risposta):
     return ErroreModello("RICHIESTA", testo)
 
 
-def flusso(modello, chiave, *, sistema, messaggi, strumenti=(), max_token=16000, effort="", http_client=None):
+def flusso(modello, chiave, *, sistema, messaggi, strumenti=(), max_token=16000, effort="", formato=None, http_client=None):
     tipo = modello.provider.tipo
     corpo = {"model": modello.id_api, "messages": _messaggi(sistema, messaggi, con_firme=gemini(modello.provider)),
              "stream": True, "stream_options": {"include_usage": True},
@@ -86,6 +86,9 @@ def flusso(modello, chiave, *, sistema, messaggi, strumenti=(), max_token=16000,
     if strumenti and modello.strumenti:
         corpo["tools"] = [{"type": "function", "function": {"name": s["nome"], "description": s["descrizione"],
                                                              "parameters": s["schema"]}} for s in strumenti]
+    if formato:                                                     # output strutturato (OpenAI, Mistral, Ollama)
+        corpo["response_format"] = {"type": "json_schema", "json_schema": {
+            "name": formato.get("nome") or "risposta", "schema": formato["schema"], "strict": True}}
     if effort == "none" and modello.provider.locale:                # Ollama: niente ragionamento, risposta subito
         corpo["reasoning_effort"] = "none"
     elif effort and modello.ragionamento:

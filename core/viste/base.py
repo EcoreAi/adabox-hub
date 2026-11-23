@@ -79,6 +79,9 @@ class ModelView:
     actions = ()                  # nomi di metodi (self, request, queryset) -> str|None
     buttons = ()                  # nomi di metodi (self, request, obj) -> HttpResponse|str|None
     per_assistente = True         # False: la vista non compare tra quelle che l'assistente legge
+    # viste ("app.slug") che questa sostituisce per l'assistente, es. ["vendite.ordini"] per una vista che estende gli
+    # ordini: quando questa è attiva e accessibile, quelle spariscono dall'elenco di Ada (pagine e API restano)
+    ai_al_posto_di = []
     api = True                    # /api/v1/<modulo>/<slug>/: accesa di default; False per le viste con segreti
     api_fields = None
     export_fields = None          # colonne dell'export (default: id + campi di list_display)

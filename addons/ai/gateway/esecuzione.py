@@ -23,6 +23,11 @@ def _attesa(errore, tentativo):
 def esegui(catena, protezione=None, **richiesta):
     """Generatore di pezzi (Inizio, Testo, ChiamataStrumento, Uso, Fine). `catena`: [(modello, chiave)].
 
+    `formato={"nome": "voci", "schema": {...}}` (JSON Schema, ogni oggetto con "additionalProperties": False) chiede
+    un output strutturato: il testo della risposta è JSON valido per lo schema, da leggere con json.loads. Serve per
+    estrarre dati da un documento al posto di un tool_choice obbligato, che i modelli Anthropic attuali (Opus e
+    Sonnet 5.5) rifiutano con un 400.
+
     Con `protezione` (ai.protezione) la politica sui dati personali è per anello: ai modelli non locali va la
     richiesta mascherata e la risposta torna in chiaro; se la protezione non è possibile l'anello si salta.
     Senza `protezione` se ne crea una (senza conversazione): nessun chiamante la scavalca per dimenticanza."""

@@ -93,7 +93,7 @@ def _scartati(finale):
             log.warning("ragionamento scartato in %s: %s", getattr(t, "path", "?"), getattr(t, "reason", "?"))
 
 
-def flusso(modello, chiave, *, sistema, messaggi, strumenti=(), max_token=16000, effort="", http_client=None):
+def flusso(modello, chiave, *, sistema, messaggi, strumenti=(), max_token=16000, effort="", formato=None, http_client=None):
     parametri = {
         "model": modello.id_api, "max_tokens": min(max_token, modello.max_output),
         "system": [{"type": "text", "text": sistema, "cache_control": {"type": "ephemeral"}}],
@@ -103,6 +103,8 @@ def flusso(modello, chiave, *, sistema, messaggi, strumenti=(), max_token=16000,
         parametri["tools"] = _strumenti(strumenti)
     if effort and modello.ragionamento:
         parametri["output_config"] = {"effort": effort}
+    if formato:                                     # output strutturato: il testo della risposta è JSON valido per lo schema
+        parametri.setdefault("output_config", {})["format"] = {"type": "json_schema", "schema": formato["schema"]}
     sdk = client(chiave, modello.provider.base_url, http_client)
     if _con_ragionamento(parametri["messages"]):
         messaggi_api = sdk.beta.messages

@@ -20,9 +20,9 @@ def con_copione(risposte):
         _copione.clear()
 
 
-def flusso(modello, chiave, *, sistema, messaggi, strumenti=(), max_token=16000, effort="", http_client=None):
+def flusso(modello, chiave, *, sistema, messaggi, strumenti=(), max_token=16000, effort="", formato=None, http_client=None):
     chiamate.append({"modello": modello.id_api, "sistema": sistema, "messaggi": messaggi,
-                     "strumenti": [s["nome"] for s in strumenti], "effort": effort})
+                     "strumenti": [s["nome"] for s in strumenti], "effort": effort, "formato": formato})
     if _copione:
         risposta = _copione.pop(0)
         if callable(risposta):
