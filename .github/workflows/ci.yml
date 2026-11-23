@@ -93,4 +93,4 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install pip-audit
-      - run: pip-audit -r requirements.txt -r requirements-dev.txt
+      - run: pip-audit -r requirements.txt -r requirements-dev.txt -r requirements-documenti.txt
