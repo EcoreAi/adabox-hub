@@ -1,10 +1,10 @@
 {
     "name": "Parco auto",
     "summary": "I veicoli aziendali: a chi sono assegnati, noleggi e leasing, costi, chilometri e scadenze di assicurazione, bollo e revisione",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Risorse umane",
-    "depends": ["personale"],
+    "depends": ["personale", "contatti"],
     "min_core": "1.0",
     "application": True,
     "icon": "flotta/icon.svg",

@@ -33,6 +33,9 @@ def lettore(db, client, vista):
 
 @pytest.fixture
 def aziende(db):
+    # la prima azienda nasce con il nome del prodotto (THEME_BRAND, core.0003): un nome fisso, così l'ordine
+    # alfabetico non dipende dal .env (con «ZenPark» finiva dopo «Ditta 09»)
+    Azienda.objects.filter(pk=1).update(nome="Azienda iniziale")
     Azienda.objects.create(nome="Acme Spa", partita_iva="01234567890", citta="Cagliari", provincia="CA")
     Azienda.objects.create(nome="Beta Srl", partita_iva="999", citta="", provincia="MI", attiva=False)
     for i in range(10):
