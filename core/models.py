@@ -25,6 +25,12 @@ class Azienda(ProprietaMixin):
     email = models.EmailField("email", blank=True)
     telefono = models.CharField("telefono", max_length=40, blank=True)
     logo = models.ImageField("logo", upload_to="aziende/", blank=True)
+    # da chi partono le email ai clienti per conto dell'azienda (core.modelli_email.mittente): vuoti, quello dell'istanza
+    email_mittente_nome = models.CharField("nome del mittente", max_length=100, blank=True,
+                                           help_text="come compare a chi riceve le email (es. «Zen Park»); vuoto: il nome dell'istanza")
+    email_mittente = models.EmailField("indirizzo del mittente", blank=True,
+                                       help_text="da quale indirizzo partono le email ai clienti; vuoto: quello dell'istanza. "
+                                                 "Il dominio va autorizzato sul server di posta (SPF e DKIM)")
     attiva = models.BooleanField("attiva", default=True)
     chiuso_fino_al = models.DateField("periodo chiuso fino al", null=True, blank=True, editable=False,
                                       help_text="nessun documento nuovo, spostato o cancellato con una data fino a questa")

@@ -111,6 +111,18 @@ def test_invia_per_email(client, superuser, scena):
     assert "inviato a ordini@rossi.it" in chatter.messaggi_di(o).filter(tipo="nota").first().corpo
 
 
+def test_invia_dal_mittente_dell_azienda(client, superuser, scena):
+    """Il preventivo inviato da Vendite parte dal mittente dell'azienda dell'ordine (richiesta 7 di Zen Park)."""
+    azienda, cliente, monitor, _ = scena
+    azienda.email_mittente_nome, azienda.email_mittente = "IEM", "offerte@iem.it"
+    azienda.save()
+    o = OrdineVendita.objects.create(azienda=azienda, cliente=cliente, numero="PV/X/2")
+    RigaVendita.objects.create(ordine=o, prodotto=monitor)
+    client.post(f"/vendite/ordini/{o.pk}/bottone/invia/")
+    (email,) = mail.outbox
+    assert email.from_email == "IEM <offerte@iem.it>" and email.to == ["ordini@rossi.it"]
+
+
 def test_stampa_html(client, superuser, scena):
     azienda, cliente, monitor, _ = scena
     o = OrdineVendita.objects.create(azienda=azienda, cliente=cliente, numero="PV/X/9")

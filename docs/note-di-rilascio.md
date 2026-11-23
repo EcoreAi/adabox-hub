@@ -5,6 +5,15 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-23
 
+- **Mittente delle email per azienda** — Kernel 1.11.0 (migrazione `core.0042`: due campi dell'azienda).
+  - Nella scheda dell'azienda, sezione **Email ai clienti**: nome e indirizzo del mittente. Le email spedite per conto
+    dell'azienda partono da lì: i testi dei moduli (`modelli_email`: preventivo e risposte di Vendite, inviti del
+    portale, Helpdesk, canoni) e le notifiche del chatter dei suoi record. Vuoti, resta `DEFAULT_FROM_EMAIL`; con il
+    solo nome, quel nome sull'indirizzo dell'istanza.
+  - Il dominio del nuovo indirizzo va autorizzato sul server di posta (SPF e DKIM), o le email finiscono nello spam.
+  - Restano sul mittente dell'istanza le email interne (attività, esportazioni, report, recupero password).
+  - `modelli_email.messaggio_da` accetta `from_email=` per un mittente diverso.
+
 - **Librerie dei moduli e gruppo «documenti» nell'immagine** — Kernel 1.10.0 (nessuna migrazione). **Va ricostruita
   l'immagine** (`docker compose build`, o `deploy/Dockerfile.cliente` per i clienti).
   - L'immagine comprende il gruppo «documenti» per la scansione e la lettura di documenti: OpenCV, numpy, PDFium,

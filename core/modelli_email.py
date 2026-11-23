@@ -4,6 +4,7 @@ I segnaposto {{ campo }} si sostituiscono in un solo passaggio con un'espression
 template: un testo scritto da un utente non può eseguire nulla, e un valore che contiene {{ x }} resta com'è.
 La versione HTML è il testo già riempito, con l'escape di tutto: nessun valore può portare markup nella mail."""
 import re
+from email.utils import formataddr, parseaddr
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
@@ -77,9 +78,22 @@ def componi(oggetto, corpo, valori, azienda):
     return " ".join(riempi(oggetto, tutti).split()), testo, _html(testo, azienda)
 
 
-def messaggio_da(oggetto, corpo, valori, azienda, to, connection=None, **altri):
+def mittente(azienda):
+    """Il mittente delle email spedite per conto dell'azienda ("Zen Park <offerte@zenpark.it>"), o None per quello
+    dell'istanza (DEFAULT_FROM_EMAIL). Con il solo nome: quel nome sull'indirizzo dell'istanza."""
+    nome = (getattr(azienda, "email_mittente_nome", "") or "").strip()
+    indirizzo = (getattr(azienda, "email_mittente", "") or "").strip()
+    if not (nome or indirizzo):
+        return None
+    if not indirizzo:
+        indirizzo = parseaddr(settings.DEFAULT_FROM_EMAIL)[1] or settings.DEFAULT_FROM_EMAIL
+    return formataddr((nome, indirizzo)) if nome else indirizzo
+
+
+def messaggio_da(oggetto, corpo, valori, azienda, to, connection=None, from_email=None, **altri):
+    """L'email già riempita, dal mittente dell'azienda (o da `from_email`, se il chiamante ne vuole un altro)."""
     titolo, testo, html = componi(oggetto, corpo, valori, azienda)
-    email = EmailMultiAlternatives(titolo, testo, None, to, connection=connection, **altri)
+    email = EmailMultiAlternatives(titolo, testo, from_email or mittente(azienda), to, connection=connection, **altri)
     email.attach_alternative(html, "text/html")
     return email
 
