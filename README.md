@@ -686,7 +686,9 @@ questa, o l'ospitare l'istanza senza dare accesso al server. Licenza e firme son
    lavoro): «moduli con le funzioni scelte» e «funzioni comprese»; l'istanza può averne in più. Vedi sotto.
 4. Le **Richieste** dei clienti si approvano con un bottone: il modulo passa nella licenza dell'istanza.
 
-**Dalla parte del cliente**, l'immagine contiene kernel e tema, nessun modulo: `docker build -f deploy/Dockerfile.cliente -t adabox_hub_cliente:<versione> .`,
+**Dalla parte del cliente**, l'immagine contiene kernel e tema, nessun modulo: `docker build -f deploy/Dockerfile.cliente -t adabox_hub_cliente:<versione> .`
+(con il gruppo «documenti» per la scansione: `--build-arg DOCUMENTI=no` per un'immagine senza; i moduli che lo usano lo
+dichiarano in `dipendenze` e senza non si installano, vedi la guida dei moduli),
 `deploy/compose.cliente.yml` per l'avvio, e nel `.env`:
 
 ```

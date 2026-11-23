@@ -68,6 +68,23 @@ Con `api = True` sulla vista e il modulo Connettori installato, un webhook sull'
 6. Sposta l'importazione dei dati in un comando separato, da provare su una copia. `modulo impacchetta` non porta i dati.
 7. Chiudi con `controlla`, `collauda` e `compatibilita`.
 
+## Librerie che non sono nell'immagine
+
+Un modulo non installa librerie: arriva dal portale in un'immagine già costruita. Quelle che usa e che non sono in
+`requirements.txt` le dichiara nel manifest (serve il kernel 1.10, quindi `"min_core": "1.10"`):
+
+```python
+"dipendenze": {"python": ["opencv-python-headless>=4.10", "pypdfium2"], "sistema": ["tesseract-ocr", "tesseract-ocr-ita"]},
+```
+
+`python` sono nomi di pacchetti PyPI, con una versione minima facoltativa (`nome>=X.Y`); `sistema` sono pacchetti
+Debian (`libglib2.0-0` vale anche come `libglib2.0-0t64`). Se l'immagine non li ha, `modulo installa` e `modulo
+aggiorna` si fermano prima del backup e dicono che cosa manca: si aggiungono all'immagine e la si ricostruisce.
+
+L'immagine standard ha già il gruppo «documenti» (`requirements-documenti.txt` più Tesseract con l'italiano e GLib):
+OpenCV, numpy, PDFium, codici a barre, `.xls` e file Apple Numbers. Con `--build-arg DOCUMENTI=no` si costruisce
+senza. Niente librerie con licenza AGPL (es. PyMuPDF): finirebbero nell'immagine che diamo ai clienti.
+
 ## Moduli di un solo cliente
 
 `modulo nuovo` crea moduli su misura: nel manifest c'è `"su_misura": True`. Per un modulo da catalogo, valido per tutti i clienti: `modulo nuovo crm2 --standard`.
