@@ -103,6 +103,14 @@ def test_parziale(client, lettore, aziende):
         assert "<html" not in html and 'id="tabella"' in html
 
 
+def test_parziale_aggiorna_il_totale_della_testata(client, lettore, aziende):
+    """I filtri ricaricano solo #tabella: il «N in totale» della testata arriva fuori banda (hx-swap-oob)."""
+    tutti = client.get(URL).context["page_obj"].paginator.count
+    html = client.get(URL, {"f_provincia": "CA"}, HTTP_HX_REQUEST="true").content.decode()
+    assert 'id="lista-totale" hx-swap-oob="true">1 in totale<' in html and tutti != 1
+    assert 'hx-swap-oob' not in client.get(URL).content.decode().split('id="tabella"')[1]
+
+
 def test_celle(client, lettore, aziende):
     html = client.get(URL, {"q": "a"}).content.decode()
     assert "CAGLIARI" in html               # col_citta
