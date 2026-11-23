@@ -31,6 +31,9 @@ class Azienda(ProprietaMixin):
     email_mittente = models.EmailField("indirizzo del mittente", blank=True,
                                        help_text="da quale indirizzo partono le email ai clienti; vuoto: quello dell'istanza. "
                                                  "Il dominio va autorizzato sul server di posta (SPF e DKIM)")
+    tema = models.ForeignKey("theme.Tema", on_delete=models.SET_NULL, null=True, blank=True, related_name="aziende",
+                             verbose_name="tema", help_text="l'aspetto (e i template) per chi lavora in questa azienda e "
+                                                            "per le sue pagine pubbliche; vuoto: il tema attivo")
     attiva = models.BooleanField("attiva", default=True)
     chiuso_fino_al = models.DateField("periodo chiuso fino al", null=True, blank=True, editable=False,
                                       help_text="nessun documento nuovo, spostato o cancellato con una data fino a questa")

@@ -926,6 +926,23 @@ e le parti da cambiare. Per partire da un tema esistente: azione **Duplica** nel
 sistema e quello attivo non si cancellano. Si combina con `TEMA_APP`: quella cambia template e statici
 all'avvio, questi aggiungono un foglio sopra.
 
+### Un tema per azienda
+
+Più aziende sulla stessa istanza possono avere aspetti diversi: nella scheda dell'azienda, sezione **Aspetto**, si
+sceglie il suo tema (vuoto: il tema attivo). Nel tema:
+
+- **Nome del prodotto** (`marchio`): nel titolo delle pagine e nelle email spedite per conto dell'azienda (testi dei
+  moduli, chatter, prenotazioni); vuoto, quello del `.env`. Le email interne restano con il nome dell'istanza.
+- **Template**: il pacchetto di un modulo attivo con una cartella `templates`, es. `zenpark.tema`
+  (`addons/zenpark/tema/templates/`). Per le aziende con quel tema i suoi template vengono prima di tutti gli altri,
+  anche di `TEMA_APP`: la grafica viaggia con il modulo, che si può vendere da solo.
+- Logo, CSS e colore come sopra; la favicon della scheda segue il tema. Icone e nome dell'app installata restano
+  dell'istanza.
+
+Le pagine senza login (preventivo online, pagamenti, prenotazioni, Helpdesk, pagina del fornitore) prendono il tema
+dell'azienda del documento: un modulo con pagine pubbliche chiama `theme.per_azienda(request, documento.azienda)`
+prima del render.
+
 ## Test
 
 ```bash

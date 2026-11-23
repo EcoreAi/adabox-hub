@@ -36,6 +36,15 @@ def _url(o):
     return operazioni.link(o).split("://", 1)[1].split("/", 1)[1].join(["/", ""])
 
 
+def test_il_preventivo_online_ha_il_tema_dell_azienda_del_documento(client, ordine):
+    """Chi apre il link non ha un'azienda corrente: la pagina prende il tema (e il nome) dell'azienda dell'ordine."""
+    from theme.models import Tema
+    ordine.azienda.tema = Tema.objects.create(nome="IEM", marchio="IEM Hub")
+    ordine.azienda.save()
+    pagina = client.get(_url(ordine)).content.decode()
+    assert "Preventivo PV/1 · IEM Hub</title>" in pagina
+
+
 def test_il_link_mostra_il_documento_senza_accesso_e_con_escape(client, ordine):
     pagina = client.get(_url(ordine)).content.decode()
     assert "PV/1" in pagina and "Accetto il preventivo" in pagina

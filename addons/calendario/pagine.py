@@ -6,6 +6,8 @@ from django.http import Http404
 from django.shortcuts import render
 from django.utils import timezone
 
+import theme
+
 from . import prenotazioni
 from .models import Prenotazione, TipoAppuntamento
 
@@ -21,6 +23,7 @@ def prenota(request, codice):
     tipo = TipoAppuntamento.objects.filter(codice=codice, attivo=True).select_related("azienda").first()
     if tipo is None:
         raise Http404
+    theme.per_azienda(request, tipo.azienda)
     errore = ""
     if request.method == "POST" and not request.POST.get("sito"):          # «sito» è il campo trappola per i robot
         try:
@@ -51,6 +54,7 @@ def prenotazione(request, token):
     p = prenotazioni.da_token(token)
     if p is None:
         return render(request, "calendario/prenotazione.html", {"invalido": True}, status=400)
+    theme.per_azienda(request, p.azienda)
     esito = ""
     passata = p.inizio <= timezone.now()
     if request.method == "POST" and request.POST.get("azione") == "annulla" and p.stato == Prenotazione.CONFERMATA and not passata:

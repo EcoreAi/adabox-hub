@@ -155,8 +155,16 @@ def _quando(p):
     return f"{timezone.localtime(p.inizio):%d/%m/%Y alle %H:%M}"
 
 
-def _brand():
-    return settings.THEME.get("brand", "")
+def _brand(p):
+    """Il nome del prodotto del tema dell'azienda della prenotazione (theme.marchio)."""
+    import theme
+    return theme.marchio(p.azienda)
+
+
+def _mittente(p):
+    """Le email ai clienti partono dal mittente dell'azienda (core.modelli_email.mittente), se ce l'ha."""
+    from core import modelli_email
+    return modelli_email.mittente(p.azienda)
 
 
 def invia_conferma(prenotazione_id):
@@ -167,7 +175,8 @@ def invia_conferma(prenotazione_id):
              + (f", {p.tipo.luogo}" if p.tipo.luogo else "") + ".\n"
              + (f"La riceverà {p.operatore.get_full_name() or p.operatore.username}.\n" if p.operatore else "")
              + f"\nPer annullarlo: {link(p)}\n")
-    email = EmailMessage(f"[{_brand()}] Appuntamento confermato: {p.tipo.nome} ({_quando(p)})", testo, to=[p.email])
+    email = EmailMessage(f"[{_brand(p)}] Appuntamento confermato: {p.tipo.nome} ({_quando(p)})", testo, _mittente(p),
+                         to=[p.email])
     email.attach("appuntamento.ics", ics(p.evento, "REQUEST"), "text/calendar; method=REQUEST; charset=utf-8")
     email.send()
     return 1
@@ -186,14 +195,15 @@ def annulla(p, da_cliente=True, motivo=""):
         cancellazione = None
     chi = "dal cliente" if da_cliente else "da noi"
     if p.operatore and p.operatore.email:
-        EmailMessage(f"[{_brand()}] Appuntamento annullato: {p.tipo.nome} ({_quando(p)})",
+        EmailMessage(f"[{_brand(p)}] Appuntamento annullato: {p.tipo.nome} ({_quando(p)})",
                      f"{p.nome} <{p.email}>: l'appuntamento del {_quando(p)} è stato annullato {chi}."
                      + (f"\nMotivo: {motivo}" if motivo else ""), to=[p.operatore.email]).send()
     if not da_cliente:
-        email = EmailMessage(f"[{_brand()}] Appuntamento annullato: {p.tipo.nome} ({_quando(p)})",
+        email = EmailMessage(f"[{_brand(p)}] Appuntamento annullato: {p.tipo.nome} ({_quando(p)})",
                              f"Gentile {p.nome},\n\nil suo appuntamento del {_quando(p)} è stato annullato."
                              + (f"\nMotivo: {motivo}" if motivo else "") + "\n\nPuò prenotarne un altro: "
-                             + f"{settings.SITO_URL}{reverse('calendario:prenota', args=[p.tipo.codice])}", to=[p.email])
+                             + f"{settings.SITO_URL}{reverse('calendario:prenota', args=[p.tipo.codice])}", _mittente(p),
+                             to=[p.email])
         if cancellazione:
             email.attach("annullato.ics", cancellazione, "text/calendar; method=CANCEL; charset=utf-8")
         email.send()
@@ -209,10 +219,10 @@ def promemoria_clienti(adesso=None):
     for p in vicine:
         if p.inizio - datetime.timedelta(minutes=p.tipo.promemoria) > adesso:
             continue
-        EmailMessage(f"[{_brand()}] Promemoria: {p.tipo.nome} ({_quando(p)})",
+        EmailMessage(f"[{_brand(p)}] Promemoria: {p.tipo.nome} ({_quando(p)})",
                      f"Gentile {p.nome},\n\nle ricordiamo l'appuntamento «{p.tipo.nome}» del {_quando(p)}"
                      + (f", {p.tipo.luogo}" if p.tipo.luogo else "") + f".\n\nSe non può venire, lo annulli qui: {link(p)}\n",
-                     to=[p.email]).send()
+                     _mittente(p), to=[p.email]).send()
         Prenotazione.objects.filter(pk=p.pk).update(promemoria_inviato=True)
         inviati += 1
     return inviati

@@ -14,15 +14,21 @@ SESSIONE_ANTEPRIMA = "tema_anteprima"
 
 
 def tema_corrente(request=None):
-    """Il tema da mostrare: quello in anteprima per lo staff che l'ha chiesta, altrimenti quello attivo.
+    """Il tema da mostrare: quello in anteprima per lo staff che l'ha chiesta; nelle pagine pubbliche quello
+    dell'azienda del documento (theme.per_azienda); quello dell'azienda corrente; altrimenti quello attivo.
     None se non ce n'è uno o se la tabella non c'è ancora (prima delle migrazioni)."""
     from .models import Tema
-    campi = ("pk", "nome", "foglio", "css", "colore_barra", "logo_tipo", "aggiornato", "attivo")
+    campi = ("pk", "nome", "foglio", "css", "colore_barra", "logo_tipo", "aggiornato", "attivo", "marchio", "template")
     try:
         anteprima = request is not None and getattr(request, "session", None) is not None \
             and request.user.is_authenticated and request.user.is_staff and request.session.get(SESSIONE_ANTEPRIMA)
         if anteprima:
             tema = Tema.objects.filter(pk=anteprima).only(*campi[1:]).first()
+            if tema:
+                return tema
+        azienda = request is not None and (getattr(request, "azienda_tema", None) or getattr(request, "azienda", None))
+        if azienda and getattr(azienda, "tema_id", None):
+            tema = Tema.objects.filter(pk=azienda.tema_id).only(*campi[1:]).first()
             if tema:
                 return tema
         return Tema.objects.filter(attivo=True).only(*campi[1:]).first()
@@ -41,22 +47,29 @@ def descrivi(tema):
     versione = int(tema.aggiornato.timestamp()) if tema.aggiornato else 0
     if tema.css.strip():
         fogli.append(f"{reverse('theme:tema_css', args=[tema.pk])}?v={versione}")
-    return {"pk": tema.pk, "nome": tema.nome, "fogli": fogli, "anteprima": not tema.attivo,
+    return {"pk": tema.pk, "nome": tema.nome, "fogli": fogli, "anteprima": not tema.attivo, "versione": versione,
             "logo_url": f"{reverse('theme:tema_logo', args=[tema.pk])}?v={versione}" if tema.logo_tipo else "",
-            "colore_barra": tema.colore_barra}
+            "colore_barra": tema.colore_barra, "marchio": tema.marchio, "template": tema.template}
+
+
+def tema_della_richiesta(request):
+    """Il tema descritto per la richiesta, calcolato una volta (lo usano il context processor e il loader dei template
+    del tema)."""
+    if request is None:
+        return descrivi(tema_corrente(None))
+    if not hasattr(request, "_tema_grafico"):
+        request._tema_grafico = descrivi(tema_corrente(request))
+    return request._tema_grafico
 
 
 def theme(request):
     """Espone `theme` ai template: default + settings.THEME, più il tema grafico scelto dall'admin (`theme.tema`)."""
     dati = {**DEFAULTS, **getattr(settings, "THEME", {})}
-    if request is not None and hasattr(request, "_tema_grafico"):        # core.context_processors lo richiama
-        tema = request._tema_grafico
-    else:
-        tema = descrivi(tema_corrente(request))
-        if request is not None:
-            request._tema_grafico = tema
+    tema = tema_della_richiesta(request)                 # una volta per richiesta: core.context_processors lo richiama
     if tema:
         dati["tema"] = tema
         if tema["colore_barra"]:
             dati["theme_color"] = tema["colore_barra"]
+        if tema["marchio"]:
+            dati["brand"] = tema["marchio"]
     return {"theme": dati}

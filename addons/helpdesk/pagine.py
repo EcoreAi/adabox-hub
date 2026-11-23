@@ -8,6 +8,7 @@ from django.views.decorators.http import require_POST
 
 from core import attivita, chatter
 from core.models import Messaggio, TipoAttivita
+import theme
 
 from . import guida as motore
 from .lavori import SALE_VALUTAZIONE
@@ -31,6 +32,7 @@ def valuta(request, token):
     except signing.BadSignature:
         return render(request, "helpdesk/valuta.html", {"scaduto": True}, status=400)
     ticket = get_object_or_404(Ticket, pk=pk)
+    theme.per_azienda(request, ticket.azienda)
     esistente = Valutazione.objects.filter(ticket=ticket).first()
     if request.method == "POST":
         voto = request.POST.get("voto", "")
@@ -66,6 +68,7 @@ def contesto_guida(articoli, testo):
 
 def articolo(request, pk):
     voce = get_object_or_404(_visibili(), pk=pk)
+    theme.per_azienda(request, voce.azienda)
     Articolo.objects.filter(pk=pk).update(visite=F("visite") + 1)
     return render(request, "helpdesk/articolo.html", {"articolo": voce, "utile_url": reverse("helpdesk:guida_utile", args=[pk]),
                                                       "indietro": reverse("helpdesk:guida"), "voto_dato": _voto_dato(request, pk)})
