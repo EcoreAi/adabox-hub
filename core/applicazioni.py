@@ -295,7 +295,23 @@ def aziende_app(request, slug):
     scelte = Azienda.objects.filter(pk__in=[x for x in request.POST.getlist("aziende") if x.isdigit()], attiva=True)
     if request.POST.get("tutte") == "1":
         scelte = Azienda.objects.none()
+    elif not scelte:
+        messages.error(request, "Spunta almeno un'azienda, oppure scegli «Per tutte le aziende». Non è cambiato niente.")
+        return redirect("core:applicazione", slug=slug)
+    else:
+        la_usano, le_servono = modules.conflitti_aziende(slug, [a.pk for a in scelte])
+        if la_usano or le_servono:
+            motivi = []
+            if la_usano:
+                motivi.append(f"la usano {', '.join(la_usano)}, che restano aperte anche ad altre aziende: riserva prima "
+                              f"anche quell{'a' if len(la_usano) == 1 else 'e'} alle stesse aziende")
+            if le_servono:
+                motivi.append(f"le servono {', '.join(le_servono)}, riservat{'a' if len(le_servono) == 1 else 'e'} ad altre aziende")
+            messages.error(request, f"«{voce['nome']}» non si può riservare a queste aziende: {'; '.join(motivi)}. "
+                                    "Non è cambiato niente.")
+            return redirect("core:applicazione", slug=slug)
     modulo.aziende.set(scelte)
+    request.user._app_aziende = None                    # la cache della richiesta non deve rispondere con i limiti di prima
     if scelte:
         messages.success(request, f"«{voce['nome']}» vale solo per: {', '.join(str(a) for a in scelte)}.")
     else:

@@ -19,7 +19,7 @@ def me(request):
         "id": u.pk, "username": u.username, "nome": u.get_full_name(), "email": u.email,
         "is_superuser": u.is_superuser,
         "aziende": [_azienda(a) for a in azienda.consentite(u)], "azienda": _azienda(corrente),
-        "app": [{"slug": a["slug"], "nome": a["label"], "url": a["url"]} for a in modules.app_visibili(u)],
+        "app": [{"slug": a["slug"], "nome": a["label"], "url": a["url"]} for a in modules.app_visibili(u, azienda=corrente)],
     }
 
 

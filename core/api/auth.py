@@ -3,6 +3,7 @@ from ninja.security import HttpBearer
 
 from core import azienda, dipartimenti, registro
 from core.models import Azienda, TokenApi
+from core.registry import modules
 
 
 class TokenAuth(HttpBearer):
@@ -25,9 +26,10 @@ def controlla_token(request, modulo, scrittura):
         raise HttpError(403, "questo token è in sola lettura" if scrittura and token.sola_lettura else f"questo token non vale per il modulo {modulo}")
 
 
-def azienda_per(request):
-    """X-Azienda se consentita (403 altrimenti), altrimenti l'azienda corrente. La imposta su request:
-    il middleware ha girato prima dell'autenticazione via token, con l'utente anonimo."""
+def azienda_per(request, modulo=None):
+    """X-Azienda se consentita (403 altrimenti), altrimenti l'azienda corrente. La imposta su request e sull'utente:
+    il middleware ha girato prima dell'autenticazione via token, con l'utente anonimo, e X-Azienda può cambiare
+    l'azienda che il middleware ha controllato. Con `modulo`: 403 se l'app è riservata ad altre aziende."""
     consentite = azienda.consentite(request.user)
     richiesta = request.headers.get("X-Azienda")
     if richiesta:
@@ -37,6 +39,9 @@ def azienda_per(request):
     else:
         scelta = azienda.corrente(request) if consentite else None
     request.azienda = scelta
+    request.user._azienda_corrente = scelta
+    if modulo and not modules.per_azienda(modulo, scelta, request.user):
+        raise HttpError(403, f"il modulo {modulo} non è disponibile per l'azienda {scelta}")
     return scelta
 
 

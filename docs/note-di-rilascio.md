@@ -5,6 +5,16 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-23
 
+- **App di una sola azienda: chiuse anche le altre strade** — Kernel 1.14.1 (nessuna migrazione).
+  - Le **API** rispettano le app riservate: con un token, o con `X-Azienda` su un'altra azienda, un'app riservata
+    risponde 403 in JSON (prima la chiamata passava); `/api/v1/me/` elenca solo le app dell'azienda della chiamata.
+  - **Ada** non ha più gli strumenti delle app riservate ad altre aziende, e il worker (pianificazioni, turni di Ada)
+    applica l'azienda della richiesta anche a `modules.app_visibili(user)`.
+  - Nella scheda, un'app che serve ad altre app aperte alle altre aziende (es. Contatti per Vendite) **non si
+    riserva**: il messaggio dice quali app la usano, da riservare prima. «Solo per queste aziende» senza spunte non
+    salva più «per tutte» in silenzio.
+  - Le aziende disattivate non contano: un'app riservata solo a quelle torna per tutte invece di sparire.
+
 - **App di una sola azienda** — Kernel 1.14.0 (migrazione `core.0044`: aziende di un modulo).
   - Nella scheda di un'app, sezione **Aziende** (con almeno due aziende attive): «per tutte», come prima, o «solo per
     queste». Con un'altra azienda corrente l'app sparisce da barra, launcher, ricerca e viste di Ada, e le sue pagine

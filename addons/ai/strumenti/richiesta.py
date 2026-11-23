@@ -33,6 +33,8 @@ def nuova(utente, azienda=None, metodo="GET"):
                          "HTTP_USER_AGENT": "assistente AI"})
     request.session = {}
     request._messages = _Messaggi(request)
+    if getattr(utente, "is_authenticated", False):
+        utente._azienda_corrente = azienda                  # come il middleware: per modules.app_visibili(user)
     return request
 
 

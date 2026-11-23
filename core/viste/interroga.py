@@ -95,6 +95,8 @@ def richiesta_di(utente, azienda=None):
     if azienda is None and getattr(utente, "is_authenticated", False):
         from core.azienda import corrente
         request.azienda = corrente(request)
+    if getattr(utente, "is_authenticated", False):
+        utente._azienda_corrente = request.azienda          # come il middleware: per modules.app_visibili(user)
     return request
 
 
