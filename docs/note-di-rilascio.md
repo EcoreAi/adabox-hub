@@ -5,6 +5,11 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-23
 
+- **Discuss e Flotta dichiarano Contatti tra le dipendenze** — Discuss 1.13.2, Flotta 1.0.1 (nessuna migrazione).
+  - Hanno un collegamento a `contatti.Contatto` (domande dal portale, fornitore del contratto del veicolo): su
+    un'istanza senza Contatti l'avvio cadeva. Ora aggiornarli installa prima Contatti, se manca (e se la licenza lo
+    comprende).
+
 - **Tema per azienda** — Kernel 1.13.0 (migrazioni `theme.0003`: nome del prodotto e template del tema; `core.0043`:
   tema dell'azienda).
   - Nella scheda dell'azienda, sezione **Aspetto**, si sceglie il tema; vuoto, il tema attivo come prima.
