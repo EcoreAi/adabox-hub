@@ -126,6 +126,7 @@ def menzioni(messaggio_id):
     brand = settings.THEME.get("brand", "")
     autore = (m.autore.get_full_name() or m.autore.username) if m.autore else (m.autore_email or "Qualcuno")
     ctx = {"m": m, "obj": obj, "link": _link(obj), "brand": brand, "autore": autore, "menzione": True}
+    mittente = _mittente(obj)
     inviate = 0
     with get_connection() as connessione:
         for u in menzionati(m.corpo):
@@ -134,7 +135,7 @@ def menzioni(messaggio_id):
             email = EmailMultiAlternatives(
                 subject=f"[{brand}] {autore} ti ha menzionato su {obj}",
                 body=render_to_string("core/email/notifica.txt", {**ctx, "utente": u}), to=[u.email],
-                connection=connessione)
+                from_email=mittente, connection=connessione)
             email.attach_alternative(render_to_string("core/email/notifica.html", {**ctx, "utente": u}), "text/html")
             email.send()
             inviate += 1
@@ -152,6 +153,16 @@ def _allega(email, messaggio):
     for a in file:
         with a.file.open("rb") as f:
             email.attach(a.nome, f.read())
+
+
+def _mittente(obj):
+    """Il mittente dell'azienda del record (core.modelli_email.mittente), o None per quello dell'istanza."""
+    from core import modelli_email
+    from core.models import Azienda
+    if isinstance(obj, Azienda):                      # la scheda dell'azienda stessa
+        return modelli_email.mittente(obj)
+    azienda = getattr(obj, "azienda", None) if getattr(obj, "azienda_id", None) else None
+    return modelli_email.mittente(azienda) if azienda is not None else None
 
 
 def _link(obj):
@@ -180,12 +191,14 @@ def notifica(messaggio_id):
     ctx = {"m": m, "obj": obj, "link": _link(obj), "brand": brand, "autore": nome_autore}
     intestazioni = {"Message-ID": m.message_id, "References": riferimento_record(m.content_type_id, m.object_id)}
     risposta = indirizzo_risposta(m.content_type_id, m.object_id)
+    mittente = _mittente(obj)
     inviate = 0
     with get_connection() as connessione:
         for u in destinatari(m):
             email = EmailMultiAlternatives(
                 subject=f"[{brand}] {obj}", body=render_to_string("core/email/notifica.txt", {**ctx, "utente": u}),
-                to=[u.email], headers=intestazioni, reply_to=[risposta] if risposta else None, connection=connessione)
+                to=[u.email], headers=intestazioni, reply_to=[risposta] if risposta else None, from_email=mittente,
+                connection=connessione)
             email.attach_alternative(render_to_string("core/email/notifica.html", {**ctx, "utente": u}), "text/html")
             email.send()
             inviate += 1
@@ -193,7 +206,8 @@ def notifica(messaggio_id):
             ctx_esterno = {**ctx, "utente": None, "link": None, "esterno": True}
             email = EmailMultiAlternatives(
                 subject=f"[{brand}] {obj}", body=render_to_string("core/email/notifica.txt", ctx_esterno),
-                to=[indirizzo], headers=intestazioni, reply_to=[risposta] if risposta else None, connection=connessione)
+                to=[indirizzo], headers=intestazioni, reply_to=[risposta] if risposta else None, from_email=mittente,
+                connection=connessione)
             email.attach_alternative(render_to_string("core/email/notifica.html", ctx_esterno), "text/html")
             _allega(email, m)
             _spedisci_esterna(m, email)
