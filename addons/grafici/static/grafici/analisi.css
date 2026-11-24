@@ -30,8 +30,22 @@
 .an-tipi-pagina { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 0 12px; } .an-tipi-pagina button { padding: 6px 12px; border: 1px solid var(--ui-border); border-radius: 999px; background: transparent; color: var(--ui-text-2); font: inherit; font-size: 12.5px; cursor: pointer; }
 .an-tipi-pagina button[aria-pressed="true"] { border-color: var(--ui-primary); color: var(--ui-primary); background: color-mix(in srgb, var(--ui-primary) 8%, transparent); }
 .an-pericolo, .an-menu-pannello .an-pericolo { color: #b91c1c; } .an-menu-pannello .an-pericolo svg { color: #b91c1c; }
-.an-form-riga { display: flex; gap: 6px; align-items: center; padding: 2px 4px; } .an-form-riga .ui-input { height: 34px; flex: 1; min-width: 0; }
+/* Moduli nel menu ⋯ della pagina. Nell'intestazione il tema mette i form in linea (.ui-pagehead-actions form, due
+   selettori): con una classe sola la regola perdeva e i campi finivano uno sotto l'altro. */
+.an-menu-pannello .an-form-riga { display: flex; gap: 6px; align-items: center; padding: 2px 4px; }
 .an-menu-pannello .an-form-riga button { width: auto; }
+/* Titolo e icona della pagina: il titolo su tutta la riga, sotto l'icona e «Salva»; campi e bottone alti uguali (7 + 20
+   + 7 più il bordo). Niente altezza fissa: 34px con i margini interni di .ui-input non bastavano al testo della tendina,
+   che restava tagliato sotto. */
+.an-menu-pannello .an-form-pagina { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 4px 4px; }
+.an-form-pagina .ui-input { flex: 1 1 0; min-width: 0; height: auto; padding-top: 7px; padding-bottom: 7px; line-height: 20px; }
+.an-form-pagina .ui-input[name="titolo"] { flex-basis: 100%; }
+.an-menu-pannello .an-form-pagina .ui-btn-primary { flex: none; margin-left: auto; padding: 7px 16px; line-height: 20px; }
+/* I bottoni primari nei menu restano bottoni: la regola dei bottoni del menu (sfondo trasparente, testo scuro) li faceva
+   sembrare testo semplice («Salva», «Salva la condivisione», «Crea»). */
+.an-menu-pannello .ui-btn-primary { width: auto; justify-content: center; background: var(--ui-primary-lift); color: #fff; }
+.an-menu-pannello .ui-btn-primary:hover { background: var(--ui-primary-hover-light); color: #fff; }
+.an-menu-pannello .ui-btn-primary svg { color: currentColor; }
 
 /* card del grafico salvato */
 .an-piede { display: flex; justify-content: space-between; gap: 10px; margin-top: 10px; font-size: 12px; color: var(--ui-text-3); }
@@ -178,7 +192,8 @@ a.an-tessera:hover, .an-tessera-nuova summary:hover { border-color: var(--ui-pri
 .an-tabella-salvata { max-height: 360px; overflow: auto; }
 .an-tabella-salvata th { position: sticky; top: 0; background: var(--ui-surface, #fff); }
 /* Condivisione di una pagina: con nessuno, l'azienda o alcuni ruoli e gruppi */
-.an-condividi { display: grid; gap: 4px; padding: 2px 4px; font-size: 13px; }
+/* due classi, come i moduli in riga del menu: con una sola vinceva il «form in linea» dell'intestazione della pagina */
+.an-menu-pannello .an-condividi { display: grid; gap: 4px; padding: 2px 4px; font-size: 13px; }
 .an-condividi label { display: flex; gap: 6px; align-items: center; }
 .an-condividi-scelte { border: 0; margin: 2px 0 4px 22px; padding: 0; display: grid; gap: 3px; }
 .an-condividi-scelte legend { font-size: 12px; color: var(--ui-text-3); padding: 0; margin-bottom: 2px; }
