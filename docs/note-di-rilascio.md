@@ -5,6 +5,12 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-24
 
+- **«Le mie dashboard»** — Analisi 1.15.0 (nessuna migrazione).
+  - Le pagine che una persona crea non sono più una scheda ciascuna (fino a sei, poi in «Altre schede»): stanno tutte
+    nel menu a tendina «Le mie dashboard», subito dopo Dashboard e Statistiche, nel loro ordine. Quelle condivise da
+    altri hanno una sezione loro, «Condivise con te», con il nome di chi le ha condivise. Aperta una di queste pagine,
+    la voce del menu è evidenziata. In «Altre schede» restano le app.
+
 - **Il nome del prodotto senza la versione** (nessuna migrazione).
   - Il nome predefinito è «Adabox», non più «Adabox v3»: nell'intestazione, con la barra piena di voci, «v3» andava a
     capo. La versione sta in piccolo nel piè di pagina e nella pagina di accesso (`THEME_VERSION`, predefinita «v3»,

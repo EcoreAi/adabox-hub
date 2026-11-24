@@ -1,16 +1,24 @@
-{% load analisi tema static %}{% schede_analisi scheda_attiva as sch %}{# Le schede della dashboard in una riga sola: Dashboard, Statistiche, le pagine e le app in uso; il resto in «Altre schede», per area. #}
+{% load analisi tema static %}{% schede_analisi scheda_attiva as sch %}{# Le schede della dashboard in una riga sola: Dashboard, Statistiche, «Le mie dashboard» (le pagine create e condivise, in un menu), le app in uso; le altre app in «Altre schede», per area. #}
 <link rel="stylesheet" href="{% statico 'grafici/analisi.css' %}">
 <nav class="an-schede" aria-label="Schede della dashboard">
   <a class="an-scheda{% if scheda_attiva == 'panoramica' %} is-attiva{% endif %}" href="{% url 'core:dashboard' %}"><svg><use href="#icon-home"/></svg><span>Dashboard</span></a>
   <a class="an-scheda{% if scheda_attiva == 'statistiche' %} is-attiva{% endif %}" href="{% url 'grafici:pagine' %}"><svg><use href="#icon-bar-chart"/></svg><span>Statistiche</span></a>
+  {% if sch.mie or sch.condivise %}
+  <details class="an-menu an-mie"><summary class="an-scheda{% if sch.pagina_aperta %} is-attiva{% endif %}"><svg><use href="#icon-pie-chart"/></svg><span>Le mie dashboard</span><svg class="an-freccia"><use href="#icon-chevron-down"/></svg></summary>
+    <div class="an-menu-pannello an-mie-pannello">
+      {% for s in sch.mie %}<a href="{{ s.url }}" title="{{ s.titolo }}"{% if s.attiva %} class="is-attiva" aria-current="page"{% endif %}><svg><use href="#icon-{{ s.icona|default:'bar-chart' }}"/></svg><span>{{ s.titolo }}</span></a>{% endfor %}
+      {% if sch.condivise %}{% if sch.mie %}<div class="an-menu-sep"></div>{% endif %}<div class="an-menu-titolo">Condivise con te</div>
+      {% for s in sch.condivise %}<a href="{{ s.url }}" title="{{ s.titolo }} · condivisa da {{ s.proprietario }}"{% if s.attiva %} class="is-attiva" aria-current="page"{% endif %}><svg><use href="#icon-{{ s.icona|default:'bar-chart' }}"/></svg><span>{{ s.titolo }}<small>di {{ s.proprietario }}</small></span></a>{% endfor %}{% endif %}
+    </div>
+  </details>
+  {% endif %}
   {% for s in sch.visibili %}
   <a class="an-scheda{% if s.app %} an-scheda-app{% endif %}{% if s.attiva %} is-attiva{% endif %}{% if s.condivisa %} is-condivisa{% endif %}" href="{{ s.url }}"{% if s.condivisa %} title="Condivisa da {{ s.proprietario }}"{% endif %}>{% if s.immagine %}<img src="{% static s.immagine %}" alt="">{% else %}<svg><use href="#icon-{{ s.icona|default:'bar-chart' }}"/></svg>{% endif %}<span>{{ s.titolo }}</span></a>
   {% endfor %}
   <span class="an-spazio"></span>
-  {% if sch.gruppi or sch.pagine %}
+  {% if sch.gruppi %}
   <details class="an-menu an-altre"><summary class="an-scheda"><svg><use href="#icon-layout"/></svg><span>Altre schede</span><svg class="an-freccia"><use href="#icon-chevron-down"/></svg></summary>
     <div class="an-menu-pannello an-altre-pannello">
-      {% if sch.pagine %}<div class="an-altre-colonna"><div class="an-altre-titolo">Le tue pagine</div>{% for s in sch.pagine %}<a href="{{ s.url }}"><svg><use href="#icon-{{ s.icona|default:'bar-chart' }}"/></svg>{{ s.titolo }}</a>{% endfor %}</div>{% endif %}
       {% for g in sch.gruppi %}<div class="an-altre-colonna"><div class="an-altre-titolo">{{ g.titolo }}</div>{% for s in g.voci %}<a href="{{ s.url }}">{% if s.immagine %}<img src="{% static s.immagine %}" alt="">{% else %}<svg><use href="#icon-{{ s.icona|default:'bar-chart' }}"/></svg>{% endif %}{{ s.titolo }}</a>{% endfor %}</div>{% endfor %}
     </div>
   </details>
