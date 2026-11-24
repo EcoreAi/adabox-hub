@@ -1,7 +1,7 @@
 {
     "name": "Chiedi ad Ada",
     "summary": "Su ogni pagina un'etichetta «Chiedi ad Ada»: l'assistente risponde su ciò che quella pagina mostra, KPI e grafici compresi",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Assistente",
     "depends": ["ai"],
@@ -20,5 +20,8 @@
     "settings": [
         {"chiave": "caratteri_max", "label": "Testo della pagina passato all'assistente (caratteri)", "tipo": "intero", "default": 6000,
          "help": "Oltre questo limite il testo visibile della pagina viene tagliato; i dati strutturati (KPI, grafici) passano sempre"},
+        {"chiave": "ricerca_web", "label": "Chiedi ad Ada può cercare sul web", "tipo": "booleano", "default": False, "per_azienda": True,
+         "help": "spento (predefinito), risponde con la pagina e i dati del gestionale; acceso, usa anche la ricerca sul web, "
+                 "se l'azienda l'ha attiva nell'Assistente AI"},
     ],
 }

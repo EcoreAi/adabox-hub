@@ -103,3 +103,18 @@ def test_i_grafici_di_ada_si_disegnano_anche_nella_finestra(scena, client):
     html = client.get("/todo/attivita/").content.decode()
     assert 'data-grafici="' in html and "theme/vendor/chart.umd.js" in html and "core/grafici.js" in html
     assert '<script src="/static/core/grafici.js' not in html
+
+
+def test_il_web_e_spento_finche_l_azienda_non_lo_accende(scena, client):
+    """Ogni domanda nasceva con la ricerca sul web disponibile (se l'azienda l'aveva nell'assistente): qui si chiede
+    della pagina, e il testo della pagina va nel messaggio."""
+    from ai.models import Turno
+    from core import parametri
+    from core.models import Azienda
+    with finto.con_copione([["Ecco."]]):
+        client.post("/askada/chiedi/", {"testo": "Spiegami questa pagina", "url": "/dashboard/", "titolo": "Dashboard"})
+    assert Turno.objects.filter(compito="chat").latest("pk").web is False
+    parametri.scrivi("askada.ricerca_web", True, Azienda.objects.get(pk=1))
+    with finto.con_copione([["Ecco."]]):
+        client.post("/askada/chiedi/", {"testo": "E le norme?", "url": "/dashboard/", "titolo": "Dashboard"})
+    assert Turno.objects.filter(compito="chat").latest("pk").web is True

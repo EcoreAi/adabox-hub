@@ -82,7 +82,12 @@ def chiedi(request):
     if (motivo := riservatezza.motivo_pagina(url, getattr(request, "azienda", None))):   # la pagina va nel messaggio
         riservatezza.segna(conversazione, motivo)
     primo = conversazione.messaggi.order_by("-pk").values_list("pk", flat=True).first() or 0
-    turno = motore.avvia(conversazione, testo, request.user, getattr(request, "azienda", None), nota=_nota(url, titolo, contesto, pagina))
+    try:                                             # il web solo dove l'azienda l'ha acceso per «Chiedi ad Ada»
+        web = bool(parametri.leggi("askada.ricerca_web", getattr(request, "azienda", None)))
+    except KeyError:
+        web = False
+    turno = motore.avvia(conversazione, testo, request.user, getattr(request, "azienda", None),
+                         nota=_nota(url, titolo, contesto, pagina), web=web)
     conversazione.save(update_fields=["aggiornata"])
     Domanda.objects.create(utente=request.user, url=url, titolo=titolo, testo=testo, conversazione=conversazione)
     turno.refresh_from_db()
