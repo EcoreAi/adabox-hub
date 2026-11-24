@@ -172,3 +172,21 @@ def test_riassumi_e_scrivi_con_ada_non_riportano_i_campi_nascosti(client, s):
     capo = Contesto(utente=s["capo"], azienda=s["az"])
     per_il_capo = aiuto_testi.descrivi_record(vista_per(capo, "crm.opportunita"), s["sua"], request=richiesta.per(capo))
     assert "Valore atteso" in per_il_capo and "7777" in per_il_capo
+
+
+def test_l_indice_della_conoscenza_non_contiene_i_campi_nascosti_a_un_ruolo(client, s):
+    """L'indice è uno per tutti: con le note nascoste ai commerciali, cerca_conoscenza ne restituiva l'estratto anche a
+    loro. Un campo nascosto ad almeno un ruolo non si indicizza."""
+    from django.contrib.contenttypes.models import ContentType
+
+    from ai import conoscenza
+    type(s["sua"]).objects.filter(pk=s["sua"].pk).update(note="Margine minimo accettabile: 12 per cento")
+    s["sua"].refresh_from_db()
+
+    def frammento():
+        vista, campi = next((v, c) for v, c in conoscenza._viste_indicizzabili() if v.model is type(s["sua"]))
+        ct = ContentType.objects.get_for_model(vista.model)
+        return "\n".join(f["testo"] for f in conoscenza.frammenti_di_un_record(vista, campi, ct, s["sua"]))
+    assert "Margine minimo" in frammento()
+    PermessoCampo.objects.create(vista="crm.opportunita", campo="note", ruolo=s["anna"].profilo.ruolo, livello="nascosto")
+    assert "Margine minimo" not in frammento() and "Di Anna" in frammento()

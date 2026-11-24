@@ -579,3 +579,15 @@ def test_gli_altri_record_si_condividono_ancora(client, s):
     client.force_login(User.objects.get(pk=s["u"].pk))
     c = Contatto.objects.create(azienda=s["az"], nome="X")
     assert "/discuss/condividi/" in client.get(f"/contatti/contatti/{c.pk}/").content.decode()
+
+
+def test_una_pagina_che_arriva_a_gocce_non_tiene_fermo_il_turno(s, web_acceso, monkeypatch):
+    """La scadenza valeva per ogni attesa sulla rete, non per lo scaricamento intero: un byte ogni nove secondi e
+    leggi_pagina non finiva più."""
+    monkeypatch.setattr(rete.socket, "getaddrinfo", lambda h, p, **k: [(2, 1, 6, "", ("93.184.216.34", p))])
+    orologio = iter(range(0, 100000, 40))                       # ogni sguardo all'orologio: 40 secondi dopo
+    monkeypatch.setattr(rete.time, "monotonic", lambda: next(orologio))
+    c = _chat(s)
+    _evento_strumento(c, "https://x.it/lenta")
+    with pytest.raises(ErroreStrumento, match="troppo lentamente"):
+        web.leggi_pagina(_ctx(s, c), "https://x.it/lenta", http_client=_pagina())
