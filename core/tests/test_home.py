@@ -113,6 +113,13 @@ def test_la_scelta_personale_dell_app_installata_resta(client):
     r = client.get("/tasca/?da=app")
     assert r.status_code == 302 and r["Location"] == reverse("ai:chat")
     assert _home(client) == reverse("core:dashboard")                      # dal computer vale la prima pagina del ruolo
+    # la sua scelta non si può più aprire (permesso tolto, Ada spenta): non «In tasca», ma la prima pagina del ruolo
+    olga = User.objects.get(username="olga")
+    olga.user_permissions.clear()
+    client.force_login(User.objects.get(pk=olga.pk))
+    r = client.get("/tasca/?da=app")
+    assert r.status_code == 302 and r["Location"] == reverse("core:dashboard")
+    assert client.get("/tasca/?apri=chat").status_code == 200              # la scorciatoia dell'icona resta su «In tasca»
 
 
 @pytest.mark.django_db

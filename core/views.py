@@ -1135,13 +1135,15 @@ def tasca(request):
     scorciatoia dell'icona."""
     from core import apertura
     scelta = request.GET.get("apri") or ""
-    if not scelta and request.GET.get("da") == "app":
+    dall_app = not scelta and request.GET.get("da") == "app"
+    if dall_app:
         scelta = ProfiloUtente.objects.filter(utente=request.user).values_list("apertura_app", flat=True).first() or ""
     if (url := apertura.destinazione(request.user, scelta)):
         return redirect(url)
-    # Aperta dall'app senza una scelta della persona nel profilo: la prima pagina del suo ruolo, se chi amministra
-    # ne ha scelta una (l'operatore apre lo scanner). «In tasca» scelta come prima pagina resta questa pagina.
-    if request.GET.get("da") == "app" and scelta in ("", "tasca") and (url := apertura.prima_pagina(request.user)) and url != reverse("core:tasca"):
+    # Aperta dall'app, e la scelta della persona non porta da nessuna parte (non ne ha una, o quella pagina non la può
+    # più aprire: Ada spenta, permesso tolto): la prima pagina del suo ruolo, se chi amministra ne ha scelta una
+    # (l'operatore apre lo scanner). «In tasca» scelta come prima pagina resta questa pagina.
+    if dall_app and (url := apertura.prima_pagina(request.user)) and url != reverse("core:tasca"):
         return redirect(url)
     from core import approvazioni
     voci = []
