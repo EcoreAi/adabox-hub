@@ -125,6 +125,17 @@
     tables.forEach(reveal);
   }
 
+  // --- Contenuto arrivato dopo il caricamento (HTMX): card e tabelle si vedono come quelle della pagina. Senza, una
+  //     card rimandata dal server (hx-swap="outerHTML") restava a opacity 0 e le righe di una tabella invisibili.
+  //     Quelle che arrivano già con .is-revealed non cambiano; il primo htmx:load (sul body) è il caricamento.
+  document.addEventListener('htmx:load', (e) => {
+    const radice = e.target;
+    if (!(radice instanceof Element) || radice === document.body) return;
+    const dentro = (sel) => (radice.matches(sel) ? [radice] : []).concat(Array.from(radice.querySelectorAll(sel)));
+    dentro('.ui-card:not(.is-revealed)').forEach((c) => c.classList.add('is-revealed'));
+    dentro('table.ui-table:not(.is-revealed)').forEach(reveal);
+  });
+
   // --- Toast: window.uiToast('Salvato', 'warn'|undefined)
   window.uiToast = function (text, kind) {
     let el = document.querySelector('.ui-toast');
