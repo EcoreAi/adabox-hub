@@ -11,6 +11,17 @@ commit; qui solo ciò che si vede o che chiede un intervento.
     altri hanno una sezione loro, «Condivise con te», con il nome di chi le ha condivise. Aperta una di queste pagine,
     la voce del menu è evidenziata. In «Altre schede» restano le app.
 
+- **Pagine trovate per nome, e i loro link in chat** (nessuna migrazione).
+  - «Cerca ovunque» nell'intestazione trova le pagine: «Grafici» porta a Nuovo grafico e ai grafici salvati,
+    «Statistiche» a Statistiche (prima quelle parole si scartavano e non usciva nulla). Le pagine del kernel che non
+    sono voci di menu (Dashboard, Applicazioni, Impostazioni, Utenti e ruoli, Profilo…) si trovano anche per parole
+    chiave («permessi», «password»), con i permessi di chi cerca.
+  - Ada ha lo strumento `cerca_pagine` (la stessa ricerca, con i link): alla domanda «c'è una pagina statistiche?»
+    risponde con il link vero, invece di inventarlo.
+  - Con la protezione dei dati attiva Ada scriveva link che non si aprivano (`[Direzione]([URL_2])`,
+    `[Analisi]([URL_ANALISI])`), inventando segnaposto al posto degli indirizzi: le istruzioni non la invitano più a
+    farlo, e un link verso qualcosa tra quadre che non è un segnaposto vero resta testo.
+
 - **Il nome del prodotto senza la versione** (nessuna migrazione).
   - Il nome predefinito è «Adabox», non più «Adabox v3»: nell'intestazione, con la barra piena di voci, «v3» andava a
     capo. La versione sta in piccolo nel piè di pagina e nella pagina di accesso (`THEME_VERSION`, predefinita «v3»,

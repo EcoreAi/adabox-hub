@@ -44,8 +44,10 @@ def cerca(request, testo):
 # parole che non dicono che cosa si cerca («grafico delle vendite di quest'anno» → vendite)
 VUOTE = {"il", "lo", "la", "i", "gli", "le", "un", "uno", "una", "di", "del", "dello", "della", "dei", "degli", "delle",
          "a", "al", "allo", "alla", "ai", "agli", "alle", "da", "dal", "dalla", "in", "nel", "nella", "con", "su", "per",
-         "e", "o", "che", "mi", "dove", "trovo", "voglio", "vorrei", "vedere", "mostra", "mostrami", "cerca", "trova",
-         "grafico", "grafici", "pagina", "pagine", "report", "statistica", "statistiche", "andamento"}
+         "e", "o", "che", "mi", "dove", "trovo", "voglio", "vorrei", "vedere", "mostra", "mostrami", "cerca", "trova"}
+# parole generiche: in una frase non dicono che cosa si cerca («grafico delle vendite» → vendite), da sole sì: chi cerca
+# «Grafici» o «Statistiche» vuole quelle pagine (prima non trovava nulla)
+GENERICHE = {"grafico", "grafici", "pagina", "pagine", "report", "statistica", "statistiche", "andamento"}
 # parole di tempo: aiutano a ordinare ma non sono obbligatorie (il titolo raramente le contiene)
 TEMPO = {"quest", "questo", "questa", "anno", "mese", "mesi", "settimana", "oggi", "ieri", "scorso", "scorsa",
          "ultimo", "ultimi", "trimestre", "mensile", "mensili", "annuale"}
@@ -54,9 +56,11 @@ MAX_SCORCIATOIE = 8
 
 
 def parole(testo):
-    """(parole che il titolo deve contenere, parole di tempo facoltative)."""
+    """(parole che il titolo deve contenere, parole di tempo facoltative). Le parole generiche contano solo se non ce
+    n'è nessun'altra."""
     tutte = [p for p in PAROLA.findall((testo or "").lower()) if p not in VUOTE]
-    return [p for p in tutte if p not in TEMPO], [p for p in tutte if p in TEMPO]
+    richieste = [p for p in tutte if p not in TEMPO and p not in GENERICHE]
+    return richieste or [p for p in tutte if p in GENERICHE], [p for p in tutte if p in TEMPO]
 
 
 def _radice(p):
@@ -95,6 +99,35 @@ def punteggio(titolo, richieste, facoltative=(), sinonimi=None):
     return punti + sum(1 for p in facoltative if any(t.startswith(p) for t in nel_titolo))
 
 
+# Le pagine del kernel che non sono voci di menu di un'app: (titolo, nome URL, parole con cui le si cerca, permesso).
+# Le pagine dei moduli arrivano dalle loro fonti di ricerca (hooks.fonte_ricerca), con le stesse "parole".
+PAGINE_KERNEL = (
+    ("Dashboard", "core:dashboard", "home cruscotto indicatori kpi", None),
+    ("In tasca", "core:tasca", "telefono cellulare smartphone", None),
+    ("Profilo", "core:profilo", "account dati personali", None),
+    ("Cambia password", "password_change", "password sicurezza accesso", None),
+    ("Le mie app nel menu", "core:le_mie_app", "barra menu ordine app", None),
+    ("Applicazioni", "core:applicazioni", "app moduli catalogo installa attiva acquista", "core.view_modulo"),
+    ("Ordine nel menu", "core:impostazioni_barra", "barra menu app ordine", "core.change_parametro"),
+    ("Impostazioni", "core:impostazioni", "configurazione parametri opzioni", "core.change_parametro"),
+    ("Utenti e ruoli", "core:utenti", "persone permessi accessi account", "auth.change_user"),
+    ("Chi può fare cosa", "core:matrice", "permessi ruoli matrice", "auth.change_user"),
+)
+
+
+def _pagine(request):
+    from django.urls import NoReverseMatch, reverse
+    voci = []
+    for titolo, nome, parole_chiave, permesso in PAGINE_KERNEL:
+        if permesso and not request.user.has_perm(permesso):
+            continue
+        try:
+            voci.append({"titolo": titolo, "url": reverse(nome), "sotto": "Pagina", "parole": parole_chiave})
+        except NoReverseMatch:
+            continue
+    return {"gruppo": "Pagine", "voci": voci}
+
+
 def _menu(request):
     from .registry import modules
     voci = [{"titolo": f"{a['label']} › {v['label']}", "url": v["url"], "sotto": "Voce di menu"}
@@ -103,30 +136,35 @@ def _menu(request):
 
 
 def scorciatoie(request, testo):
-    """([{"gruppo", "voci": [{"titolo", "url", "sotto"}]}], nessun grafico trovato tra le fonti di grafici)."""
+    """([{"gruppo", "voci": [{"titolo", "url", "sotto"}]}], nessun grafico trovato tra le fonti di grafici). Una voce si
+    trova per il titolo e per le sue "parole" (le pagine: «Statistiche» anche con «dashboard»); un indirizzo compare una
+    volta sola, nel primo gruppo che lo trova."""
     from .lavori import risolvi
     from .registry import hooks
     richieste, facoltative = parole(testo)
     if not richieste:
         return [], False
     sinonimi = _sinonimi()
-    fonti = []
+    fonti = [_pagine(request)]
     for funzione in hooks.fonti_ricerca(request):
         try:
             fonti.append(risolvi(funzione)(request))
         except Exception:                                # una fonte rotta non spegne la ricerca
             log.exception("fonte di ricerca %s", funzione)
     fonti.append(_menu(request))
-    gruppi, grafici_cercati, grafici_trovati = [], False, False
+    gruppi, grafici_cercati, grafici_trovati, visti = [], False, False, set()
     for f in fonti:
-        trovate = sorted(((punteggio(v["titolo"], richieste, facoltative, sinonimi), v) for v in f["voci"]),
-                         key=lambda x: -x[0])
-        voci = [v for punti, v in trovate if punti][:MAX_SCORCIATOIE]
+        trovate = sorted(((punteggio(f"{v['titolo']} {v.get('parole', '')}", richieste, facoltative, sinonimi), v)
+                          for v in f["voci"] if v["url"] not in visti), key=lambda x: -x[0])
+        voci = [{k: x for k, x in v.items() if k != "parole"} for punti, v in trovate if punti][:MAX_SCORCIATOIE]
+        visti.update(v["url"] for v in voci)
         grafici_cercati = grafici_cercati or f.get("grafici", False)
         grafici_trovati = grafici_trovati or (f.get("grafici", False) and bool(voci))
         if voci:
             gruppi.append({"gruppo": f["gruppo"], "voci": voci})
-    return gruppi, grafici_cercati and not grafici_trovati
+    # «Chiedi ad Ada di disegnarlo» solo se si cercava qualcosa da disegnare, non solo «grafici» o «statistiche»
+    specifiche = any(p not in GENERICHE for p in richieste)
+    return gruppi, grafici_cercati and not grafici_trovati and specifiche
 
 
 def link_ada(request, testo):

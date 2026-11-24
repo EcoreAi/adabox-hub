@@ -6,10 +6,20 @@ from . import motore
 from .models import Pagina
 
 
+# Le pagine di Analisi che non sono voci di menu (o lo sono con un nome che non dice tutto), con le parole con cui le
+# si cerca: (titolo, nome URL, parole, permesso).
+PAGINE = (
+    ("Nuovo grafico", "grafici:costruttore", "crea nuovo grafico grafici disegna chart", "grafici.add_grafico"),
+    ("Statistiche", "grafici:pagine", "grafici dashboard report analisi libreria pagine", "grafici.view_pagina"),
+)
+
+
 def voci(request):
     utente = request.user
+    fisse = [{"titolo": t, "url": reverse(nome), "sotto": "Pagina di Analisi", "parole": parole}
+             for t, nome, parole, permesso in PAGINE if utente.has_perm(permesso)]
     grafici = [{"titolo": g.titolo, "url": reverse("grafici:grafico", args=[g.pk]), "sotto": "Grafico salvato"}
                for g in motore.libreria_di(utente)]
     pagine = (Pagina.objects.filter(utente=utente) | motore.condivise(getattr(request, "azienda", None), utente)).distinct()
     return {"gruppo": "Grafici e pagine di Analisi", "grafici": True,
-            "voci": grafici + [{"titolo": p.titolo, "url": motore.url_pagina(p), "sotto": "Pagina di Analisi"} for p in pagine]}
+            "voci": fisse + grafici + [{"titolo": p.titolo, "url": motore.url_pagina(p), "sotto": "Pagina di Analisi"} for p in pagine]}

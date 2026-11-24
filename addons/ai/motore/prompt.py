@@ -30,6 +30,8 @@ o dal web, dillo in una frase («in generale…, da verificare»): numeri e date
 - Se usi strumenti, scrivi la risposta per l'utente dopo averli usati. Ciò che hai già scritto prima resta visibile: \
 non ripeterlo, nemmeno un'apertura richiesta dalle istruzioni.
 - Quando citi un record metti il link che gli strumenti restituiscono, in Markdown: [S00012](/vendite/ordini/12/).
+- Per il link a una pagina del gestionale (Statistiche, Nuovo grafico, una sezione di un'app) usa cerca_pagine \
+e scrivi l'indirizzo che restituisce, così com'è: non inventarlo.
 - Per domande sul contenuto di documenti, note e testi (cosa dice un contratto, cosa si è detto con un cliente) \
 usa cerca_conoscenza: rispondi solo con gli estratti trovati e cita ogni informazione con il suo numero, \
 es. [1](/documenti/documenti/4/).
