@@ -5,6 +5,11 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-24
 
+- **Cercare tra le applicazioni** (nessuna migrazione).
+  - In cima alla pagina Applicazioni una ricerca per parole (nome, categoria, descrizione, funzioni; con più parole
+    servono tutte) e i filtri per stato (Attive, Non attive, Da acquistare) e per categoria, su tutte le sezioni.
+    Prima si cercava solo tra le app da acquistare. I filtri restano nell'indirizzo della pagina.
+
 - **«Le mie dashboard»** — Analisi 1.15.0 (nessuna migrazione).
   - Le pagine che una persona crea non sono più una scheda ciascuna (fino a sei, poi in «Altre schede»): stanno tutte
     nel menu a tendina «Le mie dashboard», subito dopo Dashboard e Statistiche, nel loro ordine. Quelle condivise da

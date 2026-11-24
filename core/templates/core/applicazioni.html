@@ -1,5 +1,5 @@
 {% extends 'core/base_app.html' %}
-{% load static %}
+{% load static tema %}
 {% block title %}Applicazioni · {{ theme.brand }}{% endblock %}
 {% block app_content %}
 <div class="ui-pagehead">
@@ -10,9 +10,20 @@
     {% if user.is_superuser %}<a class="ui-btn ui-btn-ghost" href="{% url 'core:moduli' %}">Gestione moduli</a>{% endif %}
   </div>
 </div>
-{% if suite %}<h2 class="ui-apps-titolo">Suite per dipartimento</h2>
+<div class="mk-barra" id="mk-barra" role="search" aria-label="Cerca tra le applicazioni">
+  <div class="ui-search mk-barra-cerca"><svg aria-hidden="true"><use href="#icon-search"/></svg><input class="ui-input" type="search" id="mk-cerca" placeholder="Cerca per nome, descrizione o funzione…" aria-label="Cerca un'applicazione" autocomplete="off" enterkeyhint="search"></div>
+  <div class="mk-barra-stati" role="group" aria-label="Stato">
+    <button type="button" class="mk-chip is-attiva" data-stato="" aria-pressed="true">Tutte <span class="mk-chip-n">{{ tutte }}</span></button>
+    {% if attive %}<button type="button" class="mk-chip" data-stato="attive" aria-pressed="false">Attive <span class="mk-chip-n">{{ attive|length }}</span></button>{% endif %}
+    {% if ferme %}<button type="button" class="mk-chip" data-stato="ferme" aria-pressed="false">Non attive <span class="mk-chip-n">{{ ferme|length }}</span></button>{% endif %}
+    {% if altre %}<button type="button" class="mk-chip" data-stato="altre" aria-pressed="false">Da acquistare <span class="mk-chip-n">{{ altre|length }}</span></button>{% endif %}
+  </div>
+  {% if categorie|length > 1 %}<select class="ui-input mk-barra-categoria" id="mk-categoria" aria-label="Categoria"><option value="">Tutte le categorie</option>{% for c, n in categorie %}<option value="{{ c }}">{{ c }} ({{ n }})</option>{% endfor %}</select>{% endif %}
+</div>
+<p class="mk-vuoto" id="mk-vuoto" hidden>Nessuna app con questi criteri. <button type="button" class="ui-link" id="mk-azzera">Azzera i filtri</button></p>
+{% if suite %}<section class="mk-sezione" data-gruppo="suite"><h2 class="ui-apps-titolo">Suite per dipartimento</h2>
 <p class="mk-sezione-sub">Le app che servono a un dipartimento, in un solo pacchetto. Una suite comprata crea il suo dipartimento: aggiungi le persone e lavorano.</p>
-<div class="mk-griglia">{% for s in suite %}<article class="mk-app is-{% if s.stato == 'comprata' %}attiva{% else %}disponibile{% endif %} mk-suite">
+<div class="mk-griglia">{% for s in suite %}<article class="mk-app is-{% if s.stato == 'comprata' %}attiva{% else %}disponibile{% endif %} mk-suite" data-categoria="" data-cerca="{{ s.nome }} {{ s.descrizione }} {{ s.app|join:' ' }} suite">
   <div class="mk-testa"><span class="ui-app-icona mk-icona"><span class="mk-iniziale">{{ s.nome|slice:":1"|upper }}</span></span>
     <div><div class="mk-nome">{{ s.nome }}</div><div class="mk-categoria">{{ s.app|length }} app{% if s.utenti %} · {{ s.utenti }} person{{ s.utenti|pluralize:"a,e" }}{% endif %}</div></div></div>
   {% if s.descrizione %}<p class="mk-riassunto">{{ s.descrizione }}</p>{% endif %}
@@ -27,48 +38,19 @@
         <textarea class="ui-input" name="nota" rows="2" maxlength="2000" placeholder="Una nota per noi, es. quante persone (facoltativa)" aria-label="Nota per la richiesta della suite {{ s.nome }}"></textarea>
         <button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">Invia la richiesta</button>
       </form></details>{% endif %}
-  </div></article>{% endfor %}</div>{% endif %}
-<h2 class="ui-apps-titolo">Attive</h2>
+  </div></article>{% endfor %}</div></section>{% endif %}
+<section class="mk-sezione" data-gruppo="attive"><h2 class="ui-apps-titolo">Attive</h2>
 <p class="mk-sezione-sub">Le usano le persone a cui le hai assegnate.</p>
 {% if attive %}<div class="mk-griglia">{% for v in attive %}{% include "core/_app_catalogo.html" %}{% endfor %}</div>
-{% else %}<div class="ui-card is-revealed"><div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessuna app attiva.</p></div></div></div>{% endif %}
-{% if ferme %}<h2 class="ui-apps-titolo">Installate ma non attive</h2>
+{% else %}<div class="ui-card is-revealed"><div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessuna app attiva.</p></div></div></div>{% endif %}</section>
+{% if ferme %}<section class="mk-sezione" data-gruppo="ferme"><h2 class="ui-apps-titolo">Installate ma non attive</h2>
 <p class="mk-sezione-sub">Sono già tue: nessuno le vede finché non le attivi e decidi chi può usarle.</p>
-<div class="mk-griglia">{% for v in ferme %}{% include "core/_app_catalogo.html" %}{% endfor %}</div>{% endif %}
-<h2 class="ui-apps-titolo">Da acquistare</h2>
+<div class="mk-griglia">{% for v in ferme %}{% include "core/_app_catalogo.html" %}{% endfor %}</div></section>{% endif %}
+<section class="mk-sezione" data-gruppo="altre"><h2 class="ui-apps-titolo">Da acquistare</h2>
 <p class="mk-sezione-sub">Non sono installate: guarda la demo o chiedi di averle.</p>
-{% if altre %}
-<div class="mk-filtri" id="mk-filtri">
-  <input class="ui-input mk-cerca" type="search" id="mk-cerca" placeholder="Cerca un'app…" aria-label="Cerca un'app">
-  <button type="button" class="mk-chip is-attiva" data-categoria="">Tutte</button>
-  {% for c in categorie %}<button type="button" class="mk-chip" data-categoria="{{ c }}">{{ c }}</button>{% endfor %}
-</div>
-<div class="mk-griglia" id="mk-altre">{% for v in altre %}{% include "core/_app_catalogo.html" %}{% endfor %}</div>
-<p class="ui-help" id="mk-vuoto" hidden>Nessuna app con questi criteri.</p>
-<script>
-(function () {
-  const griglia = document.getElementById('mk-altre'), cerca = document.getElementById('mk-cerca'), vuoto = document.getElementById('mk-vuoto');
-  let categoria = '';
-  const filtra = () => {
-    const testo = cerca.value.trim().toLowerCase();
-    let viste = 0;
-    griglia.querySelectorAll('.mk-app').forEach((a) => {
-      const si = (!categoria || a.dataset.categoria === categoria) && a.textContent.toLowerCase().includes(testo);
-      a.hidden = !si; viste += si;
-    });
-    vuoto.hidden = viste > 0;
-  };
-  cerca.addEventListener('input', filtra);
-  document.getElementById('mk-filtri').addEventListener('click', (e) => {
-    const chip = e.target.closest('[data-categoria]');
-    if (!chip) return;
-    categoria = chip.dataset.categoria;
-    document.querySelectorAll('.mk-chip').forEach((c) => c.classList.toggle('is-attiva', c === chip));
-    filtra();
-  });
-})();
-</script>
-{% else %}<p class="ui-help">Hai già tutte le app del catalogo.</p>{% endif %}
+{% if altre %}<div class="mk-griglia" id="mk-altre">{% for v in altre %}{% include "core/_app_catalogo.html" %}{% endfor %}</div>
+{% else %}<p class="ui-help">Hai già tutte le app del catalogo.</p>{% endif %}</section>
+<script src="{% statico 'core/applicazioni.js' %}" defer></script>
 <script>
 document.addEventListener('click', (e) => {
   const apri = e.target.closest('[data-mk-info]');
