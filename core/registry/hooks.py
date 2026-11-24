@@ -127,10 +127,14 @@ def scorciatoie_tasca():
 def pagina_senza_rete(url_name, statici=(), modulo=None):
     """Da chiamare nel ready() dell'app: la pagina `url_name` (un nome URL senza argomenti) resta apribile senza rete.
     Il service worker dell'app installata ne tiene l'ultima copia sul dispositivo di chi l'ha aperta almeno una volta
-    con la rete, e la mostra quando la rete manca (al posto di «Sei offline»). `statici`: i suoi file, scritti come in
-    `{% statico %}` ("iem/scansiona.js"): entrano in cache all'installazione dell'app.
+    con la rete, e la mostra quando la rete manca (al posto di «Sei offline») o tarda più di quattro secondi.
+    `statici`: i suoi file, scritti come in `{% statico %}` ("iem/scansiona.js"): entrano in cache all'installazione
+    dell'app. Anche l'avvio dell'app e le scorciatoie, se con la rete hanno portato a questa pagina, senza rete portano
+    alla sua copia; e «Sei offline» elenca le pagine di cui c'è una copia.
 
     Da sapere, per chi scrive la pagina:
+    - la copia può comparire anche con la rete (lenta): la pagina non dia per scontato né di essere senza rete né di
+      essere aggiornata, e provi lei a raggiungere il server;
     - la copia è quella dell'ultima apertura, con il token CSRF di allora: tornata la rete, prima di inviare qualcosa
       si rilegge il token (un `fetch` della pagina stessa e `<meta name="csrf-token">`), o si ricarica la pagina;
     - i dati che la pagina raccoglie senza rete li tiene lei (IndexedDB) e li invia quando la rete torna;

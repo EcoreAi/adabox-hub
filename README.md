@@ -109,8 +109,9 @@ Un'app minima non scrive né viste né template: bastano modello, `ModelView` e 
    dell'app installata. `conta` è una funzione che riceve la richiesta e dà il numero del bollino.
    Per una pagina che deve aprirsi anche senza rete (uno scanner che tiene le foto nel telefono):
    `hooks.pagina_senza_rete("mia_app:scansiona", statici=["mia_app/scansiona.js", "mia_app/scansiona.css"])`. Il service
-   worker ne tiene l'ultima copia sul dispositivo di chi l'ha aperta con la rete; i dati raccolti senza rete li tiene la
-   pagina e li invia lei quando la rete torna, rileggendo prima il token CSRF.
+   worker ne tiene l'ultima copia sul dispositivo di chi l'ha aperta con la rete e la mostra quando la rete manca o
+   tarda (anche all'avvio dell'app e dalle scorciatoie che portano lì); i dati raccolti senza rete li tiene la pagina e
+   li invia lei quando la rete torna, rileggendo prima il token CSRF.
    Per cambiare le viste di altri moduli a ogni richiesta: `core.viste.personalizza.registra(funzione)`, dove
    `funzione(vista, request)` restituisce gli attributi da sovrascrivere (`list_display`, `form_layout`,
    `etichette`... vedi `ATTRIBUTI`); è il meccanismo usato da Studio.
