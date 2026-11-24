@@ -94,8 +94,9 @@ def blocco(utente, azienda):
         cache.set(chiave, motivo, CONTROLLO_OGNI)
     if motivo:
         return motivo
-    # la persona, non solo il suo numero: nei database di prova i numeri si ripetono
-    chiave = f"ai-voce-richieste:{utente.pk}:{int(utente.date_joined.timestamp())}"
+    # la persona, non solo il suo numero: nei database di prova i numeri si ripetono (e più test creano l'utente
+    # nello stesso secondo: l'istante va preso per intero)
+    chiave = f"ai-voce-richieste:{utente.pk}:{utente.date_joined.timestamp():.6f}"
     cache.add(chiave, 0, FINESTRA)
     try:
         richieste = cache.incr(chiave)

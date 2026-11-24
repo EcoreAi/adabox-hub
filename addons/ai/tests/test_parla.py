@@ -267,6 +267,8 @@ def test_in_una_chat_riservata_si_trascrive_solo_in_locale(client, s, monkeypatc
 
 def test_la_voce_si_ferma_oltre_il_limite_di_richieste(client, s, monkeypatch):
     """Ogni pezzo letto è una chiamata al servizio (spesso a pagamento): prima se ne potevano chiedere senza fine."""
+    from django.core.cache import cache
+    cache.clear()                                         # la cache in memoria è la stessa per tutti i test del processo
     monkeypatch.setattr(parla.voce, "audio_di", lambda servizio, testo, lingua: (b"RIFF", "audio/wav"))
     monkeypatch.setattr(parla.voce, "RICHIESTE_MASSIME", 2)
     c = Conversazione.objects.create(utente=s["u"], titolo="x")
