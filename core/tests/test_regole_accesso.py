@@ -152,3 +152,23 @@ def test_ordine_e_previsione_non_usano_un_campo_nascosto_al_ruolo(client, s):
         cerca_record(ctx, "crm.opportunita", ordina="-valore_atteso")
     with pytest.raises(Exception, match="non è disponibile per il tuo ruolo"):
         specialisti.serie_storica(vista_per(ctx, "crm.opportunita"), richiesta.per(ctx), "creata", misura="sum:valore_atteso")
+
+
+def test_riassumi_e_scrivi_con_ada_non_riportano_i_campi_nascosti(client, s):
+    """La descrizione del record che va al modello per «Riassumi» e «Scrivi con Ada» elencava tutti i campi del
+    dettaglio: il riassunto riportava a chi chiede anche quelli che nella scheda non vede."""
+    from ai import aiuto_testi
+    from ai.strumenti import Contesto, richiesta
+    from ai.strumenti.viste import vista_per
+    from core import chatter
+    chatter.scrivi(s["sua"], s["capo"], tipo="tracciamento",
+                   modifiche=[{"campo": "valore_atteso", "label": "Valore atteso", "prima": "5000", "dopo": "7777"},
+                              {"campo": "titolo", "label": "Titolo", "prima": "Vecchio", "dopo": "Di Anna"}])
+    ctx = Contesto(utente=s["anna"], azienda=s["az"])
+    vista = vista_per(ctx, "crm.opportunita")
+    per_anna = aiuto_testi.descrivi_record(vista, s["sua"], request=richiesta.per(ctx))
+    assert "Di Anna" in per_anna and "Vecchio" in per_anna
+    assert "Valore atteso" not in per_anna and "7777" not in per_anna and "5000" not in per_anna and "5.000" not in per_anna
+    capo = Contesto(utente=s["capo"], azienda=s["az"])
+    per_il_capo = aiuto_testi.descrivi_record(vista_per(capo, "crm.opportunita"), s["sua"], request=richiesta.per(capo))
+    assert "Valore atteso" in per_il_capo and "7777" in per_il_capo

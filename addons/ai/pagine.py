@@ -995,7 +995,8 @@ def _record_per_ada(request, valore, azienda=None):
     try:
         if pk.isdigit():
             vista, obj = vista_e_oggetto(request, int(ct), int(pk), "view")
-            return aiuto_testi.descrivi_record(vista, obj, messaggi=10, massimo=4000), riservatezza.motivo_record(vista, obj, azienda)
+            return (aiuto_testi.descrivi_record(vista, obj, messaggi=10, massimo=4000, request=request),
+                    riservatezza.motivo_record(vista, obj, azienda))
         modello = ContentType.objects.get_for_id(int(ct)).model_class()
         vista = registry.per_modello(modello) if modello else None
         return (f"Un nuovo record di tipo {vista.verbose_name}", "") if vista and vista.has_add_permission(request) else ("", "")
@@ -1012,7 +1013,7 @@ def riassumi_record(request, ct, pk):
 
     from . import aiuto_testi
     vista, obj = vista_e_oggetto(request, ct, pk, "view")
-    turno = aiuto_testi.avvia_riassunto(request.user, getattr(request, "azienda", None), vista, obj)
+    turno = aiuto_testi.avvia_riassunto(request.user, getattr(request, "azienda", None), vista, obj, request=request)
     return JsonResponse({"esito": reverse("ai:esito_scrittura", args=[turno.pk])})
 
 
