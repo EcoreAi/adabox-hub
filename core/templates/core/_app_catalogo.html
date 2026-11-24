@@ -1,4 +1,4 @@
-{% load static %}<article class="mk-app is-{{ v.stato }}" data-categoria="{{ v.categoria }}">
+{% load static %}<article class="mk-app is-{{ v.stato }}" data-categoria="{{ v.categoria }}" data-cerca="{{ v.nome }} {{ v.nome_originale|default:'' }} {{ v.slug }} {{ v.categoria }} {{ v.riassunto }} {{ v.descrizione }} {{ v.funzioni|join:' ' }}">
   <div class="mk-testa">
     <span class="ui-app-icona mk-icona">{% if v.statica %}<img src="{% static v.statica %}" alt="">{% elif v.icona %}<img src="{{ v.icona }}" alt="">{% else %}<span class="mk-iniziale">{{ v.iniziale }}</span>{% endif %}</span>
     <div><div class="mk-nome">{{ v.nome }}</div><div class="mk-categoria">{{ v.categoria }}</div></div>
