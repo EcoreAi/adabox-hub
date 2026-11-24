@@ -228,7 +228,50 @@ class _Esecuzione:
         return None
 
 
+BATTITO_OGNI = 20                               # secondi tra due segni di vita mentre il turno non scrive
+BATTITO_MASSIMO = 1800                          # oltre, un turno muto è bloccato davvero: lo si può dichiarare interrotto
+
+
+class _Battito:
+    """Il segno di vita del turno mentre non scrive: uno strumento lungo (un esperto arriva a 300 secondi), un modello
+    che ragiona a lungo prima della prima parola. `battito` si aggiornava solo con il testo e all'inizio e alla fine
+    degli strumenti: dopo 90 secondi di silenzio chi apriva la chat lo faceva dichiarare interrotto (segna_interrotti)
+    mentre lavorava ancora, con risultati sintetici nel log e poi quelli veri, e un secondo turno accanto al primo."""
+
+    def __init__(self, turno_id, ogni=None, massimo=None):
+        self.turno_id = turno_id
+        self.ogni = BATTITO_OGNI if ogni is None else ogni
+        self.massimo = BATTITO_MASSIMO if massimo is None else massimo
+        self._fine = threading.Event()
+
+    def segna(self):
+        Turno.objects.filter(pk=self.turno_id, stato=Turno.IN_CORSO).update(battito=timezone.now())
+
+    def _gira(self):
+        scadenza = time.monotonic() + self.massimo
+        try:
+            while not self._fine.wait(self.ogni) and time.monotonic() < scadenza:
+                try:
+                    self.segna()
+                except Exception:                  # il database occupato un momento: si riprova al giro dopo
+                    log.exception("battito del turno %s", self.turno_id)
+        finally:
+            connection.close()                     # thread suo, connessione sua
+
+    def __enter__(self):
+        threading.Thread(target=self._gira, daemon=True, name=f"ai-battito-{self.turno_id}").start()
+        return self
+
+    def __exit__(self, *errore):
+        self._fine.set()
+
+
 def esegui(turno_id):
+    with _Battito(turno_id):
+        return _esegui(turno_id)
+
+
+def _esegui(turno_id):
     turno = Turno.objects.select_related("conversazione", "utente", "azienda").get(pk=turno_id)
     conversazione, utente = turno.conversazione, turno.utente
     e = _Esecuzione(turno)

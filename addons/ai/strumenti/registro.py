@@ -86,6 +86,7 @@ def disponibili(utente, ambito="", azienda=None):
 
 def _testo(valore):
     testo = valore if isinstance(valore, str) else json.dumps(valore, ensure_ascii=False, default=str)
+    testo = testo.replace("\x00", "")                  # da un file o una pagina: Postgres non li salva (turno in errore)
     if len(testo) > LIMITE_RISULTATO:
         testo = testo[:LIMITE_RISULTATO] + f"\n[…risultato troncato: {len(testo)} caratteri in tutto]"
     return testo
@@ -103,7 +104,7 @@ def _esegui_uno(chiamata, contesto, ammessi):
     s = ammessi.get(chiamata.nome)
     if s is None:
         return {"id": chiamata.id, "contenuto": f"Strumento «{chiamata.nome}» inesistente o non permesso.", "errore": True}
-    if "_non_valido" in chiamata.argomenti:
+    if not isinstance(chiamata.argomenti, dict) or "_non_valido" in chiamata.argomenti:   # «null», un numero: non è un errore interno
         return {"id": chiamata.id, "contenuto": "Argomenti non validi (JSON illeggibile): riprova.", "errore": True}
     funzione = s.funzione if s.rischio == "lettura" else _proponi(s)
     try:

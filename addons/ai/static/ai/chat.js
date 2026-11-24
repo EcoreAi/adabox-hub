@@ -246,7 +246,7 @@
     boxConferma.querySelector('[data-conferma-bottoni]').hidden = fatta;
   }
   if (boxConferma) {
-    boxConferma.querySelector('[data-conferma-si]').addEventListener('click', () => { campoConferma.value = '1'; aggiornaConferma(); input.focus(); });
+    boxConferma.querySelector('[data-conferma-si]').addEventListener('click', () => { campoConferma.value = '1'; aggiornaConferma(); aggiorna(); input.focus(); });
     boxConferma.querySelector('[data-conferma-togli]').addEventListener('click', () => {
       const dt = new DataTransfer();
       [...campoFile.files].forEach((f) => { if (!f.type.startsWith('image/')) dt.items.add(f); });
@@ -437,7 +437,8 @@
     seguiInCorso();
   });
   document.body.addEventListener('htmx:beforeRequest', (e) => {
-    if (e.detail.elt === form) invia.disabled = true;
+    // non se l'invio è stato fermato (immagine da confermare): senza richiesta non arriva afterRequest a riaccenderlo
+    if (e.detail.elt === form && !e.defaultPrevented) invia.disabled = true;
   });
   document.body.addEventListener('htmx:afterRequest', (e) => {
     if (e.detail.elt === form && !messaggi.querySelector('[data-flusso]')) { aggiorna(); input.focus(); }
@@ -605,7 +606,9 @@
     if (e.target.closest('[data-tela] [data-scrittura]')) modificato = true;
   });
   document.body.addEventListener('htmx:afterSwap', (e) => {
-    if (e.detail.target && e.detail.target.id === 'ai-tela') modificato = false;
+    // dopo un conflitto il testo non salvato è solo nel riquadro «da ricopiare»: conta ancora come modifica in sospeso,
+    // altrimenti la prossima risposta ricarica il documento e quel testo si perde
+    if (e.detail.target && e.detail.target.id === 'ai-tela') modificato = !!document.querySelector('#ai-tela .ai-tela-perso');
   });
   document.body.addEventListener('htmx:afterSettle', (e) => {
     const t = tela();

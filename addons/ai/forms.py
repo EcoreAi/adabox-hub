@@ -49,7 +49,25 @@ class ProviderForm(forms.ModelForm):
             if chiave and not chiave.startswith("sk-ant-"):
                 self.add_error("nuova_chiave", "Non sembra una chiave API Anthropic (inizia con «sk-ant-»). "
                                                "Forse il browser ha inserito da solo la password del login.")
+        self._controlla_cambio_indirizzo(dati)
         return dati
+
+    def _controlla_cambio_indirizzo(self, dati):
+        """Chi cambia il server dell'API se ne farebbe mandare la chiave salvata (che dal form non si legge) insieme
+        alle chat di tutti: se il server cambia, la chiave va riscritta da chi la conosce. Le chiavi delle aziende
+        chi modifica il provider non le può riscrivere: con quelle il server lo cambia solo il Global Admin."""
+        from urllib.parse import urlparse
+        if not self.instance.pk or "base_url" not in dati:
+            return
+        prima = Provider.objects.filter(pk=self.instance.pk).values_list("base_url", flat=True).first() or ""
+        if (urlparse(prima).hostname or "").lower() == (urlparse(dati.get("base_url") or "").hostname or "").lower():
+            return
+        if not self.global_admin and self.instance.chiavi_azienda.exclude(chiave_cifrata="").exists():
+            self.add_error("base_url", "Su questo provider ci sono chiavi API delle aziende: cambiando il server arriverebbero "
+                                       "al nuovo indirizzo. Lo cambia il Global Admin.")
+        elif self.instance.chiave_cifrata and not (dati.get("nuova_chiave") or dati.get("togli_chiave")):
+            self.add_error("nuova_chiave", "Hai cambiato il server dell'API: la chiave salvata arriverebbe al nuovo indirizzo. "
+                                           "Scrivila di nuovo per confermare, oppure toglila.")
 
     def save(self, commit=True):
         provider = super().save(commit=False)

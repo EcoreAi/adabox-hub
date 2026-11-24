@@ -98,3 +98,57 @@ def test_regola_rotta_nasconde_tutto(client, s):
     RegolaRiga.objects.filter(vista="crm.opportunita").update(campo="sparito")
     client.force_login(s["anna"])
     assert "Di Anna" not in client.get("/crm/opportunita/").content.decode()
+
+
+def test_i_campi_di_una_tabella_collegata_seguono_i_permessi_di_quella_tabella(client, s):
+    """contatto__codice_fiscale da una vista che si vede: senza poter vedere i Contatti non si raggruppa, non si
+    filtra e non si ordina per i loro campi (prima bastava il salto sulla relazione per leggerli tutti)."""
+    from django.contrib.auth.models import Permission
+
+    from ai.strumenti import Contesto
+    from ai.strumenti.viste import aggrega_record, cerca_record
+    from contatti.models import Contatto
+    cliente = Contatto.objects.create(azienda=s["az"], nome="Rossi Srl", codice_fiscale="RSSMRA80A01H501U")
+    type(s["sua"]).objects.filter(pk=s["sua"].pk).update(contatto=cliente)
+    ctx = Contesto(utente=s["anna"], azienda=s["az"])
+    for chiamata in (lambda: aggrega_record(ctx, "crm.opportunita", per="contatto__codice_fiscale"),
+                     lambda: cerca_record(ctx, "crm.opportunita", filtri={"contatto__codice_fiscale__istartswith": "RSS"}),
+                     lambda: cerca_record(ctx, "crm.opportunita", ordina="-contatto__codice_fiscale")):
+        with pytest.raises(Exception, match="non hai accesso"):
+            chiamata()
+    # il nome del record collegato si legge già dove la relazione è mostrata: quello resta
+    assert "Rossi Srl" in str(aggrega_record(ctx, "crm.opportunita", per="contatto__nome")["gruppi"])
+    assert cerca_record(ctx, "crm.opportunita", filtri={"contatto__id": cliente.pk})["totale"] == 1
+    # con il permesso sui Contatti si può; con il campo nascosto al ruolo in quella vista di nuovo no
+    s["anna"].user_permissions.add(Permission.objects.get(content_type__app_label="contatti", codename="view_contatto"))
+    ctx = Contesto(utente=User.objects.get(pk=s["anna"].pk), azienda=s["az"])
+    gruppi = aggrega_record(ctx, "crm.opportunita", per="contatto__codice_fiscale")["gruppi"]
+    assert "RSSMRA80A01H501U" in str(gruppi)
+    PermessoCampo.objects.create(vista="contatti.contatti", campo="codice_fiscale", ruolo=s["anna"].profilo.ruolo, livello="nascosto")
+    cache.clear()
+    ctx = Contesto(utente=User.objects.get(pk=s["anna"].pk), azienda=s["az"])           # una richiesta nuova: i permessi si ricordano per richiesta
+    with pytest.raises(Exception, match="non è disponibile per il tuo ruolo"):
+        aggrega_record(ctx, "crm.opportunita", per="contatto__codice_fiscale")
+
+
+def test_di_un_utente_collegato_si_leggono_solo_i_nomi(client, s):
+    from ai.strumenti import Contesto
+    from ai.strumenti.viste import aggrega_record, cerca_record
+    ctx = Contesto(utente=s["anna"], azienda=s["az"])
+    assert aggrega_record(ctx, "crm.opportunita", per="commerciale__username")["gruppi"]
+    for campo in ("is_superuser", "email", "last_login", "groups"):
+        with pytest.raises(Exception, match="solo nome, cognome e nome utente"):
+            aggrega_record(ctx, "crm.opportunita", per=f"commerciale__{campo}")
+    with pytest.raises(Exception, match="solo nome, cognome e nome utente"):
+        cerca_record(ctx, "crm.opportunita", filtri={"commerciale__is_superuser": True})
+
+
+def test_ordine_e_previsione_non_usano_un_campo_nascosto_al_ruolo(client, s):
+    from ai import specialisti
+    from ai.strumenti import Contesto, richiesta
+    from ai.strumenti.viste import cerca_record, vista_per
+    ctx = Contesto(utente=s["anna"], azienda=s["az"])
+    with pytest.raises(Exception, match="non è disponibile per il tuo ruolo"):
+        cerca_record(ctx, "crm.opportunita", ordina="-valore_atteso")
+    with pytest.raises(Exception, match="non è disponibile per il tuo ruolo"):
+        specialisti.serie_storica(vista_per(ctx, "crm.opportunita"), richiesta.per(ctx), "creata", misura="sum:valore_atteso")

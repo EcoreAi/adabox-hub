@@ -239,6 +239,16 @@ def _area_gestita(request, pk):
     return aree.gestita(request.user, getattr(request, "azienda", None), pk)
 
 
+def _nome_file(titolo, predefinito):
+    """Il titolo come nome di file. get_valid_filename non restituisce mai un nome vuoto: per un titolo senza lettere
+    né cifre («???», un'emoji) solleva SuspiciousFileOperation, cioè una risposta 400 a ogni esportazione."""
+    from django.core.exceptions import SuspiciousFileOperation
+    try:
+        return get_valid_filename(titolo) or predefinito
+    except SuspiciousFileOperation:
+        return predefinito
+
+
 def _ritorno(indirizzo):
     """L'indirizzo a cui tornare dopo un'azione, solo se è una pagina del gestionale; altrimenti "". Non basta
     guardare le prime due barre: «/\\altro.sito» per un browser è «//altro.sito», cioè un altro sito."""
@@ -409,7 +419,7 @@ def esporta(request, pk):
         righe += [f"## {'Tu' if m.ruolo == MessaggioChat.UTENTE else 'Assistente'} · {timezone.localtime(m.creato):%d/%m/%Y %H:%M}", "", m.testo, ""]
         righe += [f"Allegato: {a.nome}" for a in allegati_chat.di(m)]
     risposta = HttpResponse("\n".join(righe), content_type="text/markdown; charset=utf-8")
-    risposta["Content-Disposition"] = content_disposition_header(True, f"{get_valid_filename(c.titolo) or 'chat'}.md")
+    risposta["Content-Disposition"] = content_disposition_header(True, f"{_nome_file(c.titolo, 'chat')}.md")
     return risposta
 
 
@@ -676,10 +686,10 @@ def filtro_artifact(request, pk):
     campo, chiave = request.POST.get("campo", ""), request.POST.get("chiave", "")
     try:
         a.spec = misure.scegli_filtro(a.spec, campo, *misure.valore_scelto(a.spec, campo, chiave, request), request)
-        a.dati = modulo.ricalcola(a)
+        a.dati, a.aggiornato = modulo.ricalcola(a), timezone.now()
     except ErroreInterrogazione as e:
-        return HttpResponseBadRequest(str(e))
-    a.save(update_fields=["spec", "dati"])
+        return HttpResponseBadRequest(str(e), content_type="text/plain; charset=utf-8")
+    a.save(update_fields=["spec", "dati", "aggiornato"])
     if request.headers.get("HX-Request"):
         return render(request, "ai/_artifact.html", {"a": a})
     return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
@@ -700,11 +710,11 @@ def periodo_artifact(request, pk):
         raise Http404
     try:
         vecchia, a.spec = a.spec, misure.scegli_periodo(a.spec, *misure.scelta_dal_form(request.POST))
-        a.dati = modulo.ricalcola(a)
+        a.dati, a.aggiornato = modulo.ricalcola(a), timezone.now()
     except ErroreInterrogazione as e:
-        return HttpResponseBadRequest(str(e))
+        return HttpResponseBadRequest(str(e), content_type="text/plain; charset=utf-8")
     a.titolo = misure.titolo_dopo_il_periodo(a.titolo, vecchia, a.spec)[:200]
-    a.save(update_fields=["spec", "dati", "titolo"])
+    a.save(update_fields=["spec", "dati", "titolo", "aggiornato"])
     if request.headers.get("HX-Request"):
         return render(request, "ai/_artifact.html", {"a": a})
     return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
@@ -719,11 +729,11 @@ def aggiorna_artifact(request, pk):
     from . import artifact as modulo
     a = _mio_artifact(request, pk)
     try:
-        a.dati = modulo.ricalcola(a)
+        a.dati, a.aggiornato = modulo.ricalcola(a), timezone.now()
     except ErroreInterrogazione as e:
         messages.error(request, f"Non si è potuto aggiornare: {e}")
     else:
-        a.save(update_fields=["dati"])
+        a.save(update_fields=["dati", "aggiornato"])
     if request.headers.get("HX-Request"):
         return render(request, "ai/_artifact.html", {"a": a})
     return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
@@ -824,7 +834,7 @@ def scarica_documento(request, pk, formato):
     d = condivisione.leggibile(DocumentoChat, request.user, pk)
     if d is None or formato not in ("md", "docx", "pdf"):
         raise Http404
-    nome = get_valid_filename(d.titolo) or "documento"
+    nome = _nome_file(d.titolo, "documento")
     if formato == "md":
         risposta = HttpResponse(f"# {d.titolo}\n\n{d.testo}", content_type="text/markdown; charset=utf-8")
     elif formato == "pdf":

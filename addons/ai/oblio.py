@@ -85,9 +85,10 @@ def dimentica(documento, utente, motivo=""):
     for ev in Evento.objects.filter(turno_id__in=turni, tipo=Evento.ASSISTENTE):
         blocchi = ev.dati.get("blocchi", [])
         strumenti = [b for b in blocchi if b.get("tipo") == "strumento"]
-        if len(strumenti) < len(blocchi):                    # testo e ragionamento del modello: via
+        if len(strumenti) < len(blocchi) or "nativo" in ev.dati:     # testo e ragionamento del modello: via
             nuovi = strumenti or [{"tipo": "testo", "testo": NOTA_RISPOSTA}]
-            Evento.objects.filter(pk=ev.pk).update(dati={**ev.dati, "blocchi": nuovi})
+            # via anche la copia nel formato del provider: è quella che si rimanda al modello al turno dopo
+            Evento.objects.filter(pk=ev.pk).update(dati={**{k: v for k, v in ev.dati.items() if k != "nativo"}, "blocchi": nuovi})
     risposte += MessaggioChat.objects.filter(turno_id__in=turni, ruolo=MessaggioChat.ASSISTENTE).update(testo=NOTA_RISPOSTA)
     Turno.objects.filter(pk__in=turni).update(testo=NOTA_RISPOSTA, provenienza={}, avanzamento=[])
     riassunti = Evento.objects.filter(conversazione_id__in=conversazioni, tipo=Evento.RIASSUNTO).delete()[0]

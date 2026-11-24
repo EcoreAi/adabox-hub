@@ -59,7 +59,7 @@ def estrai(nome, dati):
         return [], "non_supportato"
     try:
         if estensione in TESTUALI:
-            testo = dati.decode("utf-8", errors="replace")
+            testo = dati.decode("utf-8", errors="replace").replace("\x00", "")   # un file UTF-16: Postgres rifiuta i nulli
             return [(None, re.sub(r"<[^>]+>", " ", testo) if estensione in ("html", "htm", "xml") else testo)], "ok"
         if estensione == "pdf":
             from pypdf import PdfReader
@@ -185,11 +185,27 @@ def _frammenti_a_sezioni(vista, campi, ct, obj, azienda_id):
             n += 1
 
 
+def _documenti_dimenticati():
+    """{(tipo di contenuto, id)} dei documenti fatti dimenticare ad Ada (ai.oblio): senza, il giro dopo rimetteva
+    nell'indice le note del chatter che «Fai dimenticare» aveva appena tolto."""
+    from django.apps import apps
+    if not apps.is_installed("documenti"):
+        return set()
+    from django.contrib.contenttypes.models import ContentType
+
+    from documenti.models import Documento
+    ct = ContentType.objects.get_for_model(Documento).pk
+    return {(ct, pk) for pk in IndiceDocumento.objects.filter(stato=IndiceDocumento.ESCLUSO).values_list("documento_id", flat=True)}
+
+
 def frammenti_note():
     """Note e messaggi del chatter (non i tracciamenti né gli eventi di sistema), legati al loro record."""
     from core.models import Messaggio
+    dimenticati = _documenti_dimenticati()
     for m in (Messaggio.objects.filter(tipo__in=[Messaggio.NOTA, Messaggio.MESSAGGIO]).exclude(corpo="")
               .select_related("content_type", "autore").iterator(chunk_size=500)):
+        if (m.content_type_id, m.object_id) in dimenticati:  # le note di un documento fatto dimenticare restano fuori
+            continue
         record = m.record
         if record is None:
             continue

@@ -421,6 +421,44 @@ def test_fai_dimenticare_un_documento(scena, archivio, con_servizio, client):
 
 
 @con_documenti
+def test_un_documento_dimenticato_non_si_legge_nemmeno_su_richiesta(scena, archivio, con_servizio, client):
+    """Prima usciva dall'indice ma leggi_documento lo leggeva ancora; la risposta tolta restava nella copia «nativa»
+    dell'evento, quella che si rimanda al modello; e il giro dopo rimetteva nell'indice le note del suo chatter."""
+    from ai import oblio
+    from ai.models import Evento
+    from ai.strumenti.registro import ErroreStrumento
+    from core import chatter
+    from core.models import Messaggio
+    from documenti import servizi
+    segreto = servizi.carica(archivio, ContentFile(b"Il fornitore Gamma applica lo sconto segreto del 37 per cento.",
+                                                   name="accordo-gamma.txt"), scena["capo"])
+    chatter.scrivi(segreto, scena["capo"], "Sconto Gamma concordato a voce con il titolare.", tipo=Messaggio.NOTA)
+    conoscenza.indicizza()
+    suoi = Frammento.objects.filter(content_type=ContentType.objects.get_for_model(segreto), object_id=segreto.pk)
+    assert suoi.filter(fonte=Frammento.NOTA).exists() and suoi.filter(fonte=Frammento.DOCUMENTO).exists()
+    url = f"/documenti/documenti/{segreto.pk}/"
+    m = _risposta_con_citazione(scena, {"domanda": "fornitore Gamma sconto", "fonti": ["documento"]},
+                                f"Gamma applica uno sconto del 37 per cento [1]({url}).")
+    risposta = Evento.objects.filter(conversazione=m.conversazione, tipo="assistente").order_by("-pk").first()
+    risposta.dati = {**risposta.dati, "nativo": {"contenuto": [{"type": "text", "text": "Gamma: sconto del 37 per cento."}]}}
+    risposta.save(update_fields=["dati"])
+    c = _contesto(scena["capo"], scena["azienda"])
+    assert "sconto segreto" in json.dumps(strumenti_conoscenza.leggi_documento(c, segreto.pk), ensure_ascii=False)
+
+    oblio.dimentica(segreto, scena["capo"], "richiesta GDPR")
+    with pytest.raises(ErroreStrumento, match="fatto dimenticare"):
+        strumenti_conoscenza.leggi_documento(c, segreto.pk)
+    eventi = Evento.objects.filter(conversazione=m.conversazione, tipo="assistente")
+    assert all("nativo" not in e.dati and "37 per cento" not in json.dumps(e.dati) for e in eventi)
+    assert not suoi.exists()
+    conoscenza.indicizza()                                   # il giro programmato: le note non devono tornare
+    assert not suoi.filter(fonte__in=[Frammento.NOTA, Frammento.DOCUMENTO]).exists()
+
+    oblio.riammetti(segreto, scena["capo"])
+    assert "sconto segreto" in json.dumps(strumenti_conoscenza.leggi_documento(c, segreto.pk), ensure_ascii=False)
+
+
+@con_documenti
 def test_fai_dimenticare_serve_il_permesso(scena, archivio, client):
     from documenti import servizi
     d = servizi.carica(archivio, ContentFile(b"Testo.", name="nota.txt"), scena["capo"])

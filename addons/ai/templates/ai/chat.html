@@ -153,7 +153,7 @@
             </div>
           </div>{% endif %}
           <p class="ai-voce-stato" data-voce-stato role="status" hidden></p>
-          <textarea name="testo" rows="3" class="ai-input" placeholder="{% if conversazione %}Rispondi…{% else %}Come posso aiutarti oggi?{% endif %}" aria-label="Messaggio" required>{{ chiedi }}</textarea>
+          <textarea name="testo" rows="3" class="ai-input" placeholder="{% if conversazione %}Rispondi…{% else %}Come posso aiutarti oggi?{% endif %}" aria-label="Messaggio">{{ chiedi }}</textarea>
           <div class="ai-composer-barra">
             <input type="file" name="allegati" multiple hidden data-file accept=".pdf,.docx,.xlsx,.xlsm,.csv,.tsv,.txt,.md,.json,.xml,.html,.htm,.eml,.png,.jpg,.jpeg,.webp,.gif">
             <button type="button" class="ai-tondo" data-allega data-tip="Allega PDF, Word, Excel, CSV, testo o immagini (fino a 5 file)" aria-label="Allega dei file"><svg><use href="#ai-piu"/></svg></button>

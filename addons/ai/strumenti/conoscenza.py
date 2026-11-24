@@ -127,7 +127,11 @@ def _documento(contesto, id):
         raise ErroreStrumento("L'app Documenti non è installata.")
     from .viste import oggetto, vista_per
     vista = vista_per(contesto, "documenti.documenti")
-    return vista, oggetto(vista, richiesta.per(contesto), id)
+    documento = oggetto(vista, richiesta.per(contesto), id)
+    from .. import oblio
+    if oblio.escluso(documento.pk):                      # «Fai dimenticare ad Ada»: fuori dall'indice e anche da qui
+        raise ErroreStrumento("Questo documento è stato fatto dimenticare all'assistente: non lo posso leggere.")
+    return vista, documento
 
 
 def _dati(documento):

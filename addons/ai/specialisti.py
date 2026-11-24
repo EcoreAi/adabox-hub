@@ -89,6 +89,7 @@ def serie_storica(vista, request, data, misura="count", per="mese", filtri=None,
     from .strumenti import viste
     if per not in UNITA:
         raise ErroreStrumento("«per» è mese, settimana o giorno.")
+    viste.controlla_nascosti(vista, request, misura or "count", data)   # come aggrega: niente campi nascosti al ruolo
     espressione, _ = viste._misura(vista, misura or "count")
     lookup, campo, _ = viste._percorso(vista, data, con_operatore=False)
     if not isinstance(campo, (models.DateField, models.DateTimeField)):

@@ -53,7 +53,10 @@ def svg_artifact(a):
     from django.utils.safestring import mark_safe
 
     from ai import artifact as modulo
-    return mark_safe(modulo.svg_di(a))                  # SVG del kernel: testi già passati da escape
+    try:
+        return mark_safe(modulo.svg_di(a))              # SVG del kernel: testi già passati da escape
+    except (TypeError, ValueError, KeyError):           # dati che non si disegnano: la chat si deve aprire lo stesso
+        return ""
 
 
 @register.filter
@@ -63,11 +66,14 @@ def serie_artifact(a, dati=None):
     dati = dati if dati is not None else a.dati
     if a.spec.get("grafico") == "previsione" or not dati or not dati.get("serie"):
         return None
-    serie = [tuple(c) for c in dati["serie"]]
+    try:
+        serie = [(str(e), float(v)) for e, v in dati["serie"]]
+    except (TypeError, ValueError):                         # un valore che non è un numero: niente grafico, la pagina resta
+        return None
     link = [x or None for x in dati.get("link", [])]        # salvati prima dei link: nessun clic finché non si aggiorna
     return {"dom": f"ai-serie-{a.pk}", "dati": {
-        "tipo": a.spec.get("grafico", "barre"), "titolo": a.titolo, "etichette": [str(e) for e, _ in serie],
-        "valori": [float(v) for _, v in serie], "link": link if any(link) else [],
+        "tipo": a.spec.get("grafico", "barre"), "titolo": a.titolo, "etichette": [e for e, _ in serie],
+        "valori": [v for _, v in serie], "link": link if any(link) else [],
         **({"confronto": dati["confronto"]} if dati.get("confronto") and a.spec.get("grafico") != "torta" else {})}}
 
 
