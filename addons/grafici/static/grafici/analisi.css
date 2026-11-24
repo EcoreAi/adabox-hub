@@ -166,11 +166,13 @@ a.an-tessera:hover, .an-tessera-nuova summary:hover { border-color: var(--ui-pri
 .an-cost-riga { display: flex; gap: 10px; align-items: flex-end; } .an-cost-riga .ui-label { flex: 1; min-width: 0; }
 .an-cost-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding-bottom: 9px; white-space: nowrap; color: var(--ui-text-2); }
 .an-tipi-scelta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.an-tipo { position: relative; } .an-tipo input { position: absolute; opacity: 0; width: 0; height: 0; }
-.an-tipo span { display: block; text-align: center; padding: 8px 6px; border: 1px solid var(--ui-border); border-radius: 10px; font-size: 12.5px; color: var(--ui-text-2); cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
-.an-tipo span:hover { border-color: var(--ui-text-3); }
-.an-tipo input:checked + span { border-color: var(--ui-primary); color: var(--ui-primary); background: color-mix(in srgb, var(--ui-primary) 8%, transparent); font-weight: 600; }
-.an-tipo input:focus-visible + span { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
+/* le voci di «Forma» nel costruttore: una classe loro (con .an-tipo prendevano anche le regole del bollino del tipo nella
+   libreria, una pillola alta 22px, e il riquadro ne usciva); alte uguali nella stessa riga, anche se una va a capo */
+.an-forma { position: relative; display: flex; } .an-forma input { position: absolute; opacity: 0; width: 0; height: 0; }
+.an-forma span { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; padding: 8px 6px; border: 1px solid var(--ui-border); border-radius: 10px; font-size: 12.5px; line-height: 1.3; color: var(--ui-text-2); cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
+.an-forma span:hover { border-color: var(--ui-text-3); }
+.an-forma input:checked + span { border-color: var(--ui-primary); color: var(--ui-primary); background: color-mix(in srgb, var(--ui-primary) 8%, transparent); font-weight: 600; }
+.an-forma input:focus-visible + span { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
 .an-cost-azioni { display: flex; justify-content: flex-end; padding-top: 4px; }
 .an-cost-anteprima { position: sticky; top: 76px; } .an-anteprima-tabella { margin-top: 14px; max-height: 320px; overflow: auto; }
 @media (max-width: 1000px) { .an-costruttore { grid-template-columns: 1fr; } .an-cost-anteprima { position: static; } }
