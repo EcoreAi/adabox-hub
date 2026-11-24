@@ -103,8 +103,21 @@ def manifest(request):
 
 
 def service_worker(request):
+    import json
+
+    from django.conf import settings
     from django.template.loader import render_to_string
-    risposta = HttpResponse(render_to_string("theme/sw.js"), content_type="application/javascript")
+    from django.utils.module_loading import import_string
+    # Le pagine che i moduli vogliono apribili senza rete: come per le scorciatoie, il tema non conosce il kernel e la
+    # funzione che le dà arriva dalle impostazioni (THEME["senza_rete"]). Senza, nessuna pagina in cache, come prima.
+    senza_rete = {"pagine": [], "statici": []}
+    if (percorso := settings.THEME.get("senza_rete")):
+        try:
+            senza_rete = {**senza_rete, **import_string(percorso)()}
+        except Exception:                                 # noqa: BLE001 - il service worker deve uscire comunque
+            pass
+    codice = render_to_string("theme/sw.js", {"senza_rete": json.dumps(senza_rete, ensure_ascii=False)})
+    risposta = HttpResponse(codice, content_type="application/javascript")
     risposta["Service-Worker-Allowed"] = "/"
     risposta["Cache-Control"] = "no-cache"
     return risposta

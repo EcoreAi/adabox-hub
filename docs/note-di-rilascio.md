@@ -5,6 +5,18 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-24
 
+- **Pagine dei moduli apribili senza rete** — Kernel 1.17.0 (nessuna migrazione).
+  - Un modulo dichiara dal `ready()` una pagina da tenere apribile senza rete, con i suoi file:
+    `hooks.pagina_senza_rete("iem:scansiona", statici=["iem/scansiona.js"])`. Il service worker dell'app installata ne
+    tiene l'ultima copia sul dispositivo di chi l'ha aperta almeno una volta con la rete e la mostra quando la rete
+    manca, al posto di «Sei offline». Le altre pagine restano com'erano: sempre dal server.
+  - La copia ha il token CSRF di quando è stata salvata: tornata la rete, prima di inviare la pagina lo rilegge (un
+    `fetch` di se stessa e `<meta name="csrf-token">`). Le copie si cancellano passando dal login o dal logout.
+  - L'invio ad app chiusa (Background Sync) non c'è: esiste solo su Chrome per Android. Ciò che resta in coda parte
+    alla riapertura della pagina, come oggi.
+  - Come per le scorciatoie, il tema riceve l'elenco da `THEME["senza_rete"]`: un'istanza con un `settings.py` proprio
+    deve aggiungere quella voce. Provato con un simulatore, non su un telefono: va verificato sul campo.
+
 - **Voci dei moduli nella pagina «In tasca»** — Kernel 1.16.0 (nessuna migrazione).
   - Un modulo aggiunge la sua voce dal `ready()`: `hooks.voce_tasca("Scansiona documento", "iem:scansiona",
     icona="search", permission="iem.add_documento", sotto="DDT e fatture", scorciatoia=True)`. Compare per prima, per
