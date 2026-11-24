@@ -78,6 +78,8 @@ def manifest(request):
 
     from django.conf import settings
     from django.urls import reverse
+
+    from core.registry import hooks
     brand = settings.THEME.get("brand", "adabox")
     dati = {"name": brand, "short_name": brand[:12], "lang": "it", "dir": "ltr",
             "start_url": "/tasca/?da=app", "scope": "/", "display": "standalone", "background_color": "#ffffff", "theme_color": colore_tema(),
@@ -85,7 +87,9 @@ def manifest(request):
             "icons": [{"src": reverse("theme:icona", args=[192]), "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
                       {"src": reverse("theme:icona", args=[512]), "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}],
             # le scorciatoie passano da «In tasca»: è il kernel a sapere se la pagina esiste e se la persona la può usare
-            "shortcuts": [{"name": "Parla con Ada", "url": "/tasca/?apri=parla"}, {"name": "Chat con Ada", "url": "/tasca/?apri=chat"},
+            # per prime quelle che i moduli hanno chiesto (hooks.voce_tasca con scorciatoia=True): il telefono ne mostra poche
+            "shortcuts": [*hooks.scorciatoie_tasca(),
+                          {"name": "Parla con Ada", "url": "/tasca/?apri=parla"}, {"name": "Chat con Ada", "url": "/tasca/?apri=chat"},
                           {"name": "In tasca", "url": "/tasca/?apri=tasca"}, {"name": "Da approvare", "url": "/approvazioni/"},
                           {"name": "Le mie attività", "url": "/attivita/"}]}
     return HttpResponse(json.dumps(dati, ensure_ascii=False), content_type="application/manifest+json")

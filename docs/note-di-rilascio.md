@@ -5,6 +5,15 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-24
 
+- **Voci dei moduli nella pagina «In tasca»** — Kernel 1.16.0 (nessuna migrazione).
+  - Un modulo aggiunge la sua voce dal `ready()`: `hooks.voce_tasca("Scansiona documento", "iem:scansiona",
+    icona="search", permission="iem.add_documento", sotto="DDT e fatture", scorciatoia=True)`. Compare per prima, per
+    chi ha il permesso, con l'app accesa, attiva per l'azienda corrente e tra quelle dei suoi dipartimenti. `conta` è una
+    funzione che riceve la richiesta e dà il numero del bollino.
+  - Con `scorciatoia=True` la voce va anche tra le scorciatoie dell'icona dell'app installata, prima di quelle del
+    kernel (il telefono ne mostra tre o quattro): si apre da `/tasca/?apri=<nome URL>`, con gli stessi controlli. Le
+    scorciatoie le legge il telefono quando installa o aggiorna l'app: su un'app già installata possono arrivare dopo.
+
 - **Prima pagina per ruolo e per persona** — Kernel 1.15.0 (migrazione `core.0045`: prima pagina su ruolo e profilo).
   - Nel ruolo (Utenti → Ruoli) e nella scheda di una persona chi amministra sceglie la **prima pagina**: la Dashboard,
     «In tasca» o una voce di menu di un'app. È dove si arriva dopo l'accesso; la scelta sulla persona vince su quella
