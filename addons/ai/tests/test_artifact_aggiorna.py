@@ -30,3 +30,20 @@ def test_aggiorna_artifact_solo_il_proprietario(client, superuser):
     a = Artifact.objects.create(conversazione=Conversazione.objects.create(utente=bruno), utente=bruno, tipo="grafico",
                                 titolo="Di Bruno", spec={"tipo": "grafico", "vista": "core.aziende", "per": "provincia"}, dati={})
     assert client.post(f"/ai/artifact/{a.pk}/aggiorna/").status_code == 404
+
+
+def test_senza_piu_accesso_all_azienda_il_grafico_non_si_ricalcola(client, superuser):
+    """Il grafico resta di chi l'ha chiesto, ma i dati di oggi di un'azienda a cui non accede più non li legge: la
+    richiesta finta degli strumenti prende l'azienda dall'artifact, senza il controllo del middleware."""
+    Azienda.objects.filter(pk=1).update(provincia="MI")
+    altra = Azienda.objects.create(nome="Beta", provincia="RM")
+    a = _grafico(superuser)
+    fotografia = a.dati["serie"]
+    superuser.profilo.aziende.set([altra])                    # spostato su un'altra azienda del gruppo
+    Azienda.objects.filter(pk=1).update(provincia="ZQ")       # un dato nuovo, che non deve più vedere da qui
+    r = client.post(f"/ai/artifact/{a.pk}/aggiorna/", follow=True)
+    a.refresh_from_db()
+    assert a.dati["serie"] == fotografia and "non hai più accesso" in r.content.decode()
+    assert "ZQ" not in client.get(f"/ai/artifact/{a.pk}/csv/?oggi=1").content.decode()
+    pagina = client.get(f"/ai/artifact/{a.pk}/").content.decode()
+    assert "non hai più accesso" in pagina and "ZQ" not in pagina

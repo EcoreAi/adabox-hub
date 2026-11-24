@@ -239,6 +239,13 @@ def _area_gestita(request, pk):
     return aree.gestita(request.user, getattr(request, "azienda", None), pk)
 
 
+def _ritorno(indirizzo):
+    """L'indirizzo a cui tornare dopo un'azione, solo se è una pagina del gestionale; altrimenti "". Non basta
+    guardare le prime due barre: «/\\altro.sito» per un browser è «//altro.sito», cioè un altro sito."""
+    from django.utils.http import url_has_allowed_host_and_scheme
+    return indirizzo if indirizzo.startswith("/") and url_has_allowed_host_and_scheme(indirizzo, allowed_hosts=None) else ""
+
+
 def _errore_invio(request, testo, pk):
     """Il file rifiutato: col messaggio scritto ancora nel campo, se si invia dalla chat."""
     if request.headers.get("HX-Request"):
@@ -265,6 +272,12 @@ def invia(request, pk=None):
         return HttpResponse(status=204) if request.headers.get("HX-Request") else redirect(
             reverse("ai:conversazione", args=[pk]) if pk else reverse("ai:chat"))
     nuova = conversazione is None
+    if not nuova:
+        # con una risposta ancora in corso (un'altra scheda, il telefono) motore.avvia restituirebbe quel turno e
+        # il messaggio andrebbe perso senza dirlo: resta nel campo, con il motivo
+        motore.segna_interrotti(conversazione)
+        if motore.in_corso_di(conversazione) is not None:
+            return _errore_invio(request, "In questa chat c'è già una risposta in corso: fermala o aspetta che finisca.", pk)
     ammessi = {a["slug"] for a in app_selezionabili(request.user)}
     ambito = request.POST.get("ambito", "")
     ambito = ambito if ambito in ammessi else ""
@@ -361,8 +374,7 @@ def area_corrente(request):
     area = _mio_progetto(request, request.POST.get("area"))
     if area is not None:
         aree.imposta_corrente(request.user, area)
-    prossimo = request.POST.get("da", "")
-    return redirect(prossimo if prossimo.startswith("/") and not prossimo.startswith("//") else "ai:chat")
+    return redirect(_ritorno(request.POST.get("da", "")) or "ai:chat")
 
 
 @require_POST
@@ -839,7 +851,8 @@ def trascrivi_voce(request):
         return JsonResponse({"errore": "La dettatura non è attiva."}, status=400)
     try:
         return JsonResponse({"testo": voce.trascrivi(file, request.POST.get("lingua", ""), azienda=azienda,
-                                                    parole=voce.parole_note(request.user, azienda))})
+                                                    parole=voce.parole_note(request.user, azienda),
+                                                    solo_locale=parla.in_chat_riservata(request))})
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
 
@@ -1195,8 +1208,7 @@ def collega(request, pk):
     else:
         CollegamentoProgetto.objects.get_or_create(progetto=progetto, content_type_id=int(ct), object_id=int(record))
         messages.success(request, f"«{trovato[1]}» collegato all'area di lavoro «{progetto.nome}».")
-    indietro = request.POST.get("indietro", "")
-    return redirect(indietro if indietro.startswith("/") and not indietro.startswith("//") else reverse("ai:progetto", args=[progetto.pk]))
+    return redirect(_ritorno(request.POST.get("indietro", "")) or reverse("ai:progetto", args=[progetto.pk]))
 
 
 @require_POST
@@ -1208,8 +1220,7 @@ def scollega(request, pk, collegamento):
     if progetto is None:
         raise Http404
     CollegamentoProgetto.objects.filter(pk=collegamento, progetto=progetto).delete()
-    indietro = request.POST.get("indietro", "")
-    return redirect(indietro if indietro.startswith("/") and not indietro.startswith("//") else reverse("ai:progetto", args=[progetto.pk]))
+    return redirect(_ritorno(request.POST.get("indietro", "")) or reverse("ai:progetto", args=[progetto.pk]))
 
 
 @require_POST
@@ -1318,8 +1329,7 @@ def collega_app(request, pk):
         app.append(slug)
     area.app_collegate = app
     area.save(update_fields=["app_collegate"])
-    prossimo = request.POST.get("da", "")
-    return redirect(prossimo if prossimo.startswith("/") and not prossimo.startswith("//") else reverse("ai:progetto", args=[area.pk]))
+    return redirect(_ritorno(request.POST.get("da", "")) or reverse("ai:progetto", args=[area.pk]))
 
 
 @login_required

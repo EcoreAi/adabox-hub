@@ -31,6 +31,7 @@ MAX_COSTO = Decimal("0.50")                     # dollari per turno
 MAX_TOKEN_DESCRIZIONE = 350                     # descrizione di un'immagine fatta in locale (su CPU circa 40 secondi)
 INTERVALLO_SALVATAGGIO = 0.25                   # secondi tra due salvataggi del testo in uscita
 SENZA_BATTITO = timedelta(seconds=90)
+ATTESA_STOP = 10                                # secondi: quanto si aspetta che un turno fermato si chiuda
 
 MESSAGGI_ERRORE = {
     "AUTENTICAZIONE": "La chiave API del modello non è valida: avvisa l'amministratore.",
@@ -169,6 +170,20 @@ def _in_thread(turno_id):
 
 def ferma(turno):
     Turno.objects.filter(pk=turno.pk, stato=Turno.IN_CORSO).update(richiesta_stop=True)
+
+
+def ferma_e_attendi(turno, secondi=None, intervallo=0.2):
+    """Chiede lo stop e aspetta che il turno si chiuda davvero: lo stop si vede solo tra un pezzo di testo e l'altro e
+    a fine strumento, quindi può volerci qualche secondo. True se si è chiuso in tempo. Serve a chi deve avviare
+    subito un altro turno nella stessa conversazione (a voce, dopo un'interruzione): `avvia` con un turno ancora in
+    corso restituisce quello, e la domanda nuova andrebbe persa."""
+    ferma(turno)
+    scadenza = time.monotonic() + (ATTESA_STOP if secondi is None else secondi)
+    while Turno.objects.filter(pk=turno.pk, stato=Turno.IN_CORSO).exists():
+        if time.monotonic() >= scadenza:
+            return False
+        time.sleep(intervallo)
+    return True
 
 
 class _Fermati(Exception):

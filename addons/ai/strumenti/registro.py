@@ -109,9 +109,13 @@ def _esegui_uno(chiamata, contesto, ammessi):
     try:
         if _sincroni():
             return {"id": chiamata.id, "contenuto": _testo(funzione(contesto, **chiamata.argomenti)), "errore": False}
-        with ThreadPoolExecutor(max_workers=1) as esecutore:
+        # senza `with`: all'uscita aspetterebbe la fine dello strumento, e il timeout arriverebbe solo allora
+        esecutore = ThreadPoolExecutor(max_workers=1)
+        try:
             futuro = esecutore.submit(_con_chiusura, funzione, contesto, chiamata.argomenti)
             return {"id": chiamata.id, "contenuto": _testo(futuro.result(timeout=s.timeout)), "errore": False}
+        finally:
+            esecutore.shutdown(wait=False)
     except Scaduto:
         return {"id": chiamata.id, "contenuto": f"Lo strumento ha superato {s.timeout:g} secondi.", "errore": True}
     except ErroreStrumento as e:

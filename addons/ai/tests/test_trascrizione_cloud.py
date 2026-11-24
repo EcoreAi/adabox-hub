@@ -147,3 +147,16 @@ def test_parole_divise_e_prompt_al_whisper_locale(s, settings):
     voce._trascrivi_locale(SimpleUploadedFile("v.webm", b"x", "audio/webm"), "audio/webm", "it",
                            _client(viste, lambda r: (200, {"text": "ciao Ada"})), ["Ada", "Enrico"])
     assert 'name="prompt"' in viste[0].read().decode(errors="replace")
+
+
+def test_solo_locale_non_usa_il_cloud_nemmeno_con_il_consenso(s):
+    """Chat riservata: l'audio di chi parla resta sui nostri server, come la lettura delle risposte."""
+    _mistral()
+    s["valori"]["ai.trascrizione_cloud"] = True
+    viste = []
+    testo = voce.trascrivi(_audio(), "it", _client(viste, lambda r: (200, {"text": "locale"})), azienda=s["az"], solo_locale=True)
+    assert testo == "locale" and [str(r.url) for r in viste] == ["http://speaches:8000/v1/audio/transcriptions"]
+    s["valori"]["ai.url_voce"] = ""                                   # senza il servizio locale non si ripiega sul cloud
+    with pytest.raises(voce.ErroreVoce, match="chat riservata"):
+        voce.trascrivi(_audio(), "it", _client(viste, lambda r: (200, {"text": "cloud"})), azienda=s["az"], solo_locale=True)
+    assert len(viste) == 1

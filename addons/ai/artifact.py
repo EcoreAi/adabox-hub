@@ -227,7 +227,12 @@ def tabella(contesto, vista, testo="", filtri=None, ordina="", campi=None, limit
 
 
 def ricalcola(artifact):
-    """I dati di oggi per il proprietario dell'artifact (stessi permessi e azienda di quando l'ha chiesto)."""
+    """I dati di oggi per il proprietario dell'artifact (stessi permessi e azienda di quando l'ha chiesto). Se nel
+    frattempo ha perso l'accesso a quell'azienda non si ricalcola: la richiesta finta degli strumenti non passa dal
+    middleware che lo controlla, e un grafico salvato continuerebbe a leggere i dati di un'azienda non più sua."""
+    from core.azienda import consentite
+    if artifact.azienda_id is not None and artifact.azienda_id not in {a.pk for a in consentite(artifact.utente)}:
+        raise ErroreStrumento(f"non hai più accesso all'azienda «{artifact.azienda}»: restano i dati di quando l'hai chiesto.")
     contesto = Contesto(utente=artifact.utente, azienda=artifact.azienda, conversazione=artifact.conversazione)
     dati = calcola(artifact.spec, contesto)
     artifact.aggiornato = timezone.now()

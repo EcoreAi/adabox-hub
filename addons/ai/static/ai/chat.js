@@ -651,6 +651,7 @@
         dici('Trascrivo…');
         const dati = new FormData();
         dati.append('audio', audio, 'voce.' + ((audio.type.split('/')[1] || 'webm').split(';')[0]));
+        if (microfono.dataset.conversazione) dati.append('conversazione', microfono.dataset.conversazione);   // chat riservata: solo in locale
         try {
           const r = await fetch(microfono.dataset.url, { method: 'POST', body: dati, headers: { 'X-CSRFToken': csrf } });
           const j = await r.json();

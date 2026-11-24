@@ -95,15 +95,16 @@ def parole_note(utente, azienda):
     return uniche[:10]
 
 
-def trascrivi(file, lingua="", http_client=None, azienda=None, parole=()):
+def trascrivi(file, lingua="", http_client=None, azienda=None, parole=(), solo_locale=False):
     """Il testo detto: con il servizio cloud dell'azienda se c'è (e se non risponde, con il Whisper locale), altrimenti
-    con il Whisper locale."""
+    con il Whisper locale. `solo_locale` (chat riservate): mai il servizio cloud, come per la lettura delle risposte
+    (servizio_per): in una chat riservata nemmeno la voce di chi parla esce dal server."""
     if file.size > MASSIMO_AUDIO:
         raise ErroreVoce("Registrazione troppo lunga.")
     tipo = (file.content_type or "").split(";")[0]
     if tipo not in TIPI_AUDIO:
         raise ErroreVoce("Formato audio non riconosciuto.")
-    servizio = trascrizione_cloud(azienda) if azienda is not None else None
+    servizio = trascrizione_cloud(azienda) if azienda is not None and not solo_locale else None
     if servizio is not None:
         dati_audio = file.read()
         try:
@@ -114,7 +115,8 @@ def trascrivi(file, lingua="", http_client=None, azienda=None, parole=()):
             log.warning("trascrizione con «%s» non riuscita: si usa il Whisper locale", servizio.nome, exc_info=True)
             file.seek(0)
     if not url_locale():
-        raise ErroreVoce("La dettatura non è configurata.")
+        raise ErroreVoce("In una chat riservata la dettatura usa solo il servizio sui nostri server, che non è configurato."
+                         if solo_locale else "La dettatura non è configurata.")
     return _trascrivi_locale(file, tipo, lingua, http_client, parole)
 
 

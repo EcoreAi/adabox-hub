@@ -133,16 +133,26 @@
     return contesto;
   }
 
-  async function apriMicrofono() {
-    if (microfono) return microfono;
-    if (!navigator.mediaDevices || !window.MediaRecorder) throw new Error('Il browser non permette di usare il microfono su questa pagina (serve https).');
-    try {
-      microfono = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
-    } catch (e) {
-      throw new Error(e && e.name === 'NotAllowedError' ? 'Il microfono non è permesso: abilitalo nelle impostazioni del browser.' : 'Microfono non disponibile.');
+  // Una sola apertura alla volta: con due tocchi vicini (la prima volta il browser chiede il permesso, e ci vuole un
+  // momento) si aprivano due microfoni, e il primo restava acceso fino alla chiusura della pagina.
+  let microfonoInArrivo = null;
+  function apriMicrofono() {
+    if (microfono) return Promise.resolve(microfono);
+    if (!microfonoInArrivo) {
+      microfonoInArrivo = (async () => {
+        if (!navigator.mediaDevices || !window.MediaRecorder) throw new Error('Il browser non permette di usare il microfono su questa pagina (serve https).');
+        let flusso;
+        try {
+          flusso = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+        } catch (e) {
+          throw new Error(e && e.name === 'NotAllowedError' ? 'Il microfono non è permesso: abilitalo nelle impostazioni del browser.' : 'Microfono non disponibile.');
+        }
+        microfono = flusso;
+        sorgenteMic = audio().createMediaStreamSource(microfono);
+        return microfono;
+      })().finally(() => { microfonoInArrivo = null; });
     }
-    sorgenteMic = audio().createMediaStreamSource(microfono);
-    return microfono;
+    return microfonoInArrivo;
   }
 
   function liberaMicrofono() {
@@ -165,7 +175,14 @@
   }
 
   async function ascolta(attesaMassima) {
-    try { await apriMicrofono(); } catch (e) { imposta('fermo', e.message); return; }
+    const mio = gesti;
+    try { await apriMicrofono(); } catch (e) { if (gesti === mio) imposta('fermo', e.message); return; }
+    // Mentre il microfono si apriva è successo altro (un secondo tocco, Esc, una domanda scritta): decide quel gesto.
+    // Se dopo di lui la pagina è ferma e nessuno registra, il microfono appena aperto si richiude.
+    if (gesti !== mio || reg) {
+      setTimeout(() => { if (stato === 'fermo' && !reg && !microfonoInArrivo) liberaMicrofono(); }, 0);
+      return;
+    }
     const tipo = tipoRegistrazione();
     const registratore = tipo ? new MediaRecorder(microfono, { mimeType: tipo }) : new MediaRecorder(microfono);
     const pezzi = [];
@@ -232,21 +249,24 @@
     imposta('trascrivo');
     const dati = new FormData();
     dati.append('audio', blob, 'voce.' + ((blob.type.split('/')[1] || 'webm').split(';')[0]));
+    if (conversazione) dati.append('conversazione', conversazione);     // in una chat riservata si trascrive solo in locale
     try {
       const r = await fetch(cfg.ascolta, { method: 'POST', body: dati, headers: { 'X-CSRFToken': csrf } });
       const j = await r.json();
+      if (stato !== 'trascrivo') return;                        // annullata con Esc mentre si trascriveva
       if (!r.ok) throw new Error(j.errore || 'Non sono riuscita a capire.');
       if (!j.testo) { imposta('fermo', 'Non ho capito, tocca e riprova'); return; }
       mostra(detto_el, j.testo);
       svuotaSottotitoli();
       chiedi(j.testo);
     } catch (e) {
-      imposta('fermo', e.message || 'Errore di rete, riprova');
+      if (stato === 'trascrivo') imposta('fermo', e.message || 'Errore di rete, riprova');
     }
   }
 
   // ---------- domanda e risposta ----------
   async function chiedi(testo) {
+    const mio = gesti;
     imposta('penso');
     const dati = new FormData();
     dati.append('testo', testo);
@@ -260,11 +280,17 @@
       const r = await fetch(cfg.chiedi, { method: 'POST', body: dati, headers: { 'X-CSRFToken': csrf } });
       j = await r.json();
       if (!r.ok) throw new Error(j.errore || 'Non riesco a rispondere adesso.');
-    } catch (e) { imposta('fermo', e.message || 'Errore di rete, riprova'); return; }
+    } catch (e) { if (gesti === mio) imposta('fermo', e.message || 'Errore di rete, riprova'); return; }
     if (String(j.conversazione) !== String(conversazione)) {
       conversazione = String(j.conversazione);
       history.replaceState(null, '', j.parla);
       radice.querySelectorAll('[data-pa-chat]').forEach((a) => { a.href = j.chat; });
+    }
+    // Mentre la domanda partiva l'utente ha toccato (sta già riparlando), ha premuto Esc o ne ha scritta un'altra:
+    // questa risposta non si legge, e il turno appena nato si ferma. Prima Ada parlava sopra il microfono aperto.
+    if (gesti !== mio) {
+      fetch(j.stop, { method: 'POST', headers: { 'X-CSRFToken': csrf } }).catch(() => {});
+      return;
     }
     segui(j);
   }
@@ -303,7 +329,18 @@
       prepara(t);
       finePossibile(t);
     });
-    t.fonte.onerror = () => { /* EventSource si ricollega da solo, riprendendo dal punto giusto */ };
+    // EventSource si ricollega da solo, riprendendo dal punto giusto. Se però il server risponde con un errore
+    // (sessione scaduta, turno che non c'è più) il browser chiude per sempre: senza questo si restava su «Un attimo…».
+    t.fonte.onerror = () => {
+      if (t.fonte.readyState !== 2 || turno !== t || t.finito) return;
+      t.finito = true;
+      notaSottotitoli('Ho perso il collegamento: la risposta è nella chat.');
+      // quello che è già arrivato e poggia su dati letti si finisce di dire (finePossibile chiude poi il turno);
+      // una risposta senza dati non si legge: il server potrebbe averla scartata e rifatta
+      if (t.conDati) { prepara(t); return; }
+      turno = null;
+      imposta('fermo');
+    };
   }
 
   // A turno chiuso il server toglie gli spazi in testa al testo: le posizioni dei pezzi non ancora chiesti si

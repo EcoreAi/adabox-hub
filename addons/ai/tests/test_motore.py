@@ -218,3 +218,25 @@ def test_automatico_usa_veloce_poi_avanzato_poi_il_profilo(scena):
     avanzato.save()
     with pytest.raises(catalogo.NessunModello):                      # senza livelli vale solo il profilo
         catalogo.automatico(profilo)
+
+
+def test_allo_scadere_del_timeout_non_si_aspetta_lo_strumento(settings):
+    """Il risultato «ha superato N secondi» deve arrivare allo scadere, non quando lo strumento ha finito: con
+    `with ThreadPoolExecutor` l'uscita dal blocco aspettava il thread, e uno strumento bloccato bloccava il turno."""
+    import threading
+
+    from ai.gateway import ChiamataStrumento
+    settings.AI_STRUMENTI_SINCRONI = False
+    via, finito = threading.Event(), threading.Event()
+
+    def bloccato(contesto):
+        via.wait(20)
+        finito.set()
+        return "tardi"
+    lento = strumenti.Strumento("bloccato", "test", {"type": "object", "properties": {}}, bloccato, timeout=0.1)
+    try:
+        r = strumenti.registro._esegui_uno(ChiamataStrumento("1", "bloccato", {}), strumenti.Contesto(utente=None), {"bloccato": lento})
+        assert r["errore"] and "superato" in r["contenuto"]
+        assert not finito.is_set()
+    finally:
+        via.set()

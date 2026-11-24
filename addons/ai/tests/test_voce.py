@@ -116,7 +116,7 @@ def test_errori_dei_fornitori(s):
 def test_dettatura(s, client, monkeypatch):
     viste = []
     finto = _client(lambda r: httpx.Response(200, json={"text": " Ciao Ada "}), viste)
-    monkeypatch.setattr(voce, "trascrivi", lambda file, lingua="", azienda=None, parole=(), _v=voce.trascrivi: _v(file, lingua, http_client=finto, azienda=azienda, parole=parole))
+    monkeypatch.setattr(voce, "trascrivi", lambda file, lingua="", azienda=None, parole=(), solo_locale=False, _v=voce.trascrivi: _v(file, lingua, http_client=finto, azienda=azienda, parole=parole, solo_locale=solo_locale))
     r = client.post(reverse("ai:trascrivi_voce"), {"audio": SimpleUploadedFile("v.webm", b"x" * 100, content_type="audio/webm;codecs=opus")})
     assert r.json() == {"testo": "Ciao Ada"} and str(viste[0].url) == "http://speaches:8000/v1/audio/transcriptions"
     assert b"faster-whisper-small" in viste[0].content

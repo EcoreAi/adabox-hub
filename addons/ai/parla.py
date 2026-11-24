@@ -158,6 +158,13 @@ def apertura_detta(request, pk):
     return HttpResponse(status=204)
 
 
+def in_chat_riservata(request):
+    """Se l'audio da trascrivere è detto in una chat riservata dell'utente (il campo «conversazione» della richiesta):
+    lì la trascrizione resta sui nostri server, come la lettura delle risposte."""
+    pk = request.POST.get("conversazione", "")
+    return pk.isdigit() and Conversazione.objects.filter(pk=int(pk), utente=request.user, riservata=True).exists()
+
+
 @require_POST
 @login_required
 @permission_required("ai.add_conversazione", raise_exception=True)
@@ -169,10 +176,29 @@ def ascolta(request):
     if not disponibile(azienda) or file is None:
         return JsonResponse({"errore": "La voce non è attiva."}, status=400)
     try:
-        testo = voce.trascrivi(file, "it", azienda=azienda, parole=voce.parole_note(request.user, azienda))
+        testo = voce.trascrivi(file, "it", azienda=azienda, parole=voce.parole_note(request.user, azienda),
+                               solo_locale=in_chat_riservata(request))
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
     return JsonResponse({"testo": " ".join(testo.split())})
+
+
+def _risposta_ancora_in_corso(conversazione):
+    """Prima di una domanda nuova in una conversazione che ha ancora una risposta in corso: con quella in corso
+    `motore.avvia` restituirebbe il turno vecchio, la domanda andrebbe persa e la pagina rileggerebbe la risposta di
+    prima. A voce una domanda nuova è un'interruzione (lo stop mandato dalla pagina può non essere ancora stato visto,
+    o la lettura si è fermata ai 30 secondi mentre la risposta continuava): il turno a voce si ferma e si aspetta che
+    si chiuda. Una risposta avviata dalla chat scritta (una ricerca lunga) non si tocca. "" se si può procedere,
+    altrimenti la frase per l'utente."""
+    motore.segna_interrotti(conversazione)
+    in_corso = motore.in_corso_di(conversazione)
+    if in_corso is None:
+        return ""
+    if not in_corso.voce:
+        return "In questa conversazione c'è già una risposta in corso nella chat: aspetta che finisca."
+    if motore.ferma_e_attendi(in_corso):
+        return ""
+    return "Sto ancora chiudendo la risposta di prima: riprova tra qualche secondo."
 
 
 @require_POST
@@ -197,10 +223,14 @@ def chiedi(request):
     ripresa = accettata and saluto.tipo == Apertura.RIPRENDI and saluto.conversazione is not None and not saluto.conversazione.nascosta
     if saluto is not None:
         apertura.segna_detta(saluto)                          # con la voce spenta è la risposta a dire che l'ha letta
+    conversazione = None
     if not nuova:
         conversazione = get_object_or_404(Conversazione, pk=int(pk), utente=request.user, nascosta=False)
     elif ripresa:
         conversazione = saluto.conversazione                  # «sì, riprendiamo»: si continua in quella di prima
+    if conversazione is not None:
+        if (occupata := _risposta_ancora_in_corso(conversazione)):
+            return JsonResponse({"errore": occupata}, status=409)
     else:
         app = request.POST.get("app", "")                     # la conversazione limitata all'app scelta in alto
         titolo = (apertura.titolo(saluto) if accettata else "") or testo[:60] + ("…" if len(testo) > 60 else "")
