@@ -465,6 +465,10 @@ def riassumi(d, analisi):
         return "senza testo"
     if indice.impronta_riassunto == indice.impronta:
         return "già fatto"
+    try:
+        limiti.verifica(d.azienda)                        # licenza e tetto di spesa valgono anche per i riassunti
+    except ErroreModello as e:
+        return (e.messaggio or str(e))[:200]              # si riprova al prossimo giro: l'impronta non si tocca
     utente = d.caricato_da or d.proprietario
     lavoro = Turno.objects.create(utente=utente, azienda_id=d.azienda_id, compito="riassunto_documento")
     pezzi_testo, modello = [], None

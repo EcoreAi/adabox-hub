@@ -34,6 +34,14 @@ def tetto(azienda):
     return Decimal(str(valore or 0))
 
 
+def tetto_raggiunto(azienda):
+    """Se la spesa del mese dell'azienda ha raggiunto il suo tetto (mai senza azienda o senza tetto)."""
+    if azienda is None:
+        return False
+    limite = tetto(azienda)
+    return limite > 0 and spesa_mese(azienda) >= limite
+
+
 def utenti_del_mese(senza=None):
     """Chi ha usato la chat nel mese: ognuno occupa un posto della licenza. Non contano i turni finiti in errore (tra
     cui quelli rifiutati proprio perché i posti erano finiti) né il turno `senza`, quello che sta per partire: il

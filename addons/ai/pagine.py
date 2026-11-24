@@ -859,6 +859,8 @@ def trascrivi_voce(request):
     file = request.FILES.get("audio")
     if not voce.dettatura_disponibile(azienda) or file is None:
         return JsonResponse({"errore": "La dettatura non è attiva."}, status=400)
+    if (motivo := voce.blocco(request.user, azienda)):
+        return JsonResponse({"errore": motivo}, status=429)
     try:
         return JsonResponse({"testo": voce.trascrivi(file, request.POST.get("lingua", ""), azienda=azienda,
                                                     parole=voce.parole_note(request.user, azienda),
@@ -944,6 +946,8 @@ def audio_voce(request, pk, parte):
     pezzi = voce.parti(testo)
     if not 0 <= parte < len(pezzi):
         raise Http404
+    if (motivo := voce.blocco(request.user, getattr(request, "azienda", None))):
+        return JsonResponse({"errore": motivo}, status=429)
     try:
         audio, tipo = voce.audio_di(servizio, pezzi[parte], voce.lingua_di(testo))
     except voce.ErroreVoce as e:

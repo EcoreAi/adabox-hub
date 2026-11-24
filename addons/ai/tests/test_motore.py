@@ -302,3 +302,37 @@ def test_il_turno_da_segni_di_vita_anche_mentre_non_scrive(scena, monkeypatch):
         turno = _avvia(scena)
     assert usato == [turno.pk]                                       # ogni turno gira dentro il suo battito
 
+
+def test_il_tetto_mensile_ferma_il_turno_anche_a_meta(scena, monkeypatch):
+    """Il tetto si guardava solo all'inizio del turno, e il costo si salvava solo alla fine: dodici passi (o più chat
+    insieme) passavano oltre senza che nessuno li vedesse."""
+    from ai import limiti
+    visti = []
+
+    def raggiunto(azienda):
+        visti.append(Turno.objects.get(conversazione=scena["conversazione"]).costo)     # dal database, a turno in corso
+        return True
+    monkeypatch.setattr(limiti, "tetto_raggiunto", raggiunto)
+    with finto.con_copione([[("strumento", "data_e_ora", {})], ["qui non ci si arriva"]]) as chiamate:
+        turno = _avvia(scena)
+    turno.refresh_from_db()
+    assert len([c for c in chiamate if c["strumenti"]]) == 1 and turno.stato == "completato"    # l'altra è il titolo
+    assert "tetto di spesa mensile" in turno.testo and "Chiedimi di continuare" not in turno.testo
+    assert visti and visti[0] > 0                                    # il costo del primo passo era già salvato
+
+
+def test_il_costo_degli_esperti_conta_nella_risposta_che_li_chiama(scena, monkeypatch):
+    """Ogni esperto ha un turno suo con il suo budget: la risposta che ne consultava tanti non aveva tetto."""
+    from ai.models import Assistente
+    from ai.strumenti import esperti
+    Assistente.objects.create(nome="Fiscale", descrizione="x")
+    monkeypatch.setattr(motore, "avvia", lambda c, t, u, a=None, **o: Turno.objects.create(
+        conversazione=c, utente=u, stato=Turno.COMPLETATO, testo="ok", costo=Decimal("0.30")))
+    chiamante = Turno.objects.create(conversazione=scena["conversazione"], utente=scena["utente"], stato=Turno.COMPLETATO)
+    e = turni._Esecuzione(chiamante)
+    contesto = strumenti.Contesto(utente=scena["utente"], azienda=scena["azienda"], conversazione=scena["conversazione"],
+                                  turno=chiamante, extra=e.extra)
+    esperti.chiedi_esperto(contesto, "Fiscale", "Prima domanda")
+    assert e.oltre_budget() is None
+    esperti.chiedi_esperto(contesto, "Fiscale", "Seconda domanda")
+    assert e.extra["costo_esperti"] == Decimal("0.60") and e.oltre_budget() == "la spesa massima per una risposta"

@@ -62,6 +62,8 @@ def frase(request, chiave):
     indice = int(numero) if numero.isdigit() else (-1 if trattino else 0)
     if servizio is None or not 0 <= indice < len(varianti):
         raise Http404
+    if (motivo := voce.blocco(request.user, getattr(request, "azienda", None))):
+        return JsonResponse({"errore": motivo}, status=429)
     try:
         dati, tipo = voce.audio_di(servizio, varianti[indice], "it")
     except voce.ErroreVoce as e:
@@ -139,6 +141,8 @@ def apertura_audio(request, pk):
     servizio = voce.servizio_per(getattr(request, "azienda", None))
     if servizio is None:
         raise Http404
+    if (motivo := voce.blocco(request.user, getattr(request, "azienda", None))):
+        return JsonResponse({"errore": motivo}, status=429)
     try:
         dati, tipo = voce.audio_di(servizio, voce.da_leggere(saluto.testo), "it")
     except voce.ErroreVoce as e:
@@ -175,6 +179,8 @@ def ascolta(request):
     file = request.FILES.get("audio")
     if not disponibile(azienda) or file is None:
         return JsonResponse({"errore": "La voce non è attiva."}, status=400)
+    if (motivo := voce.blocco(request.user, azienda)):
+        return JsonResponse({"errore": motivo}, status=429)
     try:
         testo = voce.trascrivi(file, "it", azienda=azienda, parole=voce.parole_note(request.user, azienda),
                                solo_locale=in_chat_riservata(request))
@@ -267,6 +273,8 @@ def audio(request, pk, inizio, fine):
     testo = voce.da_leggere(turno.testo[inizio:fine])
     if not testo.strip():
         return HttpResponse(status=204)
+    if (motivo := voce.blocco(request.user, getattr(request, "azienda", None))):
+        return JsonResponse({"errore": motivo}, status=429)
     try:
         # la lingua si decide sulla risposta intera: un pezzo breve non deve cambiare voce a metà
         dati, tipo = voce.audio_di(servizio, testo, voce.lingua_di(voce.da_leggere(turno.testo)))

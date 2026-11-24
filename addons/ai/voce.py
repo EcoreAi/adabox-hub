@@ -70,6 +70,41 @@ def servizio_per(azienda, solo_locale=False):
     return None
 
 
+# ---------- prima di chiamare un servizio ----------
+
+RICHIESTE_MASSIME = 200                                 # per persona, tra letture e trascrizioni, ogni FINESTRA secondi
+FINESTRA = 600
+CONTROLLO_OGNI = 30                                     # secondi: licenza e tetto non si rileggono a ogni pezzo d'audio
+
+
+def blocco(utente, azienda):
+    """Il motivo per cui non si chiama un servizio vocale, o "". La voce non passa da un turno del motore: senza
+    questo rispondeva anche con la licenza scaduta o il tetto di spesa raggiunto, e una persona poteva chiedere letture
+    senza limite (ogni pezzo è una chiamata, spesso a pagamento)."""
+    from . import limiti
+    from .gateway import ErroreModello
+    chiave = f"ai-voce-stato:{getattr(azienda, 'pk', 0)}"
+    motivo = cache.get(chiave)
+    if motivo is None:
+        try:
+            limiti.verifica(azienda)
+            motivo = ""
+        except ErroreModello as e:
+            motivo = e.messaggio or "L'assistente non è attivo."
+        cache.set(chiave, motivo, CONTROLLO_OGNI)
+    if motivo:
+        return motivo
+    # la persona, non solo il suo numero: nei database di prova i numeri si ripetono
+    chiave = f"ai-voce-richieste:{utente.pk}:{int(utente.date_joined.timestamp())}"
+    cache.add(chiave, 0, FINESTRA)
+    try:
+        richieste = cache.incr(chiave)
+    except ValueError:                                  # scaduta tra add e incr
+        cache.set(chiave, 1, FINESTRA)
+        richieste = 1
+    return "Troppe richieste vocali in poco tempo: riprova tra qualche minuto." if richieste > RICHIESTE_MASSIME else ""
+
+
 # ---------- dettatura ----------
 
 OVH_URL = "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
