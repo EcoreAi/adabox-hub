@@ -3,6 +3,17 @@
 Ciò che chi aggiorna un'istanza deve sapere: cambi di comportamento, azioni da fare, migrazioni. Il dettaglio è nei
 commit; qui solo ciò che si vede o che chiede un intervento.
 
+## 2026-11-24
+
+- **Il nome del prodotto senza la versione** (nessuna migrazione).
+  - Il nome predefinito è «Adabox», non più «Adabox v3»: nell'intestazione, con la barra piena di voci, «v3» andava a
+    capo. La versione sta in piccolo nel piè di pagina e nella pagina di accesso (`THEME_VERSION`, predefinita «v3»,
+    al posto di «0.1.0»). Cambia anche il nome in email, PDF, inviti di calendario e nell'app installata; chi vuole
+    il nome di prima imposta `THEME_BRAND="Adabox v3"`. Le istanze con un loro `THEME_BRAND` non cambiano.
+  - Nell'intestazione il nome non va più a capo né si stringe (un nome molto lungo si tronca con i puntini): con la
+    barra piena si stringe prima la ricerca, poi si tronca il nome della persona. Un tema con un suo `_header.html`
+    mette la classe `ui-logo-nome` sul nome per avere il troncamento.
+
 ## 2026-11-23
 
 - **App di una sola azienda** — Kernel 1.14.0 (migrazione `core.0044`: aziende di un modulo).
