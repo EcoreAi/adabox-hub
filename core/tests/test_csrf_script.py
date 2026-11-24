@@ -23,6 +23,16 @@ def test_il_token_della_pagina_vale_con_qualunque_nome_del_cookie(superuser, set
     assert browser.post("/push/iscrivi/", corpo, content_type="application/json", headers={"X-CSRFToken": token}).status_code != 403
 
 
+def test_un_tema_che_sostituisce_i_suoi_fogli_non_perde_il_token():
+    """Il <meta> è un pezzo a sé (_csrf.html), incluso in ogni pagina accanto a _tema.html: un tema che sostituisce
+    _tema.html per i suoi fogli di stile (lo fanno i temi dei moduli) non deve portarsi via il token degli script."""
+    radice = Path(settings.BASE_DIR)
+    assert "csrf-token" not in (radice / "theme/templates/theme/partials/_tema.html").read_text()
+    pagine = [f for cartella in (radice / "theme" / "templates", Path(settings.ADDONS_DIR)) for f in cartella.rglob("*.html")
+              if 'include "theme/partials/_tema.html"' in f.read_text(errors="ignore")]
+    assert len(pagine) >= 6 and all('include "theme/partials/_csrf.html"' in f.read_text() for f in pagine)
+
+
 def test_il_token_c_e_solo_per_chi_e_dentro(client, db):
     assert 'name="csrf-token"' not in client.get("/accounts/login/").content.decode()
 

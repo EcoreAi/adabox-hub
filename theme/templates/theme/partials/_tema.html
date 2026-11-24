@@ -1,4 +1,2 @@
-{% if user.is_authenticated %}<meta name="csrf-token" content="{{ csrf_token }}">
-{% endif %}{# Il token CSRF per gli script: si legge da qui, non dal cookie (ogni istanza della flotta dà al cookie il suo nome, CSRF_COOKIE_NAME). Questo pezzo è nel <head> di ogni pagina del kernel, del portale e dell'assistente. #}
 {% for foglio in theme.tema.fogli %}<link rel="stylesheet" href="{{ foglio }}" data-tema="{{ theme.tema.nome }}">
 {% endfor %}{# Il tema grafico scelto dall'admin di Django (Temi): i suoi fogli vengono dopo ui.css e ne ridefiniscono i token. Va incluso dopo i fogli della pagina. #}

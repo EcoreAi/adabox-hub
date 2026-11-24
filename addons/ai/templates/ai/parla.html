@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="{% statico 'ai/parla.css' %}">
   <link rel="icon" type="image/svg+xml" href="{% url 'theme:favicon' %}">
   <link rel="manifest" href="{% url 'theme:manifest' %}">
+  {% include "theme/partials/_csrf.html" %}
   {% include "theme/partials/_tema.html" %}
 </head>
 {% comment %} Conversazione a voce a schermo intero, scura e immersiva: il cubo del logo in una galassia (canvas .pa-cielo a

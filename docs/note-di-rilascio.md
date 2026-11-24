@@ -11,6 +11,10 @@ commit; qui solo ciò che si vede o che chiede un intervento.
     `csrftoken` scritto fisso. Ora leggono `<meta name="csrf-token">`, che il tema mette nel `<head>` di ogni pagina
     per chi è dentro.
   - Per i moduli: negli script il token si prende da lì (`docs/guida-moduli.md`, regola 8).
+  - Per i temi: il `<meta>` è in `theme/partials/_csrf.html`, incluso nel `<head>` accanto a `_tema.html`. Un tema che
+    sostituisce `_tema.html` non deve fare nulla; uno che sostituisce `base.html` o `base_pubblica.html` deve riportare
+    quell'inclusione, altrimenti gli script restano senza token (non leggono più il cookie) e ripiegano sul campo
+    `csrfmiddlewaretoken` della pagina, se c'è.
 
 ## 2026-11-23
 
