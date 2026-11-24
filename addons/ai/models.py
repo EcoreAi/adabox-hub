@@ -729,6 +729,14 @@ class ServizioVoce(models.Model):
     modello = models.CharField("modello", max_length=100, blank=True, help_text="vuoto = quello consigliato")
     voce_it = models.CharField("voce italiana", max_length=100, blank=True, help_text="vuota = quella consigliata")
     voce_en = models.CharField("voce inglese", max_length=100, blank=True, help_text="vuota = quella consigliata")
+    prezzo = models.DecimalField("prezzo ($)", max_digits=10, decimal_places=4, null=True, blank=True,
+                                 help_text="lettura: dollari per milione di caratteri letti; trascrizione: dollari per minuto di audio. "
+                                           "Con il prezzo ogni chiamata entra nei Consumi, nel tetto di spesa dell'azienda e nella quota "
+                                           "della voce della licenza. Vuoto = non si conta (chiave del cliente)")
+    compresi_nel_piano = models.PositiveBigIntegerField(
+        "compresi al mese nel piano del fornitore", null=True, blank=True,
+        help_text="lettura: caratteri; trascrizione: minuti. Avvicinandosi a questo numero arriva un avviso al Global Admin, "
+                  "prima che il fornitore applichi il sovrapprezzo. Vuoto = nessun avviso")
     attivo = models.BooleanField("attivo", default=True)
 
     class Meta:
@@ -753,6 +761,19 @@ class ServizioVoce(models.Model):
     def chiave(self):
         from core import cifratura
         return cifratura.decifra(self.chiave_cifrata) if self.chiave_cifrata else ""
+
+    @property
+    def unita(self):
+        """Ciò che il fornitore conta: i caratteri letti o i secondi di audio trascritti."""
+        return "secondi" if self.uso == self.TRASCRIZIONE else "caratteri"
+
+    def costo_di(self, quantita):
+        """Il costo in dollari di `quantita` caratteri letti (prezzo per milione) o secondi trascritti (prezzo al minuto)."""
+        from decimal import Decimal
+        if not self.prezzo:
+            return Decimal(0)
+        divisore = Decimal(60) if self.uso == self.TRASCRIZIONE else Decimal(1_000_000)
+        return (Decimal(quantita) * self.prezzo / divisore).quantize(Decimal("0.000001"))
 
 
 class Apertura(models.Model):

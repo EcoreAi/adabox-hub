@@ -106,6 +106,10 @@ class Piano(models.Model):
     ai_ricarico = models.DecimalField(
         "ricarico sull'AI a consumo (%)", max_digits=6, decimal_places=2, default=0, validators=[MinValueValidator(0)],
         help_text="si aggiunge al costo dei modelli quando l'assistente si fattura a consumo")
+    ai_quota_voce = models.DecimalField(
+        "quota della voce cloud al mese ($)", max_digits=9, decimal_places=2, default=0, validators=[MinValueValidator(0)],
+        help_text="voce (lettura e trascrizione in cloud) compresa nel canone, con qualunque formula; oltre la voce continua e il "
+                  "di più si fattura con il ricarico. 0 = senza quota (non si fattura nulla per la voce)")
     attivo = models.BooleanField("attivo", default=True)
     moduli_a_funzioni = models.ManyToManyField(
         ModuloVendibile, blank=True, related_name="piani_a_funzioni", verbose_name="moduli con le funzioni scelte",
@@ -168,6 +172,9 @@ class Istanza(models.Model):
     ai_ricarico = models.DecimalField(
         "ricarico sull'AI a consumo (%)", max_digits=6, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)],
         help_text="vuoto = quello del piano")
+    ai_quota_voce = models.DecimalField(
+        "quota della voce cloud al mese ($)", max_digits=9, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)],
+        help_text="vuoto = quella del piano; 0 = senza quota")
     scadenza = models.DateField("scadenza della licenza")
     grazia_giorni = models.PositiveSmallIntegerField("giorni di grazia", default=30, help_text="dopo la scadenza, prima della sola lettura")
     ospitata = models.BooleanField("ospitata da noi", default=True, help_text="senza accesso del cliente al server")
@@ -209,6 +216,10 @@ class Istanza(models.Model):
         """Il canone in euro senza l'utilizzo dell'AI: piano, prezzo per utente, suite e moduli in più."""
         return (self.piano.prezzo_mese + self.piano.prezzo_utente_mese * self.posti()
                 + sum(su.prezzo_mese for su in self.suite.all()) + sum(m.prezzo_mese for m in self.moduli_extra.all()))
+
+    def quota_voce(self):
+        """La quota mensile della voce cloud in dollari: quella dell'istanza, se c'è, altrimenti del piano."""
+        return self.piano.ai_quota_voce if self.ai_quota_voce is None else self.ai_quota_voce
 
     def termini_ai(self):
         """{formula, quota_utente, quota_istanza, ricarico}: i valori dell'istanza, dove ci sono, altrimenti del piano."""
@@ -259,6 +270,9 @@ class ConsumoAI(models.Model):
     formula = models.CharField("formula", max_length=8, choices=FORMULE_AI, default=AI_PROPRIA)
     quota = models.DecimalField("quota del mese ($)", max_digits=12, decimal_places=2, default=0, help_text="0 = senza")
     importo = models.DecimalField("da fatturare (€)", max_digits=12, decimal_places=2, default=0)
+    costo_voce = models.DecimalField("di cui voce cloud ($)", max_digits=12, decimal_places=4, default=0)
+    quota_voce = models.DecimalField("quota della voce ($)", max_digits=12, decimal_places=2, default=0, help_text="0 = senza")
+    extra_voce = models.DecimalField("voce oltre la quota, da fatturare (€)", max_digits=12, decimal_places=2, default=0)
     aggiornato = models.DateTimeField("aggiornato il", auto_now=True)
 
     class Meta:

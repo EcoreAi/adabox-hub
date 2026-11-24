@@ -5,6 +5,19 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-24
 
+- **Costi della voce cloud** — AI 1.59.0 (migrazione `ai.0043`: prezzo e piano del fornitore sul servizio vocale),
+  Rivendita 1.6.0 (migrazione `rivendita.0007`: quota della voce su piano e istanza, voce nei consumi).
+  - Nella scheda di un servizio vocale il Global Admin imposta il **prezzo** (dollari per milione di caratteri letti, o
+    per minuto trascritto): da lì ogni chiamata entra nei Consumi e nel tetto di spesa mensile dell'azienda. Senza
+    prezzo non cambia nulla.
+  - La **quota della voce** (dollari al mese) si imposta sul portale, nel piano o nell'istanza, e arriva con la licenza
+    (per le licenze fatte a mano: `ai_licenza --quota-voce`). Oltre la quota la voce continua; il di più compare nella
+    pagina della licenza e, sul portale, nella colonna «voce oltre la quota, da fatturare».
+  - Avvisi: in chat e in «Parla con Ada» dall'80% della quota; email agli amministratori dell'assistente all'80% e
+    al superamento; email al Global Admin quando il mese si avvicina a ciò che il piano del fornitore comprende.
+  - Le istanze di prima continuano a riferire i consumi come prima: il portale legge la voce solo se c'è.
+  - Dettagli in `docs/voce.md`.
+
 - **Revisione dell'assistente, seconda parte** — AI 1.58.2, Kernel 1.14.2, Discuss 1.13.3, GitHub 1.0.1, Chiedi ad
   Ada 1.0.1 (nessuna migrazione).
   - **Da fare prima di aggiornare un'istanza non in debug**: il container web non parte più se `SECRET_KEY` non è

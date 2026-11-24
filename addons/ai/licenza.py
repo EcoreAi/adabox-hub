@@ -7,6 +7,8 @@
 prima del catalogo avevano ["chat", "strumenti", ...], di cui contava solo "chat": valgono come tutte. Senza una
 licenza propria valgono le funzioni dell'assistente nella licenza dell'istanza.
 
+"quota_voce" (dollari al mese, con qualunque formula) è la voce cloud compresa: oltre continua e si fattura l'extra.
+
 La formula con cui l'assistente è venduto sta nella licenza: "formula" (propria, inclusa, consumo), "quota_utente" e
 "quota_istanza", in dollari di costo dei modelli al mese ("0" o assente = senza limite). Nella licenza dell'istanza
 stanno sotto la chiave "ai", che il kernel non legge: la firma copre comunque tutto il contenuto. Senza termini, o
@@ -47,6 +49,7 @@ class Stato:
     formula: str = PROPRIA
     quota_utente: Decimal = Decimal(0)                  # $ al mese sui provider forniti con il piano; 0 = senza limite
     quota_istanza: Decimal = Decimal(0)
+    quota_voce: Decimal = Decimal(0)                    # $ al mese di voce cloud compresi; oltre si fattura; 0 = senza quota
 
     @property
     def nome_formula(self):
@@ -76,7 +79,7 @@ def leggi(testo):
         return Stato(False, "La licenza non ha una scadenza valida.")
     stato = Stato(True, cliente=str(contenuto.get("cliente", "")), scadenza=scadenza,
                   utenti=int(contenuto.get("utenti") or 0), funzioni=_funzioni(contenuto.get("funzioni")),
-                  **termini(contenuto))
+                  quota_voce=quota_voce(contenuto), **termini(contenuto))
     if scadenza < timezone.localdate():
         stato.valida, stato.motivo = False, f"La licenza è scaduta il {scadenza:%d/%m/%Y}."
     return stato
@@ -105,6 +108,12 @@ def termini(dati):
             "quota_utente": _quota(dati.get("quota_utente")), "quota_istanza": _quota(dati.get("quota_istanza"))}
 
 
+def quota_voce(dati):
+    """La quota mensile della voce cloud (dollari) da un pezzo di licenza: vale con qualunque formula, anche con la
+    chiave del cliente per i modelli. Oltre la quota la voce continua e il di più si fattura (ai.limiti)."""
+    return _quota(dati.get("quota_voce")) if isinstance(dati, dict) else Decimal(0)
+
+
 def comprese():
     """Le funzioni dell'assistente comprese (fonte di core.funzioni per "ai"); None = tutte. Senza licenza valida
     l'assistente è spento per intero, e non serve nascondere le singole parti."""
@@ -129,7 +138,8 @@ def _da_istanza():
         return None
     return Stato(not istanza.scaduta, f"La licenza è scaduta il {istanza.scadenza:%d/%m/%Y}." if istanza.scaduta else "",
                  cliente=istanza.cliente, scadenza=istanza.scadenza, utenti=istanza.utenti,
-                 funzioni=istanza.funzioni.get("ai"), **termini(_termini_nel_testo(testo)))
+                 funzioni=istanza.funzioni.get("ai"), quota_voce=quota_voce(_termini_nel_testo(testo)),
+                 **termini(_termini_nel_testo(testo)))
 
 
 def _testo_istanza():

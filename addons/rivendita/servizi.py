@@ -154,10 +154,12 @@ def ai_di(istanza):
     """I termini dell'assistente per la licenza (li legge ai.licenza sull'istanza): la formula e le quote in dollari.
     Con la chiave del cliente niente: non c'è nulla da far rispettare. Il ricarico resta sul portale."""
     termini = istanza.termini_ai()
+    voce = istanza.quota_voce()                              # vale con qualunque formula: la chiave manca se non c'è
     if termini["formula"] == AI_PROPRIA:
-        return None
+        return {"formula": AI_PROPRIA, "quota_voce": str(voce)} if voce else None
     quota_utente = termini["quota_utente"] if termini["formula"] == AI_INCLUSA else Decimal(0)
-    return {"formula": termini["formula"], "quota_utente": str(quota_utente), "quota_istanza": str(termini["quota_istanza"])}
+    return {"formula": termini["formula"], "quota_utente": str(quota_utente), "quota_istanza": str(termini["quota_istanza"]),
+            **({"quota_voce": str(voce)} if voce else {})}
 
 
 def cambio():
@@ -179,6 +181,14 @@ def importo_ai(costo_fornito, termini):
     if termini["formula"] != AI_CONSUMO:
         return Decimal(0)
     return (costo_fornito * cambio() * (1 + termini["ricarico"] / 100)).quantize(Decimal("0.01"))
+
+
+def extra_voce(costo_voce, quota, termini):
+    """Che cosa si fattura per la voce cloud, in euro: il costo oltre la quota del mese, con il ricarico dell'assistente.
+    Senza quota non si fattura nulla (la voce non è tra le cose vendute a quell'istanza)."""
+    if not quota or costo_voce <= quota:
+        return Decimal(0)
+    return ((costo_voce - quota) * cambio() * (1 + termini["ricarico"] / 100)).quantize(Decimal("0.01"))
 
 
 def _decimale(valore):
@@ -206,9 +216,12 @@ def ricevi_consumi_ai(istanza, voci, oggi=None):
         turni, utenti = (_intero(v.get(c)) for c in ("turni", "utenti")) if mese else (None, None)
         if None in (mese, costo, fornito, turni, utenti) or fornito > costo:
             continue
+        voce = _decimale(v.get("costo_voce", 0)) or Decimal(0)      # le istanze di prima non lo mandano
+        voce, quota_voce = min(voce, costo), istanza.quota_voce()
         ConsumoAI.objects.update_or_create(istanza=istanza, mese=mese, defaults={
             "costo": costo, "costo_fornito": fornito, "turni": turni, "utenti": utenti, "formula": termini["formula"],
-            "quota": quota_ai(istanza, termini), "importo": importo_ai(fornito, termini)})
+            "quota": quota_ai(istanza, termini), "importo": importo_ai(fornito, termini),
+            "costo_voce": voce, "quota_voce": quota_voce, "extra_voce": extra_voce(voce, quota_voce, termini)})
         registrati.append(v["mese"])
     return registrati
 

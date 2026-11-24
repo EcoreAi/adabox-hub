@@ -15,7 +15,8 @@ class IstanzeView(ModelView):
     search_fields = ["cliente", "email", "url"]
     form_layout = [("Cliente", [("cliente", "email"), ("url", "ospitata")]),
                    ("Licenza", [("piano", "scadenza"), ("utenti", "grazia_giorni"), "suite", "moduli_extra", "funzioni_extra", "attiva"]),
-                   ("Assistente AI (vuoto = come il piano)", [("ai_formula", "ai_ricarico"), ("ai_quota_utente", "ai_quota_istanza")]),
+                   ("Assistente AI (vuoto = come il piano)", [("ai_formula", "ai_ricarico"), ("ai_quota_utente", "ai_quota_istanza"),
+                                                              "ai_quota_voce"]),
                    ("Stato", [("ultimo_contatto", "utenti_attivi"), "codice"]), ("Note", ["note"])]
     readonly_fields = ["ultimo_contatto", "utenti_attivi", "codice"]
     list_group_by = ["piano", "ospitata", "scadenza:mese"]
@@ -97,7 +98,7 @@ class PianiView(ModelView):
     list_filter = ["attivo", "ai_formula"]
     search_fields = ["nome"]
     form_layout = [("Piano", [("nome", "attivo"), ("prezzo_mese", "prezzo_utente_mese"), "utenti", "moduli", "descrizione"]),
-                   ("Assistente AI", [("ai_formula", "ai_ricarico"), ("ai_quota_utente", "ai_quota_istanza")]),
+                   ("Assistente AI", [("ai_formula", "ai_ricarico"), ("ai_quota_utente", "ai_quota_istanza"), "ai_quota_voce"]),
                    ("Funzioni dei moduli", ["moduli_a_funzioni", "funzioni"])]
 
 
@@ -147,14 +148,17 @@ class ConsumiAIView(ModelView):
     model = ConsumoAI
     storico = False
     slug = "consumi_ai"
-    list_display = ["mese", "istanza", "formula", "costo", "costo_fornito", "sulla_quota", "importo", "utenti", "turni", "aggiornato"]
+    list_display = ["mese", "istanza", "formula", "costo", "costo_fornito", "sulla_quota", "importo", "costo_voce", "extra_voce",
+                    "utenti", "turni", "aggiornato"]
     list_filter = ["formula", "istanza", "mese"]
     search_fields = ["istanza__cliente"]
     form_layout = [("Consumo", [("istanza", "mese"), ("formula", "quota"), ("costo", "costo_fornito"), ("utenti", "turni"),
-                                ("importo", "aggiornato")])]
-    readonly_fields = ["istanza", "mese", "formula", "quota", "costo", "costo_fornito", "utenti", "turni", "importo", "aggiornato"]
+                                ("importo", "aggiornato")]),
+                   ("Voce cloud", [("costo_voce", "quota_voce"), "extra_voce"])]
+    readonly_fields = ["istanza", "mese", "formula", "quota", "costo", "costo_fornito", "utenti", "turni", "importo", "aggiornato",
+                       "costo_voce", "quota_voce", "extra_voce"]
     list_group_by = ["mese:mese", "istanza", "formula"]
-    list_sum = ["costo_fornito", "importo"]
+    list_sum = ["costo_fornito", "importo", "extra_voce"]
 
     def col_mese(self, obj):
         return f"{obj.mese:%m/%Y}"

@@ -520,10 +520,26 @@ class ServizioVoceView(ModelView):
     api = False                   # contiene segreti o credenziali: niente API
     slug = "voce"
     tra_aziende = True
-    list_display = ["nome", "uso", "tipo", "azienda", "chiave", "attivo"]
+    list_display = ["nome", "uso", "tipo", "azienda", "chiave", "nel_mese", "attivo"]
     form_class = ServizioVoceForm
     form_layout = [("Servizio", [("nome", "uso"), ("tipo", "azienda"), "attivo", "nuova_chiave", "regione"]),
-                   ("Voci (vuoto = quelle consigliate)", [("modello",), ("voce_it", "voce_en")])]
+                   ("Voci (vuoto = quelle consigliate)", [("modello",), ("voce_it", "voce_en")]),
+                   ("Costi (li imposta il Global Admin)", [("prezzo", "compresi_nel_piano")])]
+
+    def get_form_class(self, request=None):
+        base = super().get_form_class(request)
+        if request is None:
+            return base
+        return type("ServizioVoceFormUtente", (base,), {"global_admin": request.user.is_superuser})
+
+    def col_nel_mese(self, obj):
+        """Quanto del piano del fornitore è andato questo mese (caratteri letti o minuti trascritti)."""
+        if obj.locale or not (obj.prezzo or obj.compresi_nel_piano):
+            return "—"
+        from . import limiti
+        usato, cosa = limiti.uso_del_piano(obj), "min" if obj.unita == "secondi" else "caratteri"
+        return f"{usato} su {obj.compresi_nel_piano} {cosa}" if obj.compresi_nel_piano else f"{usato} {cosa}"
+    col_nel_mese.short_description = "Usato nel mese"
     storico = False
     personale = True
     buttons = ["prova"]

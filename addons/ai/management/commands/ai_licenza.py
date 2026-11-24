@@ -22,6 +22,7 @@ class Command(BaseCommand):
         parser.add_argument("--formula", choices=sorted(licenza.FORMULE), help="come si vende l'assistente (default: propria, la chiave del cliente)")
         parser.add_argument("--quota-utente", help="$ al mese per utente sui provider forniti con il piano (con «inclusa»)")
         parser.add_argument("--quota-istanza", help="$ al mese per tutta l'istanza: quota compresa con «inclusa», tetto con «consumo»")
+        parser.add_argument("--quota-voce", help="$ al mese di voce cloud compresi: oltre si fattura l'extra (con qualunque formula)")
         parser.add_argument("--uscita", help="file da scrivere (default: stampa)")
 
     def _quota(self, nome, valore):
@@ -54,6 +55,8 @@ class Command(BaseCommand):
                 contenuto[nome] = self._quota(nome, opzioni[nome])
         if licenza.termini(contenuto)["formula"] == licenza.PROPRIA and ("quota_utente" in contenuto or "quota_istanza" in contenuto):
             raise CommandError("le quote valgono con --formula inclusa o consumo")
+        if opzioni.get("quota_voce") is not None:
+            contenuto["quota_voce"] = self._quota("quota_voce", opzioni["quota_voce"])
         dati = licenza.firma(contenuto, pacchetti.carica_privata(opzioni["chiave"]))
         testo = json.dumps(dati, ensure_ascii=False, indent=2)
         if opzioni.get("uscita"):
