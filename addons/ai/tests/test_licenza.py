@@ -71,6 +71,30 @@ def test_limite_di_utenti(db, chiavi):
         limiti.verifica(utente=bruno)
 
 
+def test_il_limite_di_utenti_scatta_anche_in_un_turno_vero(db, chiavi, monkeypatch):
+    """Il motore crea il turno prima di controllare la licenza: contandolo, chi scriveva per la prima volta risultava
+    già tra gli utenti del mese e il limite non scattava mai. E un turno rifiutato non deve far entrare al secondo colpo."""
+    from ai import motore
+    monkeypatch.setattr(esecuzione, "_dormi", lambda secondi: None)
+    modello = Modello.objects.create(provider=Provider.objects.create(nome="Finto", tipo="finto", locale=True), id_api="finto-1",
+                                     etichetta="Finto")
+    AnelloCatena.objects.create(profilo=Profilo.objects.create(nome="Chat", compito="chat"), modello=modello)
+    Licenza.objects.create(testo=_licenza(chiavi, utenti=1))
+    anna, bruno = User.objects.create_user("anna"), User.objects.create_user("bruno")
+
+    def chiede(utente):
+        chat = Conversazione.objects.create(utente=utente, titolo="Prova")
+        with finto.con_copione([["Ciao."]]):
+            turno = motore.avvia(chat, "Ciao", utente, Azienda.objects.get(pk=1))
+        turno.refresh_from_db()
+        return turno
+    assert chiede(anna).stato == Turno.COMPLETATO
+    rifiutato = chiede(bruno)
+    assert rifiutato.stato == Turno.ERRORE and "numero di utenti della licenza" in rifiutato.testo
+    assert chiede(bruno).stato == Turno.ERRORE                        # il rifiuto di prima non lo conta tra gli utenti
+    assert chiede(anna).stato == Turno.COMPLETATO and limiti.utenti_del_mese() == {anna.pk}
+
+
 def test_tetto_di_spesa_e_avviso(db, settings):
     azienda = Azienda.objects.get(pk=1)
     admin = User.objects.create_user("admin", email="admin@example.com")

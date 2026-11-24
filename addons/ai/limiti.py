@@ -34,11 +34,17 @@ def tetto(azienda):
     return Decimal(str(valore or 0))
 
 
-def utenti_del_mese():
+def utenti_del_mese(senza=None):
+    """Chi ha usato la chat nel mese: ognuno occupa un posto della licenza. Non contano i turni finiti in errore (tra
+    cui quelli rifiutati proprio perché i posti erano finiti) né il turno `senza`, quello che sta per partire: il
+    motore lo crea prima di controllare la licenza, e contandolo chi scriveva per la prima volta risultava già tra gli
+    utenti del mese, cioè il limite non scattava mai."""
     from .models import Turno
     oggi = timezone.localdate()
-    return set(Turno.objects.filter(iniziato__year=oggi.year, iniziato__month=oggi.month, compito="chat")
-               .values_list("utente_id", flat=True))
+    turni = Turno.objects.filter(iniziato__year=oggi.year, iniziato__month=oggi.month, compito="chat").exclude(stato=Turno.ERRORE)
+    if senza is not None:
+        turni = turni.exclude(pk=senza.pk)
+    return set(turni.values_list("utente_id", flat=True))
 
 
 def _del_mese():
@@ -122,14 +128,15 @@ def ammessi(catena, utente=None):
     return restanti
 
 
-def verifica(azienda=None, utente=None, funzione="chat"):
+def verifica(azienda=None, utente=None, funzione="chat", turno=None):
+    """`turno`: quello che sta per partire, da non contare tra gli utenti del mese (vedi utenti_del_mese)."""
     stato = licenza.attuale()
     if not stato.valida:
         raise ErroreModello("LIMITE", f"L'assistente non è attivo: {stato.motivo} Contatta l'amministratore.")
     if funzione != "chat" and stato.funzioni is not None and funzione not in stato.funzioni:
         raise ErroreModello("LIMITE", "Questa funzione dell'assistente non è compresa nella licenza.")
     if stato.utenti and utente is not None:
-        attivi = utenti_del_mese()
+        attivi = utenti_del_mese(senza=turno)
         if utente.pk not in attivi and len(attivi) >= stato.utenti:
             raise ErroreModello("LIMITE", f"Raggiunto il numero di utenti della licenza ({stato.utenti} al mese).")
     if azienda is None:

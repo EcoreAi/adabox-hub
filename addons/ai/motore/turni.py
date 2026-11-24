@@ -277,7 +277,7 @@ def _esegui(turno_id):
     e = _Esecuzione(turno)
     try:
         from .. import limiti
-        limiti.verifica(turno.azienda, utente)
+        limiti.verifica(turno.azienda, utente, turno=turno)
         from .. import assistenti
         assistente = assistenti.risolvi(conversazione, utente)
         if assistente is not None and assistente.profilo_id and assistente.profilo.attivo:

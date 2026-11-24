@@ -26,6 +26,9 @@ commit; qui solo ciò che si vede o che chiede un intervento.
     locale la dettatura lì non funziona.
   - **Fai dimenticare ad Ada**: un documento dimenticato non si legge più nemmeno con `leggi_documento`, e le note
     del suo chatter non tornano nell'indice.
+  - **Licenza, utenti al mese**: il limite ora scatta davvero (prima chi scriveva per la prima volta risultava già
+    contato): con una licenza a N utenti, l'utente N+1 del mese riceve «Raggiunto il numero di utenti della licenza».
+    Con la licenza di sviluppo o con 0 utenti non cambia nulla.
   - **Consumi**: la ricerca non guarda più dentro il testo delle risposte. **Aree di lavoro**: non si condividono
     con gli utenti esterni. **CSV di grafici e tabelle**: i testi che cominciano con `=`, `+`, `-`, `@` escono con un
     apostrofo davanti (non sono formule).
