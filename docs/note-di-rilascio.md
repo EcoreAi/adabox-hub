@@ -3,6 +3,15 @@
 Ciò che chi aggiorna un'istanza deve sapere: cambi di comportamento, azioni da fare, migrazioni. Il dettaglio è nei
 commit; qui solo ciò che si vede o che chiede un intervento.
 
+## 2026-11-24
+
+- **Il token CSRF per gli script sta nella pagina** — Kernel 1.14.1, AI 1.58.1 (nessuna migrazione).
+  - Su un'istanza con un nome suo per il cookie CSRF (quelle della flotta: `adabox_<slug>_csrf`) attivare le notifiche
+    push rispondeva 403, e così «Scrivi con Ada» nelle pagine senza un form: i due script leggevano il cookie
+    `csrftoken` scritto fisso. Ora leggono `<meta name="csrf-token">`, che il tema mette nel `<head>` di ogni pagina
+    per chi è dentro.
+  - Per i moduli: negli script il token si prende da lì (`docs/guida-moduli.md`, regola 8).
+
 ## 2026-11-23
 
 - **App di una sola azienda** — Kernel 1.14.0 (migrazione `core.0044`: aziende di un modulo).
