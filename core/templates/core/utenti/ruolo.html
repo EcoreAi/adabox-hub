@@ -5,7 +5,7 @@
   <div class="ui-pagehead-actions"><a class="ui-btn ui-btn-ghost" href="{% url 'core:ruoli' %}"><svg><use href="#icon-arrow-left"/></svg> Ruoli</a></div></div>
 <form method="post" class="ut-form">{% csrf_token %}
   <section class="ui-card is-revealed ui-section"><div class="ui-card-body ut-griglia">
-    {% for campo in form %}{% if campo.name in "nome descrizione livello_base ordine" %}<div class="ui-form-group"><label class="ui-label" for="{{ campo.id_for_label }}">{{ campo.label|capfirst }}</label>{{ campo }}{% if campo.help_text %}<p class="ui-help">{{ campo.help_text }}</p>{% endif %}{% for e in campo.errors %}<p class="ui-error">{{ e }}</p>{% endfor %}</div>{% endif %}{% endfor %}
+    {% for campo in form %}{% if campo.name in "nome descrizione livello_base ordine prima_pagina" %}<div class="ui-form-group"><label class="ui-label" for="{{ campo.id_for_label }}">{{ campo.label|capfirst }}</label>{{ campo }}{% if campo.help_text %}<p class="ui-help">{{ campo.help_text }}</p>{% endif %}{% for e in campo.errors %}<p class="ui-error">{{ e }}</p>{% endfor %}</div>{% endif %}{% endfor %}
     <div class="ui-form-group"><label class="ut-check">{{ form.amministra }} Amministra la piattaforma</label><p class="ui-help">{{ form.amministra.help_text }}</p></div>
     {% if form.tecnico %}<div class="ui-form-group"><label class="ut-check">{{ form.tecnico }} Accesso tecnico completo (Global Admin)</label><p class="ui-help">{{ form.tecnico.help_text }}</p></div>{% endif %}
     <div class="ui-form-group"><label class="ut-check">{{ form.predefinito }} Ai nuovi utenti</label><p class="ui-help">{{ form.predefinito.help_text }}</p></div>

@@ -3,6 +3,17 @@
 Ciò che chi aggiorna un'istanza deve sapere: cambi di comportamento, azioni da fare, migrazioni. Il dettaglio è nei
 commit; qui solo ciò che si vede o che chiede un intervento.
 
+## 2026-11-24
+
+- **Prima pagina per ruolo e per persona** — Kernel 1.15.0 (migrazione `core.0045`: prima pagina su ruolo e profilo).
+  - Nel ruolo (Utenti → Ruoli) e nella scheda di una persona chi amministra sceglie la **prima pagina**: la Dashboard,
+    «In tasca» o una voce di menu di un'app. È dove si arriva dopo l'accesso; la scelta sulla persona vince su quella
+    del ruolo. Senza scelta resta la prima voce della barra in alto, come prima.
+  - L'app installata sul telefono (`/tasca/?da=app`) apre la stessa pagina, a meno che la persona nel suo profilo abbia
+    scelto «Parla con Ada» o «Chat con Ada»: la scelta personale resta.
+  - Una prima pagina che la persona non può aprire (permesso mancante, app spenta o di un'altra azienda, fuori dai suoi
+    dipartimenti) si ignora.
+
 ## 2026-11-23
 
 - **App di una sola azienda** — Kernel 1.14.0 (migrazione `core.0044`: aziende di un modulo).

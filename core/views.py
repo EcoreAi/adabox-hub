@@ -86,11 +86,15 @@ def voci_kernel(user):
 
 @login_required
 def home(request):
-    """La prima pagina (anche dopo il login): la prima voce della barra in alto come la vede l'utente. Senza scelte
-    è la prima app di NAV_APP_IN_TESTA (di norma la chat AI), altrimenti la Dashboard."""
+    """La prima pagina (anche dopo il login): quella scelta da chi amministra per il ruolo o per la persona
+    (core.apertura.prima_pagina), altrimenti la prima voce della barra in alto come la vede l'utente. Senza scelte è
+    la prima app di NAV_APP_IN_TESTA (di norma la chat AI), altrimenti la Dashboard."""
     from .middleware import esterno
     if esterno(request.user):
         return redirect(settings.PORTALE_HOME)
+    from . import apertura
+    if (scelta := apertura.prima_pagina(request.user)):       # la sceglie chi amministra, per ruolo o per persona
+        return redirect(scelta)
     for nome in barra.prima_pagina(request.user, modules.app_visibili(request.user)):
         try:
             return redirect(reverse(nome))
@@ -1127,12 +1131,17 @@ def prova_push(request):
 @login_required
 def tasca(request):
     """«In tasca»: la pagina per il telefono, con le cose da fare in giro (solo quelle che l'utente può usare).
-    Aperta dall'app (?da=app) porta alla pagina scelta nel profilo; ?apri= è la scorciatoia dell'icona."""
+    Aperta dall'app (?da=app) porta alla pagina scelta nel profilo, o alla prima pagina del ruolo; ?apri= è la
+    scorciatoia dell'icona."""
     from core import apertura
     scelta = request.GET.get("apri") or ""
     if not scelta and request.GET.get("da") == "app":
         scelta = ProfiloUtente.objects.filter(utente=request.user).values_list("apertura_app", flat=True).first() or ""
     if (url := apertura.destinazione(request.user, scelta)):
+        return redirect(url)
+    # Aperta dall'app senza una scelta della persona nel profilo: la prima pagina del suo ruolo, se chi amministra
+    # ne ha scelta una (l'operatore apre lo scanner). «In tasca» scelta come prima pagina resta questa pagina.
+    if request.GET.get("da") == "app" and scelta in ("", "tasca") and (url := apertura.prima_pagina(request.user)) and url != reverse("core:tasca"):
         return redirect(url)
     from core import approvazioni
     voci = []

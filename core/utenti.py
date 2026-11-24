@@ -49,6 +49,8 @@ class UtenteForm(forms.ModelForm):
     dipartimenti = forms.ModelMultipleChoiceField(Dipartimento.objects.all(), required=False, label="Dipartimenti", widget=forms.CheckboxSelectMultiple,
                                                   help_text="Vede solo le app dei suoi dipartimenti e quelle comuni. Nessuno: tutte quelle che il ruolo consente.")
     invito = forms.BooleanField(required=False, initial=True, label="Mandagli l'email per scegliere la password")
+    prima_pagina = forms.ChoiceField(required=False, label="Prima pagina",
+                                     help_text="Dove arriva dopo l'accesso e aprendo l'app installata. La pagina deve poterla aprire.")
 
     class Meta:
         model = User
@@ -59,6 +61,7 @@ class UtenteForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if not tecnico_ammesso:                      # il ruolo che rende superutente lo dà solo un superutente
             self.fields["ruolo"].queryset = Ruolo.objects.filter(tecnico=False)
+        self.fields["prima_pagina"].choices = _scelte_prima_pagina("Quella del suo ruolo", self.initial.get("prima_pagina"))
         self.fields["email"].required = True
         self.fields["username"].required = False
         self.fields["username"].help_text = "Vuoto: la parte dell'email prima della chiocciola"
@@ -96,15 +99,29 @@ class UtenteForm(forms.ModelForm):
         return nome
 
 
+def _scelte_prima_pagina(vuota, attuale=""):
+    """Le pagine tra cui scegliere, più quella salvata se nel frattempo è sparita (app disinstallata)."""
+    from . import apertura
+    scelte = [("", vuota), *apertura.pagine_possibili()]
+    if attuale and attuale not in dict(scelte):
+        scelte.append((attuale, f"{attuale} (non più disponibile)"))
+    return scelte
+
+
 class RuoloForm(forms.ModelForm):
+    prima_pagina = forms.ChoiceField(required=False, label="Prima pagina",
+                                     help_text="Dove arriva chi ha questo ruolo dopo l'accesso e aprendo l'app installata. "
+                                               "Chi non può aprire quella pagina resta alla barra in alto.")
+
     class Meta:
         model = Ruolo
-        fields = ["nome", "descrizione", "livello_base", "amministra", "tecnico", "predefinito", "ordine"]
+        fields = ["nome", "descrizione", "livello_base", "amministra", "tecnico", "predefinito", "ordine", "prima_pagina"]
 
     def __init__(self, *args, tecnico_ammesso=False, **kwargs):
         super().__init__(*args, **kwargs)
         if not tecnico_ammesso:
             del self.fields["tecnico"]
+        self.fields["prima_pagina"].choices = _scelte_prima_pagina("La prima voce della barra in alto", self.instance.prima_pagina)
         _classi(self)
 
 
@@ -171,6 +188,7 @@ def scheda(request, pk=None):
                 profilo = crea_profilo(utente)
                 if not se_stesso:
                     profilo.ruolo = form.cleaned_data["ruolo"]
+                profilo.prima_pagina = form.cleaned_data.get("prima_pagina") or ""
                 profilo.eccezioni = _livelli_dal_post(request)
                 aziende = list(form.cleaned_data["aziende"])
                 profilo.aziende.set(aziende)
@@ -188,7 +206,8 @@ def scheda(request, pk=None):
                 messages.success(request, f"{utente.get_full_name() or utente.username} salvato." + (" Il tuo ruolo e lo stato attivo non si cambiano da soli." if se_stesso else ""))
             return redirect("core:utente", pk=utente.pk)
     else:
-        iniziali = {"ruolo": profilo.ruolo_id if profilo else (ruoli.predefinito() or Ruolo.objects.filter(nome="Collaboratore").first()),
+        iniziali = {"prima_pagina": profilo.prima_pagina if profilo else "",
+                    "ruolo": profilo.ruolo_id if profilo else (ruoli.predefinito() or Ruolo.objects.filter(nome="Collaboratore").first()),
                     "aziende": list(profilo.aziende.all()) if profilo else list(Azienda.objects.filter(attiva=True)),
                     "dipartimenti": list(profilo.dipartimenti.all()) if profilo else []}
         form = UtenteForm(instance=utente, initial=iniziali, tecnico_ammesso=request.user.is_superuser)
