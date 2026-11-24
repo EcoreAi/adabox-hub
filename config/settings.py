@@ -48,6 +48,8 @@ THEME = {
     "company_url": "https://ichnobyte.it/",
     "version": "0.1.0",
     "nav": [],  # la riempie core.context_processors.piattaforma con le app installate
+    # la funzione che dà le scorciatoie dell'app installata aggiunte dai moduli (hooks.voce_tasca con scorciatoia=True)
+    "scorciatoie": "core.registry.hooks.scorciatoie_tasca",
 }
 
 INSTALLED_APPS = [

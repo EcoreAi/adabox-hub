@@ -78,9 +78,16 @@ def manifest(request):
 
     from django.conf import settings
     from django.urls import reverse
-
-    from core.registry import hooks
+    from django.utils.module_loading import import_string
     brand = settings.THEME.get("brand", "adabox")
+    # Le scorciatoie che i moduli aggiungono: il tema non conosce il kernel (resta portabile), la funzione che le dà
+    # arriva dalle impostazioni (THEME["scorciatoie"], un percorso puntato). Senza, restano quelle fisse.
+    dei_moduli = []
+    if (percorso := settings.THEME.get("scorciatoie")):
+        try:
+            dei_moduli = list(import_string(percorso)())
+        except Exception:                                 # noqa: BLE001 - il manifest deve uscire comunque
+            dei_moduli = []
     dati = {"name": brand, "short_name": brand[:12], "lang": "it", "dir": "ltr",
             "start_url": "/tasca/?da=app", "scope": "/", "display": "standalone", "background_color": "#ffffff", "theme_color": colore_tema(),
             "description": "Il gestionale con l'assistente: attività, approvazioni, note spese e notifiche anche dal telefono.",
@@ -88,7 +95,7 @@ def manifest(request):
                       {"src": reverse("theme:icona", args=[512]), "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}],
             # le scorciatoie passano da «In tasca»: è il kernel a sapere se la pagina esiste e se la persona la può usare
             # per prime quelle che i moduli hanno chiesto (hooks.voce_tasca con scorciatoia=True): il telefono ne mostra poche
-            "shortcuts": [*hooks.scorciatoie_tasca(),
+            "shortcuts": [*dei_moduli,
                           {"name": "Parla con Ada", "url": "/tasca/?apri=parla"}, {"name": "Chat con Ada", "url": "/tasca/?apri=chat"},
                           {"name": "In tasca", "url": "/tasca/?apri=tasca"}, {"name": "Da approvare", "url": "/approvazioni/"},
                           {"name": "Le mie attività", "url": "/attivita/"}]}
