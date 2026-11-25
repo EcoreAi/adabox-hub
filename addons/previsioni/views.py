@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 from core import lavori
 from core.viste import ModelView, register
 
-from . import calcolo, servizio
+from . import calcolo, esaurimenti, servizio
 from .forms import ServizioForm
 from .models import PrevisioneArticolo, ServizioPrevisioni
 
@@ -67,6 +67,7 @@ class ArticoliInEsaurimentoView(ModelView):
     search_fields = ["prodotto", "codice"]
     ai_descrizione = ("Gli articoli di magazzino con la data prevista di esaurimento e di riordino, calcolate ogni notte "
                       "dal modulo Previsioni")
+    template_lista = "previsioni/esaurimenti_lista.html"
     template_tabella = "previsioni/_esaurimenti_tabella.html"
 
     def get_queryset(self, request):
@@ -79,6 +80,13 @@ class ArticoliInEsaurimentoView(ModelView):
 
     def col_magazzino(self, obj):
         return obj.magazzino or "Tutti i magazzini"
+
+    def col_esaurimento(self, obj):
+        """La data prevista con la fascia 10–90 %: «12/03/2027 (08/03/2027 – 18/04/2027)»."""
+        if not obj.esaurimento:
+            return "—"
+        fascia = esaurimenti.fascia(obj)
+        return f"{obj.esaurimento:%d/%m/%Y} ({fascia})" if fascia else f"{obj.esaurimento:%d/%m/%Y}"
 
     def col_affidabilita(self, obj):
         return str(obj.affidabilita.get("livello", "")).capitalize() or "—"

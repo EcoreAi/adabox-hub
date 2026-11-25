@@ -1,0 +1,7 @@
+{% extends "core/vista/lista.html" %}
+{% load previsioni %}
+{% block app_content %}
+{% stato_previsioni as sp %}
+{% if sp %}<p class="sub">Previsioni calcolate il {{ sp.calcolata_il|date:"d/m/Y" }}{% if sp.ferma_dal %}. <strong>Previsioni non aggiornate dal {{ sp.ferma_dal|date:"d/m/Y" }}</strong>: l'ultimo calcolo non è riuscito.{% endif %}</p>{% endif %}
+{% entro_nel_form %}{{ block.super }}{% fine_entro_nel_form %}
+{% endblock %}

@@ -24,7 +24,7 @@ def _giorni(n):
 
 def _riga(azienda, nome, riordino, magazzino="", prodotto_pk=None, **extra):
     campi = dict(azienda=azienda, prodotto_pk=prodotto_pk or abs(hash(nome)) % 10**6, prodotto=nome, magazzino=magazzino,
-                 magazzino_pk=1 if magazzino else None, per="mese", partenza=Decimal("100"), futuro=[["x", 1, 2, 3]] * 12,
+                 magazzino_pk=len(magazzino) if magazzino else None, per="mese", partenza=Decimal("100"), futuro=[["x", 1, 2, 3]] * 12,
                  consumo_mensile=Decimal("10"), riordino=riordino, stato="ok", calcolata_il=timezone.now(),
                  affidabilita={"livello": "media", "motivi": ["Storia: 14 mesi"]}, modello="timestral-1")
     campi.update(extra)
@@ -136,3 +136,45 @@ def test_riquadro_avviso_se_non_aggiornata(client, capo, prodotto):
     ok = timezone.make_aware(datetime.datetime(2026, 11, 20, 2, 0))
     StatoCalcolo.objects.create(azienda=azienda, cosa="magazzino", ultimo_ok=ok, errore="servizio giù")
     assert "non aggiornata dal 20/11/2026" in _scheda(client, prodotto)
+
+
+@pytest_prodotti
+def test_riquadro_stati_riordina_ora_finito_oltre(client, capo, prodotto):
+    azienda = Azienda.objects.get(pk=1)
+    _riga(azienda, "Monitor", OGGI, prodotto_pk=prodotto.pk, magazzino="Negozio", stato="riordina_ora",
+          quantita_suggerita=Decimal("40"))
+    _riga(azienda, "Monitor", None, prodotto_pk=prodotto.pk, magazzino="Deposito", stato="finito")
+    _riga(azienda, "Monitor", None, prodotto_pk=prodotto.pk, stato="oltre")
+    html = _scheda(client, prodotto)
+    assert "Riordina ora" in html and "quantità suggerita 40" in html and "Finito" in html
+    assert "Basta oltre il " in html
+    assert "Finisce verso" not in html and "Riordina entro" not in html
+
+
+def test_lista_con_data_del_calcolo_e_avviso_se_non_aggiornata(client, capo):
+    azienda = Azienda.objects.get(pk=1)
+    _riga(azienda, "Alfa", _giorni(5), calcolata_il=timezone.make_aware(datetime.datetime(2026, 11, 22, 2, 0)))
+    url = reverse("previsioni:esaurimenti_lista")
+    html = client.get(url).content.decode()
+    assert "calcolate il 22/11/2026" in html and "non aggiornate dal" not in html
+    StatoCalcolo.objects.create(azienda=azienda, cosa="magazzino", errore="servizio giù",
+                                ultimo_ok=timezone.make_aware(datetime.datetime(2026, 11, 20, 2, 0)))
+    assert "non aggiornate dal 20/11/2026" in client.get(url).content.decode()
+
+
+def test_entro_resta_nel_form_dei_filtri(client, capo):
+    _riga(Azienda.objects.get(pk=1), "Alfa", _giorni(5))
+    url = reverse("previsioni:esaurimenti_lista")
+    assert 'name="entro" value="30"' in client.get(url, {"entro": "30"}).content.decode()
+    assert 'name="entro"' not in client.get(url).content.decode()
+
+
+def test_esaurimento_con_la_fascia_10_90(client, capo):
+    azienda = Azienda.objects.get(pk=1)
+    _riga(azienda, "Alfa", _giorni(5), esaurimento=datetime.date(2027, 3, 12), esaurimento_da=datetime.date(2027, 3, 8),
+          esaurimento_a=datetime.date(2027, 4, 18))
+    _riga(azienda, "Beta", _giorni(6), esaurimento=datetime.date(2027, 3, 12), esaurimento_da=datetime.date(2027, 3, 8),
+          esaurimento_a=None)
+    html = client.get(reverse("previsioni:esaurimenti_lista")).content.decode()
+    assert "12/03/2027 (08/03/2027 – 18/04/2027)" in html
+    assert "12/03/2027 (08/03/2027 – oltre " in html
