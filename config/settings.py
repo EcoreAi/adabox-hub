@@ -41,12 +41,14 @@ TEMA_APP = env("TEMA_APP", default="")
 
 # Brand: letto dal context processor theme.context_processors.theme
 THEME = {
-    "brand": env("THEME_BRAND", default="Adabox v3"),
+    "brand": env("THEME_BRAND", default="Adabox"),
     "powered_by": env("THEME_POWERED_BY", default=""),  # riga piccola sotto il nome, se il tema la mostra
     "mark": "AH",
     "company": "ICHNOBYTE S.R.L.",
     "company_url": "https://ichnobyte.it/",
-    "version": "0.1.0",
+    # in piccolo nel piè di pagina e nella pagina di accesso: la versione non fa parte del nome (nell'intestazione, con
+    # la barra piena, «Adabox v3» andava a capo)
+    "version": env("THEME_VERSION", default="v3"),
     "nav": [],  # la riempie core.context_processors.piattaforma con le app installate
     # la funzione che dà le scorciatoie dell'app installata aggiunte dai moduli (hooks.voce_tasca con scorciatoia=True)
     "scorciatoie": "core.registry.hooks.scorciatoie_tasca",

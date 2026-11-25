@@ -19,7 +19,7 @@
         <label class="ui-label">Misura<select class="ui-input" name="misura"{% if not vista %} disabled{% endif %}>{% for v, e in opzioni.misure %}<option value="{{ v }}"{% if v == p.misura %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
       </section>
       <section class="an-cost-sezione"><h3>Forma</h3>
-        <div class="an-tipi-scelta" role="radiogroup" aria-label="Tipo di grafico">{% for v, e in tipi %}<label class="an-tipo"><input type="radio" name="tipo" value="{{ v }}"{% if v == p.tipo %} checked{% endif %}><span>{{ e }}</span></label>{% endfor %}</div>
+        <div class="an-tipi-scelta" role="radiogroup" aria-label="Tipo di grafico">{% for v, e in tipi %}<label class="an-forma"><input type="radio" name="tipo" value="{{ v }}"{% if v == p.tipo %} checked{% endif %}><span>{{ e }}</span></label>{% endfor %}</div>
         {% if p.tipo == "kpi" %}
         <label class="ui-label">Campo data del periodo<select class="ui-input" name="data"{% if not vista %} disabled{% endif %}><option value="">Nessuno: solo il totale</option>{% for v, e in opzioni.date %}<option value="{{ v }}"{% if v == p.data %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
         <label class="ui-label">Periodo<select class="ui-input" name="periodo">{% for v, e in periodi %}<option value="{{ v }}"{% if v == p.periodo %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
