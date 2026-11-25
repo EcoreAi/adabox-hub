@@ -71,9 +71,7 @@ def test_la_riga_delle_schede_resta_corta_e_il_resto_sta_nel_menu_per_area(clien
     assert re.search(r'class="an-scheda an-scheda-app"[^>]*href="' + url + '"', html)
     monkeypatch.setattr(motore, "MAX_SCHEDE_APP", 0)
     assert not re.search(r'class="an-scheda an-scheda-app"', client.get(reverse("core:dashboard")).content.decode())
-    # le pagine oltre il limite vanno nel menu, e quella aperta resta in vista
-    monkeypatch.setattr(motore, "MAX_SCHEDE_PAGINE", 2)
+    # le pagine create non sono schede in riga: stanno nel menu «Le mie dashboard» (test_le_mie_dashboard.py)
     pagine = [Pagina.objects.create(utente=superuser, titolo=f"Pagina {i}", ordine=i) for i in range(4)]
-    r = client.get(reverse("grafici:pagina", args=[pagine[3].pk]))
-    html = r.content.decode()
-    assert "Le tue pagine" in html and re.search(r'class="an-scheda is-attiva"[^>]*href="' + reverse("grafici:pagina", args=[pagine[3].pk]) + '"', html)
+    html = client.get(reverse("grafici:pagina", args=[pagine[3].pk])).content.decode()
+    assert "Le mie dashboard" in html and not re.search(r'class="an-scheda[^"]*"[^>]*href="' + reverse("grafici:pagina", args=[pagine[3].pk]) + '"', html)
