@@ -108,3 +108,50 @@ def test_in_una_chat_limitata_a_un_app_si_prevede_solo_sulle_sue_viste(scena, se
         artifact.calcola(spec, _contesto(scena))
     assert str(e.value) == str(atteso.value)
     assert not servizi
+
+
+def _tre_gruppi(scena):
+    """Tre «funzioni» con otto mesi di storia, in più dei lavori già nella scena."""
+    oggi = timezone.localdate().replace(day=1)
+    for i, quanti in enumerate([4, 3, 2]):
+        for mesi_fa in range(1, 9):
+            mese = motore_previsioni.avanti(oggi, "mese", -mesi_fa)
+            for _ in range(quanti):
+                lavoro = Lavoro.objects.create(funzione=f"prova.f{i}")
+                Lavoro.objects.filter(pk=lavoro.pk).update(creato=timezone.make_aware(
+                    datetime.datetime.combine(mese.replace(day=10), datetime.time(9))))
+
+
+def test_ada_prevede_i_primi_prodotti_in_una_tabella(scena, servizi):
+    _tre_gruppi(scena)
+    r = ai_previsioni.previsione(_contesto(scena), "core.lavoro", "creato", per="mese", orizzonte=2,
+                                 raggruppa="funzione", primi=3)
+    a = Artifact.objects.get(pk=r["artifact"])
+    assert a.tipo == Artifact.TABELLA
+    assert a.spec["grafico"] == "previsione" and a.spec["raggruppa"] == "funzione" and a.spec["primi"] == 3
+    assert len(a.dati["righe"]) == 3
+    assert a.dati["colonne"][0] == "Gruppo" and a.dati["colonne"][-2:] == ["Totale previsto (10–90 %)", "Affidabilità"]
+    assert [g["nome"] for g in r["gruppi"]][0] == a.dati["righe"][0][0]
+    assert set(r["gruppi"][0]) == {"nome", "totale", "affidabilita"} and r["gruppi"][0]["totale"]["mediana"] is not None
+    assert r["modello"] == "finto-timestral" and "non sommare" in r["nota"].lower()
+    assert len([c for c in servizi if c[0] == "previsioni"]) == 1                      # una sola chiamata per tutti
+    assert artifact.svg_di(a) == ""                                                    # una tabella non si disegna
+    # il ricalcolo (↻) rifà la tabella
+    assert artifact.calcola(a.spec, _contesto(scena))["colonne"] == a.dati["colonne"]
+
+
+def test_senza_raggruppa_resta_il_grafico_di_prima(scena, servizi):
+    r = ai_previsioni.previsione(_contesto(scena), "core.lavoro", "creato", per="mese", orizzonte=2)
+    a = Artifact.objects.get(pk=r["artifact"])
+    assert a.tipo == Artifact.GRAFICO and "raggruppa" not in a.spec and "primi" not in a.spec
+    assert "previsione" in r and "gruppi" not in r
+
+
+def test_primi_fuori_limite(scena, servizi):
+    _tre_gruppi(scena)
+    r = ai_previsioni.previsione(_contesto(scena), "core.lavoro", "creato", raggruppa="funzione", primi=80)
+    assert Artifact.objects.get(pk=r["artifact"]).spec["primi"] == 50
+    r = ai_previsioni.previsione(_contesto(scena), "core.lavoro", "creato", raggruppa="funzione", primi=-5)
+    assert Artifact.objects.get(pk=r["artifact"]).spec["primi"] == 1
+    with pytest.raises(strumenti.ErroreStrumento, match="«primi»"):
+        ai_previsioni.previsione(_contesto(scena), "core.lavoro", "creato", raggruppa="funzione", primi="tanti")

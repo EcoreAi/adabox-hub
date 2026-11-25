@@ -92,6 +92,8 @@ def _calcola(spec, contesto):
             raise ErroreStrumento(servizio.SENZA_MODULO)
         v = None if spec.get("misura_aziendale") else vista_per(contesto, spec["vista"])   # le viste della chat
         try:
+            if spec.get("raggruppa"):
+                return motore.come_tabella(motore.calcola_per_gruppo(spec, richiesta.per(contesto), vista=v))
             return motore.calcola_previsione(spec, richiesta.per(contesto), vista=v)
         except ErrorePrevisione as e:
             raise ErroreStrumento(str(e)) from e
@@ -126,6 +128,8 @@ def _calcola(spec, contesto):
 def svg_di(artifact, dati=None):
     dati = dati or artifact.dati
     if artifact.spec.get("grafico") == "previsione":
+        if artifact.spec.get("raggruppa"):
+            return ""                                   # per gruppo è una tabella: niente disegno
         from django.apps import apps
         if not apps.is_installed("previsioni"):
             return ""                                   # senza il modulo niente disegno: la chat dice «Nessun dato»
