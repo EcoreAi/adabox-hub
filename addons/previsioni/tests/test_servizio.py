@@ -108,8 +108,14 @@ def test_dentro_una_richiesta_web_si_aspetta_meno_del_worker(monkeypatch):
         servizio.chiama("/x", {})
     servizio.chiama("/x", {})
     assert attese == [25, 120, 25]
-    avvio = (Path(__file__).resolve().parents[3] / "deploy" / "entrypoint.sh").read_text()
-    assert servizio.TIMEOUT_WEB < int(re.search(r"--timeout (\d+)", avvio).group(1))
+
+
+AVVIO = Path(__file__).resolve().parents[3] / "deploy" / "entrypoint.sh"
+
+
+@pytest.mark.skipif(not AVVIO.exists(), reason="senza deploy/ (collaudo del modulo da solo)")
+def test_l_attesa_delle_pagine_sta_sotto_il_timeout_di_gunicorn():
+    assert servizio.TIMEOUT_WEB < int(re.search(r"--timeout (\d+)", AVVIO.read_text()).group(1))
 
 
 def test_la_pagina_del_servizio_si_raggiunge_dal_menu_del_profilo_del_global_admin():

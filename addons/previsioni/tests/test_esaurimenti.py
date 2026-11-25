@@ -16,6 +16,9 @@ from core.viste.interroga import richiesta_di
 from previsioni.models import PrevisioneArticolo, StatoCalcolo
 
 pytestmark = pytest.mark.django_db
+# «Articoli in esaurimento» si apre solo con Magazzino (e le sue righe nascono solo con Magazzino installato)
+serve_magazzino = pytest.mark.skipif(not all(apps.is_installed(a) for a in ("magazzino", "prodotti")),
+                                     reason="serve Magazzino con Prodotti")
 
 OGGI = timezone.localdate()
 
@@ -40,6 +43,7 @@ def capo(client):
     return utente
 
 
+@serve_magazzino
 def test_lista_ordinata_per_riordino_e_filtro_entro_30_giorni(client, capo):
     azienda = Azienda.objects.get(pk=1)
     _riga(azienda, "Gamma", None)
@@ -59,6 +63,7 @@ def test_lista_ordinata_per_riordino_e_filtro_entro_30_giorni(client, capo):
     assert "Delta" in html and "Alfa" not in html
 
 
+@serve_magazzino
 def test_un_azienda_non_vede_le_righe_di_un_altra(client, capo):
     altra = Azienda.objects.create(nome="Altra Srl")
     _riga(altra, "Gamma", _giorni(5), magazzino="Segreto")
@@ -67,6 +72,7 @@ def test_un_azienda_non_vede_le_righe_di_un_altra(client, capo):
     assert "Alfa" in html and "Gamma" not in html and "Segreto" not in html
 
 
+@serve_magazzino
 def test_vista_in_sola_lettura(client, capo):
     riga = _riga(Azienda.objects.get(pk=1), "Alfa", _giorni(5))
     html = client.get(reverse("previsioni:esaurimenti_lista")).content.decode()
@@ -78,6 +84,7 @@ def test_vista_in_sola_lettura(client, capo):
     assert PrevisioneArticolo.objects.filter(pk=riga.pk).exists()
 
 
+@serve_magazzino
 def test_ada_vede_la_vista(capo):
     richiesta = richiesta_di(capo, Azienda.objects.get(pk=1))
     assert "previsioni.esaurimenti" in {interroga.id_vista(v) for v in interroga.viste_accessibili(richiesta)}
@@ -153,6 +160,7 @@ def test_riquadro_stati_riordina_ora_finito_oltre(client, capo, prodotto):
     assert "Finisce verso" not in html and "Riordina entro" not in html
 
 
+@serve_magazzino
 def test_lista_con_data_del_calcolo_e_avviso_se_non_aggiornata(client, capo):
     azienda = Azienda.objects.get(pk=1)
     _riga(azienda, "Alfa", _giorni(5), calcolata_il=timezone.make_aware(datetime.datetime(2026, 11, 22, 2, 0)))
@@ -164,6 +172,7 @@ def test_lista_con_data_del_calcolo_e_avviso_se_non_aggiornata(client, capo):
     assert "non aggiornate dal 20/11/2026" in client.get(url).content.decode()
 
 
+@serve_magazzino
 def test_entro_resta_nel_form_dei_filtri(client, capo):
     _riga(Azienda.objects.get(pk=1), "Alfa", _giorni(5))
     url = reverse("previsioni:esaurimenti_lista")
@@ -171,6 +180,7 @@ def test_entro_resta_nel_form_dei_filtri(client, capo):
     assert 'name="entro"' not in client.get(url).content.decode()
 
 
+@serve_magazzino
 def test_esaurimento_con_la_fascia_10_90(client, capo):
     azienda = Azienda.objects.get(pk=1)
     _riga(azienda, "Alfa", _giorni(5), esaurimento=datetime.date(2027, 3, 12), esaurimento_da=datetime.date(2027, 3, 8),
@@ -183,10 +193,6 @@ def test_esaurimento_con_la_fascia_10_90(client, capo):
 
 
 # ---------- le previsioni del magazzino solo a chi vede Magazzino (spec, «4 quater. Permessi») ----------
-
-serve_magazzino = pytest.mark.skipif(not all(apps.is_installed(a) for a in ("magazzino", "prodotti")),
-                                     reason="serve Magazzino con Prodotti")
-
 
 def _utente(client, azienda, *permessi, ruolo=None):
     u = User.objects.create_user("vera", "vera@example.com", "x")
@@ -223,6 +229,13 @@ def test_senza_permessi_di_magazzino_niente_previsioni_del_magazzino(client, pro
     assert "Cagliari" in client.get(reverse("previsioni:pagina")).content.decode()
     assert "Cagliari" in _scheda(client, prodotto)
     assert "previsioni.esaurimenti" in _viste(u, azienda)
+
+
+@pytest.mark.skipif(apps.is_installed("magazzino"), reason="solo senza Magazzino installato (collaudo del modulo da solo)")
+def test_senza_magazzino_installato_niente_lista_ne_ada(client, capo):
+    _riga(Azienda.objects.get(pk=1), "Alfa", _giorni(5))
+    assert client.get(reverse("previsioni:esaurimenti_lista")).status_code == 403
+    assert "previsioni.esaurimenti" not in _viste(capo, Azienda.objects.get(pk=1))
 
 
 @serve_magazzino
@@ -274,6 +287,7 @@ def _avvisa(html, titolo):
     return titolo in html and RIFIUTATO in html and "24/11/2026 02:00" in html
 
 
+@serve_magazzino
 def test_lista_dice_se_le_previsioni_non_sono_mai_state_calcolate(client, capo):
     azienda = Azienda.objects.get(pk=1)
     _fallito(azienda)
@@ -303,6 +317,7 @@ def test_attribuzione_senza_nome_del_modello():
         '<span class="sub">licenza Modified MIT di Mistral AI</span>')
 
 
+@serve_magazzino
 def test_lista_con_l_attribuzione_sotto_la_tabella(client, capo):
     _riga(Azienda.objects.get(pk=1), "Alfa", _giorni(5))
     html = client.get(reverse("previsioni:esaurimenti_lista")).content.decode()
