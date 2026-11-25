@@ -104,3 +104,48 @@ def test_csv_della_previsione_raggruppata(capo):
     g = Grafico(tipo=Grafico.PREVISIONE)
     dati = {"tipo": "tabella", "colonne": ["Gruppo", "Totale"], "righe": [["a", "1"], ["b", "2"]]}
     assert motore_grafici.csv_di(g, dati).lstrip("﻿").splitlines() == ["Gruppo;Totale", "a;1", "b;2"]
+
+
+ATTRIBUZIONE = "modello finto-timestral · licenza Modified MIT di Mistral AI"
+
+
+@pytest.mark.skipif(not apps.is_installed("ai"), reason="serve l'Assistente AI")
+def test_previsione_per_gruppo_della_chat_salvata_in_analisi_resta_una_previsione(client, capo, servizi, storia):
+    """«Salva in Analisi» di una tabella di previsione della chat: un grafico Previsione con raggruppa e primi, che si
+    ricalcola (prima diventava una tabella e al primo ricalcolo «La vista non ha il campo «mese».»)."""
+    from ai import strumenti
+    from ai.models import Conversazione
+    from previsioni import ai as ai_previsioni
+    azienda = Azienda.objects.get(pk=1)
+    contesto = strumenti.Contesto(utente=capo, azienda=azienda, conversazione=Conversazione.objects.create(utente=capo))
+    r = ai_previsioni.previsione(contesto, "core.lavoro", "creato", per="mese", orizzonte=2, raggruppa="funzione", primi=2)
+    assert client.post(reverse("grafici:salva_da_artifact"), {"artifact": r["artifact"], "destinazione": ""}).status_code == 200
+    g = Grafico.objects.get(utente=capo)
+    assert g.tipo == Grafico.PREVISIONE
+    assert g.spec["raggruppa"] == "funzione" and g.spec["primi"] == 2 and not {"tipo", "grafico"} & set(g.spec)
+    request = richiesta_di(capo, azienda)
+    for forza in (False, True):                       # l'istantanea della chat, poi il ricalcolo
+        w = motore_grafici.widget_salvato(Grafico.objects.get(pk=g.pk), request, forza=forza)
+        assert w["errore"] == "" and w["serie"]["tipo"] == "tabella"
+        assert "Totale previsto (10–90 %)" in w["serie"]["colonne"] and w["serie"]["modello"] == "finto-timestral"
+    html = client.get(reverse("grafici:grafico", args=[g.pk]), {"aggiorna": "1"}).content.decode()
+    assert "Totale previsto" in html and "prova.f0" in html and "non ha il campo" not in html and ATTRIBUZIONE in html
+
+
+def test_apri_in_grande_della_previsione_per_gruppo(client, capo, servizi, storia):
+    g = Grafico.objects.create(utente=capo, titolo="Lavori per funzione", tipo=Grafico.PREVISIONE,
+                               spec={"vista": "core.lavoro", "misura": "count", "data": "creato", "per": "mese",
+                                     "orizzonte": 3, "raggruppa": "funzione", "primi": 2})
+    r = client.get(reverse("grafici:grafico", args=[g.pk]))
+    assert r.status_code == 200
+    html = r.content.decode()
+    assert "Totale previsto (10–90 %)" in html and "prova.f1" in html and "data-grafico" not in html
+    assert ATTRIBUZIONE in html
+
+
+def test_apri_in_grande_della_previsione_di_una_serie_con_attribuzione(client, capo, servizi, storia):
+    g = Grafico.objects.create(utente=capo, titolo="Lavori", tipo=Grafico.PREVISIONE,
+                               spec={"vista": "core.lavoro", "misura": "count", "data": "creato", "per": "mese",
+                                     "orizzonte": 3})
+    html = client.get(reverse("grafici:grafico", args=[g.pk])).content.decode()
+    assert "Mediana" in html and ATTRIBUZIONE in html
