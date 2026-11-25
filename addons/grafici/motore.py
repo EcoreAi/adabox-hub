@@ -30,7 +30,6 @@ ICONE = [("bar-chart", "Grafico"), ("pie-chart", "Torta"), ("trending-up", "Tend
 TIPI_SCAMBIABILI = [(t, e) for t, e in Grafico.TIPI if t in Grafico.INTERCAMBIABILI]
 AGGIORNAMENTI = [(0, "Mai: solo a mano"), (1, "Ogni ora"), (6, "Ogni 6 ore"), (24, "Ogni giorno"), (168, "Ogni settimana")]
 PANORAMICA = "panoramica"
-MAX_SCHEDE_PAGINE = 6                                    # in vista nella riga delle schede; le altre nel menu «Altre schede»
 MAX_SCHEDE_APP = 3                                       # le app personalizzate in vista
 
 
@@ -516,9 +515,10 @@ def app_con_indicatori(user):
 
 
 def schede(request, attiva=""):
-    """Le schede della dashboard per chi guarda, in una riga che non scorre mai. In vista: le sue pagine, quelle condivise
-    con lui, le app che ha personalizzato (con un limite) e quella aperta. Tutto il resto sta nel menu «Altre schede»,
-    per area: {"visibili": [...], "pagine": [...], "gruppi": [{"titolo", "voci"}]}."""
+    """Le schede della dashboard per chi guarda, in una riga che non scorre mai: le pagine che ha creato e quelle condivise
+    con lui stanno nel menu «Le mie dashboard», tante quante sono; in vista le app che ha personalizzato (con un limite)
+    e quella aperta, le altre app nel menu «Altre schede», per area.
+    {"mie": [...], "condivise": [...], "pagina_aperta": bool, "visibili": [...], "gruppi": [{"titolo", "voci"}]}."""
     utente = request.user
     pagine = list((Pagina.objects.filter(utente=utente) | condivise(request.azienda, utente)).filter(area__isnull=True)
                   .distinct().select_related("utente"))
@@ -538,15 +538,11 @@ def schede(request, attiva=""):
                     "icona": "" if "/" in icona else icona, "immagine": icona if "/" in icona else "",
                     "url": reverse("grafici:pagina_app", args=[a["slug"]]), "condivisa": False, "proprietario": "",
                     "attiva": f"app:{a['slug']}" == attiva, "personalizzata": bool(p and p.layout)})
-    in_vista_libere = libere[:MAX_SCHEDE_PAGINE]
-    aperta_nascosta = next((v for v in libere[MAX_SCHEDE_PAGINE:] if v["attiva"]), None)
-    if aperta_nascosta:                                   # la scheda aperta non finisce mai nel menu
-        in_vista_libere = [*in_vista_libere[:-1], aperta_nascosta]
     personalizzate = [v for v in app if v["personalizzata"]][:MAX_SCHEDE_APP]
     in_vista_app = personalizzate + [v for v in app if v["attiva"] and v not in personalizzate]
     in_menu = [v for v in app if v not in in_vista_app]
-    return {"visibili": in_vista_libere + in_vista_app, "pagine": [v for v in libere if v not in in_vista_libere],
-            "gruppi": barra.gruppi(in_menu, "titolo")}
+    return {"mie": [v for v in libere if not v["condivisa"]], "condivise": [v for v in libere if v["condivisa"]],
+            "pagina_aperta": any(v["attiva"] for v in libere), "visibili": in_vista_app, "gruppi": barra.gruppi(in_menu, "titolo")}
 
 
 def pagina_app(utente, app):
