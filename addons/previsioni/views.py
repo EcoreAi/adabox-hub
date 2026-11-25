@@ -1,10 +1,15 @@
-"""La pagina dell'impostazione del servizio, solo per il Global Admin."""
+"""La pagina dell'impostazione del servizio, solo per il Global Admin, e «Aggiorna» delle previsioni salvate."""
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied
+from django.http import HttpResponseBadRequest
 from django.shortcuts import redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_POST
 
-from . import servizio
+from core import lavori
+
+from . import calcolo, servizio
 from .forms import ServizioForm
 from .models import ServizioPrevisioni
 
@@ -21,3 +26,21 @@ def pagina_servizio(request):
         return redirect("previsioni:servizio")
     return render(request, "previsioni/servizio.html", {
         "form": form, "chiave_impostata": bool(corrente.chiave_cifrata), "url_servizio": servizio.url()})
+
+
+@login_required
+@permission_required("previsioni.change_previsionearticolo", raise_exception=True)
+@require_POST
+def aggiorna(request):
+    """«Aggiorna» (`?cosa=magazzino`): il ricalcolo va in un lavoro in background, perché ogni chiamata al servizio
+    può durare minuti, e si torna alla pagina di prima."""
+    cosa, azienda = request.GET.get("cosa", ""), getattr(request, "azienda", None)
+    if cosa not in calcolo.CALCOLI or azienda is None:
+        return HttpResponseBadRequest("Previsioni da aggiornare sconosciute o nessuna azienda corrente.")
+    lavori.accoda("previsioni.calcolo.aggiorna", azienda=azienda, utente=request.user, max_tentativi=1,
+                  azienda_id=azienda.pk, cosa=cosa)
+    messages.success(request, "Aggiornamento avviato: le previsioni saranno pronte tra poco.")
+    indietro = request.META.get("HTTP_REFERER", "")
+    if url_has_allowed_host_and_scheme(indietro, {request.get_host()}, request.is_secure()):
+        return redirect(indietro)
+    return redirect("core:home")

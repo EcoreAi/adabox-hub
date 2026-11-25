@@ -18,4 +18,5 @@
         {"chiave": "url_servizio", "label": "URL del servizio di previsione", "tipo": "testo", "default": "",
          "help": "es. http://adabox-forecast-1:8080 o un servizio remoto; vuoto = previsioni spente"},
     ],
+    "cron": [{"nome": "Previsioni della notte", "funzione": "previsioni.calcolo.notturno", "ogni": "1d", "alle": "02:00"}],
 }

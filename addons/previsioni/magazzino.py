@@ -145,14 +145,19 @@ def partenze(azienda) -> dict[Chiave, Decimal]:
     return {**valori, **totali}
 
 
-def per_della_storia(azienda) -> str:
-    """«mese» se dal primo movimento dell'azienda sono passati almeno 12 mesi, altrimenti «settimana»."""
+def primo_movimento(azienda) -> datetime.date | None:
+    """Il giorno del primo movimento dell'azienda, None se non ne ha."""
     from magazzino.models import Movimento
 
     primo = Movimento.objects.filter(azienda=azienda).aggregate(p=Min("data"))["p"]
+    return _giorno_locale(primo) if primo is not None else None
+
+
+def per_della_storia(azienda) -> str:
+    """«mese» se dal primo movimento dell'azienda sono passati almeno 12 mesi, altrimenti «settimana»."""
+    primo, oggi = primo_movimento(azienda), timezone.localdate()
     if primo is None:
         return "settimana"
-    primo, oggi = _giorno_locale(primo), timezone.localdate()
     mesi = (oggi.year - primo.year) * 12 + oggi.month - primo.month - (1 if oggi.day < primo.day else 0)
     return "mese" if mesi >= MESI_DI_STORIA else "settimana"
 
