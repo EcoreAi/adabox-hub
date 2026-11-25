@@ -1,10 +1,21 @@
 """Strumenti degli specialisti locali: previsione di una serie dai dati del gestionale e classificazione di un testo.
-Visibili solo se il loro servizio è configurato nelle impostazioni."""
+Visibili solo se il loro servizio è configurato nelle impostazioni. La previsione usa il motore del modulo Previsioni
+(`previsioni.motore`), importato solo se il modulo è installato."""
+from django.apps import apps
+
 from .. import specialisti        # può essere ancora a metà caricamento: i suoi nomi si usano solo nelle funzioni
+from . import richiesta
 from .registro import ErroreStrumento, Strumento, registra
 from .viste import FILTRI, TESTO, VISTA
 
-MAX_ORIZZONTE = 24                # = specialisti.MAX_ORIZZONTE (qui serve già all'import, per lo schema)
+MAX_ORIZZONTE = 24                # = previsioni.motore.MAX_ORIZZONTE (qui serve già all'import, per lo schema)
+
+
+def _previsioni_configurate():
+    if not apps.is_installed("previsioni"):
+        return False
+    from previsioni import servizio
+    return bool(servizio.url())
 
 
 def previsione(contesto, vista="", data="", misura="count", per="mese", orizzonte=3, filtri=None, testo="", titolo="",
@@ -28,7 +39,14 @@ def previsione(contesto, vista="", data="", misura="count", per="mese", orizzont
         predefinito = f"Previsione {vista}: {misura or 'count'} per {per}"
     else:
         raise ErroreStrumento("Indica «misura_aziendale» oppure «vista» e «data».")
-    dati = specialisti.calcola_previsione(spec, contesto)
+    if not apps.is_installed("previsioni"):
+        raise ErroreStrumento("Serve il modulo Previsioni.")
+    from previsioni import motore
+    from previsioni.servizio import ErrorePrevisione
+    try:
+        dati = motore.calcola_previsione(spec, richiesta.per(contesto))
+    except ErrorePrevisione as e:
+        raise ErroreStrumento(str(e)) from e
     a = artifact._crea(contesto, Artifact.GRAFICO, titolo or predefinito, spec, dati)
     return {"artifact": a.pk, "titolo": a.titolo, "ultimi_periodi": dati["storico"][-6:],
             "previsione": [{"periodo": p, "basso_10": b, "mediana": m, "alto_90": a_} for p, b, m, a_ in dati["futuro"]],
@@ -61,7 +79,7 @@ registra(Strumento(
         "filtri": FILTRI, "testo": TESTO, "titolo": {"type": "string"},
         "misura_aziendale": {"type": "string", "description": "una misura dell'elenco «Misure aziendali» (es. "
                                                               "fatturazione.fatturato) al posto di vista, data e misura"}},
-     "required": []}, previsione, disponibile=lambda: bool(specialisti.url("url_forecast"))))
+     "required": []}, previsione, disponibile=_previsioni_configurate))
 registra(Strumento(
     "classifica", "Valuta un testo con il decisore locale e restituisce probabilità: sì/no, scelta tra opzioni o "
                   "punteggio su livelli (es. urgenza di un ticket, categoria di una richiesta).",

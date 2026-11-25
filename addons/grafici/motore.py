@@ -47,19 +47,24 @@ def _ai_disponibile():
 
 
 def previsioni_disponibili():
-    """Il servizio di previsione c'è: modulo AI attivo e indirizzo configurato."""
-    if not _ai_disponibile():
+    """Il servizio di previsione c'è: modulo Previsioni installato e indirizzo configurato."""
+    from django.apps import apps
+    if not apps.is_installed("previsioni"):
         return False
-    from ai import specialisti
-    return bool(specialisti.url("url_forecast"))
+    from previsioni import servizio
+    return bool(servizio.url())
 
 
 def _previsione(spec, request):
-    if not _ai_disponibile():
-        raise ErroreInterrogazione("Le previsioni richiedono il modulo Assistente AI con il servizio di previsione.")
-    from ai.specialisti import calcola_previsione
-    from ai.strumenti import Contesto
-    return calcola_previsione(spec, Contesto(utente=request.user, azienda=getattr(request, "azienda", None)))
+    from django.apps import apps
+    if not apps.is_installed("previsioni"):
+        raise ErroreInterrogazione("Serve il modulo Previsioni.")
+    from previsioni import motore
+    from previsioni.servizio import ErrorePrevisione
+    try:
+        return motore.calcola_previsione(spec, request)
+    except ErrorePrevisione as e:
+        raise ErroreInterrogazione(str(e)) from e
 
 
 def _tabella(spec, request):

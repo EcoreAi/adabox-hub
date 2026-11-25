@@ -83,8 +83,15 @@ def calcola(spec, contesto):
 
 def _calcola(spec, contesto):
     if spec.get("grafico") == "previsione":
-        from .specialisti import calcola_previsione
-        return calcola_previsione(spec, contesto)
+        from django.apps import apps
+        if not apps.is_installed("previsioni"):
+            raise ErroreStrumento("Serve il modulo Previsioni.")
+        from previsioni import motore
+        from previsioni.servizio import ErrorePrevisione
+        try:
+            return motore.calcola_previsione(spec, richiesta.per(contesto))
+        except ErrorePrevisione as e:
+            raise ErroreStrumento(str(e)) from e
     if spec.get("misura_aziendale"):
         from core import misure
         return misure.serie(spec, richiesta.per(contesto))
@@ -116,7 +123,10 @@ def _calcola(spec, contesto):
 def svg_di(artifact, dati=None):
     dati = dati or artifact.dati
     if artifact.spec.get("grafico") == "previsione":
-        from .specialisti import svg_previsione
+        from django.apps import apps
+        if not apps.is_installed("previsioni"):
+            return ""                                   # senza il modulo niente disegno: la chat dice «Nessun dato»
+        from previsioni.motore import svg_previsione
         return svg_previsione(dati, artifact.titolo)
     serie = [tuple(c) for c in dati.get("serie", [])]
     if not serie:

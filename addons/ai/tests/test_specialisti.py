@@ -10,22 +10,25 @@ from ai.models import AnelloCatena, Artifact, Conversazione, Evento, Modello, Pr
 from ai.strumenti import specialisti as strumenti_specialisti
 from core import parametri
 from core.models import Azienda, Lavoro
+from previsioni import motore as motore_previsioni
+from previsioni import servizio as servizio_previsioni
+from previsioni.tests.test_motore import _finta_risposta
 
 
 @pytest.fixture
 def servizi(monkeypatch):
+    """Il decisore e il servizio di previsione finti: le chiamate in ordine, (chiave, percorso, dati)."""
     chiamate = []
 
     def chiama(chiave, percorso, dati, nome):
         chiamate.append((chiave, percorso, dati))
-        if chiave == "url_forecast":
-            ultimo = dati["series"][0]["values"][-1]
-            return {"model": "finto-timestral", "forecasts": [{"id": "serie", "quantiles": {
-                "0.1": [ultimo - 2 - i for i in range(dati["horizon"])],
-                "0.5": [ultimo + i for i in range(dati["horizon"])],
-                "0.9": [ultimo + 2 + i for i in range(dati["horizon"])]}}]}
         return {"answers": {"d": {"type": "noul", "noul": 0.91, "backend": "embed_sim"}}}
+
+    def prevedi(percorso, dati):
+        chiamate.append(("previsioni", percorso, dati))
+        return _finta_risposta(dati)
     monkeypatch.setattr(specialisti, "chiama", chiama)
+    monkeypatch.setattr(servizio_previsioni, "chiama", prevedi)
     return chiamate
 
 
@@ -35,7 +38,7 @@ def scena(db, client):
     client.force_login(capo)
     oggi = timezone.localdate().replace(day=15)
     for mesi_fa, quanti in [(8, 2), (7, 3), (6, 3), (5, 4), (4, 4), (3, 5), (2, 5), (1, 6), (0, 9)]:
-        mese = specialisti.avanti(oggi.replace(day=1), "mese", -mesi_fa)
+        mese = motore_previsioni.avanti(oggi.replace(day=1), "mese", -mesi_fa)
         for _ in range(quanti):
             lavoro = Lavoro.objects.create(funzione="prova.lavoro")
             Lavoro.objects.filter(pk=lavoro.pk).update(creato=timezone.make_aware(
@@ -48,62 +51,16 @@ def _contesto(scena):
     return strumenti.Contesto(utente=scena["capo"], azienda=scena["azienda"], conversazione=scena["conversazione"])
 
 
-def test_periodi():
-    assert specialisti.avanti(datetime.date(2026, 11, 1), "mese", 2) == datetime.date(2027, 1, 1)
-    assert specialisti.avanti(datetime.date(2026, 3, 1), "mese", -3) == datetime.date(2025, 12, 1)
-    assert specialisti.inizio(datetime.date(2026, 10, 29), "settimana") == datetime.date(2026, 10, 26)
-    assert specialisti.etichetta(datetime.date(2026, 10, 1), "mese") == "ott 2026"
-
-
 def test_strumenti_solo_con_il_servizio_configurato(scena):
     nomi = {s.nome for s in strumenti.disponibili(scena["capo"])}
     assert "previsione" not in nomi and "classifica" not in nomi
-    parametri.scrivi("ai.url_forecast", "http://forecast:8080")
+    parametri.scrivi("previsioni.url_servizio", "http://forecast:8080")
     nomi = {s.nome for s in strumenti.disponibili(scena["capo"])}
     assert "previsione" in nomi and "classifica" not in nomi
 
 
-def test_previsione_dalla_storia_vera(scena, servizi):
-    r = strumenti_specialisti.previsione(_contesto(scena), "core.lavoro", "creato", per="mese", orizzonte=3)
-    inviati = servizi[0][2]["series"][0]["values"]
-    assert inviati == [2, 3, 3, 4, 4, 5, 5, 6]                     # il mese in corso (9) è escluso: incompleto
-    assert servizi[0][2]["horizon"] == 3 and servizi[0][2]["quantiles"] == [0.1, 0.5, 0.9]
-    assert r["previsione"][0] == {"periodo": specialisti.etichetta(specialisti.inizio(timezone.localdate(), "mese"),
-                                                                    "mese"), "basso_10": 4.0, "mediana": 6.0,
-                                  "alto_90": 8.0}
-    a = Artifact.objects.get()
-    assert a.spec["grafico"] == "previsione" and len(a.dati["storico"]) == 8 and len(a.dati["futuro"]) == 3
-    disegno = artifact.svg_di(a)
-    assert disegno.startswith("<svg") and "Fascia 10-90 %" in disegno and "stroke-dasharray" in disegno
-    csv = artifact.csv_di(a, a.dati)
-    assert "Previsione mediana" in csv and csv.count("\n") == 12
-
-
-def test_previsione_rifiuta_storie_corte_e_campi_non_data(scena, servizi):
-    with pytest.raises(strumenti.ErroreStrumento, match="almeno 6 periodi"):
-        strumenti_specialisti.previsione(_contesto(scena), "core.lavoro", "creato",
-                                         filtri={"creato__gte": str(timezone.localdate() - datetime.timedelta(days=100))})
-    with pytest.raises(strumenti.ErroreStrumento, match="non è un campo data"):
-        strumenti_specialisti.previsione(_contesto(scena), "core.lavoro", "funzione")
-    assert not servizi
-
-
-def test_previsione_mai_negativa_per_serie_positive(scena, monkeypatch):
-    monkeypatch.setattr(specialisti, "chiama", lambda *a: {"forecasts": [{"quantiles": {
-        "0.1": [-3.0], "0.5": [1.0], "0.9": [4.0]}}]})
-    futuro, _ = specialisti.prevedi([(None, 1.0)] * 6, 1)
-    assert futuro == [(0.0, 1.0, 4.0)]
-
-
-def test_servizio_giu_messaggio_chiaro(scena, monkeypatch):
-    parametri.scrivi("ai.url_forecast", "http://127.0.0.1:9")                   # porta chiusa
-    monkeypatch.setattr(specialisti, "TIMEOUT", 2)
-    with pytest.raises(strumenti.ErroreStrumento, match="non risponde"):
-        strumenti_specialisti.previsione(_contesto(scena), "core.lavoro", "creato")
-
-
 def test_dal_motore_con_grafico_e_numeri_verificati(scena, servizi):
-    parametri.scrivi("ai.url_forecast", "http://forecast:8080")
+    parametri.scrivi("previsioni.url_servizio", "http://forecast:8080")
     provider = Provider.objects.create(nome="Finto", tipo="finto", locale=True)
     modello = Modello.objects.create(provider=provider, id_api="finto-1", etichetta="Finto")
     AnelloCatena.objects.create(profilo=Profilo.objects.create(nome="Chat", compito="chat"), modello=modello)
@@ -116,8 +73,25 @@ def test_dal_motore_con_grafico_e_numeri_verificati(scena, servizi):
     assert turno.provenienza["esito"] == "verificato"
     html = scena["client"].get(f"/ai/chat/{scena['conversazione'].pk}/").content.decode()
     assert "Fascia 10-90 %" in html
-    pagina = scena["client"].get(f"/ai/artifact/{Artifact.objects.get().pk}/").content.decode()
-    assert "Mediana" in pagina and "finto-timestral" in pagina
+    a = Artifact.objects.get()
+    assert a.spec["grafico"] == "previsione" and len(a.dati["storico"]) == 8 and len(a.dati["futuro"]) == 3
+    csv = artifact.csv_di(a, a.dati)
+    assert "Previsione mediana" in csv and csv.count("\n") == 12
+    pagina = scena["client"].get(f"/ai/artifact/{a.pk}/").content.decode()
+    assert "Mediana" in pagina and "finto-timestral" in pagina and "Totale (3 periodi)" in pagina
+
+
+def test_lo_strumento_previsione_usa_il_motore_del_modulo(scena, servizi):
+    """Lo strumento chiama il motore del modulo Previsioni: i suoi errori arrivano ad Ada come errori dello strumento."""
+    r = strumenti_specialisti.previsione(_contesto(scena), "core.lavoro", "creato", per="mese", orizzonte=2)
+    mese = motore_previsioni.etichetta(motore_previsioni.inizio(timezone.localdate(), "mese"), "mese")
+    assert r["previsione"][0] == {"periodo": mese, "basso_10": 4.0, "mediana": 6.0, "alto_90": 8.0}
+    assert r["totale_orizzonte"]["periodi"] == 2 and r["affidabilita"]["livello"] == "bassa"
+    assert servizi[0][0] == "previsioni"
+    with pytest.raises(strumenti.ErroreStrumento, match="non è un campo data"):
+        strumenti_specialisti.previsione(_contesto(scena), "core.lavoro", "funzione")
+    with pytest.raises(strumenti.ErroreStrumento, match="inesistente o non accessibile"):
+        strumenti_specialisti.previsione(_contesto(scena), "core.nessuna", "creato")
 
 
 def test_classifica(scena, servizi):
@@ -146,45 +120,6 @@ def test_ogni_modulo_si_importa_per_primo(modulo):
     esito = subprocess.run([sys.executable, "-c", f"import django; django.setup(); import {modulo}"],
                            cwd=settings.BASE_DIR, capture_output=True, text=True, timeout=120)
     assert esito.returncode == 0, esito.stderr[-1500:]
-
-
-def test_totale_sull_orizzonte_ed_etichette_dell_asse(scena, servizi):
-    r = strumenti_specialisti.previsione(_contesto(scena), "core.lavoro", "creato", per="settimana", orizzonte=13)
-    t = r["totale_orizzonte"]
-    assert t["periodi"] == 13 and t["mediana"] == round(sum(p["mediana"] for p in r["previsione"]), 2)
-    assert t["basso_10"] <= t["mediana"] <= t["alto_90"]
-    disegno = artifact.svg_di(Artifact.objects.get())
-    assert disegno.count('transform="rotate(-35') <= 11                     # una decina di etichette, non 40
-    pagina = scena["client"].get(f"/ai/artifact/{Artifact.objects.get().pk}/").content.decode()
-    assert "Totale (13 periodi)" in pagina
-
-
-def test_previsione_dice_l_affidabilita_con_la_prova_sul_passato(scena, servizi):
-    r = strumenti_specialisti.previsione(_contesto(scena), "core.lavoro", "creato", per="mese", orizzonte=3)
-    a = r["affidabilita"]
-    assert a["livello"] == "bassa" and a["periodi_di_storia"] == 8                      # 8 mesi: troppo pochi
-    assert a["motivi"][0].startswith("Storia: 8 mesi (per una previsione solida ne servono almeno 24)")
-    # con 8 mesi la prova sul passato lascerebbe 5 mesi, sotto il minimo del servizio: si salta
-    assert len(servizi) == 1 and a["errore"] is None
-
-
-def test_prova_sul_passato_con_storia_sufficiente(servizi):
-    storia = [(None, float(v)) for v in range(10, 22)]                                 # 12 mesi
-    a = specialisti.affidabilita(storia, [(18.0, 20.0, 22.0)] * 3, 3)
-    prova = servizi[0][2]                                                              # la stessa previsione senza gli ultimi 3
-    assert prova["horizon"] == 3 and prova["series"][0]["values"] == [float(v) for v in range(10, 19)]
-    assert a["errore"] is not None and any("già noti" in m for m in a["motivi"])
-
-
-def test_livelli_di_affidabilita(monkeypatch):
-    storia = [(None, 100.0 + i) for i in range(30)]
-    monkeypatch.setattr(specialisti, "prevedi", lambda s, k: ([(v - 5, v, v + 5) for _, v in storia[len(s):len(s) + k]], "finto"))
-    alta = specialisti.affidabilita(storia, [(120.0, 130.0, 140.0)] * 3, 3)
-    assert alta["livello"] == "alta" and alta["errore"] == 0.0
-    larga = specialisti.affidabilita(storia, [(0.0, 100.0, 300.0)] * 3, 3)              # intervallo enorme
-    assert larga["livello"] == "bassa" and any("±150%" in m for m in larga["motivi"])
-    corta = specialisti.affidabilita(storia[:15], [(120.0, 130.0, 140.0)] * 3, 3)         # 15 mesi: media
-    assert corta["livello"] == "media"
 
 
 def test_l_affidabilita_va_sotto_la_risposta():
