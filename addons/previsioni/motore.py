@@ -252,7 +252,7 @@ def come_tabella(dati):
         righe.append([g["nome"], *(svg._fmt(v) for _, v in g["storico"][-3:]), *(svg._fmt(f[2]) for f in g["futuro"]),
                       f"{svg._fmt(t['mediana'])} ({svg._fmt(t['basso_10'])} – {svg._fmt(t['alto_90'])})",
                       g["affidabilita"]["livello"].capitalize()])
-    return {"colonne": colonne, "righe": righe}
+    return {"colonne": colonne, "righe": righe, "modello": dati.get("modello", "")}
 
 
 # ---------- affidabilità di una previsione: calcolata dal codice, non dichiarata da un modello linguistico ----------

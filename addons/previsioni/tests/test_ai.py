@@ -74,13 +74,14 @@ def test_dal_motore_con_grafico_e_numeri_verificati(scena, servizi):
     assert not Evento.objects.get(tipo="strumento").dati["risultati"][0]["errore"]
     assert turno.provenienza["esito"] == "verificato"
     html = scena["client"].get(f"/ai/chat/{scena['conversazione'].pk}/").content.decode()
-    assert "Fascia 10-90 %" in html
+    assert "Fascia 10-90 %" in html and "modello finto-timestral · licenza Modified MIT di Mistral AI" in html      # sotto il grafico, nella chat
     a = Artifact.objects.get()
     assert a.spec["grafico"] == "previsione" and len(a.dati["storico"]) == 8 and len(a.dati["futuro"]) == 3
     csv = artifact.csv_di(a, a.dati)
     assert "Previsione mediana" in csv and csv.count("\n") == 12
     pagina = scena["client"].get(f"/ai/artifact/{a.pk}/").content.decode()
     assert "Mediana" in pagina and "finto-timestral" in pagina and "Totale (3 periodi)" in pagina
+    assert "finto-timestral · licenza Modified MIT di Mistral AI" in pagina
 
 
 def test_lo_strumento_previsione_usa_il_motore_del_modulo(scena, servizi):
@@ -143,6 +144,10 @@ def test_ada_prevede_i_primi_prodotti_in_una_tabella(scena, servizi):
     assert artifact.svg_di(a) == ""                                                    # una tabella non si disegna
     # il ricalcolo (↻) rifà la tabella
     assert artifact.calcola(a.spec, _contesto(scena))["colonne"] == a.dati["colonne"]
+    # l'attribuzione sta sotto la tabella, nella chat e nella pagina del grafico
+    chat = scena["client"].post(f"/ai/artifact/{a.pk}/salva/", HTTP_HX_REQUEST="true").content.decode()
+    assert "modello finto-timestral · licenza Modified MIT di Mistral AI" in chat
+    assert "modello finto-timestral · licenza Modified MIT di Mistral AI" in scena["client"].get(f"/ai/artifact/{a.pk}/").content.decode()
 
 
 def test_senza_raggruppa_resta_il_grafico_di_prima(scena, servizi):

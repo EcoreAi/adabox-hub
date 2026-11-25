@@ -32,4 +32,5 @@
   {% else %}
     {% include "ai/_artifact_tabella.html" with dati=a.dati %}
   {% endif %}
+  {% if a.spec.grafico == "previsione" %}{% include "ai/_attribuzione_previsione.html" with modello=a.dati.modello %}{% endif %}
 </figure>

@@ -58,6 +58,7 @@ DATI = {"vista": "core.lavoro", "tipo": "previsione", "misura": "count", "data":
 def test_costruttore_previsione_raggruppata_si_salva_e_si_vede_come_tabella(client, capo, servizi, storia):
     html = client.get(reverse("grafici:costruttore"), DATI).content.decode()
     assert "Totale previsto" in html and "prova.f0" in html and "prova.f2" not in html     # anteprima: i primi 2
+    assert "modello finto-timestral · licenza Modified MIT di Mistral AI" in html
     r = client.post(reverse("grafici:costruttore"), {**DATI, "titolo": "Lavori per funzione", "destinazione": "nuova",
                                                      "titolo_nuova": "Previsioni", "aggiorna_ogni": "0"})
     assert r.status_code == 302
@@ -66,7 +67,7 @@ def test_costruttore_previsione_raggruppata_si_salva_e_si_vede_come_tabella(clie
     assert g.spec == {"vista": "core.lavoro", "misura": "count", "data": "creato", "per": "mese", "orizzonte": 3,
                       "raggruppa": "funzione", "primi": 2}
     html = client.get(reverse("grafici:pagina", args=[Pagina.objects.get(titolo="Previsioni").pk])).content.decode()
-    assert "<th>Gruppo</th>" in html and "prova.f1" in html and "modello finto-timestral" in html and "di 2 righe" not in html
+    assert "<th>Gruppo</th>" in html and "prova.f1" in html and "modello finto-timestral · licenza Modified MIT di Mistral AI" in html and "di 2 righe" not in html
     csv = client.get(reverse("grafici:grafico_csv", args=[g.pk])).content.decode("utf-8-sig")
     assert csv.startswith("Gruppo;") and "prova.f0" in csv and "Totale previsto" in csv
     html = client.get(reverse("grafici:grafico_costruttore", args=[g.pk])).content.decode()
@@ -78,6 +79,15 @@ def test_senza_raggruppa_resta_la_previsione_di_una_serie(client, capo, servizi,
     assert "raggruppa" not in spec and spec["per"] == "mese"
     html = client.get(reverse("grafici:costruttore"), {k: v for k, v in DATI.items() if k not in ("raggruppa", "primi")}).content.decode()
     assert "Totale previsto" not in html and 'value="mese" selected' in html
+    assert "modello finto-timestral · licenza Modified MIT di Mistral AI" in html                  # anteprima del grafico di una serie
+
+
+def test_card_della_previsione_di_una_serie_con_attribuzione(client, capo, servizi, storia):
+    dati = {k: v for k, v in DATI.items() if k not in ("raggruppa", "primi")}
+    client.post(reverse("grafici:costruttore"), {**dati, "titolo": "Lavori", "destinazione": "nuova",
+                                                  "titolo_nuova": "Una serie", "aggiorna_ogni": "0"})
+    html = client.get(reverse("grafici:pagina", args=[Pagina.objects.get(titolo="Una serie").pk])).content.decode()
+    assert "modello finto-timestral · licenza Modified MIT di Mistral AI" in html
 
 
 def test_raggruppa_tra_i_campi_della_vista(client, capo, servizi, storia):
