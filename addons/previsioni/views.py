@@ -2,7 +2,7 @@
 import datetime
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import F
 from django.http import HttpResponseBadRequest
@@ -16,9 +16,11 @@ from core.viste import ModelView, register
 
 from . import calcolo, esaurimenti, servizio
 from .forms import ServizioForm
-from .models import PrevisioneArticolo, ServizioPrevisioni
+from .models import PrevisioneArticolo, ServizioPrevisioni, StatoCalcolo
 
 ENTRO = ("7", "30", "90")           # i giorni di «entro N giorni»
+PERMESSI_AGGIORNA = {StatoCalcolo.MAGAZZINO: "previsioni.change_previsionearticolo",
+                     StatoCalcolo.VENDITE: "previsioni.change_previsionepronta"}
 
 
 @login_required
@@ -36,14 +38,17 @@ def pagina_servizio(request):
 
 
 @login_required
-@permission_required("previsioni.change_previsionearticolo", raise_exception=True)
 @require_POST
 def aggiorna(request):
-    """«Aggiorna» (`?cosa=magazzino`): il ricalcolo va in un lavoro in background, perché ogni chiamata al servizio
-    può durare minuti, e si torna alla pagina di prima."""
+    """«Aggiorna» (`?cosa=magazzino` o `vendite`, ognuna col suo permesso): il ricalcolo va in un lavoro in background,
+    perché ogni chiamata al servizio può durare minuti, e si torna alla pagina di prima."""
     cosa, azienda = request.GET.get("cosa", ""), getattr(request, "azienda", None)
     if cosa not in calcolo.CALCOLI or azienda is None:
         return HttpResponseBadRequest("Previsioni da aggiornare sconosciute o nessuna azienda corrente.")
+    if not request.user.has_perm(PERMESSI_AGGIORNA[cosa]):
+        raise PermissionDenied
+    if not calcolo.eseguibile(cosa, azienda):
+        return HttpResponseBadRequest("Queste previsioni non si calcolano per l'azienda corrente.")
     lavori.accoda("previsioni.calcolo.aggiorna", azienda=azienda, utente=request.user, max_tentativi=1,
                   azienda_id=azienda.pk, cosa=cosa)
     messages.success(request, "Aggiornamento avviato: le previsioni saranno pronte tra poco.")

@@ -88,3 +88,23 @@ class PrevisioneArticolo(AziendaMixin):
 
     def __str__(self):
         return f"Previsione di {self.prodotto} ({self.magazzino or 'tutti i magazzini'})"
+
+
+class PrevisionePronta(AziendaMixin):
+    """Una previsione pronta (pronte.py) salvata per l'azienda: calcolata con l'accesso all'intera azienda, la vede
+    solo chi vede tutta la vista di origine. La ricalcolano il lavoro della notte e «Aggiorna».
+
+    `dati` = {"spec": la specifica calcolata, "risultato": quello del motore} oppure, se la storia non bastava,
+    {"spec", "errore"}. Niente chiavi esterne verso altri moduli, come PrevisioneArticolo."""
+    chiave = models.CharField("previsione", max_length=80, help_text="la chiave del registro, es. vendite.prodotti")
+    dati = models.JSONField("dati", default=dict)
+    modello = models.CharField("modello", max_length=120, blank=True)
+    calcolata_il = models.DateTimeField("calcolata il")
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "previsione pronta"
+        verbose_name_plural = "previsioni pronte"
+        constraints = [models.UniqueConstraint(fields=["azienda", "chiave"], name="previsioni_pronta_unica")]
+
+    def __str__(self):
+        return f"Previsione pronta {self.chiave}"

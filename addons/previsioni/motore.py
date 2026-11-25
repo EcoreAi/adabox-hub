@@ -16,7 +16,7 @@ from core.viste import interroga
 from core.viste.interroga import ErroreInterrogazione
 
 from . import servizio
-from .servizio import ErrorePrevisione
+from .servizio import ErrorePrevisione, ErroreServizio
 
 UNITA = {"mese": TruncMonth, "settimana": TruncWeek, "giorno": TruncDay}
 MIN_PERIODI = 6
@@ -131,7 +131,7 @@ def prevedi_molte(storie, orizzonte):
                 futuri[chiave] = _arrotonda(list(zip(*(per_id[sid][str(q)] for q in QUANTILI))), storie[chiave])
             modello = modello or risposta.get("model", "")
         except (KeyError, IndexError, TypeError, AttributeError):
-            raise ErrorePrevisione("Risposta del servizio di previsione non valida.")
+            raise ErroreServizio("Risposta del servizio di previsione non valida.")
     return futuri, modello
 
 

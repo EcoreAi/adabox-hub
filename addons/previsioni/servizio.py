@@ -19,6 +19,11 @@ class ErrorePrevisione(Exception):
     """Un errore da mostrare così com'è all'utente."""
 
 
+class ErroreServizio(ErrorePrevisione):
+    """Il servizio non ha dato una previsione (non configurato, irraggiungibile, ha rifiutato, risposta non valida):
+    non dipende dai dati, quindi le previsioni salvate di prima restano."""
+
+
 def url():
     try:
         return (parametri.leggi("previsioni.url_servizio") or "").strip().rstrip("/")
@@ -43,7 +48,7 @@ def attivo():
 def chiama(percorso, dati):
     base = url()
     if not base:
-        raise ErrorePrevisione("Il servizio di previsione non è configurato.")
+        raise ErroreServizio("Il servizio di previsione non è configurato.")
     intestazioni = {"Content-Type": "application/json"}
     if segreto := chiave():
         intestazioni["Authorization"] = f"Bearer {segreto}"
@@ -53,7 +58,7 @@ def chiama(percorso, dati):
             return json.load(risposta)
     except urllib.error.HTTPError as e:
         dettaglio = e.read().decode(errors="replace")[:300]
-        raise ErrorePrevisione(f"Il servizio di previsione ha rifiutato la richiesta: {dettaglio}") from e
+        raise ErroreServizio(f"Il servizio di previsione ha rifiutato la richiesta: {dettaglio}") from e
     except Exception as e:
         log.warning("servizio di previsione non raggiungibile: %s", e)
-        raise ErrorePrevisione("Il servizio di previsione non risponde: riprova tra poco.") from e
+        raise ErroreServizio("Il servizio di previsione non risponde: riprova tra poco.") from e

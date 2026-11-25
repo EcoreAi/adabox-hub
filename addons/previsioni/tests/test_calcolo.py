@@ -6,6 +6,7 @@ import pytest
 from django.apps import apps
 from django.contrib.auth.models import Permission, User
 from django.contrib.messages import get_messages
+from django.db.models import QuerySet
 from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -149,7 +150,8 @@ def test_servizio_giu_restano_le_vecchie(s, capo, servizi, monkeypatch):
         raise ErrorePrevisione("Il servizio di previsione non risponde: riprova tra poco.")
     monkeypatch.setattr(servizio, "chiama", giu)
     assert calcolo.magazzino(s["azienda"]) == 0
-    calcolo.aggiorna(azienda_id=s["azienda"].pk, cosa="magazzino")         # l'errore non risale al lavoro
+    risultato = calcolo.aggiorna(azienda_id=s["azienda"].pk, cosa="magazzino")   # l'errore non risale al lavoro
+    assert risultato == "Previsioni non aggiornate: Il servizio di previsione non risponde: riprova tra poco."
 
     assert list(PrevisioneArticolo.objects.order_by("pk").values()) == prima
     stato = StatoCalcolo.objects.get(azienda=s["azienda"], cosa="magazzino")
@@ -189,12 +191,13 @@ def test_notturno_salta_aziende_senza_modulo_o_magazzino(s, capo, servizi, monke
     installata = apps.is_installed
     monkeypatch.setattr(apps, "is_installed", lambda nome: nome != "magazzino" and installata(nome))
     calcolo.notturno()                                                # senza Magazzino: niente
-    assert not PrevisioneArticolo.objects.exists() and not StatoCalcolo.objects.exists() and servizi == []
+    assert not PrevisioneArticolo.objects.exists() and not StatoCalcolo.objects.filter(cosa="magazzino").exists()
+    assert servizi == []
     monkeypatch.setattr(apps, "is_installed", installata)
 
     calcolo.notturno()
     assert set(PrevisioneArticolo.objects.values_list("azienda", flat=True)) == {s["azienda"].pk}
-    assert list(StatoCalcolo.objects.values_list("azienda", flat=True)) == [s["azienda"].pk]
+    assert list(StatoCalcolo.objects.filter(cosa="magazzino").values_list("azienda", flat=True)) == [s["azienda"].pk]
     assert len(servizi) == 1 and len(servizi[0]["series"]) == 2     # nessuna serie delle aziende escluse
 
 
@@ -208,10 +211,32 @@ def test_notturno_un_azienda_che_fallisce_non_ferma_le_altre(s, capo, servizi, m
             raise RuntimeError("risposta imprevista")
         return _finta_risposta(dati)
     monkeypatch.setattr(servizio, "chiama", chiama)
-    calcolo.notturno()
+    risultato = calcolo.notturno()
     assert set(PrevisioneArticolo.objects.values_list("azienda", flat=True)) == {seconda.pk}
-    assert StatoCalcolo.objects.get(azienda=s["azienda"]).errore != ""
-    assert StatoCalcolo.objects.get(azienda=seconda).errore == ""
+    assert StatoCalcolo.objects.get(azienda=s["azienda"], cosa="magazzino").errore != ""
+    assert StatoCalcolo.objects.get(azienda=seconda, cosa="magazzino").errore == ""
+    assert risultato.startswith("Previsioni salvate: 1 del magazzino") and risultato.endswith("(1 con errori).")
+
+
+def test_le_sostituzioni_si_mettono_in_fila_sullo_stato(s, capo, servizi, monkeypatch):
+    """Due sostituzioni delle righe della stessa azienda (la notte e «Aggiorna», un doppio clic) si aspettano: prima di
+    cancellare si blocca la riga di StatoCalcolo dell'azienda (select_for_update; su SQLite non blocca nulla)."""
+    passi = []
+    blocca, cancella = QuerySet.select_for_update, QuerySet.delete
+
+    def spia_blocca(self, *args, **kwargs):
+        qs = blocca(self, *args, **kwargs)
+        passi.append(("blocca", self.model, list(self.values_list("azienda", "cosa"))))
+        return qs
+
+    def spia_cancella(self):
+        passi.append(("cancella", self.model, None))
+        return cancella(self)
+    monkeypatch.setattr(QuerySet, "select_for_update", spia_blocca)
+    monkeypatch.setattr(QuerySet, "delete", spia_cancella)
+    calcolo.magazzino(s["azienda"])
+    assert passi.index(("blocca", StatoCalcolo, [(s["azienda"].pk, "magazzino")])) < passi.index(
+        ("cancella", PrevisioneArticolo, None))
 
 
 def test_aggiorna_solo_con_permesso(s, capo, servizi, client):
@@ -224,7 +249,12 @@ def test_aggiorna_solo_con_permesso(s, capo, servizi, client):
 
     norma.user_permissions.add(Permission.objects.get(codename="change_previsionearticolo"))
     assert client.get(url).status_code == 405
-    assert client.post(reverse("previsioni:aggiorna") + "?cosa=vendite").status_code == 400
+    assert client.post(reverse("previsioni:aggiorna") + "?cosa=altro").status_code == 400
+    assert client.post(reverse("previsioni:aggiorna") + "?cosa=vendite").status_code == 403   # ha il suo permesso
+    Modulo.objects.update_or_create(slug="magazzino", defaults={"nome": "Magazzino"})[0].aziende.add(
+        Azienda.objects.create(nome="Altra"))                         # Magazzino solo per un'altra azienda
+    assert client.post(url).status_code == 400
+    Modulo.objects.filter(slug="magazzino").delete()
     assert not Lavoro.objects.filter(funzione="previsioni.calcolo.aggiorna").exists()
 
     with override_settings(LAVORI_SINCRONI=True):

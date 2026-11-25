@@ -14,7 +14,7 @@
          "permission": "previsioni.view_previsionearticolo"},
     ],
     "groups": {
-        "Previsioni / Utente": ["previsioni.view_previsionearticolo"],
+        "Previsioni / Utente": ["previsioni.view_previsionearticolo", "previsioni.view_previsionepronta"],
         "Previsioni / Responsabile": ["previsioni.*"],
     },
     "settings": [
