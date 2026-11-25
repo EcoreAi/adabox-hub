@@ -47,20 +47,22 @@ def _ai_disponibile():
 
 
 def previsioni_disponibili():
-    """Il servizio di previsione c'è: modulo Previsioni installato e indirizzo configurato."""
+    """Il servizio di previsione c'è: modulo Previsioni installato, attivo, in licenza e con l'indirizzo configurato."""
     from django.apps import apps
     if not apps.is_installed("previsioni"):
         return False
     from previsioni import servizio
-    return bool(servizio.url())
+    return servizio.attivo()
 
 
 def _previsione(spec, request):
     from django.apps import apps
     if not apps.is_installed("previsioni"):
         raise ErroreInterrogazione("Serve il modulo Previsioni.")
-    from previsioni import motore
+    from previsioni import motore, servizio
     from previsioni.servizio import ErrorePrevisione
+    if not servizio.abilitato():
+        raise ErroreInterrogazione(servizio.SENZA_MODULO)
     try:
         return motore.calcola_previsione(spec, request)
     except ErrorePrevisione as e:

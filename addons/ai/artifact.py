@@ -86,8 +86,10 @@ def _calcola(spec, contesto):
         from django.apps import apps
         if not apps.is_installed("previsioni"):
             raise ErroreStrumento("Serve il modulo Previsioni.")
-        from previsioni import motore
+        from previsioni import motore, servizio
         from previsioni.servizio import ErrorePrevisione
+        if not servizio.abilitato():
+            raise ErroreStrumento(servizio.SENZA_MODULO)
         v = None if spec.get("misura_aziendale") else vista_per(contesto, spec["vista"])   # le viste della chat
         try:
             return motore.calcola_previsione(spec, richiesta.per(contesto), vista=v)
@@ -127,6 +129,9 @@ def svg_di(artifact, dati=None):
         from django.apps import apps
         if not apps.is_installed("previsioni"):
             return ""                                   # senza il modulo niente disegno: la chat dice «Nessun dato»
+        from previsioni import servizio
+        if not servizio.abilitato():
+            return ""
         from previsioni.motore import svg_previsione
         return svg_previsione(dati, artifact.titolo)
     serie = [tuple(c) for c in dati.get("serie", [])]

@@ -12,6 +12,7 @@ from core.registry import modules
 log = logging.getLogger("previsioni.servizio")
 
 TIMEOUT = 120
+SENZA_MODULO = "Serve il modulo Previsioni."      # il messaggio di chi usa le previsioni senza che il modulo ci sia
 
 
 class ErrorePrevisione(Exception):
@@ -30,8 +31,13 @@ def chiave():
     return ServizioPrevisioni.corrente().chiave
 
 
+def abilitato():
+    """Il modulo è attivo e in licenza (l'indirizzo del servizio può mancare: lo dice `chiama`)."""
+    return "previsioni" in modules.manifests_attivi() and licenza.ammesso("previsioni")
+
+
 def attivo():
-    return ("previsioni" in modules.manifests_attivi() and licenza.ammesso("previsioni") and bool(url()))
+    return abilitato() and bool(url())
 
 
 def chiama(percorso, dati):

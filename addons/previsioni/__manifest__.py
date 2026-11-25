@@ -8,6 +8,7 @@
     "min_core": "1.0",
     "application": True,
     "icon": "previsioni/icon.svg",
+    "ai": "previsioni.ai",
     "menu": [],
     "groups": {
         "Previsioni / Utente": ["previsioni.view_servizioprevisioni"],

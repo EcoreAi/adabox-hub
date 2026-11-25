@@ -66,8 +66,8 @@ def test_previsione_con_misura_aziendale(scena, contesto, monkeypatch):
     for n in range(1, 9):
         _fattura(azienda, cliente, [(monitor, "1")], stato="emessa", data=_mesi_fa(n))       # 200 al mese
     _fattura(azienda, cliente, [(monitor, "1")], stato="emessa", tipo="TD04", data=_mesi_fa(1))   # −200 il mese scorso
-    from ai.strumenti import specialisti as strumenti_specialisti
-    strumenti_specialisti.previsione(contesto, misura_aziendale="fatturazione.fatturato", per="mese", orizzonte=2)
+    from previsioni import ai as ai_previsioni
+    ai_previsioni.previsione(contesto, misura_aziendale="fatturazione.fatturato", per="mese", orizzonte=2)
     assert inviate[0][-1] == 0 and inviate[0][-2] == 200
     assert len(inviate[0]) == 8
 

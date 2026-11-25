@@ -62,10 +62,10 @@ def _come_data(valore):
 
 def vista_accessibile(request, nome):
     """La ModelView «modulo.vista» se l'utente della richiesta può vederla (personalizzata per lui)."""
-    for v in interroga.viste_accessibili(request):
-        if interroga.id_vista(v) == nome:
-            return v
-    raise ErrorePrevisione(f"Vista «{nome}» inesistente o non accessibile: usa elenco_viste per i nomi validi.")
+    try:
+        return interroga.vista_per_nome(nome, request)
+    except ErroreInterrogazione as e:
+        raise ErrorePrevisione(str(e)) from e
 
 
 def serie_storica(vista, request, data, misura="count", per="mese", filtri=None, testo="", lista=None):
