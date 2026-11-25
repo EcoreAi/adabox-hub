@@ -1,17 +1,24 @@
 """Il client del servizio di previsione (Timestral): URL nelle impostazioni, chiave cifrata, spento se l'URL è vuoto.
 
 Come `ai.specialisti.chiama`: la rete interna è ammessa perché l'URL lo decide il Global Admin."""
+import contextvars
 import json
 import logging
 import urllib.error
 import urllib.request
+from contextlib import contextmanager
 
 from core import licenza, parametri
 from core.registry import modules
 
 log = logging.getLogger("previsioni.servizio")
 
-TIMEOUT = 120
+# Ruling 27: dentro una richiesta web (pagine, riga del prodotto, Analisi, strumento di Ada) si aspetta meno di quanto
+# gunicorn lascia vivere il worker (--timeout 60, deploy/entrypoint.sh); nei lavori in background (la notte,
+# «Aggiorna») il servizio ha tempo per molte serie.
+TIMEOUT_WEB = 25
+TIMEOUT_LAVORO = 120
+_in_lavoro = contextvars.ContextVar("previsioni_in_lavoro", default=False)
 SENZA_MODULO = "Serve il modulo Previsioni."      # il messaggio di chi usa le previsioni senza che il modulo ci sia
 
 
@@ -54,6 +61,21 @@ def attivo(azienda=None, user=None):
     return abilitato(azienda, user) and bool(url())
 
 
+@contextmanager
+def in_lavoro():
+    """Le chiamate fatte qui dentro sono di un lavoro in background: possono aspettare TIMEOUT_LAVORO."""
+    token = _in_lavoro.set(True)
+    try:
+        yield
+    finally:
+        _in_lavoro.reset(token)
+
+
+def timeout():
+    """Quanto aspettare il servizio: TIMEOUT_LAVORO dentro `in_lavoro()`, altrimenti TIMEOUT_WEB."""
+    return TIMEOUT_LAVORO if _in_lavoro.get() else TIMEOUT_WEB
+
+
 def chiama(percorso, dati):
     base = url()
     if not base:
@@ -63,7 +85,7 @@ def chiama(percorso, dati):
         intestazioni["Authorization"] = f"Bearer {segreto}"
     richiesta = urllib.request.Request(f"{base}{percorso}", data=json.dumps(dati).encode(), headers=intestazioni)
     try:
-        with urllib.request.urlopen(richiesta, timeout=TIMEOUT) as risposta:
+        with urllib.request.urlopen(richiesta, timeout=timeout()) as risposta:
             return json.load(risposta)
     except urllib.error.HTTPError as e:
         dettaglio = e.read().decode(errors="replace")[:300]

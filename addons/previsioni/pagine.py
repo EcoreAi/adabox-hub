@@ -2,7 +2,7 @@
 di Vendite nella scheda prodotto.
 
 Ogni previsione pronta si carica da sola con HTMX (`previsioni:pronta`): per chi non vede tutta la vista di origine
-`dati_per` calcola al momento (anche due minuti) e la pagina non deve aspettarla."""
+`dati_per` calcola al momento (fino a servizio.TIMEOUT_WEB per chiamata) e la pagina non deve aspettarla."""
 from django.apps import apps
 from django.urls import reverse
 from django.utils.safestring import mark_safe

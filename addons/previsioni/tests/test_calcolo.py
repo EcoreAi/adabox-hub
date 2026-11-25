@@ -182,6 +182,21 @@ def test_servizio_giu_restano_le_vecchie(s, capo, servizi, monkeypatch):
     assert stato.ultimo_ok == ieri and stato.ultimo_tentativo > ieri
 
 
+def test_i_lavori_aspettano_il_servizio_piu_a_lungo(s, capo, monkeypatch):
+    """La notte e «Aggiorna» girano in background: ogni chiamata al servizio può aspettare TIMEOUT_LAVORO (120 s)."""
+    parametri.scrivi("previsioni.url_servizio", "http://forecast:8080")
+    attese = []
+
+    def chiama(percorso, dati):
+        attese.append(servizio.timeout())
+        return _finta_risposta(dati)
+    monkeypatch.setattr(servizio, "chiama", chiama)
+    calcolo.aggiorna(azienda_id=s["azienda"].pk, cosa="magazzino")
+    calcolo.notturno()
+    assert len(attese) >= 2 and set(attese) == {servizio.TIMEOUT_LAVORO}
+    assert servizio.timeout() == servizio.TIMEOUT_WEB                 # fuori dai lavori: quella delle pagine
+
+
 def test_request_per_senza_superuser(s, servizi):
     azienda = s["azienda"]
     assert calcolo.request_per(azienda) is None

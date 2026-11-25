@@ -480,3 +480,31 @@ def test_misura_o_data_nascoste_al_ruolo_non_si_prevedono(s, servizi):
     with pytest.raises(servizio.ErrorePrevisione, match="«data» non è disponibile per il tuo ruolo"):
         motore.calcola_per_gruppo({**spec, "misura": "count", "raggruppa": "cliente"}, request)
     assert not servizi
+
+
+@serve_vendite
+def test_un_calcolo_dal_vivo_fallito_resta_in_cache_un_minuto(s, monkeypatch):
+    """Ruling 27: chi calcola al momento e trova il servizio giù non lo richiama a ogni pagina: il fallimento resta in
+    cache 60 s, per utente, azienda e chiave."""
+    parametri.scrivi("previsioni.url_servizio", "http://forecast:8080")
+    chiamate, scadenze = [], {}
+
+    def giu(percorso, dati):
+        chiamate.append(dati)
+        raise servizio.ErroreServizio("Il servizio di previsione non risponde: riprova tra poco.")
+    monkeypatch.setattr(servizio, "chiama", giu)
+    imposta = cache.set
+
+    def spia(chiave, valore, timeout=None, **altro):
+        scadenze[chiave] = timeout
+        return imposta(chiave, valore, timeout, **altro)
+    monkeypatch.setattr(cache, "set", spia)
+    _riserva("fatturazione", s["altra"])                         # l'ordinato: Anna vede solo i suoi ordini, al momento
+    anna, bruno, azienda = s["anna"], s["bruno"], s["azienda"]
+    for _ in range(2):
+        d = pronte.dati_per(richiesta_di(anna, azienda), "vendite.fatturato_mese")
+        assert d["dati"] is None and d["errore"] == "Il servizio di previsione non risponde: riprova tra poco."
+    assert len(chiamate) == 1
+    assert scadenze[f"previsioni:pronta:{anna.pk}:{azienda.pk}:vendite.fatturato_mese"] == 60
+    pronte.dati_per(richiesta_di(bruno, azienda), "vendite.fatturato_mese")      # un altro utente: la sua chiamata
+    assert len(chiamate) == 2

@@ -1,7 +1,9 @@
 """Il client del servizio di previsione e la sua pagina di impostazione."""
 import io
 import json
+import re
 import urllib.error
+from pathlib import Path
 
 import pytest
 from django.contrib.auth.models import User
@@ -88,3 +90,23 @@ def test_la_pagina_del_servizio_solo_al_global_admin(client):
     assert "segretissima" not in pagina and "impostata" in pagina and "non impostata" not in pagina
     client.post("/previsioni/servizio/", {"togli_chiave": "on"})
     assert ServizioPrevisioni.corrente().chiave_cifrata == ""
+
+
+def test_dentro_una_richiesta_web_si_aspetta_meno_del_worker(monkeypatch):
+    """Ruling 27: 25 s per le chiamate fatte dentro una richiesta web (gunicorn ferma il worker a 60 s), 120 s nei
+    lavori in background (la notte, «Aggiorna»)."""
+    parametri.scrivi("previsioni.url_servizio", "http://forecast:8080")
+    attese = []
+
+    def urlopen(richiesta, timeout=None):
+        attese.append(timeout)
+        return _Risposta(b'{"ok": true}')
+    monkeypatch.setattr("urllib.request.urlopen", urlopen)
+    servizio.chiama("/x", {})
+    assert attese == [25]                                              # una pagina, Analisi, Ada: dentro la richiesta
+    with servizio.in_lavoro():
+        servizio.chiama("/x", {})
+    servizio.chiama("/x", {})
+    assert attese == [25, 120, 25]
+    avvio = (Path(__file__).resolve().parents[3] / "deploy" / "entrypoint.sh").read_text()
+    assert servizio.TIMEOUT_WEB < int(re.search(r"--timeout (\d+)", avvio).group(1))

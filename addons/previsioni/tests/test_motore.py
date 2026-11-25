@@ -116,7 +116,7 @@ def test_risposta_del_servizio_non_valida(monkeypatch):
 
 def test_servizio_giu_messaggio_chiaro(scena, monkeypatch):
     parametri.scrivi("previsioni.url_servizio", "http://127.0.0.1:9")                # porta chiusa
-    monkeypatch.setattr(servizio, "TIMEOUT", 2)
+    monkeypatch.setattr(servizio, "TIMEOUT_WEB", 2)
     with pytest.raises(ErrorePrevisione, match="non risponde"):
         motore.calcola_previsione(_spec(), scena["request"])
 

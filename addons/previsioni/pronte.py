@@ -27,6 +27,7 @@ from .servizio import ErrorePrevisione
 log = logging.getLogger("previsioni.pronte")
 
 CACHE_SECONDI = 600                 # le calcolate al momento e il confronto dei filtri, per utente e azienda
+CACHE_ERRORE = 60                   # un calcolo al momento fallito: il servizio non si richiama a ogni pagina (Ruling 27)
 NON_DISPONIBILE = "Previsione non disponibile per te in questa azienda."
 NON_CALCOLATA = "Previsione non ancora calcolata: si calcola stanotte, o subito con «Aggiorna»."
 
@@ -175,7 +176,8 @@ def per_request(request):
 def dati_per(request, chiave):
     """La previsione pronta `chiave` per l'utente della richiesta: {"chiave", "titolo", "spec", "dati" (il risultato
     del motore, o None), "calcolata_il", "salvata", "errore"}. La salvata se l'utente vede tutte le viste di origine,
-    altrimenti calcolata adesso con i suoi permessi (in cache per 10 minuti). Gli errori arrivano come testo."""
+    altrimenti calcolata adesso con i suoi permessi (in cache per 10 minuti; un fallimento per un minuto). Gli errori
+    arrivano come testo."""
     pronta, azienda = _registro[chiave], getattr(request, "azienda", None)
     esito = {"chiave": chiave, "titolo": "", "spec": None, "dati": None, "calcolata_il": None, "salvata": False,
              "errore": ""}
@@ -197,8 +199,11 @@ def dati_per(request, chiave):
         try:
             memo = {"spec": spec, "dati": calcola_pronta(pronta, spec, request), "calcolata_il": timezone.now()}
         except ErrorePrevisione as e:
+            cache.set(chiave_cache, {"spec": spec, "errore": str(e)}, CACHE_ERRORE)
             return {**esito, "errore": str(e)}
         cache.set(chiave_cache, memo, CACHE_SECONDI)
+    if "errore" in memo:
+        return {**esito, "errore": memo["errore"]}
     return {**esito, "dati": memo["dati"], "calcolata_il": memo["calcolata_il"]}
 
 

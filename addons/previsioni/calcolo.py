@@ -1,7 +1,7 @@
 """Le previsioni salvate: il calcolo per azienda, il lavoro della notte e «Aggiorna».
 
 Di notte (voce `cron` del manifest) e con «Aggiorna» (in un lavoro in background: ogni chiamata al servizio può durare
-fino a due minuti) si ricalcolano, con l'accesso all'intera azienda, le previsioni del magazzino di un'azienda
+fino a servizio.TIMEOUT_LAVORO, due minuti) si ricalcolano, con l'accesso all'intera azienda, le previsioni del magazzino di un'azienda
 (salvate in `PrevisioneArticolo`) e le previsioni pronte di Vendite (in `PrevisionePronta`). Le righe si sostituiscono
 solo se il servizio ha risposto per tutte le serie; altrimenti restano quelle dell'ultimo calcolo riuscito, e
 `StatoCalcolo` dice quando e perché non è andata."""
@@ -197,7 +197,13 @@ def eseguibile(cosa, azienda):
 def notturno():
     """Il lavoro della notte, se il modulo è attivo, in licenza e con il servizio configurato: per ogni azienda attiva
     ricalcola le previsioni del magazzino (se ha movimenti) e quelle pronte di Vendite, dove si possono calcolare
-    (`eseguibile`). Un'azienda o un calcolo che fallisce non ferma gli altri: si riprova la notte dopo."""
+    (`eseguibile`). Un'azienda o un calcolo che fallisce non ferma gli altri: si riprova la notte dopo. In background:
+    ogni chiamata al servizio può aspettare servizio.TIMEOUT_LAVORO."""
+    with servizio.in_lavoro():
+        return _notturno()
+
+
+def _notturno():
     if not servizio.attivo():
         return "Previsioni spente: niente da calcolare."
     con_movimenti = set()
@@ -231,7 +237,8 @@ def aggiorna(azienda_id, cosa):
     azienda = Azienda.objects.filter(pk=azienda_id).first()
     if azienda is None:
         return None
-    salvate = CALCOLI[cosa](azienda)
+    with servizio.in_lavoro():
+        salvate = CALCOLI[cosa](azienda)
     errore = _errore(azienda, cosa)
     return f"Previsioni non aggiornate: {errore}" if errore else f"{salvate} previsioni salvate."
 
