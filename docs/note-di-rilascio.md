@@ -15,6 +15,26 @@ commit; qui solo ciò che si vede o che chiede un intervento.
   - Una prima pagina che la persona non può aprire (permesso mancante, app spenta o di un'altra azienda, fuori dai suoi
     dipartimenti) si ignora.
 
+- **Cercare tra le applicazioni** (nessuna migrazione).
+  - In cima alla pagina Applicazioni una ricerca per parole (nome, categoria, descrizione, funzioni; con più parole
+    servono tutte) e i filtri per stato (Attive, Non attive, Da acquistare) e per categoria, su tutte le sezioni.
+    Prima si cercava solo tra le app da acquistare. I filtri restano nell'indirizzo della pagina.
+
+- **«Le mie dashboard»** — Analisi 1.15.0 (nessuna migrazione).
+  - Le pagine che una persona crea non sono più una scheda ciascuna (fino a sei, poi in «Altre schede»): stanno tutte
+    nel menu a tendina «Le mie dashboard», subito dopo Dashboard e Statistiche, nel loro ordine. Quelle condivise da
+    altri hanno una sezione loro, «Condivise con te», con il nome di chi le ha condivise. Aperta una di queste pagine,
+    la voce del menu è evidenziata. In «Altre schede» restano le app.
+
+- **Il nome del prodotto senza la versione** (nessuna migrazione).
+  - Il nome predefinito è «Adabox», non più «Adabox v3»: nell'intestazione, con la barra piena di voci, «v3» andava a
+    capo. La versione sta in piccolo nel piè di pagina e nella pagina di accesso (`THEME_VERSION`, predefinita «v3»,
+    al posto di «0.1.0»). Cambia anche il nome in email, PDF, inviti di calendario e nell'app installata; chi vuole
+    il nome di prima imposta `THEME_BRAND="Adabox v3"`. Le istanze con un loro `THEME_BRAND` non cambiano.
+  - Nell'intestazione il nome non va più a capo né si stringe (un nome molto lungo si tronca con i puntini): con la
+    barra piena si stringe prima la ricerca, poi si tronca il nome della persona. Un tema con un suo `_header.html`
+    mette la classe `ui-logo-nome` sul nome per avere il troncamento.
+
 ## 2026-11-23
 
 - **App di una sola azienda** — Kernel 1.14.0 (migrazione `core.0044`: aziende di un modulo).
