@@ -112,11 +112,14 @@ def suite():
 @login_required
 @permission_required(PERMESSO, raise_exception=True)
 def pagina(request):
+    from collections import Counter
     tutte = voci()
     altre = [v for v in tutte if v["stato"] in (DISPONIBILE, RICHIESTA)]
     return render(request, "core/applicazioni.html", {
         "attive": [v for v in tutte if v["stato"] == ATTIVA], "ferme": [v for v in tutte if v["stato"] in (NON_ATTIVA, IN_ARRIVO)], "altre": altre,
-        "categorie": sorted({v["categoria"] for v in altre}), "licenza": licenza.attuale(), "obbligatoria": licenza.obbligatoria(), "suite": suite(),
+        # per il filtro in cima: le categorie di tutte le app, con quante app ha ciascuna
+        "tutte": len(tutte), "categorie": sorted(Counter(v["categoria"] for v in tutte).items()),
+        "licenza": licenza.attuale(), "obbligatoria": licenza.obbligatoria(), "suite": suite(),
         "utenti_attivi": licenza.utenti_attivi(), "portale": sincronia.configurata()})
 
 
