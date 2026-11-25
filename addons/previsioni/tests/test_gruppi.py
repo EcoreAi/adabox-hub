@@ -4,6 +4,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from django.apps import apps
 from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.utils import timezone
@@ -103,6 +104,7 @@ def ordini(db, client):
     return {"request": richiesta_di(capo, azienda), "monitor": monitor, "cavo": cavo}
 
 
+@pytest.mark.skipif(not apps.is_installed("vendite"), reason="serve Vendite (con Prodotti, Fiscale e Contatti)")
 def test_misura_aziendale_per_prodotto(ordini, servizi):
     r = motore.calcola_per_gruppo({"misura_aziendale": "vendite.quantita_venduta", "raggruppa": "prodotto",
                                    "per": "mese", "orizzonte": 2}, ordini["request"])

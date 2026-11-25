@@ -2,18 +2,23 @@
 import datetime
 
 import pytest
+from django.apps import apps
 from django.contrib.auth.models import User
 from django.utils import timezone
 
-from ai import artifact, motore, strumenti
-from ai.gateway import finto
-from ai.models import AnelloCatena, Artifact, Conversazione, Evento, Modello, Profilo, Provider
 from core import parametri
 from core.models import Azienda, Lavoro
-from previsioni import ai as ai_previsioni
 from previsioni import motore as motore_previsioni
 from previsioni import servizio as servizio_previsioni
 from previsioni.tests.test_motore import _finta_risposta
+
+pytestmark = pytest.mark.skipif(not apps.is_installed("ai"), reason="serve l'Assistente AI")
+
+if apps.is_installed("ai"):
+    from ai import artifact, motore, strumenti
+    from ai.gateway import finto
+    from ai.models import AnelloCatena, Artifact, Conversazione, Evento, Modello, Profilo, Provider
+    from previsioni import ai as ai_previsioni
 
 
 @pytest.fixture

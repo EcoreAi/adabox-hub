@@ -17,7 +17,7 @@ from core.registry import modules
 from core.viste.interroga import richiesta_di
 
 from . import motore, servizio
-from .models import StatoCalcolo
+from .models import PrevisioneArticolo, StatoCalcolo
 from .servizio import ErrorePrevisione
 
 log = logging.getLogger("previsioni.calcolo")
@@ -83,7 +83,6 @@ def _salva_magazzino(request):
     """Una serie per chiave con soglie e consumo, dal primo movimento dell'azienda (zeri dove non c'è consumo); con
     meno di MIN_PERIODI periodi completi nessuna riga. Le righe dell'azienda si sostituiscono tutte insieme."""
     from . import magazzino as pm
-    from .models import PrevisioneArticolo
 
     azienda, oggi = request.azienda, timezone.localdate()
     per = pm.per_della_storia(azienda)
@@ -103,19 +102,26 @@ def _salva_magazzino(request):
 
 def _righe(azienda, storie, soglie, partenze, per, attuale, oggi):
     """Le righe da salvare: il servizio per tutte le serie (a blocchi di MAX_SERIE; se un blocco non risponde, solleva
-    e non si salva nulla), poi la proiezione di ognuna dalla sua partenza."""
+    e non si salva nulla), poi la proiezione di ognuna dalla sua partenza. Nomi e codici si copiano adesso."""
+    from magazzino.models import Magazzino
+    from prodotti.models import Prodotto
+
     from . import magazzino as pm
-    from .models import PrevisioneArticolo
 
     orizzonte = ORIZZONTE[per]
     futuri, modello = motore.prevedi_molte(storie, orizzonte)
+    prodotti = {pk: (nome, codice) for pk, nome, codice in Prodotto.objects.filter(
+        azienda=azienda, pk__in={p for p, _ in storie}).values_list("pk", "nome", "codice")}
+    magazzini = dict(Magazzino.objects.filter(azienda=azienda, pk__in={m for _, m in storie if m}).values_list("pk", "nome"))
     adesso, righe = timezone.now(), []
     for chiave, storia in storie.items():
         futuro, partenza = futuri[chiave], partenze.get(chiave, Decimal(0))
         riordina_sotto, riporta_a = soglie[chiave]
         mediana = sum(q[1] for q in futuro) / len(futuro)
+        (prodotto, codice), magazzino_pk = prodotti[chiave[0]], chiave[1]
         righe.append(PrevisioneArticolo(
-            azienda=azienda, prodotto_id=chiave[0], magazzino_id=chiave[1], per=per, partenza=partenza,
+            azienda=azienda, prodotto_pk=chiave[0], prodotto=prodotto, codice=codice, magazzino_pk=magazzino_pk,
+            magazzino=magazzini.get(magazzino_pk, ""), per=per, partenza=partenza,
             futuro=[[motore.etichetta(motore.avanti(attuale, per, i), per), *q] for i, q in enumerate(futuro)],
             consumo_mensile=_millesimi(mediana if per == "mese" else mediana * 52 / 12),
             affidabilita=motore.affidabilita(storia, futuro, orizzonte, per, prova=False),

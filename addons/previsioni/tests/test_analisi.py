@@ -3,6 +3,7 @@ import datetime
 import re
 
 import pytest
+from django.apps import apps
 from django.contrib.auth.models import User
 from django.urls import reverse
 from django.utils import timezone
@@ -11,12 +12,14 @@ from core import parametri
 from core.models import Azienda, Lavoro
 from core.viste import interroga
 from core.viste.interroga import richiesta_di
-from grafici import costruttore
-from grafici import motore as motore_grafici
-from grafici.models import Grafico, Pagina
 from previsioni import motore, servizio
 
-pytestmark = pytest.mark.django_db
+pytestmark = [pytest.mark.django_db, pytest.mark.skipif(not apps.is_installed("grafici"), reason="serve Analisi")]
+
+if apps.is_installed("grafici"):
+    from grafici import costruttore
+    from grafici import motore as motore_grafici
+    from grafici.models import Grafico, Pagina
 
 
 @pytest.fixture

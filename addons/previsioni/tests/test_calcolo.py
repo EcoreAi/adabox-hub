@@ -13,17 +13,16 @@ from django.utils import timezone
 from core import parametri
 from core.models import Azienda, Lavoro, Modulo
 from previsioni import calcolo, motore, servizio
-from previsioni.models import StatoCalcolo
+from previsioni.models import PrevisioneArticolo, StatoCalcolo
 from previsioni.servizio import ErrorePrevisione
 from previsioni.tests.test_motore import _finta_risposta
 
 pytestmark = [pytest.mark.django_db, pytest.mark.skipif(not apps.is_installed("magazzino"), reason="serve Magazzino")]
 
-if apps.is_installed("magazzino"):                     # il modello delle righe c'è solo con Magazzino
+if apps.is_installed("magazzino"):
     from magazzino.models import Magazzino, Movimento, ScortaMagazzino
     from magazzino.tests.test_magazzino import scena  # noqa: F401  (fixture)
     from previsioni import magazzino as pm
-    from previsioni.models import PrevisioneArticolo
     from prodotti.models import Prodotto
 
 
@@ -66,7 +65,7 @@ def s(scena):  # noqa: F811
     (nessun consumo, nessuna riga)."""
     azienda, principale, _, _, monitor, _ = scena
     negozio = Magazzino.objects.create(azienda=azienda, nome="Negozio")
-    cavo = Prodotto.objects.create(azienda=azienda, nome="Cavo")
+    cavo = Prodotto.objects.create(azienda=azienda, nome="Cavo", codice="CV-3")
     vite = Prodotto.objects.create(azienda=azienda, nome="Vite")
     ScortaMagazzino.objects.create(azienda=azienda, magazzino=negozio, prodotto=cavo, punto_riordino=10, scorta_obiettivo=50)
     _storia(azienda, monitor, principale, 10, 3)
@@ -92,9 +91,10 @@ def test_calcolo_salva_una_riga_per_chiave(s, capo, servizi):
     assert sorted(x["id"] for x in servizi[0]["series"]) == ["s1", "s2"]
     assert sorted(x["values"] for x in servizi[0]["series"]) == [[2.0] * 10, [3.0] * 10]
 
-    righe = {(r.prodotto, r.magazzino): r for r in PrevisioneArticolo.objects.filter(azienda=s["azienda"])}
-    assert set(righe) == {(s["monitor"], None), (s["cavo"], s["negozio"])}
-    monitor = righe[(s["monitor"], None)]
+    righe = {(r.prodotto_pk, r.magazzino_pk): r for r in PrevisioneArticolo.objects.filter(azienda=s["azienda"])}
+    assert set(righe) == {(s["monitor"].pk, None), (s["cavo"].pk, s["negozio"].pk)}
+    monitor = righe[(s["monitor"].pk, None)]
+    assert (monitor.prodotto, monitor.codice, monitor.magazzino) == ("Monitor", s["monitor"].codice, "")   # nomi copiati
     assert monitor.per == "settimana" and monitor.partenza == 70
     assert len(monitor.futuro) == 52
     assert monitor.futuro[0] == [motore.etichetta(lunedi, "settimana"), 1.0, 3.0, 5.0]       # il periodo in corso
@@ -106,7 +106,8 @@ def test_calcolo_salva_una_riga_per_chiave(s, capo, servizi):
     assert monitor.affidabilita["periodi_di_storia"] == 10 and monitor.affidabilita["livello"] == "bassa"
     assert monitor.modello == "finto-timestral" and monitor.calcolata_il is not None
 
-    cavo = righe[(s["cavo"], s["negozio"])]
+    cavo = righe[(s["cavo"].pk, s["negozio"].pk)]
+    assert (cavo.prodotto, cavo.codice, cavo.magazzino) == ("Cavo", "CV-3", "Negozio")
     attesa = pm.proietta(Decimal(40), [tuple(f[1:]) for f in cavo.futuro], "settimana", lunedi, 10, 50, oggi)
     assert cavo.partenza == 40 and {campo: getattr(cavo, campo) for campo in attesa} == attesa
 

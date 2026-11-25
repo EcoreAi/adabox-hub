@@ -4,12 +4,17 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 
-from magazzino.models import (Consegna, Inventario, Magazzino, Movimento, Ricevimento, RigaConsegna, ScortaMagazzino)
-from magazzino.tests.test_magazzino import scena  # noqa: F401  (fixture)
 from previsioni import magazzino as pm
+
+serve_magazzino = pytest.mark.skipif(not apps.is_installed("magazzino"), reason="serve Magazzino")   # la proiezione no
+
+if apps.is_installed("magazzino"):
+    from magazzino.models import Consegna, Inventario, Magazzino, Movimento, Ricevimento, RigaConsegna, ScortaMagazzino
+    from magazzino.tests.test_magazzino import scena  # noqa: F401  (fixture)
 
 OGGI = date(2026, 11, 25)
 ORIZZONTE = [(25, 30, 35)] * 12
@@ -106,6 +111,7 @@ def _consegna(s):
     return Consegna.objects.create(azienda=s["azienda"], magazzino=s["magazzino"], cliente=s["cliente"])
 
 
+@serve_magazzino
 def test_consumi_contano_prelievi_a_mano_non_inventari(s):
     inv = Inventario.objects.create(azienda=s["azienda"], magazzino=s["magazzino"])
     _mov(s, Movimento.RETTIFICA, 100, date(2026, 1, 1), causale="Inventario iniziale")
@@ -120,6 +126,7 @@ def test_consumi_contano_prelievi_a_mano_non_inventari(s):
     assert c[(s["monitor"].pk, None)] == {date(2026, 10, 1): 5}
 
 
+@serve_magazzino
 def test_storno_di_consegna_si_compensa(s):
     cons = _consegna(s)
     _mov(s, Movimento.SCARICO, -10, date(2026, 10, 5), doc=cons)
@@ -128,6 +135,7 @@ def test_storno_di_consegna_si_compensa(s):
     assert c == {date(2026, 10, 1): 6}
 
 
+@serve_magazzino
 def test_storno_di_ricevimento_non_e_consumo(s):
     r = Ricevimento.objects.create(azienda=s["azienda"], magazzino=s["magazzino"], fornitore=s["fornitore"])
     _mov(s, Movimento.CARICO, 10, date(2026, 10, 1), doc=r)
@@ -135,6 +143,7 @@ def test_storno_di_ricevimento_non_e_consumo(s):
     assert pm.consumi(s["azienda"], "mese") == {}
 
 
+@serve_magazzino
 def test_valori_mai_sotto_zero(s):
     cons = _consegna(s)
     _mov(s, Movimento.SCARICO, -2, date(2026, 10, 5), doc=cons)
@@ -142,6 +151,7 @@ def test_valori_mai_sotto_zero(s):
     assert pm.consumi(s["azienda"], "mese")[(s["monitor"].pk, None)] == {date(2026, 10, 1): 0}
 
 
+@serve_magazzino
 def test_trasferimenti_solo_per_magazzino(s):
     _mov(s, Movimento.TRASFERIMENTO, -6, date(2026, 10, 5), magazzino=s["magazzino"])
     _mov(s, Movimento.TRASFERIMENTO, 6, date(2026, 10, 5), magazzino=s["negozio"])
@@ -151,6 +161,7 @@ def test_trasferimenti_solo_per_magazzino(s):
     assert (s["monitor"].pk, None) not in c
 
 
+@serve_magazzino
 def test_trasferimento_fra_ubicazioni_dello_stesso_magazzino_non_e_consumo(s):
     from magazzino import operazioni
     from magazzino.models import Ubicazione
@@ -165,11 +176,13 @@ def test_trasferimento_fra_ubicazioni_dello_stesso_magazzino_non_e_consumo(s):
     assert pm.consumi(s["azienda"], "mese")[(s["monitor"].pk, s["magazzino"].pk)] == {timezone.localdate().replace(day=1): 2}
 
 
+@serve_magazzino
 def test_consumi_settimanali(s):
     _mov(s, Movimento.SCARICO, -3, date(2026, 11, 25))     # mercoledì
     assert pm.consumi(s["azienda"], "settimana")[(s["monitor"].pk, None)] == {date(2026, 11, 23): 3}
 
 
+@serve_magazzino
 def test_soglie_magazzino_poi_acquisti_poi_scorta_minima(s):
     from acquisti.models import RegolaRiordino
     from prodotti.models import Prodotto
@@ -187,12 +200,14 @@ def test_soglie_magazzino_poi_acquisti_poi_scorta_minima(s):
     assert k[(terzo.pk, None)] == (None, None)
 
 
+@serve_magazzino
 def test_scorta_minima_senza_acquisti(s, monkeypatch):
     monkeypatch.setattr(pm.apps, "is_installed", lambda nome: False)
     _mov(s, Movimento.CARICO, 10, date(2026, 10, 1))
     assert pm.chiavi_e_soglie(s["azienda"])[(s["monitor"].pk, None)] == (5, None)
 
 
+@serve_magazzino
 def test_partenze(s):
     cons = _consegna(s)
     RigaConsegna.objects.create(consegna=cons, prodotto=s["monitor"], quantita=4)
@@ -204,6 +219,7 @@ def test_partenze(s):
     assert p[(s["monitor"].pk, None)] == 21
 
 
+@serve_magazzino
 def test_settimane_con_meno_di_un_anno(s):
     assert pm.per_della_storia(s["azienda"]) == "settimana"          # nessun movimento
     oggi = timezone.localdate()

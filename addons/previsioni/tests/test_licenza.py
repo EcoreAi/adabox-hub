@@ -4,18 +4,23 @@ from django.apps import apps
 from django.contrib.auth.models import User
 from django.urls import reverse
 
-from ai import artifact, strumenti
-from ai.models import Artifact, Conversazione
 from core import licenza, parametri
 from core.models import Azienda
-from grafici import motore as motore_grafici
-from grafici.models import Grafico
 from previsioni import servizio
 
 pytestmark = pytest.mark.django_db
+serve_ai = pytest.mark.skipif(not apps.is_installed("ai"), reason="serve l'Assistente AI")
+serve_analisi = pytest.mark.skipif(not apps.is_installed("grafici"), reason="serve Analisi")
 
-SPEC = {"tipo": Artifact.GRAFICO, "grafico": "previsione", "vista": "core.lavoro", "data": "creato", "misura": "count",
-        "per": "mese", "orizzonte": 3}
+if apps.is_installed("ai"):
+    from ai import artifact, strumenti
+    from ai.models import Artifact, Conversazione
+
+    SPEC = {"tipo": Artifact.GRAFICO, "grafico": "previsione", "vista": "core.lavoro", "data": "creato", "misura": "count",
+            "per": "mese", "orizzonte": 3}
+if apps.is_installed("grafici"):
+    from grafici import motore as motore_grafici
+    from grafici.models import Grafico
 
 
 @pytest.fixture
@@ -46,6 +51,7 @@ def _non_installato(monkeypatch):
     monkeypatch.setattr(servizio, "abilitato", lambda: False)
 
 
+@serve_analisi
 def test_senza_licenza_niente_tipo_previsione_nel_costruttore(client, capo, con_url, monkeypatch):
     assert 'value="previsione"' in client.get(reverse("grafici:costruttore")).content.decode()
     _senza_licenza(monkeypatch)
@@ -53,12 +59,15 @@ def test_senza_licenza_niente_tipo_previsione_nel_costruttore(client, capo, con_
     assert motore_grafici.previsioni_disponibili() is False
 
 
+@serve_ai
 def test_senza_licenza_niente_strumento_previsione(capo, con_url, monkeypatch):
     assert "previsione" in {s.nome for s in strumenti.disponibili(capo)}
     _senza_licenza(monkeypatch)
     assert "previsione" not in {s.nome for s in strumenti.disponibili(capo)}
 
 
+@serve_ai
+@serve_analisi
 def test_modulo_disattivato_niente_strumento_ne_tipo(capo, con_url, monkeypatch):
     from core.registry import modules
     originale = modules.manifests_attivi
@@ -68,6 +77,7 @@ def test_modulo_disattivato_niente_strumento_ne_tipo(capo, con_url, monkeypatch)
     assert motore_grafici.previsioni_disponibili() is False
 
 
+@serve_analisi
 def test_grafico_previsione_salvato_senza_modulo_mostra_il_messaggio(client, capo, con_url, monkeypatch):
     g = Grafico.objects.create(utente=capo, titolo="Lavori previsti", tipo=Grafico.PREVISIONE,
                                spec={"vista": "core.lavoro", "misura": "count", "data": "creato", "per": "mese", "orizzonte": 3})
@@ -80,6 +90,7 @@ def test_grafico_previsione_salvato_senza_modulo_mostra_il_messaggio(client, cap
     assert motore_grafici.previsioni_disponibili() is False
 
 
+@serve_ai
 def test_chat_senza_modulo_attivo_o_installato(capo, con_url, monkeypatch):
     contesto = _contesto(capo)
     _senza_licenza(monkeypatch)
@@ -93,6 +104,8 @@ def test_chat_senza_modulo_attivo_o_installato(capo, con_url, monkeypatch):
     assert artifact.svg_di(a) == ""
 
 
+@serve_ai
+@serve_analisi
 def test_con_licenza_tutto_come_prima(client, capo, con_url, monkeypatch):
     from previsioni.tests.test_motore import _finta_risposta
     monkeypatch.setattr(servizio, "chiama", lambda percorso, dati: _finta_risposta(dati))
@@ -112,6 +125,7 @@ def test_con_licenza_tutto_come_prima(client, capo, con_url, monkeypatch):
     assert dati["modello"] == "finto-timestral"
 
 
+@serve_ai
 def test_la_vista_inesistente_ha_un_messaggio_neutro(capo, rf):
     from previsioni import motore
     richiesta = strumenti.richiesta.per(_contesto(capo))
