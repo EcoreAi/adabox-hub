@@ -206,6 +206,7 @@ con `core.mixins.ProprietaMixin` (valori nel JSON `proprieta`): compaiono nel fo
 | `documenti` | — | archivio per cartelle con permessi ereditati, anteprima, tag, cestino, zip; link pubblici a scadenza, richieste di documenti, cartelle che raccolgono gli allegati dei record |
 | `discuss` | — | canali e messaggi diretti tra colleghi, menzioni, posta in arrivo (anche dal chatter), campanella in testata, email per i non letti |
 | `sharepoint` | documenti | cartelle dei Documenti allineate con SharePoint (Microsoft 365) da SharePoint, verso SharePoint o nei due versi, con le sottocartelle |
+| `previsioni` | — | in licenza: previsioni di vendite e magazzino con Timestral (servizio da configurare): date di esaurimento e di riordino per articolo, vendite per mese, prodotti e clienti, calcolate ogni notte; pagina Previsioni e widget della dashboard; lo strumento «previsione» di Ada e il tipo Previsione di Analisi |
 
 `python manage.py modulo installa timesheet crm helpdesk calendario --demo --si` installa tutto, con le dipendenze
 (contatti, progetti) e i dati dimostrativi. Chi installa un'app riceve il suo gruppo base; i gruppi "Responsabile"
