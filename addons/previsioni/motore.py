@@ -16,7 +16,7 @@ from core.viste import interroga
 from core.viste.interroga import ErroreInterrogazione
 
 from . import servizio
-from .servizio import ErrorePrevisione, ErroreServizio
+from .servizio import ErrorePrevisione, ErroreServizio, StoriaInsufficiente
 
 UNITA = {"mese": TruncMonth, "settimana": TruncWeek, "giorno": TruncDay}
 MIN_PERIODI = 6
@@ -96,15 +96,15 @@ def periodi_completi(valori, per):
     attuale = inizio(timezone.localdate(), per)
     passati = [p for p in valori if p < attuale]
     if not passati:
-        raise ErrorePrevisione("Nessun dato nei periodi passati: non c'è una storia da cui prevedere.")
+        raise StoriaInsufficiente("Nessun dato nei periodi passati: non c'è una storia da cui prevedere.")
     periodi, p = [], min(passati)
     while p < attuale:
         periodi.append(p)
         p = avanti(p, per)
     periodi = periodi[-MAX_PERIODI:]
     if len(periodi) < MIN_PERIODI:
-        raise ErrorePrevisione(f"Servono almeno {MIN_PERIODI} periodi di storia ({len(periodi)} disponibili): "
-                               "prova con «per» più corto (settimana, giorno).")
+        raise StoriaInsufficiente(f"Servono almeno {MIN_PERIODI} periodi di storia ({len(periodi)} disponibili): "
+                                  "prova con «per» più corto (settimana, giorno).")
     return [(p, valori.get(p, 0.0)) for p in periodi], attuale
 
 
@@ -156,7 +156,7 @@ def calcola_previsione(spec, request, vista=None):
         except ErroreInterrogazione as e:
             raise ErrorePrevisione(str(e)) from e
         if not valori:
-            raise ErrorePrevisione("Nessun dato nei periodi passati: non c'è una storia da cui prevedere.")
+            raise StoriaInsufficiente("Nessun dato nei periodi passati: non c'è una storia da cui prevedere.")
         storia, attuale = periodi_completi(valori, per)
     else:
         if vista is None:
@@ -173,7 +173,8 @@ def calcola_previsione(spec, request, vista=None):
 def calcola_per_gruppo(spec, request, vista=None):
     """La previsione di una specifica (come `calcola_previsione`) per ognuno dei `primi` gruppi (default 10) di
     `raggruppa`, un campo della vista o un raggruppamento della misura aziendale. Tutte le storie vanno al servizio in
-    una sola chiamata; i gruppi con storia troppo corta si escludono e si contano in «esclusi». In ordine di totale
+    una sola chiamata; i gruppi con storia troppo corta (StoriaInsufficiente) si escludono e si contano in «esclusi»;
+    gli altri errori fermano il calcolo. In ordine di totale
     storico decrescente. Affidabilità senza prova sul passato (il backtest moltiplicherebbe le chiamate)."""
     per, orizzonte = spec.get("per", "mese"), spec.get("orizzonte", 3)
     raggruppa = spec.get("raggruppa")
@@ -212,7 +213,7 @@ def calcola_per_gruppo(spec, request, vista=None):
                 valori = {inizio(d, per): v for d, v in misure.storia(misura_aziendale, request, per,
                                                                       scelti={raggruppa: chiave}).items()}
                 if not valori:
-                    raise ErrorePrevisione("Nessun dato nei periodi passati.")
+                    raise StoriaInsufficiente("Nessun dato nei periodi passati.")
                 storia, attuale = periodi_completi(valori, per)
             else:
                 storia, attuale = serie_storica(vista, request, spec["data"], spec.get("misura", "count"), per,
@@ -220,9 +221,9 @@ def calcola_per_gruppo(spec, request, vista=None):
                                                 spec.get("testo", ""), spec.get("lista"))
         except ErroreInterrogazione as e:
             raise ErrorePrevisione(str(e)) from e
-        except ErrorePrevisione:
+        except StoriaInsufficiente:
             esclusi += 1                                   # storia troppo corta o vuota: non si prevede
-            continue
+            continue                                       # (un campo sbagliato o nascosto, invece, ferma tutto)
         storie[chiave], nomi[chiave] = storia, nome
     if not storie:
         raise ErrorePrevisione("Nessun gruppo ha abbastanza storia per una previsione "

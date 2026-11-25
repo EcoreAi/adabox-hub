@@ -87,7 +87,7 @@ def magazzino(azienda):
 
 
 def _periodi_completi(primo, per, attuale):
-    """I periodi completi dal primo movimento a quello in corso escluso (gli ultimi MAX_PERIODI)."""
+    """I periodi completi dal giorno `primo` a quello in corso escluso (gli ultimi MAX_PERIODI); nessuno senza `primo`."""
     periodi, p = [], motore.inizio(primo, per) if primo else attuale
     while p < attuale:
         periodi.append(p)
@@ -96,18 +96,23 @@ def _periodi_completi(primo, per, attuale):
 
 
 def _salva_magazzino(request):
-    """Una serie per chiave con soglie e consumo, dal primo movimento dell'azienda (zeri dove non c'è consumo); con
-    meno di MIN_PERIODI periodi completi nessuna riga. Le righe dell'azienda si sostituiscono tutte insieme."""
+    """Una serie per chiave con soglie e consumo, dal periodo del primo movimento di quell'articolo (per la chiave di un
+    magazzino: in quel magazzino), con gli zeri dove non c'è consumo; con meno di MIN_PERIODI periodi completi la
+    chiave non ha riga (Ruling 26: niente zeri davanti per chi è arrivato dopo). Il periodo (mese o settimana) è quello
+    dell'azienda. Le righe dell'azienda si sostituiscono tutte insieme."""
     from . import magazzino as pm
 
     azienda, oggi = request.azienda, timezone.localdate()
     per = pm.per_della_storia(azienda)
     attuale = motore.inizio(oggi, per)
-    periodi = _periodi_completi(pm.primo_movimento(azienda), per, attuale)
     righe = []
-    if len(periodi) >= motore.MIN_PERIODI:
-        consumi, soglie = pm.consumi(azienda, per), pm.chiavi_e_soglie(azienda)
-        storie = {chiave: [(p, consumi[chiave].get(p, 0.0)) for p in periodi] for chiave in soglie if chiave in consumi}
+    if len(_periodi_completi(pm.primo_movimento(azienda), per, attuale)) >= motore.MIN_PERIODI:
+        consumi, soglie, primi = pm.consumi(azienda, per), pm.chiavi_e_soglie(azienda), pm.primi_movimenti(azienda)
+        storie = {}
+        for chiave in soglie:
+            periodi = _periodi_completi(primi.get(chiave), per, attuale) if chiave in consumi else []
+            if len(periodi) >= motore.MIN_PERIODI:
+                storie[chiave] = [(p, consumi[chiave].get(p, 0.0)) for p in periodi]
         if storie:
             righe = _righe(azienda, storie, soglie, pm.partenze(azienda), per, attuale, oggi)
     _sostituisci(azienda, StatoCalcolo.MAGAZZINO, PrevisioneArticolo.objects.filter(azienda=azienda), righe)

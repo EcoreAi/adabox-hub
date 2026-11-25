@@ -153,6 +153,21 @@ def primo_movimento(azienda) -> datetime.date | None:
     return _giorno_locale(primo) if primo is not None else None
 
 
+def primi_movimenti(azienda) -> dict[Chiave, datetime.date]:
+    """Il giorno del primo movimento, di qualunque tipo, di ogni articolo: per (prodotto, magazzino) in quel magazzino e
+    per (prodotto, None) in tutti."""
+    from magazzino.models import Movimento
+
+    primi = {}
+    for prodotto, magazzino, primo in (Movimento.objects.filter(azienda=azienda).order_by()
+                                       .values_list("prodotto", "magazzino").annotate(primo=Min("data"))):
+        giorno = _giorno_locale(primo)
+        primi[(prodotto, magazzino)] = giorno
+        if (prodotto, None) not in primi or giorno < primi[(prodotto, None)]:
+            primi[(prodotto, None)] = giorno
+    return primi
+
+
 def per_della_storia(azienda) -> str:
     """«mese» se dal primo movimento dell'azienda sono passati almeno 12 mesi, altrimenti «settimana»."""
     primo, oggi = primo_movimento(azienda), timezone.localdate()

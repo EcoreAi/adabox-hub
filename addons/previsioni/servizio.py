@@ -19,6 +19,11 @@ class ErrorePrevisione(Exception):
     """Un errore da mostrare così com'è all'utente."""
 
 
+class StoriaInsufficiente(ErrorePrevisione):
+    """La serie è vuota o troppo corta per prevedere: nella previsione per gruppo quel gruppo si esclude (gli altri
+    errori, per esempio un campo sbagliato, fermano tutto)."""
+
+
 class ErroreServizio(ErrorePrevisione):
     """Il servizio non ha dato una previsione (non configurato, irraggiungibile, ha rifiutato, risposta non valida):
     non dipende dai dati, quindi le previsioni salvate di prima restano."""

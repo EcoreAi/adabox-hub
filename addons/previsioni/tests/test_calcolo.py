@@ -139,6 +139,29 @@ def test_articoli_senza_storia_sufficiente_non_hanno_riga(scena, capo, servizi):
     assert stato.errore == "" and stato.ultimo_ok is not None
 
 
+def test_la_storia_di_ogni_articolo_parte_dal_suo_primo_movimento(s, capo, servizi):
+    """Ruling 26: un articolo arrivato da poco in un'azienda con più storia non ha zeri davanti. La sua serie parte dal
+    periodo del suo primo movimento, di qualunque tipo (per la riga di un magazzino: in quel magazzino); sotto
+    MIN_PERIODI periodi l'articolo non ha riga."""
+    azienda, lunedi = s["azienda"], motore.inizio(timezone.localdate(), "settimana")
+    nuovo = Prodotto.objects.create(azienda=azienda, nome="Nuovo")
+    giovane = Prodotto.objects.create(azienda=azienda, nome="Giovane")
+    spostato = Prodotto.objects.create(azienda=azienda, nome="Spostato")
+    ScortaMagazzino.objects.create(azienda=azienda, magazzino=s["negozio"], prodotto=spostato, punto_riordino=1,
+                                   scorta_obiettivo=20)
+    _storia(azienda, nuovo, s["principale"], 7, 4)                  # 7 delle 10 settimane dell'azienda
+    _storia(azienda, giovane, s["principale"], motore.MIN_PERIODI - 1, 4)
+    _mov(azienda, spostato, s["principale"], Movimento.CARICO, 50, motore.avanti(lunedi, "settimana", -10))
+    _storia(azienda, spostato, s["negozio"], 7, 2)                   # nel negozio solo dalle ultime 7
+    assert calcolo.magazzino(azienda) == 4
+    assert sorted(x["values"] for x in servizi[0]["series"]) == sorted(
+        [[3.0] * 10, [2.0] * 10, [4.0] * 7, [2.0] * 7])            # monitor, cavo, nuovo, spostato: nessuno zero davanti
+    righe = {(r.prodotto_pk, r.magazzino_pk): r for r in PrevisioneArticolo.objects.filter(azienda=azienda)}
+    assert not [c for c in righe if c[0] == giovane.pk]
+    assert righe[(nuovo.pk, None)].affidabilita["periodi_di_storia"] == 7
+    assert righe[(spostato.pk, s["negozio"].pk)].affidabilita["periodi_di_storia"] == 7
+
+
 def test_servizio_giu_restano_le_vecchie(s, capo, servizi, monkeypatch):
     assert calcolo.magazzino(s["azienda"]) == 2
     ieri = timezone.now() - datetime.timedelta(days=1)

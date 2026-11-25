@@ -75,6 +75,15 @@ def test_gruppo_con_poca_storia_si_esclude(scena, servizi):
     assert len(r["gruppi"]) == 5 and len(servizi) == 1
 
 
+def test_una_specifica_sbagliata_non_e_poca_storia(scena, servizi):
+    """Un campo data sbagliato è un errore della specifica: non si conta come gruppo escluso per poca storia."""
+    with pytest.raises(ErrorePrevisione, match="non è un campo data"):
+        motore.calcola_per_gruppo(_spec(data="funzione", primi=3), scena["request"])
+    with pytest.raises(ErrorePrevisione, match="non ha il campo"):
+        motore.calcola_per_gruppo(_spec(data="inventato", primi=3), scena["request"])
+    assert not servizi
+
+
 def test_senza_gruppi_con_storia_si_ferma(scena, servizi):
     with pytest.raises(ErrorePrevisione):
         motore.calcola_per_gruppo(_spec(raggruppa="funzione", filtri={"funzione": "nessuna"}), scena["request"])
