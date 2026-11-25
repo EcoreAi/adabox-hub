@@ -1,0 +1,22 @@
+{% load previsioni %}{% previsioni_prodotto obj as p %}{% if p %}
+<section class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">Previsione di magazzino</div></div>
+  <div class="ui-card-body">
+    {% if p.ferma_dal %}<p class="sub"><strong>Previsione non aggiornata dal {{ p.ferma_dal|date:"d/m/Y" }}</strong>: l'ultimo calcolo non è riuscito.</p>{% endif %}
+    {% for r in p.righe %}
+    <div class="ui-section">
+      <strong>{{ r.magazzino|default:"Tutti i magazzini" }}</strong>
+      {% if r.stato == "finito" %}<p>Finito.</p>
+      {% elif r.stato == "nessun_consumo" %}<p>Nessun consumo previsto.</p>
+      {% elif r.stato == "oltre" %}<p>Basta oltre il {{ r.fine_orizzonte|date:"d/m/Y" }}.</p>
+      {% else %}
+        {% if r.stato == "riordina_ora" %}<p><strong>Riordina ora</strong>{% if r.quantita_suggerita %} (quantità suggerita {{ r.quantita_suggerita|floatformat:"-3" }}){% endif %}</p>{% endif %}
+        {% if r.esaurimento %}<p>Finisce verso il {{ r.esaurimento|date:"d/m/Y" }}{% if r.esaurimento_da %}, tra il {{ r.esaurimento_da|date:"d/m/Y" }} e {% if r.esaurimento_a %}il {{ r.esaurimento_a|date:"d/m/Y" }}{% else %}oltre il {{ r.fine_orizzonte|date:"d/m/Y" }}{% endif %}{% endif %}.</p>{% endif %}
+        {% if r.stato == "ok" and r.riordino %}<p>Riordina entro il {{ r.riordino|date:"d/m/Y" }}{% if r.quantita_suggerita %} (quantità suggerita {{ r.quantita_suggerita|floatformat:"-3" }}){% endif %}.</p>{% endif %}
+      {% endif %}
+      <p class="sub">Affidabilità: {{ r.affidabilita.livello|default:"–" }}{% if r.motivo %} ({{ r.motivo }}){% endif %}
+        · {% include "previsioni/_attribuzione.html" with modello=r.modello %} · calcolata il {{ r.calcolata_il|date:"d/m/Y" }}</p>
+    </div>
+    {% endfor %}
+  </div>
+</section>{% endif %}

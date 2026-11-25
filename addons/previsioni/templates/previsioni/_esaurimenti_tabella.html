@@ -1,0 +1,8 @@
+<div class="ui-filtri" style="padding:0 var(--space-4, 1rem)">
+  <span class="sub">Da riordinare:</span>
+  <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ urls.lista }}">Tutti</a>
+  <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ urls.lista }}?entro=7">entro 7 giorni</a>
+  <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ urls.lista }}?entro=30">entro 30 giorni</a>
+  <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ urls.lista }}?entro=90">entro 90 giorni</a>
+</div>
+{% include "core/vista/_tabella.html" %}

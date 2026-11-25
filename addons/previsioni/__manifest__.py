@@ -9,9 +9,12 @@
     "application": True,
     "icon": "previsioni/icon.svg",
     "ai": "previsioni.ai",
-    "menu": [],
+    "menu": [
+        {"label": "Articoli in esaurimento", "url_name": "previsioni:esaurimenti_lista",
+         "permission": "previsioni.view_previsionearticolo"},
+    ],
     "groups": {
-        "Previsioni / Utente": ["previsioni.view_servizioprevisioni"],
+        "Previsioni / Utente": ["previsioni.view_previsionearticolo"],
         "Previsioni / Responsabile": ["previsioni.*"],
     },
     "settings": [
