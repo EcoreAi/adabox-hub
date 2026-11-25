@@ -94,6 +94,25 @@ def test_lo_strumento_previsione_usa_il_motore_del_modulo(scena, servizi):
         strumenti_specialisti.previsione(_contesto(scena), "core.nessuna", "creato")
 
 
+def test_in_una_chat_limitata_a_un_app_si_prevede_solo_sulle_sue_viste(scena, servizi):
+    """Come prima dello spostamento del motore: lo strumento e il ricalcolo dell'artifact vedono solo le viste della
+    chat (ambito e viste sostituite per Ada), con lo stesso errore di vista_per."""
+    from ai.strumenti.viste import vista_per
+    scena["conversazione"].ambito = "todo"
+    scena["conversazione"].save(update_fields=["ambito"])
+    with pytest.raises(strumenti.ErroreStrumento) as atteso:
+        vista_per(_contesto(scena), "core.lavoro")
+    with pytest.raises(strumenti.ErroreStrumento) as e:
+        strumenti_specialisti.previsione(_contesto(scena), "core.lavoro", "creato")
+    assert str(e.value) == str(atteso.value)
+    spec = {"tipo": Artifact.GRAFICO, "grafico": "previsione", "vista": "core.lavoro", "data": "creato", "misura": "count",
+            "per": "mese", "orizzonte": 3}
+    with pytest.raises(strumenti.ErroreStrumento) as e:
+        artifact.calcola(spec, _contesto(scena))
+    assert str(e.value) == str(atteso.value)
+    assert not servizi
+
+
 def test_classifica(scena, servizi):
     r = strumenti_specialisti.classifica(_contesto(scena), "Il server è fermo", "È urgente?")
     assert r["noul"] == 0.91 and "indicative" in r["nota"]

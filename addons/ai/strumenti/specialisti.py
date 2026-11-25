@@ -6,7 +6,7 @@ from django.apps import apps
 from .. import specialisti        # può essere ancora a metà caricamento: i suoi nomi si usano solo nelle funzioni
 from . import richiesta
 from .registro import ErroreStrumento, Strumento, registra
-from .viste import FILTRI, TESTO, VISTA
+from .viste import FILTRI, TESTO, VISTA, vista_per
 
 MAX_ORIZZONTE = 24                # = previsioni.motore.MAX_ORIZZONTE (qui serve già all'import, per lo schema)
 
@@ -43,8 +43,9 @@ def previsione(contesto, vista="", data="", misura="count", per="mese", orizzont
         raise ErroreStrumento("Serve il modulo Previsioni.")
     from previsioni import motore
     from previsioni.servizio import ErrorePrevisione
+    v = None if misura_aziendale else vista_per(contesto, vista)   # le viste della chat: ambito e sostituite
     try:
-        dati = motore.calcola_previsione(spec, richiesta.per(contesto))
+        dati = motore.calcola_previsione(spec, richiesta.per(contesto), vista=v)
     except ErrorePrevisione as e:
         raise ErroreStrumento(str(e)) from e
     a = artifact._crea(contesto, Artifact.GRAFICO, titolo or predefinito, spec, dati)

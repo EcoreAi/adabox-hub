@@ -141,9 +141,11 @@ def prevedi(storia, orizzonte):
     return futuri["serie"], modello
 
 
-def calcola_previsione(spec, request):
+def calcola_previsione(spec, request, vista=None):
     """La previsione di una specifica (vista, data, misura, per, orizzonte, filtri, testo, lista, oppure
-    misura_aziendale) per l'utente della richiesta: {"storico", "futuro", "totale", "modello", "affidabilita"}."""
+    misura_aziendale) per l'utente della richiesta: {"storico", "futuro", "totale", "modello", "affidabilita"}.
+    `vista`, se c'è, è la ModelView già scelta da chi chiama (per esempio Ada, con le viste della sua chat) e prende il
+    posto della ricerca per nome tra quelle accessibili all'utente."""
     per = spec.get("per", "mese")
     if spec.get("misura_aziendale"):                     # la storia di una misura aziendale (note di credito comprese)
         from core import misure
@@ -157,7 +159,8 @@ def calcola_previsione(spec, request):
             raise ErrorePrevisione("Nessun dato nei periodi passati: non c'è una storia da cui prevedere.")
         storia, attuale = periodi_completi(valori, per)
     else:
-        vista = vista_accessibile(request, spec["vista"])
+        if vista is None:
+            vista = vista_accessibile(request, spec["vista"])
         storia, attuale = serie_storica(vista, request, spec["data"], spec.get("misura", "count"), per,
                                         spec.get("filtri"), spec.get("testo", ""), spec.get("lista"))
     futuro, modello = prevedi(storia, spec.get("orizzonte", 3))

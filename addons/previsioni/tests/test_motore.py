@@ -94,6 +94,13 @@ def test_la_vista_si_cerca_tra_quelle_dell_utente(scena, servizi):
     assert not servizi
 
 
+def test_la_vista_scelta_da_chi_chiama_prende_il_posto_del_nome(scena, servizi):
+    """Chi chiama (per esempio Ada, con le viste della sua chat) può passare la vista già scelta: il nome non si cerca."""
+    vista = motore.vista_accessibile(scena["request"], "core.lavoro")
+    r = motore.calcola_previsione(_spec(vista="core.nessuna"), scena["request"], vista=vista)
+    assert len(r["storico"]) == 8 and servizi[0][1]["series"][0]["values"] == [2, 3, 3, 4, 4, 5, 5, 6]
+
+
 def test_previsione_mai_negativa_per_serie_positive(monkeypatch):
     monkeypatch.setattr(servizio, "chiama", lambda percorso, dati: {"forecasts": [{"id": "s1", "quantiles": {
         "0.1": [-3.0], "0.5": [1.0], "0.9": [4.0]}}]})

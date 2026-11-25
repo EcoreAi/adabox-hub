@@ -88,8 +88,9 @@ def _calcola(spec, contesto):
             raise ErroreStrumento("Serve il modulo Previsioni.")
         from previsioni import motore
         from previsioni.servizio import ErrorePrevisione
+        v = None if spec.get("misura_aziendale") else vista_per(contesto, spec["vista"])   # le viste della chat
         try:
-            return motore.calcola_previsione(spec, richiesta.per(contesto))
+            return motore.calcola_previsione(spec, richiesta.per(contesto), vista=v)
         except ErrorePrevisione as e:
             raise ErroreStrumento(str(e)) from e
     if spec.get("misura_aziendale"):
