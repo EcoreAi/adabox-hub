@@ -1,0 +1,14 @@
+{# Una previsione pronta nella dashboard: la card si carica con HTMX quando il widget è in vista (ci può volere un po'). #}
+<section class="wd-widget wd-{{ w.tipo }}" data-id="{{ w.id }}" data-w="{{ w.w }}" style="--w:{{ w.w }}" aria-label="{{ w.titolo }}">
+  <div class="wd-strumenti">
+    <button type="button" class="wd-maniglia" title="Trascina per spostare" aria-label="Sposta {{ w.titolo }}">⠿</button>
+    <button type="button" data-sposta="-1" title="Sposta prima" aria-label="Sposta prima {{ w.titolo }}">←</button>
+    <button type="button" data-sposta="1" title="Sposta dopo" aria-label="Sposta dopo {{ w.titolo }}">→</button>
+    <button type="button" data-larghezza title="Cambia larghezza" aria-label="Cambia larghezza di {{ w.titolo }}">⤢ <span>{{ w.w }}</span>/4</button>
+    <button type="button" data-nascondi title="Togli dalla pagina" aria-label="Togli {{ w.titolo }}">×</button>
+  </div>
+  <div class="ui-card is-revealed wd-card" hx-get="{{ w.url }}" hx-trigger="load" hx-swap="outerHTML">
+    <div class="ui-card-head"><div><div class="ui-card-title">{{ w.titolo }}</div><div class="ui-card-sub">{{ w.app }}</div></div></div>
+    <div class="ui-card-body"><p class="sub">Calcolo in corso…</p></div>
+  </div>
+</section>

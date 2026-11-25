@@ -1,7 +1,9 @@
 from django import template
 from django.utils.safestring import mark_safe
 
-from previsioni import esaurimenti
+from django.urls import reverse
+
+from previsioni import esaurimenti, pagine
 from previsioni.models import PrevisioneArticolo
 
 register = template.Library()
@@ -11,8 +13,9 @@ register = template.Library()
 def previsioni_prodotto(context, prodotto):
     """Le previsioni salvate del prodotto per l'azienda corrente, una per magazzino (il totale per ultimo), con
     l'ultimo giorno dell'orizzonte; None se non ce ne sono."""
-    azienda = getattr(context.get("request"), "azienda", None)
-    if azienda is None:
+    request = context.get("request")
+    azienda = getattr(request, "azienda", None)
+    if azienda is None or not request.user.has_perm("previsioni.view_previsionearticolo"):
         return None
     righe = sorted(PrevisioneArticolo.objects.filter(azienda=azienda, prodotto_pk=prodotto.pk),
                    key=lambda r: (r.magazzino_pk is None, r.magazzino))
@@ -22,6 +25,15 @@ def previsioni_prodotto(context, prodotto):
         r.fine_orizzonte = esaurimenti.fine_orizzonte(r)
         r.motivo = (r.affidabilita.get("motivi") or [""])[0]
     return {"righe": righe, "ferma_dal": esaurimenti.non_aggiornata_dal(azienda, righe)}
+
+
+@register.simple_tag(takes_context=True)
+def vendite_prodotto_url(context, prodotto):
+    """L'indirizzo della riga «Vendite previste» del prodotto, o "" se l'utente non vede le previsioni di Vendite."""
+    request = context.get("request")
+    if request is None or getattr(request, "azienda", None) is None or not pagine.vendite_prodotti_visibili(request):
+        return ""
+    return reverse("previsioni:prodotto_vendite", args=[prodotto.pk])
 
 
 @register.simple_tag(takes_context=True)

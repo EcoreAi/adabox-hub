@@ -266,5 +266,5 @@ def test_aggiorna_solo_con_permesso(s, capo, servizi, client):
     assert (lavoro.azienda, lavoro.utente, lavoro.max_tentativi, lavoro.stato) == (s["azienda"], norma, 1, Lavoro.FATTO)
     assert PrevisioneArticolo.objects.filter(azienda=s["azienda"]).count() == 2
 
-    risposta = client.post(url, HTTP_REFERER="https://altro.example.com/")      # da fuori: alla pagina iniziale
-    assert risposta.status_code == 302 and risposta.url == reverse("core:home")
+    risposta = client.post(url, HTTP_REFERER="https://altro.example.com/")      # da fuori: alla pagina Previsioni
+    assert risposta.status_code == 302 and risposta.url == reverse("previsioni:pagina")

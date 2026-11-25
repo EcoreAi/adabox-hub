@@ -13,9 +13,10 @@ def fine_orizzonte(riga):
     return motore.avanti(inizio, riga.per, len(riga.futuro)) - datetime.timedelta(days=1)
 
 
-def non_aggiornata_dal(azienda, righe):
-    """Da quando le previsioni di magazzino non sono aggiornate (l'ultimo calcolo è fallito), altrimenti None."""
-    stato = StatoCalcolo.objects.filter(azienda=azienda, cosa=StatoCalcolo.MAGAZZINO).first()
+def non_aggiornata_dal(azienda, righe, cosa=StatoCalcolo.MAGAZZINO):
+    """Da quando le previsioni (di magazzino o di vendite) non sono aggiornate (l'ultimo calcolo è fallito),
+    altrimenti None."""
+    stato = StatoCalcolo.objects.filter(azienda=azienda, cosa=cosa).first()
     if stato is None or not stato.errore:
         return None
     if stato.ultimo_ok:

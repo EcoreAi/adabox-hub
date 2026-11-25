@@ -10,6 +10,8 @@
     "icon": "previsioni/icon.svg",
     "ai": "previsioni.ai",
     "menu": [
+        # un solo permesso per voce: la pagina ne accetta due (anche view_previsionearticolo), il menu parte da questo
+        {"label": "Previsioni", "url_name": "previsioni:pagina", "permission": "previsioni.view_previsionepronta"},
         {"label": "Articoli in esaurimento", "url_name": "previsioni:esaurimenti_lista",
          "permission": "previsioni.view_previsionearticolo"},
     ],

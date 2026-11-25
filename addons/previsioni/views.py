@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import F
-from django.http import HttpResponseBadRequest
+from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 from core import lavori
 from core.viste import ModelView, register
 
-from . import calcolo, esaurimenti, servizio
+from . import calcolo, esaurimenti, pagine, pronte, servizio
 from .forms import ServizioForm
 from .models import PrevisioneArticolo, ServizioPrevisioni, StatoCalcolo
 
@@ -38,6 +38,32 @@ def pagina_servizio(request):
 
 
 @login_required
+def pagina(request):
+    """La pagina «Previsioni»: una sezione per app, con le previsioni pronte e gli articoli in esaurimento."""
+    if not pagine.puo_vedere_la_pagina(request.user):
+        raise PermissionDenied
+    return render(request, "previsioni/pagina.html", pagine.contesto_pagina(request))
+
+
+@login_required
+def pronta(request, chiave):
+    """La card di una previsione pronta, che la pagina e la dashboard caricano con HTMX. 404 se la chiave non esiste o
+    l'utente non la può vedere."""
+    if chiave not in {p["chiave"] for p in pronte.per_request(request)}:
+        raise Http404
+    return render(request, "previsioni/_pronta.html", pagine.contesto_pronta(request, chiave))
+
+
+@login_required
+def prodotto_vendite(request, pk):
+    """La riga «Vendite previste» della scheda di un prodotto, caricata con HTMX. 404 se l'utente non vede
+    `vendite.prodotti`."""
+    if not pagine.vendite_prodotti_visibili(request):
+        raise Http404
+    return render(request, "previsioni/_prodotto_vendite.html", pagine.vendite_prodotto(request, pk))
+
+
+@login_required
 @require_POST
 def aggiorna(request):
     """«Aggiorna» (`?cosa=magazzino` o `vendite`, ognuna col suo permesso): il ricalcolo va in un lavoro in background,
@@ -55,7 +81,7 @@ def aggiorna(request):
     indietro = request.META.get("HTTP_REFERER", "")
     if url_has_allowed_host_and_scheme(indietro, {request.get_host()}, request.is_secure()):
         return redirect(indietro)
-    return redirect("core:home")
+    return redirect("previsioni:pagina")
 
 
 @register

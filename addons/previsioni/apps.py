@@ -8,5 +8,6 @@ class PrevisioniConfig(AppConfig):
 
     def ready(self):
         from core.registry import hooks
-        hooks.sezione_dettaglio("prodotti.Prodotto", "previsioni/_prodotto.html", order=40,
-                                permission="previsioni.view_previsionearticolo")
+        # il permesso si controlla dentro il riquadro: magazzino e vendite hanno permessi diversi
+        hooks.sezione_dettaglio("prodotti.Prodotto", "previsioni/_prodotto.html", order=40, permission=None)
+        hooks.widget_dashboard("previsioni.pagine.widget", "previsioni", permission="previsioni.view_previsionepronta")

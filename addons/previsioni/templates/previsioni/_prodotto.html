@@ -1,7 +1,9 @@
-{% load previsioni %}{% previsioni_prodotto obj as p %}{% if p %}
+{% load previsioni %}{% previsioni_prodotto obj as p %}{% vendite_prodotto_url obj as vendite_url %}{% if p or vendite_url %}
 <section class="ui-card is-revealed ui-section">
-  <div class="ui-card-head"><div class="ui-card-title">Previsione di magazzino</div></div>
+  <div class="ui-card-head"><div class="ui-card-title">Previsioni</div></div>
   <div class="ui-card-body">
+    {% if vendite_url %}<div class="ui-section" hx-get="{{ vendite_url }}" hx-trigger="load" hx-swap="innerHTML"><p class="sub">Calcolo in corso…</p></div>{% endif %}
+    {% if p %}
     {% if p.ferma_dal %}<p class="sub"><strong>Previsione non aggiornata dal {{ p.ferma_dal|date:"d/m/Y" }}</strong>: l'ultimo calcolo non è riuscito.</p>{% endif %}
     {% for r in p.righe %}
     <div class="ui-section">
@@ -18,5 +20,6 @@
         · {% include "previsioni/_attribuzione.html" with modello=r.modello %} · calcolata il {{ r.calcolata_il|date:"d/m/Y" }}</p>
     </div>
     {% endfor %}
+    {% endif %}
   </div>
 </section>{% endif %}
