@@ -1,0 +1,18 @@
+{% extends 'core/base_app.html' %}
+{% block title %}Servizio di previsione · Previsioni · {{ theme.brand }}{% endblock %}
+{% block app_content %}
+<div class="ui-pagehead">
+  <div><h1>Servizio di previsione</h1>
+    <div class="sub">Dove si trova il servizio che calcola le previsioni e come ci si identifica.</div></div>
+</div>
+<form class="ui-card is-revealed" method="post">
+  {% csrf_token %}
+  <div class="ui-card-body">
+    <p><strong>Indirizzo:</strong> {% if url_servizio %}<code>{{ url_servizio }}</code>{% else %}non impostato: le previsioni sono spente{% endif %}.
+      <span class="ui-help">Si cambia dalle impostazioni del modulo Previsioni.</span></p>
+    <p><strong>Chiave:</strong> {% if chiave_impostata %}impostata{% else %}non impostata{% endif %}.</p>
+    {{ form.as_p }}
+  </div>
+  <div class="ui-card-footer"><button class="ui-btn ui-btn-primary" type="submit">Salva</button></div>
+</form>
+{% endblock %}

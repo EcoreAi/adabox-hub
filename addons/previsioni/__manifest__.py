@@ -1,0 +1,20 @@
+{
+    "name": "Previsioni",
+    "summary": "Previsioni di vendite e magazzino sui dati dell'azienda, con Timestral",
+    "version": "1.0.0",
+    "author": "ICHNOBYTE S.R.L.",
+    "category": "Direzione",
+    "depends": [],
+    "min_core": "1.0",
+    "application": True,
+    "icon": "previsioni/icon.svg",
+    "menu": [],
+    "groups": {
+        "Previsioni / Utente": ["previsioni.view_servizioprevisioni"],
+        "Previsioni / Responsabile": ["previsioni.*"],
+    },
+    "settings": [
+        {"chiave": "url_servizio", "label": "URL del servizio di previsione", "tipo": "testo", "default": "",
+         "help": "es. http://adabox-forecast-1:8080 o un servizio remoto; vuoto = previsioni spente"},
+    ],
+}
