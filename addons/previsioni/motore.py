@@ -170,6 +170,91 @@ def calcola_previsione(spec, request, vista=None):
             "affidabilita": affidabilita(storia, futuro, spec.get("orizzonte", 3), per)}
 
 
+def calcola_per_gruppo(spec, request, vista=None):
+    """La previsione di una specifica (come `calcola_previsione`) per ognuno dei `primi` gruppi (default 10) di
+    `raggruppa`, un campo della vista o un raggruppamento della misura aziendale. Tutte le storie vanno al servizio in
+    una sola chiamata; i gruppi con storia troppo corta si escludono e si contano in «esclusi». In ordine di totale
+    storico decrescente. Affidabilità senza prova sul passato (il backtest moltiplicherebbe le chiamate)."""
+    per, orizzonte = spec.get("per", "mese"), spec.get("orizzonte", 3)
+    raggruppa = spec.get("raggruppa")
+    if not raggruppa:
+        raise ErrorePrevisione("Manca «raggruppa»: il campo o il raggruppamento per cui prevedere ogni gruppo.")
+    if per not in UNITA:
+        raise ErrorePrevisione("«per» è mese, settimana o giorno.")
+    try:
+        primi = max(1, min(int(spec.get("primi") or 10), MAX_SERIE))
+    except (TypeError, ValueError):
+        raise ErrorePrevisione("«primi» è un numero intero.")
+    misura_aziendale = spec.get("misura_aziendale")
+    try:
+        if misura_aziendale:
+            from core import misure
+            elenco = misure.calcola(misura_aziendale, request, dal=datetime.date(1900, 1, 1),
+                                    al=timezone.localdate(), per=raggruppa, primi=primi)["gruppi"]
+            candidati = [(g["chiave"], g["gruppo"]) for g in elenco]
+        else:
+            if vista is None:
+                vista = vista_accessibile(request, spec["vista"])
+            r = interroga.aggrega(vista, request, per=raggruppa, misura=spec.get("misura", "count"),
+                                  filtri=spec.get("filtri"), testo=spec.get("testo", ""), lista=spec.get("lista"),
+                                  con_chiavi=True, massimo=None)
+            ordinati = sorted(r["gruppi"], key=lambda g: g["valore"], reverse=True)
+            candidati = [(g["chiave"], g["gruppo"]) for g in ordinati if g.get("chiave") is not None][:primi]
+    except ErroreInterrogazione as e:
+        raise ErrorePrevisione(str(e)) from e
+    storie, nomi, attuale, esclusi = {}, {}, None, 0
+    for chiave, nome in candidati:
+        if chiave is None:
+            continue
+        try:
+            if misura_aziendale:
+                from core import misure
+                valori = {inizio(d, per): v for d, v in misure.storia(misura_aziendale, request, per,
+                                                                      scelti={raggruppa: chiave}).items()}
+                if not valori:
+                    raise ErrorePrevisione("Nessun dato nei periodi passati.")
+                storia, attuale = periodi_completi(valori, per)
+            else:
+                storia, attuale = serie_storica(vista, request, spec["data"], spec.get("misura", "count"), per,
+                                                {**(spec.get("filtri") or {}), raggruppa: chiave},
+                                                spec.get("testo", ""), spec.get("lista"))
+        except ErroreInterrogazione as e:
+            raise ErrorePrevisione(str(e)) from e
+        except ErrorePrevisione:
+            esclusi += 1                                   # storia troppo corta o vuota: non si prevede
+            continue
+        storie[chiave], nomi[chiave] = storia, nome
+    if not storie:
+        raise ErrorePrevisione("Nessun gruppo ha abbastanza storia per una previsione "
+                               f"(servono almeno {MIN_PERIODI} periodi).")
+    futuri, modello = prevedi_molte(storie, orizzonte)
+    gruppi = [{"chiave": chiave, "nome": nomi[chiave],
+               "storico": [[etichetta(p, per), round(v, 2)] for p, v in storia],
+               "futuro": [[etichetta(avanti(attuale, per, i), per), *q] for i, q in enumerate(futuri[chiave])],
+               "totale": totale(futuri[chiave]),
+               "affidabilita": affidabilita(storia, futuri[chiave], orizzonte, per, prova=False)}
+              for chiave, storia in storie.items()]
+    gruppi.sort(key=lambda g: sum(v for _, v in g["storico"]), reverse=True)
+    return {"periodi": [etichetta(avanti(attuale, per, i), per) for i in range(orizzonte)], "gruppi": gruppi,
+            "modello": modello, "esclusi": esclusi}
+
+
+def come_tabella(dati):
+    """{"colonne", "righe"} di una previsione per gruppo: gli ultimi 3 periodi di storia, i periodi previsti (mediana),
+    il totale previsto con la fascia 10-90 % e l'affidabilità."""
+    from core import svg
+    gruppi = dati.get("gruppi", [])
+    ultimi = [e for e, _ in gruppi[0]["storico"][-3:]] if gruppi else []
+    colonne = ["Gruppo", *ultimi, *dati.get("periodi", []), "Totale previsto (10–90 %)", "Affidabilità"]
+    righe = []
+    for g in gruppi:
+        t = g["totale"]
+        righe.append([g["nome"], *(svg._fmt(v) for _, v in g["storico"][-3:]), *(svg._fmt(f[2]) for f in g["futuro"]),
+                      f"{svg._fmt(t['mediana'])} ({svg._fmt(t['basso_10'])} – {svg._fmt(t['alto_90'])})",
+                      g["affidabilita"]["livello"].capitalize()])
+    return {"colonne": colonne, "righe": righe}
+
+
 # ---------- affidabilità di una previsione: calcolata dal codice, non dichiarata da un modello linguistico ----------
 STORIA_SOLIDA, STORIA_MINIMA = 24, 12          # periodi di storia
 LARGHEZZA_BUONA, LARGHEZZA_MASSIMA = 0.5, 1.0  # ampiezza media dell'intervallo 10-90 % rispetto alla mediana
@@ -177,15 +262,17 @@ ERRORE_BUONO, ERRORE_MASSIMO = 0.15, 0.35      # errore medio della prova sul pa
 PERIODI = {"mese": ("mese", "mesi"), "settimana": ("settimana", "settimane"), "giorno": ("giorno", "giorni")}
 
 
-def affidabilita(storia, futuro, orizzonte, per="mese"):
+def affidabilita(storia, futuro, orizzonte, per="mese", prova=True):
     """Alta, media o bassa da tre misure: quanta storia c'è, quanto è largo l'intervallo 10-90 %, e quanto avrebbe
-    sbagliato il modello sugli ultimi periodi già noti (la stessa previsione rifatta senza di loro: backtest)."""
+    sbagliato il modello sugli ultimi periodi già noti (la stessa previsione rifatta senza di loro: backtest).
+    Con `prova=False` niente backtest (nessuna chiamata al servizio): contano solo storia e larghezza, e il livello
+    non arriva mai ad «alta»."""
     uno, molti = PERIODI.get(per, ("periodo", "periodi"))
     n = len(storia)
     larghezze = [(alto - basso) / abs(mediana) for basso, mediana, alto in futuro if mediana]
     larghezza = sum(larghezze) / len(larghezze) if larghezze else None
     errore, provati = None, min(3, orizzonte)
-    if n - provati >= MIN_PERIODI:
+    if prova and n - provati >= MIN_PERIODI:
         try:
             prova, _ = prevedi(storia[:-provati], provati)
             scarti = [abs(p[1] - v) / abs(v) for p, (_, v) in zip(prova, storia[-provati:]) if v]
