@@ -16,7 +16,7 @@ from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from core import parametri
+from core import parametri, regole
 from core.models import Azienda, Lavoro, Modulo, PermessoCampo, RegolaRiga, Ruolo
 from core.viste.interroga import richiesta_di
 from previsioni import calcolo, motore, pronte, servizio
@@ -174,13 +174,83 @@ def test_prodotti_primi_dieci(s, servizi):
     assert all(re.fullmatch(r"s\d+", x["id"]) for x in chiamata["series"]) and chiamata["horizon"] == 3
     assert sorted(x["values"][0] for x in chiamata["series"]) == [float(q) for q in range(11, 21)]
     dati = _salvata(azienda, "vendite.prodotti").dati
-    assert dati["spec"] == {"misura_aziendale": "vendite.quantita_venduta", "raggruppa": "prodotto", "primi": 10,
+    assert dati["spec"] == {"vista": "vendite.righe_vendute", "data": "ordine__data", "misura": "sum:quantita_base",
+                            "filtri": {"quantita_base__isnull": False}, "raggruppa": "prodotto", "primi": 10,
                             "per": "mese", "orizzonte": 3}
+    assert dati["risultato"]["esclusi_unita"] == 0
     gruppi = dati["risultato"]["gruppi"]
     assert [g["nome"] for g in gruppi] == [f"Articolo {i}" for i in range(10, 0, -1)]     # monitor e cavo fuori
     assert [g["chiave"] for g in gruppi] == [a.pk for a in reversed(articoli)]
     assert len(dati["risultato"]["periodi"]) == 3 and all(len(g["futuro"]) == 3 for g in gruppi)
     assert gruppi[0]["totale"] == {"basso_10": 20 * 3 - 2 * 3 - 3, "mediana": 20 * 3 + 3, "alto_90": 20 * 3 + 2 * 3 + 3}
+
+
+@serve_vendite
+def test_prodotti_nell_unita_del_prodotto(s, servizi):
+    """Le quantità per prodotto sono nell'unità del prodotto: una dozzina di monitor vale 12; una riga in un'unità
+    che non si converte (quantità nell'unità del prodotto vuota, per esempio importata) si esclude e si conta."""
+    azienda, monitor, cavo = s["azienda"], s["monitor"], s["cavo"]
+    from prodotti.models import UnitaMisura
+    from vendite.models import RigaVendita
+    dozzina = UnitaMisura.objects.create(simbolo="dz", nome="dozzina", categoria=UnitaMisura.PEZZI, fattore=12)
+    ordine = _ordine(azienda, s["rossi"], [], 1, commerciale=s["anna"])
+    RigaVendita.objects.create(ordine=ordine, prodotto=monitor, quantita=Decimal("1"), unita=dozzina)
+    senza_fattore = RigaVendita.objects.create(ordine=ordine, prodotto=cavo, quantita=Decimal("100"))
+    RigaVendita.objects.filter(pk=senza_fattore.pk).update(unita=UnitaMisura.objects.get(simbolo="gg"),
+                                                           quantita_base=None)
+    calcolo.vendite(azienda)
+
+    risultato = _salvata(azienda, "vendite.prodotti").dati["risultato"]
+    assert risultato["esclusi_unita"] == 1
+    assert {g["nome"]: _valori(g) for g in risultato["gruppi"]} == {"Monitor": [1.0] * 7 + [13.0], "Cavo": [7.0] * 8}
+    d = pronte.dati_per(richiesta_di(s["capo"], azienda), "vendite.prodotti")
+    assert d["salvata"] is True and d["dati"]["esclusi_unita"] == 1
+    RegolaRiga.objects.create(vista="vendite.righe_vendute", ruolo=s["anna"].profilo.ruolo,
+                              campo="ordine__commerciale", operatore="utente")
+    d = pronte.dati_per(richiesta_di(s["anna"], azienda), "vendite.prodotti")      # al momento, con le sue righe
+    assert d["salvata"] is False and d["dati"]["esclusi_unita"] == 1
+    assert {g["nome"]: _valori(g) for g in d["dati"]["gruppi"]} == {"Monitor": [1.0] * 7 + [13.0]}
+    assert pronte.dati_per(richiesta_di(s["bruno"], azienda), "vendite.prodotti")["dati"]["esclusi_unita"] == 0
+
+
+@serve_vendite
+def test_filtri_dei_moduli_non_usano_le_salvate(s, servizi, monkeypatch):
+    """Un modulo che toglie righe per utente (core.regole.registra_filtro, come Connettori con i dati di Odoo): chi
+    ne perde qualcuna sulla vista di origine non vede le salvate, ma il calcolo con le sue righe."""
+    azienda, capo = s["azienda"], s["capo"]
+    _riserva("fatturazione", s["altra"])
+    calcolo.vendite(azienda)
+    salvata = _salvata(azienda, "vendite.fatturato_mese").dati["risultato"]
+    sara = _utente("sara", azienda)                                           # nessun ruolo, nessuna regola di riga
+    assert pronte.limitato(richiesta_di(sara, azienda), "vendite.ordini", ("data",)) is False
+
+    def senza_bruno(vista, request, qs):                     # a chi non è superuser toglie gli ordini di Bruno
+        if vista.slug == "ordini" and not request.user.is_superuser:
+            return qs.exclude(commerciale__username="bruno")
+        return qs
+    monkeypatch.setattr(regole, "_FILTRI", [])
+    regole.registra_filtro(senza_bruno)
+    cache.clear()                                            # il confronto di prima (con i filtri di Connettori) è in cache
+    request = richiesta_di(sara, azienda)
+    assert pronte.limitato(request, "vendite.ordini", ("data",)) is True
+    assert pronte.limitato(request, "vendite.righe_vendute", ("ordine",)) is False     # lì non toglie nulla
+    assert pronte.limitato(richiesta_di(capo, azienda), "vendite.ordini", ("data",)) is False
+    servizi.clear()
+    d = pronte.dati_per(request, "vendite.fatturato_mese")
+    assert d["salvata"] is False and _valori(d["dati"]) == [200.0] * 8 and d["dati"] != salvata
+    assert servizi[0]["series"][0]["values"] == [200.0] * 8
+    assert pronte.dati_per(richiesta_di(capo, azienda), "vendite.fatturato_mese")["salvata"] is True
+
+    monkeypatch.setattr(regole, "_FILTRI", [lambda vista, request, qs: qs])      # il confronto resta in cache
+    assert pronte.limitato(richiesta_di(sara, azienda), "vendite.ordini", ("data",)) is True
+
+    def rotto(vista, request, qs):
+        raise RuntimeError("filtro rotto")
+    monkeypatch.setattr(regole, "_FILTRI", [rotto])
+    ugo = _utente("ugo", azienda)
+    assert pronte.limitato(richiesta_di(ugo, azienda), "vendite.righe_vendute", ("ordine",)) is True
+    d = pronte.dati_per(richiesta_di(ugo, azienda), "vendite.prodotti")       # il filtro rotto nasconde tutto
+    assert d["salvata"] is False and d["dati"] is None and d["errore"]
 
 
 @serve_vendite

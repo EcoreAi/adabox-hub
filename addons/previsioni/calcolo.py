@@ -166,7 +166,7 @@ def _salva_vendite(request):
     for pronta in elenco:
         spec = pronta.spec(azienda)
         try:
-            dati = {"spec": spec, "risultato": pronte.calcola(spec, request)}
+            dati = {"spec": spec, "risultato": pronte.calcola_pronta(pronta, spec, request)}
         except ErroreServizio:
             raise
         except ErrorePrevisione as e:

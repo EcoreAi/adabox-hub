@@ -3,8 +3,10 @@
 Ognuna è dichiarata nel registro (`registra`) con titolo, app, permesso, la funzione che costruisce la specifica per
 l'azienda e i campi della vista di origine che usa. Il lavoro della notte e «Aggiorna» le calcolano con l'accesso
 all'intera azienda e le salvano in `PrevisionePronta` (calcolo.py). Le salvate le vede solo chi vede tutta la vista
-di origine: per chi ha regole di riga o campi nascosti lì si calcolano al momento con i suoi permessi, con una cache
-breve (spec, «4 quater. Permessi»). Nella prima versione ci sono qui quelle di Vendite (spec, «4 ter»)."""
+di origine: per chi ha regole di riga, campi nascosti o righe tolte dai filtri dei moduli lì si calcolano al momento
+con i suoi permessi, con una cache breve (spec, «4 quater. Permessi»). Nella prima versione ci sono qui quelle di
+Vendite (spec, «4 ter»)."""
+import logging
 from dataclasses import dataclass
 from typing import Callable
 
@@ -15,14 +17,16 @@ from django.utils import timezone
 from core import regole
 from core.models import RegolaRiga
 from core.registry import modules
-from core.viste import registry
+from core.viste import interroga, registry
 from core.viste.interroga import ErroreInterrogazione
 
 from . import motore
 from .models import PrevisionePronta
 from .servizio import ErrorePrevisione
 
-CACHE_SECONDI = 600                              # le calcolate al momento, per utente, azienda e previsione
+log = logging.getLogger("previsioni.pronte")
+
+CACHE_SECONDI = 600                 # le calcolate al momento e il confronto dei filtri, per utente e azienda
 NON_DISPONIBILE = "Previsione non disponibile per te in questa azienda."
 NON_CALCOLATA = "Previsione non ancora calcolata: si calcola stanotte, o subito con «Aggiorna»."
 
@@ -35,6 +39,7 @@ class Pronta:
     permesso: str
     spec: Callable                               # funzione(azienda) -> specifica del motore
     campi: tuple                                 # i campi delle viste di origine che la previsione usa
+    aggiunte: Callable | None = None             # funzione(request) -> dict aggiunto al risultato del motore
 
     def titolo_per(self, azienda):
         return self.titolo(azienda) if callable(self.titolo) else self.titolo
@@ -43,8 +48,8 @@ class Pronta:
 _registro: dict[str, Pronta] = {}
 
 
-def registra(chiave, titolo, app, permesso, spec, campi):
-    _registro[chiave] = Pronta(chiave, titolo, app, permesso, spec, tuple(campi))
+def registra(chiave, titolo, app, permesso, spec, campi, aggiunte=None):
+    _registro[chiave] = Pronta(chiave, titolo, app, permesso, spec, tuple(campi), aggiunte)
     return _registro[chiave]
 
 
@@ -63,6 +68,14 @@ def calcola(spec, request):
     if spec.get("raggruppa"):
         return motore.calcola_per_gruppo(spec, request)
     return motore.calcola_previsione(spec, request)
+
+
+def calcola_pronta(pronta, spec, request):
+    """La previsione pronta con i permessi della richiesta, con le sue aggiunte (es. le righe escluse)."""
+    risultato = calcola(spec, request)
+    if pronta.aggiunte is not None:
+        risultato.update(pronta.aggiunte(request))
+    return risultato
 
 
 def viste_di(spec):
@@ -85,17 +98,44 @@ def _vista(vista_id):
 
 def limitato(request, vista_id, campi):
     """True se l'utente non vede tutta la vista `vista_id`: non è superuser e il suo ruolo ha regole di riga su quella
-    vista, o uno dei `campi` è nascosto per lui. Allora le previsioni salvate, calcolate sull'intera azienda, non fanno
-    per lui."""
+    vista, o uno dei `campi` è nascosto per lui, o i filtri dei moduli gli tolgono qualche riga. Allora le previsioni
+    salvate, calcolate sull'intera azienda, non fanno per lui."""
     if request.user.is_superuser:
         return False
     ruolo = regole.ruolo_di(request)
-    if ruolo is None:
+    if ruolo is not None:
+        if RegolaRiga.objects.filter(vista=vista_id, ruolo_id=ruolo, attiva=True).exists():
+            return True
+        vista = _vista(vista_id)
+        if vista is None or set(campi) & regole.nascosti(vista, request):
+            return True
+    return _filtrata(request, vista_id)
+
+
+def _filtrata(request, vista_id):
+    """True se i filtri dei moduli (core.regole.registra_filtro, applicati come fa applica_righe) tolgono all'utente
+    qualche riga della vista nell'azienda: si contano le righe con e senza. Un filtro rotto conta come filtrata.
+    In cache per CACHE_SECONDI, per utente, azienda e vista."""
+    filtri = list(regole._FILTRI)
+    if not filtri:
         return False
-    if RegolaRiga.objects.filter(vista=vista_id, ruolo_id=ruolo, attiva=True).exists():
-        return True
-    vista = _vista(vista_id)
-    return vista is None or bool(set(campi) & regole.nascosti(vista, request))
+    chiave = f"previsioni:filtrata:{request.user.pk}:{getattr(request.azienda, 'pk', None)}:{vista_id}"
+    memo = cache.get(chiave)
+    if memo is None:
+        vista = _vista(vista_id)
+        if vista is None:
+            return True
+        try:
+            # il queryset della classe: l'azienda della richiesta, senza le regole e i filtri (core.viste.registry)
+            tutte = filtrate = type(vista).get_queryset(vista, request)
+            for filtro in filtri:
+                filtrate = filtro(vista, request, filtrate)
+            memo = filtrate.count() != tutte.count()
+        except Exception:
+            log.exception("filtri dei moduli sulla vista %s: le previsioni salvate non si mostrano", vista_id)
+            memo = True
+        cache.set(chiave, memo, CACHE_SECONDI)
+    return memo
 
 
 def _visibile(pronta, request, spec):
@@ -152,7 +192,7 @@ def dati_per(request, chiave):
     memo = cache.get(chiave_cache)
     if memo is None or memo["spec"] != spec:
         try:
-            memo = {"spec": spec, "dati": calcola(spec, request), "calcolata_il": timezone.now()}
+            memo = {"spec": spec, "dati": calcola_pronta(pronta, spec, request), "calcolata_il": timezone.now()}
         except ErrorePrevisione as e:
             return {**esito, "errore": str(e)}
         cache.set(chiave_cache, memo, CACHE_SECONDI)
@@ -170,9 +210,26 @@ def _misura_vendite(azienda):
 
 
 # i campi usati da fatturato (fatture: data, imponibile, stato, tipo, cliente) o ordinato (ordini: gli stessi, senza
-# tipo) e dalla quantità venduta (righe vendute: ordine per la data, prodotto, quantità)
+# tipo) e dalle quantità per prodotto (righe vendute: ordine per la data, prodotto, quantità nell'unità del prodotto)
 CAMPI_VENDITE = ("data", "imponibile", "stato", "tipo")
 VISTA_PERMESSO = "previsioni.view_previsionepronta"
+# le quantità per prodotto nell'unità del prodotto (quantita_base); le righe in un'unità che non si converte ce l'hanno
+# vuota: si escludono e si contano (spec, «4 ter»)
+PRODOTTI = {"vista": "vendite.righe_vendute", "data": "ordine__data", "misura": "sum:quantita_base",
+            "filtri": {"quantita_base__isnull": False}, "raggruppa": "prodotto", "primi": 10, "per": "mese",
+            "orizzonte": 3}
+
+
+def _righe_senza_fattore(request):
+    """{"esclusi_unita": quante righe vendute, tra quelle che l'utente vede, non hanno la quantità nell'unità del
+    prodotto} (la pagina dice «N righe in un'altra unità senza fattore, escluse»)."""
+    try:
+        vista = interroga.vista_per_nome(PRODOTTI["vista"], request)
+        r = interroga.aggrega(vista, request, misura="count", filtri={"quantita_base__isnull": True})
+    except ErroreInterrogazione as e:
+        raise ErrorePrevisione(str(e)) from e
+    return {"esclusi_unita": r["totale"]}
+
 
 registra("vendite.fatturato_mese",
          lambda azienda: "Fatturato previsto per mese" if _con_fatture(azienda) else "Ordinato previsto per mese",
@@ -180,9 +237,8 @@ registra("vendite.fatturato_mese",
          lambda azienda: {"misura_aziendale": _misura_vendite(azienda), "per": "mese", "orizzonte": 3},
          CAMPI_VENDITE)
 registra("vendite.prodotti", "Prodotti: quantità prevista, primi 10", "vendite", VISTA_PERMESSO,
-         lambda azienda: {"misura_aziendale": "vendite.quantita_venduta", "raggruppa": "prodotto", "primi": 10,
-                          "per": "mese", "orizzonte": 3},
-         ("ordine", "prodotto", "quantita"))
+         lambda azienda: {**PRODOTTI, "filtri": dict(PRODOTTI["filtri"])},
+         ("ordine", "prodotto", "quantita_base"), aggiunte=_righe_senza_fattore)
 registra("vendite.clienti", "Clienti: vendite previste, primi 10", "vendite", VISTA_PERMESSO,
          lambda azienda: {"misura_aziendale": _misura_vendite(azienda), "raggruppa": "cliente", "primi": 10,
                           "per": "mese", "orizzonte": 3},
