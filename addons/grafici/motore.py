@@ -64,6 +64,9 @@ def _previsione(spec, request):
     if not servizio.abilitato():
         raise ErroreInterrogazione(servizio.SENZA_MODULO)
     try:
+        if spec.get("raggruppa"):                            # una riga per gruppo: si mostra come tabella
+            dati = motore.calcola_per_gruppo(spec, request)
+            return {"tipo": "tabella", **motore.come_tabella(dati), "modello": dati["modello"], "esclusi": dati["esclusi"]}
         return motore.calcola_previsione(spec, request)
     except ErrorePrevisione as e:
         raise ErroreInterrogazione(str(e)) from e
@@ -150,6 +153,10 @@ def testo_valore(valore, unita=""):
 
 def serie_di(grafico, dati, vista=None):
     """La serie come la disegna core/grafici.js, più le righe per la tabella e i link del drill-down."""
+    if grafico.tipo == Grafico.PREVISIONE and dati.get("tipo") == "tabella":     # previsione per gruppo
+        righe = dati.get("righe", [])
+        return {"tipo": "tabella", "titolo": grafico.titolo, "colonne": dati.get("colonne", []), "righe": righe, "link": [],
+                "totale": len(righe), "vuoto": not righe, "modello": dati.get("modello", "")}
     if grafico.tipo == Grafico.PREVISIONE:
         storico, futuro = dati.get("storico", []), dati.get("futuro", [])
         return {"tipo": "previsione", "titolo": grafico.titolo, "storico": storico, "futuro": futuro,
@@ -442,7 +449,10 @@ def metti_in(utente, valore, grafico, titolo_nuova="", azienda=None):
 def csv_di(grafico, dati):
     uscita = io.StringIO()
     scrittore = csv.writer(uscita, delimiter=";")
-    if grafico.tipo == Grafico.PREVISIONE:
+    if grafico.tipo == Grafico.PREVISIONE and dati.get("tipo") == "tabella":
+        scrittore.writerow(dati.get("colonne", []))
+        scrittore.writerows(dati.get("righe", []))
+    elif grafico.tipo == Grafico.PREVISIONE:
         scrittore.writerow(["Periodo", "Valore", "Previsione 10 %", "Previsione mediana", "Previsione 90 %"])
         scrittore.writerows([[e, v, "", "", ""] for e, v in dati.get("storico", [])])
         scrittore.writerows([[e, "", b, m, a] for e, b, m, a in dati.get("futuro", [])])

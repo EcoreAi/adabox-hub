@@ -58,7 +58,7 @@ def parametri_di(request, grafico=None):
         previsione = grafico.tipo == Grafico.PREVISIONE
         p = {"vista": spec.get("vista", ""), "misura": spec.get("misura", "count"), "per": "" if previsione else spec.get("per", ""),
              "data": spec.get("data", ""), "periodo": spec.get("per", "mese") if previsione else spec.get("periodo", "mese"),
-             "orizzonte": str(spec.get("orizzonte") or 3), "tipo": grafico.tipo, "aggiorna_ogni": str(grafico.aggiorna_ogni),
+             "orizzonte": str(spec.get("orizzonte") or 3), "raggruppa": spec.get("raggruppa", ""), "primi": str(spec.get("primi") or 10), "tipo": grafico.tipo, "aggiorna_ogni": str(grafico.aggiorna_ogni),
              "massimo": str(spec.get("massimo") or 30), "ordine": spec.get("ordine", ""), "titolo": grafico.titolo,
              "obiettivo": str((grafico.opzioni or {}).get("obiettivo", "") or ""),
              "aziende": "tutte" if spec.get("aziende") == "tutte" else ",".join(str(x) for x in spec.get("aziende") or []),
@@ -68,6 +68,7 @@ def parametri_di(request, grafico=None):
     p.setdefault("periodo", "mese")
     p.setdefault("massimo", "30")
     p.setdefault("orizzonte", "3")
+    p.setdefault("primi", "10")
     p.setdefault("aggiorna_ogni", "0")
     return p
 
@@ -94,6 +95,9 @@ def spec_di(p):
         periodo = p.get("periodo") if p.get("periodo") in dict(PERIODI_PREVISIONE) else "mese"
         orizzonte = int(p["orizzonte"]) if str(p.get("orizzonte", "")).isdigit() else 3
         spec.update(data=p.get("data", ""), per=periodo, orizzonte=max(1, min(orizzonte, 24)))
+        if p.get("raggruppa"):                                   # facoltativo: una riga per gruppo (prodotto, cliente…)
+            primi = int(p["primi"]) if str(p.get("primi", "")).isdigit() else 10
+            spec.update(raggruppa=p["raggruppa"], primi=max(1, min(primi, 50)))
     else:
         spec["per"] = p.get("per", "")
         if p.get("massimo", "30") != "30" and p.get("massimo", "").isdigit():
@@ -139,18 +143,22 @@ def _contesto(request, grafico=None):
     p = parametri_di(request, grafico)
     vista = motore.vista_di({"vista": p.get("vista", "")}, request) if p.get("vista") else None
     opzioni = interroga.opzioni_vista(vista) if vista else {"misure": [("count", "Numero di record")], "raggruppamenti": [], "date": []}
-    if vista and p.get("tipo") != Grafico.KPI and not p.get("per") and opzioni["raggruppamenti"]:
+    if vista and p.get("tipo") not in (Grafico.KPI, Grafico.PREVISIONE) and not p.get("per") and opzioni["raggruppamenti"]:
         p["per"] = opzioni["raggruppamenti"][0][0]
     if vista and p.get("tipo") in (Grafico.KPI, Grafico.PREVISIONE) and not p.get("data") and opzioni["date"]:
         p["data"] = opzioni["date"][0][0]
     if p.get("tipo") == Grafico.PREVISIONE and p.get("periodo") not in dict(PERIODI_PREVISIONE):
         p["periodo"] = "mese"
+    # per la previsione si raggruppa per un campo, non per un periodo di una data («creato:mese»)
+    raggruppi = [(v, e) for v, e in opzioni["raggruppamenti"] if ":" not in v]
+    if p.get("raggruppa") not in dict(raggruppi):
+        p["raggruppa"] = ""
     if p.get("misura") not in dict(opzioni["misure"]):
         p["misura"] = "count"
     if not request.GET:                                      # modifica di un grafico: i filtri della lista leggono f_* da GET
         request.GET = QueryDict(urlencode({k: v for k, v in p.items() if k == "q" or k.startswith("f_")}))
     return {"p": p, "vista": vista, "viste": _viste_per_app(request), "opzioni": opzioni, "tipi": tipi_disponibili(),
-            "periodi": PERIODI, "periodi_previsione": PERIODI_PREVISIONE, "orizzonti": ORIZZONTI, "massimi": MASSIMI,
+            "periodi": PERIODI, "periodi_previsione": PERIODI_PREVISIONE, "raggruppi_previsione": raggruppi, "orizzonti": ORIZZONTI, "massimi": MASSIMI,
             "aggiornamenti": motore.AGGIORNAMENTI, "filtri": filtri_lista.specifiche(vista, request) if vista else [],
             "w": _anteprima(request, p, vista),
             "destinazioni": motore.destinazioni(request, p.get("vista", ""), area=_area_scelta(request, p.get("destinazione", ""))),
