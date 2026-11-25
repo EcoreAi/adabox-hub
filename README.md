@@ -907,7 +907,8 @@ Un progetto basato su adabox-hub (es. ZenPark) cambia grafica e nome dal `.env`,
 
 ```bash
 TEMA_APP=zenpark.tema        # app messa prima di "theme": i suoi template e static sovrascrivono quelli di theme/
-THEME_BRAND=ZenPark          # nome nell'header, nelle email, nei .ics e nei PDF (default: Adabox v3)
+THEME_BRAND=ZenPark          # nome nell'header, nelle email, nei .ics e nei PDF (default: Adabox)
+THEME_VERSION=v3             # in piccolo nel piè di pagina e nella pagina di accesso (default: v3)
 THEME_POWERED_BY=Adabox      # `theme.powered_by` per i template del tema (es. "powered by Adabox")
 ```
 
