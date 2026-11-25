@@ -37,21 +37,48 @@ def _consumo_documenti(documenti):
         yield movimenti[0][1], max(netto, 0)
 
 
+def _trasferimenti_interni(azienda):
+    """Pk delle uscite di trasferimento il cui arrivo è nello stesso magazzino (cambio di ubicazione). L'uscita si
+    abbina al primo arrivo successivo (pk maggiore) con stesso prodotto, lotto, causale e quantità opposta, una volta
+    sola; senza abbinamento non è interna (conta come consumo, per prudenza)."""
+    from magazzino.models import Movimento
+
+    arrivi = defaultdict(list)
+    uscite = []
+    for pk, prodotto, magazzino, lotto, causale, q in (Movimento.objects.filter(azienda=azienda, tipo=Movimento.TRASFERIMENTO)
+                                                       .order_by("pk").values_list("pk", "prodotto", "magazzino", "lotto", "causale", "quantita")):
+        if q < 0:
+            uscite.append((pk, magazzino, (prodotto, lotto, causale, -q)))
+        else:
+            arrivi[(prodotto, lotto, causale, q)].append((pk, magazzino))
+    interne = set()
+    for pk, magazzino, chiave in uscite:
+        candidati = arrivi[chiave]
+        for i, (pk_arrivo, magazzino_arrivo) in enumerate(candidati):
+            if pk_arrivo > pk:
+                del candidati[i]
+                if magazzino_arrivo == magazzino:
+                    interne.add(pk)
+                break
+    return interne
+
+
 def consumi(azienda, per: str) -> dict[Chiave, dict[datetime.date, float]]:
     """Le uscite per periodo, per (prodotto, magazzino) e per (prodotto, None), dei prodotti con uscite."""
     from django.contrib.contenttypes.models import ContentType
     from magazzino.models import Inventario, Movimento
 
     ct_inventario = ContentType.objects.get_for_model(Inventario).pk
+    interne = _trasferimenti_interni(azienda)
     liberi = defaultdict(lambda: defaultdict(Decimal))       # chiave -> periodo -> uscite senza documento
     documenti = defaultdict(list)                            # (chiave, ct, oggetto) -> [(quantità, giorno)]
     qs = (Movimento.objects.filter(azienda=azienda).order_by("data", "pk")
-          .values_list("prodotto", "magazzino", "tipo", "quantita", "data", "causale", "content_type", "object_id"))
-    for prodotto, magazzino, tipo, q, data, causale, ct, oggetto in qs.iterator():
+          .values_list("pk", "prodotto", "magazzino", "tipo", "quantita", "data", "causale", "content_type", "object_id"))
+    for pk, prodotto, magazzino, tipo, q, data, causale, ct, oggetto in qs.iterator():
         giorno = _giorno_locale(data)
         for chiave in ((prodotto, magazzino), (prodotto, None)):
             if tipo == Movimento.TRASFERIMENTO:
-                uscita = q < 0 and chiave[1] is not None
+                uscita = q < 0 and chiave[1] is not None and pk not in interne
             elif tipo == Movimento.SCARICO:
                 uscita = True
             elif tipo == Movimento.CARICO:
@@ -179,19 +206,19 @@ def proietta(partenza, futuro: list[tuple[float, float, float]], per, primo_peri
               "quantita_suggerita": None, "stato": "ok"}
     if partenza <= 0:
         finale["stato"] = "finito"
-    elif all(m <= 0 for m in (max(_fraction(f[1]), 0) for f in futuro)):
-        finale["stato"] = "nessun_consumo"
-        return finale
     for chiave, quantile in (("esaurimento", 1), ("esaurimento_da", 2), ("esaurimento_a", 0)):
         finale[chiave], _ = _giorno_in_cui(partenza, serie(quantile), giorni, oggi, lambda g: g <= 0)
     if soglia is not None:
         finale["riordino"], residua = _giorno_in_cui(partenza, mediana, giorni, oggi, lambda g: g < soglia)
         if finale["riordino"] is not None:
             finale["quantita_suggerita"] = _suggerita(residua, riporta_a, futuro, indice[finale["riordino"]], per)
-    if finale["stato"] != "ok":
+    if finale["stato"] == "finito":
         return finale
     if soglia is not None and partenza < soglia:
         finale["stato"] = "riordina_ora"
+    elif all(m <= 0 for m in mediana):
+        finale.update(esaurimento=None, esaurimento_da=None, esaurimento_a=None, riordino=None, quantita_suggerita=None,
+                      stato="nessun_consumo")
     elif finale["riordino"] is None and finale["esaurimento"] is None:
         finale["stato"] = "oltre"
     return finale

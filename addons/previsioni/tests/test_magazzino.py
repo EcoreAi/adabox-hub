@@ -56,6 +56,13 @@ def test_nessun_consumo():
     assert (r["esaurimento"], r["esaurimento_da"], r["esaurimento_a"], r["riordino"], r["quantita_suggerita"]) == (None,) * 5
 
 
+def test_riordina_ora_vince_su_nessun_consumo():
+    r = proietta(partenza=40, futuro=[(0, 0, 0)] * 12)
+    assert r["stato"] == "riordina_ora" and r["riordino"] == OGGI
+    assert r["quantita_suggerita"] == 110
+    assert (r["esaurimento"], r["esaurimento_da"], r["esaurimento_a"]) == (None,) * 3
+
+
 def test_oltre_l_orizzonte():
     r = proietta(futuro=[(0, 1, 2)] * 12)
     assert r["stato"] == "oltre"
@@ -142,6 +149,20 @@ def test_trasferimenti_solo_per_magazzino(s):
     assert c[(s["monitor"].pk, s["magazzino"].pk)] == {date(2026, 10, 1): 6}
     assert (s["monitor"].pk, s["negozio"].pk) not in c
     assert (s["monitor"].pk, None) not in c
+
+
+def test_trasferimento_fra_ubicazioni_dello_stesso_magazzino_non_e_consumo(s):
+    from magazzino import operazioni
+    from magazzino.models import Ubicazione
+    a = Ubicazione.objects.create(azienda=s["azienda"], magazzino=s["magazzino"], codice="A")
+    b = Ubicazione.objects.create(azienda=s["azienda"], magazzino=s["magazzino"], codice="B")
+    Movimento.objects.create(azienda=s["azienda"], prodotto=s["monitor"], magazzino=s["magazzino"], ubicazione=a, quantita=20,
+                             tipo=Movimento.CARICO)
+    operazioni.trasferisci(s["monitor"], 3, s["magazzino"], s["magazzino"], da_ubicazione=a, a_ubicazione=b)
+    c = pm.consumi(s["azienda"], "mese")
+    assert (s["monitor"].pk, s["magazzino"].pk) not in c
+    operazioni.trasferisci(s["monitor"], 2, s["magazzino"], s["negozio"])
+    assert pm.consumi(s["azienda"], "mese")[(s["monitor"].pk, s["magazzino"].pk)] == {timezone.localdate().replace(day=1): 2}
 
 
 def test_consumi_settimanali(s):
