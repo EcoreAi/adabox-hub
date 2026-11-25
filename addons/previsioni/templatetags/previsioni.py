@@ -12,12 +12,14 @@ register = template.Library()
 @register.simple_tag(takes_context=True)
 def previsioni_prodotto(context, prodotto):
     """Le previsioni salvate del prodotto per l'azienda corrente, una per magazzino (il totale per ultimo), con
-    l'ultimo giorno dell'orizzonte; None se non ce ne sono."""
+    l'ultimo giorno dell'orizzonte; None se non ce ne sono. Dalla vista «Articoli in esaurimento», con i suoi permessi
+    e le sue regole di riga."""
     request = context.get("request")
-    azienda = getattr(request, "azienda", None)
-    if azienda is None or not request.user.has_perm("previsioni.view_previsionearticolo"):
+    vista = pagine.vista_esaurimenti(request) if request is not None else None
+    if vista is None:
         return None
-    righe = sorted(PrevisioneArticolo.objects.filter(azienda=azienda, prodotto_pk=prodotto.pk),
+    azienda = request.azienda
+    righe = sorted(vista.get_queryset(request).filter(prodotto_pk=prodotto.pk),
                    key=lambda r: (r.magazzino_pk is None, r.magazzino))
     if not righe:
         return None

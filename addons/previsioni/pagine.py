@@ -7,7 +7,6 @@ from django.apps import apps
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 
-from core import regole
 from core.viste import interroga
 from core.viste.interroga import ErroreInterrogazione
 
@@ -15,6 +14,7 @@ from . import calcolo, esaurimenti, motore, pronte, servizio
 from .models import PrevisionePronta, StatoCalcolo
 
 PERMESSI_PAGINA = ("previsioni.view_previsionepronta", "previsioni.view_previsionearticolo")
+PERMESSO_MAGAZZINO = "magazzino.view_movimento"     # quello delle Giacenze di Magazzino (anche «sotto scorta»)
 PRIMI_ESAURIMENTI = 10
 SENZA_SERVIZIO = "Il servizio di previsione non è configurato: si vedono le ultime previsioni salvate."
 
@@ -48,17 +48,31 @@ def _riga_esaurimento(r):
             "motivo": (r.affidabilita.get("motivi") or [""])[0]}
 
 
-def _sezione_magazzino(request):
-    azienda, user = request.azienda, request.user
-    if not (pronte.app_attiva("previsioni", azienda, user) and pronte.app_attiva("magazzino", azienda, user)
-            and user.has_perm("previsioni.view_previsionearticolo")):
+def magazzino_visibile(request):
+    """Spec: chi non ha Magazzino non vede le previsioni del magazzino, anche con il modulo. Magazzino acceso per
+    l'azienda della richiesta e il permesso di leggerne le giacenze (il permesso delle previsioni lo guarda la vista)."""
+    user = request.user
+    return pronte.app_attiva("magazzino", getattr(request, "azienda", None), user) and user.has_perm(PERMESSO_MAGAZZINO)
+
+
+def vista_esaurimenti(request):
+    """La vista «Articoli in esaurimento» per chi guarda, o None se non la vede (Previsioni per l'azienda, permesso
+    delle previsioni, Magazzino: ArticoliInEsaurimentoView.has_view_permission). Le previsioni del magazzino si leggono
+    sempre dal suo `get_queryset`: azienda, regole di riga del ruolo e filtri dei moduli, come la lista."""
+    if getattr(request, "azienda", None) is None or not pronte.app_attiva("previsioni", request.azienda, request.user):
         return None
     try:
-        vista = interroga.vista_per_nome("previsioni.esaurimenti", request)
+        return interroga.vista_per_nome("previsioni.esaurimenti", request)
     except ErroreInterrogazione:
         return None
-    qs = regole.applica_righe(vista, request, vista.get_queryset(request))
-    righe = list(qs[:PRIMI_ESAURIMENTI])
+
+
+def _sezione_magazzino(request):
+    azienda = request.azienda
+    vista = vista_esaurimenti(request)
+    if vista is None:
+        return None
+    righe = list(vista.get_queryset(request)[:PRIMI_ESAURIMENTI])
     return {"righe": [_riga_esaurimento(r) for r in righe], "modello": righe[0].modello if righe else "",
             "calcolata_il": max((r.calcolata_il for r in righe), default=None),
             "aggiorna": _aggiorna(request, StatoCalcolo.MAGAZZINO),

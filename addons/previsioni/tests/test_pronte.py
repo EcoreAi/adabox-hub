@@ -456,3 +456,27 @@ def test_gruppo_utente_vede_le_pronte():
     from core.registry import manifest
     gruppi = manifest.leggi(Path(previsioni.__file__).parent).groups
     assert "previsioni.view_previsionepronta" in gruppi["Previsioni / Utente"]
+
+
+@serve_vendite
+def test_misura_o_data_nascoste_al_ruolo_non_si_prevedono(s, servizi):
+    """Un campo nascosto al ruolo non si somma e non si raggruppa nel tempo, nemmeno con una previsione (come in
+    interroga.aggrega): né la misura né la data, per la serie singola e per gruppo."""
+    azienda = s["azienda"]
+    ridotto = Ruolo.objects.create(nome="Senza importi", livello_base="lavoro")
+    carla = _utente("carla", azienda, ridotto)
+    spec = {"vista": "vendite.ordini", "data": "data", "misura": "sum:imponibile", "per": "mese", "orizzonte": 3}
+    PermessoCampo.objects.create(vista="vendite.ordini", campo="imponibile", ruolo=ridotto, livello=PermessoCampo.NASCOSTO)
+    request = richiesta_di(carla, azienda)
+    with pytest.raises(servizio.ErrorePrevisione, match="«imponibile» non è disponibile per il tuo ruolo"):
+        motore.calcola_previsione(spec, request)
+    with pytest.raises(servizio.ErrorePrevisione, match="«imponibile» non è disponibile per il tuo ruolo"):
+        motore.calcola_per_gruppo({**spec, "raggruppa": "cliente"}, request)
+    PermessoCampo.objects.all().delete()
+    PermessoCampo.objects.create(vista="vendite.ordini", campo="data", ruolo=ridotto, livello=PermessoCampo.NASCOSTO)
+    request = richiesta_di(User.objects.get(pk=carla.pk), azienda)
+    with pytest.raises(servizio.ErrorePrevisione, match="«data» non è disponibile per il tuo ruolo"):
+        motore.calcola_previsione({**spec, "misura": "count"}, request)
+    with pytest.raises(servizio.ErrorePrevisione, match="«data» non è disponibile per il tuo ruolo"):
+        motore.calcola_per_gruppo({**spec, "misura": "count", "raggruppa": "cliente"}, request)
+    assert not servizi

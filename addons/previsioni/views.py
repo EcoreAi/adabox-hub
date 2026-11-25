@@ -109,6 +109,11 @@ class ArticoliInEsaurimentoView(ModelView):
             qs = qs.filter(riordino__lte=timezone.localdate() + datetime.timedelta(days=int(entro)))
         return qs
 
+    def has_view_permission(self, request, obj=None):
+        """Anche Magazzino, acceso per l'azienda e con il permesso delle giacenze (vale per lista, pagina, riquadro e
+        Ada, che passano tutti da qui)."""
+        return super().has_view_permission(request, obj) and pagine.magazzino_visibile(request)
+
     def col_magazzino(self, obj):
         return obj.magazzino or "Tutti i magazzini"
 

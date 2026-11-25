@@ -69,10 +69,12 @@ def vista_accessibile(request, nome):
 
 
 def serie_storica(vista, request, data, misura="count", per="mese", filtri=None, testo="", lista=None):
-    """([(periodo, valore)] dei periodi completi fino a quello in corso escluso, periodo in corso)."""
+    """([(periodo, valore)] dei periodi completi fino a quello in corso escluso, periodo in corso). I campi nascosti al
+    ruolo di chi guarda (data, misura, filtri) si rifiutano come in interroga.aggrega."""
     if per not in UNITA:
         raise ErrorePrevisione("«per» è mese, settimana o giorno.")
     try:
+        interroga.controlla_nascosti(vista, request, data, misura)    # un campo nascosto non si somma né si raggruppa
         espressione, _ = interroga._misura(vista, misura or "count")
         lookup, campo, _ = interroga._percorso(vista, data, con_operatore=False)
         if not isinstance(campo, (models.DateField, models.DateTimeField)):

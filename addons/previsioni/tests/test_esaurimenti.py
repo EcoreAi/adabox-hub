@@ -4,11 +4,11 @@ from decimal import Decimal
 
 import pytest
 from django.apps import apps
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission, User
 from django.urls import reverse
 from django.utils import timezone
 
-from core.models import Azienda
+from core.models import Azienda, Modulo, RegolaRiga, Ruolo
 from core.viste import interroga
 from core.viste.interroga import richiesta_di
 from previsioni.models import PrevisioneArticolo, StatoCalcolo
@@ -178,3 +178,80 @@ def test_esaurimento_con_la_fascia_10_90(client, capo):
     html = client.get(reverse("previsioni:esaurimenti_lista")).content.decode()
     assert "12/03/2027 (08/03/2027 – 18/04/2027)" in html
     assert "12/03/2027 (08/03/2027 – oltre " in html
+
+
+# ---------- le previsioni del magazzino solo a chi vede Magazzino (spec, «4 quater. Permessi») ----------
+
+serve_magazzino = pytest.mark.skipif(not all(apps.is_installed(a) for a in ("magazzino", "prodotti")),
+                                     reason="serve Magazzino con Prodotti")
+
+
+def _utente(client, azienda, *permessi, ruolo=None):
+    u = User.objects.create_user("vera", "vera@example.com", "x")
+    u.profilo.aziende.set([azienda])
+    u.profilo.azienda_predefinita, u.profilo.ruolo = azienda, ruolo
+    u.profilo.save()
+    for p in permessi:
+        app, codename = p.split(".")
+        u.user_permissions.add(Permission.objects.get(content_type__app_label=app, codename=codename))
+    client.force_login(u)
+    return User.objects.get(pk=u.pk)
+
+
+def _viste(utente, azienda):
+    return {interroga.id_vista(v) for v in interroga.viste_accessibili(richiesta_di(utente, azienda))}
+
+
+@serve_magazzino
+def test_senza_permessi_di_magazzino_niente_previsioni_del_magazzino(client, prodotto):
+    """Solo i permessi delle previsioni: né la lista, né la sezione della pagina, né il riquadro, né Ada. Con il
+    permesso delle giacenze di Magazzino (magazzino.view_movimento) sì."""
+    azienda = Azienda.objects.get(pk=1)
+    _riga(azienda, "Monitor", _giorni(10), prodotto_pk=prodotto.pk, magazzino="Cagliari")
+    u = _utente(client, azienda, "previsioni.view_previsionearticolo", "previsioni.view_previsionepronta",
+                "prodotti.view_prodotto")
+    assert client.get(reverse("previsioni:esaurimenti_lista")).status_code == 403
+    assert "Cagliari" not in client.get(reverse("previsioni:pagina")).content.decode()
+    assert "Cagliari" not in _scheda(client, prodotto)
+    assert "previsioni.esaurimenti" not in _viste(u, azienda)
+    u.user_permissions.add(Permission.objects.get(content_type__app_label="magazzino", codename="view_movimento"))
+    u = User.objects.get(pk=u.pk)
+    client.force_login(u)
+    assert "Cagliari" in client.get(reverse("previsioni:esaurimenti_lista")).content.decode()
+    assert "Cagliari" in client.get(reverse("previsioni:pagina")).content.decode()
+    assert "Cagliari" in _scheda(client, prodotto)
+    assert "previsioni.esaurimenti" in _viste(u, azienda)
+
+
+@serve_magazzino
+def test_magazzino_non_attivo_per_l_azienda_niente_lista_ne_ada(client, capo):
+    azienda = Azienda.objects.get(pk=1)
+    _riga(azienda, "Alfa", _giorni(5))
+    Modulo.objects.update_or_create(slug="magazzino", defaults={"nome": "Magazzino"})[0].aziende.set(
+        [Azienda.objects.create(nome="Altra")])
+    assert client.get(reverse("previsioni:esaurimenti_lista")).status_code == 403
+    assert "previsioni.esaurimenti" not in _viste(capo, azienda)
+
+
+@serve_magazzino
+def test_la_regola_di_riga_della_vista_vale_anche_nel_riquadro_e_nella_pagina(client, prodotto):
+    azienda = Azienda.objects.get(pk=1)
+    ruolo = Ruolo.objects.create(nome="Solo Cagliari", livello_base="lavoro")
+    RegolaRiga.objects.create(vista="previsioni.esaurimenti", ruolo=ruolo, campo="magazzino", operatore="uguale",
+                              valore="Cagliari")
+    _riga(azienda, "Monitor", _giorni(10), prodotto_pk=prodotto.pk, magazzino="Cagliari")
+    _riga(azienda, "Monitor", _giorni(12), prodotto_pk=prodotto.pk, magazzino="Sassari")
+    _utente(client, azienda, "previsioni.view_previsionearticolo", "magazzino.view_movimento", "prodotti.view_prodotto",
+            ruolo=ruolo)
+    scheda = _scheda(client, prodotto)
+    assert "Cagliari" in scheda and "Sassari" not in scheda
+    pagina = client.get(reverse("previsioni:pagina")).content.decode()
+    assert "Cagliari" in pagina and "Sassari" not in pagina
+
+
+@serve_magazzino
+def test_righe_di_un_altra_azienda_mai_nella_sezione_ne_nel_riquadro(client, capo, prodotto):
+    _riga(Azienda.objects.create(nome="Altra Srl"), "Monitor", _giorni(3), prodotto_pk=prodotto.pk, magazzino="Segreto")
+    _riga(Azienda.objects.get(pk=1), "Alfa", _giorni(5))
+    assert "Segreto" not in client.get(reverse("previsioni:pagina")).content.decode()
+    assert "Segreto" not in _scheda(client, prodotto)

@@ -244,6 +244,13 @@ def test_utente_senza_permesso_403(client, azienda):
     assert client.get(reverse("previsioni:pagina")).status_code == 403
 
 
+def test_utente_solo_delle_pronte_niente_sezione_magazzino(client, azienda, servizi):
+    _riga(azienda, "Monitor", _giorni(10), magazzino="Negozio")
+    _utente(client, azienda, "previsioni.view_previsionepronta", "vendite.view_ordinevendita", "vendite.view_rigavendita")
+    html = _pagina(client)
+    assert "prev-magazzino" not in html and "Negozio" not in html
+
+
 def test_basta_uno_dei_due_permessi(client, azienda, servizi):
     _utente(client, azienda, "previsioni.view_previsionearticolo")
     assert client.get(reverse("previsioni:pagina")).status_code == 200
@@ -311,7 +318,7 @@ def test_scheda_prodotto_permessi_separati(client, azienda, servizi, prodotto):
     """Solo magazzino: niente riga di Vendite. Solo vendite: niente righe di magazzino, ma il riquadro c'è."""
     _riga(azienda, "Monitor", _giorni(10), prodotto_pk=prodotto.pk)
     _salva_tutte(azienda, prodotto_pk=prodotto.pk)
-    u = _utente(client, azienda, "previsioni.view_previsionearticolo", "prodotti.view_prodotto")
+    u = _utente(client, azienda, "previsioni.view_previsionearticolo", "magazzino.view_movimento", "prodotti.view_prodotto")
     html = _scheda(client, prodotto)
     assert "Finisce" in html or "Riordina" in html
     assert reverse("previsioni:prodotto_vendite", args=[prodotto.pk]) not in html
