@@ -4,7 +4,7 @@ from django.utils.safestring import mark_safe
 from django.urls import reverse
 
 from previsioni import esaurimenti, pagine
-from previsioni.models import PrevisioneArticolo
+from previsioni.models import PrevisioneArticolo, StatoCalcolo
 
 register = template.Library()
 
@@ -26,7 +26,11 @@ def previsioni_prodotto(context, prodotto):
     for r in righe:
         r.fine_orizzonte = esaurimenti.fine_orizzonte(r)
         r.motivo = (r.affidabilita.get("motivi") or [""])[0]
-    return {"righe": righe, "avviso": avviso}
+        basso, alto = esaurimenti.fascia_consumo(r)
+        r.giacenza_testo, r.consumo_testo = esaurimenti.quantita(r.partenza), esaurimenti.quantita(r.consumo_mensile)
+        r.fascia_consumo = f"{esaurimenti.quantita(basso)}–{esaurimenti.quantita(alto)}" if alto is not None else ""
+    return {"righe": righe, "avviso": avviso, "unita": str(prodotto.unita) if getattr(prodotto, "unita_id", None) else "",
+            "aggiorna": pagine.puo_aggiornare(request, StatoCalcolo.MAGAZZINO)}
 
 
 @register.simple_tag(takes_context=True)
@@ -40,17 +44,19 @@ def vendite_prodotto_url(context, prodotto):
 
 @register.simple_tag(takes_context=True)
 def stato_previsioni(context):
-    """Per la lista: quando sono state calcolate le previsioni dell'azienda e, se l'ultimo calcolo non è riuscito,
-    l'avviso (anche senza righe); None se non c'è niente da dire."""
+    """Per la lista: quando sono state calcolate le previsioni dell'azienda, con quale modello e, se l'ultimo calcolo
+    non è riuscito, l'avviso (anche senza righe); None se non c'è niente da dire."""
     from django.db.models import Max
     azienda = getattr(context.get("request"), "azienda", None)
     if azienda is None:
         return None
-    calcolata = PrevisioneArticolo.objects.filter(azienda=azienda).aggregate(m=Max("calcolata_il"))["m"]
+    righe = PrevisioneArticolo.objects.filter(azienda=azienda)
+    calcolata = righe.aggregate(m=Max("calcolata_il"))["m"]
     avviso = esaurimenti.avviso(azienda)
     if calcolata is None and avviso is None:
         return None
-    return {"calcolata_il": calcolata, "avviso": avviso}
+    modello = righe.order_by("-calcolata_il").values_list("modello", flat=True).first() or ""
+    return {"calcolata_il": calcolata, "modello": modello, "avviso": avviso}
 
 
 class _EntroNelForm(template.Node):

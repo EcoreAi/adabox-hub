@@ -508,12 +508,13 @@ completate.
     Limiti del primo giro: le aree di lavoro non si segnano ancora come riservate; con almeno un'app riservata, la
     lettura di una pagina di Analisi conta come riservata (può mostrare dati di ogni app).
 - **Specialisti** (AI-6), facoltativi, attivi solo con l'URL del servizio nelle impostazioni:
-  - `previsione`: la storia di una misura (conteggio o somma per mese, settimana o giorno) la costruisce il codice
-    dai dati, con i permessi dell'utente e senza il periodo in corso; i prossimi periodi li calcola il servizio
-    Timestral di adabox (mediana e fascia 10-90 %); grafico con storia, previsione e fascia, CSV, pagina con i dati
-    di oggi. La licenza dei pesi di Timestral va verificata prima dell'uso commerciale;
   - `classifica`: probabilità dal decisore locale (sì/no, scelta, punteggio). Senza esempi addestrati sono solo
     indicative: per questo sul server di sviluppo resta spento.
+  - Le previsioni non sono più uno specialista dell'assistente: lo strumento `previsione` (storia dai dati con i
+    permessi dell'utente, numeri dal servizio Timestral, mediana e fascia 10-90 %, anche per gruppo) è del modulo
+    `previsioni`, in licenza. I pesi di Timestral sono sotto «Modified MIT License» di Mistral AI: uso commerciale
+    ammesso con l'avviso e il testo della licenza, non oltre 20 milioni di dollari di ricavi al mese (note di rilascio
+    del 2026-11-25).
 - **Agenti e qualità** (AI-7):
   - «Assistenti» (`/ai/assistenti/`): nome, descrizione, app, istruzioni aggiunte al prompt, strumenti ammessi,
     profilo dei modelli, gruppi ammessi, domande d'oro. La chat limitata a un'app usa l'assistente di quell'app,

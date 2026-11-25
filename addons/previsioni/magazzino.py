@@ -107,7 +107,7 @@ def consumi(azienda, per: str) -> dict[Chiave, dict[datetime.date, float]]:
 def chiavi_e_soglie(azienda) -> dict[Chiave, tuple[Decimal | None, Decimal | None]]:
     """(riordina sotto, riporta a) per chiave: per magazzino dove c'è una `ScortaMagazzino`; per gli altri prodotti con
     movimenti il totale, con la regola di Acquisti se c'è, altrimenti la scorta minima."""
-    from magazzino.models import Movimento, ScortaMagazzino
+    from magazzino.models import ScortaMagazzino
     from prodotti.models import Prodotto
 
     soglie = {}
@@ -119,11 +119,19 @@ def chiavi_e_soglie(azienda) -> dict[Chiave, tuple[Decimal | None, Decimal | Non
     if apps.is_installed("acquisti"):
         from acquisti.models import RegolaRiordino
         regole = {r.prodotto_id: (r.punto_riordino, r.scorta_obiettivo) for r in RegolaRiordino.objects.filter(azienda=azienda)}
-    movimentati = set(Movimento.objects.filter(azienda=azienda).values_list("prodotto", flat=True).distinct())
+    movimentati = set(prodotti_movimentati(azienda))
     minime = dict(Prodotto.objects.filter(azienda=azienda, pk__in=movimentati - con_scorta).values_list("pk", "scorta_minima"))
     for prodotto, minima in minime.items():
         soglie[(prodotto, None)] = regole.get(prodotto) or (minima or None, None)
     return soglie
+
+
+def prodotti_movimentati(azienda) -> list[int]:
+    """Gli id dei prodotti con almeno un movimento nell'azienda, uno per prodotto."""
+    from magazzino.models import Movimento
+
+    # order_by(): con l'ordinamento di Movimento (per data) il distinct darebbe una riga per movimento
+    return list(Movimento.objects.filter(azienda=azienda).order_by().values_list("prodotto", flat=True).distinct())
 
 
 def partenze(azienda) -> dict[Chiave, Decimal]:
@@ -245,10 +253,11 @@ def proietta(partenza, futuro: list[tuple[float, float, float]], per, primo_peri
 
 
 def _suggerita(giacenza, riporta_a, futuro, periodo, per):
-    """Quanto ordinare nel giorno di riordino: fino a «riporta a», altrimenti il consumo mediano dei periodi che
-    seguono (tre mesi: 3 mesi o 13 settimane), None se l'orizzonte è finito."""
+    """Quanto ordinare nel giorno di riordino: fino a «riporta a» (0 se la giacenza c'è già: soglie incoerenti),
+    altrimenti il consumo mediano dei periodi che seguono (tre mesi: 3 mesi o 13 settimane), None se l'orizzonte è
+    finito."""
     if riporta_a is not None:
-        valore = _fraction(riporta_a) - giacenza
+        valore = max(_fraction(riporta_a) - giacenza, Fraction(0))
     else:
         seguenti = futuro[periodo + 1:periodo + 1 + PERIODI_SUGGERITI[per]]
         if not seguenti:

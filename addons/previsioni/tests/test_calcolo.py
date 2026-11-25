@@ -233,9 +233,10 @@ def test_notturno_salta_aziende_senza_modulo_o_magazzino(s, capo, servizi, monke
     assert servizi == []
     monkeypatch.setattr(apps, "is_installed", installata)
 
-    calcolo.notturno()
+    risultato = calcolo.notturno()
     assert set(PrevisioneArticolo.objects.values_list("azienda", flat=True)) == {s["azienda"].pk}
     assert list(StatoCalcolo.objects.filter(cosa="magazzino").values_list("azienda", flat=True)) == [s["azienda"].pk]
+    assert "per 1 azienda (" in risultato
     assert len(servizi) == 1 and len(servizi[0]["series"]) == 2     # nessuna serie delle aziende escluse
 
 

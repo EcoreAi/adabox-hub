@@ -226,7 +226,7 @@ def _notturno():
             if _errore(azienda, cosa):
                 fallite.add(azienda.pk)
     return (f"Previsioni salvate: {salvate[StatoCalcolo.MAGAZZINO]} del magazzino e {salvate[StatoCalcolo.VENDITE]} "
-            f"di Vendite, per {len(aziende)} aziende ({len(fallite)} con errori).")
+            f"di Vendite, per {len(aziende)} aziend{'a' if len(aziende) == 1 else 'e'} ({len(fallite)} con errori).")
 
 
 notturno.senza_transazione = True       # niente transazione aperta durante le chiamate al servizio

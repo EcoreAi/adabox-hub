@@ -44,6 +44,12 @@ def test_quantita_suggerita_fino_a_riporta_a():
     assert r["quantita_suggerita"] == Decimal("90.194")
 
 
+def test_quantita_suggerita_mai_negativa():
+    """«Riporta a» sotto la giacenza del giorno di riordino (soglie incoerenti): la quantità suggerita è 0."""
+    r = proietta(sotto=60, riporta=10)
+    assert r["riordino"] == date(2027, 1, 25) and r["quantita_suggerita"] == 0
+
+
 def test_gia_sotto_soglia_riordina_ora():
     r = proietta(partenza=40)
     assert r["stato"] == "riordina_ora" and r["riordino"] == OGGI
@@ -208,6 +214,14 @@ def test_scorta_minima_senza_acquisti(s, monkeypatch):
 
 
 @serve_magazzino
+def test_prodotti_movimentati_uno_per_prodotto(s):
+    """Il distinct non eredita l'ordinamento di Movimento (per data): una riga per prodotto, non per movimento."""
+    for giorno in (date(2026, 9, 1), date(2026, 10, 1), date(2026, 10, 15)):
+        _mov(s, Movimento.CARICO, 5, giorno)
+    assert pm.prodotti_movimentati(s["azienda"]) == [s["monitor"].pk]
+
+
+@serve_magazzino
 def test_partenze(s):
     cons = _consegna(s)
     RigaConsegna.objects.create(consegna=cons, prodotto=s["monitor"], quantita=4)
@@ -220,10 +234,13 @@ def test_partenze(s):
 
 
 @serve_magazzino
-def test_settimane_con_meno_di_un_anno(s):
+@pytest.mark.parametrize("giorno", [None, date(2028, 2, 29)])          # oggi, e un 29 febbraio
+def test_settimane_con_meno_di_un_anno(s, monkeypatch, giorno):
+    if giorno is not None:
+        monkeypatch.setattr(timezone, "localdate", lambda *a, **k: giorno)
     assert pm.per_della_storia(s["azienda"]) == "settimana"          # nessun movimento
     oggi = timezone.localdate()
     _mov(s, Movimento.CARICO, 1, oggi - datetime.timedelta(days=200))
     assert pm.per_della_storia(s["azienda"]) == "settimana"
-    _mov(s, Movimento.CARICO, 1, oggi.replace(year=oggi.year - 1) - datetime.timedelta(days=1))
+    _mov(s, Movimento.CARICO, 1, oggi - datetime.timedelta(days=367))   # più di un anno fa, anche dal 29 febbraio
     assert pm.per_della_storia(s["azienda"]) == "mese"

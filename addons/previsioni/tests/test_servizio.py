@@ -110,3 +110,21 @@ def test_dentro_una_richiesta_web_si_aspetta_meno_del_worker(monkeypatch):
     assert attese == [25, 120, 25]
     avvio = (Path(__file__).resolve().parents[3] / "deploy" / "entrypoint.sh").read_text()
     assert servizio.TIMEOUT_WEB < int(re.search(r"--timeout (\d+)", avvio).group(1))
+
+
+def test_la_pagina_del_servizio_si_raggiunge_dal_menu_del_profilo_del_global_admin():
+    """Il link alla pagina del servizio (chiave API) sta nel menu del profilo, solo per il Global Admin: il
+    Responsabile delle previsioni non ha il permesso della voce (la pagina gli risponderebbe 403)."""
+    from pathlib import Path as P
+
+    import previsioni
+    from core.registry import groups, manifest, modules
+    capo = User.objects.create_superuser("capo", "capo@example.com", "x")
+    assert "/previsioni/servizio/" in [v["url"] for v in modules.voci_profilo(capo)]
+    groups.crea_gruppi(manifest.leggi(P(previsioni.__file__).parent))
+    responsabile = User.objects.create_user("resp", "resp@example.com", "x")
+    from django.contrib.auth.models import Group
+    responsabile.groups.add(Group.objects.get(name="Previsioni / Responsabile"))
+    responsabile = User.objects.get(pk=responsabile.pk)
+    assert responsabile.has_perm("previsioni.change_previsionearticolo")
+    assert "/previsioni/servizio/" not in [v["url"] for v in modules.voci_profilo(responsabile)]

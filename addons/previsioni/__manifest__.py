@@ -15,9 +15,16 @@
         {"label": "Articoli in esaurimento", "url_name": "previsioni:esaurimenti_lista",
          "permission": "previsioni.view_previsionearticolo"},
     ],
+    # la pagina del servizio (chiave API) è del Global Admin: il permesso della voce non è in nessun gruppo
+    "menu_profilo": [
+        {"label": "Servizio di previsione", "url_name": "previsioni:servizio",
+         "permission": "previsioni.change_servizioprevisioni", "icon": "tool"},
+    ],
     "groups": {
         "Previsioni / Utente": ["previsioni.view_previsionearticolo", "previsioni.view_previsionepronta"],
-        "Previsioni / Responsabile": ["previsioni.*"],
+        "Previsioni / Responsabile": ["previsioni.view_previsionearticolo", "previsioni.change_previsionearticolo",
+                                      "previsioni.view_previsionepronta", "previsioni.change_previsionepronta",
+                                      "previsioni.view_statocalcolo"],
     },
     "settings": [
         {"chiave": "url_servizio", "label": "URL del servizio di previsione", "tipo": "testo", "default": "",

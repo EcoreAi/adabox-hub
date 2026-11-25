@@ -9,7 +9,7 @@
   {% csrf_token %}
   <div class="ui-card-body">
     <p><strong>Indirizzo:</strong> {% if url_servizio %}<code>{{ url_servizio }}</code>{% else %}non impostato: le previsioni sono spente{% endif %}.
-      <span class="ui-help">Si cambia dalle impostazioni del modulo Previsioni.</span></p>
+      <span class="ui-help">Si cambia dalle <a class="ui-link" href="{% url 'core:impostazioni' %}#previsioni">Impostazioni</a>, sezione Previsioni.</span></p>
     <p><strong>Chiave:</strong> {% if chiave_impostata %}impostata{% else %}non impostata{% endif %}.</p>
     {{ form.as_p }}
   </div>

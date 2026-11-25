@@ -23,8 +23,9 @@ def puo_vedere_la_pagina(user):
     return any(user.has_perm(p) for p in PERMESSI_PAGINA)
 
 
-def _aggiorna(request, cosa):
-    """Il bottone «Aggiorna» si mostra con il servizio acceso, il permesso di modifica e le previsioni calcolabili."""
+def puo_aggiornare(request, cosa):
+    """Il bottone «Aggiorna» (pagina e riquadro del prodotto) si mostra con il servizio acceso, il permesso di modifica
+    e le previsioni calcolabili."""
     from .views import PERMESSI_AGGIORNA            # views importa questo modulo
     return (servizio.attivo(request.azienda, request.user) and request.user.has_perm(PERMESSI_AGGIORNA[cosa])
             and calcolo.eseguibile(cosa, request.azienda))
@@ -36,7 +37,7 @@ def _sezione_vendite(request):
         return None
     return {"pronte": [{"chiave": p["chiave"], "titolo": p["titolo"], "url": reverse("previsioni:pronta", args=[p["chiave"]])}
                        for p in elenco],
-            "aggiorna": _aggiorna(request, StatoCalcolo.VENDITE),
+            "aggiorna": puo_aggiornare(request, StatoCalcolo.VENDITE),
             "avviso": esaurimenti.avviso(request.azienda, StatoCalcolo.VENDITE)}
 
 
@@ -74,7 +75,7 @@ def _sezione_magazzino(request):
     righe = list(vista.get_queryset(request)[:PRIMI_ESAURIMENTI])
     return {"righe": [_riga_esaurimento(r) for r in righe], "modello": righe[0].modello if righe else "",
             "calcolata_il": max((r.calcolata_il for r in righe), default=None),
-            "aggiorna": _aggiorna(request, StatoCalcolo.MAGAZZINO),
+            "aggiorna": puo_aggiornare(request, StatoCalcolo.MAGAZZINO),
             "avviso": esaurimenti.avviso(azienda, StatoCalcolo.MAGAZZINO)}
 
 

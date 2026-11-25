@@ -1,5 +1,6 @@
 """Ciò che la lista «Articoli in esaurimento» e il riquadro del prodotto mostrano allo stesso modo."""
 import datetime
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.db.models import Max
 from django.utils import timezone
@@ -27,6 +28,25 @@ def avviso(azienda, cosa=StatoCalcolo.MAGAZZINO):
     ultima = modello.objects.filter(azienda=azienda).aggregate(m=Max("calcolata_il"))["m"]
     return {"dal": (stato.ultimo_ok or ultima) if ultima is not None else None, "motivo": stato.errore,
             "tentativo": stato.ultimo_tentativo}
+
+
+def quantita(valore):
+    """«1.234,5»: una quantità all'italiana, con al più tre decimali e senza zeri in fondo; "" se manca."""
+    if valore is None:
+        return ""
+    testo = f"{Decimal(str(valore)).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP):,.3f}".rstrip("0").rstrip(".")
+    return testo.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def fascia_consumo(riga):
+    """(basso, alto) del consumo previsto al mese: medie dei quantili 10 % e 90 % di `futuro`, riportate al mese come
+    `consumo_mensile` (× 52 / 12 per le serie settimanali)."""
+    futuro = riga.futuro or []
+    if not futuro:
+        return None, None
+    fattore = 1 if riga.per == "mese" else 52 / 12
+    return (round(sum(f[1] for f in futuro) / len(futuro) * fattore, 3),
+            round(sum(f[3] for f in futuro) / len(futuro) * fattore, 3))
 
 
 def fascia(riga):

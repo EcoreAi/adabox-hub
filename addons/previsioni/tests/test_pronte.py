@@ -273,7 +273,7 @@ def test_notturno_salva_le_pronte_di_vendite(s, servizi, monkeypatch):
     stato = StatoCalcolo.objects.get(azienda=azienda, cosa="vendite")
     assert stato.errore == "" and stato.ultimo_ok is not None
     assert list(StatoCalcolo.objects.values_list("azienda", "cosa")) == [(azienda.pk, "vendite")]
-    assert risultato == "Previsioni salvate: 0 del magazzino e 3 di Vendite, per 1 aziende (0 con errori)."
+    assert risultato == "Previsioni salvate: 0 del magazzino e 3 di Vendite, per 1 azienda (0 con errori)."
     assert not PrevisionePronta.objects.filter(azienda__in=[senza_vendite, spenta]).exists()
 
     _riserva("previsioni", s["altra"])                                        # Previsioni riservata a un'altra: niente

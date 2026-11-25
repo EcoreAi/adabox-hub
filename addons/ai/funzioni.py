@@ -12,7 +12,7 @@ spiegazioni, è nel manifest; qui ciò che ognuna spegne nel codice. Le voci di 
 - documenti: i documenti scritti accanto alla chat
 - grafici: grafici e tabelle nella chat
 - assistenti: gli assistenti delle app e gli esperti
-- specialisti: previsioni e classificazioni dei servizi locali
+- specialisti: le classificazioni del decisore locale (le previsioni sono del modulo Previsioni)
 - mcp: i sistemi esterni collegati con MCP
 - voce: dettatura e lettura delle risposte"""
 from core import funzioni

@@ -5,4 +5,5 @@
   <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ urls.lista }}?entro=30">entro 30 giorni</a>
   <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ urls.lista }}?entro=90">entro 90 giorni</a>
 </div>
-{% include "core/vista/_tabella.html" %}
+{% load previsioni %}{% include "core/vista/_tabella.html" %}
+{% stato_previsioni as sp %}{% if sp.calcolata_il %}<p class="sub" style="padding:0 var(--space-4, 1rem)">{% include "previsioni/_attribuzione.html" with modello=sp.modello %}</p>{% endif %}

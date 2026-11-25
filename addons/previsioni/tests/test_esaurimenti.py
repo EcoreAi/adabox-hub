@@ -5,9 +5,11 @@ from decimal import Decimal
 import pytest
 from django.apps import apps
 from django.contrib.auth.models import Permission, User
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 
+from core import parametri
 from core.models import Azienda, Modulo, RegolaRiga, Ruolo
 from core.viste import interroga
 from core.viste.interroga import richiesta_di
@@ -290,3 +292,42 @@ def test_riquadro_dice_il_motivo_con_e_senza_righe(client, capo, prodotto):
     _riga(azienda, "Monitor", _giorni(9), prodotto_pk=prodotto.pk,
           calcolata_il=timezone.make_aware(datetime.datetime(2026, 11, 18, 2, 0)))
     assert _avvisa(_scheda(client, prodotto), "Previsioni non aggiornate dal 18/11/2026")
+
+
+# ---------- attribuzione, riquadro come nella spec (§4, §8) ----------
+
+def test_attribuzione_senza_nome_del_modello():
+    assert render_to_string("previsioni/_attribuzione.html", {"modello": "timestral-1"}).strip() == (
+        '<span class="sub">modello timestral-1 · licenza Modified MIT di Mistral AI</span>')
+    assert render_to_string("previsioni/_attribuzione.html", {"modello": ""}).strip() == (
+        '<span class="sub">licenza Modified MIT di Mistral AI</span>')
+
+
+def test_lista_con_l_attribuzione_sotto_la_tabella(client, capo):
+    _riga(Azienda.objects.get(pk=1), "Alfa", _giorni(5))
+    html = client.get(reverse("previsioni:esaurimenti_lista")).content.decode()
+    assert html.count("modello timestral-1 · licenza Modified MIT di Mistral AI") == 1
+    assert html.index("Alfa") < html.index("licenza Modified MIT")
+
+
+@pytest_prodotti
+def test_riquadro_con_giacenza_e_consumo_e_aggiorna(client, capo, prodotto):
+    """Spec §4: «Giacenza prevista X · consumo previsto Y al mese (fascia a–b)»; §8: «Aggiorna» anche nel riquadro (POST,
+    con il permesso della pagina), solo con il servizio configurato."""
+    azienda = Azienda.objects.get(pk=1)
+    _riga(azienda, "Monitor", _giorni(9), prodotto_pk=prodotto.pk, partenza=Decimal("120"), consumo_mensile=Decimal("45"),
+          futuro=[["x", 30, 45, 60]] * 12)
+    _riga(azienda, "Monitor", _giorni(9), prodotto_pk=prodotto.pk, magazzino="Negozio", per="settimana",
+          partenza=Decimal("8.5"), consumo_mensile=Decimal("13"), futuro=[["x", 2.4, 3, 6]] * 52)
+    html = _scheda(client, prodotto)
+    unita = f" {prodotto.unita}"
+    assert f"Giacenza prevista 120{unita} · consumo previsto 45{unita} al mese (fascia 30–60)" in html
+    assert f"Giacenza prevista 8,5{unita} · consumo previsto 13{unita} al mese (fascia 10,4–26)" in html   # × 52 / 12
+    aggiorna = f'action="{reverse("previsioni:aggiorna")}?cosa=magazzino"'
+    assert aggiorna not in html                                         # servizio non configurato
+    parametri.scrivi("previsioni.url_servizio", "http://forecast:8080")
+    html = _scheda(client, prodotto)
+    assert aggiorna in html and 'method="post"' in html and "csrfmiddlewaretoken" in html
+    _utente(client, azienda, "previsioni.view_previsionearticolo", "magazzino.view_movimento", "prodotti.view_prodotto")
+    html = _scheda(client, prodotto)
+    assert "Giacenza prevista 120" in html and aggiorna not in html    # senza il permesso di modifica

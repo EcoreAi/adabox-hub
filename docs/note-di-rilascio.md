@@ -8,20 +8,24 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 - **Modulo Previsioni, in licenza** — Previsioni 1.0.0 (migrazioni `previsioni.0001`-`0005`), AI 1.59.0, Analisi 1.16.0,
   Kernel 1.14.1 (AI, Analisi e Kernel senza migrazioni).
   - Il motore di previsione passa da `addons/ai/specialisti.py` al modulo `previsioni` (nessuna dipendenza). Si
-    prevede solo con il modulo installato, attivo e in licenza e con l'URL del servizio configurato.
+    prevede solo con il modulo installato, acceso, in licenza (e, se è riservato ad alcune aziende, per quelle) e con
+    l'URL del servizio configurato.
   - **Chi usava le previsioni attraverso l'assistente le perde finché non ha il modulo**: lo strumento «previsione»
     di Ada ora è del modulo, e i grafici di Analisi di tipo Previsione già salvati mostrano «Serve il modulo
     Previsioni.».
   - L'URL del servizio passa da `ai.url_forecast` a `previsioni.url_servizio`: la migrazione `previsioni.0002` lo copia
-    da sola (se quello del modulo è vuoto). Si cambia dalla pagina del servizio nel modulo, che apre solo il Global
-    Admin; lì si può impostare anche una chiave API facoltativa, conservata cifrata.
+    da sola (se quello del modulo è vuoto). Si cambia in Impostazioni, sezione Previsioni. La chiave API facoltativa,
+    conservata cifrata, si imposta nella pagina «Servizio di previsione» (menu del profilo), che apre solo il Global
+    Admin.
   - Ada: lo strumento «previsione» ha «raggruppa per» e «primi N» (tabella dei primi N gruppi, in una sola chiamata al
     servizio). Anche in Analisi il tipo Previsione ha «Raggruppa per» e «Primi» e si vede come tabella.
   - Magazzino: ogni notte alle 02:00 (pianificazione «Previsioni della notte») e con «Aggiorna» (lavoro in background)
     si calcola, per articolo e magazzino, la data di esaurimento con la fascia 10-90 %, la data di riordino dalle
     soglie che già ci sono (scorta del magazzino, poi la regola di riordino di Acquisti, poi la scorta minima del
     prodotto) e la quantità suggerita. Si vedono nella vista «Articoli in esaurimento» e in un riquadro nella scheda
-    del prodotto. Se il servizio non risponde restano le ultime previsioni, con «non aggiornata dal …».
+    del prodotto, con il permesso delle previsioni e quello delle giacenze di Magazzino (`magazzino.view_movimento`).
+    Se il calcolo non riesce restano le ultime previsioni, con «Previsioni non aggiornate dal …» (o «Previsioni non
+    calcolate» se non ce ne sono ancora) e il motivo.
   - Vendite: previsioni pronte (ricavi per mese, dalle fatture con Fatturazione, altrimenti dagli ordini confermati;
     primi 10 prodotti, nell'unità del prodotto; primi 10 clienti), salvate ogni notte. Chi ha regole di riga, campi
     nascosti o filtri di riga dei moduli le vede calcolate al momento con i propri permessi.
