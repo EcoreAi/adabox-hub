@@ -14,9 +14,10 @@
 {% if vendite %}
 <section class="ui-section" aria-labelledby="prev-vendite">
   <div class="ui-pagehead"><div><h2 id="prev-vendite">Vendite</h2>
-    {% if vendite.ferma_dal %}<div class="sub"><strong>Previsione non aggiornata dal {{ vendite.ferma_dal|date:"d/m/Y" }}</strong>: l'ultimo calcolo non è riuscito.</div>{% endif %}</div>
+    </div>
     {% if vendite.aggiorna %}<div class="ui-pagehead-actions"><form method="post" action="{% url 'previsioni:aggiorna' %}?cosa=vendite">{% csrf_token %}<button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Aggiorna</button></form></div>{% endif %}
   </div>
+  {% if vendite.avviso %}{% include "previsioni/_avviso.html" with avviso=vendite.avviso %}{% endif %}
   {% for p in vendite.pronte %}
   <div class="ui-card is-revealed ui-section" hx-get="{{ p.url }}" hx-trigger="load" hx-swap="outerHTML">
     <div class="ui-card-head"><div class="ui-card-title">{{ p.titolo }}</div></div>
@@ -29,9 +30,10 @@
 {% if magazzino %}
 <section class="ui-section" aria-labelledby="prev-magazzino">
   <div class="ui-pagehead"><div><h2 id="prev-magazzino">Magazzino</h2>
-    {% if magazzino.ferma_dal %}<div class="sub"><strong>Previsione non aggiornata dal {{ magazzino.ferma_dal|date:"d/m/Y" }}</strong>: l'ultimo calcolo non è riuscito.</div>{% endif %}</div>
+    </div>
     {% if magazzino.aggiorna %}<div class="ui-pagehead-actions"><form method="post" action="{% url 'previsioni:aggiorna' %}?cosa=magazzino">{% csrf_token %}<button type="submit" class="ui-btn ui-btn-secondary ui-btn-sm">Aggiorna</button></form></div>{% endif %}
   </div>
+  {% if magazzino.avviso %}{% include "previsioni/_avviso.html" with avviso=magazzino.avviso %}{% endif %}
   <div class="ui-card is-revealed">
     <div class="ui-card-head"><div class="ui-card-title">Articoli in esaurimento</div><div class="spacer"></div>
       <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{% url 'previsioni:esaurimenti_lista' %}">Vedi tutti</a></div>
@@ -44,7 +46,7 @@
           <td>{% if r.esaurimento %}{{ r.esaurimento|date:"d/m/Y" }}{% if r.fascia %} <small>({{ r.fascia }})</small>{% endif %}{% else %}{{ r.stato }}{% endif %}</td>
           <td>{{ r.affidabilita }}{% if r.motivo %} <small>({{ r.motivo }})</small>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
       <p class="sub">Calcolate il {{ magazzino.calcolata_il|date:"d/m/Y" }} · {% include "previsioni/_attribuzione.html" with modello=magazzino.modello %}</p>
-    {% else %}<p class="ui-help">Nessun articolo in esaurimento: le previsioni di magazzino si calcolano ogni notte.</p>{% endif %}
+    {% elif not magazzino.avviso %}<p class="ui-help">Nessun articolo in esaurimento: le previsioni di magazzino si calcolano ogni notte.</p>{% endif %}
     </div>
   </div>
 </section>

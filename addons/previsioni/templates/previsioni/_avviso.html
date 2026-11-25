@@ -1,0 +1,2 @@
+{# L'ultimo calcolo delle previsioni salvate non è riuscito: da quando (o che non ci sono), quando si è provato e perché. #}
+<div class="ui-alert ui-alert-warning" role="status"><strong>{% if avviso.dal %}Previsioni non aggiornate dal {{ avviso.dal|date:"d/m/Y" }}{% else %}Previsioni non calcolate{% endif %}</strong>: l'ultimo calcolo{% if avviso.tentativo %}, il {{ avviso.tentativo|date:"d/m/Y H:i" }},{% endif %} non è riuscito. {{ avviso.motivo }}</div>

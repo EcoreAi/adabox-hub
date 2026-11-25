@@ -1,10 +1,11 @@
 """Ciò che la lista «Articoli in esaurimento» e il riquadro del prodotto mostrano allo stesso modo."""
 import datetime
 
+from django.db.models import Max
 from django.utils import timezone
 
 from . import motore
-from .models import StatoCalcolo
+from .models import PrevisioneArticolo, PrevisionePronta, StatoCalcolo
 
 
 def fine_orizzonte(riga):
@@ -13,15 +14,19 @@ def fine_orizzonte(riga):
     return motore.avanti(inizio, riga.per, len(riga.futuro)) - datetime.timedelta(days=1)
 
 
-def non_aggiornata_dal(azienda, righe, cosa=StatoCalcolo.MAGAZZINO):
-    """Da quando le previsioni (di magazzino o di vendite) non sono aggiornate (l'ultimo calcolo è fallito),
-    altrimenti None."""
+def avviso(azienda, cosa=StatoCalcolo.MAGAZZINO):
+    """Se l'ultimo calcolo delle previsioni salvate dell'azienda (di magazzino o di vendite) non è riuscito:
+    {"dal": da quando non sono aggiornate (l'ultimo calcolo riuscito, altrimenti la più recente delle righe), o None
+    se non ci sono righe («Previsioni non calcolate»), "motivo": il perché, "tentativo": quando si è provato}.
+    None se l'ultimo calcolo è riuscito o non c'è stato. Lo mostrano allo stesso modo pagina, lista e riquadro
+    (previsioni/_avviso.html)."""
     stato = StatoCalcolo.objects.filter(azienda=azienda, cosa=cosa).first()
     if stato is None or not stato.errore:
         return None
-    if stato.ultimo_ok:
-        return stato.ultimo_ok
-    return max((r.calcolata_il for r in righe), default=None)
+    modello = PrevisioneArticolo if cosa == StatoCalcolo.MAGAZZINO else PrevisionePronta
+    ultima = modello.objects.filter(azienda=azienda).aggregate(m=Max("calcolata_il"))["m"]
+    return {"dal": (stato.ultimo_ok or ultima) if ultima is not None else None, "motivo": stato.errore,
+            "tentativo": stato.ultimo_tentativo}
 
 
 def fascia(riga):

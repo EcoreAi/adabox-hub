@@ -116,7 +116,7 @@ def test_riquadro_nella_scheda_prodotto_con_fascia_affidabilita_e_attribuzione(c
     assert "Nessun consumo previsto" in html and "Affidabilità: media" in html and "Storia: 14 mesi" in html
     assert "modello timestral-1 · licenza Modified MIT di Mistral AI" in html and "calcolata il" in html
     assert html.index("Negozio") < html.index("Tutti i magazzini")           # la riga sul totale per ultima
-    assert "non aggiornata dal" not in html
+    assert "non aggiornate dal" not in html and "non calcolate" not in html
 
 
 @pytest_prodotti
@@ -135,7 +135,7 @@ def test_riquadro_avviso_se_non_aggiornata(client, capo, prodotto):
     _riga(azienda, "Monitor", _giorni(9), prodotto_pk=prodotto.pk)
     ok = timezone.make_aware(datetime.datetime(2026, 11, 20, 2, 0))
     StatoCalcolo.objects.create(azienda=azienda, cosa="magazzino", ultimo_ok=ok, errore="servizio giù")
-    assert "non aggiornata dal 20/11/2026" in _scheda(client, prodotto)
+    assert "Previsioni non aggiornate dal 20/11/2026" in _scheda(client, prodotto)
 
 
 @pytest_prodotti
@@ -255,3 +255,38 @@ def test_righe_di_un_altra_azienda_mai_nella_sezione_ne_nel_riquadro(client, cap
     _riga(Azienda.objects.get(pk=1), "Alfa", _giorni(5))
     assert "Segreto" not in client.get(reverse("previsioni:pagina")).content.decode()
     assert "Segreto" not in _scheda(client, prodotto)
+
+
+# ---------- un calcolo non riuscito si vede sempre, con il motivo e la data del tentativo ----------
+
+TENTATIVO = timezone.make_aware(datetime.datetime(2026, 11, 24, 2, 0))
+RIFIUTATO = "Il servizio di previsione ha rifiutato la richiesta: 401 chiave sbagliata"
+
+
+def _fallito(azienda, ultimo_ok=None, cosa="magazzino", errore=RIFIUTATO):
+    return StatoCalcolo.objects.create(azienda=azienda, cosa=cosa, ultimo_tentativo=TENTATIVO, ultimo_ok=ultimo_ok,
+                                       errore=errore)
+
+
+def _avvisa(html, titolo):
+    return titolo in html and RIFIUTATO in html and "24/11/2026 02:00" in html
+
+
+def test_lista_dice_se_le_previsioni_non_sono_mai_state_calcolate(client, capo):
+    azienda = Azienda.objects.get(pk=1)
+    _fallito(azienda)
+    url = reverse("previsioni:esaurimenti_lista")
+    assert _avvisa(client.get(url).content.decode(), "Previsioni non calcolate")
+    _riga(azienda, "Alfa", _giorni(5), calcolata_il=timezone.make_aware(datetime.datetime(2026, 11, 19, 2, 0)))
+    StatoCalcolo.objects.update(ultimo_ok=timezone.make_aware(datetime.datetime(2026, 11, 20, 2, 0)))
+    assert _avvisa(client.get(url).content.decode(), "Previsioni non aggiornate dal 20/11/2026")
+
+
+@pytest_prodotti
+def test_riquadro_dice_il_motivo_con_e_senza_righe(client, capo, prodotto):
+    azienda = Azienda.objects.get(pk=1)
+    _fallito(azienda)
+    assert _avvisa(_scheda(client, prodotto), "Previsioni non calcolate")          # nessuna riga: il riquadro c'è lo stesso
+    _riga(azienda, "Monitor", _giorni(9), prodotto_pk=prodotto.pk,
+          calcolata_il=timezone.make_aware(datetime.datetime(2026, 11, 18, 2, 0)))
+    assert _avvisa(_scheda(client, prodotto), "Previsioni non aggiornate dal 18/11/2026")

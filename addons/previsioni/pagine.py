@@ -11,7 +11,7 @@ from core.viste import interroga
 from core.viste.interroga import ErroreInterrogazione
 
 from . import calcolo, esaurimenti, motore, pronte, servizio
-from .models import PrevisionePronta, StatoCalcolo
+from .models import StatoCalcolo
 
 PERMESSI_PAGINA = ("previsioni.view_previsionepronta", "previsioni.view_previsionearticolo")
 PERMESSO_MAGAZZINO = "magazzino.view_movimento"     # quello delle Giacenze di Magazzino (anche «sotto scorta»)
@@ -34,11 +34,10 @@ def _sezione_vendite(request):
     elenco = pronte.per_request(request)
     if not elenco:
         return None
-    righe = PrevisionePronta.objects.filter(azienda=request.azienda).only("calcolata_il")
     return {"pronte": [{"chiave": p["chiave"], "titolo": p["titolo"], "url": reverse("previsioni:pronta", args=[p["chiave"]])}
                        for p in elenco],
             "aggiorna": _aggiorna(request, StatoCalcolo.VENDITE),
-            "ferma_dal": esaurimenti.non_aggiornata_dal(request.azienda, righe, StatoCalcolo.VENDITE)}
+            "avviso": esaurimenti.avviso(request.azienda, StatoCalcolo.VENDITE)}
 
 
 def _riga_esaurimento(r):
@@ -76,7 +75,7 @@ def _sezione_magazzino(request):
     return {"righe": [_riga_esaurimento(r) for r in righe], "modello": righe[0].modello if righe else "",
             "calcolata_il": max((r.calcolata_il for r in righe), default=None),
             "aggiorna": _aggiorna(request, StatoCalcolo.MAGAZZINO),
-            "ferma_dal": esaurimenti.non_aggiornata_dal(azienda, righe) if righe else None}
+            "avviso": esaurimenti.avviso(azienda, StatoCalcolo.MAGAZZINO)}
 
 
 def _nuova_previsione(request):

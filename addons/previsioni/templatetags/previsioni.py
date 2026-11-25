@@ -18,15 +18,15 @@ def previsioni_prodotto(context, prodotto):
     vista = pagine.vista_esaurimenti(request) if request is not None else None
     if vista is None:
         return None
-    azienda = request.azienda
     righe = sorted(vista.get_queryset(request).filter(prodotto_pk=prodotto.pk),
                    key=lambda r: (r.magazzino_pk is None, r.magazzino))
-    if not righe:
+    avviso = esaurimenti.avviso(request.azienda)                # un calcolo non riuscito si dice anche senza righe
+    if not righe and avviso is None:
         return None
     for r in righe:
         r.fine_orizzonte = esaurimenti.fine_orizzonte(r)
         r.motivo = (r.affidabilita.get("motivi") or [""])[0]
-    return {"righe": righe, "ferma_dal": esaurimenti.non_aggiornata_dal(azienda, righe)}
+    return {"righe": righe, "avviso": avviso}
 
 
 @register.simple_tag(takes_context=True)
@@ -40,17 +40,17 @@ def vendite_prodotto_url(context, prodotto):
 
 @register.simple_tag(takes_context=True)
 def stato_previsioni(context):
-    """Per la lista: quando sono state calcolate le previsioni dell'azienda e, se l'ultimo calcolo è fallito, da quando
-    non sono aggiornate."""
+    """Per la lista: quando sono state calcolate le previsioni dell'azienda e, se l'ultimo calcolo non è riuscito,
+    l'avviso (anche senza righe); None se non c'è niente da dire."""
     from django.db.models import Max
     azienda = getattr(context.get("request"), "azienda", None)
     if azienda is None:
         return None
-    righe = PrevisioneArticolo.objects.filter(azienda=azienda)
-    calcolata = righe.aggregate(m=Max("calcolata_il"))["m"]
-    if calcolata is None:
+    calcolata = PrevisioneArticolo.objects.filter(azienda=azienda).aggregate(m=Max("calcolata_il"))["m"]
+    avviso = esaurimenti.avviso(azienda)
+    if calcolata is None and avviso is None:
         return None
-    return {"calcolata_il": calcolata, "ferma_dal": esaurimenti.non_aggiornata_dal(azienda, righe.only("calcolata_il"))}
+    return {"calcolata_il": calcolata, "avviso": avviso}
 
 
 class _EntroNelForm(template.Node):

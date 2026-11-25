@@ -120,7 +120,7 @@ def test_pagina_con_vendite_e_magazzino(client, capo, azienda, servizi):
         assert f'hx-get="{url}"' in html
     assert 'hx-trigger="load"' in html and "Calcolo in corso" in html
     assert "Vendite" in html and "Magazzino" in html
-    assert "non aggiornata dal 20/11/2026" in html
+    assert "Previsioni non aggiornate dal 20/11/2026" in html
     assert f'{reverse("previsioni:aggiorna")}?cosa=vendite' in html and f'{reverse("previsioni:aggiorna")}?cosa=magazzino' in html
     assert "csrfmiddlewaretoken" in html
     # Magazzino: i primi 10 per data di riordino, con la fascia, e il link alla vista
@@ -128,6 +128,29 @@ def test_pagina_con_vendite_e_magazzino(client, capo, azienda, servizi):
     assert f"{_giorni(30):%d/%m/%Y} – {_giorni(60):%d/%m/%Y}" in html
     assert reverse("previsioni:esaurimenti_lista") in html
     assert ATTRIBUZIONE in html
+
+
+def test_calcolo_mai_riuscito_si_vede_nella_pagina(client, capo, azienda, servizi):
+    """Primo calcolo fallito (chiave sbagliata, nessun utente…): niente «Nessun articolo in esaurimento», ma
+    «Previsioni non calcolate» con il motivo e il tentativo, per Magazzino e per Vendite; con righe vecchie «non
+    aggiornate dal …», sempre con il motivo."""
+    tentativo = timezone.make_aware(datetime.datetime(2026, 11, 24, 2, 0))
+    StatoCalcolo.objects.create(azienda=azienda, cosa="magazzino", ultimo_tentativo=tentativo,
+                                errore="Il servizio di previsione ha rifiutato la richiesta: 401")
+    StatoCalcolo.objects.create(azienda=azienda, cosa="vendite", ultimo_tentativo=tentativo,
+                                errore="nessun utente con cui calcolare")
+    html = _pagina(client)
+    vendite, magazzino = html.split('id="prev-magazzino"')
+    assert "Nessun articolo in esaurimento" not in magazzino
+    assert "Previsioni non calcolate" in magazzino and "rifiutato la richiesta: 401" in magazzino
+    assert "Previsioni non calcolate" in vendite and "nessun utente con cui calcolare" in vendite
+    assert html.count("24/11/2026 02:00") == 2
+    _salva_tutte(azienda)
+    _riga(azienda, "Monitor", _giorni(10))
+    StatoCalcolo.objects.update(ultimo_ok=timezone.make_aware(datetime.datetime(2026, 11, 20, 3)))
+    html = _pagina(client)
+    assert html.count("Previsioni non aggiornate dal 20/11/2026") == 2
+    assert "rifiutato la richiesta: 401" in html and "nessun utente con cui calcolare" in html
 
 
 def test_carta_della_serie_singola(client, capo, azienda, servizi):
