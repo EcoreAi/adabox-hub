@@ -27,7 +27,7 @@ STRUMENTI = {
     "scrivi_documento": "documenti", "leggi_documento_chat": "documenti", "modifica_documento": "documenti",
     "grafico": "grafici", "tabella": "grafici",
     "chiedi_esperto": "assistenti", "elenco_esperti": "assistenti",
-    "previsione": "specialisti", "classifica": "specialisti",
+    "classifica": "specialisti",                  # la previsione non c'è: dipende dal modulo Previsioni, non da una funzione
 }
 
 
