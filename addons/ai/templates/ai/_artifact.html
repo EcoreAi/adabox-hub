@@ -20,6 +20,7 @@
     <button type="button" class="ai-azione" data-salva-documenti="{% url 'ai:salva_documenti' 'artifact' a.pk %}" data-cosa="{% if a.tipo == 'grafico' %}il grafico «{{ a.titolo }}» (PDF con i valori, dati di oggi){% else %}la tabella «{{ a.titolo }}» (CSV, con i dati di oggi){% endif %}" hidden data-tip="Salva nei Documenti" aria-label="Salva nei Documenti"><svg><use href="#ai-cartella"/></svg></button>
     {% agganci "ai.artifact" %}
   </figcaption>
+  {% with spenta=a|previsione_spenta %}{% if spenta %}<p class="ai-artifact-vuoto">{{ spenta }}</p>{% else %}
   {% if a.tipo == "grafico" and a.utente_id == request.user.pk %}{% with p=a|periodo_artifact %}{% filtri_artifact a as f %}{% if p or f %}<div class="ui-strumenti-grafico">
     {% if p %}{% include "core/_periodo_grafico.html" %}{% endif %}{% if f %}{% include "core/_filtri_grafico.html" %}{% endif %}</div>{% endif %}{% endwith %}{% endif %}
   {% if a.tipo == "grafico" %}{% with s=a|serie_artifact %}{% if s %}
@@ -33,4 +34,5 @@
     {% include "ai/_artifact_tabella.html" with dati=a.dati %}
   {% endif %}
   {% if a.spec.grafico == "previsione" %}{% include "ai/_attribuzione_previsione.html" with modello=a.dati.modello %}{% endif %}
+  {% endif %}{% endwith %}
 </figure>

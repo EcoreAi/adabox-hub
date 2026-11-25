@@ -22,6 +22,8 @@ def previsione(contesto, vista="", data="", misura="count", per="mese", orizzont
             raise ErroreStrumento("«primi» è un numero intero di gruppi.")
     if contesto.conversazione is None:
         raise ErroreStrumento("Le previsioni si mostrano solo in una chat.")
+    if not servizio.abilitato(contesto.azienda, contesto.utente):     # spento o riservato ad altre aziende
+        raise ErroreStrumento(servizio.SENZA_MODULO)
     if misura_aziendale:
         from core import misure
         spec = {"tipo": Artifact.GRAFICO, "grafico": "previsione", "misura_aziendale": misura_aziendale, "per": per,

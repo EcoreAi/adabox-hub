@@ -26,7 +26,7 @@ def puo_vedere_la_pagina(user):
 def _aggiorna(request, cosa):
     """Il bottone «Aggiorna» si mostra con il servizio acceso, il permesso di modifica e le previsioni calcolabili."""
     from .views import PERMESSI_AGGIORNA            # views importa questo modulo
-    return (servizio.attivo() and request.user.has_perm(PERMESSI_AGGIORNA[cosa])
+    return (servizio.attivo(request.azienda, request.user) and request.user.has_perm(PERMESSI_AGGIORNA[cosa])
             and calcolo.eseguibile(cosa, request.azienda))
 
 
@@ -76,7 +76,7 @@ def _nuova_previsione(request):
 def contesto_pagina(request):
     vendite, magazzino = _sezione_vendite(request), _sezione_magazzino(request)
     return {"vendite": vendite, "magazzino": magazzino, "vuota": vendite is None and magazzino is None,
-            "senza_servizio": not servizio.attivo(), "messaggio_senza_servizio": SENZA_SERVIZIO,
+            "senza_servizio": not servizio.attivo(request.azienda, request.user), "messaggio_senza_servizio": SENZA_SERVIZIO,
             "nuova_previsione_url": _nuova_previsione(request)}
 
 

@@ -46,23 +46,33 @@ def _ai_disponibile():
     return "ai" in settings.ADDONS_ATTIVI and "ai" not in modules.disattivati()
 
 
-def previsioni_disponibili():
-    """Il servizio di previsione c'è: modulo Previsioni installato, attivo, in licenza e con l'indirizzo configurato."""
+def previsioni_disponibili(request=None):
+    """Il servizio di previsione c'è: modulo Previsioni installato, acceso, in licenza, valido per l'azienda della
+    richiesta (se c'è) e con l'indirizzo configurato."""
     from django.apps import apps
     if not apps.is_installed("previsioni"):
         return False
     from previsioni import servizio
-    return servizio.attivo()
+    return servizio.attivo(getattr(request, "azienda", None), getattr(request, "user", None))
+
+
+def senza_previsioni(request):
+    """«Serve il modulo Previsioni.» se il modulo non è installato, è spento, fuori licenza o non vale per l'azienda di
+    chi guarda; "" se c'è. Senza l'indirizzo del servizio il modulo c'è: è un guasto, e vale la sua regola."""
+    from django.apps import apps
+    if not apps.is_installed("previsioni"):
+        return "Serve il modulo Previsioni."
+    from previsioni import servizio
+    if not servizio.abilitato(getattr(request, "azienda", None), getattr(request, "user", None)):
+        return servizio.SENZA_MODULO
+    return ""
 
 
 def _previsione(spec, request):
-    from django.apps import apps
-    if not apps.is_installed("previsioni"):
-        raise ErroreInterrogazione("Serve il modulo Previsioni.")
-    from previsioni import motore, servizio
+    if messaggio := senza_previsioni(request):
+        raise ErroreInterrogazione(messaggio)
+    from previsioni import motore
     from previsioni.servizio import ErrorePrevisione
-    if not servizio.abilitato():
-        raise ErroreInterrogazione(servizio.SENZA_MODULO)
     try:
         if spec.get("raggruppa"):                            # una riga per gruppo: si mostra come tabella
             dati = motore.calcola_per_gruppo(spec, request)
@@ -110,7 +120,10 @@ def _serie_di_spec(spec, request):
 
 def aggiorna(grafico, request, forza=False):
     """(dati, errore) del grafico: l'istantanea del proprietario se è fresca, altrimenti un ricalcolo, salvato solo
-    se chi guarda è il proprietario (gli altri vedono i dati con i propri permessi, senza toccare la cache)."""
+    se chi guarda è il proprietario (gli altri vedono i dati con i propri permessi, senza toccare la cache). Se il
+    ricalcolo fallisce il proprietario tiene l'istantanea (un guasto); una previsione senza il modulo non ha dati."""
+    if grafico.tipo == Grafico.PREVISIONE and (messaggio := senza_previsioni(request)):
+        return {}, messaggio              # senza il modulo il messaggio prende il posto dei dati, anche di quelli salvati
     mio = grafico.utente_id == request.user.id
     fresca = grafico.dati and grafico.aggiornato and \
         timezone.now() - grafico.aggiornato < datetime.timedelta(minutes=minuti_cache())

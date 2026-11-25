@@ -20,7 +20,7 @@ from core.registry import modules
 from core.viste import interroga, registry
 from core.viste.interroga import ErroreInterrogazione
 
-from . import motore
+from . import motore, servizio
 from .models import PrevisionePronta
 from .servizio import ErrorePrevisione
 
@@ -58,7 +58,10 @@ def di_app(app):
 
 
 def app_attiva(slug, azienda, user=None):
-    """L'app è installata, accesa, in licenza e vale per l'azienda (non riservata ad altre: Modulo.aziende)."""
+    """L'app è installata, accesa, in licenza e vale per l'azienda (non riservata ad altre: Modulo.aziende). Per
+    Previsioni è il controllo di tutto il modulo (`servizio.abilitato`)."""
+    if slug == "previsioni":
+        return servizio.abilitato(azienda, user)
     return (apps.is_installed(slug) and slug not in modules.disattivati()
             and modules.per_azienda(slug, azienda, user))
 

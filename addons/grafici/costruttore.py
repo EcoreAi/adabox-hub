@@ -33,9 +33,9 @@ ORIZZONTI = [("3", "3 periodi"), ("6", "6 periodi"), ("12", "12 periodi"), ("24"
 MASSIMI = [("10", "Prime 10"), ("20", "Prime 20"), ("30", "Prime 30"), ("100", "Tutte (fino a 100)")]
 
 
-def tipi_disponibili():
-    """I tipi del costruttore: la previsione solo se il servizio c'è."""
-    return TIPI + ([(Grafico.PREVISIONE, "Previsione")] if motore.previsioni_disponibili() else [])
+def tipi_disponibili(request=None):
+    """I tipi del costruttore: la previsione solo se il servizio c'è (per l'azienda della richiesta)."""
+    return TIPI + ([(Grafico.PREVISIONE, "Previsione")] if motore.previsioni_disponibili(request) else [])
 
 
 def _viste_per_app(request):
@@ -157,7 +157,7 @@ def _contesto(request, grafico=None):
         p["misura"] = "count"
     if not request.GET:                                      # modifica di un grafico: i filtri della lista leggono f_* da GET
         request.GET = QueryDict(urlencode({k: v for k, v in p.items() if k == "q" or k.startswith("f_")}))
-    return {"p": p, "vista": vista, "viste": _viste_per_app(request), "opzioni": opzioni, "tipi": tipi_disponibili(),
+    return {"p": p, "vista": vista, "viste": _viste_per_app(request), "opzioni": opzioni, "tipi": tipi_disponibili(request),
             "periodi": PERIODI, "periodi_previsione": PERIODI_PREVISIONE, "raggruppi_previsione": raggruppi, "orizzonti": ORIZZONTI, "massimi": MASSIMI,
             "aggiornamenti": motore.AGGIORNAMENTI, "filtri": filtri_lista.specifiche(vista, request) if vista else [],
             "w": _anteprima(request, p, vista),
@@ -171,7 +171,7 @@ def _salva(request, grafico=None):
     p = {k: v for k, v in request.POST.items() if k != "csrfmiddlewaretoken"}
     spec = spec_di(p)
     tipo = p.get("tipo", Grafico.BARRE)
-    if tipo not in dict(tipi_disponibili()):
+    if tipo not in dict(tipi_disponibili(request)):
         tipo = Grafico.BARRE
     vista = motore.vista_di(spec, request) if spec else None
     if vista is None:

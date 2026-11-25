@@ -585,6 +585,8 @@ def csv_artifact(request, pk):
     from . import artifact
     from .strumenti import ErroreStrumento
     a = _artifact_leggibile(request, pk)
+    if messaggio := artifact.previsione_spenta(a):                   # senza il modulo niente numeri, nemmeno quelli di prima
+        return HttpResponse(messaggio, status=409, content_type="text/plain; charset=utf-8")
     dati = a.dati if a.utente_id == request.user.pk else None        # l'istantanea è del proprietario: agli altri i loro dati
     if request.GET.get("oggi") or dati is None:
         try:

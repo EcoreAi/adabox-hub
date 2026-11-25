@@ -49,6 +49,13 @@ def documenti(messaggio):
 
 
 @register.filter
+def previsione_spenta(a):
+    """«Serve il modulo Previsioni.» al posto dell'istantanea di una previsione quando il modulo non c'è; "" altrimenti."""
+    from ai import artifact as modulo
+    return modulo.previsione_spenta(a)
+
+
+@register.filter
 def svg_artifact(a):
     from django.utils.safestring import mark_safe
 
