@@ -81,10 +81,38 @@ def calcola(spec, contesto):
     return _calcola(spec, contesto)
 
 
+def senza_previsioni(azienda=None, utente=None):
+    """«Serve il modulo Previsioni.» se il modulo non è installato, è spento, fuori licenza o non vale per l'azienda;
+    "" se c'è. La chat non dipende dal modulo: senza, il messaggio è scritto qui."""
+    from django.apps import apps
+    if not apps.is_installed("previsioni"):
+        return "Serve il modulo Previsioni."
+    from previsioni import servizio
+    return "" if servizio.abilitato(azienda, utente) else servizio.SENZA_MODULO
+
+
+def previsione_spenta(artifact):
+    """Il messaggio che prende il posto dell'istantanea di una previsione (grafico o tabella per gruppo) se il modulo
+    non c'è per l'azienda dell'artifact; "" per gli altri artifact."""
+    if artifact.spec.get("grafico") != "previsione":
+        return ""
+    return senza_previsioni(artifact.azienda if artifact.azienda_id else None,
+                            artifact.utente if artifact.utente_id else None)
+
+
 def _calcola(spec, contesto):
     if spec.get("grafico") == "previsione":
-        from .specialisti import calcola_previsione
-        return calcola_previsione(spec, contesto)
+        if messaggio := senza_previsioni(contesto.azienda, contesto.utente):
+            raise ErroreStrumento(messaggio)
+        from previsioni import motore
+        from previsioni.servizio import ErrorePrevisione
+        v = None if spec.get("misura_aziendale") else vista_per(contesto, spec["vista"])   # le viste della chat
+        try:
+            if spec.get("raggruppa"):
+                return motore.come_tabella(motore.calcola_per_gruppo(spec, richiesta.per(contesto), vista=v))
+            return motore.calcola_previsione(spec, richiesta.per(contesto), vista=v)
+        except ErrorePrevisione as e:
+            raise ErroreStrumento(str(e)) from e
     if spec.get("misura_aziendale"):
         from core import misure
         return misure.serie(spec, richiesta.per(contesto))
@@ -116,7 +144,9 @@ def _calcola(spec, contesto):
 def svg_di(artifact, dati=None):
     dati = dati or artifact.dati
     if artifact.spec.get("grafico") == "previsione":
-        from .specialisti import svg_previsione
+        if artifact.spec.get("raggruppa") or previsione_spenta(artifact):
+            return ""                                   # per gruppo è una tabella; senza il modulo niente disegno
+        from previsioni.motore import svg_previsione
         return svg_previsione(dati, artifact.titolo)
     serie = [tuple(c) for c in dati.get("serie", [])]
     if not serie:
