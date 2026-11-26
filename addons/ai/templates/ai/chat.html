@@ -67,8 +67,8 @@
     </section>
     <section data-contenuto="progetti" hidden>
       <header class="ai-pannello-testa"><h2>Aree di lavoro</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
-      {# chi lavora in più aziende: un gruppo per azienda, la corrente aperta e per prima, le altre chiuse e per nome.
-         aree_altre_aziende si calcola solo qui, e solo per chi ha più aziende (una volta per richiesta) #}
+      {% comment %}chi lavora in più aziende: un gruppo per azienda, la corrente aperta e per prima, le altre chiuse e per nome.
+         aree_altre_aziende si calcola solo qui, e solo per chi ha più aziende (una volta per richiesta){% endcomment %}
       {% if aziende|length > 1 and aree_altre_aziende %}<details class="ai-gruppo-azienda" open><summary><svg class="ai-albero-freccia" aria-hidden="true"><use href="#icon-chevron-down"/></svg><span>{{ azienda.nome }}</span><span class="ai-conta">{{ progetti|length }}</span></summary>{% endif %}
       <ul class="ai-elenco ai-progetti">{% for p in progetti %}
         {% with aperto=conversazione.progetto_id|default_if_none:0 %}
