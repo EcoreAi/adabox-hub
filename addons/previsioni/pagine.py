@@ -10,7 +10,7 @@ from django.utils.safestring import mark_safe
 from core.viste import interroga
 from core.viste.interroga import ErroreInterrogazione
 
-from . import calcolo, esaurimenti, motore, pronte, servizio
+from . import calcolo, esaurimenti, mie, motore, pronte, servizio
 from .models import StatoCalcolo
 
 PERMESSI_PAGINA = ("previsioni.view_previsionepronta", "previsioni.view_previsionearticolo")
@@ -90,6 +90,7 @@ def _nuova_previsione(request):
 def contesto_pagina(request):
     vendite, magazzino = _sezione_vendite(request), _sezione_magazzino(request)
     return {"vendite": vendite, "magazzino": magazzino, "vuota": vendite is None and magazzino is None,
+            "mie": mie.sezione(request),
             "senza_servizio": not servizio.attivo(request.azienda, request.user), "messaggio_senza_servizio": SENZA_SERVIZIO,
             "nuova_previsione_url": _nuova_previsione(request)}
 

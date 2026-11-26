@@ -1,4 +1,5 @@
 """L'impostazione del servizio di previsione (dell'istanza) e le previsioni salvate di ogni azienda."""
+from django.conf import settings
 from django.db import models
 
 from core import cifratura
@@ -108,3 +109,25 @@ class PrevisionePronta(AziendaMixin):
 
     def __str__(self):
         return f"Previsione pronta {self.chiave}"
+
+
+class EtichettaPrevisione(AziendaMixin):
+    """L'etichetta che l'utente dà a una sua previsione (di una chat o di Analisi) per ritrovarla in «Le mie previsioni».
+
+    Niente chiavi esterne verso Assistente AI e Analisi, che possono arrivare dopo (come PrevisioneArticolo): l'origine e
+    l'id dell'oggetto. L'etichetta è dell'utente, non dell'azienda: l'azienda è quella in cui l'ha scritta."""
+    CHAT, ANALISI = "chat", "analisi"
+    ORIGINI = [(CHAT, "Chat"), (ANALISI, "Analisi")]
+
+    utente = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+", verbose_name="utente")
+    origine = models.CharField("origine", max_length=10, choices=ORIGINI)
+    oggetto_pk = models.PositiveBigIntegerField("id della previsione")
+    etichetta = models.CharField("etichetta", max_length=60)
+
+    class Meta(AziendaMixin.Meta):
+        verbose_name = "etichetta di una previsione"
+        verbose_name_plural = "etichette delle previsioni"
+        constraints = [models.UniqueConstraint(fields=["utente", "origine", "oggetto_pk"], name="previsioni_etichetta_unica")]
+
+    def __str__(self):
+        return f"{self.etichetta} ({self.origine} {self.oggetto_pk})"

@@ -14,9 +14,9 @@ from django.views.decorators.http import require_POST
 from core import lavori
 from core.viste import ModelView, register
 
-from . import calcolo, esaurimenti, pagine, pronte, servizio
+from . import calcolo, esaurimenti, mie, pagine, pronte, servizio
 from .forms import ServizioForm
-from .models import PrevisioneArticolo, ServizioPrevisioni, StatoCalcolo
+from .models import EtichettaPrevisione, PrevisioneArticolo, ServizioPrevisioni, StatoCalcolo
 
 ENTRO = ("7", "30", "90")           # i giorni di «entro N giorni»
 PERMESSI_AGGIORNA = {StatoCalcolo.MAGAZZINO: "previsioni.change_previsionearticolo",
@@ -135,3 +135,53 @@ class ArticoliInEsaurimentoView(ModelView):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+# ---------- Le mie previsioni ----------
+
+def _mia_previsione(request, origine, pk):
+    """La previsione dell'utente su cui agire (rinomina, etichetta). 403 se non vede la pagina, 404 se non è sua."""
+    if not pagine.puo_vedere_la_pagina(request.user):
+        raise PermissionDenied
+    obj = mie.oggetto(origine, pk, request)
+    if obj is None:
+        raise Http404
+    return obj
+
+
+def _risposta_riga(request, origine, obj):
+    """La riga aggiornata per HTMX, altrimenti di nuovo la pagina."""
+    if request.headers.get("HX-Request"):
+        return render(request, "previsioni/_mia_riga.html", mie.riga(origine, obj, request))
+    return redirect("previsioni:pagina")
+
+
+@login_required
+@require_POST
+def rinomina(request, origine, pk):
+    """Cambia il titolo della previsione d'origine (Artifact o Grafico): il nome nuovo si vede anche in chat e in Analisi."""
+    obj = _mia_previsione(request, origine, pk)
+    titolo = " ".join(request.POST.get("titolo", "").split())
+    if not titolo or len(titolo) > mie.LUNGHEZZA_TITOLO:
+        return HttpResponseBadRequest(f"Il titolo non può essere vuoto né più lungo di {mie.LUNGHEZZA_TITOLO} caratteri.")
+    obj.titolo = titolo
+    # `auto_now` (Grafico.modificato) non scatta con update_fields: lo si aggiunge a mano
+    campi = ["titolo"] + (["modificato"] if hasattr(obj, "modificato") else [])
+    obj.save(update_fields=campi)
+    return _risposta_riga(request, origine, obj)
+
+
+@login_required
+@require_POST
+def etichetta(request, origine, pk):
+    """Imposta o cambia l'etichetta della previsione; vuota la toglie."""
+    obj = _mia_previsione(request, origine, pk)
+    testo = " ".join(request.POST.get("etichetta", "").split())
+    if len(testo) > mie.LUNGHEZZA_ETICHETTA:
+        return HttpResponseBadRequest(f"L'etichetta non può superare {mie.LUNGHEZZA_ETICHETTA} caratteri.")
+    chiave = {"utente": request.user, "origine": origine, "oggetto_pk": obj.pk}
+    if testo:
+        EtichettaPrevisione.objects.update_or_create(**chiave, defaults={"etichetta": testo, "azienda": request.azienda})
+    else:
+        EtichettaPrevisione.objects.filter(**chiave).delete()
+    return _risposta_riga(request, origine, obj)

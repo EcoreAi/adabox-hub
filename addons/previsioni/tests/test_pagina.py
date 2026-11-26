@@ -214,7 +214,9 @@ def test_senza_magazzino_niente_sezione(client, capo, azienda, servizi):
     assert reverse("previsioni:pronta", args=["vendite.prodotti"]) in html
 
 
-def test_senza_vendite_ne_magazzino_testo_vuoto(client, capo, azienda, servizi):
+def test_senza_vendite_ne_magazzino_testo_vuoto(client, capo, azienda, servizi, monkeypatch):
+    vera = pronte.app_attiva           # senza Assistente AI e Analisi non c'è nemmeno «Le mie previsioni»
+    monkeypatch.setattr(pronte, "app_attiva", lambda slug, *a, **k: slug not in ("ai", "grafici") and vera(slug, *a, **k))
     altra = Azienda.objects.create(nome="Altra")
     _riserva("vendite", altra)
     _riserva("magazzino", altra)
