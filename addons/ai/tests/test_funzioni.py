@@ -57,6 +57,17 @@ def test_gli_strumenti_delle_funzioni_non_comprese_non_ci_sono(db, chiavi, super
     assert set(funzioni_ai.STRUMENTI) <= set(registro._registro)
 
 
+def test_la_previsione_dipende_dal_modulo_non_dalla_funzione_classificazioni(db, chiavi, superuser):  # noqa: F811
+    """«previsione» è del modulo Previsioni: la licenza dell'assistente senza «specialisti» non la toglie."""
+    parametri.scrivi("previsioni.url_servizio", "http://forecast:8080")
+    parametri.scrivi("ai.url_decider", "http://decider:8080")
+    _solo(chiavi, "memoria")
+    nomi = {s.nome for s in registro.disponibili(superuser)}
+    assert "previsione" in nomi and "classifica" not in nomi
+    parametri.scrivi("previsioni.url_servizio", "")
+    assert "previsione" not in {s.nome for s in registro.disponibili(superuser)}
+
+
 def test_pagine_menu_e_chat_senza_le_funzioni(db, chiavi, superuser, client):  # noqa: F811
     _solo(chiavi, "memoria")
     voci = next(a for a in modules.app_visibili(superuser) if a["slug"] == "ai")["menu"]

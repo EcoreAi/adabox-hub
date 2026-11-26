@@ -232,3 +232,18 @@ def test_condividere_un_grafico_con_un_collega(client, superuser, attivita, mail
     client.post(reverse("grafici:grafico_condividi", args=[g.pk]), {})
     client.force_login(collega)
     assert client.get(reverse("grafici:grafico", args=[g.pk])).status_code == 404 and client.get(reverse("grafici:pagina", args=[pagina.pk])).context["widget"] == []
+
+
+@pytest.mark.django_db
+def test_apri_in_grande_di_una_tabella_salvata_dalla_chat(client, superuser):
+    """«Apri in grande» di una tabella (salvata dalla chat): le sue colonne, il link della prima, niente canvas."""
+    from django.utils import timezone
+    g = Grafico.objects.create(utente=superuser, titolo="Attività aperte", tipo=Grafico.TABELLA,
+                               spec={"vista": "todo.attivita"}, aggiornato=timezone.now(),
+                               dati={"colonne": ["Titolo", "Stato", "Scadenza"], "righe": [["Alfa", "Da fare", "—"]],
+                                     "link": ["/todo/attivita/1/"], "totale": 1})
+    r = client.get(reverse("grafici:grafico", args=[g.pk]))
+    assert r.status_code == 200
+    html = r.content.decode()
+    assert '<th scope="col">Scadenza</th>' in html and '<a href="/todo/attivita/1/">Alfa</a>' in html
+    assert "data-grafico" not in html and "Modified MIT" not in html

@@ -1,0 +1,26 @@
+{% comment %}La card di una previsione pronta, caricata da HTMX al posto del segnaposto: arriva già visibile (ui.js rivela le card solo al caricamento della pagina).{% endcomment %}
+<div class="ui-card is-revealed ui-section">
+  <div class="ui-card-head"><div class="ui-card-title">{{ titolo }}</div></div>
+  <div class="ui-card-body">
+  {% if not dati %}<p class="sub">{{ errore }}</p>
+  {% else %}
+    {% if svg %}
+    <div class="ui-grafico">{{ svg }}</div>
+    <div class="ui-table-wrap"><table class="ui-table is-revealed">
+      <thead><tr><th scope="col">Periodo</th><th scope="col" class="ui-num">Previsione (10–90 %)</th></tr></thead>
+      <tbody>{% for p in periodi %}<tr><td>{{ p.periodo }}</td><td class="ui-num"><strong>{{ p.mediana|floatformat:"-2" }}</strong> <small>({{ p.basso|floatformat:"-2" }} – {{ p.alto|floatformat:"-2" }})</small></td></tr>{% endfor %}</tbody>
+      {% if totale %}<tfoot><tr class="ui-totali"><th scope="row">Totale</th><td class="ui-num"><strong>{{ totale.mediana|floatformat:"-2" }}</strong> <small>({{ totale.basso_10|floatformat:"-2" }} – {{ totale.alto_90|floatformat:"-2" }})</small></td></tr></tfoot>{% endif %}
+    </table></div>
+    <p class="sub">Affidabilità: {{ affidabilita.livello|default:"–" }}{% if motivo %} ({{ motivo }}){% endif %}</p>
+    {% else %}
+    <div class="ui-table-wrap"><table class="ui-table is-revealed">
+      <thead><tr>{% for c in tabella.colonne %}<th scope="col">{{ c }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for r in tabella.righe %}<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+    <p class="sub">Affidabilità: il livello di ogni gruppo è nell'ultima colonna della tabella.</p>
+    {% endif %}
+    {% if esclusi_unita %}<p class="sub">{{ esclusi_unita }} righe in un'altra unità senza fattore, escluse.</p>{% endif %}
+    {% if esclusi %}<p class="sub">{{ esclusi }} gruppi esclusi per poca storia.</p>{% endif %}
+    <p class="sub">{% if calcolata_ora %}calcolata ora{% else %}calcolata il {{ calcolata_il|date:"d/m/Y H:i" }}{% endif %} · {% include "previsioni/_attribuzione.html" with modello=modello %}</p>
+  {% endif %}
+  </div>
+</div>

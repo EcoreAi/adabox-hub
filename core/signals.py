@@ -6,11 +6,13 @@ from .models import Azienda, Dipartimento, ProfiloUtente, Ruolo
 
 
 def crea_profilo(utente):
-    """Profilo con tutte le aziende attive; predefinita la prima per nome."""
+    """Profilo con tutte le aziende attive (predefinita la prima per nome); con AZIENDE_NUOVI_UTENTI=nessuna e più aziende, nessuna."""
     profilo, creato = ProfiloUtente.objects.get_or_create(utente=utente)
     if creato:
         from . import ruoli
         attive = list(Azienda.objects.filter(attiva=True).order_by("nome"))
+        if len(attive) > 1 and not utente.is_superuser and getattr(settings, "AZIENDE_NUOVI_UTENTI", "tutte") == "nessuna":
+            attive = []                                       # con più aziende le assegna chi crea l'utente
         profilo.aziende.set(attive)
         profilo.azienda_predefinita = attive[0] if attive else None
         profilo.ruolo = ruoli.predefinito()

@@ -12,7 +12,7 @@ spiegazioni, è nel manifest; qui ciò che ognuna spegne nel codice. Le voci di 
 - documenti: i documenti scritti accanto alla chat
 - grafici: grafici e tabelle nella chat
 - assistenti: gli assistenti delle app e gli esperti
-- specialisti: previsioni e classificazioni dei servizi locali
+- specialisti: le classificazioni del decisore locale (le previsioni sono del modulo Previsioni)
 - mcp: i sistemi esterni collegati con MCP
 - voce: dettatura e lettura delle risposte"""
 from core import funzioni
@@ -27,7 +27,7 @@ STRUMENTI = {
     "scrivi_documento": "documenti", "leggi_documento_chat": "documenti", "modifica_documento": "documenti",
     "grafico": "grafici", "tabella": "grafici",
     "chiedi_esperto": "assistenti", "elenco_esperti": "assistenti",
-    "previsione": "specialisti", "classifica": "specialisti",
+    "classifica": "specialisti",                  # la previsione non c'è: dipende dal modulo Previsioni, non da una funzione
 }
 
 

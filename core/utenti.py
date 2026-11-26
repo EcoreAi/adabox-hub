@@ -76,6 +76,8 @@ class UtenteForm(forms.ModelForm):
 
     def clean(self):
         dati = super().clean()
+        if not self.instance.pk and "aziende" in dati and not dati["aziende"] and Azienda.objects.filter(attiva=True).count() > 1:
+            self.add_error("aziende", "Scegli almeno un'azienda.")
         if "dipartimenti" in dati and not self.errors:
             attivo = bool(dati.get("is_active")) and not (self.instance.pk and self.instance.is_superuser)
             for errore in dipartimenti.oltre_il_tetto(utente_modificato=(self.instance.pk, [d.pk for d in dati["dipartimenti"]], attivo)):
@@ -168,6 +170,12 @@ def _righe_moduli(profilo, ruolo):
     return righe
 
 
+def _aziende_iniziali():
+    """Aziende già spuntate nel modulo di un nuovo utente: l'unica attiva, altrimenti nessuna (si sceglie)."""
+    attive = list(Azienda.objects.filter(attiva=True))
+    return attive if len(attive) == 1 else []
+
+
 @login_required
 @permission_required(GESTIONE, raise_exception=True)
 def scheda(request, pk=None):
@@ -208,7 +216,7 @@ def scheda(request, pk=None):
     else:
         iniziali = {"prima_pagina": profilo.prima_pagina if profilo else "",
                     "ruolo": profilo.ruolo_id if profilo else (ruoli.predefinito() or Ruolo.objects.filter(nome="Collaboratore").first()),
-                    "aziende": list(profilo.aziende.all()) if profilo else list(Azienda.objects.filter(attiva=True)),
+                    "aziende": list(profilo.aziende.all()) if profilo else _aziende_iniziali(),
                     "dipartimenti": list(profilo.dipartimenti.all()) if profilo else []}
         form = UtenteForm(instance=utente, initial=iniziali, tecnico_ammesso=request.user.is_superuser)
     ruolo_scelto = profilo.ruolo if profilo else form.initial.get("ruolo")
