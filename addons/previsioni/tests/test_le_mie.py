@@ -7,7 +7,7 @@ from django.contrib.auth.models import Permission, User
 from django.urls import reverse
 
 from core import parametri
-from core.models import Azienda
+from core.models import Azienda, Modulo
 from previsioni import pronte
 from previsioni.models import EtichettaPrevisione
 
@@ -338,3 +338,15 @@ def test_il_cerca_contiene_titolo_etichetta_e_argomento(client, capo, azienda):
     riga = _scheda(_pagina(client), "Fatturato ottimista")
     cerca = re.search(r'data-cerca="([^"]*)"', riga).group(1).lower()
     assert "fatturato ottimista" in cerca and "budget" in cerca and "fatturazione" in cerca
+
+
+def test_senza_vendite_e_magazzino_ma_con_la_sezione_niente_messaggio_vuota(client, capo, azienda):
+    """`vuota` è vero (Vendite e Magazzino riservati a un'altra azienda) ma «Le mie previsioni» c'è: il testo «servono
+    Vendite o Magazzino» non deve comparire."""
+    altra = Azienda.objects.create(nome="Altra Srl")
+    for slug in ("vendite", "magazzino"):
+        Modulo.objects.update_or_create(slug=slug, defaults={"nome": slug.title()})[0].aziende.set([altra])
+    _artifact(capo, azienda, "Una mia previsione")
+    html = _pagina(client)
+    assert SEZIONE in html and "Una mia previsione" in html
+    assert "Nessuna previsione disponibile" not in html and "servono Vendite o Magazzino" not in html
