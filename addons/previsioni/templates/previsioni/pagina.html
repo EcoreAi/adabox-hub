@@ -63,7 +63,8 @@
     {% if mie.argomenti %}<select class="ui-input mk-barra-categoria" data-filtro="argomento" aria-label="Argomento"><option value="">Tutti gli argomenti</option>{% for x in mie.argomenti %}<option value="{{ x }}">{{ x }}</option>{% endfor %}</select>{% endif %}
     {% if mie.tipi %}<select class="ui-input mk-barra-categoria" data-filtro="tipo" aria-label="Tipo"><option value="">Tutti i tipi</option>{% for x in mie.tipi %}<option value="{{ x }}">{{ x }}</option>{% endfor %}</select>{% endif %}
     {% if mie.origini %}<select class="ui-input mk-barra-categoria" data-filtro="origine" aria-label="Origine"><option value="">Tutte le origini</option>{% for x in mie.origini %}<option value="{{ x }}">{{ x }}</option>{% endfor %}</select>{% endif %}
-    {% if mie.etichette %}<select class="ui-input mk-barra-categoria" data-filtro="etichetta" aria-label="Etichetta"><option value="">Tutte le etichette</option>{% for x in mie.etichette %}<option value="{{ x }}">{{ x }}</option>{% endfor %}</select>{% endif %}
+    <select class="ui-input mk-barra-categoria" data-filtro="etichetta" aria-label="Etichetta"{% if not mie.etichette %} hidden{% endif %}><option value="">Tutte le etichette</option>{% for x in mie.etichette %}<option value="{{ x }}">{{ x }}</option>{% endfor %}</select>
+    <label class="prev-salvate"><input type="checkbox" id="prev-salvate"> Solo salvate</label>
   </div>
   <p class="mk-vuoto" id="prev-vuoto" hidden>Nessuna previsione con questi filtri. <button type="button" class="ui-link" id="prev-azzera">Azzera i filtri</button></p>
   <datalist id="prev-etichette">{% for x in mie.etichette %}<option value="{{ x }}"></option>{% endfor %}</datalist>
@@ -81,7 +82,7 @@
 </section>
 {% endif %}
 
-{% if vuota %}
+{% if vuota and not mie %}
 <div class="ui-card is-revealed"><div class="ui-card-body"><div class="ui-empty"><svg><use href="#icon-inbox"/></svg>
   <p>Nessuna previsione disponibile: servono Vendite o Magazzino, accesi per questa azienda e con i permessi giusti.</p></div></div></div>
 {% endif %}

@@ -3,7 +3,7 @@ import re
 
 import pytest
 from django.apps import apps
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission, User
 from django.urls import reverse
 
 from core import parametri
@@ -44,9 +44,9 @@ def altro(db):
     return User.objects.create_user("altro", "altro@example.com", "x")
 
 
-def _artifact(utente, azienda, titolo="Fatturato dei prossimi mesi", tipo="grafico", **spec):
+def _artifact(utente, azienda, titolo="Fatturato dei prossimi mesi", tipo="grafico", salvato=False, **spec):
     spec = {"grafico": "previsione", "per": "mese", **(spec or {"misura_aziendale": "fatturazione.fatturato"})}
-    return Artifact.objects.create(utente=utente, azienda=azienda, tipo=tipo, titolo=titolo, spec=spec)
+    return Artifact.objects.create(utente=utente, azienda=azienda, tipo=tipo, titolo=titolo, spec=spec, salvato=salvato)
 
 
 def _grafico(utente, titolo="Righe vendute", tipo=Grafico.PREVISIONE if apps.is_installed("grafici") else "", **spec):
@@ -237,6 +237,86 @@ def test_etichetta_di_un_oggetto_che_non_esiste_piu_non_compare(client, capo, az
     EtichettaPrevisione.objects.create(utente=capo, azienda=azienda, origine="chat", oggetto_pk=9999, etichetta="Fantasma")
     _artifact(capo, azienda)
     assert "Fantasma" not in _pagina(client)
+
+
+def test_etichette_di_oggetti_spariti_si_cancellano_quando_si_incontrano(client, capo, azienda):
+    a = _artifact(capo, azienda)
+    altra = Azienda.objects.create(nome="Altra Srl")
+    di_altra = _artifact(capo, altra, "Nell'altra azienda")       # esiste: l'etichetta resta
+    fantasma = EtichettaPrevisione.objects.create(utente=capo, azienda=azienda, origine="chat", oggetto_pk=9999, etichetta="Fantasma")
+    fantasma_g = EtichettaPrevisione.objects.create(utente=capo, azienda=azienda, origine="analisi", oggetto_pk=9998, etichetta="Fantasma2")
+    viva = EtichettaPrevisione.objects.create(utente=capo, azienda=azienda, origine="chat", oggetto_pk=a.pk, etichetta="Viva")
+    resta = EtichettaPrevisione.objects.create(utente=capo, azienda=altra, origine="chat", oggetto_pk=di_altra.pk, etichetta="Resta")
+    _pagina(client)
+    assert set(EtichettaPrevisione.objects.values_list("pk", flat=True)) == {viva.pk, resta.pk}
+    assert fantasma.pk and fantasma_g.pk
+
+
+# ---------- salvate ----------
+
+def test_salvata_e_un_attributo_e_un_filtro(client, capo, azienda):
+    _artifact(capo, azienda, "Tenuta", salvato=True)
+    _artifact(capo, azienda, "Di passaggio", salvato=False)
+    _grafico(capo, "Di Analisi")
+    html = _pagina(client)
+    assert "Tenuta" in html and "Di passaggio" in html              # si elencano tutte, salvate o no
+    assert 'data-salvata="si"' in _scheda(html, "Tenuta")
+    assert 'data-salvata="no"' in _scheda(html, "Di passaggio")
+    assert 'data-salvata="si"' in _scheda(html, "Di Analisi")      # Analisi: salvata per definizione
+    righe = {t: r for r in re.findall(r"<tr .*?</tr>", html, re.S) for t in ("Tenuta", "Di passaggio") if f">{t}</a>" in r}
+    assert "prev-salvata" in righe["Tenuta"] and "prev-salvata" not in righe["Di passaggio"]
+    assert 'id="prev-salvate"' in html and "Solo salvate" in html
+
+
+# ---------- Analisi: serve il permesso ----------
+
+def _utente_senza_analisi(client, azienda, *permessi):
+    u = User.objects.create_user("mario", "mario@example.com", "x")
+    u.profilo.aziende.set([azienda])
+    u.profilo.azienda_predefinita = azienda
+    u.profilo.save()
+    for p in ("previsioni.view_previsionepronta",) + permessi:
+        app, codename = p.split(".")
+        u.user_permissions.add(Permission.objects.get(content_type__app_label=app, codename=codename))
+    client.force_login(u)
+    return u
+
+
+def test_analisi_serve_view_grafico(client, azienda):
+    u = _utente_senza_analisi(client, azienda)
+    g, a = _grafico(u, "Da Analisi"), _artifact(u, azienda, "Dalla chat")
+    html = _pagina(client)
+    assert "Dalla chat" in html and "Da Analisi" not in html
+    assert client.post(reverse("previsioni:rinomina", args=["analisi", g.pk]), {"titolo": "x"}).status_code == 404
+    assert client.post(reverse("previsioni:etichetta", args=["analisi", g.pk]), {"etichetta": "x"}).status_code == 404
+    u.user_permissions.add(Permission.objects.get(content_type__app_label="grafici", codename="view_grafico"))
+    client.force_login(User.objects.get(pk=u.pk))
+    assert "Da Analisi" in _pagina(client)
+    assert client.post(reverse("previsioni:rinomina", args=["analisi", g.pk]), {"titolo": "x"}).status_code == 302
+
+
+# ---------- varie ----------
+
+def test_rinomina_di_un_grafico_aggiorna_modificato(client, capo):
+    import datetime
+    from django.utils import timezone
+    g = _grafico(capo)
+    vecchio = timezone.now() - datetime.timedelta(days=30)
+    Grafico.objects.filter(pk=g.pk).update(modificato=vecchio)
+    client.post(reverse("previsioni:rinomina", args=["analisi", g.pk]), {"titolo": "Nuovo"})
+    g.refresh_from_db()
+    assert g.modificato > vecchio + datetime.timedelta(days=29)
+
+
+def test_il_messaggio_senza_previsioni_possibili_non_c_e_con_la_sezione(client, capo, azienda):
+    html = _pagina(client)
+    assert SEZIONE in html and "servono Vendite o Magazzino" not in html
+
+
+def test_la_riga_ha_i_ganci_per_l_errore_e_la_tendina_etichette_c_e_sempre(client, capo, azienda):
+    _artifact(capo, azienda)
+    html = _pagina(client)
+    assert 'data-filtro="etichetta"' in html and 'id="prev-etichette"' in html and "prev-errore" in html
 
 
 # ---------- barra ----------

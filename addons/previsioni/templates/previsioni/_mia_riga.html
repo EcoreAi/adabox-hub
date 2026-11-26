@@ -1,5 +1,5 @@
-<tr id="mia-{{ v.origine }}-{{ v.pk }}" data-cerca="{{ v.cerca }}" data-origine="{{ v.origine }}" data-argomento="{{ v.argomento }}" data-tipo="{{ v.tipo }}" data-etichetta="{{ v.etichetta }}">
-  <td><a href="{{ v.url }}">{{ v.titolo }}</a></td>
+<tr id="mia-{{ v.origine }}-{{ v.pk }}" data-cerca="{{ v.cerca }}" data-origine="{{ v.origine }}" data-argomento="{{ v.argomento }}" data-tipo="{{ v.tipo }}" data-etichetta="{{ v.etichetta }}" data-salvata="{{ v.salvata }}">
+  <td><a href="{{ v.url }}">{{ v.titolo }}</a>{% if v.salvata == "si" and v.origine == "chat" %} <span class="ui-pill prev-salvata">Salvata</span>{% endif %}</td>
   <td>{{ v.origine_nome }}</td>
   <td>{{ v.argomento }}</td>
   <td>{{ v.tipo_testo }} <small>({{ v.periodo }})</small></td>
@@ -8,11 +8,11 @@
   <td class="prev-azioni">
     <a class="ui-btn ui-btn-ghost ui-btn-sm" href="{{ v.url }}">Apri</a>
     <details class="prev-azione"><summary class="ui-btn ui-btn-ghost ui-btn-sm">Rinomina</summary>
-      <form method="post" action="{{ v.rinomina_url }}" hx-post="{{ v.rinomina_url }}" hx-target="#mia-{{ v.origine }}-{{ v.pk }}" hx-swap="outerHTML">{% csrf_token %}
+      <form method="post" action="{{ v.rinomina_url }}" hx-post="{{ v.rinomina_url }}" hx-target="#mia-{{ v.origine }}-{{ v.pk }}" hx-swap="outerHTML">{% csrf_token %}<small class="prev-errore" role="alert" hidden></small>
         <input class="ui-input" type="text" name="titolo" value="{{ v.titolo }}" maxlength="200" required aria-label="Nuovo titolo di {{ v.titolo }}">
         <button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">Salva</button></form></details>
     <details class="prev-azione"><summary class="ui-btn ui-btn-ghost ui-btn-sm">Etichetta</summary>
-      <form method="post" action="{{ v.etichetta_url }}" hx-post="{{ v.etichetta_url }}" hx-target="#mia-{{ v.origine }}-{{ v.pk }}" hx-swap="outerHTML">{% csrf_token %}
+      <form method="post" action="{{ v.etichetta_url }}" hx-post="{{ v.etichetta_url }}" hx-target="#mia-{{ v.origine }}-{{ v.pk }}" hx-swap="outerHTML">{% csrf_token %}<small class="prev-errore" role="alert" hidden></small>
         <input class="ui-input" type="text" name="etichetta" value="{{ v.etichetta }}" maxlength="60" list="prev-etichette" placeholder="Nessuna" aria-label="Etichetta di {{ v.titolo }}">
         <button type="submit" class="ui-btn ui-btn-primary ui-btn-sm">Salva</button></form></details>
   </td>

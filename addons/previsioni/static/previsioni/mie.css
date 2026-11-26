@@ -7,3 +7,4 @@
 .prev-azioni form { display: flex; gap: 6px; align-items: center; margin: 6px 0 0; }
 .prev-azioni .ui-input { min-width: 180px; }
 @media (max-width: 767px) { .prev-azioni { white-space: normal; } .prev-azioni .ui-input { min-width: 0; flex: 1 1 140px; } }
+.prev-errore { color: var(--ui-danger, #b42318); flex: 1 1 100%; } .prev-salvate { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; }

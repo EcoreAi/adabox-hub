@@ -165,7 +165,9 @@ def rinomina(request, origine, pk):
     if not titolo or len(titolo) > mie.LUNGHEZZA_TITOLO:
         return HttpResponseBadRequest(f"Il titolo non può essere vuoto né più lungo di {mie.LUNGHEZZA_TITOLO} caratteri.")
     obj.titolo = titolo
-    obj.save(update_fields=["titolo"])
+    # `auto_now` (Grafico.modificato) non scatta con update_fields: lo si aggiunge a mano
+    campi = ["titolo"] + (["modificato"] if hasattr(obj, "modificato") else [])
+    obj.save(update_fields=campi)
     return _risposta_riga(request, origine, obj)
 
 

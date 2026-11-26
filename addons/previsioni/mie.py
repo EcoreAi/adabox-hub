@@ -19,13 +19,15 @@ LUNGHEZZA_ETICHETTA = 60
 ALTRO = "Altro"
 PERIODI = {"mese": "per mese", "settimana": "per settimana", "giorno": "per giorno"}
 NOMI_ORIGINE = {CHAT: "Chat", ANALISI: "Analisi"}
+PERMESSO_ANALISI = "grafici.view_grafico"     # come le altre sezioni: senza il permesso niente righe di Analisi
 APP_DI = {CHAT: "ai", ANALISI: "grafici"}
 
 
 def _attiva(origine, request):
     slug = APP_DI[origine]
     return (apps.is_installed(slug) and getattr(request, "azienda", None) is not None
-            and pronte.app_attiva(slug, request.azienda, request.user))
+            and pronte.app_attiva(slug, request.azienda, request.user)
+            and (origine != ANALISI or request.user.has_perm(PERMESSO_ANALISI)))
 
 
 def fonti(request):
@@ -74,6 +76,7 @@ def voce(origine, obj, etichette):
     return {"origine": origine, "origine_nome": NOMI_ORIGINE[origine], "pk": obj.pk, "titolo": obj.titolo, "url": url,
             "argomento": arg, "tipo": chiave_tipo, "tipo_nome": chiave_tipo.capitalize(), "tipo_testo": testo_tipo,
             "periodo": periodo, "creato": obj.creato, "etichetta": etichetta,
+            "salvata": "si" if origine == ANALISI or getattr(obj, "salvato", False) else "no",
             "cerca": f"{obj.titolo} {etichetta} {arg}",
             "rinomina_url": reverse("previsioni:rinomina", args=[origine, obj.pk]),
             "etichetta_url": reverse("previsioni:etichetta", args=[origine, obj.pk])}
@@ -81,6 +84,23 @@ def voce(origine, obj, etichette):
 
 def _etichette(request):
     return {(e.origine, e.oggetto_pk): e.etichetta for e in EtichettaPrevisione.objects.filter(utente=request.user)}
+
+
+def _pulisci_etichette(request, attive):
+    """Cancella le etichette dell'utente il cui oggetto non esiste più (solo per le fonti attive: con una fonte spenta
+    non si può sapere). L'oggetto di un'altra azienda esiste: la sua etichetta resta."""
+    etichette = list(EtichettaPrevisione.objects.filter(utente=request.user, origine__in=attive))
+    for origine in attive:
+        pks = {e.oggetto_pk for e in etichette if e.origine == origine}
+        if not pks:
+            continue
+        if origine == CHAT:
+            from ai.models import Artifact as modello
+        else:
+            from grafici.models import Grafico as modello
+        spariti = pks - set(modello.objects.filter(pk__in=pks).values_list("pk", flat=True))
+        if spariti:
+            EtichettaPrevisione.objects.filter(utente=request.user, origine=origine, oggetto_pk__in=spariti).delete()
 
 
 def riga(origine, obj, request):
@@ -93,6 +113,7 @@ def sezione(request):
     attive = fonti(request)
     if not attive:
         return None
+    _pulisci_etichette(request, attive)
     oggetti, totale = [], 0
     for origine in attive:
         qs = _queryset(origine, request).order_by("-creato", "-pk")
