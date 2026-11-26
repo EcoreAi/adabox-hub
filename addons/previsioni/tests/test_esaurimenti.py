@@ -219,14 +219,14 @@ def test_senza_permessi_di_magazzino_niente_previsioni_del_magazzino(client, pro
     u = _utente(client, azienda, "previsioni.view_previsionearticolo", "previsioni.view_previsionepronta",
                 "prodotti.view_prodotto")
     assert client.get(reverse("previsioni:esaurimenti_lista")).status_code == 403
-    assert "Cagliari" not in client.get(reverse("previsioni:pagina")).content.decode()
+    assert "Cagliari" not in client.get(reverse("previsioni:pagina"), {"scheda": "magazzino"}).content.decode()
     assert "Cagliari" not in _scheda(client, prodotto)
     assert "previsioni.esaurimenti" not in _viste(u, azienda)
     u.user_permissions.add(Permission.objects.get(content_type__app_label="magazzino", codename="view_movimento"))
     u = User.objects.get(pk=u.pk)
     client.force_login(u)
     assert "Cagliari" in client.get(reverse("previsioni:esaurimenti_lista")).content.decode()
-    assert "Cagliari" in client.get(reverse("previsioni:pagina")).content.decode()
+    assert "Cagliari" in client.get(reverse("previsioni:pagina"), {"scheda": "magazzino"}).content.decode()
     assert "Cagliari" in _scheda(client, prodotto)
     assert "previsioni.esaurimenti" in _viste(u, azienda)
 
@@ -260,7 +260,7 @@ def test_la_regola_di_riga_della_vista_vale_anche_nel_riquadro_e_nella_pagina(cl
             ruolo=ruolo)
     scheda = _scheda(client, prodotto)
     assert "Cagliari" in scheda and "Sassari" not in scheda
-    pagina = client.get(reverse("previsioni:pagina")).content.decode()
+    pagina = client.get(reverse("previsioni:pagina"), {"scheda": "magazzino"}).content.decode()
     assert "Cagliari" in pagina and "Sassari" not in pagina
 
 
@@ -268,7 +268,7 @@ def test_la_regola_di_riga_della_vista_vale_anche_nel_riquadro_e_nella_pagina(cl
 def test_righe_di_un_altra_azienda_mai_nella_sezione_ne_nel_riquadro(client, capo, prodotto):
     _riga(Azienda.objects.create(nome="Altra Srl"), "Monitor", _giorni(3), prodotto_pk=prodotto.pk, magazzino="Segreto")
     _riga(Azienda.objects.get(pk=1), "Alfa", _giorni(5))
-    assert "Segreto" not in client.get(reverse("previsioni:pagina")).content.decode()
+    assert "Segreto" not in client.get(reverse("previsioni:pagina"), {"scheda": "magazzino"}).content.decode()
     assert "Segreto" not in _scheda(client, prodotto)
 
 

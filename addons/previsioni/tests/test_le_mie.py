@@ -55,7 +55,7 @@ def _grafico(utente, titolo="Righe vendute", tipo=Grafico.PREVISIONE if apps.is_
 
 
 def _pagina(client):
-    r = client.get(reverse("previsioni:pagina"))
+    r = client.get(reverse("previsioni:pagina"), {"scheda": "mie"})
     assert r.status_code == 200
     return r.content.decode()
 

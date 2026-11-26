@@ -108,6 +108,11 @@ def riga(origine, obj, request):
     return {"v": voce(origine, obj, _etichette(request))}
 
 
+def conteggio(request):
+    """Quante previsioni ha l'utente (una COUNT per fonte attiva), per il numero accanto alla scheda."""
+    return sum(_queryset(o, request).count() for o in fonti(request))
+
+
 def sezione(request):
     """Il contesto della sezione, o None se nessuna fonte è disponibile (la sezione non c'è)."""
     attive = fonti(request)

@@ -7,6 +7,7 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import F
 from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
@@ -81,7 +82,7 @@ def aggiorna(request):
     indietro = request.META.get("HTTP_REFERER", "")
     if url_has_allowed_host_and_scheme(indietro, {request.get_host()}, request.is_secure()):
         return redirect(indietro)
-    return redirect("previsioni:pagina")
+    return redirect(f'{reverse("previsioni:pagina")}?scheda={cosa}')       # la scheda omonima: Vendite o Magazzino
 
 
 @register

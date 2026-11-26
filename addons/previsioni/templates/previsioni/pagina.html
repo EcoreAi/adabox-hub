@@ -9,7 +9,11 @@
     {% if nuova_previsione_url %}<a class="ui-btn ui-btn-primary" href="{{ nuova_previsione_url }}">Nuova previsione</a>{% endif %}
   </div>
 </div>
-<p class="ui-help">Le previsioni su misura si creano con Analisi: senza Analisi il bottone «Nuova previsione» non compare (limite di questa versione).</p>
+{% if not nuova_previsione_url %}<p class="ui-help">Le previsioni su misura si creano con Analisi: senza Analisi il bottone «Nuova previsione» non compare (limite di questa versione).</p>{% endif %}
+{% if schede %}
+<link rel="stylesheet" href="{% statico 'previsioni/schede.css' %}">
+<nav class="prev-schede" aria-label="Sezioni delle previsioni">{% for s in schede %}<a class="prev-scheda{% if s.attiva %} is-attiva{% endif %}" href="{{ s.url }}"{% if s.attiva %} aria-current="page"{% endif %}>{{ s.nome }}{% if s.conteggio is not None %} <span class="prev-conta">{{ s.conteggio }}</span>{% endif %}</a>{% endfor %}</nav>
+{% endif %}
 {% if senza_servizio %}<div class="ui-alert ui-alert-warning" role="status">{{ messaggio_senza_servizio }}</div>{% endif %}
 
 {% if vendite %}
