@@ -1,4 +1,4 @@
-"""La pagina «Previsioni» (una sezione per app), le card delle previsioni pronte, i widget della dashboard e la riga
+"""La pagina «Previsioni» (una scheda per sezione), le card delle previsioni pronte, i widget della dashboard e la riga
 di Vendite nella scheda prodotto.
 
 Ogni previsione pronta si carica da sola con HTMX (`previsioni:pronta`): per chi non vede tutta la vista di origine
@@ -87,10 +87,29 @@ def _nuova_previsione(request):
     return f'{reverse("grafici:costruttore")}?tipo=previsione'
 
 
+SCHEDE = (("vendite", "Vendite"), ("magazzino", "Magazzino"), ("mie", "Le mie previsioni"))
+
+
+def _schede_disponibili(request):
+    """Le schede della pagina, nell'ordine, con le stesse condizioni di prima per ogni sezione. Solo controlli
+    leggeri: la sezione si costruisce solo per la scheda scelta."""
+    ci = {"vendite": bool(pronte.per_request(request)), "magazzino": vista_esaurimenti(request) is not None,
+          "mie": bool(mie.fonti(request))}
+    return [(chiave, nome) for chiave, nome in SCHEDE if ci[chiave]]
+
+
 def contesto_pagina(request):
-    vendite, magazzino = _sezione_vendite(request), _sezione_magazzino(request)
-    return {"vendite": vendite, "magazzino": magazzino, "vuota": vendite is None and magazzino is None,
-            "mie": mie.sezione(request),
+    disponibili = _schede_disponibili(request)
+    chiavi = [c for c, _ in disponibili]
+    scelta = request.GET.get("scheda", "")
+    scheda = scelta if scelta in chiavi else (chiavi[0] if chiavi else "")
+    url = reverse("previsioni:pagina")
+    schede = [{"chiave": c, "nome": n, "url": f"{url}?scheda={c}", "attiva": c == scheda,
+               "conteggio": mie.conteggio(request) if c == "mie" else None} for c, n in disponibili]
+    return {"schede": schede if len(schede) > 1 else [], "scheda": scheda, "vuota": not schede,
+            "vendite": _sezione_vendite(request) if scheda == "vendite" else None,
+            "magazzino": _sezione_magazzino(request) if scheda == "magazzino" else None,
+            "mie": mie.sezione(request) if scheda == "mie" else None,
             "senza_servizio": not servizio.attivo(request.azienda, request.user), "messaggio_senza_servizio": SENZA_SERVIZIO,
             "nuova_previsione_url": _nuova_previsione(request)}
 

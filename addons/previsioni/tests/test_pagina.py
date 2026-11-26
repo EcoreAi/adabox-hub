@@ -95,8 +95,8 @@ def _riserva(slug, *aziende):
     Modulo.objects.update_or_create(slug=slug, defaults={"nome": slug.title()})[0].aziende.set(aziende)
 
 
-def _pagina(client):
-    return client.get(reverse("previsioni:pagina")).content.decode()
+def _pagina(client, scheda=""):
+    return client.get(reverse("previsioni:pagina"), {"scheda": scheda} if scheda else {}).content.decode()
 
 
 def _carta(client, chiave):
@@ -113,16 +113,17 @@ def test_pagina_con_vendite_e_magazzino(client, capo, azienda, servizi):
         _riga(azienda, f"Articolo {i:02d}", _giorni(20 + i), prodotto_pk=900 + i)
     StatoCalcolo.objects.create(azienda=azienda, cosa="vendite", errore="Il servizio non risponde",
                                 ultimo_ok=timezone.make_aware(datetime.datetime(2026, 11, 20, 3)))
-    html = _pagina(client)
+    html = _pagina(client)                        # la scheda di default: Vendite
     # Vendite: ogni previsione pronta si carica da sola, con HTMX
     for chiave in ("vendite.fatturato_mese", "vendite.prodotti", "vendite.clienti"):
         url = reverse("previsioni:pronta", args=[chiave])
         assert f'hx-get="{url}"' in html
     assert 'hx-trigger="load"' in html and "Calcolo in corso" in html
-    assert "Vendite" in html and "Magazzino" in html
+    assert "Vendite" in html and "Magazzino" in html           # le due schede
     assert "Previsioni non aggiornate dal 20/11/2026" in html
-    assert f'{reverse("previsioni:aggiorna")}?cosa=vendite' in html and f'{reverse("previsioni:aggiorna")}?cosa=magazzino' in html
-    assert "csrfmiddlewaretoken" in html
+    assert f'{reverse("previsioni:aggiorna")}?cosa=vendite' in html and "csrfmiddlewaretoken" in html
+    html = _pagina(client, "magazzino")
+    assert "Previsioni non aggiornate" not in html and f'{reverse("previsioni:aggiorna")}?cosa=magazzino' in html
     # Magazzino: i primi 10 per data di riordino, con la fascia, e il link alla vista
     assert "Monitor" in html and "Negozio" in html and "Articolo 08" in html and "Articolo 09" not in html
     assert f"{_giorni(30):%d/%m/%Y} – {_giorni(60):%d/%m/%Y}" in html
@@ -139,18 +140,17 @@ def test_calcolo_mai_riuscito_si_vede_nella_pagina(client, capo, azienda, serviz
                                 errore="Il servizio di previsione ha rifiutato la richiesta: 401")
     StatoCalcolo.objects.create(azienda=azienda, cosa="vendite", ultimo_tentativo=tentativo,
                                 errore="nessun utente con cui calcolare")
-    html = _pagina(client)
-    vendite, magazzino = html.split('id="prev-magazzino"')
+    vendite, magazzino = _pagina(client), _pagina(client, "magazzino")
     assert "Nessun articolo in esaurimento" not in magazzino
     assert "Previsioni non calcolate" in magazzino and "rifiutato la richiesta: 401" in magazzino
     assert "Previsioni non calcolate" in vendite and "nessun utente con cui calcolare" in vendite
-    assert html.count("24/11/2026 02:00") == 2
+    assert vendite.count("24/11/2026 02:00") == 1 and magazzino.count("24/11/2026 02:00") == 1
     _salva_tutte(azienda)
     _riga(azienda, "Monitor", _giorni(10))
     StatoCalcolo.objects.update(ultimo_ok=timezone.make_aware(datetime.datetime(2026, 11, 20, 3)))
-    html = _pagina(client)
-    assert html.count("Previsioni non aggiornate dal 20/11/2026") == 2
-    assert "rifiutato la richiesta: 401" in html and "nessun utente con cui calcolare" in html
+    vendite, magazzino = _pagina(client), _pagina(client, "magazzino")
+    assert vendite.count("Previsioni non aggiornate dal 20/11/2026") == 1 and magazzino.count("Previsioni non aggiornate dal 20/11/2026") == 1
+    assert "rifiutato la richiesta: 401" in magazzino and "nessun utente con cui calcolare" in vendite
 
 
 def test_carta_della_serie_singola(client, capo, azienda, servizi):
@@ -228,9 +228,9 @@ def test_senza_vendite_ne_magazzino_testo_vuoto(client, capo, azienda, servizi, 
 def test_senza_servizio_messaggio_e_ultime_salvate(client, capo, azienda):
     _salva_tutte(azienda)
     _riga(azienda, "Monitor", _giorni(10))
-    html = _pagina(client)
+    html = _pagina(client, "magazzino")
     assert "Il servizio di previsione non è configurato: si vedono le ultime previsioni salvate." in html
-    assert reverse("previsioni:aggiorna") not in html
+    assert reverse("previsioni:aggiorna") not in html and reverse("previsioni:aggiorna") not in _pagina(client)
     assert "Monitor" in html
     assert "39 (27 – 51)" in _carta(client, "vendite.prodotti")
 
@@ -260,8 +260,20 @@ def test_nuova_previsione_vuole_il_permesso_di_creare_grafici(client, azienda, s
     assert f'{reverse("grafici:costruttore")}?tipo=previsione' in _pagina(client)
 
 
-def test_limite_senza_analisi_scritto_nella_pagina(client, capo, servizi):
-    assert "senza Analisi il bottone «Nuova previsione» non compare" in _pagina(client)
+NOTA_V1 = "senza Analisi il bottone «Nuova previsione» non compare"
+
+
+def test_limite_senza_analisi_scritto_nella_pagina(client, capo, servizi, monkeypatch):
+    vera = pronte.app_attiva
+    monkeypatch.setattr(pronte, "app_attiva", lambda slug, *a, **k: slug != "grafici" and vera(slug, *a, **k))
+    html = _pagina(client)
+    assert NOTA_V1 in html and "Nuova previsione</a>" not in html
+
+
+@pytest.mark.skipif(not apps.is_installed("grafici"), reason="serve Analisi")
+def test_nota_del_limite_assente_se_il_bottone_c_e(client, capo, servizi):
+    html = _pagina(client)
+    assert "Nuova previsione</a>" in html and NOTA_V1 not in html
 
 
 def test_utente_senza_permesso_403(client, azienda):
@@ -284,7 +296,9 @@ def test_basta_uno_dei_due_permessi(client, azienda, servizi):
 def test_aggiorna_torna_alla_pagina(client, capo, azienda, servizi, monkeypatch):
     monkeypatch.setattr("previsioni.views.lavori.accoda", lambda *a, **k: None)
     r = client.post(f'{reverse("previsioni:aggiorna")}?cosa=vendite')
-    assert r.status_code == 302 and r.url == reverse("previsioni:pagina")
+    assert r.status_code == 302 and r.url == f'{reverse("previsioni:pagina")}?scheda=vendite'
+    r = client.post(f'{reverse("previsioni:aggiorna")}?cosa=magazzino')
+    assert r.url == f'{reverse("previsioni:pagina")}?scheda=magazzino'
 
 
 def test_menu_previsioni(capo):

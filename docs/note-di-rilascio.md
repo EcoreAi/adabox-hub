@@ -13,6 +13,9 @@ commit; qui solo ciò che si vede o che chiede un intervento.
   - Cerca (titolo, etichetta, argomento) e filtri per argomento, tipo, origine ed etichetta; «Rinomina» cambia il
     titolo anche in chat e in Analisi; «Etichetta» è un nome libero scelto dall'utente per ritrovarle.
   - Nuova tabella delle etichette, senza chiavi verso Assistente AI e Analisi.
+- **Previsioni a schede** — Previsioni 1.1.1: la pagina ha una scheda per sezione (Vendite, Magazzino, Le mie previsioni) al
+  posto di un'unica pagina lunga; «Aggiorna» torna alla stessa scheda e la nota sul bottone «Nuova previsione» compare solo
+  quando il bottone manca.
 
 ## 2026-11-25
 
