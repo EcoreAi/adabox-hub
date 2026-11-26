@@ -137,6 +137,14 @@ da `theme.brand` e `theme.tema`, non scriverli a mano.
   render, così prende il tema dell'azienda del documento.
 - Per personalizzare i moduli standard solo per le aziende con la tua grafica: `theme.modulo_del_tema(azienda) ==
   "bolle"`.
+- Un tema con un suo `_header.html` include `{% include "theme/partials/_altre_aziende.html" %}` in fondo alle voci
+  della barra (le app delle altre aziende di chi ne ha più di una) e `{% include "theme/partials/_cambia_azienda.html" %}`
+  una volta (il form nascosto e lo script del cambio di azienda). Per chi ha una sola azienda non scrivono nulla.
+- Cambio di azienda in un clic da una pagina di un modulo: un link vero all'indirizzo da aprire, con l'azienda di
+  arrivo, `<a href="{{ url }}" data-cambia-azienda="{{ azienda.pk }}">`. Al clic `theme/cambia_azienda.js` fa il POST a
+  `core:cambia_azienda` con `next` = l'`href` (messaggio «Azienda corrente: …» e poi la pagina); con Ctrl/Cmd, il tasto
+  centrale o senza script si segue il link e la pagina risponde «Passa a …». Vale anche per i link arrivati con HTMX.
+  Le voci per la barra le dà `core.altre_aziende.voci(request)`.
 
 ## Moduli di un solo cliente
 

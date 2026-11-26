@@ -5,6 +5,17 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-26
 
+- **App delle altre aziende nella barra in alto** (Kernel, nessuna migrazione).
+  - Chi lavora in più aziende trova in fondo alla barra, prima di «Altre», le app che avrebbe in barra nelle altre sue
+    aziende e non in quella corrente (es. le app riservate a un'azienda), con il nome dell'azienda di arrivo in piccolo.
+    Un clic rende corrente quell'azienda e apre l'app, con il messaggio «Azienda corrente: …»; il cambio resta un POST.
+    Aperte in una nuova scheda (o senza script) rispondono la pagina «Passa a …» di sempre. Sul telefono stanno nel
+    menu e la ricerca le trova; Invio sulla prima trovata fa lo stesso clic. Le app nascoste dalla scelta della barra e
+    le schede della Dashboard non compaiono. Chi ha una sola azienda vede l'header di prima.
+  - **Un tema con un suo `_header.html`** include `theme/partials/_altre_aziende.html` (in fondo alle voci) e
+    `theme/partials/_cambia_azienda.html` (una volta): senza, le voci non ci sono. Il meccanismo del cambio
+    (`data-cambia-azienda="<pk>"` su un link, `theme/cambia_azienda.js`) vale per ogni pagina: `docs/guida-moduli.md`.
+  - Dopo l'aggiornamento: `collectstatic` (script nuovo `theme/cambia_azienda.js`).
 - **Aziende dei nuovi utenti** — Kernel (senza migrazioni, versione invariata).
   - Con più di un'azienda attiva il modulo «Nuovo utente» parte senza aziende spuntate e senza sceglierne almeno una non
     salva («Scegli almeno un'azienda.»). Con una sola azienda attiva resta com'era: spuntata, nessun obbligo.

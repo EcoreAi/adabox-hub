@@ -62,7 +62,8 @@
       nav.classList.remove('is-open');
       toggle.setAttribute('aria-expanded', 'false');
     });
-    // ricerca per nome nel menu del telefono: senza accenti né maiuscole; Invio apre la prima trovata
+    // ricerca per nome nel menu del telefono: senza accenti né maiuscole; Invio apre la prima trovata con un clic, così
+    // una voce di un'altra azienda passa dal cambio di azienda (cambia_azienda.js) come se la si toccasse
     const cerca = nav.querySelector('[data-nav-cerca]');
     const vuota = nav.querySelector('[data-nav-vuota]');
     if (cerca) {
@@ -83,7 +84,7 @@
       cerca.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter') return;
         const prima = nav.querySelector('a.is-trovata');
-        if (prima) { e.preventDefault(); window.location.href = prima.href; }
+        if (prima) { e.preventDefault(); prima.click(); }
       });
     }
   }
