@@ -1,4 +1,5 @@
 {% extends 'core/base_app.html' %}
+{% load tema %}
 {% block title %}Previsioni · {{ theme.brand }}{% endblock %}
 {% block app_content %}
 <div class="ui-pagehead">
@@ -49,6 +50,34 @@
     {% elif not magazzino.avviso %}<p class="ui-help">Nessun articolo in esaurimento: le previsioni di magazzino si calcolano ogni notte.</p>{% endif %}
     </div>
   </div>
+</section>
+{% endif %}
+
+{% if mie %}
+<section class="ui-section" aria-labelledby="prev-mie">
+  <div class="ui-pagehead"><div><h2 id="prev-mie">Le mie previsioni</h2>
+    <div class="sub">Quelle che hai fatto con Ada o in Analisi, in un posto solo.</div></div></div>
+  {% if mie.voci %}
+  <div class="mk-barra" id="prev-barra" role="search" aria-label="Cerca tra le mie previsioni">
+    <div class="ui-search mk-barra-cerca"><svg aria-hidden="true"><use href="#icon-search"/></svg><input class="ui-input" type="search" id="prev-cerca" placeholder="Cerca per titolo, etichetta o argomento…" aria-label="Cerca una previsione" autocomplete="off" enterkeyhint="search"></div>
+    {% if mie.argomenti %}<select class="ui-input mk-barra-categoria" data-filtro="argomento" aria-label="Argomento"><option value="">Tutti gli argomenti</option>{% for x in mie.argomenti %}<option value="{{ x }}">{{ x }}</option>{% endfor %}</select>{% endif %}
+    {% if mie.tipi %}<select class="ui-input mk-barra-categoria" data-filtro="tipo" aria-label="Tipo"><option value="">Tutti i tipi</option>{% for x in mie.tipi %}<option value="{{ x }}">{{ x }}</option>{% endfor %}</select>{% endif %}
+    {% if mie.origini %}<select class="ui-input mk-barra-categoria" data-filtro="origine" aria-label="Origine"><option value="">Tutte le origini</option>{% for x in mie.origini %}<option value="{{ x }}">{{ x }}</option>{% endfor %}</select>{% endif %}
+    {% if mie.etichette %}<select class="ui-input mk-barra-categoria" data-filtro="etichetta" aria-label="Etichetta"><option value="">Tutte le etichette</option>{% for x in mie.etichette %}<option value="{{ x }}">{{ x }}</option>{% endfor %}</select>{% endif %}
+  </div>
+  <p class="mk-vuoto" id="prev-vuoto" hidden>Nessuna previsione con questi filtri. <button type="button" class="ui-link" id="prev-azzera">Azzera i filtri</button></p>
+  <datalist id="prev-etichette">{% for x in mie.etichette %}<option value="{{ x }}"></option>{% endfor %}</datalist>
+  <div class="ui-card is-revealed"><div class="ui-card-body">
+    <div class="ui-table-wrap"><table class="ui-table is-revealed">
+      <thead><tr><th scope="col">Titolo</th><th scope="col">Origine</th><th scope="col">Argomento</th><th scope="col">Tipo</th><th scope="col">Data</th><th scope="col">Etichetta</th><th scope="col">Azioni</th></tr></thead>
+      <tbody id="prev-mie-righe">{% for v in mie.voci %}{% include "previsioni/_mia_riga.html" %}{% endfor %}</tbody></table></div>
+    {% if mie.troncata %}<p class="sub">Si vedono le {{ mie.voci|length }} più recenti su {{ mie.totale }}.</p>{% endif %}
+  </div></div>
+  <link rel="stylesheet" href="{% statico 'previsioni/mie.css' %}">
+  <script src="{% statico 'previsioni/mie.js' %}" defer></script>
+  {% else %}
+  <div class="ui-card is-revealed"><div class="ui-card-body"><p class="ui-help">Non hai ancora fatto previsioni: chiedine una ad Ada{% if nuova_previsione_url %} o creala con «Nuova previsione»{% endif %}.</p></div></div>
+  {% endif %}
 </section>
 {% endif %}
 

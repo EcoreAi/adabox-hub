@@ -1,0 +1,9 @@
+/* «Le mie previsioni»: azioni in riga (Rinomina, Etichetta) che si aprono sotto il bottone */
+.prev-azioni { white-space: nowrap; }
+.prev-azioni .prev-azione { display: inline-block; vertical-align: top; }
+.prev-azioni summary { list-style: none; cursor: pointer; }
+.prev-azioni summary::-webkit-details-marker { display: none; }
+.prev-azioni .prev-azione[open] { display: block; margin-top: 6px; }
+.prev-azioni form { display: flex; gap: 6px; align-items: center; margin: 6px 0 0; }
+.prev-azioni .ui-input { min-width: 180px; }
+@media (max-width: 767px) { .prev-azioni { white-space: normal; } .prev-azioni .ui-input { min-width: 0; flex: 1 1 140px; } }

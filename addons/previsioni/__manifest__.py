@@ -1,7 +1,7 @@
 {
     "name": "Previsioni",
     "summary": "Previsioni di vendite e magazzino sui dati dell'azienda, con Timestral",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Direzione",
     "depends": [],

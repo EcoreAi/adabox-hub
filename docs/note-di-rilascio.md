@@ -3,6 +3,17 @@
 Ciò che chi aggiorna un'istanza deve sapere: cambi di comportamento, azioni da fare, migrazioni. Il dettaglio è nei
 commit; qui solo ciò che si vede o che chiede un intervento.
 
+## 2026-11-26
+
+- **«Le mie previsioni»** — Previsioni 1.1.0 (migrazione `previsioni.0006`).
+  - Nella pagina Previsioni, dopo Vendite e Magazzino, c'è l'elenco delle previsioni che hai fatto: quelle chieste ad Ada
+    in chat e quelle di Analisi, dalla più recente, con titolo, origine, argomento (l'app da cui viene la serie), tipo
+    (andamento o classifica), data ed etichetta. Ogni fonte c'è solo se Assistente AI o Analisi sono accesi per
+    l'azienda; le previsioni di Analisi non hanno un'azienda, quindi si vedono in tutte le aziende dell'utente.
+  - Cerca (titolo, etichetta, argomento) e filtri per argomento, tipo, origine ed etichetta; «Rinomina» cambia il
+    titolo anche in chat e in Analisi; «Etichetta» è un nome libero scelto dall'utente per ritrovarle.
+  - Nuova tabella delle etichette, senza chiavi verso Assistente AI e Analisi.
+
 ## 2026-11-25
 
 - **Modulo Previsioni, in licenza** — Previsioni 1.0.0 (migrazioni `previsioni.0001`-`0005`), AI 1.59.0, Analisi 1.16.0,
