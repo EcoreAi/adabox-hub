@@ -16,6 +16,25 @@ commit; qui solo ciò che si vede o che chiede un intervento.
     `theme/partials/_cambia_azienda.html` (una volta): senza, le voci non ci sono. Il meccanismo del cambio
     (`data-cambia-azienda="<pk>"` su un link, `theme/cambia_azienda.js`) vale per ogni pagina: `docs/guida-moduli.md`.
   - Dopo l'aggiornamento: `collectstatic` (script nuovo `theme/cambia_azienda.js`).
+- **Chat: le aree di lavoro di tutte le aziende, con il cambio di azienda** — AI 1.60.0, Chiedi ad Ada 1.0.1 (nessuna
+  migrazione).
+  - Chi lavora in più aziende trova nella colonna «Aree di lavoro» le aree di tutte le sue aziende in cui c'è la Chat,
+    raggruppate per azienda: prima la corrente (aperta), poi le altre per nome (chiuse), con l'area personale o, dove
+    non ha ancora scritto, «Nuova chat». Un clic su un'area di un'altra azienda rende corrente quell'azienda e apre
+    l'area. Un'area resta della sua azienda.
+  - Con la Chat riservata ad alcune aziende (Moduli → aziende), le altre non compaiono e non si propone di passarci:
+    le loro chat restano in Cronologia con il nome dell'azienda, ma non si aprono.
+  - Lo stesso clic vale per le chat di un'altra azienda in Cronologia, nella ricerca e nei Preferiti (chat e documenti),
+    che mostrano in piccolo il nome dell'azienda di ogni chat; il nome dell'azienda compare anche accanto al nome
+    dell'area, nella pagina dell'area e sopra la casella.
+  - **Correzione**: una chat (o un'area) di un'altra azienda aperta da un link, un segnalibro o una notifica non si apre
+    più con l'azienda corrente sbagliata: risponde «Questa chat è dell'azienda X» con il bottone «Passa a X». Scrivere,
+    rigenerare, modificare un messaggio, spostare la chat, parlare con Ada (anche con «sì, riprendiamo») o chiedere ad
+    Ada dalla finestra «Chiedi ad Ada» in una chat di un'altra azienda (per esempio da una scheda rimasta aperta dopo
+    un cambio) è rifiutato con «Questa chat è dell'azienda X: passa a X per continuare», invece di far rispondere Ada
+    con i dati dell'altra azienda. Le chat vecchie senza area restano come prima. Chi ha una sola azienda non vede
+    differenze.
+  - Dopo l'aggiornamento: `collectstatic` (`ai/chat.css` cambiato).
 - **Aziende dei nuovi utenti** — Kernel (senza migrazioni, versione invariata).
   - Con più di un'azienda attiva il modulo «Nuovo utente» parte senza aziende spuntate e senza sceglierne almeno una non
     salva («Scegli almeno un'azienda.»). Con una sola azienda attiva resta com'era: spuntata, nessun obbligo.
