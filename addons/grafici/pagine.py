@@ -491,7 +491,12 @@ def salva_da_artifact(request):
         raise Http404
     Artifact = apps.get_model("ai", "Artifact")
     a = get_object_or_404(Artifact, pk=request.POST.get("artifact"), utente=request.user, tipo__in=("grafico", "tabella"))
-    if a.tipo == "tabella":
+    dati = a.dati
+    if a.spec.get("grafico") == Grafico.PREVISIONE:      # anche quella per gruppo (una tabella) resta una previsione
+        tipo = Grafico.PREVISIONE
+        if a.spec.get("raggruppa"):
+            dati = {"tipo": "tabella", **a.dati}           # come la salva Analisi (motore._previsione)
+    elif a.tipo == "tabella":
         tipo = Grafico.TABELLA
     else:
         tipo = a.spec.get("grafico", Grafico.BARRE)
@@ -499,7 +504,7 @@ def salva_da_artifact(request):
     spec = {k: v for k, v in a.spec.items() if k not in ("tipo", "grafico")}
     g = Grafico.objects.create(
         utente=request.user,
-        titolo=a.titolo, tipo=tipo, spec=spec, dati=a.dati,
+        titolo=a.titolo, tipo=tipo, spec=spec, dati=dati,
         aggiornato=a.aggiornato or a.creato, origine=Grafico.CHAT,
         origine_url=reverse("ai:conversazione", args=[a.conversazione_id]) if a.conversazione_id else "")
     titolo, url = _metti(request, g, request.POST.get("destinazione"), request.POST.get("titolo_nuova"))

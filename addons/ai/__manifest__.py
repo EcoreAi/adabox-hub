@@ -1,7 +1,7 @@
 {
     "name": "Assistente AI",
     "summary": "Chat con l'assistente: cronologia delle conversazioni, artifact e documenti salvati",
-    "version": "1.58.0",
+    "version": "1.59.0",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],
@@ -56,7 +56,7 @@
         {"chiave": "documenti", "label": "Documenti accanto alla chat"},
         {"chiave": "grafici", "label": "Grafici e tabelle nella chat"},
         {"chiave": "assistenti", "label": "Assistenti delle app ed esperti"},
-        {"chiave": "specialisti", "label": "Previsioni e classificazioni", "help": "con i servizi locali di previsione e decisione"},
+        {"chiave": "specialisti", "label": "Classificazioni", "help": "con il decisore locale"},
         {"chiave": "mcp", "label": "Sistemi esterni (MCP)"},
         {"chiave": "voce", "label": "Voce", "help": "dettatura e lettura delle risposte"},
     ],
@@ -109,9 +109,6 @@
          "default": "", "help": "es. http://adabox-pii-1:5005; con l'URL i dati personali arrivano mascherati "
                                 "ai modelli cloud (se il servizio non risponde non si invia nulla); "
                                 "vuoto = nessuna protezione"},
-        {"chiave": "url_forecast", "funzione": "specialisti", "label": "URL del servizio di previsione (Timestral)", "tipo": "testo",
-         "default": "", "help": "es. http://adabox-forecast-1:8080; vuoto = previsioni spente. Verifica la licenza "
-                                "dei pesi del modello prima dell'uso commerciale"},
         {"chiave": "url_decider", "funzione": "specialisti", "label": "URL del decisore locale", "tipo": "testo", "default": "",
          "help": "es. http://adabox-decider-1:8080; vuoto = spento. Senza esempi addestrati le probabilità sono "
                  "solo indicative"},

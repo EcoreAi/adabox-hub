@@ -1,0 +1,9 @@
+<p>
+  {% if errore %}<strong>Vendite previste nei prossimi 3 mesi</strong>: {{ errore }}
+  {% else %}<strong>Vendite previste nei prossimi {{ mesi }} mesi</strong>:
+    {% if gruppo %}{{ totale.mediana|floatformat:"-2" }} <small>(10–90 %: {{ totale.basso_10|floatformat:"-2" }} – {{ totale.alto_90|floatformat:"-2" }})</small></p>
+    <p class="sub">Affidabilità: {{ affidabilita.livello|default:"–" }}{% if motivo %} ({{ motivo }}){% endif %}
+      · {% if calcolata_ora %}calcolata ora{% else %}calcolata il {{ calcolata_il|date:"d/m/Y" }}{% endif %} · {% include "previsioni/_attribuzione.html" with modello=modello %}
+    {% else %}non tra i 10 più venduti{% endif %}
+  {% endif %}
+</p>
