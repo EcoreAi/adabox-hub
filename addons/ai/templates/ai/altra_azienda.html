@@ -1,0 +1,17 @@
+{% extends 'theme/base.html' %}
+{% comment %}
+Una chat o un'area di un'altra azienda dell'utente aperta con un link (incollato, segnalibro, notifica): come la pagina
+«Passa a …» del kernel (core/altra_azienda.html), il bottone fa il POST del cambio e torna allo stesso indirizzo.
+{% endcomment %}
+{% block title %}{% if area %}Area{% else %}Chat{% endif %} di un'altra azienda · {{ theme.brand }}{% endblock %}
+{% block content %}
+<div class="ui-card is-revealed" style="max-width:560px;margin:48px auto;">
+  <div class="ui-card-head"><div><div class="ui-card-title">{% if area %}L'area «{{ area.nome }}» è dell'azienda {{ altra }}{% else %}Questa chat è dell'azienda {{ altra }}{% endif %}</div>
+    <div class="ui-card-sub">L'azienda corrente è {{ request.azienda }}: per aprirla passa a {{ altra }}, così Ada lavora con i suoi dati.</div></div></div>
+  <div class="ui-card-body">
+    <form method="post" action="{% url 'core:cambia_azienda' %}" style="display:inline-block;margin:0 8px 8px 0;">{% csrf_token %}
+      <input type="hidden" name="azienda" value="{{ altra.pk }}"><input type="hidden" name="next" value="{{ prossima }}">
+      <button type="submit" class="ui-btn ui-btn-primary">Passa a {{ altra }}</button></form>
+  </div>
+</div>
+{% endblock %}
