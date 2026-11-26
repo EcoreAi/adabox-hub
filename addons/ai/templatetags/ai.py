@@ -235,6 +235,25 @@ def chat_dell_area(context, area):
 
 
 @register.simple_tag(takes_context=True)
+def azienda_chat(context, oggetto):
+    """Per chi lavora in più aziende, l'azienda di una chat (quella della sua area) o di un documento (della sua chat):
+    {"nome", "cambia"}, dove `cambia` è il pk per data-cambia-azienda se è un'altra delle sue aziende (il clic la rende
+    corrente e apre il link), altrimenti "". None per chi ha una sola azienda e per le chat senza area. Le aziende sono
+    quelle del contesto del kernel (`aziende` consentite, `azienda` corrente)."""
+    aziende = context.get("aziende") or ()
+    if len(aziende) < 2:
+        return None
+    from ai import aree
+    chat = oggetto.conversazione if hasattr(oggetto, "conversazione_id") else oggetto
+    sua = aree.azienda_di(chat)
+    if sua is None:
+        return None
+    corrente = context.get("azienda")
+    altra = corrente is not None and sua.pk != corrente.pk and sua in aziende
+    return {"nome": sua.nome, "cambia": sua.pk if altra else ""}
+
+
+@register.simple_tag(takes_context=True)
 def colleghi_per(context, oggetto):
     """Con chi si può condividere un documento, un grafico o una tabella (e con chi lo è già)."""
     from ..condivisione import colleghi

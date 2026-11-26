@@ -1,8 +1,9 @@
+{% load ai %}{# per chi lavora in più aziende: l'azienda di ogni chat, e il clic su una di un'altra azienda ci passa #}
 <ul class="ai-elenco">
-  {% for c in chat %}
-  <li><a href="{% url 'ai:conversazione' c.pk %}"{% if conversazione and c.pk == conversazione.pk %} class="is-attiva" aria-current="page"{% endif %}>
+  {% for c in chat %}{% azienda_chat c as az %}
+  <li><a href="{% url 'ai:conversazione' c.pk %}"{% if conversazione and c.pk == conversazione.pk %} class="is-attiva" aria-current="page"{% endif %}{% if az.cambia %} data-cambia-azienda="{{ az.cambia }}" title="Passa a {{ az.nome }} e apri la chat"{% endif %}>
     <span class="ai-elenco-titolo">{% if c.preferita %}★ {% endif %}{{ c.titolo }}</span>
-    {% if c.progetto_id %}<span class="ai-elenco-progetto"><svg aria-hidden="true"><use href="#ai-cartella"/></svg>{{ c.progetto.nome }}</span>{% endif %}
+    {% if c.progetto_id %}<span class="ai-elenco-progetto"><svg aria-hidden="true"><use href="#ai-cartella"/></svg>{{ c.progetto.nome }}{% if az %}<span class="ai-elenco-azienda">{{ az.nome }}</span>{% endif %}</span>{% endif %}
     <span class="ai-elenco-data">{{ c.aggiornata|date:"d/m H:i" }}</span></a></li>
   {% empty %}
   <li class="ai-vuoto"><p>{{ vuoto }}</p></li>

@@ -110,7 +110,11 @@ def _notifiche(utente):
 @funzioni.richiede("voce")
 def pagina(request, pk=None):
     azienda = getattr(request, "azienda", None)
-    conversazione = get_object_or_404(Conversazione, pk=pk, utente=request.user, nascosta=False) if pk else None
+    conversazione = get_object_or_404(Conversazione.objects.select_related("progetto__azienda"), pk=pk, utente=request.user,
+                                      nascosta=False) if pk else None
+    if conversazione is not None and (altra := aree.da_passare(request.user, azienda, conversazione)):
+        from .pagine import passa_ad_altra_azienda             # come la chat: prima si passa alla sua azienda
+        return passa_ad_altra_azienda(request, altra)
     app = _app(request.user)
     scelta = conversazione.ambito if conversazione else request.GET.get("app", "")
     ambito = scelta if scelta in {a["slug"] for a in app} else ""
@@ -198,7 +202,10 @@ def chiedi(request):
     if saluto is not None:
         apertura.segna_detta(saluto)                          # con la voce spenta è la risposta a dire che l'ha letta
     if not nuova:
-        conversazione = get_object_or_404(Conversazione, pk=int(pk), utente=request.user, nascosta=False)
+        conversazione = get_object_or_404(Conversazione.objects.select_related("progetto__azienda"), pk=int(pk),
+                                          utente=request.user, nascosta=False)
+        if motivo := aree.rifiuto(request.user, azienda, conversazione):    # chat di un'altra azienda: come in chat
+            return JsonResponse({"errore": motivo}, status=400)
     elif ripresa:
         conversazione = saluto.conversazione                  # «sì, riprendiamo»: si continua in quella di prima
     else:
