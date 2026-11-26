@@ -27,6 +27,8 @@
         <label class="ui-label">Campo data della serie<select class="ui-input" name="data"{% if not vista %} disabled{% endif %}>{% for v, e in opzioni.date %}<option value="{{ v }}"{% if v == p.data %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
         <div class="an-cost-riga"><label class="ui-label">Periodo<select class="ui-input" name="periodo">{% for v, e in periodi_previsione %}<option value="{{ v }}"{% if v == p.periodo %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
           <label class="ui-label">Orizzonte<select class="ui-input" name="orizzonte">{% for v, e in orizzonti %}<option value="{{ v }}"{% if v == p.orizzonte %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label></div>
+        <div class="an-cost-riga"><label class="ui-label">Raggruppa per<select class="ui-input" name="raggruppa"{% if not vista %} disabled{% endif %}><option value="">Nessuno: una sola serie</option>{% for v, e in raggruppi_previsione %}<option value="{{ v }}"{% if v == p.raggruppa %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>
+          <label class="ui-label">Primi<input class="ui-input" type="number" name="primi" min="1" max="50" value="{{ p.primi }}"></label></div>
         <p class="ui-help">Storia dai dati reali (almeno 6 periodi, quello in corso escluso), previsione del servizio locale con mediana e fascia 10–90 %.</p>
         {% else %}
         <label class="ui-label">Raggruppa per<select class="ui-input" name="per"{% if not vista %} disabled{% endif %}>{% for v, e in opzioni.raggruppamenti %}<option value="{{ v }}"{% if v == p.per %} selected{% endif %}>{{ e }}</option>{% endfor %}</select></label>

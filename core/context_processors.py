@@ -1,6 +1,8 @@
+from functools import partial
+
 from theme.context_processors import theme as _theme   # core importa theme, mai il contrario
 
-from . import attivita, azienda, barra, funzioni, licenza
+from . import altre_aziende, attivita, azienda, barra, funzioni, licenza
 from .registry import hooks, modules
 
 
@@ -26,7 +28,9 @@ def piattaforma(request):
     principali = [*principali, *coda]                                    # le attività da fare restano in fondo
     return {
         "theme": {**base, "nav": nav, "nav_principale": principali, "nav_altre": altre, "nav_altre_gruppi": barra.gruppi(altre),
-                  "nav_dashboard_attiva": in_dashboard},
+                  "nav_dashboard_attiva": in_dashboard,
+                  # le app delle altre aziende: calcolate solo se la pagina le mostra (non per i frammenti HTMX)
+                  "nav_altre_aziende": partial(altre_aziende.voci, request, apps)},
         "apps": apps, "app_corrente": corrente, "menu_app": corrente["menu"] if corrente else [],
         "aziende": azienda.consentite(request.user), "azienda": getattr(request, "azienda", None),
         "voci_testata": hooks.voci_testata(request), "voci_profilo": modules.voci_profilo(request.user),
