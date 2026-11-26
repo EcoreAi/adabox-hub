@@ -5,6 +5,12 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-26
 
+- **Aziende dei nuovi utenti** — Kernel (senza migrazioni, versione invariata).
+  - Con più di un'azienda attiva il modulo «Nuovo utente» parte senza aziende spuntate e senza sceglierne almeno una non
+    salva («Scegli almeno un'azienda.»). Con una sola azienda attiva resta com'era: spuntata, nessun obbligo.
+  - Nuova impostazione `AZIENDE_NUOVI_UTENTI` (`tutte`, default, o `nessuna`) per gli utenti creati fuori dal modulo
+    (admin, API, codice): con `nessuna` e più aziende attive non hanno aziende finché qualcuno non le assegna; i
+    superutenti le hanno sempre tutte.
 - **«Le mie previsioni»** — Previsioni 1.1.0 (migrazione `previsioni.0006`).
   - Nella pagina Previsioni, dopo Vendite e Magazzino, c'è l'elenco delle previsioni che hai fatto: quelle chieste ad Ada
     in chat e quelle di Analisi, dalla più recente, con titolo, origine, argomento (l'app da cui viene la serie), tipo
