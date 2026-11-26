@@ -639,6 +639,9 @@ body.ai-pagina { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden;
 .ai-elenco-azienda, .ai-area-azienda { font-size: 11px; font-weight: 400; color: var(--ui-text-3); white-space: nowrap; }
 .ai-elenco-progetto .ai-elenco-azienda::before { content: "·"; margin: 0 4px 0 2px; }
 .ai-area-azienda { padding: 1px 7px; border: 1px solid var(--ui-border); border-radius: 999px; }
+/* chat di un'altra azienda dove l'app Chat non c'è: si vede, ma non si apre */
+.ai-elenco a:not([href]) { cursor: default; opacity: .6; }
+.ai-elenco a:not([href]):hover { background: none; }
 .ai-sola-lettura { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: var(--ui-surface-2); font-size: 13px; color: var(--ui-text-2); }
 .ai-sola-lettura svg { width: 16px; height: 16px; flex: none; }
 .ai-chat[data-sola-lettura] [data-apri-modifica], .ai-chat[data-sola-lettura] .ai-rigenera, .ai-chat[data-sola-lettura] .ai-voto,

@@ -1,5 +1,6 @@
 """Chat con l'assistente: pagina a tutto schermo a tre colonne (pannelli laterali chiusi di default)."""
 import json
+from functools import partial
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
@@ -17,7 +18,6 @@ from django.views.decorators.http import require_POST
 from core import allegati as core_allegati
 from core.allegati import AllegatoNonValido
 from core.models import Allegato
-from core import azienda as core_azienda
 from core import barra
 from core.registry import modules
 
@@ -49,15 +49,32 @@ def _progetti_con_recenti(request, azienda):
 
 
 def _altre_aziende(request):
-    """Le altre aziende dell'utente (non la corrente), per nome."""
+    """Le altre aziende dell'utente (non la corrente) in cui usa la chat, per nome: l'app può essere riservata ad
+    alcune aziende (Modulo.aziende), e verso le altre non si propone di passare."""
     azienda = getattr(request, "azienda", None)
-    return [a for a in core_azienda.consentite(request.user) if a != azienda] if azienda is not None else []
+    if azienda is None:
+        return []
+    return [a for a in aree.aziende_di(request.user) if a != azienda and aree.con_la_chat(request.user, a)]
 
 
 def _aree_delle_altre_aziende(request):
     """Per chi lavora in più aziende, la colonna delle aree continua con quelle delle altre sue aziende, per nome:
-    [{azienda, aree}], con l'area personale in ognuna. Un clic ci passa (data-cambia-azienda). Una sola azienda: []."""
-    return [{"azienda": a, "aree": _progetti_con_recenti(request, a)} for a in _altre_aziende(request)]
+    [{azienda, aree, personale}], in una query e senza crearne. Un clic ci passa (data-cambia-azienda); dove l'area
+    personale non c'è ancora il gruppo offre «Nuova chat», che dopo il cambio la crea. Calcolate una volta per
+    richiesta, e solo se il template le chiede (chi ha una sola azienda non le chiede)."""
+    from django.db.models import Count
+    memo = getattr(request, "_ai_aree_altre_aziende", None)
+    if memo is not None:
+        return memo
+    altre = _altre_aziende(request)
+    per_azienda = {a.pk: [] for a in altre}
+    if altre:
+        for area in (aree.visibili_in(request.user, altre).select_related("utente").annotate(n_membri=Count("membri", distinct=True))
+                     .order_by("-personale", "nome", "pk")):
+            per_azienda[area.azienda_id].append(area)
+    memo = [{"azienda": a, "aree": per_azienda[a.pk], "personale": any(x.personale for x in per_azienda[a.pk])} for a in altre]
+    request._ai_aree_altre_aziende = memo
+    return memo
 
 
 def _area_altrove(request, pk):
@@ -156,9 +173,12 @@ def chat(request, pk=None, progetto=None):
     azienda = getattr(request, "azienda", None)
     sola_lettura = False
     conversazione = _mie(request).filter(pk=pk).first() if pk else None
-    # una chat o un'area di un'altra azienda dell'utente non si apre con quella corrente: si propone di passarci
+    # una chat o un'area di un'altra azienda dell'utente non si apre con quella corrente: si propone di passarci, se lì
+    # c'è la chat (altrimenti 404: il cambio porterebbe a una chat che risponde 403)
     if conversazione is not None and (altra := aree.da_passare(request.user, azienda, conversazione)):
         return passa_ad_altra_azienda(request, altra)
+    if conversazione is not None and aree.senza_chat(request.user, azienda, conversazione):
+        raise Http404
     if pk and conversazione is None:                 # una chat condivisa da un altro membro di un'area: si legge soltanto
         if not funzioni.attiva("aree_di_lavoro"):
             raise Http404
@@ -202,7 +222,8 @@ def chat(request, pk=None, progetto=None):
         "pannelli_sinistra": [p for p in PANNELLI_SINISTRA if con_aree or p[0] != "progetti"],
         "app": app, "suggerimenti": suggerimenti.per(), "suggerimenti_per_app": suggerimenti.tutti(),
         "progetti": progetti, "progetto_aperto": progetto_aperto, "area_corrente": area_corrente,
-        "aree_altre_aziende": _aree_delle_altre_aziende(request) if con_aree else [],
+        # chiamata dal template solo per chi ha più aziende (il contesto del kernel lo sa già): nessuna query per gli altri
+        "aree_altre_aziende": partial(_aree_delle_altre_aziende, request) if con_aree else [],
         "gestisco_area": bool(progetto_aperto and progetto_aperto.utente_id == request.user.pk),
         "url_dashboard_area": _url_dashboard(request, progetto_aperto),
         "membri_area": [aree.nome(m.utente) for m in progetto_aperto.membri.select_related("utente")] if progetto_aperto else [],
@@ -295,9 +316,10 @@ def _errore_invio(request, testo, pk):
 def invia(request, pk=None):
     testo = request.POST.get("testo", "").strip()
     conversazione = get_object_or_404(_mie(request), pk=pk) if pk else None
+    area = _mio_progetto(request, request.POST.get("progetto")) if conversazione is None else None
     # una chat di un'altra azienda, o una nuova da un'area di un'altra (es. da una scheda rimasta aperta dopo un cambio):
     # Ada risponderebbe con i dati dell'azienda corrente
-    dove = conversazione or _area_altrove(request, request.POST.get("progetto"))
+    dove = conversazione or (None if area else _area_altrove(request, request.POST.get("progetto")))
     if dove is not None and (motivo := aree.rifiuto(request.user, getattr(request, "azienda", None), dove)):
         return _errore_invio(request, motivo, pk)
     file = request.FILES.getlist("allegati")
@@ -317,7 +339,7 @@ def invia(request, pk=None):
     ambito = ambito if ambito in ammessi else ""
     if nuova:
         titolo = " ".join(testo.split())
-        area = _mio_progetto(request, request.POST.get("progetto")) or aree.corrente(request.user, getattr(request, "azienda", None))
+        area = area or aree.corrente(request.user, getattr(request, "azienda", None))
         conversazione = Conversazione.objects.create(utente=request.user, ambito=ambito, progetto=area,
                                                      titolo=titolo[:60] + ("…" if len(titolo) > 60 else ""))
     elif "ambito" in request.POST and ambito != conversazione.ambito:     # app cambiata dal bottone «App»

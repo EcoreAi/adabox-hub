@@ -3,11 +3,12 @@ import json
 
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponseBadRequest
+from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import render
+from django.utils.html import format_html
 from django.views.decorators.http import require_POST
 
-from ai import motore
+from ai import aree, motore
 from ai.models import Conversazione
 from ai.pagine import app_selezionabili
 from core import parametri
@@ -73,7 +74,12 @@ def chiedi(request):
         contesto = ""
     pagina = request.POST.get("pagina", "")[:int(parametri.leggi("askada.caratteri_max") or 6000)]
     pk = request.POST.get("conversazione", "")
-    conversazione = Conversazione.objects.filter(pk=pk, utente=request.user).first() if pk.isdigit() else None
+    conversazione = (Conversazione.objects.filter(pk=pk, utente=request.user).select_related("progetto__azienda").first()
+                     if pk.isdigit() else None)
+    # una chat di un'altra azienda (quella della sua area), es. da una scheda rimasta aperta dopo un cambio: come in chat,
+    # Ada non ci risponde con i dati dell'azienda corrente. L'avviso arriva nel filo della finestra, non come errore
+    if conversazione is not None and (motivo := aree.rifiuto(request.user, getattr(request, "azienda", None), conversazione)):
+        return HttpResponse(format_html('<p class="ui-alert ui-alert-warning" role="alert">{}</p>', motivo))
     if conversazione is None:
         nome = f"{titolo or 'Chiedi ad Ada'} · {' '.join(testo.split())}"
         conversazione = Conversazione.objects.create(utente=request.user, ambito=_app(url, request.user), titolo_generato=True,

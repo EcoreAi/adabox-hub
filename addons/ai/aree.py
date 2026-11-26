@@ -12,6 +12,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 
 from core.azienda import consentite
+from core.registry import modules
 
 from .models import AreaCorrente, Conversazione, MembroArea, ProgettoChat
 
@@ -81,11 +82,33 @@ def altra_azienda(oggetto, azienda):
     return sua if sua is not None and sua.pk != azienda.pk else None
 
 
+def aziende_di(utente):
+    """Le aziende consentite dell'utente, chieste una volta per richiesta (sull'utente, come modules.aziende_ammesse)."""
+    memo = getattr(utente, "_ai_consentite", None)
+    if memo is None:
+        memo = consentite(utente)
+        utente._ai_consentite = memo
+    return memo
+
+
+def con_la_chat(utente, azienda):
+    """L'utente può lavorare in chat con `azienda`? Se è tra le sue e l'app Chat vale lì (può essere riservata ad alcune
+    aziende, Modulo.aziende): solo verso queste si propone il cambio, altrimenti si arriverebbe a una chat che dice 403."""
+    return azienda in aziende_di(utente) and modules.per_azienda("ai", azienda, utente)
+
+
 def da_passare(utente, azienda, oggetto):
-    """L'azienda della chat o dell'area se è un'altra di quelle dell'utente: prima di aprirla si passa a quella. None se
-    è la corrente, se la chat non ha area o se l'utente lì non lavora più (resta tutto come prima)."""
+    """L'azienda della chat o dell'area se è un'altra in cui l'utente usa la chat: prima di aprirla si passa a quella.
+    None se è la corrente, se la chat non ha area o se lì l'utente non usa la chat."""
     altra = altra_azienda(oggetto, azienda)
-    return altra if altra is not None and altra in consentite(utente) else None
+    return altra if altra is not None and con_la_chat(utente, altra) else None
+
+
+def senza_chat(utente, azienda, oggetto):
+    """La chat o l'area è di un'altra azienda dell'utente in cui l'app Chat non c'è: non si apre e non ci si passa (404).
+    Un'azienda che l'utente non ha più resta com'era (le sue chat si leggono, non si scrivono)."""
+    altra = altra_azienda(oggetto, azienda)
+    return altra is not None and altra in aziende_di(utente) and not con_la_chat(utente, altra)
 
 
 def rifiuto(utente, azienda, oggetto):
@@ -95,9 +118,9 @@ def rifiuto(utente, azienda, oggetto):
     if altra is None:
         return ""
     cosa = "Quest'area" if isinstance(oggetto, ProgettoChat) else "Questa chat"
-    if altra in consentite(utente):
+    if con_la_chat(utente, altra):
         return f"{cosa} è dell'azienda {altra}: passa a {altra} per continuare."
-    return f"{cosa} è dell'azienda {altra}, in cui non lavori più: per continuare apri una chat nuova."
+    return f"{cosa} è dell'azienda {altra}, dove non puoi usare la chat: per continuare apri una chat nuova."
 
 
 def visibile(utente, azienda, pk):

@@ -115,6 +115,8 @@ def pagina(request, pk=None):
     if conversazione is not None and (altra := aree.da_passare(request.user, azienda, conversazione)):
         from .pagine import passa_ad_altra_azienda             # come la chat: prima si passa alla sua azienda
         return passa_ad_altra_azienda(request, altra)
+    if conversazione is not None and aree.senza_chat(request.user, azienda, conversazione):
+        raise Http404                                          # lì l'app Chat non c'è: niente da proporre
     app = _app(request.user)
     scelta = conversazione.ambito if conversazione else request.GET.get("app", "")
     ambito = scelta if scelta in {a["slug"] for a in app} else ""
@@ -204,8 +206,6 @@ def chiedi(request):
     if not nuova:
         conversazione = get_object_or_404(Conversazione.objects.select_related("progetto__azienda"), pk=int(pk),
                                           utente=request.user, nascosta=False)
-        if motivo := aree.rifiuto(request.user, azienda, conversazione):    # chat di un'altra azienda: come in chat
-            return JsonResponse({"errore": motivo}, status=400)
     elif ripresa:
         conversazione = saluto.conversazione                  # «sì, riprendiamo»: si continua in quella di prima
     else:
@@ -214,6 +214,9 @@ def chiedi(request):
         conversazione = Conversazione.objects.create(utente=request.user, progetto=aree.corrente(request.user, azienda),
                                                      titolo=titolo,
                                                      ambito=app if app in {a["slug"] for a in _app(request.user)} else "")
+    # una chat di un'altra azienda, scelta o da riprendere: come in chat, Ada non risponde con i dati di quella corrente
+    if (not nuova or ripresa) and (motivo := aree.rifiuto(request.user, azienda, conversazione)):
+        return JsonResponse({"errore": motivo}, status=400)
     nome = apertura.nome_di(request.user)
     if saluto is not None:
         note = [NOTA_VOCE.format(nome=nome), apertura.nota(saluto, ripresa)]
