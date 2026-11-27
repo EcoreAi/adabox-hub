@@ -147,7 +147,7 @@ def _router_per(vista):
 
     def oggetto(request, pk, permesso, scrittura=True):
         controlla_token(request, vista.modulo, scrittura)
-        azienda_per(request)
+        azienda_per(request, vista.modulo)
         obj = vista.get_object(request, pk)
         if not permesso(request, obj):
             raise HttpError(403, "permesso negato")
@@ -161,7 +161,7 @@ def _router_per(vista):
     @router.get("/", operation_id=f"{op}_lista", summary=f"Elenco di {vista.verbose_name_plural}", openapi_extra=doc_lista)
     def lista(request, q: str = "", o: str = "", p: int = 1, per_page: int = 50):
         controlla_token(request, vista.modulo, False)
-        azienda_per(request)
+        azienda_per(request, vista.modulo)
         if not vista.has_view_permission(request):
             raise HttpError(403, "permesso negato")
         qs = filtri.applica(vista, request, vista.get_queryset(request))
@@ -175,7 +175,7 @@ def _router_per(vista):
     @router.post("/", operation_id=f"{op}_crea", summary=f"Crea {vista.verbose_name}", openapi_extra=doc_crea)
     def crea(request):
         controlla_token(request, vista.modulo, True)
-        azienda_per(request)
+        azienda_per(request, vista.modulo)
         if not vista.has_add_permission(request):
             raise HttpError(403, "permesso negato")
         form = vista.get_form_class(request)(data=_dati_form(_corpo(request)))

@@ -96,6 +96,10 @@ class DipartimentoMiddleware:
                     giuste = [a for a in consentite(user) if modules.per_azienda(modulo, a, user)]
                     manifest = modules.manifests_attivi().get(modulo)
                     nome_app = modules.etichette().get(modulo) or (manifest.name if manifest else modulo)
+                    if request.path_info.startswith("/api/"):
+                        from django.http import JsonResponse
+                        altre = ", ".join(str(a) for a in giuste) or "nessuna delle tue"
+                        return JsonResponse({"detail": f"«{nome_app}» è riservata ad altre aziende: {altre}"}, status=403)
                     return render(request, "core/altra_azienda.html", {
                         "nome_app": nome_app, "giuste": giuste, "prossima": request.get_full_path()}, status=403)
         return self.get_response(request)
