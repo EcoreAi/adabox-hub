@@ -10,7 +10,7 @@ commit; qui solo ciò che si vede o che chiede un intervento.
   l'accesso rispondeva 405. Ora si torna alla pagina di partenza (con HTMX è la pagina intera ad andare al login), e il
   login non porta mai a un'azione solo POST: vecchi link e segnalibri finiscono alla Home. Le azioni usano il
   decoratore `post_con_accesso` di `core.decoratori`; i moduli con un'azione solo POST lo adottano al posto di
-  `@require_POST` + `@login_required`.
+  `@require_POST` + `@login_required`. Un GET con accesso ma senza permesso su queste azioni ora risponde 405 invece di 403.
 
 ## 2026-11-26
 

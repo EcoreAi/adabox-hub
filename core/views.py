@@ -342,7 +342,7 @@ def moduli(request):
     return _pagina_moduli(request)
 
 
-@require_POST
+@post_con_accesso
 @solo_superuser
 def moduli_azione(request):
     op, slug = request.POST.get("op", ""), request.POST.get("slug", "")
@@ -358,7 +358,7 @@ def moduli_azione(request):
     return render(request, "core/partials/_moduli_stato.html", {"log": log, "coda": coda, "stato": stato})
 
 
-@require_POST
+@post_con_accesso
 @solo_superuser
 def moduli_attivazione(request):
     """Accende o spegne un modulo installato, subito e senza riavvii (lo legge ogni richiesta)."""
@@ -372,7 +372,7 @@ def moduli_attivazione(request):
     return redirect(f"{reverse('core:moduli')}#modulo-{slug}")
 
 
-@require_POST
+@post_con_accesso
 @solo_superuser
 def moduli_carica(request):
     """Caricamento di un pacchetto zip: controlli, poi estrazione in addons/ (l'installazione resta un bottone)."""
@@ -395,7 +395,7 @@ def moduli_carica(request):
     return redirect(f"{reverse('core:moduli')}#modulo-{esito.slug}")
 
 
-@require_POST
+@post_con_accesso
 @solo_superuser
 def moduli_scarica(request):
     """Scarica dal catalogo un modulo nuovo o aggiornato e lo carica in addons/."""
@@ -408,7 +408,7 @@ def moduli_scarica(request):
     return redirect(f"{reverse('core:moduli')}#modulo-{esito.slug}")
 
 
-@require_POST
+@post_con_accesso
 @solo_superuser
 def moduli_licenza(request):
     """Carica un file di licenza (per le istanze senza portale)."""
@@ -425,7 +425,7 @@ def moduli_licenza(request):
     return redirect("core:moduli")
 
 
-@require_POST
+@post_con_accesso
 @solo_superuser
 def moduli_sincronizza(request):
     """Il giro col portale parte nel worker: installare moduli non è cosa da una richiesta web."""

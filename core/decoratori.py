@@ -5,7 +5,7 @@
 `next=<l'azione>`, e dopo l'accesso quell'indirizzo, aperto con un GET, rispondeva 405 senza via d'uscita. Qui chi non è
 collegato torna alla pagina da cui veniva."""
 from functools import wraps
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from django.contrib.auth.views import redirect_to_login
 from django.http import HttpResponse
@@ -16,11 +16,14 @@ from django.views.decorators.http import require_POST
 
 def e_solo_post(url):
     """True se l'indirizzo (percorso, con o senza query) risolve a una vista segnata «solo POST»."""
-    try:
-        vista = resolve(urlsplit(url or "").path or "/").func
-    except Resolver404:
-        return False
-    return bool(getattr(vista, "solo_post", False))
+    percorso = unquote(urlsplit(url or "").path) or "/"
+    for prova in (percorso, percorso + "/"):       # APPEND_SLASH porterebbe da «/x» a «/x/»
+        try:
+            vista = resolve(prova).func
+        except Resolver404:
+            continue
+        return bool(getattr(vista, "solo_post", False))
+    return False
 
 
 def _sicuro(request, url):

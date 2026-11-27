@@ -109,21 +109,50 @@ def _viste_solo_post():
     return trovate
 
 
+# Indirizzi che il test non sa ricostruire dal pattern: nessuno. Se ne servisse uno, va nominato qui.
+NON_VERIFICABILI = set()
+
+
 def test_nessuna_azione_solo_post_rimanda_al_login_con_se_stessa(client):
     viste = _viste_solo_post()
-    assert len(viste) >= 13
-    for pattern in viste.values():
+    controllate, saltate = 0, set()
+    for vista, pattern in viste.items():
         # un indirizzo concreto: i parametri (<int:pk>, <slug>…) si riempiono con valori qualunque
         percorso = "/" + re.sub(r"<(?:int:|slug:|str:|uuid:)?[^>]*>", "1", pattern.replace("^", "").replace("$", ""))
         try:
             risolta = resolve(percorso)
         except Exception:
+            saltate.add(pattern)
             continue
-        if not getattr(risolta.func, "solo_post", False):
+        if risolta.func is not vista:
+            saltate.add(pattern)
             continue
         r = client.post(percorso, {})
         assert r.status_code == 302, percorso
         assert _next(r["Location"]) != percorso, percorso
+        controllate += 1
+    assert saltate <= NON_VERIFICABILI, sorted(saltate - NON_VERIFICABILI)
+    assert controllate == len(viste) - len(saltate) and controllate >= 150
+
+
+def test_azioni_moduli_senza_accesso_tornano_alla_pagina_di_partenza(client):
+    for nome in ("moduli_azione", "moduli_attivazione", "moduli_carica", "moduli_scarica", "moduli_licenza",
+                 "moduli_sincronizza"):
+        url = reverse("core:" + nome)
+        assert resolve(url).func.solo_post, nome
+        r = client.post(url, {"next": "/vendite/"})
+        assert r.status_code == 302 and _next(r["Location"]) == "/vendite/", nome
+
+
+def test_e_solo_post_vede_percorsi_codificati_e_senza_barra_finale():
+    from core.decoratori import e_solo_post
+    assert e_solo_post("/azienda/cambia/")
+    assert e_solo_post("/azienda/cambia")
+    assert e_solo_post("/azienda/cambia?x=1")
+    assert e_solo_post("/azienda/%63ambia/")
+    assert e_solo_post("/azienda/%63ambia")
+    assert not e_solo_post("/vendite/")
+    assert not e_solo_post("/non/esiste")
 
 
 def test_le_azioni_convertite_sono_segnate():
