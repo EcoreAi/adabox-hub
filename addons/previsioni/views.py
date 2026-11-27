@@ -10,8 +10,8 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import lavori
 from core.viste import ModelView, register
 
@@ -64,8 +64,7 @@ def prodotto_vendite(request, pk):
     return render(request, "previsioni/_prodotto_vendite.html", pagine.vendite_prodotto(request, pk))
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def aggiorna(request):
     """«Aggiorna» (`?cosa=magazzino` o `vendite`, ognuna col suo permesso): il ricalcolo va in un lavoro in background,
     perché ogni chiamata al servizio può durare minuti, e si torna alla pagina di prima."""
@@ -157,8 +156,7 @@ def _risposta_riga(request, origine, obj):
     return redirect("previsioni:pagina")
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def rinomina(request, origine, pk):
     """Cambia il titolo della previsione d'origine (Artifact o Grafico): il nome nuovo si vede anche in chat e in Analisi."""
     obj = _mia_previsione(request, origine, pk)
@@ -172,8 +170,7 @@ def rinomina(request, origine, pk):
     return _risposta_riga(request, origine, obj)
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def etichetta(request, origine, pk):
     """Imposta o cambia l'etichetta della previsione; vuota la toglie."""
     obj = _mia_previsione(request, origine, pk)

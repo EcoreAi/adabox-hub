@@ -5,8 +5,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import cifratura, lavori
 
 from . import sistemi
@@ -29,8 +29,7 @@ def account(request):
     return render(request, "connettori/account.html", {"voci": voci})
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def collega(request, pk):
     collegamento = get_object_or_404(_collegamenti(request), pk=pk)
     chiave = request.POST.get("chiave", "").strip()
@@ -58,8 +57,7 @@ def collega(request, pk):
     return redirect("connettori:account")
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def sincronizza(request, pk):
     voce = get_object_or_404(AccountEsterno, pk=pk, utente=request.user, collegamento__in=_collegamenti(request))
     lavori.accoda("connettori.sincronia.giro_account", account_id=voce.pk, azienda=voce.collegamento.azienda, utente=request.user, max_tentativi=1)
@@ -67,8 +65,7 @@ def sincronizza(request, pk):
     return redirect("connettori:account")
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def scollega(request, pk):
     """Si dimentica la chiave e la visibilità: i record arrivati restano, ma non li vedi più (a meno di altri permessi)."""
     voce = get_object_or_404(AccountEsterno, pk=pk, utente=request.user)

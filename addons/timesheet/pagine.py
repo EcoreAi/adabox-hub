@@ -11,8 +11,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import parametri
 from progetti.models import Compito, progetti_visibili
 
@@ -112,9 +112,8 @@ def _torna(request):
     return redirect(reverse("timesheet:ore_lista"))
 
 
-@login_required
+@post_con_accesso
 @permission_required("timesheet.add_rigaore", raise_exception=True)
-@require_POST
 def cronometro_avvia(request):
     """Avvia il cronometro; se ne girava un altro, prima lo ferma e salva le sue ore."""
     from progetti.models import Progetto
@@ -162,9 +161,8 @@ def _ferma(request, cronometro):
     return riga
 
 
-@login_required
+@post_con_accesso
 @permission_required("timesheet.add_rigaore", raise_exception=True)
-@require_POST
 def cronometro_ferma(request):
     corrente = Cronometro.objects.filter(utente=request.user).first()
     if corrente:

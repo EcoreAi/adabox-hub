@@ -5,8 +5,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core.dashboard import queryset
 from fatturazione.commercialista import foglio
 from fatturazione.scadenzario import numero_csv
@@ -100,9 +100,8 @@ def _liq(request, anno, periodicita, periodo):
     return Liquidazione.objects.filter(azienda=request.azienda, anno=anno, periodicita=periodicita, periodo=periodo).first()
 
 
-@login_required
+@post_con_accesso
 @permission_required("iva.change_liquidazione", raise_exception=True)
-@require_POST
 def chiudi(request, anno, periodicita, periodo):
     _controlla(periodicita, periodo)
     if periodo > 1:
@@ -115,9 +114,8 @@ def chiudi(request, anno, periodicita, periodo):
     return redirect("iva:periodo", anno, periodicita, periodo)
 
 
-@login_required
+@post_con_accesso
 @permission_required("iva.change_liquidazione", raise_exception=True)
-@require_POST
 def riapri(request, anno, periodicita, periodo):
     liq = _liq(request, anno, periodicita, periodo)
     dopo = _liq(request, anno, periodicita, periodo + 1) if periodo < calcolo.ultimo_periodo(periodicita) else None
@@ -130,9 +128,8 @@ def riapri(request, anno, periodicita, periodo):
     return redirect("iva:periodo", anno, periodicita, periodo)
 
 
-@login_required
+@post_con_accesso
 @permission_required("iva.change_liquidazione", raise_exception=True)
-@require_POST
 def versata(request, anno, periodicita, periodo):
     liq = _liq(request, anno, periodicita, periodo)
     if liq is None or not liq.chiusa:
@@ -167,9 +164,8 @@ def lipe(request):
         "scadenza": comunicazione.SCADENZE[trimestre]})
 
 
-@login_required
+@post_con_accesso
 @permission_required("iva.change_detraibilita", raise_exception=True)
-@require_POST
 def detraibilita(request, pk):
     fattura = get_object_or_404(queryset(request, FatturaPassiva), pk=pk)
     voce = Detraibilita.objects.filter(fattura=fattura).first() or Detraibilita(fattura=fattura)

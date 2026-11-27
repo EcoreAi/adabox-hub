@@ -54,6 +54,12 @@ commit; qui solo ciò che si vede o che chiede un intervento.
   - **Consumi**: la ricerca non guarda più dentro il testo delle risposte. **Aree di lavoro**: non si condividono
     con gli utenti esterni. **CSV di grafici e tabelle**: i testi che cominciano con `=`, `+`, `-`, `@` escono con un
     apostrofo davanti (non sono formule).
+- **Azioni solo POST e sessione scaduta** (Kernel, nessuna migrazione). A sessione scaduta un clic su un'azione solo POST
+  (cambio azienda, allegati, chatter, token, apertura app…) portava al login con quell'azione come destinazione, e dopo
+  l'accesso rispondeva 405. Ora si torna alla pagina di partenza (con HTMX è la pagina intera ad andare al login), e il
+  login non porta mai a un'azione solo POST: vecchi link e segnalibri finiscono alla Home. Le azioni usano il
+  decoratore `post_con_accesso` di `core.decoratori`; i moduli con un'azione solo POST lo adottano al posto di
+  `@require_POST` + `@login_required`. Un GET con accesso ma senza permesso su queste azioni ora risponde 405 invece di 403.
 
 ## 2026-11-26
 

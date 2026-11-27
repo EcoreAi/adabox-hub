@@ -1,10 +1,9 @@
 from django import forms
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import lavori
 from core.viste import register
 from progetti.models import Compito, progetti_visibili
@@ -55,8 +54,7 @@ class RepositoryView(DelProgettoVisibile):
     nuovo_segreto.ai = False                     # come nei Connettori: non è un bottone per l'assistente
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def crea_issue(request, pk):
     if not request.user.has_perm("github.add_collegamento"):
         raise PermissionDenied
