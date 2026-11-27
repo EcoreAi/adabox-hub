@@ -50,42 +50,50 @@
       <div class="ai-cerca-chat"><input class="ui-input" type="search" name="q" placeholder="Cerca nelle chat…" aria-label="Cerca nelle chat" hx-get="{% url 'ai:cerca_chat' %}" hx-trigger="input changed delay:300ms, search" hx-target="#ai-elenco-storico"></div>
       <div id="ai-elenco-storico">{% include "ai/_elenco_chat.html" with chat=storico vuoto="Nessuna conversazione ancora." %}</div>
     </section>
-    <section data-contenuto="preferite" hidden>
+    <section data-contenuto="preferite" data-filtra hidden>
       <header class="ai-pannello-testa"><h2>Preferiti</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
+      {# filtro nella pagina (chat.js): titolo, area, azienda, chi ha condiviso; c'è solo se c'è qualcosa da cercare #}
+      {% if preferite or salvati.documenti or salvati.grafici_tabelle or ricevuti.totale %}
+      <div class="ai-cerca-chat"><input class="ui-input" type="search" placeholder="Cerca nei preferiti…" aria-label="Cerca nei preferiti" autocomplete="off" data-filtra-campo></div>
+      <p class="ai-vuoto" data-filtra-vuoto hidden>Nessun preferito trovato.</p>{% endif %}
       {# quello che hai segnato con la stella, in tutte le chat; ciò che nasce in un'area di lavoro è anche nella sua cartella #}
-      <details class="ai-preferiti-gruppo" open><summary>Chat <span class="ai-conta">{{ preferite|length }}</span></summary>
+      <details class="ai-preferiti-gruppo" data-filtra-gruppo open><summary>Chat <span class="ai-conta">{{ preferite|length }}</span></summary>
         {% include "ai/_elenco_chat.html" with chat=preferite vuoto="Segna una chat con la stella per ritrovarla qui." %}</details>
-      <details class="ai-preferiti-gruppo" open><summary>Documenti <span class="ai-conta">{{ salvati.documenti|length }}</span></summary>
-        {% if salvati.documenti %}<ul class="ai-elenco">{% for d in salvati.documenti %}{% azienda_chat d as az %}<li><a {% if az.chiusa %}title="Documento dell'azienda {{ az.nome }}, dove non puoi usare la chat"{% else %}href="{% url 'ai:conversazione' d.conversazione_id %}?documento={{ d.pk }}"{% endif %}{% if az.cambia %} data-cambia-azienda="{{ az.cambia }}" title="Passa a {{ az.nome }} e apri il documento"{% endif %}><span class="ai-elenco-titolo">{{ d.titolo }}</span><span class="ai-elenco-data">{% if az %}<span class="ai-elenco-azienda">{{ az.nome }}</span> · {% endif %}{{ d.aggiornato|date:"d/m H:i" }}</span></a></li>{% endfor %}</ul>
+      <details class="ai-preferiti-gruppo" data-filtra-gruppo open><summary>Documenti <span class="ai-conta">{{ salvati.documenti|length }}</span></summary>
+        {% if salvati.documenti %}<ul class="ai-elenco">{% for d in salvati.documenti %}{% azienda_chat d as az %}<li data-cerca="{{ d.titolo }}{% if az %} {{ az.nome }}{% endif %}"><a {% if az.chiusa %}title="Documento dell'azienda {{ az.nome }}, dove non puoi usare la chat"{% else %}href="{% url 'ai:conversazione' d.conversazione_id %}?documento={{ d.pk }}"{% endif %}{% if az.cambia %} data-cambia-azienda="{{ az.cambia }}" title="Passa a {{ az.nome }} e apri il documento"{% endif %}><span class="ai-elenco-titolo">{{ d.titolo }}</span><span class="ai-elenco-data">{% if az %}<span class="ai-elenco-azienda">{{ az.nome }}</span> · {% endif %}{{ d.aggiornato|date:"d/m H:i" }}</span></a></li>{% endfor %}</ul>
         {% else %}<p class="ai-preferiti-vuoto">Salva con la stella un documento scritto con Ada.</p>{% endif %}</details>
-      <details class="ai-preferiti-gruppo" open><summary>Grafici e tabelle <span class="ai-conta">{{ salvati.grafici_tabelle|length }}</span></summary>
+      <details class="ai-preferiti-gruppo" data-filtra-gruppo open><summary>Grafici e tabelle <span class="ai-conta">{{ salvati.grafici_tabelle|length }}</span></summary>
         {% include "ai/_elenco_artifact.html" with voci=salvati.grafici_tabelle %}</details>
       {% if ricevuti.totale %}
-      <details class="ai-preferiti-gruppo" open><summary>Condivisi con me <span class="ai-conta">{{ ricevuti.totale }}</span></summary>
-        <ul class="ai-elenco">{% for d in ricevuti.documenti %}<li><a href="{% url 'ai:documento_condiviso' d.pk %}"><span class="ai-elenco-titolo">{{ d.titolo }}</span><span class="ai-elenco-data">Documento · da {{ d.utente.first_name|default:d.utente.username }}</span></a></li>{% endfor %}
-        {% for a in ricevuti.artifact %}<li><a href="{% url 'ai:artifact' a.pk %}" target="_blank" rel="noopener"><span class="ai-elenco-titolo">{{ a.titolo }}</span><span class="ai-elenco-data">{{ a.get_tipo_display }} · da {{ a.utente.first_name|default:a.utente.username }}</span></a></li>{% endfor %}</ul></details>
+      <details class="ai-preferiti-gruppo" data-filtra-gruppo open><summary>Condivisi con me <span class="ai-conta">{{ ricevuti.totale }}</span></summary>
+        <ul class="ai-elenco">{% for d in ricevuti.documenti %}<li data-cerca="{{ d.titolo }} {{ d.utente.first_name|default:d.utente.username }}"><a href="{% url 'ai:documento_condiviso' d.pk %}"><span class="ai-elenco-titolo">{{ d.titolo }}</span><span class="ai-elenco-data">Documento · da {{ d.utente.first_name|default:d.utente.username }}</span></a></li>{% endfor %}
+        {% for a in ricevuti.artifact %}<li data-cerca="{{ a.titolo }} {{ a.utente.first_name|default:a.utente.username }}"><a href="{% url 'ai:artifact' a.pk %}" target="_blank" rel="noopener"><span class="ai-elenco-titolo">{{ a.titolo }}</span><span class="ai-elenco-data">{{ a.get_tipo_display }} · da {{ a.utente.first_name|default:a.utente.username }}</span></a></li>{% endfor %}</ul></details>
       {% endif %}
     </section>
-    <section data-contenuto="progetti" hidden>
+    <section data-contenuto="progetti" data-filtra hidden>
       <header class="ai-pannello-testa"><h2>Aree di lavoro</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
+      {# filtro nella pagina (chat.js) per nome, anche nelle altre aziende; da due aree in su (quella personale c'è sempre) #}
+      {% if progetti|length > 1 or aziende|length > 1 and aree_altre_aziende %}
+      <div class="ai-cerca-chat"><input class="ui-input" type="search" placeholder="Cerca nelle aree…" aria-label="Cerca nelle aree di lavoro" autocomplete="off" data-filtra-campo></div>
+      <p class="ai-vuoto" data-filtra-vuoto hidden>Nessuna area trovata.</p>{% endif %}
       {% comment %}chi lavora in più aziende: un gruppo per azienda, la corrente aperta e per prima, le altre chiuse e per nome.
          aree_altre_aziende si calcola solo qui, e solo per chi ha più aziende (una volta per richiesta){% endcomment %}
-      {% if aziende|length > 1 and aree_altre_aziende %}<details class="ai-gruppo-azienda" open><summary><svg class="ai-albero-freccia" aria-hidden="true"><use href="#icon-chevron-down"/></svg><span>{{ azienda.nome }}</span><span class="ai-conta">{{ progetti|length }}</span></summary>{% endif %}
+      {% if aziende|length > 1 and aree_altre_aziende %}<details class="ai-gruppo-azienda" data-filtra-gruppo open><summary><svg class="ai-albero-freccia" aria-hidden="true"><use href="#icon-chevron-down"/></svg><span>{{ azienda.nome }}</span><span class="ai-conta">{{ progetti|length }}</span></summary>{% endif %}
       <ul class="ai-elenco ai-progetti">{% for p in progetti %}
         {% with aperto=conversazione.progetto_id|default_if_none:0 %}
-        <li class="ai-progetto-voce"><details data-albero="{% url 'ai:albero_progetto' p.pk %}{% if conversazione %}?chat={{ conversazione.pk }}{% endif %}"{% if aperto == p.pk or progetto_aperto.pk == p.pk %} open{% endif %}>
+        <li class="ai-progetto-voce" data-cerca="{{ p.nome }}"><details data-albero="{% url 'ai:albero_progetto' p.pk %}{% if conversazione %}?chat={{ conversazione.pk }}{% endif %}"{% if aperto == p.pk or progetto_aperto.pk == p.pk %} open{% endif %}>
           <summary><svg class="ai-albero-freccia" aria-hidden="true"><use href="#icon-chevron-down"/></svg><a href="{% url 'ai:progetto' p.pk %}"{% if progetto_aperto.pk == p.pk or aperto == p.pk %} class="is-attiva" aria-current="page"{% endif %}><svg class="ai-progetto-icona" aria-hidden="true"><use href="#ai-cartella"/></svg><span class="ai-area-nome">{{ p.nome }}</span>{% if p.utente_id != user.pk %}<span class="ai-area-di" title="Area di {{ p.utente.get_full_name|default:p.utente.username }}, condivisa con te">di {{ p.utente.first_name|default:p.utente.username }}</span>{% elif p.n_membri %}<svg class="ai-area-condivisa" aria-label="Condivisa con {{ p.n_membri }}"><use href="#ai-persone"/></svg>{% endif %}</a></summary>
           <div class="ai-albero" data-albero-contenuto aria-live="polite"></div>
-        </details></li>{% endwith %}{% empty %}<li class="ai-vuoto"><p>Un'area di lavoro raccoglie chat, istruzioni, file e record collegati su un argomento.</p></li>{% endfor %}</ul>
+        </details></li>{% endwith %}{% empty %}<li class="ai-vuoto" data-filtra-nascondi><p>Un'area di lavoro raccoglie chat, istruzioni, file e record collegati su un argomento.</p></li>{% endfor %}</ul>
       {% if aziende|length > 1 and aree_altre_aziende %}</details>{% endif %}
       {% if aziende|length > 1 %}{% for gruppo in aree_altre_aziende %}
-      <details class="ai-gruppo-azienda"><summary><svg class="ai-albero-freccia" aria-hidden="true"><use href="#icon-chevron-down"/></svg><span>{{ gruppo.azienda.nome }}</span><span class="ai-conta">{{ gruppo.aree|length }}</span></summary>
+      <details class="ai-gruppo-azienda" data-filtra-gruppo><summary><svg class="ai-albero-freccia" aria-hidden="true"><use href="#icon-chevron-down"/></svg><span>{{ gruppo.azienda.nome }}</span><span class="ai-conta">{{ gruppo.aree|length }}</span></summary>
         {# aree di un'altra azienda: un link che passa a quell'azienda e apre l'area (senza script risponde «Passa a …») #}
         <ul class="ai-elenco ai-progetti">
           {# lì non ha ancora scritto: niente area personale da mostrare (un GET non la crea), ma una chat nuova ci passa #}
-          {% if not gruppo.personale %}<li class="ai-progetto-voce ai-progetto-altrove"><a href="{% url 'ai:chat' %}" data-cambia-azienda="{{ gruppo.azienda.pk }}" title="Passa a {{ gruppo.azienda.nome }} e apri una chat nuova"><svg class="ai-progetto-icona" aria-hidden="true"><use href="#ai-piu"/></svg><span class="ai-area-nome">Nuova chat</span></a></li>{% endif %}
+          {% if not gruppo.personale %}<li class="ai-progetto-voce ai-progetto-altrove" data-filtra-nascondi><a href="{% url 'ai:chat' %}" data-cambia-azienda="{{ gruppo.azienda.pk }}" title="Passa a {{ gruppo.azienda.nome }} e apri una chat nuova"><svg class="ai-progetto-icona" aria-hidden="true"><use href="#ai-piu"/></svg><span class="ai-area-nome">Nuova chat</span></a></li>{% endif %}
           {% for p in gruppo.aree %}
-          <li class="ai-progetto-voce ai-progetto-altrove"><a href="{% url 'ai:progetto' p.pk %}" data-cambia-azienda="{{ gruppo.azienda.pk }}" title="Passa a {{ gruppo.azienda.nome }} e apri l'area"><svg class="ai-progetto-icona" aria-hidden="true"><use href="#ai-cartella"/></svg><span class="ai-area-nome">{{ p.nome }}</span>{% if p.utente_id != user.pk %}<span class="ai-area-di" title="Area di {{ p.utente.get_full_name|default:p.utente.username }}, condivisa con te">di {{ p.utente.first_name|default:p.utente.username }}</span>{% elif p.n_membri %}<svg class="ai-area-condivisa" aria-label="Condivisa con {{ p.n_membri }}"><use href="#ai-persone"/></svg>{% endif %}</a></li>{% endfor %}
+          <li class="ai-progetto-voce ai-progetto-altrove" data-cerca="{{ p.nome }}"><a href="{% url 'ai:progetto' p.pk %}" data-cambia-azienda="{{ gruppo.azienda.pk }}" title="Passa a {{ gruppo.azienda.nome }} e apri l'area"><svg class="ai-progetto-icona" aria-hidden="true"><use href="#ai-cartella"/></svg><span class="ai-area-nome">{{ p.nome }}</span>{% if p.utente_id != user.pk %}<span class="ai-area-di" title="Area di {{ p.utente.get_full_name|default:p.utente.username }}, condivisa con te">di {{ p.utente.first_name|default:p.utente.username }}</span>{% elif p.n_membri %}<svg class="ai-area-condivisa" aria-label="Condivisa con {{ p.n_membri }}"><use href="#ai-persone"/></svg>{% endif %}</a></li>{% endfor %}
         </ul>
       </details>{% endfor %}{% endif %}
       <p class="ai-cerca-chat"><a class="ui-link" href="{% url 'ai:progetti_nuovo' %}">Nuova area di lavoro</a> · <a class="ui-link" href="{% url 'ai:progetti_lista' %}">Gestisci</a></p>

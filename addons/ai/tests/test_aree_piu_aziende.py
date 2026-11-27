@@ -75,7 +75,8 @@ def test_colonna_delle_aree_raggruppata_per_azienda(client, p):
     assert url_r in gruppi[0] and "data-cambia-azienda" not in _link(gruppi[0], url_r)
     assert url_b in gruppi[1] and f'data-cambia-azienda="{p["bianchi"].pk}"' in _link(gruppi[1], url_b)
     assert f'data-cambia-azienda="{p["bianchi"].pk}"' in _link(gruppi[1], reverse("ai:progetto", args=[personale_b.pk]))
-    assert gruppi[0].count("Il mio spazio") == 1 and gruppi[1].count("Il mio spazio") == 1 and "Il mio spazio" not in gruppi[2]
+    personale = 'class="ai-area-nome">Il mio spazio<'                    # l'etichetta (il nome è anche in data-cerca)
+    assert gruppi[0].count(personale) == 1 and gruppi[1].count(personale) == 1 and "Il mio spazio" not in gruppi[2]
     # senza area personale (in Verdi non ha ancora scritto): «Nuova chat» ci passa, e la chat la crea lì
     assert f'data-cambia-azienda="{p["verdi"].pk}"' in _link(gruppi[2], reverse("ai:chat"))
     assert reverse("ai:chat") not in gruppi[1]
@@ -133,7 +134,7 @@ def test_chat_riservata_niente_gruppi_ne_cambio_verso_aziende_senza_chat(client,
     assert not ProgettoChat.objects.filter(azienda__in=[p["bianchi"], p["verdi"]], personale=True).exists()
     url_b = reverse("ai:conversazione", args=[p["chat_b"].pk])
     for elenco in (_pannello(html, "storico"), _pannello(html, "preferite")):
-        voce_b = elenco.split("Chat di Bianchi")[0].rsplit("<li>", 1)[1]
+        voce_b = elenco.split("Chat di Bianchi</span>")[0].rsplit("<li", 1)[1]     # la voce, dal suo <li
         assert 'class="ai-elenco-azienda">Bianchi Spa<' in elenco and f'href="{url_b}"' not in voce_b   # il nome, senza link
         assert "data-cambia-azienda" not in voce_b
     assert client.get(url_b).status_code == 404

@@ -562,6 +562,45 @@
     document.querySelectorAll('details[data-albero][open] [data-albero-contenuto]').forEach((c) => ricaricaAlbero(c));
   }, 400));
 
+  // --- colonna di sinistra: Preferiti e Aree di lavoro si filtrano nella pagina (le voci ci sono già tutte), per
+  //     parole senza accenti né maiuscole, come la pagina Applicazioni. I gruppi senza risultati spariscono, quelli con
+  //     risultati si aprono e ne dicono il numero; a campo vuoto tutto torna com'era, anche i gruppi chiusi ---
+  const piano = (t) => (t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  document.querySelectorAll('[data-filtra]').forEach((sezione) => {
+    const campo = sezione.querySelector('[data-filtra-campo]');
+    if (!campo) return;
+    const vuoto = sezione.querySelector('[data-filtra-vuoto]');
+    const gruppi = [...sezione.querySelectorAll('[data-filtra-gruppo]')];
+    let aperti = null;                                  // i gruppi aperti prima di cercare, per rimetterli com'erano
+    const filtra = () => {
+      const parole = piano(campo.value).split(/\s+/).filter(Boolean);
+      const cerco = parole.length > 0;
+      if (cerco && !aperti) aperti = gruppi.map((g) => g.open);
+      let trovate = 0;
+      sezione.querySelectorAll('[data-cerca]').forEach((voce) => {
+        const testo = piano(voce.dataset.cerca);
+        voce.hidden = cerco && !parole.every((parola) => testo.includes(parola));
+        if (!voce.hidden) trovate += 1;
+      });
+      sezione.querySelectorAll('[data-filtra-nascondi]').forEach((riga) => { riga.hidden = cerco; });
+      gruppi.forEach((gruppo, i) => {
+        const qui = gruppo.querySelectorAll('[data-cerca]:not([hidden])').length;
+        const conta = gruppo.querySelector(':scope > summary .ai-conta');
+        if (conta) {
+          if (conta.dataset.totale === undefined) conta.dataset.totale = conta.textContent;
+          conta.textContent = cerco ? qui : conta.dataset.totale;
+        }
+        gruppo.hidden = cerco && qui === 0;
+        if (cerco && qui) gruppo.open = true;
+        else if (!cerco && aperti) gruppo.open = aperti[i];
+      });
+      if (!cerco) aperti = null;
+      if (vuoto) vuoto.hidden = !cerco || trovate > 0;
+    };
+    campo.addEventListener('input', filtra);
+    campo.addEventListener('search', filtra);
+  });
+
   // --- «Salva nei Documenti»: documenti scritti con Ada, grafici e tabelle nell'archivio, nella cartella scelta ---
   const salvaDoc = document.getElementById('ai-salva-doc');
   const mostraSalva = () => {
