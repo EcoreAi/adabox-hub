@@ -27,7 +27,7 @@ commit; qui solo ciò che si vede o che chiede un intervento.
   - GitHub: «Rigenera il segreto» chiede la spunta e non è più tra i bottoni dell'assistente. Discuss: leggere una
     conversazione con Ada non la crea.
 
-- **Revisione di Chat e «Parla con Ada»: correzioni e sicurezza** — AI 1.60.1, Kernel 1.15.2 (nessuna migrazione).
+- **Revisione di Chat e «Parla con Ada»: correzioni e sicurezza** — AI 1.60.2, Kernel 1.15.3, insieme alla seconda parte (nessuna migrazione).
   Cambi di comportamento da conoscere:
   - **Pagine web**: Ada apre solo gli indirizzi scritti dall'utente nel messaggio o tornati da `cerca_web` e
     `leggi_pagina`. Un indirizzo letto in un record o in un documento va incollato nel messaggio. Un esperto
