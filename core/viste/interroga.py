@@ -9,6 +9,7 @@ scrivere una query. Una specifica è un dizionario:
 
 Il codice valida vista, campi, operatori e permessi a ogni chiamata: la specifica può arrivare da un modello
 linguistico o da un form, i dati li calcola sempre il database per l'utente che chiede."""
+import copy
 import datetime
 import json
 import re
@@ -87,17 +88,22 @@ def vista_per_nome(nome, request, **limiti):
 
 
 def richiesta_di(utente, azienda=None):
-    """Una richiesta minima per usare le ModelView fuori dal browser (worker, cache): stesso utente, stessa azienda."""
+    """Una richiesta minima per usare le ModelView fuori dal browser (worker, cache): stesso utente, stessa azienda.
+    L'utente della richiesta è una copia: il consolidato su più aziende la chiede con l'utente della pagina, una volta
+    per azienda, e la pagina deve restare sulla sua."""
     from django.conf import settings
     host = next((h for h in settings.ALLOWED_HOSTS if h and h != "*" and not h.startswith(".")), "localhost")
+    autenticato = getattr(utente, "is_authenticated", False)
     request = HttpRequest()
     request.method = "GET"
-    request.user, request.azienda = utente, azienda
+    request.user, request.azienda = copy.copy(utente) if autenticato else utente, azienda
     request.META.update({"HTTP_HOST": host, "SERVER_NAME": host, "SERVER_PORT": "80"})
     request.session = {}
-    if azienda is None and getattr(utente, "is_authenticated", False):
+    if azienda is None and autenticato:
         from core.azienda import corrente
         request.azienda = corrente(request)
+    if autenticato:
+        request.user._azienda_corrente = request.azienda    # come il middleware: per modules.app_visibili(user)
     return request
 
 

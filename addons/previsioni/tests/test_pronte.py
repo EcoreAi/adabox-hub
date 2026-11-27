@@ -367,20 +367,20 @@ def test_senza_vendite_nessuna_pronta(db, monkeypatch):
 
     chiamate = []
     monkeypatch.setattr(servizio, "chiama", lambda percorso, dati: chiamate.append(dati))
-    if apps.is_installed("vendite"):                          # Vendite riservata a un'altra azienda (spenta: la notte no)
-        _riserva("vendite", Azienda.objects.create(nome="Altra", attiva=False))
+    if apps.is_installed("vendite"):                          # Vendite riservata a un'altra azienda (attiva: una
+        _riserva("vendite", Azienda.objects.create(nome="Altra"))  # riservata solo a aziende spente vale per tutte)
     assert pronte.per_request(richiesta_di(capo, azienda)) == []
     assert calcolo.eseguibile("vendite", azienda) is False
-    calcolo.notturno()
-    assert not PrevisionePronta.objects.exists() and not StatoCalcolo.objects.filter(cosa="vendite").exists()
-    assert chiamate == []
+    calcolo.notturno()                                        # la notte calcola per Altra, non per questa
+    assert not PrevisionePronta.objects.filter(azienda=azienda).exists()
+    assert not StatoCalcolo.objects.filter(azienda=azienda, cosa="vendite").exists()
 
     installata = apps.is_installed                                           # Vendite non installata
     monkeypatch.setattr(apps, "is_installed", lambda nome: nome != "vendite" and installata(nome))
     Modulo.objects.filter(slug="vendite").delete()
     assert pronte.per_request(richiesta_di(capo, azienda)) == []
     assert calcolo.eseguibile("vendite", azienda) is False
-    assert calcolo.vendite(azienda) == 0 and not PrevisionePronta.objects.exists()
+    assert calcolo.vendite(azienda) == 0 and not PrevisionePronta.objects.filter(azienda=azienda).exists()
 
 
 @serve_vendite

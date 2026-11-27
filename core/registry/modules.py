@@ -45,6 +45,17 @@ def dipendenze(slug, info):
     return list(m.depends) if m else []
 
 
+def dipendenze_tutte(slug, info):
+    """Le dipendenze di `slug` a cascata (senza `slug`)."""
+    viste, da_vedere = set(), dipendenze(slug, info)
+    while da_vedere:
+        d = da_vedere.pop()
+        if d not in viste and d != slug:
+            viste.add(d)
+            da_vedere.extend(dipendenze(d, info))
+    return viste
+
+
 def ordina(slugs, info) -> list[str]:
     """Ordine topologico (Kahn) sui depends; stabile per nome a parità. Errore se dipendenza assente o ciclo.
     Le dipendenze presenti su disco ma fuori da `slugs` non vincolano l'ordine."""
@@ -234,11 +245,13 @@ _DALL_UTENTE = object()
 
 def aziende_ammesse(user=None):
     """{slug: {azienda_id}} delle app riservate ad alcune aziende (Modulo.aziende); le altre valgono per tutte.
+    Le aziende disattivate non contano: un'app riservata solo a quelle torna per tutte invece di sparire.
     Calcolato una volta per utente e richiesta, come i dipartimenti."""
     cache = getattr(user, "_app_aziende", None) if user is not None else None
     if cache is None:
         cache = {}
-        for slug, azienda_id in Modulo.aziende.through.objects.values_list("modulo__slug", "azienda_id"):
+        righe = Modulo.aziende.through.objects.filter(azienda__attiva=True).values_list("modulo__slug", "azienda_id")
+        for slug, azienda_id in righe:
             cache.setdefault(slug, set()).add(azienda_id)
         if user is not None:
             user._app_aziende = cache
@@ -250,6 +263,18 @@ def per_azienda(slug, azienda, user=None):
     utenti senza aziende) non si limita nulla."""
     limiti = aziende_ammesse(user).get(slug)
     return not limiti or azienda is None or azienda.pk in limiti
+
+
+def conflitti_aziende(slug, aziende_ids):
+    """Perché `slug` non si può riservare alle aziende `aziende_ids`: ([app accese che la usano e restano aperte ad
+    altre aziende], [app che le servono ma sono riservate ad altre aziende]). Due elenchi vuoti: si può."""
+    info, spenti, limiti, scelte = scopri(), disattivati(), aziende_ammesse(), set(aziende_ids)
+    nome = lambda s: etichette().get(s) or (info[s].manifest.nav_label or info[s].manifest.name)  # noqa: E731
+    la_usano = sorted(nome(s) for s in manifests_attivi() if s != slug and s not in spenti and s in info
+                      and slug in dipendenze_tutte(s, info) and not (limiti.get(s) and limiti[s] <= scelte))
+    le_servono = sorted(nome(d) for d in dipendenze_tutte(slug, info)
+                        if d in info and limiti.get(d) and not scelte <= limiti[d])
+    return la_usano, le_servono
 
 
 def app_visibili(user, azienda=_DALL_UTENTE):

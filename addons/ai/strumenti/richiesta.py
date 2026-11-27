@@ -1,6 +1,8 @@
 """Richiesta finta per usare le ModelView dall'assistente come dal browser: stesso utente, stessa azienda, stesse
 personalizzazioni di Studio. I messaggi (messages.success...) dei bottoni si raccolgono invece di andare in
 sessione, così l'esito torna nella chat."""
+import copy
+
 from django.conf import settings
 from django.contrib.messages.storage.base import BaseStorage
 from django.http import HttpRequest
@@ -26,13 +28,18 @@ def _host():
 
 
 def nuova(utente, azienda=None, metodo="GET"):
+    """La richiesta con cui Ada usa le viste. L'utente è una copia, come in interroga.richiesta_di: l'azienda della
+    richiesta non deve restare su chi la chiede."""
+    autenticato = getattr(utente, "is_authenticated", False)
     request = HttpRequest()
     request.method = metodo
-    request.user, request.azienda = utente, azienda
+    request.user, request.azienda = copy.copy(utente) if autenticato else utente, azienda
     request.META.update({"HTTP_HOST": _host(), "SERVER_NAME": _host(), "SERVER_PORT": "80",
                          "HTTP_USER_AGENT": "assistente AI"})
     request.session = {}
     request._messages = _Messaggi(request)
+    if autenticato:
+        request.user._azienda_corrente = azienda            # come il middleware: per modules.app_visibili(user)
     return request
 
 

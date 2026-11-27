@@ -65,7 +65,7 @@ def disponibili(utente, ambito="", azienda=None):
     """Gli strumenti che l'utente può usare (in ordine stabile per la cache del prefisso). Con l'azienda anche quelli
     dei sistemi esterni (MCP) che ha acceso, ma non nelle chat limitate a un'app."""
     from core import funzioni
-    from core.registry.modules import disattivati
+    from core.registry.modules import disattivati, per_azienda
 
     from .. import elenco_strumenti
     from .. import funzioni as funzioni_ai
@@ -76,7 +76,7 @@ def disponibili(utente, ambito="", azienda=None):
     a_mano = elenco_strumenti.spenti(azienda)           # spenti dalla pagina «Strumenti»
     interni = [s for _, s in sorted(_registro.items())
             if (s.permesso is None or utente.has_perm(s.permesso)) and (not ambito or not s.app or s.app == ambito or s.ovunque)
-            and s.app not in spenti and (comprese is None or funzioni_ai.di_strumento(s) in comprese | {""})
+            and s.app not in spenti and (not s.app or per_azienda(s.app, azienda, utente)) and (comprese is None or funzioni_ai.di_strumento(s) in comprese | {""})
             and s.nome not in a_mano and (s.disponibile is None or s.disponibile())]
     if ambito or azienda is None or (comprese is not None and "mcp" not in comprese):
         return interni
