@@ -13,7 +13,7 @@ from django.urls import reverse
 from core.decoratori import post_con_accesso
 from core import parametri
 
-from . import apertura, aree, funzioni, motore, voce
+from . import apertura, aree, funzioni, limiti, motore, voce
 from .models import Apertura, Conversazione, Turno
 
 NOTA_VOCE = (
@@ -65,7 +65,7 @@ def frase(request, chiave):
     if (motivo := voce.blocco(request.user, getattr(request, "azienda", None))):
         return JsonResponse({"errore": motivo}, status=429)
     try:
-        dati, tipo = voce.audio_di(servizio, varianti[indice], "it")
+        dati, tipo = voce.leggi(servizio, varianti[indice], "it", request.user, getattr(request, "azienda", None))
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
     risposta = HttpResponse(dati, content_type=tipo)
@@ -134,6 +134,7 @@ def pagina(request, pk=None):
         "disponibile": attiva, "conversazione": conversazione, "impostazioni": impostazioni(azienda),
         "frasi": {"strumenti": FRASE_PER_STRUMENTO, "varianti": {k: len(v) for k, v in FRASI.items()}}, "app": app, "ambito": ambito,
         "notifiche": _notifiche(request.user), "nome": request.user.first_name, "apertura": saluto,
+        "avviso_voce": limiti.avviso_voce() if attiva else "",
         "gia_qui": attiva and saluto is None and conversazione is None and apertura.presente_oggi(request.user, azienda),
         "url_chat": reverse("ai:conversazione", args=[da_aprire.pk]) if da_aprire else reverse("ai:chat")})
 
@@ -150,7 +151,7 @@ def apertura_audio(request, pk):
     if (motivo := voce.blocco(request.user, getattr(request, "azienda", None))):
         return JsonResponse({"errore": motivo}, status=429)
     try:
-        dati, tipo = voce.audio_di(servizio, voce.da_leggere(saluto.testo), "it")
+        dati, tipo = voce.leggi(servizio, voce.da_leggere(saluto.testo), "it", request.user, getattr(request, "azienda", None))
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
     risposta = HttpResponse(dati, content_type=tipo)
@@ -187,7 +188,7 @@ def ascolta(request):
         return JsonResponse({"errore": motivo}, status=429)
     try:
         testo = voce.trascrivi(file, "it", azienda=azienda, parole=voce.parole_note(request.user, azienda),
-                               solo_locale=in_chat_riservata(request))
+                               solo_locale=in_chat_riservata(request), utente=request.user)
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
     return JsonResponse({"testo": " ".join(testo.split())})
@@ -285,7 +286,8 @@ def audio(request, pk, inizio, fine):
         return JsonResponse({"errore": motivo}, status=429)
     try:
         # la lingua si decide sulla risposta intera: un pezzo breve non deve cambiare voce a metà
-        dati, tipo = voce.audio_di(servizio, testo, voce.lingua_di(voce.da_leggere(turno.testo)))
+        dati, tipo = voce.leggi(servizio, testo, voce.lingua_di(voce.da_leggere(turno.testo)), request.user,
+                                getattr(request, "azienda", None))
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
     risposta = HttpResponse(dati, content_type=tipo)

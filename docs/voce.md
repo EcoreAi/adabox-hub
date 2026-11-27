@@ -147,5 +147,30 @@ Modelli e voci si cambiano dal servizio senza toccare il codice. I nomi dei mode
 non riesce, controlla il nome sulla documentazione del fornitore.
 
 La lingua della lettura si sceglie dal testo della risposta (italiano o inglese). L'audio di ogni parte resta in cache un
-giorno: riascoltare una risposta non la fa pagare due volte. I costi dei fornitori di voce non entrano nel tetto di
-spesa dell'assistente.
+giorno: riascoltare una risposta non la fa pagare due volte.
+
+## Costi della voce cloud
+
+Un servizio vocale cloud può avere un **prezzo** (lo imposta il Global Admin, nella scheda del servizio):
+
+- lettura: dollari per milione di caratteri letti;
+- trascrizione: dollari per minuto di audio (i secondi li dice il fornitore; se non li dice si stimano dalla dimensione).
+
+Con il prezzo, ogni chiamata vera al servizio (non quelle servite dalla cache) entra nei **Consumi**: una riga al giorno
+per persona, azienda e servizio, con i caratteri o i secondi e il costo (`voce_lettura`, `voce_trascrizione`). Quel
+costo conta nel **tetto di spesa mensile** dell'azienda come quello dei modelli: a tetto raggiunto anche la voce si
+ferma. Senza prezzo (la chiave è del cliente) e per Kokoro in locale non si segna nulla.
+
+La **quota della voce** sta nella licenza (`quota_voce`, dollari al mese per tutta l'istanza; dal portale di rivendita è
+il campo «quota della voce cloud» del piano o dell'istanza, e vale con qualunque formula dell'assistente). Superata la
+quota la voce **non si ferma**: il di più si fattura a parte. Lo dicono la pagina della licenza, la chat e «Parla con
+Ada» (dall'80% della quota), e un'email agli amministratori dell'assistente all'80% e al superamento, una volta al
+mese ciascuna. Il portale riceve con i consumi del mese quanta parte del costo è voce e calcola il di più da fatturare
+(cambio e ricarico dell'assistente).
+
+Il campo **«compresi al mese nel piano del fornitore»** (caratteri per la lettura, minuti per la trascrizione) riguarda
+invece i costi di chi fornisce la voce: all'80% arriva un'email al Global Admin, prima che il fornitore applichi il suo
+sovrapprezzo. La lista dei servizi mostra quanto se n'è usato nel mese.
+
+Oltre ai costi c'è un limite di richieste per persona (200 ogni dieci minuti tra letture e trascrizioni), contro gli
+abusi.

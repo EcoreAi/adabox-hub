@@ -142,7 +142,13 @@ def app_selezionabili(user):
 
 
 def _avviso_spesa(request):
-    """Testo dell'avviso quando la spesa del mese si avvicina al tetto (o l'assistente non è attivo)."""
+    """Testo dell'avviso quando la spesa del mese si avvicina al tetto (o l'assistente non è attivo), più quello della
+    quota della voce, se la licenza ne ha una ed è quasi finita o superata."""
+    from . import limiti
+    return " ".join(testo for testo in (_avviso_modelli(request), limiti.avviso_voce()) if testo)
+
+
+def _avviso_modelli(request):
     from core import parametri
 
     from . import licenza, limiti
@@ -584,6 +590,7 @@ def pagina_licenza(request):
         "spesa": limiti.spesa_mese(azienda) if azienda else None,
         "tetto": limiti.tetto(azienda) if azienda else None, "utenti_mese": len(limiti.utenti_del_mese()),
         "a_formula": a_formula, "consumo_fornito": limiti.consumo_fornito(),
+        "voce": dict(zip(("consumo", "quota", "extra"), limiti.voce(stato))),
         "senza_fornito": a_formula and not Provider.objects.filter(gestito=True, attivo=True).exists(),
         "consumo_per_utente": limiti.consumo_per_utente() if stato.valida and stato.formula == licenza.INCLUSA else []})
 
@@ -918,7 +925,7 @@ def trascrivi_voce(request):
     try:
         return JsonResponse({"testo": voce.trascrivi(file, request.POST.get("lingua", ""), azienda=azienda,
                                                     parole=voce.parole_note(request.user, azienda),
-                                                    solo_locale=parla.in_chat_riservata(request))})
+                                                    solo_locale=parla.in_chat_riservata(request), utente=request.user)})
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
 
@@ -1001,7 +1008,7 @@ def audio_voce(request, pk, parte):
     if (motivo := voce.blocco(request.user, getattr(request, "azienda", None))):
         return JsonResponse({"errore": motivo}, status=429)
     try:
-        audio, tipo = voce.audio_di(servizio, pezzi[parte], voce.lingua_di(testo))
+        audio, tipo = voce.leggi(servizio, pezzi[parte], voce.lingua_di(testo), request.user, getattr(request, "azienda", None))
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
     risposta = HttpResponse(audio, content_type=tipo)

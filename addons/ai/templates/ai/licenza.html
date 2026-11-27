@@ -19,6 +19,7 @@
     <div><dt>Utenti al mese</dt><dd>{% if stato.utenti %}{{ utenti_mese }} su {{ stato.utenti }}{% else %}{{ utenti_mese }} (senza limite){% endif %}</dd></div>
     {% if tetto is not None %}<div><dt>Spesa del mese</dt><dd>{{ spesa|floatformat:2 }} ${% if tetto %} su {{ tetto }} ${% else %} (senza tetto){% endif %}</dd></div>{% endif %}
     {% if stato.valida %}<div><dt>Formula</dt><dd>{{ stato.nome_formula }}</dd></div>{% endif %}
+    {% if voce.quota or voce.consumo %}<div><dt>Voce cloud del mese</dt><dd>{{ voce.consumo|floatformat:2 }} ${% if voce.quota %} su {{ voce.quota }} ${% if voce.extra %} · oltre la quota {{ voce.extra|floatformat:2 }} $, da fatturare{% endif %}{% else %} (senza quota){% endif %}</dd></div>{% endif %}
     {% if a_formula %}<div><dt>Consumo del mese sul piano</dt><dd>{{ consumo_fornito|floatformat:2 }} ${% if stato.quota_istanza %} su {{ stato.quota_istanza }} ${% elif stato.formula == 'consumo' %} (senza tetto){% endif %}</dd></div>
     {% if stato.formula == 'inclusa' %}<div><dt>Quota per utente</dt><dd>{% if stato.quota_utente %}{{ stato.quota_utente }} $ al mese{% else %}senza limite{% endif %}</dd></div>{% endif %}{% endif %}
   </dl>

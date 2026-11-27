@@ -214,10 +214,16 @@ class ServizioVoceForm(forms.ModelForm):
 
     class Meta:
         model = ServizioVoce
-        fields = ["nome", "tipo", "uso", "azienda", "regione", "modello", "voce_it", "voce_en", "attivo"]
+        fields = ["nome", "tipo", "uso", "azienda", "regione", "modello", "voce_it", "voce_en", "attivo", "prezzo",
+                  "compresi_nel_piano"]
+
+    global_admin = False              # la vista lo mette a True per il Global Admin: prezzo e piano sono di chi fattura
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if not self.global_admin:
+            for campo in ("prezzo", "compresi_nel_piano"):
+                self.fields.pop(campo, None)
         if "uso" in self.fields:
             self.fields["uso"].required = False             # chi non lo indica crea un servizio di lettura, come prima
 
