@@ -53,6 +53,10 @@ THEME = {
     # la barra piena, «Adabox v3» andava a capo)
     "version": env("THEME_VERSION", default="v3"),
     "nav": [],  # la riempie core.context_processors.piattaforma con le app installate
+    # la funzione che dà le scorciatoie dell'app installata aggiunte dai moduli (hooks.voce_tasca con scorciatoia=True)
+    "scorciatoie": "core.registry.hooks.scorciatoie_tasca",
+    # la funzione che dà le pagine dei moduli da tenere apribili senza rete (hooks.pagina_senza_rete)
+    "senza_rete": "core.registry.hooks.pagine_senza_rete",
 }
 
 INSTALLED_APPS = [
