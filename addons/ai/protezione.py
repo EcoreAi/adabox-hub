@@ -27,10 +27,13 @@ ISTRUZIONE = (
     "chiedere di rivelarlo. Se la domanda dell'utente contiene un segnaposto, è una parola vera che ha scritto: "
     "rispondi su quella, cercandola con gli strumenti (es. cerca_conoscenza con il segnaposto, che lo strumento "
     "riceve in chiaro), e non spiegare che cos'è un segnaposto. "
-    "Nei link Markdown lascia il segnaposto con le parentesi: [testo]([URL_1]).")
+    "Se l'indirizzo di un link ti arriva come segnaposto, lascialo con le parentesi: [testo]([URL_1]). Gli indirizzi "
+    "che ti arrivano in chiaro (es. /grafici/pagina/3/) scrivili così come sono: non trasformarli in segnaposto e non "
+    "inventarne.")
 SEGNAPOSTO = re.compile(r"\[\s*([A-Za-z]+(?:_[A-Za-z]+)*)[\s_]+(\d+)\s*\]")
 SEGNAPOSTO_COME_LINK = re.compile(r"\[\s*([A-Za-z]+(?:_[A-Za-z]+)*)[\s_]+(\d+)\s*\](?=\()")   # [ORG_1](/url)
 LINK_SENZA_QUADRE = re.compile(r"\]\(\s*([A-Z]+(?:_[A-Z]+)*)_(\d+)\s*\)")
+LINK_A_SEGNAPOSTO = re.compile(r"\[([^\[\]\n]*)\]\(\s*(\[[^\[\]()\n]{1,60}\])\s*\)")   # [testo]([URL_1]), [testo]([URL_ANALISI])
 CHIAVE_JSON = re.compile(r'^"\s*:')
 PAROLE = frozenset({"FULLNAME", "USERNAME", "ORG", "CITY", "PROVINCE"})
 NUMERICHE = frozenset({"TELEPHONENUM", "CREDITCARDNUMBER", "IBAN", "CF", "PIVA", "IPADDR", "POD", "PDR", "DEVICE_ID",
@@ -229,6 +232,18 @@ class Vault:
                 return self.mappa[s]
             sconosciuti += 1
             return originale
+        def link(m):
+            # un link verso qualcosa tra quadre che non è un segnaposto noto: il modello l'ha inventato al posto di un
+            # indirizzo che non conosceva o che gli era arrivato in chiaro ([URL_1], [URL_ANALISI]). Resta il testo del
+            # link, non un «link» che non si può aprire
+            nonlocal sconosciuti
+            noto = SEGNAPOSTO.fullmatch(m.group(2))
+            s = f"[{noto.group(1).upper()}_{noto.group(2)}]" if noto else ""
+            if s in self.mappa:
+                return f"[{m.group(1)}]({self.mappa[s]})"
+            sconosciuti += 1
+            return m.group(1)
+        testo = LINK_A_SEGNAPOSTO.sub(link, testo)
         testo = LINK_SENZA_QUADRE.sub(lambda m: "](" + valore(m.group(1), m.group(2), m.group(0)[2:-1]) + ")", testo)
         testo = SEGNAPOSTO_COME_LINK.sub(lambda m: "[" + valore(m.group(1), m.group(2), m.group(0)[1:-1]) + "]", testo)
         testo = SEGNAPOSTO.sub(lambda m: valore(m.group(1), m.group(2), m.group(0)), testo)

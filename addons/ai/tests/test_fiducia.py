@@ -52,6 +52,16 @@ def test_vault_stabile_e_smascheramento_tollerante():
     assert protezione.Vault(v.mappa).segnaposto("FULLNAME", "Anna Verdi") == "[FULLNAME_2]"   # dal salvato
 
 
+def test_un_link_a_un_segnaposto_inventato_resta_testo():
+    """Il modello scriveva [Direzione]([URL_2]) per indirizzi che gli erano arrivati in chiaro (l'esempio delle
+    istruzioni lo invitava): nella chat compariva «[URL_2]». Ora resta il testo del link; un segnaposto vero torna."""
+    assert protezione.Vault().smaschera("**[Direzione]([URL_2])** e [Acquisti]( [url 4] )") == ("**Direzione** e Acquisti", 2)
+    assert protezione.Vault().smaschera("Ecco: **[Analisi]([URL_ANALISI])**") == ("Ecco: **Analisi**", 1)     # anche senza numero
+    v = protezione.Vault({"[URL_1]": "https://esempio.it/a"})
+    assert v.smaschera("vedi [qui]([URL_1])") == ("vedi [qui](https://esempio.it/a)", 0)
+    assert "/grafici/pagina/3/" in protezione.ISTRUZIONE and "non inventarne" in protezione.ISTRUZIONE
+
+
 def test_plausibilita_nei_risultati_degli_strumenti():
     testo = '{"Mario Rossi": 1, "cliente": "SYN-KIT", "cap": "27600"}'
 
