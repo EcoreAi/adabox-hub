@@ -12,6 +12,15 @@ commit; qui solo ciò che si vede o che chiede un intervento.
   - Le viste collegate in `urls.py` si riconoscono per file e nome: due viste con lo stesso nome in file diversi
     (es. `scansiona.anteprima` e `template.anteprima`) si controllano entrambe; prima una delle due restava fuori.
 
+- **Backup automatici che si cancellavano da soli** — Kernel 1.17.3 (nessuna migrazione).
+  - La rotazione (`BACKUP_CONSERVA`) ordinava per nome tutti i file di `backup/`: le copie fatte a mano («db-…»)
+    finivano dopo quelle automatiche («2026-…»), e con dieci copie a mano nella cartella il backup di `modulo
+    installa`/`aggiorna`/`disinstalla` veniva cancellato appena creato. Oltre il limite cancellava anche le copie a mano.
+  - Ora si ruotano solo i backup automatici (nome `<AAAA-MM-GG-HHMMSS>-<motivo>.sqlite3` o `.dump`); gli altri file
+    della cartella restano finché non li toglie qualcuno.
+  - Da controllare dopo l'aggiornamento: in `backup/` ci sono i backup automatici recenti? Se mancano, il primo
+    `modulo aggiorna` ne crea uno e da lì restano.
+
 - **Costi della voce cloud** — AI 1.61.0 (migrazione `ai.0043`: prezzo e piano del fornitore sul servizio vocale),
   Rivendita 1.6.0 (migrazione `rivendita.0007`: quota della voce su piano e istanza, voce nei consumi).
   - Nella scheda di un servizio vocale il Global Admin imposta il **prezzo** (dollari per milione di caratteri letti, o
