@@ -49,6 +49,13 @@ def documenti(messaggio):
 
 
 @register.filter
+def previsione_spenta(a):
+    """«Serve il modulo Previsioni.» al posto dell'istantanea di una previsione quando il modulo non c'è; "" altrimenti."""
+    from ai import artifact as modulo
+    return modulo.previsione_spenta(a)
+
+
+@register.filter
 def svg_artifact(a):
     from django.utils.safestring import mark_safe
 
@@ -231,6 +238,28 @@ def chat_dell_area(context, area):
         return []
     from ai import aree
     return aree.chat_visibili(request.user, area).order_by("-aggiornata")[:100]
+
+
+@register.simple_tag(takes_context=True)
+def azienda_chat(context, oggetto):
+    """Per chi lavora in più aziende, l'azienda di una chat (quella della sua area) o di un documento (della sua chat):
+    {"nome", "cambia", "chiusa"}. `cambia` è il pk per data-cambia-azienda se è un'altra delle sue aziende con la chat
+    (il clic la rende corrente e apre il link), altrimenti "". `chiusa`: un'altra delle sue aziende dove l'app Chat non
+    c'è (Modulo.aziende), quindi la chat non si apre: niente link. None per chi ha una sola azienda e per le chat senza
+    area. Le aziende sono quelle del contesto del kernel (`aziende` consentite, `azienda` corrente)."""
+    aziende = context.get("aziende") or ()
+    if len(aziende) < 2:
+        return None
+    from ai import aree
+    from core.registry import modules
+    chat = oggetto.conversazione if hasattr(oggetto, "conversazione_id") else oggetto
+    sua = aree.azienda_di(chat)
+    if sua is None:
+        return None
+    corrente, utente = context.get("azienda"), context.get("user")
+    altra = corrente is not None and sua.pk != corrente.pk and sua in aziende
+    con_chat = altra and modules.per_azienda("ai", sua, utente)
+    return {"nome": sua.nome, "cambia": sua.pk if con_chat else "", "chiusa": altra and not con_chat}
 
 
 @register.simple_tag(takes_context=True)

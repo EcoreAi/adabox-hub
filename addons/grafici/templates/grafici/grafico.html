@@ -7,7 +7,7 @@
   <div class="ui-pagehead-actions">
     <a class="ui-btn ui-btn-secondary" href="?aggiorna=1"><svg><use href="#icon-refresh"/></svg> Aggiorna</a>
     <a class="ui-btn ui-btn-ghost" href="{% url 'grafici:grafico_csv' g.pk %}"><svg><use href="#icon-download"/></svg> CSV</a>
-    {% if not w.serie.vuoto %}<button type="button" class="ui-btn ui-btn-ghost" data-an-png="{{ w.dom }}" data-nome="{{ g.titolo|slugify }}"><svg><use href="#icon-download"/></svg> PNG</button>{% endif %}
+    {% if not w.serie.vuoto and w.serie.tipo != "tabella" %}<button type="button" class="ui-btn ui-btn-ghost" data-an-png="{{ w.dom }}" data-nome="{{ g.titolo|slugify }}"><svg><use href="#icon-download"/></svg> PNG</button>{% endif %}
     {% if g.origine_url %}<a class="ui-btn ui-btn-ghost" href="{{ g.origine_url }}">{% if g.origine == "chat" %}Vai alla chat{% else %}Vai alla vista{% endif %}</a>{% endif %}
   </div>
 </div>
@@ -17,7 +17,7 @@
     <div class="ui-card-body">
       {% if w.errore %}<div class="ui-alert ui-alert-error">{{ w.errore }}</div>{% endif %}
       {% if w.serie.vuoto %}{% if not w.errore %}<div class="ui-empty"><svg><use href="#icon-inbox"/></svg><p>Nessun dato.</p></div>{% endif %}{% else %}
-      {% if w.serie.tipo == "kpi" %}<div class="an-anteprima-kpi">{% include "grafici/_kpi.html" %}</div>{% else %}
+      {% if w.serie.tipo == "kpi" %}<div class="an-anteprima-kpi">{% include "grafici/_kpi.html" %}</div>{% elif w.serie.tipo == "tabella" %}{% else %}
       {% if mio and w.tipi %}<div class="an-menu-tipi an-tipi-pagina" data-tipi="{{ w.dom }}" data-salva="{% url 'grafici:grafico_tipo' g.pk %}">{% for t, e in w.tipi %}<button type="button" data-tipo="{{ t }}" aria-pressed="{% if t == g.tipo %}true{% else %}false{% endif %}">{{ e }}</button>{% endfor %}</div>{% endif %}
       <div class="wd-canvas wd-canvas-pagina"><canvas data-grafico="{{ w.dom }}" role="img" aria-label="{{ g.titolo }}"></canvas></div>
       {{ w.serie|json_script:w.dom }}{% endif %}
@@ -25,7 +25,9 @@
     </div>
     {% if not w.serie.vuoto %}
     <div class="ui-table-wrap"><table class="ui-table is-revealed">
-      {% if w.serie.futuro %}<thead><tr><th scope="col">Periodo</th><th scope="col" class="ui-num">Valore</th><th scope="col" class="ui-num">Previsione 10 %</th><th scope="col" class="ui-num">Mediana</th><th scope="col" class="ui-num">90 %</th></tr></thead>
+      {% if w.serie.tipo == "tabella" %}<thead><tr>{% for c in w.serie.colonne %}<th scope="col">{{ c }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for r in w.serie.righe %}<tr>{% for v in r %}<td>{% if forloop.first and w.serie.link %}{% with url=w.serie.link|slice:forloop.parentloop.counter|last %}{% if url %}<a href="{{ url }}">{{ v }}</a>{% else %}{{ v }}{% endif %}{% endwith %}{% else %}{{ v }}{% endif %}</td>{% endfor %}</tr>{% endfor %}</tbody>
+      {% elif w.serie.futuro %}<thead><tr><th scope="col">Periodo</th><th scope="col" class="ui-num">Valore</th><th scope="col" class="ui-num">Previsione 10 %</th><th scope="col" class="ui-num">Mediana</th><th scope="col" class="ui-num">90 %</th></tr></thead>
       <tbody>{% for e, v in w.serie.storico %}<tr><td>{{ e }}</td><td class="ui-num">{{ v|floatformat:"-2" }}</td><td></td><td></td><td></td></tr>{% endfor %}
       {% for f in w.serie.futuro %}<tr><td>{{ f.0 }}</td><td></td><td class="ui-num">{{ f.1|floatformat:"-2" }}</td><td class="ui-num"><strong>{{ f.2|floatformat:"-2" }}</strong></td><td class="ui-num">{{ f.3|floatformat:"-2" }}</td></tr>{% endfor %}</tbody>
       {% if w.serie.totale %}<tfoot><tr class="ui-totali"><th scope="row" colspan="2">Totale sull'orizzonte</th><td class="ui-num">{{ w.serie.totale.basso_10 }}</td><td class="ui-num">{{ w.serie.totale.mediana }}</td><td class="ui-num">{{ w.serie.totale.alto_90 }}</td></tr></tfoot>{% endif %}
@@ -33,6 +35,8 @@
       <tbody>{% for e, v in w.serie.righe %}<tr><td>{{ e }}</td><td class="ui-num">{{ v|floatformat:"-2" }}</td></tr>{% endfor %}</tbody>
       {% if w.serie.totale is not None and w.serie.tipo != "kpi" %}<tfoot><tr class="ui-totali"><th scope="row">Totale</th><td class="ui-num">{{ w.serie.totale|floatformat:"-2" }}</td></tr></tfoot>{% endif %}{% endif %}
     </table></div>
+    {% comment %}L'attribuzione di ogni previsione (di una serie o per gruppo), scritta qui: Analisi non dipende dal modulo Previsioni.{% endcomment %}
+    {% if g.tipo == "previsione" %}<div class="ui-card-body an-piede"><span>{% if w.serie.modello %}modello {{ w.serie.modello }} · {% endif %}licenza Modified MIT di Mistral AI</span></div>{% endif %}
     {% endif %}
   </section>
   <aside class="an-lato">

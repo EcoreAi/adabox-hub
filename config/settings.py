@@ -171,6 +171,10 @@ BACKUP_CONSERVA = env.int("BACKUP_CONSERVA", default=10)
 RELOAD_STRATEGY = env("RELOAD_STRATEGY", default="runserver" if DEBUG else "gunicorn")
 GUNICORN_PIDFILE = env("GUNICORN_PIDFILE", default="/tmp/gunicorn.pid")
 
+# Aziende di un utente creato fuori dal modulo «Nuovo utente» (admin, API, codice) quando l'istanza ne ha più di una
+# attiva: "tutte" (default) o "nessuna" (le assegna chi lo crea). I superutenti le hanno sempre tutte.
+AZIENDE_NUOVI_UTENTI = env("AZIENDE_NUOVI_UTENTI", default="tutte")
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # --- Servizi del kernel (fase 2) -----------------------------------------
