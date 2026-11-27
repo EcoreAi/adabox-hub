@@ -25,7 +25,9 @@ Se il modulo dipende da altri: `modulo nuovo bolle --dipende contatti`.
 5. **Gli altri moduli si dichiarano.** In `depends` se servono sempre; altrimenti con `apps.is_installed("crm")` e l'import dentro la funzione, così il modulo funziona anche senza.
 6. **I segreti sono cifrati** con `core.cifratura`, si scrivono in un modulo e non si rileggono nelle pagine.
 7. **Le chiamate verso indirizzi decisi da un utente passano da `core.rete`**, che blocca la rete interna. La rete sta fuori dalle transazioni: lavoro in background con `core.lavori` e `senza_transazione = True`.
-8. **Una pagina senza login è una scelta**, e un endpoint senza CSRF deve verificare una firma.
+8. **Una pagina senza login è una scelta**, e un endpoint senza CSRF deve verificare una firma. Negli script il token
+   CSRF si legge dalla pagina, `document.querySelector('meta[name="csrf-token"]').content` (è nel `<head>` di ogni pagina
+   per chi è dentro), mai dal cookie con il nome scritto: ogni istanza dà al cookie il suo nome (`CSRF_COOKIE_NAME`).
 9. **Gli indirizzi alla radice sono un'eccezione.** `urlpatterns_radice` in `urls.py` serve solo quando il percorso lo fissa uno standard (`/.well-known/…`): lì i middleware dei moduli non arrivano, e la vista risponde 404 da sé quando il modulo è spento.
 
 Un'azione che risponde solo a un POST usa `@post_con_accesso` di `core.decoratori`, non `@require_POST` + `@login_required`: a sessione scaduta torna alla pagina di partenza dopo il login invece di dare 405 su un GET all'azione.
