@@ -211,6 +211,18 @@ def test_parla_con_ada_su_una_chat_di_un_altra_azienda(client, p, monkeypatch):
     assert not Turno.objects.exists()
 
 
+def test_parla_con_ada_non_ferma_la_risposta_in_corso_in_una_chat_di_un_altra_azienda(client, p, monkeypatch):
+    """Una domanda a voce interrompe la risposta a voce in corso: in una chat di un'altra azienda prima si rifiuta, e
+    la risposta di là non si ferma (né si aspetta che si chiuda)."""
+    monkeypatch.setattr(parla, "disponibile", lambda azienda: True)
+    in_corso = Turno.objects.create(conversazione=p["chat_b"], utente=p["u"], voce=True)
+    r = client.post(reverse("ai:parla_chiedi"), {"testo": "basta così", "conversazione": p["chat_b"].pk})
+    assert r.status_code == 400 and r.json()["errore"] == "Questa chat è dell'azienda Bianchi Spa: passa a Bianchi Spa per continuare."
+    in_corso.refresh_from_db()
+    assert in_corso.stato == Turno.IN_CORSO and not in_corso.richiesta_stop
+    assert Turno.objects.count() == 1
+
+
 def test_parla_con_ada_si_riprendiamo_una_chat_di_un_altra_azienda(client, p, monkeypatch):
     """«Sì, riprendiamo» dopo l'apertura di Ada: la chat da riprendere è di Bianchi, l'azienda corrente è Rossi."""
     monkeypatch.setattr(parla, "disponibile", lambda azienda: True)
