@@ -9,8 +9,8 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import parametri
 
 from . import apertura, aree, funzioni, limiti, motore, voce
@@ -159,8 +159,7 @@ def apertura_audio(request, pk):
     return risposta
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.view_conversazione", raise_exception=True)
 @funzioni.richiede("voce")
 def apertura_detta(request, pk):
@@ -176,8 +175,7 @@ def in_chat_riservata(request):
     return pk.isdigit() and Conversazione.objects.filter(pk=int(pk), utente=request.user, riservata=True).exists()
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.add_conversazione", raise_exception=True)
 @funzioni.richiede("voce")
 def ascolta(request):
@@ -214,8 +212,7 @@ def _risposta_ancora_in_corso(conversazione):
     return "Sto ancora chiudendo la risposta di prima: riprova tra qualche secondo."
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.add_conversazione", raise_exception=True)
 @funzioni.richiede("voce")
 def chiedi(request):

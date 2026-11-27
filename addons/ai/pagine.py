@@ -13,8 +13,8 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import content_disposition_header
 from django.utils.text import get_valid_filename
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import allegati as core_allegati
 from core.allegati import AllegatoNonValido
 from core.models import Allegato
@@ -333,8 +333,7 @@ def _errore_invio(request, testo, pk):
     return redirect(reverse("ai:conversazione", args=[pk]) if pk else reverse("ai:chat"))
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.add_conversazione", raise_exception=True)
 def invia(request, pk=None):
     testo = request.POST.get("testo", "").strip()
@@ -414,8 +413,7 @@ def _ripartenza(request, conversazione, messaggio, testo):
     return redirect("ai:conversazione", pk=conversazione.pk)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.add_conversazione", raise_exception=True)
 def rigenera(request, pk):
     """Di nuovo l'ultima risposta: l'ultima domanda resta com'è."""
@@ -426,8 +424,7 @@ def rigenera(request, pk):
     return _ripartenza(request, conversazione, domanda, domanda.testo)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.add_conversazione", raise_exception=True)
 def modifica_messaggio(request, pk):
     """Il messaggio cambia e tutto ciò che veniva dopo sparisce: la chat è una sola, non si ramifica."""
@@ -440,8 +437,7 @@ def modifica_messaggio(request, pk):
     return _ripartenza(request, messaggio.conversazione, messaggio, testo)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @funzioni.richiede("aree_di_lavoro")
 def sposta(request, pk):
     """In un progetto o fuori. Vale dal messaggio successivo."""
@@ -457,8 +453,7 @@ def sposta(request, pk):
     return redirect("ai:conversazione", pk=c.pk)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @funzioni.richiede("aree_di_lavoro")
 def area_corrente(request):
     """Cambia l'area su cui si lavora (dalla tendina sopra la chat nuova o dalla colonna di sinistra)."""
@@ -468,8 +463,7 @@ def area_corrente(request):
     return redirect(_ritorno(request.POST.get("da", "")) or "ai:chat")
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def rinomina(request, pk):
     c = get_object_or_404(_mie(request), pk=pk)
     titolo = " ".join(request.POST.get("titolo", "").split())[:120]
@@ -513,8 +507,7 @@ def allegato(request, pk):
     return core_allegati.risposta(voce)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.view_conversazione", raise_exception=True)
 def voto(request, pk):
     """Pollice su o giù, ripremerlo lo toglie. Con la risposta passa agli amministratori anche il commento."""
@@ -537,8 +530,7 @@ def voto(request, pk):
     return render(request, "ai/_voto.html", {"m": m, "v": attuale})
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def preferita(request, pk):
     c = get_object_or_404(_mie(request), pk=pk)
     c.preferita = not c.preferita
@@ -546,8 +538,7 @@ def preferita(request, pk):
     return redirect("ai:conversazione", pk=c.pk)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def riservata(request, pk):
     """La chat diventa riservata per sempre: da qui solo modelli locali. Non si torna indietro."""
     from . import riservatezza
@@ -556,8 +547,7 @@ def riservata(request, pk):
     return redirect("ai:conversazione", pk=c.pk)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.delete_conversazione", raise_exception=True)
 def elimina(request, pk):
     c = get_object_or_404(_mie(request), pk=pk)
@@ -566,8 +556,7 @@ def elimina(request, pk):
     return redirect("ai:chat")
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def stop(request, pk):
     turno = get_object_or_404(Turno, pk=pk, conversazione__utente=request.user)
     motore.ferma(turno)
@@ -614,8 +603,7 @@ def _scheda(request, proposta, errore=""):
     return redirect("ai:conversazione", pk=proposta.conversazione_id)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def conferma_proposta(request, pk):
     from . import proposte
     from .strumenti import ErroreStrumento
@@ -631,8 +619,7 @@ def conferma_proposta(request, pk):
     return _scheda(request, proposta)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def annulla_proposta(request, pk):
     from . import proposte
     proposta = get_object_or_404(Proposta, pk=pk, utente=request.user, conversazione__utente=request.user)
@@ -713,8 +700,7 @@ def documento_condiviso(request, pk):
     return render(request, "ai/documento_condiviso.html", {"d": d, "mio": d.utente_id == request.user.pk})
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def condividi(request, tipo, pk):
     """Con chi è condiviso un mio documento, grafico o tabella; risponde con il riquadro aggiornato."""
     from . import condivisione
@@ -731,8 +717,7 @@ def condividi(request, tipo, pk):
     return render(request, "ai/_condividi.html", {"oggetto": oggetto, "tipo": tipo, "esito": esito, "aperto": True})
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def salva_artifact(request, pk):
     a = _mio_artifact(request, pk)
     a.salvato = not a.salvato
@@ -754,8 +739,7 @@ def filtri_artifact(request, pk):
                                                           "bersaglio": f"#ai-artifact-{a.pk}"})
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def filtro_artifact(request, pk):
     """Il filtro scelto (o tolto) sopra il grafico: si salva nella specifica e il grafico si ricalcola lì dov'è."""
     from django.http import HttpResponseBadRequest
@@ -779,8 +763,7 @@ def filtro_artifact(request, pk):
     return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def periodo_artifact(request, pk):
     """Il periodo scelto con i pulsanti sopra il grafico: si salva nella specifica e il grafico si ricalcola lì dov'è."""
     from django.http import HttpResponseBadRequest
@@ -804,8 +787,7 @@ def periodo_artifact(request, pk):
     return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def aggiorna_artifact(request, pk):
     """Ricalcola il grafico o la tabella lì dov'è, con i dati di oggi (stessi permessi e azienda di quando è stato chiesto)."""
     from core.viste.interroga import ErroreInterrogazione
@@ -823,8 +805,7 @@ def aggiorna_artifact(request, pk):
     return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.change_servermcp", raise_exception=True)
 @funzioni.richiede("mcp")
 def strumenti_mcp(request, pk):
@@ -865,8 +846,7 @@ def documento(request, pk):
     return _tela(request, d)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.view_conversazione", raise_exception=True)
 def salva_documento(request, pk):
     d = _mio_documento(request, pk)
@@ -887,8 +867,7 @@ def salva_documento(request, pk):
     return _tela(request, d, salvato=True)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.view_conversazione", raise_exception=True)
 def ripristina_documento(request, pk, numero):
     d = _mio_documento(request, pk)
@@ -899,8 +878,7 @@ def ripristina_documento(request, pk, numero):
     return _tela(request, d, avviso=f"Ripristinata la versione {numero}: è diventata la versione {d.versione}.")
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.view_conversazione", raise_exception=True)
 def stella_documento(request, pk):
     d = _mio_documento(request, pk)
@@ -933,8 +911,7 @@ def scarica_documento(request, pk, formato):
     return risposta
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.add_conversazione", raise_exception=True)
 @funzioni.richiede("voce")
 def trascrivi_voce(request):
@@ -980,8 +957,7 @@ def _documento_da_dimenticare(request, pk):
     return get_object_or_404(accesso.documenti(request.user, getattr(request, "azienda", None)), pk=pk)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def dimentica_documento(request, pk):
     """«Fai dimenticare ad Ada»: esclude il documento dall'assistente e lo toglie dalle chat (ai/oblio.py)."""
     from . import oblio
@@ -992,8 +968,7 @@ def dimentica_documento(request, pk):
     return redirect("documenti:documenti_dettaglio", pk=pk)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def riammetti_documento(request, pk):
     from . import oblio
     documento = _documento_da_dimenticare(request, pk)
@@ -1041,8 +1016,7 @@ def audio_voce(request, pk, parte):
     return risposta
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.add_conversazione", raise_exception=True)
 def scrivi_con_ada(request, campo):
     """Avvia la bozza di un campo di istruzioni; il browser chiede l'esito finché Ada non ha finito."""
@@ -1092,8 +1066,7 @@ def _record_per_ada(request, valore, azienda=None):
         return "", ""
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.add_conversazione", raise_exception=True)
 def riassumi_record(request, ct, pk):
     """Riassunto del record con un clic: lo scrive Ada con i permessi di chi guarda; il browser chiede l'esito."""
@@ -1114,8 +1087,7 @@ def esito_scrittura(request, pk):
     return JsonResponse(risultato if risultato is not None else {"in_corso": True})
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.view_conversazione", raise_exception=True)
 @funzioni.richiede("aree_di_lavoro")
 def carica_archivio(request, pk):
@@ -1144,8 +1116,7 @@ def carica_archivio(request, pk):
     return JsonResponse({"caricati": caricati, "errori": errori[:10]}, status=400 if errori and not caricati else 200)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.view_conversazione", raise_exception=True)
 def salva_documenti(request, tipo, pk):
     """Un documento scritto con Ada (Word), un grafico (PDF con i valori) o una tabella (CSV) nell'archivio Documenti.
@@ -1249,8 +1220,7 @@ def albero_progetto(request, pk):
                                                         "carica_in": destinazione, "url_dashboard": _url_dashboard(request, progetto)})
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.view_conversazione", raise_exception=True)
 def elimina_elemento(request, tipo, pk):
     """Dall'albero del progetto: un documento scritto con Ada, un grafico o una tabella (definitivo), oppure un file
@@ -1291,8 +1261,7 @@ def cerca_collegamento(request, pk):
     return render(request, "ai/_cerca_collegamento.html", {"progetto": progetto, "risultati": risultati, "testo": testo})
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.change_progettochat", raise_exception=True)
 @funzioni.richiede("aree_di_lavoro")
 def collega(request, pk):
@@ -1310,8 +1279,7 @@ def collega(request, pk):
     return redirect(_ritorno(request.POST.get("indietro", "")) or reverse("ai:progetto", args=[progetto.pk]))
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.change_progettochat", raise_exception=True)
 @funzioni.richiede("aree_di_lavoro")
 def scollega(request, pk, collegamento):
@@ -1322,8 +1290,7 @@ def scollega(request, pk, collegamento):
     return redirect(_ritorno(request.POST.get("indietro", "")) or reverse("ai:progetto", args=[progetto.pk]))
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.change_conversazione", raise_exception=True)
 @funzioni.richiede("aree_di_lavoro")
 def condividi_chat(request, pk):
@@ -1357,8 +1324,7 @@ def catalogo_provider(request, pk):
     return render(request, "ai/catalogo_provider.html", {"provider": provider, "voci": voci})
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.add_progettochat", raise_exception=True)
 @funzioni.richiede("aree_di_lavoro")
 def area_da_record(request, ct, pk):
@@ -1410,8 +1376,7 @@ def aree_dell_app(request):
                                                  "puo_creare": request.user.has_perm("ai.add_progettochat")})
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.change_progettochat", raise_exception=True)
 @funzioni.richiede("aree_di_lavoro")
 def collega_app(request, pk):

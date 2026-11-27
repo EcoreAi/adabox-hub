@@ -19,7 +19,6 @@ from urllib.parse import urlsplit
 import httpx2 as httpx
 from django.conf import settings
 from django.core.files.base import ContentFile
-from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
 from django.contrib import messages
@@ -30,6 +29,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import allegati, lavori, parametri
 
 from . import clienti, assistente_sito, eventi, ia, livechat
@@ -603,8 +603,7 @@ def registra_telegram(c):
         raise ErroreConsegna(dati.get("description") or f"Errore {r.status_code}")
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def registra_vista(request, pk):
     if not request.user.has_perm("discuss.change_connessione"):
         raise PermissionDenied

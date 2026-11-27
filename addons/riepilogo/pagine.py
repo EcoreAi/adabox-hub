@@ -4,9 +4,9 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_POST
 
 from . import accessi, motore
+from core.decoratori import post_con_accesso
 
 PERMESSO = "riepilogo.view_preferenza"
 
@@ -39,9 +39,8 @@ def pagina(request):
     return render(request, "riepilogo/pagina.html", _contesto(request))
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def preferenza(request):
     """Solo la propria: «apri da solo quando accedo»."""
     p = accessi.di(request.user)
@@ -78,9 +77,8 @@ def impostazioni(request):
     return render(request, "riepilogo/impostazioni.html", {"preferenza": p, "moduli": moduli, "silenziate": len(p.silenziate)})
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def silenzia(request):
     """Il bottone sulla voce: la spegne, o la riaccende se era spenta. Dal pannello torna il pannello aggiornato."""
     p = accessi.di(request.user)
