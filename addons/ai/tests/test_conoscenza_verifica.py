@@ -444,8 +444,13 @@ def test_un_documento_dimenticato_non_si_legge_nemmeno_su_richiesta(scena, archi
     risposta.save(update_fields=["dati"])
     c = _contesto(scena["capo"], scena["azienda"])
     assert "sconto segreto" in json.dumps(strumenti_conoscenza.leggi_documento(c, segreto.pk), ensure_ascii=False)
+    with finto.con_copione([["Come dicevo, lo sconto di Gamma è del 37 per cento."]]):        # una risposta venuta dopo
+        motore.avvia(m.conversazione, "Ripetimi lo sconto", scena["capo"], scena["azienda"])
+    assert m.conversazione.messaggi.filter(ruolo="assistente", testo__contains="37 per cento").count() == 2
 
     oblio.dimentica(segreto, scena["capo"], "richiesta GDPR")
+    assert not m.conversazione.messaggi.filter(testo__contains="37 per cento").exists()        # nemmeno in quella dopo
+    assert not Turno.objects.filter(conversazione=m.conversazione, testo__contains="37 per cento").exists()
     with pytest.raises(ErroreStrumento, match="fatto dimenticare"):
         strumenti_conoscenza.leggi_documento(c, segreto.pk)
     eventi = Evento.objects.filter(conversazione=m.conversazione, tipo="assistente")

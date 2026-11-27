@@ -27,7 +27,10 @@ ADDONS_ATTIVI = bootstrap.moduli_installati(ADDONS_DIR, forzati=env.list("ADDONS
 
 # letta da os.environ e non con env(): django-environ tratta un valore che inizia con "$" come riferimento a
 # un'altra variabile, e una chiave casuale che inizia con "$" diventerebbe in silenzio quella di sviluppo
-SECRET_KEY = os.environ.get("SECRET_KEY") or "solo-sviluppo-cambiami"
+CHIAVE_DI_SVILUPPO = "solo-sviluppo-cambiami"         # nota a tutti: fuori dallo sviluppo ferma l'avvio (controlla_avvio)
+SECRET_KEY = os.environ.get("SECRET_KEY") or CHIAVE_DI_SVILUPPO
+# Content-Security-Policy in sola segnalazione (core.middleware.IntestazioniSicurezzaMiddleware): non blocca nulla
+CSP_SOLO_SEGNALAZIONE = env.bool("CSP_SOLO_SEGNALAZIONE", default=True)
 # chiave Fernet per i segreti salvati nel database (chiavi API...): senza, derivata da SECRET_KEY
 CHIAVE_CIFRATURA = env("CHIAVE_CIFRATURA", default="")
 DEBUG = env("DEBUG")
@@ -70,6 +73,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "core.middleware.IntestazioniSicurezzaMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",

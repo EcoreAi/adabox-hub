@@ -15,26 +15,22 @@ MAX_RIGHE_FOGLIO = 200
 
 
 def _visibilita(contesto):
-    """visibile(frammento) con una cache per record: ModelView del record, permesso di vista, queryset dell'utente."""
-    from core.viste import registry
-
-    from core.registry.modules import disattivati
+    """visibile(frammento) con una cache per record: la vista del record tra quelle che l'utente può leggere con
+    l'assistente (le stesse regole di cerca_record: permesso, app spente, app di altre aziende, dipartimenti, viste
+    non per l'assistente) e il suo queryset."""
+    from core.viste.interroga import viste_accessibili
 
     from ..conoscenza import ESCLUSI
     request = richiesta.per(contesto)
-    spenti = ESCLUSI | disattivati()
-    cache, viste = {}, {}
+    cache, viste, accessibili = {}, {}, {}
 
     def vista_di(content_type_id):
         """La vista personalizzata per l'utente, se la può aprire; None altrimenti (una volta per tipo di record)."""
+        if not accessibili:
+            accessibili.update({v.model: v for v in viste_accessibili(request, escluse=set(ESCLUSI) | {"ai"})})
+            accessibili[None] = None                    # letta una volta sola, anche se è vuota
         if content_type_id not in viste:
-            modello = ContentType.objects.get_for_id(content_type_id).model_class()
-            vista = registry.per_modello(modello) if modello else None
-            viste[content_type_id] = None
-            if vista is not None and vista.modulo not in spenti:
-                vista = vista.personalizzata(request)
-                if vista.has_view_permission(request):
-                    viste[content_type_id] = vista
+            viste[content_type_id] = accessibili.get(ContentType.objects.get_for_id(content_type_id).model_class())
         return viste[content_type_id]
 
     def prepara(frammenti):

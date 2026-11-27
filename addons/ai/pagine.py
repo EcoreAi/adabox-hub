@@ -913,6 +913,8 @@ def trascrivi_voce(request):
     file = request.FILES.get("audio")
     if not voce.dettatura_disponibile(azienda) or file is None:
         return JsonResponse({"errore": "La dettatura non è attiva."}, status=400)
+    if (motivo := voce.blocco(request.user, azienda)):
+        return JsonResponse({"errore": motivo}, status=429)
     try:
         return JsonResponse({"testo": voce.trascrivi(file, request.POST.get("lingua", ""), azienda=azienda,
                                                     parole=voce.parole_note(request.user, azienda),
@@ -996,6 +998,8 @@ def audio_voce(request, pk, parte):
     pezzi = voce.parti(testo)
     if not 0 <= parte < len(pezzi):
         raise Http404
+    if (motivo := voce.blocco(request.user, getattr(request, "azienda", None))):
+        return JsonResponse({"errore": motivo}, status=429)
     try:
         audio, tipo = voce.audio_di(servizio, pezzi[parte], voce.lingua_di(testo))
     except voce.ErroreVoce as e:
@@ -1046,7 +1050,8 @@ def _record_per_ada(request, valore, azienda=None):
     try:
         if pk.isdigit():
             vista, obj = vista_e_oggetto(request, int(ct), int(pk), "view")
-            return aiuto_testi.descrivi_record(vista, obj, messaggi=10, massimo=4000), riservatezza.motivo_record(vista, obj, azienda)
+            return (aiuto_testi.descrivi_record(vista, obj, messaggi=10, massimo=4000, request=request),
+                    riservatezza.motivo_record(vista, obj, azienda))
         modello = ContentType.objects.get_for_id(int(ct)).model_class()
         vista = registry.per_modello(modello) if modello else None
         return (f"Un nuovo record di tipo {vista.verbose_name}", "") if vista and vista.has_add_permission(request) else ("", "")
@@ -1062,7 +1067,7 @@ def riassumi_record(request, ct, pk):
 
     from . import aiuto_testi
     vista, obj = vista_e_oggetto(request, ct, pk, "view")
-    turno = aiuto_testi.avvia_riassunto(request.user, getattr(request, "azienda", None), vista, obj)
+    turno = aiuto_testi.avvia_riassunto(request.user, getattr(request, "azienda", None), vista, obj, request=request)
     return JsonResponse({"esito": reverse("ai:esito_scrittura", args=[turno.pk])})
 
 

@@ -190,6 +190,9 @@ class _Fermati(Exception):
     pass
 
 
+TETTO_MENSILE = "il tetto di spesa mensile dell'assistente"
+
+
 class _Esecuzione:
     def __init__(self, turno):
         from .. import ricerca
@@ -200,6 +203,7 @@ class _Esecuzione:
         self.ultimo_salvataggio = 0.0
         self.testo_turno = []                     # tutto il testo visibile del turno (tra un passo e l'altro)
         self.protezione = None
+        self.extra = {}                           # del contesto degli strumenti: qui gli esperti sommano il loro costo
         self.ricontrollato = False                # la guardia dei dati senza fonti (solo a voce) ha già chiesto di rifare
         self.grafico_richiamato = False           # il grafico scritto come testo: chiesto una volta di usare lo strumento
 
@@ -221,10 +225,19 @@ class _Esecuzione:
         self.turno.addebita(modello, uso.come_dict())
 
     def oltre_budget(self):
+        """Il motivo per cui il turno si ferma prima del prossimo passo, o None. Nel costo della risposta contano anche
+        gli esperti consultati (ognuno ha un turno suo: senza, dodici passi da otto esperti l'uno non avevano tetto); il
+        tetto mensile dell'azienda si riguarda a ogni passo, non solo all'inizio (il costo si salva passo per passo,
+        così lo vedono anche le chat che girano insieme)."""
+        from decimal import Decimal as D
+
+        from .. import limiti
         if time.monotonic() - self.inizio > self.secondi:
             return "il tempo massimo del turno"
-        if self.turno.costo > self.costo:
+        if self.turno.costo + D(str(self.extra.get("costo_esperti", 0))) > self.costo:
             return "la spesa massima per una risposta"
+        if self.turno.passi and limiti.tetto_raggiunto(self.turno.azienda):
+            return TETTO_MENSILE
         return None
 
 
@@ -323,7 +336,7 @@ def _esegui(turno_id):
             else:                                      # un'immagine di prima: la chat continua senza vederla
                 senza_immagini = True
         sistema = prompt.sistema(assistente)
-        contesto = strumenti.Contesto(utente=utente, azienda=turno.azienda, conversazione=conversazione, turno=turno)
+        contesto = strumenti.Contesto(utente=utente, azienda=turno.azienda, conversazione=conversazione, turno=turno, extra=e.extra)
         e.protezione = protezione.Protezione(conversazione)
         from . import compattazione
         if compattazione.se_serve(turno):
@@ -331,7 +344,8 @@ def _esegui(turno_id):
         for passo in range(1, e.passi + 1):
             motivo = e.oltre_budget()
             if motivo:
-                _chiudi(e, Turno.COMPLETATO, f"\n\n_Mi fermo qui: ho raggiunto {motivo}. Chiedimi di continuare._")
+                seguito = "L'amministratore può alzarlo nelle impostazioni." if motivo == TETTO_MENSILE else "Chiedimi di continuare."
+                _chiudi(e, Turno.COMPLETATO, f"\n\n_Mi fermo qui: ho raggiunto {motivo}. {seguito}_")
                 return turno
             turno.passi = passo
             modello, chiamate, fine = None, [], None
@@ -359,6 +373,9 @@ def _esegui(turno_id):
                 _registra_parziale(turno, testo_passo)
                 _chiudi(e, Turno.FERMATO, "\n\n_Risposta interrotta._")
                 return turno
+            # il costo di questo passo subito nel database: il tetto mensile lo vedono anche gli altri turni in corso,
+            # e un turno che muore a metà (riavvio) non perde quello che ha già speso
+            turno.save(update_fields=["uso", "costo", "costo_fornito", "passi", "modello"])
             dati = {"ruolo": "assistente", "blocchi": fine.blocchi if fine else [{"tipo": "testo",
                                                                                  "testo": "".join(testo_passo)}]}
             if fine and fine.nativo:

@@ -50,6 +50,8 @@ class RepositoryView(DelProgettoVisibile):
         obj.save(update_fields=["segreto"])
         return "Nuovo segreto creato: aggiornalo nel webhook su GitHub."
     nuovo_segreto.short_description = "Rigenera il segreto"
+    nuovo_segreto.rischio = "irreversibile"      # il webhook smette di funzionare finché non lo si aggiorna su GitHub
+    nuovo_segreto.ai = False                     # come nei Connettori: non è un bottone per l'assistente
 
 
 @post_con_accesso

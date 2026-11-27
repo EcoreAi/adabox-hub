@@ -261,3 +261,41 @@ def test_in_una_chat_riservata_si_trascrive_solo_in_locale(client, s, monkeypatc
         client.post(url, {"audio": audio()})
         client.post(url, {"audio": audio(), "conversazione": altrui.pk})
         assert visti == [True, False, False, False], url
+
+
+# ---------- la voce ha i suoi limiti: licenza, tetto di spesa, richieste per persona ----------
+
+def test_la_voce_si_ferma_oltre_il_limite_di_richieste(client, s, monkeypatch):
+    """Ogni pezzo letto è una chiamata al servizio (spesso a pagamento): prima se ne potevano chiedere senza fine."""
+    from django.core.cache import cache
+    cache.clear()                                         # la cache in memoria è la stessa per tutti i test del processo
+    monkeypatch.setattr(parla.voce, "audio_di", lambda servizio, testo, lingua: (b"RIFF", "audio/wav"))
+    monkeypatch.setattr(parla.voce, "RICHIESTE_MASSIME", 2)
+    c = Conversazione.objects.create(utente=s["u"], titolo="x")
+    turno = Turno.objects.create(conversazione=c, utente=s["u"], testo="Hai dodici fatture.", stato=Turno.COMPLETATO)
+    url = reverse("ai:parla_audio", args=[turno.pk, 0, 19])
+    assert [client.get(url).status_code for _ in range(3)] == [200, 200, 429]
+    r = client.post(reverse("ai:parla_ascolta"), {"audio": SimpleUploadedFile("v.webm", b"x", content_type="audio/webm")})
+    assert r.status_code == 429 and "Troppe richieste" in r.json()["errore"]
+
+
+def test_la_voce_non_risponde_a_licenza_scaduta_o_tetto_raggiunto(client, s, monkeypatch):
+    from django.core.cache import cache
+
+    from ai import limiti
+    from ai.gateway import ErroreModello
+    letti = []
+    monkeypatch.setattr(parla.voce, "audio_di", lambda servizio, testo, lingua: letti.append(testo) or (b"RIFF", "audio/wav"))
+    chiave = f"ai-voce-stato:{s['az'].pk}"
+    cache.delete(chiave)
+
+    def scaduta(*a, **k):
+        raise ErroreModello("LIMITE", "L'assistente non è attivo: licenza scaduta.")
+    monkeypatch.setattr(limiti, "verifica", scaduta)
+    try:
+        r = client.get(reverse("ai:parla_frase", args=["calendario"]))
+        assert r.status_code == 429 and "licenza scaduta" in r.json()["errore"] and not letti
+        r = client.post(reverse("ai:trascrivi_voce"), {"audio": SimpleUploadedFile("v.webm", b"x", content_type="audio/webm")})
+        assert r.status_code == 429
+    finally:
+        cache.delete(chiave)

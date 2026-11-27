@@ -101,6 +101,32 @@ class DipartimentoMiddleware:
         return self.get_response(request)
 
 
+class IntestazioniSicurezzaMiddleware:
+    """Su ogni pagina: niente DNS prefetch (un link scritto da un modello o da un altro utente non deve far partire
+    nemmeno la risoluzione del nome) e una Content-Security-Policy in sola segnalazione. Il browser non blocca nulla:
+    dice a `core:csp_segnalazione` che cosa violerebbe la politica (script e stili in linea, risorse di altri siti),
+    così si vede che cosa si romperebbe prima di applicarla davvero. Si spegne con CSP_SOLO_SEGNALAZIONE=False."""
+    POLITICA = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
+                "font-src 'self' data:; connect-src 'self'; media-src 'self' blob:; frame-src 'self'; object-src 'none'; "
+                "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; report-uri {segnalazioni}")
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        from django.conf import settings
+        from django.urls import NoReverseMatch, reverse
+        response = self.get_response(request)
+        response.setdefault("X-DNS-Prefetch-Control", "off")
+        if getattr(settings, "CSP_SOLO_SEGNALAZIONE", True) and response.get("Content-Type", "").startswith("text/html"):
+            try:
+                response.setdefault("Content-Security-Policy-Report-Only",
+                                    self.POLITICA.format(segnalazioni=reverse("core:csp_segnalazione")))
+            except NoReverseMatch:                       # url del kernel non montati (test con urlconf propria)
+                pass
+        return response
+
+
 class LicenzaScadutaMiddleware:
     """Licenza assente, non valida o scaduta oltre la grazia: i dati si leggono ma non si scrivono. Restano aperti
     l'accesso e le pagine da cui si rimette a posto la licenza."""

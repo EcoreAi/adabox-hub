@@ -1,6 +1,11 @@
 """Sotto-agenti: l'assistente principale chiede a un esperto (un altro assistente, con istruzioni, strumenti e
 modello propri). Un livello solo; l'esperto lavora in sola lettura in una conversazione interna."""
+import threading
+
 from .registro import ErroreStrumento, Strumento, registra
+
+
+_SOMMA = threading.Lock()                               # più esperti insieme: ognuno somma il suo costo
 
 
 def _esperti(utente):
@@ -39,6 +44,8 @@ def chiedi_esperto(contesto, esperto, domanda):
                               "con i dati trovati e i loro link. Non puoi modificare dati.")
     turno.refresh_from_db()
     interna.refresh_from_db()
+    with _SOMMA:                                         # il costo dell'esperto conta nella risposta che l'ha chiesto
+        contesto.extra["costo_esperti"] = contesto.extra.get("costo_esperti", 0) + turno.costo
     if interna.riservata:
         from .. import riservatezza
         riservatezza.segna(chiamante, interna.riservata_motivo)
