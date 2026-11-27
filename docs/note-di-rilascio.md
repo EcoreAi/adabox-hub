@@ -228,7 +228,7 @@ commit; qui solo ciò che si vede o che chiede un intervento.
     altri hanno una sezione loro, «Condivise con te», con il nome di chi le ha condivise. Aperta una di queste pagine,
     la voce del menu è evidenziata. In «Altre schede» restano le app.
 
-- **Pagine trovate per nome, e i loro link in chat** (nessuna migrazione).
+- **Pagine trovate per nome, e i loro link in chat** — Kernel 1.17.2, AI 1.61.1, Analisi 1.16.1 (nessuna migrazione).
   - «Cerca ovunque» nell'intestazione trova le pagine: «Grafici» porta a Nuovo grafico e ai grafici salvati,
     «Statistiche» a Statistiche (prima quelle parole si scartavano e non usciva nulla). Le pagine del kernel che non
     sono voci di menu (Dashboard, Applicazioni, Impostazioni, Utenti e ruoli, Profilo…) si trovano anche per parole
