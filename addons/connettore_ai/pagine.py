@@ -4,10 +4,10 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
 
 from . import stato
 from .models import ChatCollegata
+from core.decoratori import post_con_accesso
 
 
 @login_required
@@ -21,8 +21,7 @@ def mie(request):
         "spento": stato.spento(), "in_chiaro": stato.base().startswith("http://")})
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def scollega(request, pk):
     collegamento = get_object_or_404(ChatCollegata, pk=pk, utente=request.user)
     collegamento.revoca(da=request.user)

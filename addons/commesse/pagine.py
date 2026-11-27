@@ -6,8 +6,8 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core.dashboard import queryset
 from fatturazione.models import Fattura
 from helpdesk.models import Ticket
@@ -53,9 +53,8 @@ def fattura_ore(request, pk):
                                                          "condizioni": operazioni.condizioni_di(progetto)})
 
 
-@login_required
+@post_con_accesso
 @permission_required("fatturazione.add_fattura", raise_exception=True)
-@require_POST
 def fattura_corpo(request, pk):
     from decimal import Decimal, InvalidOperation
     try:
@@ -79,9 +78,8 @@ def condizioni_progetto(request, pk):
     return redirect("commesse:condizioni_dettaglio", pk=condizioni.pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required("commesse.change_condizioni", raise_exception=True)
-@require_POST
 def collega_fattura(request, pk):
     progetto = _progetto(request, pk)
     fattura = get_object_or_404(queryset(request, Fattura), pk=request.POST.get("fattura") or 0)
@@ -90,9 +88,8 @@ def collega_fattura(request, pk):
     return redirect("progetti:progetti_dettaglio", pk=pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required("timesheet.add_rigaore", raise_exception=True)
-@require_POST
 def ore_ticket(request, pk):
     ticket = get_object_or_404(queryset(request, Ticket), pk=pk)
     try:
@@ -111,9 +108,8 @@ def ore_ticket(request, pk):
 
 
 
-@login_required
+@post_con_accesso
 @permission_required("fatturazione.add_fattura", raise_exception=True)
-@require_POST
 def completa_tappa(request, pk):
     from .models import Tappa
     tappa = get_object_or_404(Tappa.objects.select_related("condizioni__progetto"), pk=pk, condizioni__azienda=request.azienda)

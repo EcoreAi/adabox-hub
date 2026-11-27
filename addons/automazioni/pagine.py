@@ -9,8 +9,8 @@ from django.core.paginator import Paginator
 from django.db.models import Count, Max, Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import modelli_email
 from core.generici import url_record
 from core.models import ModelloEmail, TipoAttivita
@@ -142,9 +142,8 @@ def regola_prova(request, pk):
     return render(request, "automazioni/_prova.html", {"record": record, "passi": motore.simula(r, record, extra) if record else []})
 
 
-@login_required
+@post_con_accesso
 @permission_required(CAMBIA, raise_exception=True)
-@require_POST
 def regola_attiva(request, pk):
     r = _regola(request, pk)
     if catalogo.evento(r.evento) is None:
@@ -155,9 +154,8 @@ def regola_attiva(request, pk):
     return redirect("automazioni:regola", pk=pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required(CAMBIA, raise_exception=True)
-@require_POST
 def regola_disattiva(request, pk):
     r = _regola(request, pk)
     r.attiva = False
@@ -166,9 +164,8 @@ def regola_disattiva(request, pk):
     return redirect("automazioni:regola", pk=pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required("automazioni.delete_regola", raise_exception=True)
-@require_POST
 def regola_elimina(request, pk):
     r = _regola(request, pk)
     nome = str(r)
@@ -177,9 +174,8 @@ def regola_elimina(request, pk):
     return redirect("automazioni:regole")
 
 
-@login_required
+@post_con_accesso
 @permission_required("automazioni.add_regola", raise_exception=True)
-@require_POST
 def ricetta(request, codice):
     voce = ricette.per_codice(codice)
     if voce is None:
@@ -204,9 +200,8 @@ def storico(request):
                                                         "puo_cambiare": request.user.has_perm(CAMBIA)})
 
 
-@login_required
+@post_con_accesso
 @permission_required(CAMBIA, raise_exception=True)
-@require_POST
 def riprova(request, pk):
     esecuzione = get_object_or_404(Esecuzione.objects.select_related("regola"), pk=pk, regola__azienda=request.azienda)
     if esecuzione.esito == Esecuzione.FATTA:
@@ -327,9 +322,8 @@ def _campi_richiesta(request):
     return _campi_dominio(dominio) if dominio else modelli_email.CAMPI_SEMPRE
 
 
-@login_required
+@post_con_accesso
 @permission_required(VEDI_MODELLI, raise_exception=True)
-@require_POST
 def modello_anteprima(request):
     """Il testo non ancora salvato, riempito con i valori di esempio."""
     campi = _campi_richiesta(request)
@@ -339,9 +333,8 @@ def modello_anteprima(request):
     return JsonResponse({"oggetto": titolo, "html": html, "sconosciuti": sconosciuti})
 
 
-@login_required
+@post_con_accesso
 @permission_required(CAMBIA_MODELLI, raise_exception=True)
-@require_POST
 def modello_prova(request, codice):
     """Manda il testo non ancora salvato a chi sta scrivendo, e a nessun altro."""
     if not request.user.email:
@@ -352,9 +345,8 @@ def modello_prova(request, codice):
     return JsonResponse({"ok": True, "a": request.user.email})
 
 
-@login_required
+@post_con_accesso
 @permission_required("core.delete_modelloemail", raise_exception=True)
-@require_POST
 def modello_ripristina(request, codice):
     """Del modulo: torna al testo originale. Dell'azienda: si elimina, se nessuna regola lo usa."""
     proprio = get_object_or_404(ModelloEmail, azienda=request.azienda, codice=codice)

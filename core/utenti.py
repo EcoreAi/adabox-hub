@@ -14,11 +14,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
-from django.views.decorators.http import require_POST
 
 from . import dipartimenti, licenza, ruoli
 from .models import Azienda, Dipartimento, DueFattori, Ruolo
 from .signals import crea_profilo
+from .decoratori import post_con_accesso
 
 User = get_user_model()
 GESTIONE = "auth.change_user"
@@ -211,9 +211,8 @@ def scheda(request, pk=None):
         "gruppi": list(utente.groups.order_by("name").values_list("name", flat=True)) if utente else []})
 
 
-@login_required
+@post_con_accesso
 @permission_required(GESTIONE, raise_exception=True)
-@require_POST
 def invito(request, pk):
     utente = _utente(request, pk)
     if not utente.email:
@@ -227,9 +226,8 @@ def invito(request, pk):
     return redirect("core:utente", pk=pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required(GESTIONE, raise_exception=True)
-@require_POST
 def due_fattori_azzera(request, pk):
     """Telefono e codici persi: via la verifica in due passaggi, l'utente rientra con la sola password e la riattiva."""
     utente = _utente(request, pk)
@@ -238,9 +236,8 @@ def due_fattori_azzera(request, pk):
     return redirect("core:utente", pk=pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required(GESTIONE, raise_exception=True)
-@require_POST
 def livello(request, pk):
     """Una cella della matrice: l'eccezione di un utente in un modulo («ruolo» la toglie)."""
     utente = _utente(request, pk)
@@ -319,9 +316,8 @@ def ruolo(request, pk=None):
                                                        "utenti": istanza.profili.count() if istanza else 0})
 
 
-@login_required
+@post_con_accesso
 @permission_required("core.delete_ruolo", raise_exception=True)
-@require_POST
 def ruolo_elimina(request, pk):
     r = get_object_or_404(Ruolo, pk=pk)
     if r.profili.exists():
@@ -412,9 +408,8 @@ def dipartimento(request, pk=None):
         "persone": [{"u": u, "scelta": u.pk in membri_scelti} for u in persone], "posti": posti})
 
 
-@login_required
+@post_con_accesso
 @permission_required("core.delete_dipartimento", raise_exception=True)
-@require_POST
 def dipartimento_elimina(request, pk):
     d = get_object_or_404(Dipartimento, pk=pk)
     nome = str(d)
