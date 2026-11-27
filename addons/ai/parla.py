@@ -236,6 +236,10 @@ def chiedi(request):
     elif ripresa:
         conversazione = saluto.conversazione                  # «sì, riprendiamo»: si continua in quella di prima
     if conversazione is not None:
+        # una chat di un'altra azienda, scelta o da riprendere: come in chat, Ada non risponde con i dati di quella
+        # corrente. Prima della risposta in corso, che lì non si ferma: la chat non è di questa azienda
+        if (motivo := aree.rifiuto(request.user, azienda, conversazione)):
+            return JsonResponse({"errore": motivo}, status=400)
         if (occupata := _risposta_ancora_in_corso(conversazione)):
             return JsonResponse({"errore": occupata}, status=409)
     else:
@@ -244,9 +248,6 @@ def chiedi(request):
         conversazione = Conversazione.objects.create(utente=request.user, progetto=aree.corrente(request.user, azienda),
                                                      titolo=titolo,
                                                      ambito=app if app in {a["slug"] for a in _app(request.user)} else "")
-    # una chat di un'altra azienda, scelta o da riprendere: come in chat, Ada non risponde con i dati di quella corrente
-    if (not nuova or ripresa) and (motivo := aree.rifiuto(request.user, azienda, conversazione)):
-        return JsonResponse({"errore": motivo}, status=400)
     nome = apertura.nome_di(request.user)
     if saluto is not None:
         note = [NOTA_VOCE.format(nome=nome), apertura.nota(saluto, ripresa)]

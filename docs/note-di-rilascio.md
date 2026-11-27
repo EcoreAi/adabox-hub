@@ -3,6 +3,36 @@
 Ciò che chi aggiorna un'istanza deve sapere: cambi di comportamento, azioni da fare, migrazioni. Il dettaglio è nei
 commit; qui solo ciò che si vede o che chiede un intervento.
 
+## 2026-11-27
+
+- **Revisione di Chat e «Parla con Ada»: correzioni e sicurezza** — AI 1.60.1, Kernel 1.14.2 (nessuna migrazione).
+  Cambi di comportamento da conoscere:
+  - **Pagine web**: Ada apre solo gli indirizzi scritti dall'utente nel messaggio o tornati da `cerca_web` e
+    `leggi_pagina`. Un indirizzo letto in un record o in un documento va incollato nel messaggio. Un esperto
+    (`chiedi_esperto`) ha il web solo se l'utente l'ha acceso per quel messaggio.
+  - **Campi di tabelle collegate** (`cliente__citta` in filtri, raggruppamenti, ordinamenti, pivot, KPI): servono il
+    permesso di vedere la tabella collegata e il campo non nascosto al ruolo lì; il nome del record collegato
+    (`cliente__nome`, `ordine__numero`) resta sempre. Di un utente collegato si usano solo nome, cognome e nome utente.
+    Vale per Ada, per Analisi e per la pivot.
+  - **Dipartimenti**: le viste di un'app fuori dai dipartimenti di chi chiede non sono più lette da Ada né dalle
+    interrogazioni per vista, come già per pagine e API.
+  - **Attività pianificate**: si sospendono (con l'email al proprietario) se il proprietario non ha più accesso
+    all'azienda dell'attività o non può più usare l'assistente. Girano fuori dalla transazione del worker.
+  - **Grafici e tabelle salvati**: non si ricalcolano per chi ha perso l'accesso all'azienda in cui li ha chiesti
+    (resta l'istantanea).
+  - **Provider**: cambiando il server dell'URL dell'API la chiave salvata va riscritta (o tolta); se il provider ha
+    chiavi delle aziende il server lo cambia solo il Global Admin.
+  - **Voce**: in una chat riservata anche la trascrizione di chi parla resta sul servizio locale; senza servizio
+    locale la dettatura lì non funziona.
+  - **Fai dimenticare ad Ada**: un documento dimenticato non si legge più nemmeno con `leggi_documento`, e le note
+    del suo chatter non tornano nell'indice.
+  - **Licenza, utenti al mese**: il limite ora scatta davvero (prima chi scriveva per la prima volta risultava già
+    contato): con una licenza a N utenti, l'utente N+1 del mese riceve «Raggiunto il numero di utenti della licenza».
+    Con la licenza di sviluppo o con 0 utenti non cambia nulla.
+  - **Consumi**: la ricerca non guarda più dentro il testo delle risposte. **Aree di lavoro**: non si condividono
+    con gli utenti esterni. **CSV di grafici e tabelle**: i testi che cominciano con `=`, `+`, `-`, `@` escono con un
+    apostrofo davanti (non sono formule).
+
 ## 2026-11-26
 
 - **App delle altre aziende nella barra in alto** (Kernel, nessuna migrazione).
@@ -95,34 +125,6 @@ commit; qui solo ciò che si vede o che chiede un intervento.
     impostare l'URL del servizio se non è stato copiato. Un'istanza senza licenza del modulo non ha più le previsioni.
 
 ## 2026-11-24
-
-- **Revisione di Chat e «Parla con Ada»: correzioni e sicurezza** — AI 1.58.1, Kernel 1.14.1 (nessuna migrazione).
-  Cambi di comportamento da conoscere:
-  - **Pagine web**: Ada apre solo gli indirizzi scritti dall'utente nel messaggio o tornati da `cerca_web` e
-    `leggi_pagina`. Un indirizzo letto in un record o in un documento va incollato nel messaggio. Un esperto
-    (`chiedi_esperto`) ha il web solo se l'utente l'ha acceso per quel messaggio.
-  - **Campi di tabelle collegate** (`cliente__citta` in filtri, raggruppamenti, ordinamenti, pivot, KPI): servono il
-    permesso di vedere la tabella collegata e il campo non nascosto al ruolo lì; il nome del record collegato
-    (`cliente__nome`, `ordine__numero`) resta sempre. Di un utente collegato si usano solo nome, cognome e nome utente.
-    Vale per Ada, per Analisi e per la pivot.
-  - **Dipartimenti**: le viste di un'app fuori dai dipartimenti di chi chiede non sono più lette da Ada né dalle
-    interrogazioni per vista, come già per pagine e API.
-  - **Attività pianificate**: si sospendono (con l'email al proprietario) se il proprietario non ha più accesso
-    all'azienda dell'attività o non può più usare l'assistente. Girano fuori dalla transazione del worker.
-  - **Grafici e tabelle salvati**: non si ricalcolano per chi ha perso l'accesso all'azienda in cui li ha chiesti
-    (resta l'istantanea).
-  - **Provider**: cambiando il server dell'URL dell'API la chiave salvata va riscritta (o tolta); se il provider ha
-    chiavi delle aziende il server lo cambia solo il Global Admin.
-  - **Voce**: in una chat riservata anche la trascrizione di chi parla resta sul servizio locale; senza servizio
-    locale la dettatura lì non funziona.
-  - **Fai dimenticare ad Ada**: un documento dimenticato non si legge più nemmeno con `leggi_documento`, e le note
-    del suo chatter non tornano nell'indice.
-  - **Licenza, utenti al mese**: il limite ora scatta davvero (prima chi scriveva per la prima volta risultava già
-    contato): con una licenza a N utenti, l'utente N+1 del mese riceve «Raggiunto il numero di utenti della licenza».
-    Con la licenza di sviluppo o con 0 utenti non cambia nulla.
-  - **Consumi**: la ricerca non guarda più dentro il testo delle risposte. **Aree di lavoro**: non si condividono
-    con gli utenti esterni. **CSV di grafici e tabelle**: i testi che cominciano con `=`, `+`, `-`, `@` escono con un
-    apostrofo davanti (non sono formule).
 
 - **Cercare tra le applicazioni** (nessuna migrazione).
   - In cima alla pagina Applicazioni una ricerca per parole (nome, categoria, descrizione, funzioni; con più parole
