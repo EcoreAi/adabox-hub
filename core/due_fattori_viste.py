@@ -1,14 +1,16 @@
 """Pagine della 2FA: secondo passo dell'accesso e gestione dal profilo."""
 import time
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect, render, resolve_url
 from django.utils import timezone
 
 from . import due_fattori as df2
+from .decoratori import e_solo_post
 
 ATTESA = "due_fattori_attesa"
 CODICI_NUOVI = "due_fattori_codici"
@@ -24,6 +26,11 @@ def _ricorda(request, ricordami):
 class Accedi(LoginView):
     """Password giusta e 2FA attiva: si passa alla pagina del codice, l'utente non è ancora collegato."""
     redirect_authenticated_user = True
+
+    def get_success_url(self):
+        """Mai un'azione solo POST (un `next` vecchio o salvato nei segnalibri darebbe 405): si va alla pagina di partenza."""
+        url = super().get_success_url()
+        return resolve_url(settings.LOGIN_REDIRECT_URL) if e_solo_post(url) else url
 
     def form_valid(self, form):
         utente = form.get_user()
@@ -57,7 +64,7 @@ def accesso(request):
             del request.session[ATTESA]
             login(request, utente, backend=attesa["b"])
             _ricorda(request, attesa.get("r"))
-            risposta = redirect(attesa["next"])
+            risposta = redirect(resolve_url(settings.LOGIN_REDIRECT_URL) if e_solo_post(attesa["next"]) else attesa["next"])
             if request.POST.get("ricorda"):
                 df2.ricorda_dispositivo(risposta, df)
             if esito == "recupero":

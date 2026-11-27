@@ -1,14 +1,13 @@
 """Vista kanban: colonne dai valori di un campo (scelte o FK), card trascinabili tra le colonne."""
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.db.models import F, OuterRef, Subquery
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import chatter
 from core.colori import COLORI_COLONNE, iniziali, tinta_persona
 from core.models import Messaggio, SpostamentoKanban
@@ -195,8 +194,7 @@ class SpostaView(VistaBase):
         return redirect(vista.url("kanban") + (f"?{request.POST['ritorno']}" if request.POST.get("ritorno") else ""))
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def nota(request, pk):
     """La nota allo spostamento appena fatto: solo di chi l'ha fatto. Va anche nello storico del record, se ne ha uno."""
     from . import registry

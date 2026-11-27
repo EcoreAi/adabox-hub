@@ -3,9 +3,18 @@
 Ciò che chi aggiorna un'istanza deve sapere: cambi di comportamento, azioni da fare, migrazioni. Il dettaglio è nei
 commit; qui solo ciò che si vede o che chiede un intervento.
 
+## 2026-11-27
+
+- **Azioni solo POST e sessione scaduta** (Kernel, nessuna migrazione). A sessione scaduta un clic su un'azione solo POST
+  (cambio azienda, allegati, chatter, token, apertura app…) portava al login con quell'azione come destinazione, e dopo
+  l'accesso rispondeva 405. Ora si torna alla pagina di partenza (con HTMX è la pagina intera ad andare al login), e il
+  login non porta mai a un'azione solo POST: vecchi link e segnalibri finiscono alla Home. Le azioni usano il
+  decoratore `post_con_accesso` di `core.decoratori`; i moduli con un'azione solo POST lo adottano al posto di
+  `@require_POST` + `@login_required`. Un GET con accesso ma senza permesso su queste azioni ora risponde 405 invece di 403.
+
 ## 2026-11-26
 
-- **Il token CSRF per gli script sta nella pagina** — Kernel 1.14.2, AI 1.60.1 (nessuna migrazione).
+- **Il token CSRF per gli script sta nella pagina** — Kernel 1.15.1, AI 1.60.1 (nessuna migrazione).
   - Su un'istanza con un nome suo per il cookie CSRF (quelle della flotta: `adabox_<slug>_csrf`) attivare le notifiche
     push rispondeva 403, e così «Scrivi con Ada» nelle pagine senza un form: i due script leggevano il cookie
     `csrftoken` scritto fisso. Ora leggono `<meta name="csrf-token">`, che il tema mette nel `<head>` di ogni pagina
@@ -15,6 +24,15 @@ commit; qui solo ciò che si vede o che chiede un intervento.
     sostituisce `_tema.html` non deve fare nulla; uno che sostituisce `base.html` o `base_pubblica.html` deve riportare
     quell'inclusione, altrimenti gli script restano senza token (non leggono più il cookie) e ripiegano sul campo
     `csrfmiddlewaretoken` della pagina, se c'è.
+- **Prima pagina per ruolo e per persona** — Kernel 1.15.0 (migrazione `core.0045`: prima pagina su ruolo e profilo).
+  - Nel ruolo (Utenti → Ruoli) e nella scheda di una persona chi amministra sceglie la **prima pagina**: la Dashboard,
+    «In tasca» o una voce di menu di un'app. È dove si arriva dopo l'accesso; la scelta sulla persona vince su quella
+    del ruolo. Senza scelta resta la prima voce della barra in alto, come prima.
+  - L'app installata sul telefono (`/tasca/?da=app`) apre la stessa pagina, a meno che la persona nel suo profilo abbia
+    scelto «Parla con Ada» o «Chat con Ada»: la scelta personale resta. Se quella pagina non la può più aprire (Ada
+    spenta, permesso tolto) vale la prima pagina del ruolo.
+  - Una prima pagina che la persona non può aprire (permesso mancante, app spenta o di un'altra azienda, fuori dai suoi
+    dipartimenti) si ignora.
 
 - **App delle altre aziende nella barra in alto** (Kernel, nessuna migrazione).
   - Chi lavora in più aziende trova in fondo alla barra, prima di «Altre», le app che avrebbe in barra nelle altre sue
