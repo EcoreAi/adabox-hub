@@ -4,7 +4,10 @@
   'use strict';
   const bottoni = document.querySelectorAll('[data-push]');
   if (!bottoni.length) return;
-  const csrf = () => (document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/) || [])[1] || '';
+  // dalla pagina (<meta name="csrf-token">, nel <head> di ogni pagina), non dal cookie: il suo nome cambia da
+  // un'istanza all'altra (CSRF_COOKIE_NAME), e con «csrftoken» scritto qui le notifiche rispondevano 403
+  const csrf = () => (document.querySelector('meta[name="csrf-token"]') || {}).content
+    || (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value || '';
   const stato = document.querySelector('[data-push-stato]');
   const scrivi = (t) => { if (stato) stato.textContent = t; };
   const supportato = 'serviceWorker' in navigator && 'PushManager' in window && window.isSecureContext;
