@@ -1130,13 +1130,17 @@ def tasca(request):
         scelta = ProfiloUtente.objects.filter(utente=request.user).values_list("apertura_app", flat=True).first() or ""
     if (url := apertura.destinazione(request.user, scelta)):
         return redirect(url)
+    from .registry import hooks
+    dei_moduli = hooks.voci_tasca(request)                    # le voci che i moduli aggiungono (hooks.voce_tasca)
+    if scelta and (url := next((v["url"] for v in dei_moduli if v["url_name"] == scelta), None)):
+        return redirect(url)                                  # la scorciatoia dell'icona: /tasca/?apri=<url_name>
     # Aperta dall'app, e la scelta della persona non porta da nessuna parte (non ne ha una, o quella pagina non la può
     # più aprire: Ada spenta, permesso tolto): la prima pagina del suo ruolo, se chi amministra ne ha scelta una
     # (l'operatore apre lo scanner). «In tasca» scelta come prima pagina resta questa pagina.
     if dall_app and (url := apertura.prima_pagina(request.user)) and url != reverse("core:tasca"):
         return redirect(url)
     from core import approvazioni
-    voci = []
+    voci = [{"etichetta": v["etichetta"], "url": v["url"], "icona": v["icona"], "conta": v["conta"], "sotto": v["sotto"]} for v in dei_moduli]
 
     def voce(etichetta, url_name, icona, permesso=None, conta=None, sotto=""):
         if permesso and not request.user.has_perm(permesso):

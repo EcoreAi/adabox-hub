@@ -5,7 +5,7 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-27
 
-- **Revisione dell'assistente, seconda parte** — AI 1.60.2, Kernel 1.15.3, Discuss 1.13.3, GitHub 1.0.1, Chiedi ad
+- **Revisione dell'assistente, seconda parte** — AI 1.60.2, Kernel 1.17.1, Discuss 1.13.3, GitHub 1.0.1, Chiedi ad
   Ada 1.0.2 (nessuna migrazione).
   - **Da fare prima di aggiornare un'istanza non in debug**: il container web non parte più se `SECRET_KEY` non è
     impostata (resterebbe quella di sviluppo, nota a tutti). Mettila nel file `.env`; con `DEBUG=True` non cambia nulla.
@@ -27,7 +27,7 @@ commit; qui solo ciò che si vede o che chiede un intervento.
   - GitHub: «Rigenera il segreto» chiede la spunta e non è più tra i bottoni dell'assistente. Discuss: leggere una
     conversazione con Ada non la crea.
 
-- **Revisione di Chat e «Parla con Ada»: correzioni e sicurezza** — AI 1.60.2, Kernel 1.15.3, insieme alla seconda parte (nessuna migrazione).
+- **Revisione di Chat e «Parla con Ada»: correzioni e sicurezza** — AI 1.60.2, Kernel 1.17.1, insieme alla seconda parte (nessuna migrazione).
   Cambi di comportamento da conoscere:
   - **Pagine web**: Ada apre solo gli indirizzi scritti dall'utente nel messaggio o tornati da `cerca_web` e
     `leggi_pagina`. Un indirizzo letto in un record o in un documento va incollato nel messaggio. Un esperto
@@ -62,6 +62,36 @@ commit; qui solo ciò che si vede o che chiede un intervento.
   `@require_POST` + `@login_required`. Un GET con accesso ma senza permesso su queste azioni ora risponde 405 invece di 403.
 
 ## 2026-11-26
+
+- **Pagine dei moduli apribili senza rete** — Kernel 1.17.0 (nessuna migrazione).
+  - Un modulo dichiara dal `ready()` una pagina da tenere apribile senza rete, con i suoi file:
+    `hooks.pagina_senza_rete("iem:scansiona", statici=["iem/scansiona.js"])`. Il service worker dell'app installata ne
+    tiene l'ultima copia sul dispositivo di chi l'ha aperta almeno una volta con la rete e la mostra quando la rete
+    manca, al posto di «Sei offline». Le altre pagine restano com'erano: sempre dal server.
+  - L'app installata parte da `/tasca/?da=app` e le scorciatoie da `/tasca/?apri=…`: se con la rete hanno portato a una
+    di queste pagine, senza rete portano alla sua copia (il service worker ricorda dove un indirizzo ha portato l'ultima
+    volta; se poi porta altrove lo dimentica). In ogni caso «Sei offline» elenca le pagine salvate sul dispositivo.
+  - Con il segnale debole la copia si mostra dopo quattro secondi di attesa; la risposta del server, se arriva dopo,
+    aggiorna la copia per la volta successiva. Senza una copia si aspetta la rete, come prima.
+  - La copia ha il token CSRF di quando è stata salvata: tornata la rete, prima di inviare la pagina lo rilegge (un
+    `fetch` di se stessa e `<meta name="csrf-token">`). Le copie si cancellano passando dal login o dal logout.
+  - L'invio ad app chiusa (Background Sync) non c'è: esiste solo su Chrome per Android. Ciò che resta in coda parte
+    alla riapertura della pagina, come oggi.
+  - Come per le scorciatoie, il tema riceve l'elenco da `THEME["senza_rete"]`: un'istanza con un `settings.py` proprio
+    deve aggiungere quella voce. Provato con un simulatore (`theme/tests/sw_simulato.js`, gira con i test dove c'è
+    Node), non su un telefono: va verificato sul campo.
+
+- **Voci dei moduli nella pagina «In tasca»** — Kernel 1.16.0 (nessuna migrazione).
+  - Un modulo aggiunge la sua voce dal `ready()`: `hooks.voce_tasca("Scansiona documento", "iem:scansiona",
+    icona="search", permission="iem.add_documento", sotto="DDT e fatture", scorciatoia=True)`. Compare per prima, per
+    chi ha il permesso, con l'app accesa, attiva per l'azienda corrente e tra quelle dei suoi dipartimenti. `conta` è una
+    funzione che riceve la richiesta e dà il numero del bollino.
+  - Con `scorciatoia=True` la voce va anche tra le scorciatoie dell'icona dell'app installata, prima di quelle del
+    kernel (il telefono ne mostra tre o quattro): si apre da `/tasca/?apri=<nome URL>`, con gli stessi controlli. Le
+    scorciatoie le legge il telefono quando installa o aggiorna l'app: su un'app già installata possono arrivare dopo.
+  - Il tema non conosce il kernel: la funzione che dà le scorciatoie dei moduli gli arriva da `THEME["scorciatoie"]`
+    (`core.registry.hooks.scorciatoie_tasca`). Un'istanza con un `settings.py` proprio deve aggiungere quella voce,
+    altrimenti le scorciatoie dei moduli non compaiono (le voci in «In tasca» sì).
 
 - **Il token CSRF per gli script sta nella pagina** — Kernel 1.15.1, AI 1.60.1 (nessuna migrazione).
   - Su un'istanza con un nome suo per il cookie CSRF (quelle della flotta: `adabox_<slug>_csrf`) attivare le notifiche
