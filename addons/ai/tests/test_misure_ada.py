@@ -2,13 +2,15 @@
 import pytest
 from django.contrib.auth.models import User
 
-from ai import artifact, specialisti, strumenti
+from ai import artifact, strumenti
 from ai.models import Conversazione
 from ai.strumenti import misure as strumento_misure
 from core import misure
 from core.registry import modules
 from core.viste.interroga import richiesta_di
 from fatturazione.tests.test_fatturazione import OGGI, _fattura, scena  # noqa: F401  (fixture)
+from previsioni import motore as motore_previsioni
+from previsioni import servizio as servizio_previsioni
 
 
 @pytest.fixture
@@ -18,7 +20,7 @@ def contesto(scena):
 
 
 def _mesi_fa(n):
-    return specialisti.avanti(OGGI.replace(day=1), "mese", -n).replace(day=10)
+    return motore_previsioni.avanti(OGGI.replace(day=1), "mese", -n).replace(day=10)
 
 
 def test_strumento_misura_fatturato(scena, contesto):
@@ -56,16 +58,16 @@ def test_previsione_con_misura_aziendale(scena, contesto, monkeypatch):
     azienda, cliente, monitor, _ = scena
     inviate = []
 
-    def chiama(chiave, percorso, dati, nome):
+    def chiama(percorso, dati):
         inviate.append(dati["series"][0]["values"])
         h = dati["horizon"]
-        return {"model": "finto", "forecasts": [{"id": "serie", "quantiles": {"0.1": [1] * h, "0.5": [2] * h, "0.9": [3] * h}}]}
-    monkeypatch.setattr(specialisti, "chiama", chiama)
+        return {"model": "finto", "forecasts": [{"id": "s1", "quantiles": {"0.1": [1] * h, "0.5": [2] * h, "0.9": [3] * h}}]}
+    monkeypatch.setattr(servizio_previsioni, "chiama", chiama)
     for n in range(1, 9):
         _fattura(azienda, cliente, [(monitor, "1")], stato="emessa", data=_mesi_fa(n))       # 200 al mese
     _fattura(azienda, cliente, [(monitor, "1")], stato="emessa", tipo="TD04", data=_mesi_fa(1))   # −200 il mese scorso
-    from ai.strumenti import specialisti as strumenti_specialisti
-    strumenti_specialisti.previsione(contesto, misura_aziendale="fatturazione.fatturato", per="mese", orizzonte=2)
+    from previsioni import ai as ai_previsioni
+    ai_previsioni.previsione(contesto, misura_aziendale="fatturazione.fatturato", per="mese", orizzonte=2)
     assert inviate[0][-1] == 0 and inviate[0][-2] == 200
     assert len(inviate[0]) == 8
 

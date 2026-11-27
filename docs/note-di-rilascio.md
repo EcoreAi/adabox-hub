@@ -3,9 +3,9 @@
 Ciò che chi aggiorna un'istanza deve sapere: cambi di comportamento, azioni da fare, migrazioni. Il dettaglio è nei
 commit; qui solo ciò che si vede o che chiede un intervento.
 
-## 2026-11-24
+## 2026-11-27
 
-- **Costi della voce cloud** — AI 1.59.0 (migrazione `ai.0043`: prezzo e piano del fornitore sul servizio vocale),
+- **Costi della voce cloud** — AI 1.61.0 (migrazione `ai.0043`: prezzo e piano del fornitore sul servizio vocale),
   Rivendita 1.6.0 (migrazione `rivendita.0007`: quota della voce su piano e istanza, voce nei consumi).
   - Nella scheda di un servizio vocale il Global Admin imposta il **prezzo** (dollari per milione di caratteri letti, o
     per minuto trascritto): da lì ogni chiamata entra nei Consumi e nel tetto di spesa mensile dell'azienda. Senza
@@ -18,8 +18,8 @@ commit; qui solo ciò che si vede o che chiede un intervento.
   - Le istanze di prima continuano a riferire i consumi come prima: il portale legge la voce solo se c'è.
   - Dettagli in `docs/voce.md`.
 
-- **Revisione dell'assistente, seconda parte** — AI 1.58.2, Kernel 1.14.2, Discuss 1.13.3, GitHub 1.0.1, Chiedi ad
-  Ada 1.0.1 (nessuna migrazione).
+- **Revisione dell'assistente, seconda parte** — AI 1.60.2, Kernel 1.14.3, Discuss 1.13.3, GitHub 1.0.1, Chiedi ad
+  Ada 1.0.2 (nessuna migrazione).
   - **Da fare prima di aggiornare un'istanza non in debug**: il container web non parte più se `SECRET_KEY` non è
     impostata (resterebbe quella di sviluppo, nota a tutti). Mettila nel file `.env`; con `DEBUG=True` non cambia nulla.
   - **Content-Security-Policy in sola segnalazione**: ogni pagina dice al browser che cosa segnalare, senza bloccare
@@ -40,7 +40,7 @@ commit; qui solo ciò che si vede o che chiede un intervento.
   - GitHub: «Rigenera il segreto» chiede la spunta e non è più tra i bottoni dell'assistente. Discuss: leggere una
     conversazione con Ada non la crea.
 
-- **Revisione di Chat e «Parla con Ada»: correzioni e sicurezza** — AI 1.58.1, Kernel 1.14.1 (nessuna migrazione).
+- **Revisione di Chat e «Parla con Ada»: correzioni e sicurezza** — AI 1.60.1, Kernel 1.14.2 (nessuna migrazione).
   Cambi di comportamento da conoscere:
   - **Pagine web**: Ada apre solo gli indirizzi scritti dall'utente nel messaggio o tornati da `cerca_web` e
     `leggi_pagina`. Un indirizzo letto in un record o in un documento va incollato nel messaggio. Un esperto
@@ -67,6 +67,99 @@ commit; qui solo ciò che si vede o che chiede un intervento.
   - **Consumi**: la ricerca non guarda più dentro il testo delle risposte. **Aree di lavoro**: non si condividono
     con gli utenti esterni. **CSV di grafici e tabelle**: i testi che cominciano con `=`, `+`, `-`, `@` escono con un
     apostrofo davanti (non sono formule).
+
+## 2026-11-26
+
+- **App delle altre aziende nella barra in alto** (Kernel, nessuna migrazione).
+  - Chi lavora in più aziende trova in fondo alla barra, prima di «Altre», le app che avrebbe in barra nelle altre sue
+    aziende e non in quella corrente (es. le app riservate a un'azienda), con il nome dell'azienda di arrivo in piccolo.
+    Un clic rende corrente quell'azienda e apre l'app, con il messaggio «Azienda corrente: …»; il cambio resta un POST.
+    Aperte in una nuova scheda (o senza script) rispondono la pagina «Passa a …» di sempre. Sul telefono stanno nel
+    menu e la ricerca le trova; Invio sulla prima trovata fa lo stesso clic. Le app nascoste dalla scelta della barra e
+    le schede della Dashboard non compaiono. Chi ha una sola azienda vede l'header di prima.
+  - **Un tema con un suo `_header.html`** include `theme/partials/_altre_aziende.html` (in fondo alle voci) e
+    `theme/partials/_cambia_azienda.html` (una volta): senza, le voci non ci sono. Il meccanismo del cambio
+    (`data-cambia-azienda="<pk>"` su un link, `theme/cambia_azienda.js`) vale per ogni pagina: `docs/guida-moduli.md`.
+  - Dopo l'aggiornamento: `collectstatic` (script nuovo `theme/cambia_azienda.js`).
+- **Chat: le aree di lavoro di tutte le aziende, con il cambio di azienda** — AI 1.60.0, Chiedi ad Ada 1.0.1 (nessuna
+  migrazione).
+  - Chi lavora in più aziende trova nella colonna «Aree di lavoro» le aree di tutte le sue aziende in cui c'è la Chat,
+    raggruppate per azienda: prima la corrente (aperta), poi le altre per nome (chiuse), con l'area personale o, dove
+    non ha ancora scritto, «Nuova chat». Un clic su un'area di un'altra azienda rende corrente quell'azienda e apre
+    l'area. Un'area resta della sua azienda.
+  - Con la Chat riservata ad alcune aziende (Moduli → aziende), le altre non compaiono e non si propone di passarci:
+    le loro chat restano in Cronologia con il nome dell'azienda, ma non si aprono.
+  - Lo stesso clic vale per le chat di un'altra azienda in Cronologia, nella ricerca e nei Preferiti (chat e documenti),
+    che mostrano in piccolo il nome dell'azienda di ogni chat; il nome dell'azienda compare anche accanto al nome
+    dell'area, nella pagina dell'area e sopra la casella.
+  - **Correzione**: una chat (o un'area) di un'altra azienda aperta da un link, un segnalibro o una notifica non si apre
+    più con l'azienda corrente sbagliata: risponde «Questa chat è dell'azienda X» con il bottone «Passa a X». Scrivere,
+    rigenerare, modificare un messaggio, spostare la chat, parlare con Ada (anche con «sì, riprendiamo») o chiedere ad
+    Ada dalla finestra «Chiedi ad Ada» in una chat di un'altra azienda (per esempio da una scheda rimasta aperta dopo
+    un cambio) è rifiutato con «Questa chat è dell'azienda X: passa a X per continuare», invece di far rispondere Ada
+    con i dati dell'altra azienda. Le chat vecchie senza area restano come prima. Chi ha una sola azienda non vede
+    differenze.
+  - Dopo l'aggiornamento: `collectstatic` (`ai/chat.css` cambiato).
+- **Aziende dei nuovi utenti** — Kernel (senza migrazioni, versione invariata).
+  - Con più di un'azienda attiva il modulo «Nuovo utente» parte senza aziende spuntate e senza sceglierne almeno una non
+    salva («Scegli almeno un'azienda.»). Con una sola azienda attiva resta com'era: spuntata, nessun obbligo.
+  - Nuova impostazione `AZIENDE_NUOVI_UTENTI` (`tutte`, default, o `nessuna`) per gli utenti creati fuori dal modulo
+    (admin, API, codice): con `nessuna` e più aziende attive non hanno aziende finché qualcuno non le assegna; i
+    superutenti le hanno sempre tutte.
+- **«Le mie previsioni»** — Previsioni 1.1.0 (migrazione `previsioni.0006`).
+  - Nella pagina Previsioni, dopo Vendite e Magazzino, c'è l'elenco delle previsioni che hai fatto: quelle chieste ad Ada
+    in chat e quelle di Analisi, dalla più recente, con titolo, origine, argomento (l'app da cui viene la serie), tipo
+    (andamento o classifica), data ed etichetta. Ogni fonte c'è solo se Assistente AI o Analisi sono accesi per
+    l'azienda; le previsioni di Analisi non hanno un'azienda, quindi si vedono in tutte le aziende dell'utente.
+  - Cerca (titolo, etichetta, argomento) e filtri per argomento, tipo, origine ed etichetta; «Rinomina» cambia il
+    titolo anche in chat e in Analisi; «Etichetta» è un nome libero scelto dall'utente per ritrovarle.
+  - Nuova tabella delle etichette, senza chiavi verso Assistente AI e Analisi.
+- **Previsioni a schede** — Previsioni 1.1.1: la pagina ha una scheda per sezione (Vendite, Magazzino, Le mie previsioni) al
+  posto di un'unica pagina lunga; «Aggiorna» torna alla stessa scheda e la nota sul bottone «Nuova previsione» compare solo
+  quando il bottone manca.
+
+## 2026-11-25
+
+- **Modulo Previsioni, in licenza** — Previsioni 1.0.0 (migrazioni `previsioni.0001`-`0005`), AI 1.59.0, Analisi 1.16.0,
+  Kernel 1.14.1 (AI, Analisi e Kernel senza migrazioni).
+  - Il motore di previsione passa da `addons/ai/specialisti.py` al modulo `previsioni` (nessuna dipendenza). Si
+    prevede solo con il modulo installato, acceso, in licenza (e, se è riservato ad alcune aziende, per quelle) e con
+    l'URL del servizio configurato.
+  - **Chi usava le previsioni attraverso l'assistente le perde finché non ha il modulo**: lo strumento «previsione»
+    di Ada ora è del modulo, e i grafici di Analisi di tipo Previsione già salvati mostrano «Serve il modulo
+    Previsioni.».
+  - L'URL del servizio passa da `ai.url_forecast` a `previsioni.url_servizio`: la migrazione `previsioni.0002` lo copia
+    da sola (se quello del modulo è vuoto). Si cambia in Impostazioni, sezione Previsioni. La chiave API facoltativa,
+    conservata cifrata, si imposta nella pagina «Servizio di previsione» (menu del profilo), che apre solo il Global
+    Admin.
+  - Ada: lo strumento «previsione» ha «raggruppa per» e «primi N» (tabella dei primi N gruppi, in una sola chiamata al
+    servizio). Anche in Analisi il tipo Previsione ha «Raggruppa per» e «Primi» e si vede come tabella.
+  - Magazzino: ogni notte alle 02:00 (pianificazione «Previsioni della notte») e con «Aggiorna» (lavoro in background)
+    si calcola, per articolo e magazzino, la data di esaurimento con la fascia 10-90 %, la data di riordino dalle
+    soglie che già ci sono (scorta del magazzino, poi la regola di riordino di Acquisti, poi la scorta minima del
+    prodotto) e la quantità suggerita. Si vedono nella vista «Articoli in esaurimento» e in un riquadro nella scheda
+    del prodotto, con il permesso delle previsioni e quello delle giacenze di Magazzino (`magazzino.view_movimento`).
+    Se il calcolo non riesce restano le ultime previsioni, con «Previsioni non aggiornate dal …» (o «Previsioni non
+    calcolate» se non ce ne sono ancora) e il motivo.
+  - Vendite: previsioni pronte (ricavi per mese, dalle fatture con Fatturazione, altrimenti dagli ordini confermati;
+    primi 10 prodotti, nell'unità del prodotto; primi 10 clienti), salvate ogni notte. Chi ha regole di riga, campi
+    nascosti o filtri di riga dei moduli le vede calcolate al momento con i propri permessi.
+  - Tempi del servizio: le chiamate fatte mentre una pagina aspetta (calcolo al momento delle previsioni pronte, riga
+    del prodotto, Analisi, Ada) si fermano dopo 25 secondi, sotto i 60 dopo cui gunicorn chiude il worker; quelle dei
+    lavori in background (la notte, «Aggiorna») aspettano fino a 120 secondi. Un calcolo al momento non riuscito si
+    riprova dopo un minuto.
+  - La pagina «Previsioni» (una sezione per app) e i widget della dashboard. Accanto a ogni previsione (pagina,
+    scheda del prodotto, Analisi, chat) c'è l'indicazione «modello … · licenza Modified MIT di Mistral AI».
+  - `core.misure.storia(..., scelti=None)` accetta l'elenco dei gruppi da prevedere (correzione del Kernel).
+  - **Licenza dei pesi di Timestral**: sono sotto «Modified MIT License» di Mistral AI. L'uso commerciale è ammesso
+    tenendo l'avviso «2026 - Mistral AI» e il testo della licenza in ogni copia, ma non per aziende (o gruppi) oltre
+    20 milioni di dollari di ricavi al mese, a cui serve una licenza commerciale di Mistral. Da fare: mettere il file
+    LICENSE accanto ai pesi nel servizio di previsione (il repository non ne distribuisce: `deploy/` contiene solo un
+    esempio di rete verso il servizio).
+  - Dopo l'aggiornamento: `modulo installa previsioni` (con la licenza che lo comprende), poi `collectstatic`, quindi
+    impostare l'URL del servizio se non è stato copiato. Un'istanza senza licenza del modulo non ha più le previsioni.
+
+## 2026-11-24
 
 - **Cercare tra le applicazioni** (nessuna migrazione).
   - In cima alla pagina Applicazioni una ricerca per parole (nome, categoria, descrizione, funzioni; con più parole

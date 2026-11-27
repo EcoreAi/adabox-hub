@@ -1,5 +1,6 @@
 """Chat con l'assistente: pagina a tutto schermo a tre colonne (pannelli laterali chiusi di default)."""
 import json
+from functools import partial
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
@@ -30,7 +31,8 @@ PANNELLI_SINISTRA = [("storico", "Cronologia chat", "ai-storico"), ("preferite",
 
 
 def _mie(request):
-    return Conversazione.objects.filter(utente=request.user, nascosta=False).select_related("progetto")
+    """Le chat dell'utente, di tutte le sue aziende: l'azienda di una chat è quella della sua area."""
+    return Conversazione.objects.filter(utente=request.user, nascosta=False).select_related("progetto__azienda")
 
 
 VOCI_PER_SOTTOCARTELLA = 8
@@ -44,6 +46,50 @@ def _progetti_con_recenti(request, azienda):
         aree.personale(request.user, azienda)                   # ognuno ha sempre almeno la sua area
     return list(aree.visibili(request.user, azienda).select_related("utente").annotate(n_membri=Count("membri", distinct=True))
                 .order_by("-personale", "nome", "pk"))
+
+
+def _altre_aziende(request):
+    """Le altre aziende dell'utente (non la corrente) in cui usa la chat, per nome: l'app può essere riservata ad
+    alcune aziende (Modulo.aziende), e verso le altre non si propone di passare."""
+    azienda = getattr(request, "azienda", None)
+    if azienda is None:
+        return []
+    return [a for a in aree.aziende_di(request.user) if a != azienda and aree.con_la_chat(request.user, a)]
+
+
+def _aree_delle_altre_aziende(request):
+    """Per chi lavora in più aziende, la colonna delle aree continua con quelle delle altre sue aziende, per nome:
+    [{azienda, aree, personale}], in una query e senza crearne. Un clic ci passa (data-cambia-azienda); dove l'area
+    personale non c'è ancora il gruppo offre «Nuova chat», che dopo il cambio la crea. Calcolate una volta per
+    richiesta, e solo se il template le chiede (chi ha una sola azienda non le chiede)."""
+    from django.db.models import Count
+    memo = getattr(request, "_ai_aree_altre_aziende", None)
+    if memo is not None:
+        return memo
+    altre = _altre_aziende(request)
+    per_azienda = {a.pk: [] for a in altre}
+    if altre:
+        for area in (aree.visibili_in(request.user, altre).select_related("utente").annotate(n_membri=Count("membri", distinct=True))
+                     .order_by("-personale", "nome", "pk")):
+            per_azienda[area.azienda_id].append(area)
+    memo = [{"azienda": a, "aree": per_azienda[a.pk], "personale": any(x.personale for x in per_azienda[a.pk])} for a in altre]
+    request._ai_aree_altre_aziende = memo
+    return memo
+
+
+def _area_altrove(request, pk):
+    """Un'area che l'utente vede in un'altra delle sue aziende, o None."""
+    altre = _altre_aziende(request) if str(pk or "").isdigit() else []
+    return aree.visibili_in(request.user, altre).select_related("azienda").filter(pk=pk).first() if altre else None
+
+
+def passa_ad_altra_azienda(request, altra, area=None):
+    """Una chat o un'area di un'altra azienda dell'utente aperta con un GET (link incollato, segnalibro, notifica): non
+    si apre con l'azienda corrente, si propone di passare alla sua. Il bottone fa il POST del cambio
+    (core:cambia_azienda) e torna allo stesso indirizzo; il GET da solo non cambia azienda. 403 come la pagina
+    «Passa a …» del kernel."""
+    return render(request, "ai/altra_azienda.html", {"altra": altra, "area": area, "prossima": request.get_full_path()},
+                  status=403)
 
 
 def _contenuti_progetto(request, progetto):
@@ -133,21 +179,35 @@ def chat(request, pk=None, progetto=None):
     azienda = getattr(request, "azienda", None)
     sola_lettura = False
     conversazione = _mie(request).filter(pk=pk).first() if pk else None
+    # una chat o un'area di un'altra azienda dell'utente non si apre con quella corrente: si propone di passarci, se lì
+    # c'è la chat (altrimenti 404: il cambio porterebbe a una chat che risponde 403)
+    if conversazione is not None and (altra := aree.da_passare(request.user, azienda, conversazione)):
+        return passa_ad_altra_azienda(request, altra)
+    if conversazione is not None and aree.senza_chat(request.user, azienda, conversazione):
+        raise Http404
     if pk and conversazione is None:                 # una chat condivisa da un altro membro di un'area: si legge soltanto
         if not funzioni.attiva("aree_di_lavoro"):
             raise Http404
-        conversazione = get_object_or_404(Conversazione.objects.filter(condivisa=True, nascosta=False, progetto__in=aree.visibili(request.user, azienda))
-                                          .select_related("progetto", "utente"), pk=pk)
+        condivise = Conversazione.objects.filter(pk=pk, condivisa=True, nascosta=False).select_related("progetto__azienda", "utente")
+        conversazione = condivise.filter(progetto__in=aree.visibili(request.user, azienda)).first()
+        if conversazione is None:
+            altrove = condivise.filter(progetto__in=aree.visibili_in(request.user, _altre_aziende(request))).first()
+            if altrove is None:
+                raise Http404
+            return passa_ad_altra_azienda(request, altrove.progetto.azienda)
         sola_lettura = True
-    mie = _mie(request)
-    con_aree = funzioni.attiva("aree_di_lavoro")             # senza: le chat stanno nell'area personale, che non si vede
-    progetti = _progetti_con_recenti(request, azienda) if con_aree else []
     progetto_aperto = None
     if progetto is not None:
         progetto_aperto = _mio_progetto(request, progetto)
         if progetto_aperto is None:
-            raise Http404
+            altrove = _area_altrove(request, progetto)
+            if altrove is None:
+                raise Http404
+            return passa_ad_altra_azienda(request, altrove.azienda, area=altrove)
         aree.imposta_corrente(request.user, progetto_aperto)       # aprire un'area è lavorarci
+    mie = _mie(request)
+    con_aree = funzioni.attiva("aree_di_lavoro")             # senza: le chat stanno nell'area personale, che non si vede
+    progetti = _progetti_con_recenti(request, azienda) if con_aree else []
     area_corrente = conversazione.progetto if conversazione is not None and conversazione.progetto_id else aree.corrente(request.user, azienda)
     app = app_selezionabili(request.user)
     ambito = next((a for a in app if conversazione and a["slug"] == conversazione.ambito), None)
@@ -168,6 +228,8 @@ def chat(request, pk=None, progetto=None):
         "pannelli_sinistra": [p for p in PANNELLI_SINISTRA if con_aree or p[0] != "progetti"],
         "app": app, "suggerimenti": suggerimenti.per(), "suggerimenti_per_app": suggerimenti.tutti(),
         "progetti": progetti, "progetto_aperto": progetto_aperto, "area_corrente": area_corrente,
+        # chiamata dal template solo per chi ha più aziende (il contesto del kernel lo sa già): nessuna query per gli altri
+        "aree_altre_aziende": partial(_aree_delle_altre_aziende, request) if con_aree else [],
         "gestisco_area": bool(progetto_aperto and progetto_aperto.utente_id == request.user.pk),
         "url_dashboard_area": _url_dashboard(request, progetto_aperto),
         "membri_area": [aree.nome(m.utente) for m in progetto_aperto.membri.select_related("utente")] if progetto_aperto else [],
@@ -232,7 +294,8 @@ def _url_dashboard(request, area):
 def _salvati(request):
     """I preferiti oltre alle chat: documenti e grafici e tabelle con la stella, di tutte le chat."""
     return {"grafici_tabelle": Artifact.objects.filter(utente=request.user, salvato=True).order_by("-pk")[:100],
-            "documenti": DocumentoChat.objects.filter(utente=request.user, salvato=True, conversazione__nascosta=False).order_by("-pk")[:100]}
+            "documenti": DocumentoChat.objects.filter(utente=request.user, salvato=True, conversazione__nascosta=False)
+                         .select_related("conversazione__progetto__azienda").order_by("-pk")[:100]}
 
 
 def _mio_progetto(request, pk):
@@ -276,6 +339,12 @@ def _errore_invio(request, testo, pk):
 def invia(request, pk=None):
     testo = request.POST.get("testo", "").strip()
     conversazione = get_object_or_404(_mie(request), pk=pk) if pk else None
+    area = _mio_progetto(request, request.POST.get("progetto")) if conversazione is None else None
+    # una chat di un'altra azienda, o una nuova da un'area di un'altra (es. da una scheda rimasta aperta dopo un cambio):
+    # Ada risponderebbe con i dati dell'azienda corrente
+    dove = conversazione or (None if area else _area_altrove(request, request.POST.get("progetto")))
+    if dove is not None and (motivo := aree.rifiuto(request.user, getattr(request, "azienda", None), dove)):
+        return _errore_invio(request, motivo, pk)
     file = request.FILES.getlist("allegati")
     confermate = request.POST.get("conferma_immagini") == "1"
     try:
@@ -299,7 +368,7 @@ def invia(request, pk=None):
     ambito = ambito if ambito in ammessi else ""
     if nuova:
         titolo = " ".join(testo.split())
-        area = _mio_progetto(request, request.POST.get("progetto")) or aree.corrente(request.user, getattr(request, "azienda", None))
+        area = area or aree.corrente(request.user, getattr(request, "azienda", None))
         conversazione = Conversazione.objects.create(utente=request.user, ambito=ambito, progetto=area,
                                                      titolo=titolo[:60] + ("…" if len(titolo) > 60 else ""))
     elif "ambito" in request.POST and ambito != conversazione.ambito:     # app cambiata dal bottone «App»
@@ -335,6 +404,9 @@ def invia(request, pk=None):
 
 
 def _ripartenza(request, conversazione, messaggio, testo):
+    if motivo := aree.rifiuto(request.user, getattr(request, "azienda", None), conversazione):
+        messages.error(request, motivo)                     # chat di un'altra azienda: Ada non riparte con questa
+        return redirect("ai:conversazione", pk=conversazione.pk)
     try:
         motore.riparti(conversazione, messaggio, testo, request.user, getattr(request, "azienda", None))
     except motore.NonSiPuoRipartire as e:
@@ -374,6 +446,9 @@ def modifica_messaggio(request, pk):
 def sposta(request, pk):
     """In un progetto o fuori. Vale dal messaggio successivo."""
     c = get_object_or_404(_mie(request), pk=pk)
+    if motivo := aree.rifiuto(request.user, getattr(request, "azienda", None), c):
+        messages.error(request, motivo)                     # un'area non cambia azienda, e le chat nemmeno
+        return redirect("ai:conversazione", pk=c.pk)
     area = _mio_progetto(request, request.POST.get("progetto")) or aree.personale(request.user, getattr(request, "azienda", None))
     if area is not None and area.pk != c.progetto_id:
         c.progetto, c.condivisa = area, c.condivisa and not area.personale
@@ -614,6 +689,8 @@ def csv_artifact(request, pk):
     from . import artifact
     from .strumenti import ErroreStrumento
     a = _artifact_leggibile(request, pk)
+    if messaggio := artifact.previsione_spenta(a):                   # senza il modulo niente numeri, nemmeno quelli di prima
+        return HttpResponse(messaggio, status=409, content_type="text/plain; charset=utf-8")
     dati = a.dati if a.utente_id == request.user.pk else None        # l'istantanea è del proprietario: agli altri i loro dati
     if request.GET.get("oggi") or dati is None:
         try:

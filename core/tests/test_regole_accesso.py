@@ -144,14 +144,14 @@ def test_di_un_utente_collegato_si_leggono_solo_i_nomi(client, s):
 
 
 def test_ordine_e_previsione_non_usano_un_campo_nascosto_al_ruolo(client, s):
-    from ai import specialisti
     from ai.strumenti import Contesto, richiesta
     from ai.strumenti.viste import cerca_record, vista_per
+    from previsioni import motore
     ctx = Contesto(utente=s["anna"], azienda=s["az"])
     with pytest.raises(Exception, match="non è disponibile per il tuo ruolo"):
         cerca_record(ctx, "crm.opportunita", ordina="-valore_atteso")
     with pytest.raises(Exception, match="non è disponibile per il tuo ruolo"):
-        specialisti.serie_storica(vista_per(ctx, "crm.opportunita"), richiesta.per(ctx), "creata", misura="sum:valore_atteso")
+        motore.serie_storica(vista_per(ctx, "crm.opportunita"), richiesta.per(ctx), "creata", misura="sum:valore_atteso")
 
 
 def test_riassumi_e_scrivi_con_ada_non_riportano_i_campi_nascosti(client, s):

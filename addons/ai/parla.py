@@ -112,7 +112,13 @@ def _notifiche(utente):
 @funzioni.richiede("voce")
 def pagina(request, pk=None):
     azienda = getattr(request, "azienda", None)
-    conversazione = get_object_or_404(Conversazione, pk=pk, utente=request.user, nascosta=False) if pk else None
+    conversazione = get_object_or_404(Conversazione.objects.select_related("progetto__azienda"), pk=pk, utente=request.user,
+                                      nascosta=False) if pk else None
+    if conversazione is not None and (altra := aree.da_passare(request.user, azienda, conversazione)):
+        from .pagine import passa_ad_altra_azienda             # come la chat: prima si passa alla sua azienda
+        return passa_ad_altra_azienda(request, altra)
+    if conversazione is not None and aree.senza_chat(request.user, azienda, conversazione):
+        raise Http404                                          # lì l'app Chat non c'è: niente da proporre
     app = _app(request.user)
     scelta = conversazione.ambito if conversazione else request.GET.get("app", "")
     ambito = scelta if scelta in {a["slug"] for a in app} else ""
@@ -232,10 +238,15 @@ def chiedi(request):
         apertura.segna_detta(saluto)                          # con la voce spenta è la risposta a dire che l'ha letta
     conversazione = None
     if not nuova:
-        conversazione = get_object_or_404(Conversazione, pk=int(pk), utente=request.user, nascosta=False)
+        conversazione = get_object_or_404(Conversazione.objects.select_related("progetto__azienda"), pk=int(pk),
+                                          utente=request.user, nascosta=False)
     elif ripresa:
         conversazione = saluto.conversazione                  # «sì, riprendiamo»: si continua in quella di prima
     if conversazione is not None:
+        # una chat di un'altra azienda, scelta o da riprendere: come in chat, Ada non risponde con i dati di quella
+        # corrente. Prima della risposta in corso, che lì non si ferma: la chat non è di questa azienda
+        if (motivo := aree.rifiuto(request.user, azienda, conversazione)):
+            return JsonResponse({"errore": motivo}, status=400)
         if (occupata := _risposta_ancora_in_corso(conversazione)):
             return JsonResponse({"errore": occupata}, status=409)
     else:
