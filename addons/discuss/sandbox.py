@@ -18,10 +18,10 @@ from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
 
 from . import connettori
 from .models import Connessione, ConversazioneEsterna, Messaggio, ModelloWhatsApp, SandboxEvento, SandboxMedia
+from core.decoratori import post_con_accesso
 
 GUASTI = {"": (0, {}), "token": (401, "Token non valido"), "limite": (429, "Troppe richieste"), "giu": (503, "Servizio non disponibile"),
           "bloccato": (403, "Il cliente ha bloccato il bot")}
@@ -222,8 +222,7 @@ def eventi_vista(request, pk):
     return JsonResponse(_dati(c, _contatto(request, c), int(dopo) if dopo.isdigit() else 0))
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def azione(request, pk):
     """Ciò che può succedere davvero: un messaggio, una foto, un messaggio ripetuto, una firma falsa, 24 ore che passano."""
     c = _prova(request, pk)

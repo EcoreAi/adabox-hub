@@ -5,8 +5,8 @@ from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core.dashboard import queryset
 from fatturazione import scadenzario as motore
 from fatturazione.models import Fattura
@@ -19,9 +19,8 @@ def _alla_fattura(fattura):
     return redirect("fatturazione:fatture_dettaglio", pk=fattura.pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required("sdi.add_trasmissione", raise_exception=True)
-@require_POST
 def invia(request, pk):
     fattura = get_object_or_404(queryset(request, Fattura), pk=pk)
     try:
@@ -49,9 +48,8 @@ def xml(request, pk):
     return risposta
 
 
-@login_required
+@post_con_accesso
 @permission_required("sdi.add_trasmissione", raise_exception=True)
-@require_POST
 def caricata(request, pk):
     t = _trasmissione(request, pk)
     if t.stato == Trasmissione.PRONTA:

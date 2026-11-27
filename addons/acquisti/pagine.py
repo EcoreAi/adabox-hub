@@ -9,8 +9,8 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core.dashboard import queryset
 
 from . import operazioni, riordino as motore, riscontro, valutazione as pagella
@@ -39,9 +39,8 @@ def riordino(request):
         "puo_creare": request.user.has_perm("acquisti.add_ordineacquisto")})
 
 
-@login_required
+@post_con_accesso
 @permission_required("acquisti.add_ordineacquisto", raise_exception=True)
-@require_POST
 def riordino_crea(request):
     azienda = _azienda(request)
     scelti = set(request.POST.getlist("prodotto"))
@@ -74,9 +73,8 @@ def valutazione(request):
     return render(request, "acquisti/valutazione.html", {"righe": pagella.schede(azienda, dal, al), "dal": dal, "al": al})
 
 
-@login_required
+@post_con_accesso
 @permission_required("acquisti.change_ordineacquisto", raise_exception=True)
-@require_POST
 def aggiudica(request, pk, ordine):
     gara = get_object_or_404(queryset(request, Gara), pk=pk)
     offerta = get_object_or_404(queryset(request, OrdineAcquisto), pk=ordine, gara=gara)
@@ -90,9 +88,8 @@ def aggiudica(request, pk, ordine):
     return redirect("acquisti:gare_dettaglio", pk=gara.pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required("acquisti.change_ordineacquisto", raise_exception=True)
-@require_POST
 def collega_fattura(request):
     if not apps.is_installed("sdi"):
         raise PermissionDenied
@@ -112,9 +109,8 @@ def collega_fattura(request):
     return _ritorno(request, "acquisti:ordini_lista")
 
 
-@login_required
+@post_con_accesso
 @permission_required("acquisti.change_ordineacquisto", raise_exception=True)
-@require_POST
 def scollega_fattura(request, pk):
     collegamento = get_object_or_404(FatturaOrdine, pk=pk, ordine__in=queryset(request, OrdineAcquisto))
     riscontro.scollega(collegamento, request.user)

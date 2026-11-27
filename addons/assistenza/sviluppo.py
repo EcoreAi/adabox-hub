@@ -2,13 +2,12 @@
 una fase chiusa il cliente riceve un messaggio sul ticket e il ticket passa alla prima fase chiusa («Risolto»);
 quando esce la versione che contiene il compito, il cliente riceve un altro messaggio."""
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.shortcuts import get_object_or_404, redirect
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import chatter
 from core.dashboard import queryset
 from helpdesk.models import FaseTicket, Ticket
@@ -43,8 +42,7 @@ def crea_compito(ticket, utente):
     return compito
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def crea_compito_vista(request, pk):
     if not (request.user.has_perm("progetti.add_compito") and request.user.has_perm("helpdesk.change_ticket")):
         raise PermissionDenied

@@ -7,8 +7,8 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import allegati
 
 from . import contratti, saldi, turni
@@ -67,9 +67,8 @@ def documento(request, pk):
     return allegati.risposta(finto)
 
 
-@login_required
+@post_con_accesso
 @permission_required("personale.change_richiestamodifica", raise_exception=True)
-@require_POST
 def decidi(request, pk):
     from core.dashboard import queryset
     r = get_object_or_404(queryset(request, RichiestaModifica).select_related("dipendente"), pk=pk, stato=RichiestaModifica.IN_ATTESA)

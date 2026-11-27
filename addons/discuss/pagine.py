@@ -11,8 +11,8 @@ from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import allegati, attivita, chatter
 from core.generici import ct_di, vista_e_oggetto
 from core.models import Allegato, TipoAttivita
@@ -226,9 +226,8 @@ def precedenti(request, pk):
                                                         **_diritti(request, canale)})
 
 
-@login_required
+@post_con_accesso
 @permission_required("discuss.add_messaggio", raise_exception=True)
-@require_POST
 def invia(request, pk):
     canale = _canale(request, pk)
     if not servizi.puo_scrivere(request.user, canale):
@@ -250,9 +249,8 @@ def invia(request, pk):
     return redirect("discuss:canale", pk=canale.pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def scrivo(request, pk):
     """«Sta scrivendo…»: il browser lo manda al massimo ogni qualche secondo."""
     canale = _canale(request, pk)
@@ -304,9 +302,8 @@ def modifica(request, pk):
     return render(request, "discuss/_modifica.html", {"m": messaggio})
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def elimina(request, pk):
     messaggio = _messaggio_visibile(request, pk)
     if messaggio.eliminato:
@@ -317,9 +314,8 @@ def elimina(request, pk):
     return _rendi_messaggio(request, messaggio)
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def reazione(request, pk):
     messaggio = _messaggio_visibile(request, pk)
     emoji = request.POST.get("emoji", "").strip()
@@ -331,9 +327,8 @@ def reazione(request, pk):
     return _rendi_messaggio(request, messaggio)
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def fissa(request, pk):
     messaggio = _messaggio_visibile(request, pk)
     if messaggio.eliminato or not servizi.puo_fissare(request.user, messaggio.canale):
@@ -342,9 +337,8 @@ def fissa(request, pk):
     return _rendi_messaggio(request, messaggio)
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def da_leggere(request, pk):
     messaggio = _messaggio_visibile(request, pk)
     servizi.segna_da_leggere(request.user, messaggio)
@@ -481,9 +475,8 @@ def vai(request, nome):
     return redirect("discuss:home")
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def presenza(request):
     """Lo stato scelto da una persona: non disturbare, assente, fuori ufficio con data e messaggio."""
     p = presenze.mia(request.user)
@@ -508,9 +501,8 @@ def allegato(request, pk):
     return allegati.risposta(allegato)
 
 
-@login_required
+@post_con_accesso
 @permission_required("discuss.add_canale", raise_exception=True)
-@require_POST
 def nuovo_canale(request):
     nome = request.POST.get("nome", "").strip()
     if not nome:
@@ -523,9 +515,8 @@ def nuovo_canale(request):
     return redirect("discuss:canale", pk=canale.pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def diretto(request):
     altri = list(_utenti_scelti(request).exclude(pk=request.user.pk))
     if not altri:
@@ -534,9 +525,8 @@ def diretto(request):
     return redirect("discuss:canale", pk=servizi.diretto([request.user, *altri], request.POST.get("nome", "").strip()).pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def gruppo(request, pk):
     """Dal messaggio diretto a un gruppo con altre persone."""
     canale = _canale(request, pk)
@@ -549,17 +539,15 @@ def gruppo(request, pk):
     return redirect("discuss:canale", pk=servizi.gruppo_da(canale, request.user, nuovi, request.POST.get("nome", "").strip()).pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def entra(request, pk):
     servizi.entra(_canale(request, pk), request.user)
     return redirect("discuss:canale", pk=pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def esci(request, pk):
     canale = _canale(request, pk)
     if canale.diretto:
@@ -569,9 +557,8 @@ def esci(request, pk):
     return redirect("discuss:home")
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def invita(request, pk):
     canale = _canale(request, pk)
     if canale.diretto or servizi.iscrizione(request.user, canale) is None:
@@ -581,9 +568,8 @@ def invita(request, pk):
     return redirect("discuss:canale", pk=pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def preferenze(request, pk):
     canale = _canale(request, pk)
     valore = request.POST.get("notifiche", "")
@@ -592,9 +578,8 @@ def preferenze(request, pk):
     return redirect("discuss:canale", pk=pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def preferito(request, pk):
     canale = _canale(request, pk)
     i = servizi.iscrizione(request.user, canale)
@@ -611,9 +596,8 @@ def _da_gestore(request, pk):
     return canale
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def impostazioni(request, pk):
     canale = _da_gestore(request, pk)
     nome = request.POST.get("nome", "").strip()[:80]
@@ -629,9 +613,8 @@ def impostazioni(request, pk):
     return redirect("discuss:canale", pk=pk) if not canale.archiviato else redirect("discuss:home")
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def ruolo(request, pk):
     canale = _da_gestore(request, pk)
     valore = request.POST.get("ruolo", "")
@@ -640,9 +623,8 @@ def ruolo(request, pk):
     return _rendi_info(request, canale)
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def togli(request, pk):
     canale = _da_gestore(request, pk)
     if request.POST.get("utente", "").isdigit():
@@ -678,9 +660,8 @@ def apri_notifica(request, pk):
     return redirect(destinazione)
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def tutte_lette(request):
     Notifica.objects.filter(utente=request.user, letta=False).update(letta=True)
     return redirect("discuss:posta")
@@ -713,9 +694,8 @@ def scheda(request, ct, pk):
     return render(request, "discuss/_scheda.html", {"s": schede.scheda(request, ct, pk)})
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def scheda_nota(request, ct, pk):
     """Una nota sul record, scritta dalla conversazione."""
     _, obj = vista_e_oggetto(request, ct, pk, "view")
@@ -725,9 +705,8 @@ def scheda_nota(request, ct, pk):
     return render(request, "discuss/_scheda.html", {"s": schede.scheda(request, ct, pk), "avviso": "Nota aggiunta al record." if corpo else ""})
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def scheda_segui(request, ct, pk):
     _, obj = vista_e_oggetto(request, ct, pk, "view")
     (chatter.smetti if chatter.segue(obj, request.user) else chatter.segui)(obj, request.user)
@@ -758,9 +737,8 @@ def condividi(request, ct, pk):
     return redirect(torna)
 
 
-@login_required
+@post_con_accesso
 @permission_required("discuss.add_canale", raise_exception=True)
-@require_POST
 def canale_record(request, ct, pk):
     """La conversazione dedicata a un record: una sola, con chi lo segue. Chi può vedere il record può entrarci."""
     _, obj = vista_e_oggetto(request, ct, pk, "view")
@@ -787,9 +765,8 @@ def da_messaggio(request, pk):
         "creabili": schede.creabili(request), "oggi": timezone.localdate(), "riepilogo": testo.piano(messaggio.corpo)[:200]})
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def attivita_da(request, pk):
     messaggio = _messaggio_iscritto(request, pk)
     voce = request.POST.get("record", "")

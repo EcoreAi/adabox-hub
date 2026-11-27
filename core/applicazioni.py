@@ -15,12 +15,12 @@ from django.db import transaction
 from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import redirect, render
 from django.urls import reverse
-from django.views.decorators.http import require_POST
 
 from . import dipartimenti, lavori, licenza, ruoli
 from .models import Azienda, Dipartimento, LicenzaIstanza, Modulo, RichiestaModulo, Ruolo
 from .registry import modules, sincronia
 from .signals import crea_profilo
+from .decoratori import post_con_accesso
 
 log = logging.getLogger("core.moduli")
 PERMESSO = "core.view_modulo"
@@ -123,9 +123,8 @@ def pagina(request):
         "utenti_attivi": licenza.utenti_attivi(), "portale": sincronia.configurata()})
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def richiedi(request):
     """Installazione o demo: la richiesta va al portale e, se impostata, per email a chi vende."""
     slug = request.POST.get("slug", "")
@@ -161,9 +160,8 @@ def _richiedi_suite(request, slug):
     return redirect("core:applicazioni")
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO_ATTIVAZIONE, raise_exception=True)
-@require_POST
 def attivazione(request):
     """Accende o spegne un'app installata e coperta dalla licenza. Accesa, si passa a decidere chi la usa."""
     slug, attivo = request.POST.get("slug", ""), request.POST.get("attivo") == "1"
@@ -211,9 +209,8 @@ def scheda(request, slug):
         "portata_da": [d for d in Dipartimento.objects.all() if not d.tutte and slug not in d.app and slug in dipartimenti.con_dipendenze(d.app)]})
 
 
-@login_required
+@post_con_accesso
 @permission_required("core.change_ruolo", raise_exception=True)
-@require_POST
 def ruolo(request, slug):
     """Il livello di un ruolo in quest'app: il segnale del ruolo lo applica subito a chi lo ha."""
     voce, _ = _gestibile(slug)
@@ -232,9 +229,8 @@ def ruolo(request, slug):
     return redirect(reverse("core:applicazione", args=[slug]))
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO_ATTIVAZIONE, raise_exception=True)
-@require_POST
 def nome(request, slug):
     """Il nome dell'app nel menu, per tutta l'istanza. Vuoto, torna quello del modulo."""
     voce, _ = _gestibile(slug)
@@ -253,9 +249,8 @@ def _voci_menu(slug, manifest, ruolo):
             for i, v in enumerate(manifest.menu)]
 
 
-@login_required
+@post_con_accesso
 @permission_required("core.change_modulo", raise_exception=True)
-@require_POST
 def menu_app(request, slug):
     """Nome, posizione e visibilità delle voci di menu interne dell'app, per tutti o per un ruolo."""
     from .models import VoceMenu
@@ -286,9 +281,8 @@ def _aziende_app(slug):
     return [{"a": a, "scelta": a.pk in scelte} for a in tutte]
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO_ATTIVAZIONE, raise_exception=True)
-@require_POST
 def aziende_app(request, slug):
     """Per tutte le aziende, o solo per quelle spuntate: con un'altra azienda corrente l'app non si vede e non si apre."""
     voce, _ = _gestibile(slug)
@@ -306,9 +300,8 @@ def aziende_app(request, slug):
     return redirect("core:applicazione", slug=slug)
 
 
-@login_required
+@post_con_accesso
 @permission_required("core.change_dipartimento", raise_exception=True)
-@require_POST
 def dipartimenti_app(request, slug):
     """Comune a tutti, o solo per i dipartimenti spuntati: il segnale dei dipartimenti lo applica a chi ne fa parte."""
     voce, _ = _gestibile(slug)
