@@ -9,8 +9,9 @@ from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.core.validators import validate_email
 from django.utils import timezone
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET
 
+from core.decoratori import post_con_accesso
 from core import allegati, attivita, chatter
 from core.generici import ct_di, vista_e_oggetto
 from core.models import AttivitaPianificata, Messaggio, TipoAttivita
@@ -76,8 +77,7 @@ def indirizzi(testo):
     return validi, scartati
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def scrivi(request, ct, pk):
     """Nota interna o messaggio ai follower, con allegati. Basta poter vedere il record; per scrivere anche a un
     indirizzo esterno (campo «Anche a») serve poterlo modificare."""
@@ -107,8 +107,7 @@ def scrivi(request, ct, pk):
     return _risposta(request, vista, obj)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def fissa(request, pk):
     """Fissa in cima (o rimette al suo posto) un messaggio o una nota: serve poter modificare il record."""
     m = get_object_or_404(Messaggio, pk=pk, tipo__in=(Messaggio.NOTA, Messaggio.MESSAGGIO))
@@ -117,8 +116,7 @@ def fissa(request, pk):
     return _risposta(request, vista, obj)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def segui(request, ct, pk):
     vista, obj = vista_e_oggetto(request, ct, pk, "view")
     if request.POST.get("azione") == "smetti":
@@ -128,8 +126,7 @@ def segui(request, ct, pk):
     return _risposta(request, vista, obj)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def pianifica(request, ct, pk):
     vista, obj = vista_e_oggetto(request, ct, pk, "change")
     tipo = TipoAttivita.objects.filter(pk=request.POST.get("tipo") or 0).first()
@@ -155,16 +152,14 @@ def _gestisci(request, pk):
     return a, vista, obj
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def attivita_fatta(request, pk):
     a, vista, obj = _gestisci(request, pk)
     attivita.segna_fatta(a, request.user, request.POST.get("esito", ""))
     return _dopo_attivita(request, vista, obj)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def attivita_annulla(request, pk):
     a, vista, obj = _gestisci(request, pk)
     a.delete()

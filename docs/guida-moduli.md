@@ -28,6 +28,8 @@ Se il modulo dipende da altri: `modulo nuovo bolle --dipende contatti`.
 8. **Una pagina senza login è una scelta**, e un endpoint senza CSRF deve verificare una firma.
 9. **Gli indirizzi alla radice sono un'eccezione.** `urlpatterns_radice` in `urls.py` serve solo quando il percorso lo fissa uno standard (`/.well-known/…`): lì i middleware dei moduli non arrivano, e la vista risponde 404 da sé quando il modulo è spento.
 
+Un'azione che risponde solo a un POST usa `@post_con_accesso` di `core.decoratori`, non `@require_POST` + `@login_required`: a sessione scaduta torna alla pagina di partenza dopo il login invece di dare 405 su un GET all'azione.
+
 Una pagina di amministrazione dell'istanza che mostra tutte le aziende di proposito lo dichiara con `tra_aziende = True`.
 
 ## Ada

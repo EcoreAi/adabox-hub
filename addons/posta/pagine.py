@@ -11,8 +11,8 @@ from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import cifratura, lavori
 
 from . import fornitori
@@ -43,9 +43,8 @@ def caselle(request):
     })
 
 
-@login_required
+@post_con_accesso
 @permission_required("posta.add_casella", raise_exception=True)
-@require_POST
 def collega(request, tipo):
     servizio = ServizioOAuth.objects.filter(tipo=tipo, attivo=True).first()
     if servizio is None or getattr(request, "azienda", None) is None:
@@ -90,8 +89,7 @@ def _mia(request, pk):
     return get_object_or_404(Casella, pk=pk, utente=request.user)
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def imposta(request, pk):
     casella = _mia(request, pk)
     casella.posta, casella.calendario = request.POST.get("posta") == "on", request.POST.get("calendario") == "on"
@@ -101,8 +99,7 @@ def imposta(request, pk):
     return redirect("posta:caselle")
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def sincronizza(request, pk):
     casella = _mia(request, pk)
     lavori.accoda("posta.sincronia.giro", casella_id=casella.pk, azienda=casella.azienda, utente=request.user, max_tentativi=1)
@@ -110,8 +107,7 @@ def sincronizza(request, pk):
     return redirect("posta:caselle")
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def scollega(request, pk):
     """Si dimenticano i token. Email ed eventi già passati restano: sono nello storico dei clienti."""
     casella = _mia(request, pk)
@@ -121,9 +117,8 @@ def scollega(request, pk):
     return redirect("posta:caselle")
 
 
-@login_required
+@post_con_accesso
 @permission_required("posta.add_casella", raise_exception=True)
-@require_POST
 def feed_rinnova(request):
     feed, nuovo = FeedCalendario.objects.get_or_create(utente=request.user)
     if not nuovo:
