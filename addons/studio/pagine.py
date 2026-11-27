@@ -7,10 +7,10 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_POST
 
 from . import campi, servizi
 from .models import Personalizzazione
+from core.decoratori import post_con_accesso
 
 PERMESSO = "studio.change_personalizzazione"
 
@@ -76,9 +76,8 @@ def _versioni(riga):
     return risultato
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def ripristina(request, modulo, slug):
     vista = _vista(modulo, slug)
     indice = request.POST.get("versione", "")
@@ -98,9 +97,8 @@ def esporta(request):
     return risposta
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def importa(request):
     file = request.FILES.get("file")
     try:

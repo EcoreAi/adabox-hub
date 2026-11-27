@@ -1,14 +1,13 @@
 """Chi segue una chat con un cliente: la prende chi è libero, la riceve l'operatore con meno lavoro, o la assegna un collega."""
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
-from django.views.decorators.http import require_POST
 
 from . import eventi, presenza, servizi
 from .models import Canale, ConversazioneEsterna, Evento, Iscrizione, Notifica, Sportello
+from core.decoratori import post_con_accesso
 
 
 def _avvisa_barra(canale):
@@ -79,8 +78,7 @@ def operatori_di(canale):
     return list(conv.sportello.operatori.filter(is_active=True).order_by("first_name", "username")) if conv else []
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def vista(request, pk):
     """Prendere, assegnare a un collega dello sportello, lasciare. Solo per chi sta già nella conversazione."""
     canale = get_object_or_404(Canale, pk=pk, livechat=True)

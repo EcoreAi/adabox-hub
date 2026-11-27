@@ -31,6 +31,7 @@ from .registry import hooks, modules, pacchetti, sincronia
 from .signals import crea_profilo
 from .viste import Inline, ModelView, register
 from .viste import registry as registry_viste
+from .decoratori import post_con_accesso
 
 
 def voci_kernel(user):
@@ -112,8 +113,7 @@ def dashboard(request):
         "contesto_ada": dash.contesto_per_ada(visibili), "sezioni_dashboard": hooks.sezioni_dashboard(request)})
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def dashboard_layout(request):
     """Ordine, larghezze e widget tolti, dal client in JSON."""
     import json
@@ -127,8 +127,7 @@ def dashboard_layout(request):
     return JsonResponse({"ok": True, **salvato})
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def dashboard_per_ruolo(request):
     """L'amministratore fa della sua dashboard quella di partenza di un ruolo (o la toglie): chi ha quel ruolo e non ha
     ancora disposto la sua parte da lì; ognuno vede solo i widget che i suoi permessi gli consentono."""
@@ -147,8 +146,7 @@ def dashboard_per_ruolo(request):
     return redirect("core:dashboard")
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def dashboard_reset(request):
     from .models import DashboardUtente
     DashboardUtente.objects.filter(utente=request.user).delete()
@@ -190,8 +188,7 @@ def profilo(request):
     })
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def apertura_app(request):
     form = AperturaAppForm(request.POST, instance=crea_profilo(request.user))
     if form.is_valid():
@@ -200,8 +197,7 @@ def apertura_app(request):
     return redirect("core:profilo")
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def azienda_predefinita(request):
     form = AziendaPredefinitaForm(request.POST, instance=crea_profilo(request.user))
     if form.is_valid():
@@ -212,8 +208,7 @@ def azienda_predefinita(request):
     return redirect("core:profilo")
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def token_nuovo(request):
     form = TokenApiForm(request.POST, utente=request.user)
     if form.is_valid():
@@ -226,8 +221,7 @@ def token_nuovo(request):
     return redirect("core:profilo")
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def token_revoca(request, pk):
     token = get_object_or_404(TokenApi, pk=pk, utente=request.user)
     token.attivo = False
@@ -236,8 +230,7 @@ def token_revoca(request, pk):
     return redirect("core:profilo")
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def cambia_azienda(request):
     pk = request.POST.get("azienda", "")
     scelta = get_object_or_404(Azienda, pk=int(pk) if pk.isdigit() else 0, attiva=True)
@@ -992,8 +985,7 @@ def da_approvare(request):
     return render(request, "core/approvazioni.html", {"voci": voci})
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def decidi_approvazione(request, pk):
     from core import approvazioni
     richiesta = get_object_or_404(RichiestaApprovazione, pk=pk)
@@ -1094,8 +1086,7 @@ def chiave_push(request):
     return JsonResponse({"chiave": push.chiave_pubblica()})
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def iscrivi_push(request):
     """Il browser manda la sua iscrizione push (endpoint e chiavi): da ora le notifiche arrivano anche lì."""
     import json as _json
@@ -1116,8 +1107,7 @@ def iscrivi_push(request):
     return JsonResponse({"ok": True, "attiva": True})
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def prova_push(request):
     from core import push
     n = push.invia(request.user.pk, "Notifiche attive", "Da ora le notifiche arrivano anche qui.", reverse("core:tasca"))

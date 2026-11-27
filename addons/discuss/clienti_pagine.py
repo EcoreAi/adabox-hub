@@ -6,8 +6,8 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import chatter, sequenze
 from core.dashboard import queryset
 
@@ -46,8 +46,7 @@ def cerca(request, pk):
     return render(request, "discuss/_clienti_risultati.html", {"risultati": risultati, "canale_pk": pk, "q": testo})
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def collega(request, pk):
     conv = _conversazione(request, pk)
     contatto = get_object_or_404(_contatti(request), pk=request.POST.get("contatto") or 0)
@@ -56,16 +55,14 @@ def collega(request, pk):
     return redirect("discuss:canale", pk=pk)
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def scollega(request, pk):
     clienti.scollega(_conversazione(request, pk))
     messages.success(request, "Chat scollegata dal contatto.")
     return redirect("discuss:canale", pk=pk)
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def crea(request, pk):
     conv = _conversazione(request, pk)
     if not request.user.has_perm("contatti.add_contatto") or request.azienda is None:

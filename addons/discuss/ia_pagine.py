@@ -3,8 +3,8 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import allegati, lavori
 
 from . import ia, servizi
@@ -28,9 +28,8 @@ def riassunto(request, pk):
     return render(request, "discuss/_pannello_riassunto.html", {"canale": canale, "r": ultimo, "ambiti": ia.AMBITI})
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def trascrivi(request, pk):
     messaggio = _messaggio_visibile(request, pk)
     if messaggio.eliminato or not ia.trascrizione_attiva():
@@ -67,9 +66,8 @@ def registrazione_audio(request, pk):
     return allegati.risposta(audio)
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def registrazione_elimina(request, pk):
     r = _registrazione(request, pk)
     if r.avviata_da_id != request.user.pk and not servizi.puo_moderare(request.user, r.chiamata.canale):
