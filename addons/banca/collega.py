@@ -2,8 +2,8 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core.dashboard import queryset
 
 from . import sincronia
@@ -63,9 +63,8 @@ def ritorno(request, pk):
     return redirect("banca:conti_dettaglio", pk=c.conto_id)
 
 
-@login_required
+@post_con_accesso
 @permission_required("banca.add_importazione", raise_exception=True)
-@require_POST
 def leggi_ora(request, pk):
     c = get_object_or_404(queryset(request, CollegamentoConto), pk=pk)
     try:
@@ -80,9 +79,8 @@ def leggi_ora(request, pk):
     return redirect("banca:conti_dettaglio", pk=c.conto_id)
 
 
-@login_required
+@post_con_accesso
 @permission_required("banca.delete_collegamentoconto", raise_exception=True)
-@require_POST
 def scollega(request, pk):
     c = get_object_or_404(queryset(request, CollegamentoConto), pk=pk)
     conto = c.conto_id

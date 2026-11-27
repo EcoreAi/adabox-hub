@@ -4,8 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import chatter
 from core.dashboard import queryset
 from progetti.models import Compito, TipoCompito, progetti_visibili
@@ -63,8 +63,7 @@ def apri_difetto(esecuzione, utente):
     return compito
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def difetto(request, pk, esecuzione):
     collaudo = _collaudo(request, pk)
     if not request.user.has_perm("progetti.add_compito"):

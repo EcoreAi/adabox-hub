@@ -6,8 +6,8 @@ from django.db.models import Count, Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import allegati
 
 from . import accesso, quote, richieste, servizi
@@ -131,9 +131,8 @@ def scarica_versione(request, pk, numero):
     return allegati.risposta(finto)
 
 
-@login_required
+@post_con_accesso
 @permission_required("documenti.change_documento", raise_exception=True)
-@require_POST
 def ripristina_versione(request, pk, numero):
     versione = _versione(request, pk, numero)
     if not accesso.puo_modificare(request.user, versione.documento):
@@ -147,9 +146,8 @@ def ripristina_versione(request, pk, numero):
     return redirect(_url_archivio(versione.documento.cartella))
 
 
-@login_required
+@post_con_accesso
 @permission_required("documenti.add_documento", raise_exception=True)
-@require_POST
 def nuovo_spazio(request):
     nome = request.POST.get("nome", "").strip()
     tipo = Spazio.CONDIVISO if request.POST.get("tipo") == Spazio.CONDIVISO else Spazio.PERSONALE
@@ -172,9 +170,8 @@ def scarica(request, pk):
     return servizi.risposta(documento, in_linea=request.GET.get("inline") == "1")
 
 
-@login_required
+@post_con_accesso
 @permission_required("documenti.add_documento", raise_exception=True)
-@require_POST
 def carica(request):
     cartella = get_object_or_404(Cartella, pk=request.POST.get("cartella", 0) or 0, azienda=request.azienda)
     if not accesso.puo_scrivere(request.user, cartella):
@@ -194,9 +191,8 @@ def carica(request):
     return redirect(_url_archivio(cartella))
 
 
-@login_required
+@post_con_accesso
 @permission_required("documenti.add_documento", raise_exception=True)
-@require_POST
 def nuova_cartella(request):
     nome = request.POST.get("nome", "").strip()[:120]
     padre = None
@@ -213,9 +209,8 @@ def nuova_cartella(request):
     return redirect(_url_archivio(cartella))
 
 
-@login_required
+@post_con_accesso
 @permission_required("documenti.change_documento", raise_exception=True)
-@require_POST
 def modifica(request, pk):
     documento = _documento(request, pk)
     if not accesso.puo_modificare(request.user, documento):
@@ -230,9 +225,8 @@ def modifica(request, pk):
     return redirect(_url_archivio(documento.cartella))
 
 
-@login_required
+@post_con_accesso
 @permission_required("documenti.view_documento", raise_exception=True)
-@require_POST
 def azione(request):
     """Azioni sui documenti selezionati: zip, sposta, tag, cestina, ripristina, elimina."""
     nome = request.POST.get("azione", "")
@@ -301,8 +295,7 @@ def azione(request):
     return redirect(ritorno)
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def evadi(request, pk):
     """Il destinatario carica il documento richiesto, che va nella cartella della richiesta."""
     richiesta = get_object_or_404(Richiesta, pk=pk, azienda=request.azienda, destinatario=request.user,

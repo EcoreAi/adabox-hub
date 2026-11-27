@@ -6,10 +6,10 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
 
 from banca.models import Conto
 from contatti.models import Contatto
+from core.decoratori import post_con_accesso
 from core.dashboard import queryset
 
 from . import servizi
@@ -69,9 +69,8 @@ def scarica(request, pk):
     return risposta
 
 
-@login_required
+@post_con_accesso
 @permission_required("distinte.change_distinta", raise_exception=True)
-@require_POST
 def presenta(request, pk):
     distinta = _distinta(request, pk)
     servizi.presenta(distinta)
@@ -86,9 +85,8 @@ def _data(valore):
         return None
 
 
-@login_required
+@post_con_accesso
 @permission_required("distinte.change_distinta", raise_exception=True)
-@require_POST
 def esiti(request, pk):
     distinta = _distinta(request, pk)
     if distinta.attiva and not request.user.has_perm("fatturazione.add_incasso"):
@@ -112,9 +110,8 @@ def esiti(request, pk):
     return _dettaglio(distinta)
 
 
-@login_required
+@post_con_accesso
 @permission_required("distinte.change_configconto", raise_exception=True)
-@require_POST
 def config_conto(request, pk):
     conto = get_object_or_404(queryset(request, Conto), pk=pk)
     form = ConfigContoForm(request.POST, instance=ConfigConto.objects.filter(conto=conto).first() or ConfigConto(conto=conto))
@@ -126,9 +123,8 @@ def config_conto(request, pk):
     return redirect("banca:conti_dettaglio", conto.pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required("distinte.change_coordinatebancarie", raise_exception=True)
-@require_POST
 def coordinate(request, pk):
     contatto = get_object_or_404(queryset(request, Contatto), pk=pk)
     esistenti = CoordinateBancarie.objects.filter(contatto=contatto).first()

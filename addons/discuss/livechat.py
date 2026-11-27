@@ -10,7 +10,7 @@ import secrets
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.decorators import permission_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.mail import send_mail
 from django.core.validators import validate_email
@@ -23,6 +23,7 @@ from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
+from core.decoratori import post_con_accesso
 from core.registry import modules
 
 from core import lavori
@@ -221,8 +222,7 @@ def _gestore_sportello(request, pk):
     return get_object_or_404(Sportello, pk=pk)
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def carica_conoscenza(request, pk):
     """Documenti per l'AI del sito: se ne tiene il testo, che si può rileggere e correggere."""
     s = _gestore_sportello(request, pk)
@@ -241,8 +241,7 @@ def carica_conoscenza(request, pk):
     return redirect("discuss:sportelli_dettaglio", pk=s.pk)
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def domanda_risolta(request, pk):
     d = get_object_or_404(DomandaSenzaRisposta, pk=pk)
     _gestore_sportello(request, d.sportello_id)
@@ -251,9 +250,8 @@ def domanda_risolta(request, pk):
     return redirect("discuss:sportelli_dettaglio", pk=d.sportello_id)
 
 
-@login_required
+@post_con_accesso
 @permission_required("discuss.view_canale", raise_exception=True)
-@require_POST
 def chiudi(request, pk):
     """L'operatore chiude: il visitatore lo vede e la chat esce dall'elenco, ma resta cercabile e nello storico."""
     canale = get_object_or_404(Canale, pk=pk, livechat=True)

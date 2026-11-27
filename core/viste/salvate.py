@@ -2,14 +2,13 @@
 from urllib.parse import parse_qsl, urlencode
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core.models import RicercaSalvata
 
 from . import registry
@@ -55,8 +54,7 @@ def _vista(nome, request):
     return voce
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def salva(request):
     vista = _vista(request.POST.get("vista", ""), request)
     azienda = _azienda(request)
@@ -83,8 +81,7 @@ def _mia(request, pk):
     return get_object_or_404(RicercaSalvata, pk=pk, azienda=azienda, utente=request.user)
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def elimina(request, pk):
     ricerca = _mia(request, pk)
     vista = _vista(ricerca.vista, request)
@@ -93,8 +90,7 @@ def elimina(request, pk):
     return redirect(f"{vista.url('lista')}?tutti=1")
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def predefinita_vista(request, pk):
     """Una sola per lista e per persona; un secondo clic la toglie."""
     ricerca = _mia(request, pk)

@@ -1,10 +1,9 @@
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
 
 from contatti.models import Contatto
+from core.decoratori import post_con_accesso
 from core.dashboard import queryset
 
 from . import accesso, inviti, sezioni
@@ -17,8 +16,7 @@ def home(request):
     return render(request, "portale/home.html", accesso.contesto(request, sezioni=sezioni.per(request.accesso, con_riepilogo=True)))
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def invita_contatto(request, pk):
     if not request.user.has_perm("portale.add_accessoportale"):
         raise PermissionDenied
@@ -32,8 +30,7 @@ def invita_contatto(request, pk):
     return redirect("contatti:contatti_dettaglio", pk=pk)
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def revoca_contatto(request, pk):
     if not request.user.has_perm("portale.delete_accessoportale"):
         raise PermissionDenied

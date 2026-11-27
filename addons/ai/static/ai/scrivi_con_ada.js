@@ -9,8 +9,9 @@
   const script = document.currentScript || document.querySelector('script[src*="scrivi_con_ada.js"]');
   if (!dialogo || !script) return;
   const domandePer = JSON.parse(document.getElementById('ai-scrivi-campi').textContent);
-  const csrf = () => (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value
-    || (document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/) || [])[1] || '';
+  // dalla pagina, non dal cookie: il suo nome cambia da un'istanza all'altra (CSRF_COOKIE_NAME)
+  const csrf = () => (document.querySelector('meta[name="csrf-token"]') || {}).content
+    || (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value || '';
   const q = (sel) => dialogo.querySelector(sel);
   const errore = q('[data-scrivi-errore]');
   const titolo = q('#ai-scrivi-titolo');

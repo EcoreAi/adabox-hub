@@ -11,8 +11,8 @@ from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import parametri
 
 from . import connettori, eventi, servizi
@@ -125,8 +125,7 @@ def sincronizza_tutti():
     return f"modelli aggiornati: {totale}"
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def a_meta_vista(request, pk):
     if not request.user.has_perm("discuss.change_modellowhatsapp"):
         raise PermissionDenied

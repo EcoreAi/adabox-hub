@@ -6,11 +6,11 @@ from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import render
 from django.utils.html import format_html
-from django.views.decorators.http import require_POST
 
 from ai import aree, motore
 from ai.models import Conversazione
 from ai.pagine import app_selezionabili
+from core.decoratori import post_con_accesso
 from core import parametri
 
 from .models import Domanda
@@ -57,9 +57,8 @@ def apri(request):
     return render(request, "askada/_modale.html", {"url": url, "titolo": titolo or "questa pagina", "suggerimenti": suggerimenti(request), "recenti": recenti})
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO, raise_exception=True)
-@require_POST
 def chiedi(request):
     if not request.user.has_perm("ai.add_conversazione"):
         raise PermissionDenied
