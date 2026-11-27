@@ -1,7 +1,7 @@
 {
     "name": "Chiedi ad Ada",
     "summary": "Su ogni pagina un'etichetta «Chiedi ad Ada»: l'assistente risponde su ciò che quella pagina mostra, KPI e grafici compresi",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Assistente",
     "depends": ["ai"],
