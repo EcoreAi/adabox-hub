@@ -49,3 +49,22 @@ def test_riordino_per_magazzino(client, s):
     voci[0]["fornitore"] = s["fornitore"]
     ordine, = riordino.crea_richieste(s["azienda"], voci)
     assert "per Negozio" in ordine.righe.get().descrizione
+
+
+def test_barra_sotto_scorta_nel_grafico(scena, superuser):  # noqa: F811
+    """T53: sotto il punto di riordino (10) ma sopra la scorta minima (2), la barra vale i pezzi mancanti, non 0."""
+    from core import misure
+    from core.viste.interroga import richiesta_di
+    from magazzino.dashboard import kpi
+    azienda, magazzino, _, fornitore, monitor, _ = scena
+    monitor.scorta_minima = 2
+    monitor.save()
+    ScortaMagazzino.objects.create(azienda=azienda, magazzino=magazzino, prodotto=monitor, punto_riordino=10, scorta_obiettivo=20)
+    r = Ricevimento.objects.create(azienda=azienda, magazzino=magazzino, fornitore=fornitore)
+    RigaRicevimento.objects.create(ricevimento=r, prodotto=monitor, quantita=5)
+    operazioni.ricevi(r)
+    richiesta = richiesta_di(superuser)
+    assert misure.calcola("magazzino.sotto_scorta", richiesta)["gruppi"][0]["valore"] == 5     # anche per Ada
+    dati = kpi(richiesta)
+    assert dati["kpi"][0]["valore"] == 1
+    assert dati["grafici"][0]["dati"] == [("Monitor", 5.0)]            # 10 - 5
