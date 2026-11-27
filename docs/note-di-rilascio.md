@@ -5,7 +5,7 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-27
 
-- **Revisione di Chat e «Parla con Ada»: correzioni e sicurezza** — AI 1.60.1, Kernel 1.14.2 (nessuna migrazione).
+- **Revisione di Chat e «Parla con Ada»: correzioni e sicurezza** — AI 1.60.1, Kernel 1.15.2 (nessuna migrazione).
   Cambi di comportamento da conoscere:
   - **Pagine web**: Ada apre solo gli indirizzi scritti dall'utente nel messaggio o tornati da `cerca_web` e
     `leggi_pagina`. Un indirizzo letto in un record o in un documento va incollato nel messaggio. Un esperto
@@ -40,6 +40,16 @@ commit; qui solo ciò che si vede o che chiede un intervento.
   `@require_POST` + `@login_required`. Un GET con accesso ma senza permesso su queste azioni ora risponde 405 invece di 403.
 
 ## 2026-11-26
+
+- **Prima pagina per ruolo e per persona** — Kernel 1.15.0 (migrazione `core.0045`: prima pagina su ruolo e profilo).
+  - Nel ruolo (Utenti → Ruoli) e nella scheda di una persona chi amministra sceglie la **prima pagina**: la Dashboard,
+    «In tasca» o una voce di menu di un'app. È dove si arriva dopo l'accesso; la scelta sulla persona vince su quella
+    del ruolo. Senza scelta resta la prima voce della barra in alto, come prima.
+  - L'app installata sul telefono (`/tasca/?da=app`) apre la stessa pagina, a meno che la persona nel suo profilo abbia
+    scelto «Parla con Ada» o «Chat con Ada»: la scelta personale resta. Se quella pagina non la può più aprire (Ada
+    spenta, permesso tolto) vale la prima pagina del ruolo.
+  - Una prima pagina che la persona non può aprire (permesso mancante, app spenta o di un'altra azienda, fuori dai suoi
+    dipartimenti) si ignora.
 
 - **App delle altre aziende nella barra in alto** (Kernel, nessuna migrazione).
   - Chi lavora in più aziende trova in fondo alla barra, prima di «Altre», le app che avrebbe in barra nelle altre sue
