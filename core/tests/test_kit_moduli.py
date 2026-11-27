@@ -122,6 +122,35 @@ def apri(request, pk):
         assert any(atteso in a for a in avvisi), atteso
 
 
+VISTA = 'from django.http import HttpResponse\n\n\ndef anteprima(request):\n    return HttpResponse()\n'
+
+
+def test_le_azioni_con_post_con_accesso_chiedono_l_accesso(generato):
+    """Richiesta 18 di Zen Park: un'azione che segue la guida (`@post_con_accesso`) non è una pagina pubblica."""
+    _scrivi(generato, "azioni.py", '''from django.http import HttpResponse
+
+from core.decoratori import post_con_accesso
+
+
+@post_con_accesso
+def conferma(request, pk):
+    return HttpResponse()
+''')
+    _scrivi(generato, "urls.py", 'from django.urls import path\n\nfrom . import azioni\n\n'
+                                 'urlpatterns = [path("x/<int:pk>/", azioni.conferma)]\n')
+    assert [r for r in controlli.controlla(generato) if r.regola == "accesso"] == []
+
+
+def test_viste_con_lo_stesso_nome_in_file_diversi_si_controllano_tutte(generato):
+    """Richiesta 18: raccolte per solo nome, una delle due non si controllava (scansiona.anteprima coperta da
+    template.anteprima)."""
+    _scrivi(generato, "scansiona.py", VISTA)
+    _scrivi(generato, "template.py", VISTA)
+    _scrivi(generato, "urls.py", 'from django.urls import path\n\nfrom . import scansiona, template\n\n'
+                                 'urlpatterns = [path("a/", scansiona.anteprima), path("b/", template.anteprima)]\n')
+    assert {r.file for r in controlli.controlla(generato) if r.regola == "accesso"} == {"scansiona.py", "template.py"}
+
+
 def test_sintassi_rotta_non_blocca_il_controllo(generato):
     _scrivi(generato, "logica.py", "def f(:\n")
     assert "sintassi" in _regole(generato)

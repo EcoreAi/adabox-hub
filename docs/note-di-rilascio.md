@@ -5,6 +5,13 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-27
 
+- **`modulo controlla` e le azioni con `post_con_accesso`** (richiesta 18 di Zen Park) — Kernel 1.17.5 (nessuna
+  migrazione).
+  - Le viste con `@post_con_accesso` contano come protette: niente più avviso «risponde anche a chi non ha fatto
+    l'accesso» sulle azioni che seguono la guida (nei moduli del repository erano 40 avvisi falsi).
+  - Le viste collegate in `urls.py` si riconoscono per file e nome: due viste con lo stesso nome in file diversi
+    (es. `scansiona.anteprima` e `template.anteprima`) si controllano entrambe; prima una delle due restava fuori.
+
 - **Backup automatici che si cancellavano da soli** — Kernel 1.17.3 (nessuna migrazione).
   - La rotazione (`BACKUP_CONSERVA`) ordinava per nome tutti i file di `backup/`: le copie fatte a mano («db-…»)
     finivano dopo quelle automatiche («2026-…»), e con dieci copie a mano nella cartella il backup di `modulo
