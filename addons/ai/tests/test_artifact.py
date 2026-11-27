@@ -60,7 +60,7 @@ def test_tabella_con_link_e_salvataggio(scena):
     a.refresh_from_db()
     assert r.status_code == 200 and a.salvato and 'aria-pressed="true"' in r.content.decode()
     pagina = scena["client"].get("/ai/chat/").content.decode()
-    assert pagina.count("Aziende di Milano") == 1                               # nel pannello dei salvati
+    assert pagina.count('class="ai-elenco-titolo">Aziende di Milano<') == 1     # nel pannello dei salvati (il titolo è anche in data-cerca)
 
 
 def test_artifact_solo_del_proprietario(scena, client):

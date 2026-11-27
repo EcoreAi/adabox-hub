@@ -1,7 +1,7 @@
 {% if voci %}
 <ul class="ai-elenco">
   {% for a in voci %}
-  <li><a href="{% url 'ai:artifact' a.pk %}" target="_blank" rel="noopener">
+  <li data-cerca="{{ a.titolo }}"><a href="{% url 'ai:artifact' a.pk %}" target="_blank" rel="noopener">
     <span class="ai-elenco-titolo">{{ a.titolo }}</span>
     <span class="ai-elenco-data">{{ a.get_tipo_display }} · {{ a.creato|date:"d/m H:i" }}</span></a></li>
   {% endfor %}

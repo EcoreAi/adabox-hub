@@ -5,6 +5,15 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-27
 
+- **Ricerca in Preferiti e Aree di lavoro** — AI 1.62.0 (nessuna migrazione).
+  - Nella colonna di sinistra della chat, come la Cronologia, anche **Preferiti** e **Aree di lavoro** hanno un campo
+    di ricerca in cima. Filtra subito, nella pagina: nei Preferiti per titolo, area, azienda e chi ha condiviso; nelle
+    Aree per nome, anche nelle altre aziende. Accenti e maiuscole non contano; con più parole servono tutte.
+  - I gruppi senza risultati spariscono, quelli con risultati si aprono e ne dicono il numero; svuotato il campo torna
+    tutto com'era. Il campo c'è solo se c'è qualcosa da cercare (nelle Aree da due in su: quella personale c'è sempre).
+  - Non cerca dentro le aree (chat di altri membri, documenti, file): il testo delle proprie chat si cerca dalla
+    Cronologia.
+
 - **`modulo controlla` e le azioni con `post_con_accesso`** (richiesta 18 di Zen Park) — Kernel 1.17.5 (nessuna
   migrazione).
   - Le viste con `@post_con_accesso` contano come protette: niente più avviso «risponde anche a chi non ha fatto
