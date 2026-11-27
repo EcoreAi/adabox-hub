@@ -9,11 +9,11 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import parametri
 
-from . import apertura, aree, funzioni, motore, voce
+from . import apertura, aree, funzioni, limiti, motore, voce
 from .models import Apertura, Conversazione, Turno
 
 NOTA_VOCE = (
@@ -62,8 +62,10 @@ def frase(request, chiave):
     indice = int(numero) if numero.isdigit() else (-1 if trattino else 0)
     if servizio is None or not 0 <= indice < len(varianti):
         raise Http404
+    if (motivo := voce.blocco(request.user, getattr(request, "azienda", None))):
+        return JsonResponse({"errore": motivo}, status=429)
     try:
-        dati, tipo = voce.audio_di(servizio, varianti[indice], "it")
+        dati, tipo = voce.leggi(servizio, varianti[indice], "it", request.user, getattr(request, "azienda", None))
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
     risposta = HttpResponse(dati, content_type=tipo)
@@ -110,7 +112,13 @@ def _notifiche(utente):
 @funzioni.richiede("voce")
 def pagina(request, pk=None):
     azienda = getattr(request, "azienda", None)
-    conversazione = get_object_or_404(Conversazione, pk=pk, utente=request.user, nascosta=False) if pk else None
+    conversazione = get_object_or_404(Conversazione.objects.select_related("progetto__azienda"), pk=pk, utente=request.user,
+                                      nascosta=False) if pk else None
+    if conversazione is not None and (altra := aree.da_passare(request.user, azienda, conversazione)):
+        from .pagine import passa_ad_altra_azienda             # come la chat: prima si passa alla sua azienda
+        return passa_ad_altra_azienda(request, altra)
+    if conversazione is not None and aree.senza_chat(request.user, azienda, conversazione):
+        raise Http404                                          # lì l'app Chat non c'è: niente da proporre
     app = _app(request.user)
     scelta = conversazione.ambito if conversazione else request.GET.get("app", "")
     ambito = scelta if scelta in {a["slug"] for a in app} else ""
@@ -126,6 +134,7 @@ def pagina(request, pk=None):
         "disponibile": attiva, "conversazione": conversazione, "impostazioni": impostazioni(azienda),
         "frasi": {"strumenti": FRASE_PER_STRUMENTO, "varianti": {k: len(v) for k, v in FRASI.items()}}, "app": app, "ambito": ambito,
         "notifiche": _notifiche(request.user), "nome": request.user.first_name, "apertura": saluto,
+        "avviso_voce": limiti.avviso_voce() if attiva else "",
         "gia_qui": attiva and saluto is None and conversazione is None and apertura.presente_oggi(request.user, azienda),
         "url_chat": reverse("ai:conversazione", args=[da_aprire.pk]) if da_aprire else reverse("ai:chat")})
 
@@ -139,8 +148,10 @@ def apertura_audio(request, pk):
     servizio = voce.servizio_per(getattr(request, "azienda", None))
     if servizio is None:
         raise Http404
+    if (motivo := voce.blocco(request.user, getattr(request, "azienda", None))):
+        return JsonResponse({"errore": motivo}, status=429)
     try:
-        dati, tipo = voce.audio_di(servizio, voce.da_leggere(saluto.testo), "it")
+        dati, tipo = voce.leggi(servizio, voce.da_leggere(saluto.testo), "it", request.user, getattr(request, "azienda", None))
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
     risposta = HttpResponse(dati, content_type=tipo)
@@ -148,8 +159,7 @@ def apertura_audio(request, pk):
     return risposta
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.view_conversazione", raise_exception=True)
 @funzioni.richiede("voce")
 def apertura_detta(request, pk):
@@ -158,8 +168,14 @@ def apertura_detta(request, pk):
     return HttpResponse(status=204)
 
 
-@require_POST
-@login_required
+def in_chat_riservata(request):
+    """Se l'audio da trascrivere è detto in una chat riservata dell'utente (il campo «conversazione» della richiesta):
+    lì la trascrizione resta sui nostri server, come la lettura delle risposte."""
+    pk = request.POST.get("conversazione", "")
+    return pk.isdigit() and Conversazione.objects.filter(pk=int(pk), utente=request.user, riservata=True).exists()
+
+
+@post_con_accesso
 @permission_required("ai.add_conversazione", raise_exception=True)
 @funzioni.richiede("voce")
 def ascolta(request):
@@ -168,15 +184,35 @@ def ascolta(request):
     file = request.FILES.get("audio")
     if not disponibile(azienda) or file is None:
         return JsonResponse({"errore": "La voce non è attiva."}, status=400)
+    if (motivo := voce.blocco(request.user, azienda)):
+        return JsonResponse({"errore": motivo}, status=429)
     try:
-        testo = voce.trascrivi(file, "it", azienda=azienda, parole=voce.parole_note(request.user, azienda))
+        testo = voce.trascrivi(file, "it", azienda=azienda, parole=voce.parole_note(request.user, azienda),
+                               solo_locale=in_chat_riservata(request), utente=request.user)
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
     return JsonResponse({"testo": " ".join(testo.split())})
 
 
-@require_POST
-@login_required
+def _risposta_ancora_in_corso(conversazione):
+    """Prima di una domanda nuova in una conversazione che ha ancora una risposta in corso: con quella in corso
+    `motore.avvia` restituirebbe il turno vecchio, la domanda andrebbe persa e la pagina rileggerebbe la risposta di
+    prima. A voce una domanda nuova è un'interruzione (lo stop mandato dalla pagina può non essere ancora stato visto,
+    o la lettura si è fermata ai 30 secondi mentre la risposta continuava): il turno a voce si ferma e si aspetta che
+    si chiuda. Una risposta avviata dalla chat scritta (una ricerca lunga) non si tocca. "" se si può procedere,
+    altrimenti la frase per l'utente."""
+    motore.segna_interrotti(conversazione)
+    in_corso = motore.in_corso_di(conversazione)
+    if in_corso is None:
+        return ""
+    if not in_corso.voce:
+        return "In questa conversazione c'è già una risposta in corso nella chat: aspetta che finisca."
+    if motore.ferma_e_attendi(in_corso):
+        return ""
+    return "Sto ancora chiudendo la risposta di prima: riprova tra qualche secondo."
+
+
+@post_con_accesso
 @permission_required("ai.add_conversazione", raise_exception=True)
 @funzioni.richiede("voce")
 def chiedi(request):
@@ -197,10 +233,19 @@ def chiedi(request):
     ripresa = accettata and saluto.tipo == Apertura.RIPRENDI and saluto.conversazione is not None and not saluto.conversazione.nascosta
     if saluto is not None:
         apertura.segna_detta(saluto)                          # con la voce spenta è la risposta a dire che l'ha letta
+    conversazione = None
     if not nuova:
-        conversazione = get_object_or_404(Conversazione, pk=int(pk), utente=request.user, nascosta=False)
+        conversazione = get_object_or_404(Conversazione.objects.select_related("progetto__azienda"), pk=int(pk),
+                                          utente=request.user, nascosta=False)
     elif ripresa:
         conversazione = saluto.conversazione                  # «sì, riprendiamo»: si continua in quella di prima
+    if conversazione is not None:
+        # una chat di un'altra azienda, scelta o da riprendere: come in chat, Ada non risponde con i dati di quella
+        # corrente. Prima della risposta in corso, che lì non si ferma: la chat non è di questa azienda
+        if (motivo := aree.rifiuto(request.user, azienda, conversazione)):
+            return JsonResponse({"errore": motivo}, status=400)
+        if (occupata := _risposta_ancora_in_corso(conversazione)):
+            return JsonResponse({"errore": occupata}, status=409)
     else:
         app = request.POST.get("app", "")                     # la conversazione limitata all'app scelta in alto
         titolo = (apertura.titolo(saluto) if accettata else "") or testo[:60] + ("…" if len(testo) > 60 else "")
@@ -237,9 +282,12 @@ def audio(request, pk, inizio, fine):
     testo = voce.da_leggere(turno.testo[inizio:fine])
     if not testo.strip():
         return HttpResponse(status=204)
+    if (motivo := voce.blocco(request.user, getattr(request, "azienda", None))):
+        return JsonResponse({"errore": motivo}, status=429)
     try:
         # la lingua si decide sulla risposta intera: un pezzo breve non deve cambiare voce a metà
-        dati, tipo = voce.audio_di(servizio, testo, voce.lingua_di(voce.da_leggere(turno.testo)))
+        dati, tipo = voce.leggi(servizio, testo, voce.lingua_di(voce.da_leggere(turno.testo)), request.user,
+                                getattr(request, "azienda", None))
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
     risposta = HttpResponse(dati, content_type=tipo)

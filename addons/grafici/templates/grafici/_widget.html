@@ -1,4 +1,7 @@
-{# La card di un grafico salvato: stessa griglia della dashboard, con il menu ⋯ (aggiorna, tipo, query, apri, CSV, Ada). #}
+{% comment %}La card di un grafico salvato: stessa griglia della dashboard, con il menu ⋯ (aggiorna, tipo, query, apri,
+   CSV, Ada). Rimandata da HTMX (periodo, «Filtra», «Aggiorna») arriva già visibile: il tema tiene card e righe delle
+   tabelle invisibili finché ui.js non aggiunge .is-revealed, e ui.js lo fa solo al caricamento della pagina.{% endcomment %}
+{% if request.headers.hx_request %}{% firstof " is-revealed" as visibile %}{% else %}{% firstof "" as visibile %}{% endif %}
 <section class="wd-widget wd-grafico wd-salvato{% if w.serie.tipo == 'kpi' %} wd-kpi-salvato{% endif %}" data-id="{{ w.id }}" data-w="{{ w.w|default:2 }}" style="--w:{{ w.w|default:2 }}" aria-label="{{ w.titolo }}" id="an-widget-{{ w.grafico.pk }}">
   <div class="wd-strumenti">
     <button type="button" class="wd-maniglia" title="Trascina per spostare" aria-label="Sposta {{ w.titolo }}">⠿</button>
@@ -7,7 +10,7 @@
     <button type="button" data-larghezza title="Cambia larghezza" aria-label="Cambia larghezza di {{ w.titolo }}">⤢ <span>{{ w.w|default:2 }}</span>/4</button>
     <button type="button" data-nascondi title="Togli dalla pagina" aria-label="Togli {{ w.titolo }}">×</button>
   </div>
-  <div class="ui-card wd-card">
+  <div class="ui-card wd-card{{ visibile }}">
     <div class="ui-card-head"><div><div class="ui-card-title">{{ w.titolo }}</div><div class="ui-card-sub" title="{{ w.sotto }}">{{ w.sotto }}</div></div><div class="spacer"></div>
       {% if not w.serie.vuoto and w.serie.tipo != "kpi" and w.serie.tipo != "tabella" %}<button type="button" class="ui-btn ui-btn-ghost ui-btn-sm" data-tabella aria-pressed="false" aria-controls="{{ w.dom }}-tab">Tabella</button>{% endif %}
       <span class="an-ora" title="Dati calcolati il {{ w.aggiornato|date:'d/m/Y H:i' }}">dati delle {{ w.aggiornato|date:"H:i" }}</span>
@@ -36,20 +39,20 @@
       {% if w.serie.tipo == "kpi" %}{% if not w.serie.vuoto %}{% include "grafici/_kpi.html" %}{% endif %}
       {% elif w.serie.vuoto %}{% if not w.errore %}<p class="ui-help">Ancora nessun dato.</p>{% endif %}
       {% elif w.serie.tipo == "tabella" %}
-      <div class="ui-table-wrap an-tabella-salvata"><table class="ui-table">
+      <div class="ui-table-wrap an-tabella-salvata"><table class="ui-table{{ visibile }}">
         <thead><tr>{% for c in w.serie.colonne %}<th>{{ c }}</th>{% endfor %}</tr></thead>
         <tbody>{% for r in w.serie.righe %}<tr>{% for v in r %}<td>{% if forloop.first and w.serie.link %}{% with url=w.serie.link|slice:forloop.parentloop.counter|last %}<a href="{{ url }}">{{ v }}</a>{% endwith %}{% else %}{{ v }}{% endif %}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
       {% else %}
       <div class="wd-canvas"><canvas data-grafico="{{ w.dom }}" role="img" aria-label="{{ w.titolo }}"></canvas></div>
       {{ w.serie|json_script:w.dom }}
-      <div class="ui-table-wrap wd-tabella" id="{{ w.dom }}-tab" hidden><table class="ui-table">
+      <div class="ui-table-wrap wd-tabella" id="{{ w.dom }}-tab" hidden><table class="ui-table{{ visibile }}">
         {% if w.serie.futuro %}<thead><tr><th>Periodo</th><th class="num">Valore</th><th class="num">Previsione (10–90 %)</th></tr></thead>
         <tbody>{% for e, v in w.serie.storico %}<tr><td>{{ e }}</td><td class="num">{{ v|floatformat:"-2" }}</td><td></td></tr>{% endfor %}
         {% for f in w.serie.futuro %}<tr><td>{{ f.0 }}</td><td></td><td class="num"><strong>{{ f.2|floatformat:"-2" }}</strong> <small>({{ f.1|floatformat:"-2" }} – {{ f.3|floatformat:"-2" }})</small></td></tr>{% endfor %}</tbody>
         {% else %}<thead><tr><th>Categoria</th><th class="num">Valore</th></tr></thead>
         <tbody>{% for e, v in w.serie.righe %}<tr><td>{{ e }}</td><td class="num">{{ v|floatformat:"-2" }}</td></tr>{% endfor %}</tbody>{% endif %}</table></div>
       {% endif %}
-      <div class="an-piede"><span>{% if w.serie.futuro %}modello {{ w.serie.modello|default:"locale" }}{% elif w.serie.tipo == "tabella" %}{{ w.serie.righe|length }} di {{ w.serie.totale }} righe{% elif w.serie.link %}clic su una categoria: lista filtrata{% elif w.serie.totale is not None and not w.serie.vuoto and w.serie.tipo != "kpi" %}totale {{ w.serie.totale|floatformat:"-2" }}{% endif %}</span><span>{% if w.aggiornato %}dati di {{ w.aggiornato|date:"d/m H:i" }}{% endif %}</span></div>
+      <div class="an-piede"><span>{% if w.serie.futuro or w.serie.tipo == "tabella" and w.serie.modello %}modello {{ w.serie.modello|default:"locale" }} · licenza Modified MIT di Mistral AI{% elif w.serie.tipo == "tabella" %}{{ w.serie.righe|length }} di {{ w.serie.totale }} righe{% elif w.serie.link %}clic su una categoria: lista filtrata{% elif w.serie.totale is not None and not w.serie.vuoto and w.serie.tipo != "kpi" %}totale {{ w.serie.totale|floatformat:"-2" }}{% endif %}</span><span>{% if w.aggiornato %}dati di {{ w.aggiornato|date:"d/m H:i" }}{% endif %}</span></div>
     </div>
   </div>
 </section>

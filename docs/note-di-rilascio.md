@@ -3,9 +3,254 @@
 Ciò che chi aggiorna un'istanza deve sapere: cambi di comportamento, azioni da fare, migrazioni. Il dettaglio è nei
 commit; qui solo ciò che si vede o che chiede un intervento.
 
+## 2026-11-27
+
+- **Costi della voce cloud** — AI 1.61.0 (migrazione `ai.0043`: prezzo e piano del fornitore sul servizio vocale),
+  Rivendita 1.6.0 (migrazione `rivendita.0007`: quota della voce su piano e istanza, voce nei consumi).
+  - Nella scheda di un servizio vocale il Global Admin imposta il **prezzo** (dollari per milione di caratteri letti, o
+    per minuto trascritto): da lì ogni chiamata entra nei Consumi e nel tetto di spesa mensile dell'azienda. Senza
+    prezzo non cambia nulla.
+  - La **quota della voce** (dollari al mese) si imposta sul portale, nel piano o nell'istanza, e arriva con la licenza
+    (per le licenze fatte a mano: `ai_licenza --quota-voce`). Oltre la quota la voce continua; il di più compare nella
+    pagina della licenza e, sul portale, nella colonna «voce oltre la quota, da fatturare».
+  - Avvisi: in chat e in «Parla con Ada» dall'80% della quota; email agli amministratori dell'assistente all'80% e
+    al superamento; email al Global Admin quando il mese si avvicina a ciò che il piano del fornitore comprende.
+  - Le istanze di prima continuano a riferire i consumi come prima: il portale legge la voce solo se c'è.
+  - Dettagli in `docs/voce.md`.
+
+- **Revisione dell'assistente, seconda parte** — AI 1.60.2, Kernel 1.17.1, Discuss 1.13.3, GitHub 1.0.1, Chiedi ad
+  Ada 1.0.2 (nessuna migrazione).
+  - **Da fare prima di aggiornare un'istanza non in debug**: il container web non parte più se `SECRET_KEY` non è
+    impostata (resterebbe quella di sviluppo, nota a tutti). Mettila nel file `.env`; con `DEBUG=True` non cambia nulla.
+  - **Content-Security-Policy in sola segnalazione**: ogni pagina dice al browser che cosa segnalare, senza bloccare
+    nulla. Le segnalazioni arrivano nel log `sicurezza.csp` (una riga all'ora per violazione diversa): servono a
+    vedere che cosa romperebbe una politica vera. Si spegne con `CSP_SOLO_SEGNALAZIONE=False`.
+  - **Ricerca nei documenti**: i campi nascosti ad almeno un ruolo non entrano più nell'indice (spariscono al giro
+    programmato successivo) e la ricerca rispetta dipartimenti e app di altre aziende. «Riassumi» e «Scrivi con Ada»
+    non riportano i campi nascosti a chi chiede.
+  - **Citazioni**: il clic su una citazione nel testo della risposta apre la fonte nel pannello accanto alla chat.
+  - **Chiedi ad Ada**: la ricerca sul web è spenta; si accende per azienda da Impostazioni → Chiedi ad Ada.
+  - **Spesa**: il tetto mensile si ricontrolla a ogni passo del turno; il costo degli esperti conta nella risposta
+    che li chiama; i riassunti dei documenti e la voce rispettano licenza e tetto. La voce ha un limite di 200
+    richieste ogni dieci minuti per persona.
+  - **Scheda di conferma**: argomenti dei sistemi esterni e messaggi di Discuss per intero.
+  - **Fai dimenticare ad Ada**: diventano una nota anche le risposte venute dopo nella stessa chat.
+  - **Dati personali**: i nomi utente con punti o cifre si mascherano; gli argomenti delle chiamate passate passano
+    dal servizio di protezione come il resto del testo.
+  - GitHub: «Rigenera il segreto» chiede la spunta e non è più tra i bottoni dell'assistente. Discuss: leggere una
+    conversazione con Ada non la crea.
+
+- **Revisione di Chat e «Parla con Ada»: correzioni e sicurezza** — AI 1.60.2, Kernel 1.17.1, insieme alla seconda parte (nessuna migrazione).
+  Cambi di comportamento da conoscere:
+  - **Pagine web**: Ada apre solo gli indirizzi scritti dall'utente nel messaggio o tornati da `cerca_web` e
+    `leggi_pagina`. Un indirizzo letto in un record o in un documento va incollato nel messaggio. Un esperto
+    (`chiedi_esperto`) ha il web solo se l'utente l'ha acceso per quel messaggio.
+  - **Campi di tabelle collegate** (`cliente__citta` in filtri, raggruppamenti, ordinamenti, pivot, KPI): servono il
+    permesso di vedere la tabella collegata e il campo non nascosto al ruolo lì; il nome del record collegato
+    (`cliente__nome`, `ordine__numero`) resta sempre. Di un utente collegato si usano solo nome, cognome e nome utente.
+    Vale per Ada, per Analisi e per la pivot.
+  - **Dipartimenti**: le viste di un'app fuori dai dipartimenti di chi chiede non sono più lette da Ada né dalle
+    interrogazioni per vista, come già per pagine e API.
+  - **Attività pianificate**: si sospendono (con l'email al proprietario) se il proprietario non ha più accesso
+    all'azienda dell'attività o non può più usare l'assistente. Girano fuori dalla transazione del worker.
+  - **Grafici e tabelle salvati**: non si ricalcolano per chi ha perso l'accesso all'azienda in cui li ha chiesti
+    (resta l'istantanea).
+  - **Provider**: cambiando il server dell'URL dell'API la chiave salvata va riscritta (o tolta); se il provider ha
+    chiavi delle aziende il server lo cambia solo il Global Admin.
+  - **Voce**: in una chat riservata anche la trascrizione di chi parla resta sul servizio locale; senza servizio
+    locale la dettatura lì non funziona.
+  - **Fai dimenticare ad Ada**: un documento dimenticato non si legge più nemmeno con `leggi_documento`, e le note
+    del suo chatter non tornano nell'indice.
+  - **Licenza, utenti al mese**: il limite ora scatta davvero (prima chi scriveva per la prima volta risultava già
+    contato): con una licenza a N utenti, l'utente N+1 del mese riceve «Raggiunto il numero di utenti della licenza».
+    Con la licenza di sviluppo o con 0 utenti non cambia nulla.
+  - **Consumi**: la ricerca non guarda più dentro il testo delle risposte. **Aree di lavoro**: non si condividono
+    con gli utenti esterni. **CSV di grafici e tabelle**: i testi che cominciano con `=`, `+`, `-`, `@` escono con un
+    apostrofo davanti (non sono formule).
+- **Azioni solo POST e sessione scaduta** (Kernel, nessuna migrazione). A sessione scaduta un clic su un'azione solo POST
+  (cambio azienda, allegati, chatter, token, apertura app…) portava al login con quell'azione come destinazione, e dopo
+  l'accesso rispondeva 405. Ora si torna alla pagina di partenza (con HTMX è la pagina intera ad andare al login), e il
+  login non porta mai a un'azione solo POST: vecchi link e segnalibri finiscono alla Home. Le azioni usano il
+  decoratore `post_con_accesso` di `core.decoratori`; i moduli con un'azione solo POST lo adottano al posto di
+  `@require_POST` + `@login_required`. Un GET con accesso ma senza permesso su queste azioni ora risponde 405 invece di 403.
+
+## 2026-11-26
+
+- **Pagine dei moduli apribili senza rete** — Kernel 1.17.0 (nessuna migrazione).
+  - Un modulo dichiara dal `ready()` una pagina da tenere apribile senza rete, con i suoi file:
+    `hooks.pagina_senza_rete("iem:scansiona", statici=["iem/scansiona.js"])`. Il service worker dell'app installata ne
+    tiene l'ultima copia sul dispositivo di chi l'ha aperta almeno una volta con la rete e la mostra quando la rete
+    manca, al posto di «Sei offline». Le altre pagine restano com'erano: sempre dal server.
+  - L'app installata parte da `/tasca/?da=app` e le scorciatoie da `/tasca/?apri=…`: se con la rete hanno portato a una
+    di queste pagine, senza rete portano alla sua copia (il service worker ricorda dove un indirizzo ha portato l'ultima
+    volta; se poi porta altrove lo dimentica). In ogni caso «Sei offline» elenca le pagine salvate sul dispositivo.
+  - Con il segnale debole la copia si mostra dopo quattro secondi di attesa; la risposta del server, se arriva dopo,
+    aggiorna la copia per la volta successiva. Senza una copia si aspetta la rete, come prima.
+  - La copia ha il token CSRF di quando è stata salvata: tornata la rete, prima di inviare la pagina lo rilegge (un
+    `fetch` di se stessa e `<meta name="csrf-token">`). Le copie si cancellano passando dal login o dal logout.
+  - L'invio ad app chiusa (Background Sync) non c'è: esiste solo su Chrome per Android. Ciò che resta in coda parte
+    alla riapertura della pagina, come oggi.
+  - Come per le scorciatoie, il tema riceve l'elenco da `THEME["senza_rete"]`: un'istanza con un `settings.py` proprio
+    deve aggiungere quella voce. Provato con un simulatore (`theme/tests/sw_simulato.js`, gira con i test dove c'è
+    Node), non su un telefono: va verificato sul campo.
+
+- **Voci dei moduli nella pagina «In tasca»** — Kernel 1.16.0 (nessuna migrazione).
+  - Un modulo aggiunge la sua voce dal `ready()`: `hooks.voce_tasca("Scansiona documento", "iem:scansiona",
+    icona="search", permission="iem.add_documento", sotto="DDT e fatture", scorciatoia=True)`. Compare per prima, per
+    chi ha il permesso, con l'app accesa, attiva per l'azienda corrente e tra quelle dei suoi dipartimenti. `conta` è una
+    funzione che riceve la richiesta e dà il numero del bollino.
+  - Con `scorciatoia=True` la voce va anche tra le scorciatoie dell'icona dell'app installata, prima di quelle del
+    kernel (il telefono ne mostra tre o quattro): si apre da `/tasca/?apri=<nome URL>`, con gli stessi controlli. Le
+    scorciatoie le legge il telefono quando installa o aggiorna l'app: su un'app già installata possono arrivare dopo.
+  - Il tema non conosce il kernel: la funzione che dà le scorciatoie dei moduli gli arriva da `THEME["scorciatoie"]`
+    (`core.registry.hooks.scorciatoie_tasca`). Un'istanza con un `settings.py` proprio deve aggiungere quella voce,
+    altrimenti le scorciatoie dei moduli non compaiono (le voci in «In tasca» sì).
+
+- **Il token CSRF per gli script sta nella pagina** — Kernel 1.15.1, AI 1.60.1 (nessuna migrazione).
+  - Su un'istanza con un nome suo per il cookie CSRF (quelle della flotta: `adabox_<slug>_csrf`) attivare le notifiche
+    push rispondeva 403, e così «Scrivi con Ada» nelle pagine senza un form: i due script leggevano il cookie
+    `csrftoken` scritto fisso. Ora leggono `<meta name="csrf-token">`, che il tema mette nel `<head>` di ogni pagina
+    per chi è dentro.
+  - Per i moduli: negli script il token si prende da lì (`docs/guida-moduli.md`, regola 8).
+  - Per i temi: il `<meta>` è in `theme/partials/_csrf.html`, incluso nel `<head>` accanto a `_tema.html`. Un tema che
+    sostituisce `_tema.html` non deve fare nulla; uno che sostituisce `base.html` o `base_pubblica.html` deve riportare
+    quell'inclusione, altrimenti gli script restano senza token (non leggono più il cookie) e ripiegano sul campo
+    `csrfmiddlewaretoken` della pagina, se c'è.
+- **Prima pagina per ruolo e per persona** — Kernel 1.15.0 (migrazione `core.0045`: prima pagina su ruolo e profilo).
+  - Nel ruolo (Utenti → Ruoli) e nella scheda di una persona chi amministra sceglie la **prima pagina**: la Dashboard,
+    «In tasca» o una voce di menu di un'app. È dove si arriva dopo l'accesso; la scelta sulla persona vince su quella
+    del ruolo. Senza scelta resta la prima voce della barra in alto, come prima.
+  - L'app installata sul telefono (`/tasca/?da=app`) apre la stessa pagina, a meno che la persona nel suo profilo abbia
+    scelto «Parla con Ada» o «Chat con Ada»: la scelta personale resta. Se quella pagina non la può più aprire (Ada
+    spenta, permesso tolto) vale la prima pagina del ruolo.
+  - Una prima pagina che la persona non può aprire (permesso mancante, app spenta o di un'altra azienda, fuori dai suoi
+    dipartimenti) si ignora.
+
+- **App delle altre aziende nella barra in alto** (Kernel, nessuna migrazione).
+  - Chi lavora in più aziende trova in fondo alla barra, prima di «Altre», le app che avrebbe in barra nelle altre sue
+    aziende e non in quella corrente (es. le app riservate a un'azienda), con il nome dell'azienda di arrivo in piccolo.
+    Un clic rende corrente quell'azienda e apre l'app, con il messaggio «Azienda corrente: …»; il cambio resta un POST.
+    Aperte in una nuova scheda (o senza script) rispondono la pagina «Passa a …» di sempre. Sul telefono stanno nel
+    menu e la ricerca le trova; Invio sulla prima trovata fa lo stesso clic. Le app nascoste dalla scelta della barra e
+    le schede della Dashboard non compaiono. Chi ha una sola azienda vede l'header di prima.
+  - **Un tema con un suo `_header.html`** include `theme/partials/_altre_aziende.html` (in fondo alle voci) e
+    `theme/partials/_cambia_azienda.html` (una volta): senza, le voci non ci sono. Il meccanismo del cambio
+    (`data-cambia-azienda="<pk>"` su un link, `theme/cambia_azienda.js`) vale per ogni pagina: `docs/guida-moduli.md`.
+  - Dopo l'aggiornamento: `collectstatic` (script nuovo `theme/cambia_azienda.js`).
+- **Chat: le aree di lavoro di tutte le aziende, con il cambio di azienda** — AI 1.60.0, Chiedi ad Ada 1.0.1 (nessuna
+  migrazione).
+  - Chi lavora in più aziende trova nella colonna «Aree di lavoro» le aree di tutte le sue aziende in cui c'è la Chat,
+    raggruppate per azienda: prima la corrente (aperta), poi le altre per nome (chiuse), con l'area personale o, dove
+    non ha ancora scritto, «Nuova chat». Un clic su un'area di un'altra azienda rende corrente quell'azienda e apre
+    l'area. Un'area resta della sua azienda.
+  - Con la Chat riservata ad alcune aziende (Moduli → aziende), le altre non compaiono e non si propone di passarci:
+    le loro chat restano in Cronologia con il nome dell'azienda, ma non si aprono.
+  - Lo stesso clic vale per le chat di un'altra azienda in Cronologia, nella ricerca e nei Preferiti (chat e documenti),
+    che mostrano in piccolo il nome dell'azienda di ogni chat; il nome dell'azienda compare anche accanto al nome
+    dell'area, nella pagina dell'area e sopra la casella.
+  - **Correzione**: una chat (o un'area) di un'altra azienda aperta da un link, un segnalibro o una notifica non si apre
+    più con l'azienda corrente sbagliata: risponde «Questa chat è dell'azienda X» con il bottone «Passa a X». Scrivere,
+    rigenerare, modificare un messaggio, spostare la chat, parlare con Ada (anche con «sì, riprendiamo») o chiedere ad
+    Ada dalla finestra «Chiedi ad Ada» in una chat di un'altra azienda (per esempio da una scheda rimasta aperta dopo
+    un cambio) è rifiutato con «Questa chat è dell'azienda X: passa a X per continuare», invece di far rispondere Ada
+    con i dati dell'altra azienda. Le chat vecchie senza area restano come prima. Chi ha una sola azienda non vede
+    differenze.
+  - Dopo l'aggiornamento: `collectstatic` (`ai/chat.css` cambiato).
+- **Aziende dei nuovi utenti** — Kernel (senza migrazioni, versione invariata).
+  - Con più di un'azienda attiva il modulo «Nuovo utente» parte senza aziende spuntate e senza sceglierne almeno una non
+    salva («Scegli almeno un'azienda.»). Con una sola azienda attiva resta com'era: spuntata, nessun obbligo.
+  - Nuova impostazione `AZIENDE_NUOVI_UTENTI` (`tutte`, default, o `nessuna`) per gli utenti creati fuori dal modulo
+    (admin, API, codice): con `nessuna` e più aziende attive non hanno aziende finché qualcuno non le assegna; i
+    superutenti le hanno sempre tutte.
+- **«Le mie previsioni»** — Previsioni 1.1.0 (migrazione `previsioni.0006`).
+  - Nella pagina Previsioni, dopo Vendite e Magazzino, c'è l'elenco delle previsioni che hai fatto: quelle chieste ad Ada
+    in chat e quelle di Analisi, dalla più recente, con titolo, origine, argomento (l'app da cui viene la serie), tipo
+    (andamento o classifica), data ed etichetta. Ogni fonte c'è solo se Assistente AI o Analisi sono accesi per
+    l'azienda; le previsioni di Analisi non hanno un'azienda, quindi si vedono in tutte le aziende dell'utente.
+  - Cerca (titolo, etichetta, argomento) e filtri per argomento, tipo, origine ed etichetta; «Rinomina» cambia il
+    titolo anche in chat e in Analisi; «Etichetta» è un nome libero scelto dall'utente per ritrovarle.
+  - Nuova tabella delle etichette, senza chiavi verso Assistente AI e Analisi.
+- **Previsioni a schede** — Previsioni 1.1.1: la pagina ha una scheda per sezione (Vendite, Magazzino, Le mie previsioni) al
+  posto di un'unica pagina lunga; «Aggiorna» torna alla stessa scheda e la nota sul bottone «Nuova previsione» compare solo
+  quando il bottone manca.
+
+## 2026-11-25
+
+- **Modulo Previsioni, in licenza** — Previsioni 1.0.0 (migrazioni `previsioni.0001`-`0005`), AI 1.59.0, Analisi 1.16.0,
+  Kernel 1.14.1 (AI, Analisi e Kernel senza migrazioni).
+  - Il motore di previsione passa da `addons/ai/specialisti.py` al modulo `previsioni` (nessuna dipendenza). Si
+    prevede solo con il modulo installato, acceso, in licenza (e, se è riservato ad alcune aziende, per quelle) e con
+    l'URL del servizio configurato.
+  - **Chi usava le previsioni attraverso l'assistente le perde finché non ha il modulo**: lo strumento «previsione»
+    di Ada ora è del modulo, e i grafici di Analisi di tipo Previsione già salvati mostrano «Serve il modulo
+    Previsioni.».
+  - L'URL del servizio passa da `ai.url_forecast` a `previsioni.url_servizio`: la migrazione `previsioni.0002` lo copia
+    da sola (se quello del modulo è vuoto). Si cambia in Impostazioni, sezione Previsioni. La chiave API facoltativa,
+    conservata cifrata, si imposta nella pagina «Servizio di previsione» (menu del profilo), che apre solo il Global
+    Admin.
+  - Ada: lo strumento «previsione» ha «raggruppa per» e «primi N» (tabella dei primi N gruppi, in una sola chiamata al
+    servizio). Anche in Analisi il tipo Previsione ha «Raggruppa per» e «Primi» e si vede come tabella.
+  - Magazzino: ogni notte alle 02:00 (pianificazione «Previsioni della notte») e con «Aggiorna» (lavoro in background)
+    si calcola, per articolo e magazzino, la data di esaurimento con la fascia 10-90 %, la data di riordino dalle
+    soglie che già ci sono (scorta del magazzino, poi la regola di riordino di Acquisti, poi la scorta minima del
+    prodotto) e la quantità suggerita. Si vedono nella vista «Articoli in esaurimento» e in un riquadro nella scheda
+    del prodotto, con il permesso delle previsioni e quello delle giacenze di Magazzino (`magazzino.view_movimento`).
+    Se il calcolo non riesce restano le ultime previsioni, con «Previsioni non aggiornate dal …» (o «Previsioni non
+    calcolate» se non ce ne sono ancora) e il motivo.
+  - Vendite: previsioni pronte (ricavi per mese, dalle fatture con Fatturazione, altrimenti dagli ordini confermati;
+    primi 10 prodotti, nell'unità del prodotto; primi 10 clienti), salvate ogni notte. Chi ha regole di riga, campi
+    nascosti o filtri di riga dei moduli le vede calcolate al momento con i propri permessi.
+  - Tempi del servizio: le chiamate fatte mentre una pagina aspetta (calcolo al momento delle previsioni pronte, riga
+    del prodotto, Analisi, Ada) si fermano dopo 25 secondi, sotto i 60 dopo cui gunicorn chiude il worker; quelle dei
+    lavori in background (la notte, «Aggiorna») aspettano fino a 120 secondi. Un calcolo al momento non riuscito si
+    riprova dopo un minuto.
+  - La pagina «Previsioni» (una sezione per app) e i widget della dashboard. Accanto a ogni previsione (pagina,
+    scheda del prodotto, Analisi, chat) c'è l'indicazione «modello … · licenza Modified MIT di Mistral AI».
+  - `core.misure.storia(..., scelti=None)` accetta l'elenco dei gruppi da prevedere (correzione del Kernel).
+  - **Licenza dei pesi di Timestral**: sono sotto «Modified MIT License» di Mistral AI. L'uso commerciale è ammesso
+    tenendo l'avviso «2026 - Mistral AI» e il testo della licenza in ogni copia, ma non per aziende (o gruppi) oltre
+    20 milioni di dollari di ricavi al mese, a cui serve una licenza commerciale di Mistral. Da fare: mettere il file
+    LICENSE accanto ai pesi nel servizio di previsione (il repository non ne distribuisce: `deploy/` contiene solo un
+    esempio di rete verso il servizio).
+  - Dopo l'aggiornamento: `modulo installa previsioni` (con la licenza che lo comprende), poi `collectstatic`, quindi
+    impostare l'URL del servizio se non è stato copiato. Un'istanza senza licenza del modulo non ha più le previsioni.
+
+## 2026-11-24
+
+- **Cercare tra le applicazioni** (nessuna migrazione).
+  - In cima alla pagina Applicazioni una ricerca per parole (nome, categoria, descrizione, funzioni; con più parole
+    servono tutte) e i filtri per stato (Attive, Non attive, Da acquistare) e per categoria, su tutte le sezioni.
+    Prima si cercava solo tra le app da acquistare. I filtri restano nell'indirizzo della pagina.
+
+- **«Le mie dashboard»** — Analisi 1.15.0 (nessuna migrazione).
+  - Le pagine che una persona crea non sono più una scheda ciascuna (fino a sei, poi in «Altre schede»): stanno tutte
+    nel menu a tendina «Le mie dashboard», subito dopo Dashboard e Statistiche, nel loro ordine. Quelle condivise da
+    altri hanno una sezione loro, «Condivise con te», con il nome di chi le ha condivise. Aperta una di queste pagine,
+    la voce del menu è evidenziata. In «Altre schede» restano le app.
+
+- **Pagine trovate per nome, e i loro link in chat** — Kernel 1.17.2, AI 1.61.1, Analisi 1.16.1 (nessuna migrazione).
+  - «Cerca ovunque» nell'intestazione trova le pagine: «Grafici» porta a Nuovo grafico e ai grafici salvati,
+    «Statistiche» a Statistiche (prima quelle parole si scartavano e non usciva nulla). Le pagine del kernel che non
+    sono voci di menu (Dashboard, Applicazioni, Impostazioni, Utenti e ruoli, Profilo…) si trovano anche per parole
+    chiave («permessi», «password»), con i permessi di chi cerca.
+  - Ada ha lo strumento `cerca_pagine` (la stessa ricerca, con i link): alla domanda «c'è una pagina statistiche?»
+    risponde con il link vero, invece di inventarlo.
+  - Con la protezione dei dati attiva Ada scriveva link che non si aprivano (`[Direzione]([URL_2])`,
+    `[Analisi]([URL_ANALISI])`), inventando segnaposto al posto degli indirizzi: le istruzioni non la invitano più a
+    farlo, e un link verso qualcosa tra quadre che non è un segnaposto vero resta testo.
+
+- **Il nome del prodotto senza la versione** (nessuna migrazione).
+  - Il nome predefinito è «Adabox», non più «Adabox v3»: nell'intestazione, con la barra piena di voci, «v3» andava a
+    capo. La versione sta in piccolo nel piè di pagina e nella pagina di accesso (`THEME_VERSION`, predefinita «v3»,
+    al posto di «0.1.0»). Cambia anche il nome in email, PDF, inviti di calendario e nell'app installata; chi vuole
+    il nome di prima imposta `THEME_BRAND="Adabox v3"`. Le istanze con un loro `THEME_BRAND` non cambiano.
+  - Nell'intestazione il nome non va più a capo né si stringe (un nome molto lungo si tronca con i puntini): con la
+    barra piena si stringe prima la ricerca, poi si tronca il nome della persona. Un tema con un suo `_header.html`
+    mette la classe `ui-logo-nome` sul nome per avere il troncamento.
+
 ## 2026-11-23
 
-- **App di una sola azienda: chiuse anche le altre strade** — Kernel 1.14.1 (nessuna migrazione).
+- **App di una sola azienda: chiuse anche le altre strade** — Kernel 1.17.4 (nessuna migrazione).
   - Le **API** rispettano le app riservate: con un token, o con `X-Azienda` su un'altra azienda, un'app riservata
     risponde 403 in JSON (prima la chiamata passava); `/api/v1/me/` elenca solo le app dell'azienda della chiamata.
   - **Ada** non ha più gli strumenti delle app riservate ad altre aziende, e il worker (pianificazioni, turni di Ada)

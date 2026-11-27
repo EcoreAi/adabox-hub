@@ -1,5 +1,6 @@
 """Prompt di sistema (byte-stabile: niente date né nomi, per la cache del prefisso) e contesto dinamico, che va
 nel messaggio dell'utente e resta nel log così com'è."""
+import re
 from datetime import timedelta
 
 from django.conf import settings
@@ -30,6 +31,8 @@ o dal web, dillo in una frase («in generale…, da verificare»): numeri e date
 - Se usi strumenti, scrivi la risposta per l'utente dopo averli usati. Ciò che hai già scritto prima resta visibile: \
 non ripeterlo, nemmeno un'apertura richiesta dalle istruzioni.
 - Quando citi un record metti il link che gli strumenti restituiscono, in Markdown: [S00012](/vendite/ordini/12/).
+- Per il link a una pagina del gestionale (Statistiche, Nuovo grafico, una sezione di un'app) usa cerca_pagine \
+e scrivi l'indirizzo che restituisce, così com'è: non inventarlo.
 - Per domande sul contenuto di documenti, note e testi (cosa dice un contratto, cosa si è detto con un cliente) \
 usa cerca_conoscenza: rispondi solo con gli estratti trovati e cita ogni informazione con il suo numero, \
 es. [1](/documenti/documenti/4/).
@@ -81,6 +84,16 @@ def sistema(assistente=None):
     return testo
 
 
+_TAG_CONTESTO = re.compile(r"<\s*/?\s*contesto\b[^>]*>", re.IGNORECASE)
+
+
+def _nel_contesto(valore):
+    """Un valore da mettere nel <contesto>: senza il tag che lo chiude. Nel blocco finiscono testi non scritti
+    dall'utente (titoli di record e documenti, esiti dei bottoni e dei sistemi esterni, testo delle pagine): con un
+    «</contesto>» dentro, il resto arriverebbe al modello come se l'avesse scritto l'utente."""
+    return _TAG_CONTESTO.sub("", str(valore))
+
+
 def con_contesto(testo, utente, azienda=None, ambito="", esiti=(), nota=""):
     adesso = timezone.localtime()
     giorni = ", ".join(f"{GIORNI[g.weekday()]} {g:%d/%m}" for g in (adesso.date() + timedelta(days=n) for n in range(1, 8)))
@@ -95,4 +108,4 @@ def con_contesto(testo, utente, azienda=None, ambito="", esiti=(), nota=""):
         righe += ["Esiti delle proposte:", *(f"- {e}" for e in esiti)]
     if nota:
         righe.append(nota)
-    return "<contesto>\n" + "\n".join(righe) + "\n</contesto>\n\n" + testo
+    return "<contesto>\n" + "\n".join(_nel_contesto(r) for r in righe) + "\n</contesto>\n\n" + testo

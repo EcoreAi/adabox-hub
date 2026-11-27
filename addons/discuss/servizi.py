@@ -134,8 +134,9 @@ def crea_canale(nome, tipo, creato_da, membri=(), descrizione="", gestito=False,
 
 
 @transaction.atomic
-def diretto(utenti, nome=""):
-    """La conversazione diretta tra esattamente queste persone (creata la prima volta)."""
+def diretto(utenti, nome="", crea=True):
+    """La conversazione diretta tra esattamente queste persone (creata la prima volta; con `crea=False` None se non
+    c'è ancora)."""
     pk = sorted({u.pk for u in utenti})
     candidati = (Canale.objects.filter(tipo=Canale.DIRETTO).annotate(n=Count("iscrizioni"))
                  .filter(n=len(pk)))
@@ -145,6 +146,8 @@ def diretto(utenti, nome=""):
                 Canale.objects.filter(pk=c.pk).update(nome=nome[:80])
                 c.nome = nome[:80]
             return c
+    if not crea:
+        return None
     canale = Canale.objects.create(tipo=Canale.DIRETTO, creato_da=utenti[0], nome=nome[:80])
     for u in get_user_model().objects.filter(pk__in=pk):
         iscrivi(canale, u, 0)

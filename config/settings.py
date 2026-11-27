@@ -27,7 +27,10 @@ ADDONS_ATTIVI = bootstrap.moduli_installati(ADDONS_DIR, forzati=env.list("ADDONS
 
 # letta da os.environ e non con env(): django-environ tratta un valore che inizia con "$" come riferimento a
 # un'altra variabile, e una chiave casuale che inizia con "$" diventerebbe in silenzio quella di sviluppo
-SECRET_KEY = os.environ.get("SECRET_KEY") or "solo-sviluppo-cambiami"
+CHIAVE_DI_SVILUPPO = "solo-sviluppo-cambiami"         # nota a tutti: fuori dallo sviluppo ferma l'avvio (controlla_avvio)
+SECRET_KEY = os.environ.get("SECRET_KEY") or CHIAVE_DI_SVILUPPO
+# Content-Security-Policy in sola segnalazione (core.middleware.IntestazioniSicurezzaMiddleware): non blocca nulla
+CSP_SOLO_SEGNALAZIONE = env.bool("CSP_SOLO_SEGNALAZIONE", default=True)
 # chiave Fernet per i segreti salvati nel database (chiavi API...): senza, derivata da SECRET_KEY
 CHIAVE_CIFRATURA = env("CHIAVE_CIFRATURA", default="")
 DEBUG = env("DEBUG")
@@ -41,13 +44,19 @@ TEMA_APP = env("TEMA_APP", default="")
 
 # Brand: letto dal context processor theme.context_processors.theme
 THEME = {
-    "brand": env("THEME_BRAND", default="Adabox v3"),
+    "brand": env("THEME_BRAND", default="Adabox"),
     "powered_by": env("THEME_POWERED_BY", default=""),  # riga piccola sotto il nome, se il tema la mostra
     "mark": "AH",
     "company": "ICHNOBYTE S.R.L.",
     "company_url": "https://ichnobyte.it/",
-    "version": "0.1.0",
+    # in piccolo nel piè di pagina e nella pagina di accesso: la versione non fa parte del nome (nell'intestazione, con
+    # la barra piena, «Adabox v3» andava a capo)
+    "version": env("THEME_VERSION", default="v3"),
     "nav": [],  # la riempie core.context_processors.piattaforma con le app installate
+    # la funzione che dà le scorciatoie dell'app installata aggiunte dai moduli (hooks.voce_tasca con scorciatoia=True)
+    "scorciatoie": "core.registry.hooks.scorciatoie_tasca",
+    # la funzione che dà le pagine dei moduli da tenere apribili senza rete (hooks.pagina_senza_rete)
+    "senza_rete": "core.registry.hooks.pagine_senza_rete",
 }
 
 INSTALLED_APPS = [
@@ -68,6 +77,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "core.middleware.IntestazioniSicurezzaMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -164,6 +174,10 @@ BACKUP_CONSERVA = env.int("BACKUP_CONSERVA", default=10)
 # Ricarica del server dopo un cambio di moduli: gunicorn (SIGHUP via pidfile), runserver o none
 RELOAD_STRATEGY = env("RELOAD_STRATEGY", default="runserver" if DEBUG else "gunicorn")
 GUNICORN_PIDFILE = env("GUNICORN_PIDFILE", default="/tmp/gunicorn.pid")
+
+# Aziende di un utente creato fuori dal modulo «Nuovo utente» (admin, API, codice) quando l'istanza ne ha più di una
+# attiva: "tutte" (default) o "nessuna" (le assegna chi lo crea). I superutenti le hanno sempre tutte.
+AZIENDE_NUOVI_UTENTI = env("AZIENDE_NUOVI_UTENTI", default="tutte")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

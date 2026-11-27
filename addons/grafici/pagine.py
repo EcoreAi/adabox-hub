@@ -13,8 +13,8 @@ from django.http import Http404, HttpResponse, HttpResponseBadRequest, JsonRespo
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.text import slugify
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core.registry import modules
 from core.viste import interroga
 from core.viste.interroga import ErroreInterrogazione
@@ -133,39 +133,34 @@ def _layout(request, p):
     return JsonResponse({"ok": True, **salvato})
 
 
-@login_required
+@post_con_accesso
 @permission_required(MODIFICA)
-@require_POST
 def layout(request, pk):
     return _layout(request, _mia(request, pk))
 
 
-@login_required
+@post_con_accesso
 @permission_required(MODIFICA)
-@require_POST
 def layout_area(request, area):
     return _layout(request, _di_area(request, area)[0])
 
 
-@login_required
+@post_con_accesso
 @permission_required(MODIFICA)
-@require_POST
 def layout_app(request, app):
     return _layout(request, _app(request, app)[0])
 
 
-@login_required
+@post_con_accesso
 @permission_required("grafici.add_pagina")
-@require_POST
 def nuova(request):
     p = motore.nuova_pagina(request.user, request.POST.get("titolo", ""), request.POST.get("icona", "bar-chart"))
     messages.success(request, f"Pagina «{p.titolo}» creata: aggiungi i grafici da Ada, dalle viste Grafico o dalla libreria.")
     return redirect("grafici:pagina", pk=p.pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required(MODIFICA)
-@require_POST
 def modifica(request, pk):
     p = _mia(request, pk)
     titolo = request.POST.get("titolo", "").strip()[:100]
@@ -178,9 +173,8 @@ def modifica(request, pk):
     return _torna(request, p)
 
 
-@login_required
+@post_con_accesso
 @permission_required("grafici.delete_pagina")
-@require_POST
 def elimina(request, pk):
     p = _mia(request, pk)
     if p.app:
@@ -190,9 +184,8 @@ def elimina(request, pk):
     return redirect("core:dashboard")
 
 
-@login_required
+@post_con_accesso
 @permission_required(CONDIVIDI)
-@require_POST
 def condividi(request, pk):
     p = _mia(request, pk)
     if p.app:
@@ -214,9 +207,8 @@ def condividi(request, pk):
     return _torna(request, p)
 
 
-@login_required
+@post_con_accesso
 @permission_required(MODIFICA)
-@require_POST
 def sposta(request, pk):
     p = _mia(request, pk)
     direzione = -1 if request.POST.get("direzione") == "-1" else 1
@@ -233,9 +225,8 @@ def sposta(request, pk):
     return _torna(request, p)
 
 
-@login_required
+@post_con_accesso
 @permission_required(MODIFICA)
-@require_POST
 def ripristina(request, pk):
     p = _mia(request, pk)
     p.layout = {}
@@ -244,9 +235,8 @@ def ripristina(request, pk):
     return _torna(request, p)
 
 
-@login_required
+@post_con_accesso
 @permission_required(VISTA)
-@require_POST
 def aggiorna_pagina(request, pk):
     area = Pagina.objects.filter(pk=pk, area__isnull=False).values_list("area", flat=True).first()
     p = _di_area(request, area)[0] if area else _visibile(request, pk)
@@ -257,9 +247,8 @@ def aggiorna_pagina(request, pk):
     return _torna(request, p)
 
 
-@login_required
+@post_con_accesso
 @permission_required(MODIFICA)
-@require_POST
 def nascondi_app(request, app):
     p, info = _app(request, app)
     p.nascosta = not p.nascosta
@@ -299,9 +288,8 @@ def _persone(g, request):
     return [{"pk": u.pk, "nome": u.get_full_name() or u.get_username(), "dentro": u.pk in condivisi} for u in utenti]
 
 
-@login_required
+@post_con_accesso
 @permission_required("grafici.view_grafico")
-@require_POST
 def grafico_pagine(request, pk):
     """In quali delle mie pagine sta questo grafico: anche in più d'una, anche quello ricevuto da un collega."""
     g = _grafico_visibile(request, pk)
@@ -316,9 +304,8 @@ def grafico_pagine(request, pk):
     return redirect("grafici:grafico", pk=pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required("grafici.change_grafico")
-@require_POST
 def grafico_condividi(request, pk):
     """Con chi condividere un mio grafico. Chi lo riceve lo trova nella libreria e lo calcola con i propri permessi."""
     g = _mio_grafico(request, pk)
@@ -346,9 +333,8 @@ def grafico(request, pk):
         "scheda_attiva": "", "ai": motore._ai_disponibile(), "aggiornamenti": motore.AGGIORNAMENTI})
 
 
-@login_required
+@post_con_accesso
 @permission_required("grafici.view_grafico")
-@require_POST
 def grafico_aggiorna(request, pk):
     g = _grafico_visibile(request, pk)
     w = motore.widget_salvato(g, request, forza=True)
@@ -369,9 +355,8 @@ def grafico_filtri(request, pk):
                                                           "bersaglio": f"#an-widget-{g.pk}"})
 
 
-@login_required
+@post_con_accesso
 @permission_required("grafici.change_grafico")
-@require_POST
 def grafico_filtro(request, pk):
     """Il filtro scelto (o tolto) sopra il grafico: si salva nella specifica e la card si ricalcola lì dov'è."""
     from core import misure
@@ -390,9 +375,8 @@ def grafico_filtro(request, pk):
     return redirect("grafici:grafico", pk=pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required("grafici.change_grafico")
-@require_POST
 def grafico_periodo(request, pk):
     """Il periodo scelto con i pulsanti sopra il grafico: si salva nella specifica e la card si ricalcola lì dov'è."""
     from core import misure
@@ -411,9 +395,8 @@ def grafico_periodo(request, pk):
     return redirect("grafici:grafico", pk=pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required("grafici.change_grafico")
-@require_POST
 def grafico_tipo(request, pk):
     g = _mio_grafico(request, pk)
     tipo = request.POST.get("tipo", "")
@@ -434,9 +417,8 @@ def _metti(request, grafico, valore, titolo_nuova=""):
         raise Http404
 
 
-@login_required
+@post_con_accesso
 @permission_required("grafici.change_grafico")
-@require_POST
 def grafico_modifica(request, pk):
     g = _mio_grafico(request, pk)
     titolo = request.POST.get("titolo", "").strip()[:200]
@@ -452,9 +434,8 @@ def grafico_modifica(request, pk):
     return redirect("grafici:grafico", pk=pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required("grafici.delete_grafico")
-@require_POST
 def grafico_elimina(request, pk):
     g = _mio_grafico(request, pk)
     id_widget = g.id_widget
@@ -482,16 +463,20 @@ def grafico_csv(request, pk):
 
 # ---------- salvare da altrove ----------
 
-@login_required
+@post_con_accesso
 @permission_required("grafici.add_grafico")
-@require_POST
 def salva_da_artifact(request):
     """Un grafico dell'assistente diventa un grafico salvato: stessa specifica, ricalcolabile da qui in avanti."""
     if not motore._ai_disponibile():
         raise Http404
     Artifact = apps.get_model("ai", "Artifact")
     a = get_object_or_404(Artifact, pk=request.POST.get("artifact"), utente=request.user, tipo__in=("grafico", "tabella"))
-    if a.tipo == "tabella":
+    dati = a.dati
+    if a.spec.get("grafico") == Grafico.PREVISIONE:      # anche quella per gruppo (una tabella) resta una previsione
+        tipo = Grafico.PREVISIONE
+        if a.spec.get("raggruppa"):
+            dati = {"tipo": "tabella", **a.dati}           # come la salva Analisi (motore._previsione)
+    elif a.tipo == "tabella":
         tipo = Grafico.TABELLA
     else:
         tipo = a.spec.get("grafico", Grafico.BARRE)
@@ -499,16 +484,15 @@ def salva_da_artifact(request):
     spec = {k: v for k, v in a.spec.items() if k not in ("tipo", "grafico")}
     g = Grafico.objects.create(
         utente=request.user,
-        titolo=a.titolo, tipo=tipo, spec=spec, dati=a.dati,
+        titolo=a.titolo, tipo=tipo, spec=spec, dati=dati,
         aggiornato=a.aggiornato or a.creato, origine=Grafico.CHAT,
         origine_url=reverse("ai:conversazione", args=[a.conversazione_id]) if a.conversazione_id else "")
     titolo, url = _metti(request, g, request.POST.get("destinazione"), request.POST.get("titolo_nuova"))
     return render(request, "grafici/_salvato.html", {"titolo": titolo, "url": url})
 
 
-@login_required
+@post_con_accesso
 @permission_required("grafici.add_grafico")
-@require_POST
 def salva_da_vista(request):
     """La vista Grafico di un modulo, con i filtri del momento, diventa un grafico salvato."""
     nome = request.POST.get("vista", "")

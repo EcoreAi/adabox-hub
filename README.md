@@ -103,6 +103,15 @@ Un'app minima non scrive né viste né template: bastano modello, `ModelView` e 
 6. **Sezioni su modelli altrui** — nel `ready()` dell'app:
    `core.registry.hooks.sezione_dettaglio("todo.Attivita", "mia_app/_sezione.html", order=50)` (`"*"` = il
    dettaglio di tutti i modelli). Per la barra in alto: `hooks.voce_testata("mia_app/_voce.html", order, permission)`.
+   Per la pagina «In tasca» del telefono: `hooks.voce_tasca("Scansiona documento", "mia_app:scansiona", icona="search",
+   permission="mia_app.add_documento", sotto="DDT e fatture", scorciatoia=True)`: la voce compare per chi ha il
+   permesso, con l'app accesa e attiva per la sua azienda; con `scorciatoia=True` anche tra le scorciatoie dell'icona
+   dell'app installata. `conta` è una funzione che riceve la richiesta e dà il numero del bollino.
+   Per una pagina che deve aprirsi anche senza rete (uno scanner che tiene le foto nel telefono):
+   `hooks.pagina_senza_rete("mia_app:scansiona", statici=["mia_app/scansiona.js", "mia_app/scansiona.css"])`. Il service
+   worker ne tiene l'ultima copia sul dispositivo di chi l'ha aperta con la rete e la mostra quando la rete manca o
+   tarda (anche all'avvio dell'app e dalle scorciatoie che portano lì); i dati raccolti senza rete li tiene la pagina e
+   li invia lei quando la rete torna, rileggendo prima il token CSRF.
    Per cambiare le viste di altri moduli a ogni richiesta: `core.viste.personalizza.registra(funzione)`, dove
    `funzione(vista, request)` restituisce gli attributi da sovrascrivere (`list_display`, `form_layout`,
    `etichette`... vedi `ATTRIBUTI`); è il meccanismo usato da Studio.
@@ -206,6 +215,7 @@ con `core.mixins.ProprietaMixin` (valori nel JSON `proprieta`): compaiono nel fo
 | `documenti` | — | archivio per cartelle con permessi ereditati, anteprima, tag, cestino, zip; link pubblici a scadenza, richieste di documenti, cartelle che raccolgono gli allegati dei record |
 | `discuss` | — | canali e messaggi diretti tra colleghi, menzioni, posta in arrivo (anche dal chatter), campanella in testata, email per i non letti |
 | `sharepoint` | documenti | cartelle dei Documenti allineate con SharePoint (Microsoft 365) da SharePoint, verso SharePoint o nei due versi, con le sottocartelle |
+| `previsioni` | — | in licenza: previsioni di vendite e magazzino con Timestral (servizio da configurare): date di esaurimento e di riordino per articolo, vendite per mese, prodotti e clienti, calcolate ogni notte; pagina Previsioni e widget della dashboard; lo strumento «previsione» di Ada e il tipo Previsione di Analisi |
 
 `python manage.py modulo installa timesheet crm helpdesk calendario --demo --si` installa tutto, con le dipendenze
 (contatti, progetti) e i dati dimostrativi. Chi installa un'app riceve il suo gruppo base; i gruppi "Responsabile"
@@ -507,12 +517,13 @@ completate.
     Limiti del primo giro: le aree di lavoro non si segnano ancora come riservate; con almeno un'app riservata, la
     lettura di una pagina di Analisi conta come riservata (può mostrare dati di ogni app).
 - **Specialisti** (AI-6), facoltativi, attivi solo con l'URL del servizio nelle impostazioni:
-  - `previsione`: la storia di una misura (conteggio o somma per mese, settimana o giorno) la costruisce il codice
-    dai dati, con i permessi dell'utente e senza il periodo in corso; i prossimi periodi li calcola il servizio
-    Timestral di adabox (mediana e fascia 10-90 %); grafico con storia, previsione e fascia, CSV, pagina con i dati
-    di oggi. La licenza dei pesi di Timestral va verificata prima dell'uso commerciale;
   - `classifica`: probabilità dal decisore locale (sì/no, scelta, punteggio). Senza esempi addestrati sono solo
     indicative: per questo sul server di sviluppo resta spento.
+  - Le previsioni non sono più uno specialista dell'assistente: lo strumento `previsione` (storia dai dati con i
+    permessi dell'utente, numeri dal servizio Timestral, mediana e fascia 10-90 %, anche per gruppo) è del modulo
+    `previsioni`, in licenza. I pesi di Timestral sono sotto «Modified MIT License» di Mistral AI: uso commerciale
+    ammesso con l'avviso e il testo della licenza, non oltre 20 milioni di dollari di ricavi al mese (note di rilascio
+    del 2026-11-25).
 - **Agenti e qualità** (AI-7):
   - «Assistenti» (`/ai/assistenti/`): nome, descrizione, app, istruzioni aggiunte al prompt, strumenti ammessi,
     profilo dei modelli, gruppi ammessi, domande d'oro. La chat limitata a un'app usa l'assistente di quell'app,
@@ -903,7 +914,8 @@ Un progetto basato su adabox-hub (es. ZenPark) cambia grafica e nome dal `.env`,
 
 ```bash
 TEMA_APP=zenpark.tema        # app messa prima di "theme": i suoi template e static sovrascrivono quelli di theme/
-THEME_BRAND=ZenPark          # nome nell'header, nelle email, nei .ics e nei PDF (default: Adabox v3)
+THEME_BRAND=ZenPark          # nome nell'header, nelle email, nei .ics e nei PDF (default: Adabox)
+THEME_VERSION=v3             # in piccolo nel piè di pagina e nella pagina di accesso (default: v3)
 THEME_POWERED_BY=Adabox      # `theme.powered_by` per i template del tema (es. "powered by Adabox")
 ```
 

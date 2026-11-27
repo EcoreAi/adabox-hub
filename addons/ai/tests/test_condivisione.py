@@ -68,3 +68,12 @@ def test_grafico_condiviso_con_i_dati_di_chi_guarda(client, c):
     assert reverse("ai:condividi", args=["artifact", a.pk]) not in pagina
     client.force_login(c["estraneo"])
     assert client.get(reverse("ai:artifact", args=[a.pk])).status_code == 404
+
+
+def test_un_titolo_con_un_a_capo_non_fa_fallire_l_avviso(client, c):
+    """Il titolo lo sceglie il modello: con un a capo l'oggetto dell'email non era valido e la condivisione, già fatta,
+    rispondeva con un errore."""
+    d = documenti_chat.crea(c["chat"], c["u"], c["az"], "Offerta\nRossi", "Testo")
+    r = client.post(reverse("ai:condividi", args=["documento", d.pk]), {"persone": [c["bruno"].pk]}, HTTP_HX_REQUEST="true")
+    assert r.status_code == 200 and list(d.condiviso_con.all()) == [c["bruno"]]
+    assert "\n" not in mail.outbox[-1].subject and "Offerta Rossi" in mail.outbox[-1].subject

@@ -2,6 +2,7 @@
 indirizzo non è pubblico e ci si collega proprio a quell'indirizzo, così il DNS non può cambiare tra controllo e chiamata."""
 import ipaddress
 import socket
+import time
 from urllib.parse import urljoin, urlsplit
 
 import httpx2 as httpx
@@ -58,10 +59,14 @@ def post_sicuro(url, corpo, intestazioni, tempo=10, http_client=None):
             client.close()
 
 
-def scarica(url, tipi=("text/html", "text/plain"), massimo=2_000_000, tempo=10, reindirizzamenti=3, http_client=None):
+def scarica(url, tipi=("text/html", "text/plain"), massimo=2_000_000, tempo=10, reindirizzamenti=3, http_client=None,
+            tempo_totale=30):
     """(testo, url finale) di una pagina pubblica. Ogni reindirizzamento si ricontrolla, e ci si collega all'indirizzo
-    controllato. Rifiutato se non è pubblico, se il tipo non è ammesso; oltre `massimo` byte si taglia."""
+    controllato. Rifiutato se non è pubblico, se il tipo non è ammesso; oltre `massimo` byte si taglia. `tempo` vale
+    per ogni attesa sulla rete, `tempo_totale` per tutto lo scaricamento: una pagina che manda un byte ogni nove
+    secondi non scade mai con il primo, e teneva fermo chi l'aveva chiesta."""
     client = http_client or httpx.Client(timeout=tempo, follow_redirects=False, trust_env=False)
+    scadenza = time.monotonic() + tempo_totale
     try:
         for _ in range(reindirizzamenti + 1):
             parti, porta = controlla(url)
@@ -81,6 +86,8 @@ def scarica(url, tipi=("text/html", "text/plain"), massimo=2_000_000, tempo=10, 
                     corpo += pezzo
                     if len(corpo) > massimo:
                         break
+                    if time.monotonic() > scadenza:
+                        raise Rifiutato(f"la pagina risponde troppo lentamente (oltre {tempo_totale} secondi)")
                 return corpo.decode(r.encoding or "utf-8", "replace"), url
         raise Rifiutato("troppi reindirizzamenti")
     finally:

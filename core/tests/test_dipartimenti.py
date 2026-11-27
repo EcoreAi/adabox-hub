@@ -166,3 +166,24 @@ def test_app_nuove_nascono_comuni(db, settings):
     Modulo.objects.filter(slug__in=["todo", "crm"]).delete()
     modules.sincronizza()
     assert Modulo.objects.get(slug="todo").comune and not Modulo.objects.get(slug="crm").comune
+
+
+def test_l_assistente_non_legge_le_app_fuori_dai_dipartimenti(client, gruppi):
+    """Chi ha un permesso dato a mano su un'app fuori dai suoi dipartimenti nella pagina riceve «fuori dai tuoi
+    dipartimenti», ma l'assistente (e ogni interrogazione per vista) gliela leggeva lo stesso."""
+    from django.contrib.auth.models import Permission
+
+    from ai.strumenti import Contesto
+    from ai.strumenti.viste import cerca_record, elenco_viste
+    from core.models import Azienda
+    marketing = Dipartimento.objects.create(nome="Marketing", app=["crm"])
+    mara = _utente("mara", gruppi["Collaboratore"], [marketing])
+    mara.user_permissions.add(Permission.objects.get(content_type__app_label="vendite", codename="view_ordinevendita"))
+    mara = User.objects.get(pk=mara.pk)
+    client.force_login(mara)
+    assert mara.has_perm("vendite.view_ordinevendita") and client.get("/vendite/ordini/").status_code == 403
+    ctx = Contesto(utente=mara, azienda=Azienda.objects.first())
+    viste = str(elenco_viste(ctx))
+    assert "crm.opportunita" in viste and "vendite.ordini" not in viste
+    with pytest.raises(Exception, match="inesistente o non accessibile"):
+        cerca_record(ctx, "vendite.ordini")

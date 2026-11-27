@@ -1,0 +1,1 @@
+{% if user.is_authenticated %}<meta name="csrf-token" content="{{ csrf_token }}">{% endif %}{# Il token CSRF per gli script: si legge da qui, non dal cookie (ogni istanza della flotta dà al cookie il suo nome, CSRF_COOKIE_NAME). È un pezzo a sé, incluso nel <head> di ogni pagina accanto a _tema.html: un tema che sostituisce _tema.html per i suoi fogli non lo perde. #}

@@ -1,0 +1,8 @@
+{% extends "core/vista/lista.html" %}
+{% load previsioni %}
+{% block app_content %}
+{% stato_previsioni as sp %}
+{% if sp.calcolata_il %}<p class="sub">Previsioni calcolate il {{ sp.calcolata_il|date:"d/m/Y" }}</p>{% endif %}
+{% if sp.avviso %}{% include "previsioni/_avviso.html" with avviso=sp.avviso %}{% endif %}
+{% entro_nel_form %}{{ block.super }}{% fine_entro_nel_form %}
+{% endblock %}

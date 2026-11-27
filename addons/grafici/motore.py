@@ -30,7 +30,6 @@ ICONE = [("bar-chart", "Grafico"), ("pie-chart", "Torta"), ("trending-up", "Tend
 TIPI_SCAMBIABILI = [(t, e) for t, e in Grafico.TIPI if t in Grafico.INTERCAMBIABILI]
 AGGIORNAMENTI = [(0, "Mai: solo a mano"), (1, "Ogni ora"), (6, "Ogni 6 ore"), (24, "Ogni giorno"), (168, "Ogni settimana")]
 PANORAMICA = "panoramica"
-MAX_SCHEDE_PAGINE = 6                                    # in vista nella riga delle schede; le altre nel menu «Altre schede»
 MAX_SCHEDE_APP = 3                                       # le app personalizzate in vista
 
 
@@ -47,20 +46,40 @@ def _ai_disponibile():
     return "ai" in settings.ADDONS_ATTIVI and "ai" not in modules.disattivati()
 
 
-def previsioni_disponibili():
-    """Il servizio di previsione c'è: modulo AI attivo e indirizzo configurato."""
-    if not _ai_disponibile():
+def previsioni_disponibili(request=None):
+    """Il servizio di previsione c'è: modulo Previsioni installato, acceso, in licenza, valido per l'azienda della
+    richiesta (se c'è) e con l'indirizzo configurato."""
+    from django.apps import apps
+    if not apps.is_installed("previsioni"):
         return False
-    from ai import specialisti
-    return bool(specialisti.url("url_forecast"))
+    from previsioni import servizio
+    return servizio.attivo(getattr(request, "azienda", None), getattr(request, "user", None))
+
+
+def senza_previsioni(request):
+    """«Serve il modulo Previsioni.» se il modulo non è installato, è spento, fuori licenza o non vale per l'azienda di
+    chi guarda; "" se c'è. Senza l'indirizzo del servizio il modulo c'è: è un guasto, e vale la sua regola."""
+    from django.apps import apps
+    if not apps.is_installed("previsioni"):
+        return "Serve il modulo Previsioni."
+    from previsioni import servizio
+    if not servizio.abilitato(getattr(request, "azienda", None), getattr(request, "user", None)):
+        return servizio.SENZA_MODULO
+    return ""
 
 
 def _previsione(spec, request):
-    if not _ai_disponibile():
-        raise ErroreInterrogazione("Le previsioni richiedono il modulo Assistente AI con il servizio di previsione.")
-    from ai.specialisti import calcola_previsione
-    from ai.strumenti import Contesto
-    return calcola_previsione(spec, Contesto(utente=request.user, azienda=getattr(request, "azienda", None)))
+    if messaggio := senza_previsioni(request):
+        raise ErroreInterrogazione(messaggio)
+    from previsioni import motore
+    from previsioni.servizio import ErrorePrevisione
+    try:
+        if spec.get("raggruppa"):                            # una riga per gruppo: si mostra come tabella
+            dati = motore.calcola_per_gruppo(spec, request)
+            return {"tipo": "tabella", **motore.come_tabella(dati), "modello": dati["modello"], "esclusi": dati["esclusi"]}
+        return motore.calcola_previsione(spec, request)
+    except ErrorePrevisione as e:
+        raise ErroreInterrogazione(str(e)) from e
 
 
 def _tabella(spec, request):
@@ -101,7 +120,10 @@ def _serie_di_spec(spec, request):
 
 def aggiorna(grafico, request, forza=False):
     """(dati, errore) del grafico: l'istantanea del proprietario se è fresca, altrimenti un ricalcolo, salvato solo
-    se chi guarda è il proprietario (gli altri vedono i dati con i propri permessi, senza toccare la cache)."""
+    se chi guarda è il proprietario (gli altri vedono i dati con i propri permessi, senza toccare la cache). Se il
+    ricalcolo fallisce il proprietario tiene l'istantanea (un guasto); una previsione senza il modulo non ha dati."""
+    if grafico.tipo == Grafico.PREVISIONE and (messaggio := senza_previsioni(request)):
+        return {}, messaggio              # senza il modulo il messaggio prende il posto dei dati, anche di quelli salvati
     mio = grafico.utente_id == request.user.id
     fresca = grafico.dati and grafico.aggiornato and \
         timezone.now() - grafico.aggiornato < datetime.timedelta(minutes=minuti_cache())
@@ -144,6 +166,10 @@ def testo_valore(valore, unita=""):
 
 def serie_di(grafico, dati, vista=None):
     """La serie come la disegna core/grafici.js, più le righe per la tabella e i link del drill-down."""
+    if grafico.tipo == Grafico.PREVISIONE and dati.get("tipo") == "tabella":     # previsione per gruppo
+        righe = dati.get("righe", [])
+        return {"tipo": "tabella", "titolo": grafico.titolo, "colonne": dati.get("colonne", []), "righe": righe, "link": [],
+                "totale": len(righe), "vuoto": not righe, "modello": dati.get("modello", "")}
     if grafico.tipo == Grafico.PREVISIONE:
         storico, futuro = dati.get("storico", []), dati.get("futuro", [])
         return {"tipo": "previsione", "titolo": grafico.titolo, "storico": storico, "futuro": futuro,
@@ -436,7 +462,10 @@ def metti_in(utente, valore, grafico, titolo_nuova="", azienda=None):
 def csv_di(grafico, dati):
     uscita = io.StringIO()
     scrittore = csv.writer(uscita, delimiter=";")
-    if grafico.tipo == Grafico.PREVISIONE:
+    if grafico.tipo == Grafico.PREVISIONE and dati.get("tipo") == "tabella":
+        scrittore.writerow(dati.get("colonne", []))
+        scrittore.writerows(dati.get("righe", []))
+    elif grafico.tipo == Grafico.PREVISIONE:
         scrittore.writerow(["Periodo", "Valore", "Previsione 10 %", "Previsione mediana", "Previsione 90 %"])
         scrittore.writerows([[e, v, "", "", ""] for e, v in dati.get("storico", [])])
         scrittore.writerows([[e, "", b, m, a] for e, b, m, a in dati.get("futuro", [])])
@@ -516,9 +545,10 @@ def app_con_indicatori(user):
 
 
 def schede(request, attiva=""):
-    """Le schede della dashboard per chi guarda, in una riga che non scorre mai. In vista: le sue pagine, quelle condivise
-    con lui, le app che ha personalizzato (con un limite) e quella aperta. Tutto il resto sta nel menu «Altre schede»,
-    per area: {"visibili": [...], "pagine": [...], "gruppi": [{"titolo", "voci"}]}."""
+    """Le schede della dashboard per chi guarda, in una riga che non scorre mai: le pagine che ha creato e quelle condivise
+    con lui stanno nel menu «Le mie dashboard», tante quante sono; in vista le app che ha personalizzato (con un limite)
+    e quella aperta, le altre app nel menu «Altre schede», per area.
+    {"mie": [...], "condivise": [...], "pagina_aperta": bool, "visibili": [...], "gruppi": [{"titolo", "voci"}]}."""
     utente = request.user
     pagine = list((Pagina.objects.filter(utente=utente) | condivise(request.azienda, utente)).filter(area__isnull=True)
                   .distinct().select_related("utente"))
@@ -538,15 +568,11 @@ def schede(request, attiva=""):
                     "icona": "" if "/" in icona else icona, "immagine": icona if "/" in icona else "",
                     "url": reverse("grafici:pagina_app", args=[a["slug"]]), "condivisa": False, "proprietario": "",
                     "attiva": f"app:{a['slug']}" == attiva, "personalizzata": bool(p and p.layout)})
-    in_vista_libere = libere[:MAX_SCHEDE_PAGINE]
-    aperta_nascosta = next((v for v in libere[MAX_SCHEDE_PAGINE:] if v["attiva"]), None)
-    if aperta_nascosta:                                   # la scheda aperta non finisce mai nel menu
-        in_vista_libere = [*in_vista_libere[:-1], aperta_nascosta]
     personalizzate = [v for v in app if v["personalizzata"]][:MAX_SCHEDE_APP]
     in_vista_app = personalizzate + [v for v in app if v["attiva"] and v not in personalizzate]
     in_menu = [v for v in app if v not in in_vista_app]
-    return {"visibili": in_vista_libere + in_vista_app, "pagine": [v for v in libere if v not in in_vista_libere],
-            "gruppi": barra.gruppi(in_menu, "titolo")}
+    return {"mie": [v for v in libere if not v["condivisa"]], "condivise": [v for v in libere if v["condivisa"]],
+            "pagina_aperta": any(v["attiva"] for v in libere), "visibili": in_vista_app, "gruppi": barra.gruppi(in_menu, "titolo")}
 
 
 def pagina_app(utente, app):

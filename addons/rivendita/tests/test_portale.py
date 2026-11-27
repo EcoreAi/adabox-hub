@@ -388,3 +388,42 @@ def test_dashboard_con_canoni_e_assistente(rf, superuser, scena):
     richiesta.user, richiesta.azienda = superuser, None
     kpi = {k["etichetta"]: k["valore"] for k in dashboard.dati(richiesta)["kpi"]}
     assert kpi["canoni al mese"].startswith("139") and kpi["assistente a consumo, mese in corso"].startswith("10,8")
+
+
+
+@pytest.mark.django_db
+def test_la_quota_della_voce_va_in_licenza_e_il_di_piu_si_fattura(client, scena):
+    """La voce cloud si vende con una quota al mese in dollari, con qualunque formula dell'assistente: la quota va
+    nella licenza, l'istanza riferisce quanta parte del costo è voce, e il di più sulla quota si fattura col ricarico."""
+    from decimal import Decimal
+
+    from ai import licenza as licenza_ai
+    from core import parametri
+    from rivendita.models import ConsumoAI
+    istanza, token = scena
+
+    def ai_in_licenza():
+        dati = _post(client, token).json()
+        sincronia._verifica(dati)
+        return dati["licenza"].get("ai")
+
+    Piano.objects.filter(pk=istanza.piano_id).update(ai_quota_voce=10, ai_ricarico=20)        # i modelli restano del cliente
+    istanza.refresh_from_db()
+    termini = ai_in_licenza()
+    assert termini == {"formula": "propria", "quota_voce": "10.00"} and licenza_ai.quota_voce(termini) == Decimal("10.00")
+    parametri.scrivi("rivendita.cambio_usd_eur", Decimal("0.90"))
+    voce = {"mese": _mese(), "costo": "13.500000", "costo_fornito": "0", "costo_voce": "13.000000", "turni": 4, "utenti": 2}
+    assert _consumi(client, token, [voce]).json() == {"registrati": [voce["mese"]]}
+    consumo = ConsumoAI.objects.get()
+    assert (consumo.costo_voce, consumo.quota_voce, consumo.extra_voce) == (Decimal("13"), Decimal("10"), Decimal("3.24"))   # 3 $ × 0,90 × 1,20
+    assert consumo.importo == 0
+    _consumi(client, token, [{**voce, "costo_voce": "9"}])           # sotto la quota: niente da fatturare
+    consumo.refresh_from_db()
+    assert consumo.extra_voce == 0
+    # l'istanza può avere la sua quota; con una formula diversa da «propria» la quota della voce si aggiunge alle altre
+    Istanza.objects.filter(pk=istanza.pk).update(ai_formula="consumo", ai_quota_voce=25)
+    istanza.refresh_from_db()
+    assert ai_in_licenza()["quota_voce"] == "25.00" and ai_in_licenza()["formula"] == "consumo"
+    _consumi(client, token, [{"mese": _mese(), "costo": "5", "costo_fornito": "5", "turni": 1, "utenti": 1}])   # un'istanza di prima: senza la voce
+    consumo.refresh_from_db()
+    assert consumo.costo_voce == 0 and consumo.extra_voce == 0 and consumo.quota_voce == Decimal("25")

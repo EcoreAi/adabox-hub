@@ -58,7 +58,10 @@ h1, h2, h3, h4, h5, h6 { font-weight: 600; letter-spacing: -0.02em; color: var(-
   box-shadow: var(--shadow-header);
 }
 .ui-header-inner { height: 100%; display: flex; align-items: center; gap: 24px; }
-.ui-logo { display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; color: var(--ui-text); text-decoration: none; }
+/* Il nome del prodotto non va mai a capo e non si stringe: con la barra piena cedono la ricerca e poi il nome della
+   persona (più sotto). Un nome molto lungo si tronca con i puntini. */
+.ui-logo { display: inline-flex; align-items: center; gap: 8px; flex: none; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; color: var(--ui-text); text-decoration: none; white-space: nowrap; }
+.ui-logo-nome { max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
 .ui-logo:hover { color: var(--ui-text); text-decoration: none; }
 .ui-logo-mark { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
 .ui-logo-cubo { display: block; width: 100%; height: 100%; }
@@ -94,6 +97,10 @@ h1, h2, h3, h4, h5, h6 { font-weight: 600; letter-spacing: -0.02em; color: var(-
 .ui-nav-altre .ui-dropdown-menu { min-width: 200px; max-height: 70vh; overflow-y: auto; }
 .ui-nav-altre .ui-dropdown-menu a { display: flex; border-radius: 8px; }
 .ui-nav-altre .ui-dropdown-menu a::after { display: none; }
+/* App delle altre aziende dell'utente (theme/partials/_altre_aziende.html): più tenui, con l'azienda in piccolo */
+.ui-nav a.ui-nav-altra-azienda { color: var(--ui-text-3); }
+.ui-nav a.ui-nav-altra-azienda:hover, .ui-nav a.ui-nav-altra-azienda:focus-visible { color: var(--ui-primary); }
+.ui-nav-altra-azienda small { font-size: 11px; font-weight: 400; opacity: .85; }
 
 /* Dropdown */
 .ui-dropdown { position: relative; }
@@ -159,8 +166,13 @@ h1, h2, h3, h4, h5, h6 { font-weight: 600; letter-spacing: -0.02em; color: var(-
 .ui-nav-toggle svg { width: 22px; height: 22px; }
 
 /* Profile area */
-.ui-profile { display: flex; align-items: center; gap: 12px; }
+.ui-profile { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ui-profile > .ui-dropdown { min-width: 0; }
+/* con la barra piena il nome della persona si tronca con i puntini; l'iniziale e la freccia restano intere */
+.ui-profile-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-profile-trigger .ui-avatar, .ui-profile-trigger .chev { flex: none; }
 .ui-profile-trigger {
+  max-width: 100%;
   display: inline-flex; align-items: center; gap: 8px;
   padding: 4px 10px 4px 4px;
   background: none; border: 1px solid var(--ui-border); border-radius: var(--radius-pill);
@@ -810,6 +822,7 @@ textarea.ui-input { min-height: 96px; resize: vertical; }
   .ui-nav.is-open.is-cerca .ui-menucol-colonna { border-top: 0; margin-top: 0; padding-top: 0; }
   .ui-nav.is-open.is-cerca .ui-menucol-titolo { display: none; }
   .ui-logo { font-size: 15px; gap: 6px; white-space: nowrap; }
+  .ui-logo-nome { max-width: 38vw; }
   .ui-logo-mark { width: 26px; height: 26px; }
   .ui-profile-name { display: none; }
   /* testata compatta: con riepilogo, posta e Parla con Ada le icone devono stare in una riga anche a 360px */
@@ -1676,7 +1689,15 @@ body.is-trascinando, body.is-trascinando .wd-maniglia { cursor: grabbing; user-s
 .mk-app.is-sospesa .mk-stato, .mk-app.is-richiesta .mk-stato { background: var(--ui-warning-tint); color: #b46300; }
 .mk-richiedi { width: 100%; } .mk-richiedi > summary { list-style: none; display: inline-flex; cursor: pointer; } .mk-richiedi > summary::-webkit-details-marker { display: none; }
 .mk-richiedi-form { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 8px; } .mk-richiedi-form .ui-input { width: 100%; }
-.mk-filtri { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 14px; } .mk-cerca { width: 240px; margin-right: 6px; }
+/* in cima alla pagina Applicazioni: cerca, stato e categoria, su tutte le sezioni (core/applicazioni.js) */
+/* la ricerca su tutta la riga; sotto gli stati a sinistra e la categoria a destra (su un telefono, una sotto l'altra) */
+.mk-barra { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin: 0 0 22px; }
+.mk-barra-cerca { flex: 1 1 100%; } .mk-barra-cerca .ui-input { width: 100%; }
+.mk-barra-stati { display: flex; flex-wrap: wrap; gap: 6px; }
+.mk-barra-categoria { width: auto; min-width: 200px; flex: 0 1 260px; margin-left: auto; }
+@media (max-width: 767px) { .mk-barra-categoria { flex: 1 1 100%; margin-left: 0; } }
+.mk-chip-n { margin-left: 4px; font-size: 11.5px; color: var(--ui-text-3); } .mk-chip.is-attiva .mk-chip-n { color: inherit; opacity: .8; }
+.mk-vuoto { margin: 0 0 22px; color: var(--ui-text-2); font-size: 14px; }
 .mk-chip { padding: 6px 12px; border: 1px solid var(--ui-border); border-radius: 999px; background: var(--ui-surface); color: var(--ui-text-2); font: inherit; font-size: 12.5px; cursor: pointer; }
 .mk-chip.is-attiva { border-color: var(--ui-primary); color: var(--ui-primary); background: var(--ui-primary-tint); }
 .mk-piede { flex-wrap: wrap; gap: 6px; } .mk-piede form { margin: 0; }
@@ -1743,8 +1764,9 @@ body:has(.ui-nav-altre.is-open .ui-menucol) main { filter: blur(3px); opacity: .
 .wd-cassetto-cerca { width: 100%; margin-bottom: 8px; } .wd-cassetto-azioni { margin-top: 10px; } .wd-cassetto-azioni .ui-btn { width: 100%; justify-content: center; }
 
 /* Ricerca in tutte le app e ricerche salvate */
-.ui-cerca-globale { margin-left: auto; margin-right: 12px; }
-.ui-cerca-globale .ui-input { width: 180px; }
+/* con la barra piena è la prima a stringersi (fino a 110px), prima che si tronchi il nome della persona */
+.ui-cerca-globale { margin-left: auto; margin-right: 12px; flex: 0 10 180px; min-width: 110px; }
+.ui-cerca-globale .ui-input { width: 100%; }
 .ui-ricerche { min-width: 280px; padding: 8px; }
 .ui-ricerca { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
 .ui-ricerca a { flex: 1; }

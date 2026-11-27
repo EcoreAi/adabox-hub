@@ -221,8 +221,16 @@ def motivo_pagina(url, azienda):
 
 
 def motivo_area(conversazione, azienda):
-    """Un'area di lavoro la cui cartella è riservata, o ne contiene una: la sua nota elenca i documenti."""
+    """Un'area di lavoro la cui cartella è riservata, o ne contiene una (la sua nota elenca i documenti), o collegata
+    a un record di un'app riservata (la nota ne dice tipo e titolo): la nota va al modello con il primo messaggio."""
     progetto = getattr(conversazione, "progetto", None) if getattr(conversazione, "progetto_id", None) else None
+    if progetto is None:
+        return ""
+    riservate = app_riservate(azienda or progetto.azienda)
+    if riservate:
+        for app in progetto.collegamenti.values_list("content_type__app_label", flat=True).distinct():
+            if app.lower() in riservate:
+                return f"app «{app}»"
     radice = getattr(progetto, "cartella_documenti", None)
     if not radice:
         return ""

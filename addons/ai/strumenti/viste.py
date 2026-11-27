@@ -13,7 +13,7 @@ from django.utils import timezone
 from core.viste import registry
 from core.viste.interroga import (  # noqa: F401  (anche riesportati per gli altri strumenti e i test)
     AGGREGATI, ESCLUSE, GRUPPI_MASSIMI, OPERATORI, SENSIBILE, SOLO_DATA, TRONCATURE, _campo, _decodifica,
-    _etichette_gruppi, _misura, _numero, _percorso, _sensibile, aggrega, campi_leggibili, filtra, id_vista,
+    _etichette_gruppi, _misura, _numero, _percorso, _sensibile, aggrega, campi_leggibili, controlla_nascosti, filtra, id_vista,
     senza_sostituite, viste_accessibili)
 
 from . import richiesta
@@ -107,9 +107,11 @@ def _ottimizza(qs, campi):
     return qs.select_related(*relazioni).prefetch_related(*multiple)
 
 
-def _ordina(vista, qs, ordina):
+def _ordina(vista, qs, ordina, request=None):
     if not ordina:
         return qs
+    if request is not None:                             # l'ordine per un campo nascosto al ruolo lo farebbe ricostruire
+        controlla_nascosti(vista, request, ordina.lstrip("-"))
     lookup, f, _ = _percorso(vista, ordina.lstrip("-"), con_operatore=False)
     if f.many_to_many:
         raise ErroreStrumento("Non si ordina per un campo con più valori.")
@@ -187,13 +189,13 @@ def descrivi_vista(contesto, vista):
     return descrivi(vista_per(contesto, vista), richiesta.per(contesto))
 
 
-def cerca(vista, request, testo="", filtri=None, ordina="", limite=20, pagina=1, campi=None):
+def cerca(vista, request, testo="", filtri=None, ordina="", limite=20, pagina=1, campi=None, massimo=LIMITE_MASSIMO):
     try:
-        limite, pagina = max(1, min(int(limite), LIMITE_MASSIMO)), max(1, int(pagina))
+        limite, pagina = max(1, min(int(limite), massimo)), max(1, int(pagina))
     except (TypeError, ValueError):
         raise ErroreStrumento("«limite» e «pagina» devono essere numeri interi.")
     scelti = _campi_elenco(vista, campi, request)
-    qs = _ordina(vista, filtra(vista, request, vista.get_queryset(request), testo, filtri), ordina)
+    qs = _ordina(vista, filtra(vista, request, vista.get_queryset(request), testo, filtri), ordina, request)
     totale = qs.count()
     righe = _ottimizza(qs, scelti)[(pagina - 1) * limite:pagina * limite]
     risultato = {"vista": id_vista(vista), "totale": totale, "pagina": pagina,

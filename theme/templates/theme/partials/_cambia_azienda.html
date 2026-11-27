@@ -1,0 +1,8 @@
+{% load tema %}{% comment %}
+Cambio di azienda in un clic, per chi ne ha più di una: un solo form nascosto per pagina (POST a core:cambia_azienda) e
+lo script che, al clic su un link con data-cambia-azienda="<pk>", ci scrive azienda e next (l'href del link) e lo
+invia. Lo usano le voci delle altre aziende nella barra e ogni pagina che metta quei link (es. la chat).
+{% endcomment %}{% url 'core:cambia_azienda' as url_cambia_azienda %}{% if url_cambia_azienda and aziende|length > 1 %}
+<form method="post" action="{{ url_cambia_azienda }}" hidden data-cambia-azienda-form>{% csrf_token %}<input type="hidden" name="azienda" value=""><input type="hidden" name="next" value=""></form>
+<script src="{% statico 'theme/cambia_azienda.js' %}" defer></script>
+{% endif %}

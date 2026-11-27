@@ -4,6 +4,7 @@ niente codice del modello eseguito). Nella chat si vede l'istantanea del momento
 ricalcola con i dati di oggi."""
 import csv
 import io
+import re
 
 from django.utils import timezone
 
@@ -81,10 +82,38 @@ def calcola(spec, contesto):
     return _calcola(spec, contesto)
 
 
+def senza_previsioni(azienda=None, utente=None):
+    """«Serve il modulo Previsioni.» se il modulo non è installato, è spento, fuori licenza o non vale per l'azienda;
+    "" se c'è. La chat non dipende dal modulo: senza, il messaggio è scritto qui."""
+    from django.apps import apps
+    if not apps.is_installed("previsioni"):
+        return "Serve il modulo Previsioni."
+    from previsioni import servizio
+    return "" if servizio.abilitato(azienda, utente) else servizio.SENZA_MODULO
+
+
+def previsione_spenta(artifact):
+    """Il messaggio che prende il posto dell'istantanea di una previsione (grafico o tabella per gruppo) se il modulo
+    non c'è per l'azienda dell'artifact; "" per gli altri artifact."""
+    if artifact.spec.get("grafico") != "previsione":
+        return ""
+    return senza_previsioni(artifact.azienda if artifact.azienda_id else None,
+                            artifact.utente if artifact.utente_id else None)
+
+
 def _calcola(spec, contesto):
     if spec.get("grafico") == "previsione":
-        from .specialisti import calcola_previsione
-        return calcola_previsione(spec, contesto)
+        if messaggio := senza_previsioni(contesto.azienda, contesto.utente):
+            raise ErroreStrumento(messaggio)
+        from previsioni import motore
+        from previsioni.servizio import ErrorePrevisione
+        v = None if spec.get("misura_aziendale") else vista_per(contesto, spec["vista"])   # le viste della chat
+        try:
+            if spec.get("raggruppa"):
+                return motore.come_tabella(motore.calcola_per_gruppo(spec, richiesta.per(contesto), vista=v))
+            return motore.calcola_previsione(spec, richiesta.per(contesto), vista=v)
+        except ErrorePrevisione as e:
+            raise ErroreStrumento(str(e)) from e
     if spec.get("misura_aziendale"):
         from core import misure
         return misure.serie(spec, richiesta.per(contesto))
@@ -98,13 +127,16 @@ def _calcola(spec, contesto):
                     aziende=aziende_di(request, spec.get("aziende")), con_chiavi=True,
                     massimo=None if (spec.get("primi") or spec.get("ordina")) else 100)
         terne = _terne(r.get("gruppi", []), spec)
+        if any(isinstance(val, str) for _, val, _ in terne):
+            raise ErroreStrumento("Un grafico ha bisogno di una misura numerica: questa dà una data o un testo "
+                                  "(min e max di una data). Usa «tabella» con «per» e la stessa misura.")
         # il link ai record di ogni punto, calcolato ora e salvato con l'istantanea (↻ lo rifà)
         return {"serie": [(e, val) for e, val, _ in terne], "totale": r["totale"], "chiavi": [k for _, _, k in terne],
                 "link": [link_gruppo(v, spec, k) for _, _, k in terne]}
     if spec.get("per"):
         return _tabella_raggruppata(v, request, spec)
     r = cerca(v, request, spec.get("testo", ""), spec.get("filtri"), spec.get("ordina", ""), spec.get("limite", 50),
-              1, spec.get("campi") or None)
+              1, spec.get("campi") or None, massimo=MAX_RIGHE_TABELLA)
     campi = _campi_elenco(v, spec.get("campi") or None, request)
     scelte = r.get("scelte", {})
     colonne = [v.etichetta("__str__")] + [v.etichetta(f.name) for f in campi if f.name != "id"]
@@ -116,7 +148,9 @@ def _calcola(spec, contesto):
 def svg_di(artifact, dati=None):
     dati = dati or artifact.dati
     if artifact.spec.get("grafico") == "previsione":
-        from .specialisti import svg_previsione
+        if artifact.spec.get("raggruppa") or previsione_spenta(artifact):
+            return ""                                   # per gruppo è una tabella; senza il modulo niente disegno
+        from previsioni.motore import svg_previsione
         return svg_previsione(dati, artifact.titolo)
     serie = [tuple(c) for c in dati.get("serie", [])]
     if not serie:
@@ -140,19 +174,34 @@ def pdf_di(artifact, dati):
     return HTML(string=pagina).write_pdf()
 
 
+_NUMERO_SCRITTO = re.compile(r"[+-]?\d[\d.,]*\s?[%€]?")
+
+
+def _cella_csv(valore):
+    """Un testo che comincia con =, +, - o @ per Excel e LibreOffice è una formula: il nome di un record scritto da
+    chiunque (=HYPERLINK(...)) si eseguirebbe aprendo il file. Con l'apostrofo davanti resta un testo; i numeri
+    scritti («-12,50») restano numeri."""
+    if isinstance(valore, str) and valore[:1] in ("=", "+", "-", "@", "\t", "\r") and not _NUMERO_SCRITTO.fullmatch(valore.strip()):
+        return "'" + valore
+    return valore
+
+
 def csv_di(artifact, dati):
     uscita = io.StringIO()
     scrittore = csv.writer(uscita, delimiter=";")
+
+    def righe(elenco):
+        scrittore.writerows([[_cella_csv(c) for c in riga] for riga in elenco])
     if "futuro" in dati:
         scrittore.writerow(["Periodo", "Valore", "Previsione 10 %", "Previsione mediana", "Previsione 90 %"])
-        scrittore.writerows([[e, v, "", "", ""] for e, v in dati.get("storico", [])])
-        scrittore.writerows([[e, "", b, m, a] for e, b, m, a in dati.get("futuro", [])])
+        righe([[e, v, "", "", ""] for e, v in dati.get("storico", [])])
+        righe([[e, "", b, m, a] for e, b, m, a in dati.get("futuro", [])])
     elif artifact.tipo == Artifact.GRAFICO:
         scrittore.writerow(["Gruppo", "Valore"])
-        scrittore.writerows(dati.get("serie", []))
+        righe(dati.get("serie", []))
     else:
-        scrittore.writerow(dati.get("colonne", []))
-        scrittore.writerows(dati.get("righe", []))
+        righe([dati.get("colonne", [])])
+        righe(dati.get("righe", []))
     return "﻿" + uscita.getvalue()                     # BOM: Excel legge gli accenti
 
 
@@ -227,12 +276,14 @@ def tabella(contesto, vista, testo="", filtri=None, ordina="", campi=None, limit
 
 
 def ricalcola(artifact):
-    """I dati di oggi per il proprietario dell'artifact (stessi permessi e azienda di quando l'ha chiesto)."""
+    """I dati di oggi per il proprietario dell'artifact (stessi permessi e azienda di quando l'ha chiesto). Se nel
+    frattempo ha perso l'accesso a quell'azienda non si ricalcola: la richiesta finta degli strumenti non passa dal
+    middleware che lo controlla, e un grafico salvato continuerebbe a leggere i dati di un'azienda non più sua."""
+    from core.azienda import consentite
+    if artifact.azienda_id is not None and artifact.azienda_id not in {a.pk for a in consentite(artifact.utente)}:
+        raise ErroreStrumento(f"non hai più accesso all'azienda «{artifact.azienda}»: restano i dati di quando l'hai chiesto.")
     contesto = Contesto(utente=artifact.utente, azienda=artifact.azienda, conversazione=artifact.conversazione)
-    dati = calcola(artifact.spec, contesto)
-    artifact.aggiornato = timezone.now()
-    artifact.save(update_fields=["aggiornato"])
-    return dati
+    return calcola(artifact.spec, contesto)
 
 
 registra(Strumento(

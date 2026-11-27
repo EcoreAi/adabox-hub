@@ -5,7 +5,6 @@ Due regole, perché i risultati e le pagine sono testo scritto da chiunque:
   diventerebbe il nome vero sul motore di ricerca. Se il controllo non è possibile, non si cerca.
 - si aprono solo indirizzi già comparsi nei risultati o scritti dall'utente: una pagina che chiede ad Ada di aprire
   sito.it?dati=... non ottiene nulla, perché quell'indirizzo composto non è mai comparso."""
-import json
 import re
 from html.parser import HTMLParser
 from urllib.parse import urlencode
@@ -110,13 +109,31 @@ class _SoloTesto(HTMLParser):
             self.pezzi.append(data.strip())
 
 
-def _gia_comparso(conversazione, url):
-    """L'indirizzo esatto in un messaggio dell'utente o nel risultato di uno strumento di questa chat."""
-    if conversazione is None:
+STRUMENTI_WEB = ("cerca_web", "leggi_pagina")
+
+
+def _gia_comparso(conversazione, url, scritti_dall_utente=True):
+    """L'indirizzo, esattamente com'è, nel testo scritto dall'utente o nel risultato riuscito di cerca_web o di
+    leggi_pagina di questa chat.
+
+    Non vale il risultato degli altri strumenti: molti ripetono i propri argomenti («Vista «…» inesistente»), e al
+    modello basterebbe farsi ripetere un indirizzo composto con i dati (sito.it?dati=…) per poi aprirlo. Non vale
+    nemmeno il <contesto> del messaggio: lo scrive il server, con esiti e note che non sono parole dell'utente.
+    `scritti_dall_utente=False` nella conversazione interna di un esperto: lì la domanda la scrive il modello."""
+    if conversazione is None or not url:
         return False
-    for e in conversazione.eventi.filter(tipo__in=[Evento.UTENTE, Evento.STRUMENTO]):
-        testo = json.dumps(e.dati, ensure_ascii=False)
-        if url in testo or url.replace("/", "\\/") in testo:
+    del_web = set()
+    for e in conversazione.eventi.filter(tipo__in=[Evento.UTENTE, Evento.ASSISTENTE, Evento.STRUMENTO]).order_by("pk"):
+        if e.tipo == Evento.ASSISTENTE:
+            del_web |= {b.get("id") for b in e.dati.get("blocchi", [])
+                        if isinstance(b, dict) and b.get("tipo") == "strumento" and b.get("nome") in STRUMENTI_WEB}
+            continue
+        if e.tipo == Evento.UTENTE:
+            testi = [str(e.dati.get("testo", "")).rsplit("</contesto>", 1)[-1]] if scritti_dall_utente else []
+        else:
+            testi = [str(r.get("contenuto", "")) for r in e.dati.get("risultati", [])
+                     if isinstance(r, dict) and r.get("id") in del_web and not r.get("errore")]
+        if any(url in t or url.replace("/", "\\/") in t for t in testi):
             return True
     return False
 
@@ -125,7 +142,7 @@ def leggi_pagina(contesto, url, pagina=1, http_client=None):
     url = str(url or "").strip()
     if not abilitata(contesto.azienda):
         raise ErroreStrumento("La ricerca sul web non è attiva per questa azienda.")
-    if not _gia_comparso(contesto.conversazione, url):
+    if not _gia_comparso(contesto.conversazione, url, scritti_dall_utente=getattr(contesto.turno, "compito", "") != "esperto"):
         raise ErroreStrumento("Si aprono solo indirizzi comparsi nei risultati di cerca_web o scritti dall'utente, esattamente come sono.")
     try:
         html, finale = rete.scarica(url, http_client=http_client)

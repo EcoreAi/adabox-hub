@@ -75,6 +75,15 @@ def _errori(form):
     return "; ".join(voci)
 
 
+def _numeri(v):
+    """Gli id di un record collegato o di più record, per distinguerli quando hanno lo stesso nome."""
+    if hasattr(v, "all"):
+        v = list(v.all())
+    if isinstance(v, (list, tuple)):
+        return ", ".join(str(getattr(o, "pk", o)) for o in v) or "—"
+    return getattr(v, "pk", v) if v not in (None, "") else "—"
+
+
 def _leggibile(campo, v):
     if v in (None, "", []):
         return "—"
@@ -212,9 +221,16 @@ def _form_modifica(contesto, vista, id, campi):
 
 def anteprima_modifica(contesto, vista, id, campi=None):
     v, _, obj, form, prima, impronta = _form_modifica(contesto, vista, id, campi)
-    dettagli = [{"campo": _etichetta(form, n), "prima": prima[n],
-                 "dopo": _leggibile(form.fields[n], form.cleaned_data.get(n))} for n in prima]
-    dettagli = [d for d in dettagli if d["prima"] != d["dopo"]]
+    dettagli = []
+    for n in prima:
+        dopo = _leggibile(form.fields[n], form.cleaned_data.get(n))
+        if prima[n] != dopo:
+            dettagli.append({"campo": _etichetta(form, n), "prima": prima[n], "dopo": dopo})
+        elif n in form.changed_data and isinstance(form.fields[n], forms.ModelChoiceField):
+            # stesso nome, record diverso (due contatti omonimi): la scheda lo taceva, e alla conferma il cambio si
+            # faceva lo stesso insieme agli altri. Si mostrano i numeri dei due record.
+            dettagli.append({"campo": _etichetta(form, n), "prima": f"{prima[n]} (n. {_numeri(form.initial.get(n))})",
+                             "dopo": f"{dopo} (n. {_numeri(form.cleaned_data.get(n))})"})
     if not dettagli:
         raise ErroreStrumento("Nessuna modifica: i campi hanno già questi valori.")
     return {"titolo": f"Modifica {v.verbose_name} «{obj}»", "dettagli": dettagli, "impronta": impronta,

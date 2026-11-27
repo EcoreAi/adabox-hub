@@ -14,11 +14,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
-from django.views.decorators.http import require_POST
 
 from . import dipartimenti, licenza, ruoli
 from .models import Azienda, Dipartimento, DueFattori, Ruolo
 from .signals import crea_profilo
+from .decoratori import post_con_accesso
 
 User = get_user_model()
 GESTIONE = "auth.change_user"
@@ -49,6 +49,8 @@ class UtenteForm(forms.ModelForm):
     dipartimenti = forms.ModelMultipleChoiceField(Dipartimento.objects.all(), required=False, label="Dipartimenti", widget=forms.CheckboxSelectMultiple,
                                                   help_text="Vede solo le app dei suoi dipartimenti e quelle comuni. Nessuno: tutte quelle che il ruolo consente.")
     invito = forms.BooleanField(required=False, initial=True, label="Mandagli l'email per scegliere la password")
+    prima_pagina = forms.ChoiceField(required=False, label="Prima pagina",
+                                     help_text="Dove arriva dopo l'accesso e aprendo l'app installata. La pagina deve poterla aprire.")
 
     class Meta:
         model = User
@@ -59,6 +61,7 @@ class UtenteForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if not tecnico_ammesso:                      # il ruolo che rende superutente lo dà solo un superutente
             self.fields["ruolo"].queryset = Ruolo.objects.filter(tecnico=False)
+        self.fields["prima_pagina"].choices = _scelte_prima_pagina("Quella del suo ruolo", self.initial.get("prima_pagina"))
         self.fields["email"].required = True
         self.fields["username"].required = False
         self.fields["username"].help_text = "Vuoto: la parte dell'email prima della chiocciola"
@@ -73,6 +76,8 @@ class UtenteForm(forms.ModelForm):
 
     def clean(self):
         dati = super().clean()
+        if not self.instance.pk and "aziende" in dati and not dati["aziende"] and Azienda.objects.filter(attiva=True).count() > 1:
+            self.add_error("aziende", "Scegli almeno un'azienda.")
         if "dipartimenti" in dati and not self.errors:
             attivo = bool(dati.get("is_active")) and not (self.instance.pk and self.instance.is_superuser)
             for errore in dipartimenti.oltre_il_tetto(utente_modificato=(self.instance.pk, [d.pk for d in dati["dipartimenti"]], attivo)):
@@ -96,15 +101,29 @@ class UtenteForm(forms.ModelForm):
         return nome
 
 
+def _scelte_prima_pagina(vuota, attuale=""):
+    """Le pagine tra cui scegliere, più quella salvata se nel frattempo è sparita (app disinstallata)."""
+    from . import apertura
+    scelte = [("", vuota), *apertura.pagine_possibili()]
+    if attuale and attuale not in dict(scelte):
+        scelte.append((attuale, f"{attuale} (non più disponibile)"))
+    return scelte
+
+
 class RuoloForm(forms.ModelForm):
+    prima_pagina = forms.ChoiceField(required=False, label="Prima pagina",
+                                     help_text="Dove arriva chi ha questo ruolo dopo l'accesso e aprendo l'app installata. "
+                                               "Chi non può aprire quella pagina resta alla barra in alto.")
+
     class Meta:
         model = Ruolo
-        fields = ["nome", "descrizione", "livello_base", "amministra", "tecnico", "predefinito", "ordine"]
+        fields = ["nome", "descrizione", "livello_base", "amministra", "tecnico", "predefinito", "ordine", "prima_pagina"]
 
     def __init__(self, *args, tecnico_ammesso=False, **kwargs):
         super().__init__(*args, **kwargs)
         if not tecnico_ammesso:
             del self.fields["tecnico"]
+        self.fields["prima_pagina"].choices = _scelte_prima_pagina("La prima voce della barra in alto", self.instance.prima_pagina)
         _classi(self)
 
 
@@ -151,6 +170,12 @@ def _righe_moduli(profilo, ruolo):
     return righe
 
 
+def _aziende_iniziali():
+    """Aziende già spuntate nel modulo di un nuovo utente: l'unica attiva, altrimenti nessuna (si sceglie)."""
+    attive = list(Azienda.objects.filter(attiva=True))
+    return attive if len(attive) == 1 else []
+
+
 @login_required
 @permission_required(GESTIONE, raise_exception=True)
 def scheda(request, pk=None):
@@ -171,6 +196,7 @@ def scheda(request, pk=None):
                 profilo = crea_profilo(utente)
                 if not se_stesso:
                     profilo.ruolo = form.cleaned_data["ruolo"]
+                profilo.prima_pagina = form.cleaned_data.get("prima_pagina") or ""
                 profilo.eccezioni = _livelli_dal_post(request)
                 aziende = list(form.cleaned_data["aziende"])
                 profilo.aziende.set(aziende)
@@ -188,8 +214,9 @@ def scheda(request, pk=None):
                 messages.success(request, f"{utente.get_full_name() or utente.username} salvato." + (" Il tuo ruolo e lo stato attivo non si cambiano da soli." if se_stesso else ""))
             return redirect("core:utente", pk=utente.pk)
     else:
-        iniziali = {"ruolo": profilo.ruolo_id if profilo else (ruoli.predefinito() or Ruolo.objects.filter(nome="Collaboratore").first()),
-                    "aziende": list(profilo.aziende.all()) if profilo else list(Azienda.objects.filter(attiva=True)),
+        iniziali = {"prima_pagina": profilo.prima_pagina if profilo else "",
+                    "ruolo": profilo.ruolo_id if profilo else (ruoli.predefinito() or Ruolo.objects.filter(nome="Collaboratore").first()),
+                    "aziende": list(profilo.aziende.all()) if profilo else _aziende_iniziali(),
                     "dipartimenti": list(profilo.dipartimenti.all()) if profilo else []}
         form = UtenteForm(instance=utente, initial=iniziali, tecnico_ammesso=request.user.is_superuser)
     ruolo_scelto = profilo.ruolo if profilo else form.initial.get("ruolo")
@@ -203,9 +230,8 @@ def scheda(request, pk=None):
         "gruppi": list(utente.groups.order_by("name").values_list("name", flat=True)) if utente else []})
 
 
-@login_required
+@post_con_accesso
 @permission_required(GESTIONE, raise_exception=True)
-@require_POST
 def invito(request, pk):
     utente = _utente(request, pk)
     if not utente.email:
@@ -219,9 +245,8 @@ def invito(request, pk):
     return redirect("core:utente", pk=pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required(GESTIONE, raise_exception=True)
-@require_POST
 def due_fattori_azzera(request, pk):
     """Telefono e codici persi: via la verifica in due passaggi, l'utente rientra con la sola password e la riattiva."""
     utente = _utente(request, pk)
@@ -230,9 +255,8 @@ def due_fattori_azzera(request, pk):
     return redirect("core:utente", pk=pk)
 
 
-@login_required
+@post_con_accesso
 @permission_required(GESTIONE, raise_exception=True)
-@require_POST
 def livello(request, pk):
     """Una cella della matrice: l'eccezione di un utente in un modulo («ruolo» la toglie)."""
     utente = _utente(request, pk)
@@ -311,9 +335,8 @@ def ruolo(request, pk=None):
                                                        "utenti": istanza.profili.count() if istanza else 0})
 
 
-@login_required
+@post_con_accesso
 @permission_required("core.delete_ruolo", raise_exception=True)
-@require_POST
 def ruolo_elimina(request, pk):
     r = get_object_or_404(Ruolo, pk=pk)
     if r.profili.exists():
@@ -404,9 +427,8 @@ def dipartimento(request, pk=None):
         "persone": [{"u": u, "scelta": u.pk in membri_scelti} for u in persone], "posti": posti})
 
 
-@login_required
+@post_con_accesso
 @permission_required("core.delete_dipartimento", raise_exception=True)
-@require_POST
 def dipartimento_elimina(request, pk):
     d = get_object_or_404(Dipartimento, pk=pk)
     nome = str(d)

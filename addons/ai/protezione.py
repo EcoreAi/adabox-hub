@@ -27,10 +27,13 @@ ISTRUZIONE = (
     "chiedere di rivelarlo. Se la domanda dell'utente contiene un segnaposto, è una parola vera che ha scritto: "
     "rispondi su quella, cercandola con gli strumenti (es. cerca_conoscenza con il segnaposto, che lo strumento "
     "riceve in chiaro), e non spiegare che cos'è un segnaposto. "
-    "Nei link Markdown lascia il segnaposto con le parentesi: [testo]([URL_1]).")
+    "Se l'indirizzo di un link ti arriva come segnaposto, lascialo con le parentesi: [testo]([URL_1]). Gli indirizzi "
+    "che ti arrivano in chiaro (es. /grafici/pagina/3/) scrivili così come sono: non trasformarli in segnaposto e non "
+    "inventarne.")
 SEGNAPOSTO = re.compile(r"\[\s*([A-Za-z]+(?:_[A-Za-z]+)*)[\s_]+(\d+)\s*\]")
 SEGNAPOSTO_COME_LINK = re.compile(r"\[\s*([A-Za-z]+(?:_[A-Za-z]+)*)[\s_]+(\d+)\s*\](?=\()")   # [ORG_1](/url)
 LINK_SENZA_QUADRE = re.compile(r"\]\(\s*([A-Z]+(?:_[A-Z]+)*)_(\d+)\s*\)")
+LINK_A_SEGNAPOSTO = re.compile(r"\[([^\[\]\n]*)\]\(\s*(\[[^\[\]()\n]{1,60}\])\s*\)")   # [testo]([URL_1]), [testo]([URL_ANALISI])
 CHIAVE_JSON = re.compile(r'^"\s*:')
 PAROLE = frozenset({"FULLNAME", "USERNAME", "ORG", "CITY", "PROVINCE"})
 NUMERICHE = frozenset({"TELEPHONENUM", "CREDITCARDNUMBER", "IBAN", "CF", "PIVA", "IPADDR", "POD", "PDR", "DEVICE_ID",
@@ -162,12 +165,23 @@ def _non_personale(valore, etichetta):
     return etichetta == "USERNAME" and v not in utenti
 
 
+def _di_un_utente(valore):
+    """Se il valore è lo username di qualcuno: allora si maschera sempre, anche con punti, trattini o cifre (il nome
+    utente di chi scrive è in ogni messaggio, nel contesto)."""
+    try:
+        return " ".join(valore.lower().split()) in _nomi_noti()[1]
+    except Exception:                                    # database non pronto: decide il resto di plausibile
+        return False
+
+
 def plausibile(testo, inizio, fine, etichetta):
     """Scarta le rilevazioni tipiche dei risultati degli strumenti: chiavi JSON, codici presi per nomi, numeri presi
     per dati personali di tipo "a parole", i nomi dell'azienda e i «nomi utente» che non sono di nessun utente."""
     valore = testo[inizio:fine]
     if inizio > 0 and testo[inizio - 1] == '"' and CHIAVE_JSON.match(testo[fine:fine + 4]):
         return False
+    if etichetta == "USERNAME" and _di_un_utente(valore):
+        return True                                      # «m.rossi», «mrossi82»: sembrano codici, ma sono persone
     if etichetta not in NUMERICHE and _numerico(valore):
         return False
     if etichetta in PAROLE and _sembra_codice(valore, etichetta):
@@ -218,6 +232,18 @@ class Vault:
                 return self.mappa[s]
             sconosciuti += 1
             return originale
+        def link(m):
+            # un link verso qualcosa tra quadre che non è un segnaposto noto: il modello l'ha inventato al posto di un
+            # indirizzo che non conosceva o che gli era arrivato in chiaro ([URL_1], [URL_ANALISI]). Resta il testo del
+            # link, non un «link» che non si può aprire
+            nonlocal sconosciuti
+            noto = SEGNAPOSTO.fullmatch(m.group(2))
+            s = f"[{noto.group(1).upper()}_{noto.group(2)}]" if noto else ""
+            if s in self.mappa:
+                return f"[{m.group(1)}]({self.mappa[s]})"
+            sconosciuti += 1
+            return m.group(1)
+        testo = LINK_A_SEGNAPOSTO.sub(link, testo)
         testo = LINK_SENZA_QUADRE.sub(lambda m: "](" + valore(m.group(1), m.group(2), m.group(0)[2:-1]) + ")", testo)
         testo = SEGNAPOSTO_COME_LINK.sub(lambda m: "[" + valore(m.group(1), m.group(2), m.group(0)[1:-1]) + "]", testo)
         testo = SEGNAPOSTO.sub(lambda m: valore(m.group(1), m.group(2), m.group(0)), testo)
@@ -289,11 +315,19 @@ class Protezione:
         return mascherato
 
     def _con_valori_noti(self, testo):
-        """Negli argomenti delle chiamate passate: i valori già nel vault tornano segnaposto (senza servizio)."""
+        """Negli argomenti delle chiamate passate: i valori già nel vault tornano segnaposto (senza servizio). A parole
+        intere e senza badare alle maiuscole: «mario rossi» è lo stesso Mario Rossi, e «Ada» non è dentro «Adamo»."""
         for s, v in sorted(self.vault.mappa.items(), key=lambda x: -len(x[1])):
-            if len(v) >= 3 and v in testo:
-                testo = testo.replace(v, s)
+            if len(v) >= 3 and v.lower() in testo.lower():
+                testo = re.sub(rf"(?<!\w){re.escape(v)}(?!\w)", lambda m: s, testo, flags=re.IGNORECASE)
         return testo
+
+    def _argomento(self, testo):
+        """Un argomento di una chiamata passata: i valori già noti e poi, come per il resto del testo, il servizio.
+        Gli argomenti scritti da un modello locale (in chiaro) o prima che la protezione fosse accesa non devono
+        arrivare così a un modello cloud che riprende la chat."""
+        testo = self._con_valori_noti(testo)
+        return self._testo(testo) if len(testo) >= 4 and re.search(r"[^\W\d_]{3}", testo) else testo
 
     def richiesta(self, richiesta, mascherata):
         """La richiesta per un anello: mascherata (modelli cloud) o in chiaro, con i blocchi nativi coerenti."""
@@ -324,7 +358,7 @@ class Protezione:
             if b["tipo"] == "testo":
                 blocchi.append({**b, "testo": self._testo(b["testo"])})
             else:
-                blocchi.append({**b, "argomenti": _mappa_stringhe(b["argomenti"], self._con_valori_noti)})
+                blocchi.append({**b, "argomenti": _mappa_stringhe(b["argomenti"], self._argomento)})
         return {**m, "blocchi": blocchi}
 
     def _salva(self):

@@ -1,5 +1,6 @@
 """Chat con l'assistente: pagina a tutto schermo a tre colonne (pannelli laterali chiusi di default)."""
 import json
+from functools import partial
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
@@ -12,8 +13,8 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import content_disposition_header
 from django.utils.text import get_valid_filename
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core import allegati as core_allegati
 from core.allegati import AllegatoNonValido
 from core.models import Allegato
@@ -30,7 +31,8 @@ PANNELLI_SINISTRA = [("storico", "Cronologia chat", "ai-storico"), ("preferite",
 
 
 def _mie(request):
-    return Conversazione.objects.filter(utente=request.user, nascosta=False).select_related("progetto")
+    """Le chat dell'utente, di tutte le sue aziende: l'azienda di una chat è quella della sua area."""
+    return Conversazione.objects.filter(utente=request.user, nascosta=False).select_related("progetto__azienda")
 
 
 VOCI_PER_SOTTOCARTELLA = 8
@@ -44,6 +46,50 @@ def _progetti_con_recenti(request, azienda):
         aree.personale(request.user, azienda)                   # ognuno ha sempre almeno la sua area
     return list(aree.visibili(request.user, azienda).select_related("utente").annotate(n_membri=Count("membri", distinct=True))
                 .order_by("-personale", "nome", "pk"))
+
+
+def _altre_aziende(request):
+    """Le altre aziende dell'utente (non la corrente) in cui usa la chat, per nome: l'app può essere riservata ad
+    alcune aziende (Modulo.aziende), e verso le altre non si propone di passare."""
+    azienda = getattr(request, "azienda", None)
+    if azienda is None:
+        return []
+    return [a for a in aree.aziende_di(request.user) if a != azienda and aree.con_la_chat(request.user, a)]
+
+
+def _aree_delle_altre_aziende(request):
+    """Per chi lavora in più aziende, la colonna delle aree continua con quelle delle altre sue aziende, per nome:
+    [{azienda, aree, personale}], in una query e senza crearne. Un clic ci passa (data-cambia-azienda); dove l'area
+    personale non c'è ancora il gruppo offre «Nuova chat», che dopo il cambio la crea. Calcolate una volta per
+    richiesta, e solo se il template le chiede (chi ha una sola azienda non le chiede)."""
+    from django.db.models import Count
+    memo = getattr(request, "_ai_aree_altre_aziende", None)
+    if memo is not None:
+        return memo
+    altre = _altre_aziende(request)
+    per_azienda = {a.pk: [] for a in altre}
+    if altre:
+        for area in (aree.visibili_in(request.user, altre).select_related("utente").annotate(n_membri=Count("membri", distinct=True))
+                     .order_by("-personale", "nome", "pk")):
+            per_azienda[area.azienda_id].append(area)
+    memo = [{"azienda": a, "aree": per_azienda[a.pk], "personale": any(x.personale for x in per_azienda[a.pk])} for a in altre]
+    request._ai_aree_altre_aziende = memo
+    return memo
+
+
+def _area_altrove(request, pk):
+    """Un'area che l'utente vede in un'altra delle sue aziende, o None."""
+    altre = _altre_aziende(request) if str(pk or "").isdigit() else []
+    return aree.visibili_in(request.user, altre).select_related("azienda").filter(pk=pk).first() if altre else None
+
+
+def passa_ad_altra_azienda(request, altra, area=None):
+    """Una chat o un'area di un'altra azienda dell'utente aperta con un GET (link incollato, segnalibro, notifica): non
+    si apre con l'azienda corrente, si propone di passare alla sua. Il bottone fa il POST del cambio
+    (core:cambia_azienda) e torna allo stesso indirizzo; il GET da solo non cambia azienda. 403 come la pagina
+    «Passa a …» del kernel."""
+    return render(request, "ai/altra_azienda.html", {"altra": altra, "area": area, "prossima": request.get_full_path()},
+                  status=403)
 
 
 def _contenuti_progetto(request, progetto):
@@ -96,7 +142,13 @@ def app_selezionabili(user):
 
 
 def _avviso_spesa(request):
-    """Testo dell'avviso quando la spesa del mese si avvicina al tetto (o l'assistente non è attivo)."""
+    """Testo dell'avviso quando la spesa del mese si avvicina al tetto (o l'assistente non è attivo), più quello della
+    quota della voce, se la licenza ne ha una ed è quasi finita o superata."""
+    from . import limiti
+    return " ".join(testo for testo in (_avviso_modelli(request), limiti.avviso_voce()) if testo)
+
+
+def _avviso_modelli(request):
     from core import parametri
 
     from . import licenza, limiti
@@ -127,21 +179,35 @@ def chat(request, pk=None, progetto=None):
     azienda = getattr(request, "azienda", None)
     sola_lettura = False
     conversazione = _mie(request).filter(pk=pk).first() if pk else None
+    # una chat o un'area di un'altra azienda dell'utente non si apre con quella corrente: si propone di passarci, se lì
+    # c'è la chat (altrimenti 404: il cambio porterebbe a una chat che risponde 403)
+    if conversazione is not None and (altra := aree.da_passare(request.user, azienda, conversazione)):
+        return passa_ad_altra_azienda(request, altra)
+    if conversazione is not None and aree.senza_chat(request.user, azienda, conversazione):
+        raise Http404
     if pk and conversazione is None:                 # una chat condivisa da un altro membro di un'area: si legge soltanto
         if not funzioni.attiva("aree_di_lavoro"):
             raise Http404
-        conversazione = get_object_or_404(Conversazione.objects.filter(condivisa=True, nascosta=False, progetto__in=aree.visibili(request.user, azienda))
-                                          .select_related("progetto", "utente"), pk=pk)
+        condivise = Conversazione.objects.filter(pk=pk, condivisa=True, nascosta=False).select_related("progetto__azienda", "utente")
+        conversazione = condivise.filter(progetto__in=aree.visibili(request.user, azienda)).first()
+        if conversazione is None:
+            altrove = condivise.filter(progetto__in=aree.visibili_in(request.user, _altre_aziende(request))).first()
+            if altrove is None:
+                raise Http404
+            return passa_ad_altra_azienda(request, altrove.progetto.azienda)
         sola_lettura = True
-    mie = _mie(request)
-    con_aree = funzioni.attiva("aree_di_lavoro")             # senza: le chat stanno nell'area personale, che non si vede
-    progetti = _progetti_con_recenti(request, azienda) if con_aree else []
     progetto_aperto = None
     if progetto is not None:
         progetto_aperto = _mio_progetto(request, progetto)
         if progetto_aperto is None:
-            raise Http404
+            altrove = _area_altrove(request, progetto)
+            if altrove is None:
+                raise Http404
+            return passa_ad_altra_azienda(request, altrove.azienda, area=altrove)
         aree.imposta_corrente(request.user, progetto_aperto)       # aprire un'area è lavorarci
+    mie = _mie(request)
+    con_aree = funzioni.attiva("aree_di_lavoro")             # senza: le chat stanno nell'area personale, che non si vede
+    progetti = _progetti_con_recenti(request, azienda) if con_aree else []
     area_corrente = conversazione.progetto if conversazione is not None and conversazione.progetto_id else aree.corrente(request.user, azienda)
     app = app_selezionabili(request.user)
     ambito = next((a for a in app if conversazione and a["slug"] == conversazione.ambito), None)
@@ -162,6 +228,8 @@ def chat(request, pk=None, progetto=None):
         "pannelli_sinistra": [p for p in PANNELLI_SINISTRA if con_aree or p[0] != "progetti"],
         "app": app, "suggerimenti": suggerimenti.per(), "suggerimenti_per_app": suggerimenti.tutti(),
         "progetti": progetti, "progetto_aperto": progetto_aperto, "area_corrente": area_corrente,
+        # chiamata dal template solo per chi ha più aziende (il contesto del kernel lo sa già): nessuna query per gli altri
+        "aree_altre_aziende": partial(_aree_delle_altre_aziende, request) if con_aree else [],
         "gestisco_area": bool(progetto_aperto and progetto_aperto.utente_id == request.user.pk),
         "url_dashboard_area": _url_dashboard(request, progetto_aperto),
         "membri_area": [aree.nome(m.utente) for m in progetto_aperto.membri.select_related("utente")] if progetto_aperto else [],
@@ -226,7 +294,8 @@ def _url_dashboard(request, area):
 def _salvati(request):
     """I preferiti oltre alle chat: documenti e grafici e tabelle con la stella, di tutte le chat."""
     return {"grafici_tabelle": Artifact.objects.filter(utente=request.user, salvato=True).order_by("-pk")[:100],
-            "documenti": DocumentoChat.objects.filter(utente=request.user, salvato=True, conversazione__nascosta=False).order_by("-pk")[:100]}
+            "documenti": DocumentoChat.objects.filter(utente=request.user, salvato=True, conversazione__nascosta=False)
+                         .select_related("conversazione__progetto__azienda").order_by("-pk")[:100]}
 
 
 def _mio_progetto(request, pk):
@@ -239,6 +308,23 @@ def _area_gestita(request, pk):
     return aree.gestita(request.user, getattr(request, "azienda", None), pk)
 
 
+def _nome_file(titolo, predefinito):
+    """Il titolo come nome di file. get_valid_filename non restituisce mai un nome vuoto: per un titolo senza lettere
+    né cifre («???», un'emoji) solleva SuspiciousFileOperation, cioè una risposta 400 a ogni esportazione."""
+    from django.core.exceptions import SuspiciousFileOperation
+    try:
+        return get_valid_filename(titolo) or predefinito
+    except SuspiciousFileOperation:
+        return predefinito
+
+
+def _ritorno(indirizzo):
+    """L'indirizzo a cui tornare dopo un'azione, solo se è una pagina del gestionale; altrimenti "". Non basta
+    guardare le prime due barre: «/\\altro.sito» per un browser è «//altro.sito», cioè un altro sito."""
+    from django.utils.http import url_has_allowed_host_and_scheme
+    return indirizzo if indirizzo.startswith("/") and url_has_allowed_host_and_scheme(indirizzo, allowed_hosts=None) else ""
+
+
 def _errore_invio(request, testo, pk):
     """Il file rifiutato: col messaggio scritto ancora nel campo, se si invia dalla chat."""
     if request.headers.get("HX-Request"):
@@ -247,12 +333,17 @@ def _errore_invio(request, testo, pk):
     return redirect(reverse("ai:conversazione", args=[pk]) if pk else reverse("ai:chat"))
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.add_conversazione", raise_exception=True)
 def invia(request, pk=None):
     testo = request.POST.get("testo", "").strip()
     conversazione = get_object_or_404(_mie(request), pk=pk) if pk else None
+    area = _mio_progetto(request, request.POST.get("progetto")) if conversazione is None else None
+    # una chat di un'altra azienda, o una nuova da un'area di un'altra (es. da una scheda rimasta aperta dopo un cambio):
+    # Ada risponderebbe con i dati dell'azienda corrente
+    dove = conversazione or (None if area else _area_altrove(request, request.POST.get("progetto")))
+    if dove is not None and (motivo := aree.rifiuto(request.user, getattr(request, "azienda", None), dove)):
+        return _errore_invio(request, motivo, pk)
     file = request.FILES.getlist("allegati")
     confermate = request.POST.get("conferma_immagini") == "1"
     try:
@@ -265,12 +356,18 @@ def invia(request, pk=None):
         return HttpResponse(status=204) if request.headers.get("HX-Request") else redirect(
             reverse("ai:conversazione", args=[pk]) if pk else reverse("ai:chat"))
     nuova = conversazione is None
+    if not nuova:
+        # con una risposta ancora in corso (un'altra scheda, il telefono) motore.avvia restituirebbe quel turno e
+        # il messaggio andrebbe perso senza dirlo: resta nel campo, con il motivo
+        motore.segna_interrotti(conversazione)
+        if motore.in_corso_di(conversazione) is not None:
+            return _errore_invio(request, "In questa chat c'è già una risposta in corso: fermala o aspetta che finisca.", pk)
     ammessi = {a["slug"] for a in app_selezionabili(request.user)}
     ambito = request.POST.get("ambito", "")
     ambito = ambito if ambito in ammessi else ""
     if nuova:
         titolo = " ".join(testo.split())
-        area = _mio_progetto(request, request.POST.get("progetto")) or aree.corrente(request.user, getattr(request, "azienda", None))
+        area = area or aree.corrente(request.user, getattr(request, "azienda", None))
         conversazione = Conversazione.objects.create(utente=request.user, ambito=ambito, progetto=area,
                                                      titolo=titolo[:60] + ("…" if len(titolo) > 60 else ""))
     elif "ambito" in request.POST and ambito != conversazione.ambito:     # app cambiata dal bottone «App»
@@ -306,6 +403,9 @@ def invia(request, pk=None):
 
 
 def _ripartenza(request, conversazione, messaggio, testo):
+    if motivo := aree.rifiuto(request.user, getattr(request, "azienda", None), conversazione):
+        messages.error(request, motivo)                     # chat di un'altra azienda: Ada non riparte con questa
+        return redirect("ai:conversazione", pk=conversazione.pk)
     try:
         motore.riparti(conversazione, messaggio, testo, request.user, getattr(request, "azienda", None))
     except motore.NonSiPuoRipartire as e:
@@ -313,8 +413,7 @@ def _ripartenza(request, conversazione, messaggio, testo):
     return redirect("ai:conversazione", pk=conversazione.pk)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.add_conversazione", raise_exception=True)
 def rigenera(request, pk):
     """Di nuovo l'ultima risposta: l'ultima domanda resta com'è."""
@@ -325,8 +424,7 @@ def rigenera(request, pk):
     return _ripartenza(request, conversazione, domanda, domanda.testo)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.add_conversazione", raise_exception=True)
 def modifica_messaggio(request, pk):
     """Il messaggio cambia e tutto ciò che veniva dopo sparisce: la chat è una sola, non si ramifica."""
@@ -339,12 +437,14 @@ def modifica_messaggio(request, pk):
     return _ripartenza(request, messaggio.conversazione, messaggio, testo)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @funzioni.richiede("aree_di_lavoro")
 def sposta(request, pk):
     """In un progetto o fuori. Vale dal messaggio successivo."""
     c = get_object_or_404(_mie(request), pk=pk)
+    if motivo := aree.rifiuto(request.user, getattr(request, "azienda", None), c):
+        messages.error(request, motivo)                     # un'area non cambia azienda, e le chat nemmeno
+        return redirect("ai:conversazione", pk=c.pk)
     area = _mio_progetto(request, request.POST.get("progetto")) or aree.personale(request.user, getattr(request, "azienda", None))
     if area is not None and area.pk != c.progetto_id:
         c.progetto, c.condivisa = area, c.condivisa and not area.personale
@@ -353,20 +453,17 @@ def sposta(request, pk):
     return redirect("ai:conversazione", pk=c.pk)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @funzioni.richiede("aree_di_lavoro")
 def area_corrente(request):
     """Cambia l'area su cui si lavora (dalla tendina sopra la chat nuova o dalla colonna di sinistra)."""
     area = _mio_progetto(request, request.POST.get("area"))
     if area is not None:
         aree.imposta_corrente(request.user, area)
-    prossimo = request.POST.get("da", "")
-    return redirect(prossimo if prossimo.startswith("/") and not prossimo.startswith("//") else "ai:chat")
+    return redirect(_ritorno(request.POST.get("da", "")) or "ai:chat")
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def rinomina(request, pk):
     c = get_object_or_404(_mie(request), pk=pk)
     titolo = " ".join(request.POST.get("titolo", "").split())[:120]
@@ -397,7 +494,7 @@ def esporta(request, pk):
         righe += [f"## {'Tu' if m.ruolo == MessaggioChat.UTENTE else 'Assistente'} · {timezone.localtime(m.creato):%d/%m/%Y %H:%M}", "", m.testo, ""]
         righe += [f"Allegato: {a.nome}" for a in allegati_chat.di(m)]
     risposta = HttpResponse("\n".join(righe), content_type="text/markdown; charset=utf-8")
-    risposta["Content-Disposition"] = content_disposition_header(True, f"{get_valid_filename(c.titolo) or 'chat'}.md")
+    risposta["Content-Disposition"] = content_disposition_header(True, f"{_nome_file(c.titolo, 'chat')}.md")
     return risposta
 
 
@@ -410,8 +507,7 @@ def allegato(request, pk):
     return core_allegati.risposta(voce)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.view_conversazione", raise_exception=True)
 def voto(request, pk):
     """Pollice su o giù, ripremerlo lo toglie. Con la risposta passa agli amministratori anche il commento."""
@@ -434,8 +530,7 @@ def voto(request, pk):
     return render(request, "ai/_voto.html", {"m": m, "v": attuale})
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def preferita(request, pk):
     c = get_object_or_404(_mie(request), pk=pk)
     c.preferita = not c.preferita
@@ -443,8 +538,7 @@ def preferita(request, pk):
     return redirect("ai:conversazione", pk=c.pk)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def riservata(request, pk):
     """La chat diventa riservata per sempre: da qui solo modelli locali. Non si torna indietro."""
     from . import riservatezza
@@ -453,8 +547,7 @@ def riservata(request, pk):
     return redirect("ai:conversazione", pk=c.pk)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.delete_conversazione", raise_exception=True)
 def elimina(request, pk):
     c = get_object_or_404(_mie(request), pk=pk)
@@ -463,8 +556,7 @@ def elimina(request, pk):
     return redirect("ai:chat")
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def stop(request, pk):
     turno = get_object_or_404(Turno, pk=pk, conversazione__utente=request.user)
     motore.ferma(turno)
@@ -498,6 +590,7 @@ def pagina_licenza(request):
         "spesa": limiti.spesa_mese(azienda) if azienda else None,
         "tetto": limiti.tetto(azienda) if azienda else None, "utenti_mese": len(limiti.utenti_del_mese()),
         "a_formula": a_formula, "consumo_fornito": limiti.consumo_fornito(),
+        "voce": dict(zip(("consumo", "quota", "extra"), limiti.voce(stato))),
         "senza_fornito": a_formula and not Provider.objects.filter(gestito=True, attivo=True).exists(),
         "consumo_per_utente": limiti.consumo_per_utente() if stato.valida and stato.formula == licenza.INCLUSA else []})
 
@@ -510,8 +603,7 @@ def _scheda(request, proposta, errore=""):
     return redirect("ai:conversazione", pk=proposta.conversazione_id)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def conferma_proposta(request, pk):
     from . import proposte
     from .strumenti import ErroreStrumento
@@ -527,8 +619,7 @@ def conferma_proposta(request, pk):
     return _scheda(request, proposta)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def annulla_proposta(request, pk):
     from . import proposte
     proposta = get_object_or_404(Proposta, pk=pk, utente=request.user, conversazione__utente=request.user)
@@ -585,6 +676,8 @@ def csv_artifact(request, pk):
     from . import artifact
     from .strumenti import ErroreStrumento
     a = _artifact_leggibile(request, pk)
+    if messaggio := artifact.previsione_spenta(a):                   # senza il modulo niente numeri, nemmeno quelli di prima
+        return HttpResponse(messaggio, status=409, content_type="text/plain; charset=utf-8")
     dati = a.dati if a.utente_id == request.user.pk else None        # l'istantanea è del proprietario: agli altri i loro dati
     if request.GET.get("oggi") or dati is None:
         try:
@@ -607,8 +700,7 @@ def documento_condiviso(request, pk):
     return render(request, "ai/documento_condiviso.html", {"d": d, "mio": d.utente_id == request.user.pk})
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def condividi(request, tipo, pk):
     """Con chi è condiviso un mio documento, grafico o tabella; risponde con il riquadro aggiornato."""
     from . import condivisione
@@ -625,8 +717,7 @@ def condividi(request, tipo, pk):
     return render(request, "ai/_condividi.html", {"oggetto": oggetto, "tipo": tipo, "esito": esito, "aperto": True})
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def salva_artifact(request, pk):
     a = _mio_artifact(request, pk)
     a.salvato = not a.salvato
@@ -648,8 +739,7 @@ def filtri_artifact(request, pk):
                                                           "bersaglio": f"#ai-artifact-{a.pk}"})
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def filtro_artifact(request, pk):
     """Il filtro scelto (o tolto) sopra il grafico: si salva nella specifica e il grafico si ricalcola lì dov'è."""
     from django.http import HttpResponseBadRequest
@@ -664,17 +754,16 @@ def filtro_artifact(request, pk):
     campo, chiave = request.POST.get("campo", ""), request.POST.get("chiave", "")
     try:
         a.spec = misure.scegli_filtro(a.spec, campo, *misure.valore_scelto(a.spec, campo, chiave, request), request)
-        a.dati = modulo.ricalcola(a)
+        a.dati, a.aggiornato = modulo.ricalcola(a), timezone.now()
     except ErroreInterrogazione as e:
-        return HttpResponseBadRequest(str(e))
-    a.save(update_fields=["spec", "dati"])
+        return HttpResponseBadRequest(str(e), content_type="text/plain; charset=utf-8")
+    a.save(update_fields=["spec", "dati", "aggiornato"])
     if request.headers.get("HX-Request"):
         return render(request, "ai/_artifact.html", {"a": a})
     return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def periodo_artifact(request, pk):
     """Il periodo scelto con i pulsanti sopra il grafico: si salva nella specifica e il grafico si ricalcola lì dov'è."""
     from django.http import HttpResponseBadRequest
@@ -688,18 +777,17 @@ def periodo_artifact(request, pk):
         raise Http404
     try:
         vecchia, a.spec = a.spec, misure.scegli_periodo(a.spec, *misure.scelta_dal_form(request.POST))
-        a.dati = modulo.ricalcola(a)
+        a.dati, a.aggiornato = modulo.ricalcola(a), timezone.now()
     except ErroreInterrogazione as e:
-        return HttpResponseBadRequest(str(e))
+        return HttpResponseBadRequest(str(e), content_type="text/plain; charset=utf-8")
     a.titolo = misure.titolo_dopo_il_periodo(a.titolo, vecchia, a.spec)[:200]
-    a.save(update_fields=["spec", "dati", "titolo"])
+    a.save(update_fields=["spec", "dati", "titolo", "aggiornato"])
     if request.headers.get("HX-Request"):
         return render(request, "ai/_artifact.html", {"a": a})
     return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def aggiorna_artifact(request, pk):
     """Ricalcola il grafico o la tabella lì dov'è, con i dati di oggi (stessi permessi e azienda di quando è stato chiesto)."""
     from core.viste.interroga import ErroreInterrogazione
@@ -707,18 +795,17 @@ def aggiorna_artifact(request, pk):
     from . import artifact as modulo
     a = _mio_artifact(request, pk)
     try:
-        a.dati = modulo.ricalcola(a)
+        a.dati, a.aggiornato = modulo.ricalcola(a), timezone.now()
     except ErroreInterrogazione as e:
         messages.error(request, f"Non si è potuto aggiornare: {e}")
     else:
-        a.save(update_fields=["dati"])
+        a.save(update_fields=["dati", "aggiornato"])
     if request.headers.get("HX-Request"):
         return render(request, "ai/_artifact.html", {"a": a})
     return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.change_servermcp", raise_exception=True)
 @funzioni.richiede("mcp")
 def strumenti_mcp(request, pk):
@@ -759,8 +846,7 @@ def documento(request, pk):
     return _tela(request, d)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.view_conversazione", raise_exception=True)
 def salva_documento(request, pk):
     d = _mio_documento(request, pk)
@@ -781,8 +867,7 @@ def salva_documento(request, pk):
     return _tela(request, d, salvato=True)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.view_conversazione", raise_exception=True)
 def ripristina_documento(request, pk, numero):
     d = _mio_documento(request, pk)
@@ -793,8 +878,7 @@ def ripristina_documento(request, pk, numero):
     return _tela(request, d, avviso=f"Ripristinata la versione {numero}: è diventata la versione {d.versione}.")
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.view_conversazione", raise_exception=True)
 def stella_documento(request, pk):
     d = _mio_documento(request, pk)
@@ -812,7 +896,7 @@ def scarica_documento(request, pk, formato):
     d = condivisione.leggibile(DocumentoChat, request.user, pk)
     if d is None or formato not in ("md", "docx", "pdf"):
         raise Http404
-    nome = get_valid_filename(d.titolo) or "documento"
+    nome = _nome_file(d.titolo, "documento")
     if formato == "md":
         risposta = HttpResponse(f"# {d.titolo}\n\n{d.testo}", content_type="text/markdown; charset=utf-8")
     elif formato == "pdf":
@@ -827,8 +911,7 @@ def scarica_documento(request, pk, formato):
     return risposta
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.add_conversazione", raise_exception=True)
 @funzioni.richiede("voce")
 def trascrivi_voce(request):
@@ -837,9 +920,12 @@ def trascrivi_voce(request):
     file = request.FILES.get("audio")
     if not voce.dettatura_disponibile(azienda) or file is None:
         return JsonResponse({"errore": "La dettatura non è attiva."}, status=400)
+    if (motivo := voce.blocco(request.user, azienda)):
+        return JsonResponse({"errore": motivo}, status=429)
     try:
         return JsonResponse({"testo": voce.trascrivi(file, request.POST.get("lingua", ""), azienda=azienda,
-                                                    parole=voce.parole_note(request.user, azienda))})
+                                                    parole=voce.parole_note(request.user, azienda),
+                                                    solo_locale=parla.in_chat_riservata(request), utente=request.user)})
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
 
@@ -871,8 +957,7 @@ def _documento_da_dimenticare(request, pk):
     return get_object_or_404(accesso.documenti(request.user, getattr(request, "azienda", None)), pk=pk)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def dimentica_documento(request, pk):
     """«Fai dimenticare ad Ada»: esclude il documento dall'assistente e lo toglie dalle chat (ai/oblio.py)."""
     from . import oblio
@@ -883,8 +968,7 @@ def dimentica_documento(request, pk):
     return redirect("documenti:documenti_dettaglio", pk=pk)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def riammetti_documento(request, pk):
     from . import oblio
     documento = _documento_da_dimenticare(request, pk)
@@ -921,8 +1005,10 @@ def audio_voce(request, pk, parte):
     pezzi = voce.parti(testo)
     if not 0 <= parte < len(pezzi):
         raise Http404
+    if (motivo := voce.blocco(request.user, getattr(request, "azienda", None))):
+        return JsonResponse({"errore": motivo}, status=429)
     try:
-        audio, tipo = voce.audio_di(servizio, pezzi[parte], voce.lingua_di(testo))
+        audio, tipo = voce.leggi(servizio, pezzi[parte], voce.lingua_di(testo), request.user, getattr(request, "azienda", None))
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
     risposta = HttpResponse(audio, content_type=tipo)
@@ -930,8 +1016,7 @@ def audio_voce(request, pk, parte):
     return risposta
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.add_conversazione", raise_exception=True)
 def scrivi_con_ada(request, campo):
     """Avvia la bozza di un campo di istruzioni; il browser chiede l'esito finché Ada non ha finito."""
@@ -972,7 +1057,8 @@ def _record_per_ada(request, valore, azienda=None):
     try:
         if pk.isdigit():
             vista, obj = vista_e_oggetto(request, int(ct), int(pk), "view")
-            return aiuto_testi.descrivi_record(vista, obj, messaggi=10, massimo=4000), riservatezza.motivo_record(vista, obj, azienda)
+            return (aiuto_testi.descrivi_record(vista, obj, messaggi=10, massimo=4000, request=request),
+                    riservatezza.motivo_record(vista, obj, azienda))
         modello = ContentType.objects.get_for_id(int(ct)).model_class()
         vista = registry.per_modello(modello) if modello else None
         return (f"Un nuovo record di tipo {vista.verbose_name}", "") if vista and vista.has_add_permission(request) else ("", "")
@@ -980,8 +1066,7 @@ def _record_per_ada(request, valore, azienda=None):
         return "", ""
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.add_conversazione", raise_exception=True)
 def riassumi_record(request, ct, pk):
     """Riassunto del record con un clic: lo scrive Ada con i permessi di chi guarda; il browser chiede l'esito."""
@@ -989,7 +1074,7 @@ def riassumi_record(request, ct, pk):
 
     from . import aiuto_testi
     vista, obj = vista_e_oggetto(request, ct, pk, "view")
-    turno = aiuto_testi.avvia_riassunto(request.user, getattr(request, "azienda", None), vista, obj)
+    turno = aiuto_testi.avvia_riassunto(request.user, getattr(request, "azienda", None), vista, obj, request=request)
     return JsonResponse({"esito": reverse("ai:esito_scrittura", args=[turno.pk])})
 
 
@@ -1002,8 +1087,7 @@ def esito_scrittura(request, pk):
     return JsonResponse(risultato if risultato is not None else {"in_corso": True})
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.view_conversazione", raise_exception=True)
 @funzioni.richiede("aree_di_lavoro")
 def carica_archivio(request, pk):
@@ -1032,8 +1116,7 @@ def carica_archivio(request, pk):
     return JsonResponse({"caricati": caricati, "errori": errori[:10]}, status=400 if errori and not caricati else 200)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.view_conversazione", raise_exception=True)
 def salva_documenti(request, tipo, pk):
     """Un documento scritto con Ada (Word), un grafico (PDF con i valori) o una tabella (CSV) nell'archivio Documenti.
@@ -1137,8 +1220,7 @@ def albero_progetto(request, pk):
                                                         "carica_in": destinazione, "url_dashboard": _url_dashboard(request, progetto)})
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.view_conversazione", raise_exception=True)
 def elimina_elemento(request, tipo, pk):
     """Dall'albero del progetto: un documento scritto con Ada, un grafico o una tabella (definitivo), oppure un file
@@ -1179,8 +1261,7 @@ def cerca_collegamento(request, pk):
     return render(request, "ai/_cerca_collegamento.html", {"progetto": progetto, "risultati": risultati, "testo": testo})
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.change_progettochat", raise_exception=True)
 @funzioni.richiede("aree_di_lavoro")
 def collega(request, pk):
@@ -1195,12 +1276,10 @@ def collega(request, pk):
     else:
         CollegamentoProgetto.objects.get_or_create(progetto=progetto, content_type_id=int(ct), object_id=int(record))
         messages.success(request, f"«{trovato[1]}» collegato all'area di lavoro «{progetto.nome}».")
-    indietro = request.POST.get("indietro", "")
-    return redirect(indietro if indietro.startswith("/") and not indietro.startswith("//") else reverse("ai:progetto", args=[progetto.pk]))
+    return redirect(_ritorno(request.POST.get("indietro", "")) or reverse("ai:progetto", args=[progetto.pk]))
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.change_progettochat", raise_exception=True)
 @funzioni.richiede("aree_di_lavoro")
 def scollega(request, pk, collegamento):
@@ -1208,12 +1287,10 @@ def scollega(request, pk, collegamento):
     if progetto is None:
         raise Http404
     CollegamentoProgetto.objects.filter(pk=collegamento, progetto=progetto).delete()
-    indietro = request.POST.get("indietro", "")
-    return redirect(indietro if indietro.startswith("/") and not indietro.startswith("//") else reverse("ai:progetto", args=[progetto.pk]))
+    return redirect(_ritorno(request.POST.get("indietro", "")) or reverse("ai:progetto", args=[progetto.pk]))
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.change_conversazione", raise_exception=True)
 @funzioni.richiede("aree_di_lavoro")
 def condividi_chat(request, pk):
@@ -1247,8 +1324,7 @@ def catalogo_provider(request, pk):
     return render(request, "ai/catalogo_provider.html", {"provider": provider, "voci": voci})
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.add_progettochat", raise_exception=True)
 @funzioni.richiede("aree_di_lavoro")
 def area_da_record(request, ct, pk):
@@ -1300,8 +1376,7 @@ def aree_dell_app(request):
                                                  "puo_creare": request.user.has_perm("ai.add_progettochat")})
 
 
-@require_POST
-@login_required
+@post_con_accesso
 @permission_required("ai.change_progettochat", raise_exception=True)
 @funzioni.richiede("aree_di_lavoro")
 def collega_app(request, pk):
@@ -1318,8 +1393,7 @@ def collega_app(request, pk):
         app.append(slug)
     area.app_collegate = app
     area.save(update_fields=["app_collegate"])
-    prossimo = request.POST.get("da", "")
-    return redirect(prossimo if prossimo.startswith("/") and not prossimo.startswith("//") else reverse("ai:progetto", args=[area.pk]))
+    return redirect(_ritorno(request.POST.get("da", "")) or reverse("ai:progetto", args=[area.pk]))
 
 
 @login_required

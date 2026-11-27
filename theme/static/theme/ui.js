@@ -62,7 +62,8 @@
       nav.classList.remove('is-open');
       toggle.setAttribute('aria-expanded', 'false');
     });
-    // ricerca per nome nel menu del telefono: senza accenti né maiuscole; Invio apre la prima trovata
+    // ricerca per nome nel menu del telefono: senza accenti né maiuscole; Invio apre la prima trovata con un clic, così
+    // una voce di un'altra azienda passa dal cambio di azienda (cambia_azienda.js) come se la si toccasse
     const cerca = nav.querySelector('[data-nav-cerca]');
     const vuota = nav.querySelector('[data-nav-vuota]');
     if (cerca) {
@@ -83,7 +84,7 @@
       cerca.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter') return;
         const prima = nav.querySelector('a.is-trovata');
-        if (prima) { e.preventDefault(); window.location.href = prima.href; }
+        if (prima) { e.preventDefault(); prima.click(); }
       });
     }
   }
@@ -124,6 +125,17 @@
   } else {
     tables.forEach(reveal);
   }
+
+  // --- Contenuto arrivato dopo il caricamento (HTMX): card e tabelle si vedono come quelle della pagina. Senza, una
+  //     card rimandata dal server (hx-swap="outerHTML") restava a opacity 0 e le righe di una tabella invisibili.
+  //     Quelle che arrivano già con .is-revealed non cambiano; il primo htmx:load (sul body) è il caricamento.
+  document.addEventListener('htmx:load', (e) => {
+    const radice = e.target;
+    if (!(radice instanceof Element) || radice === document.body) return;
+    const dentro = (sel) => (radice.matches(sel) ? [radice] : []).concat(Array.from(radice.querySelectorAll(sel)));
+    dentro('.ui-card:not(.is-revealed)').forEach((c) => c.classList.add('is-revealed'));
+    dentro('table.ui-table:not(.is-revealed)').forEach(reveal);
+  });
 
   // --- Toast: window.uiToast('Salvato', 'warn'|undefined)
   window.uiToast = function (text, kind) {

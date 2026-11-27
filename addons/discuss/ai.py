@@ -29,8 +29,9 @@ def _persona(testo):
     return trovati[0] if len(trovati) == 1 else None
 
 
-def _conversazione(contesto, dove):
-    """Un canale per nome (visibile all'utente) o il messaggio diretto con una persona."""
+def _conversazione(contesto, dove, crea=True):
+    """Un canale per nome (visibile all'utente) o il messaggio diretto con una persona. `crea=False` per chi legge
+    soltanto: una lettura non deve aprire una conversazione nuova (e avvisarne l'altra persona)."""
     testo = str(dove or "").strip()
     if not testo:
         raise ErroreStrumento("Indica un canale o una persona.")
@@ -42,7 +43,10 @@ def _conversazione(contesto, dove):
     persona = _persona(testo)
     if persona is None or persona.pk == contesto.utente.pk:
         raise ErroreStrumento(f"Non trovo il canale o la persona «{testo}».")
-    return servizi.diretto([contesto.utente, persona])
+    canale = servizi.diretto([contesto.utente, persona], crea=crea)
+    if canale is None:
+        raise ErroreStrumento(f"Non hai ancora una conversazione con {persona.get_full_name() or persona.username}.")
+    return canale
 
 
 def cerca(contesto, testo):
@@ -53,7 +57,7 @@ def cerca(contesto, testo):
 
 
 def leggi(contesto, dove, quanti=30):
-    canale = _conversazione(contesto, dove)
+    canale = _conversazione(contesto, dove, crea=False)
     if not servizi.puo_vedere(contesto.utente, canale):
         raise ErroreStrumento("Non puoi leggere questa conversazione.")
     elenco = servizi.messaggi(canale)[-max(1, min(int(quanti or 30), MASSIMO_DA_LEGGERE)):]
@@ -71,8 +75,11 @@ def _destinazione(contesto, dove, testo):
 
 
 def anteprima_invia(contesto, dove, testo):
+    from ai.proposte import per_la_scheda
     canale = _destinazione(contesto, dove, testo)
-    return {"titolo": f"Scrivi a {canale.titolo_per(contesto.utente)}", "dettagli": [{"campo": "Messaggio", "dopo": testo.strip()[:1000]}]}
+    # tutto il messaggio che partirà (servizi.invia ne tiene 10.000 caratteri): prima se ne vedevano 1.000
+    return {"titolo": f"Scrivi a {canale.titolo_per(contesto.utente)}",
+            "dettagli": [{"campo": "Messaggio", "dopo": per_la_scheda(testo.strip()[:10000], massimo=10000)}]}
 
 
 def invia(contesto, dove, testo):

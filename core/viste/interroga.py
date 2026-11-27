@@ -52,6 +52,7 @@ def viste_accessibili(request, modulo="", escluse=ESCLUSE):
     limita a un'app."""
     from django.conf import settings
 
+    from core import dipartimenti
     from core.registry.modules import disattivati, per_azienda
     registry.autodiscover(["core", *settings.ADDONS_ATTIVI])
     spenti = disattivati()
@@ -61,6 +62,8 @@ def viste_accessibili(request, modulo="", escluse=ESCLUSE):
             continue
         if not per_azienda(m, getattr(request, "azienda", None), request.user):
             continue                                  # app riservata ad altre aziende (Modulo.aziende)
+        if m != "core" and not request.user.is_superuser and not dipartimenti.ammessa(request.user, m):
+            continue                                  # app fuori dai suoi dipartimenti: come il middleware e l'API
         for v in registry.viste_di(m):
             v = v.personalizzata(request)
             if getattr(v, "per_assistente", True) and v.has_view_permission(request):
@@ -138,6 +141,14 @@ def _campo(modello, nome):
     return f
 
 
+# Di un utente collegato (assegnato_a, responsabile…) si leggono i nomi, che si vedono già ovunque: non l'email,
+# l'ultimo accesso, i gruppi o se è amministratore, che raggruppando e filtrando si ricostruirebbero.
+CAMPI_UTENTE = {"id", "first_name", "last_name", "username"}
+# I campi che fanno da nome di un record collegato, e il suo id: chi vede la relazione li legge già (fase__nome,
+# ordine__numero, cliente__id).
+NOMI_COLLEGATO = {"id", "nome", "titolo", "name", "ragione_sociale", "numero", "codice", "sigla"}
+
+
 def _percorso(vista, chiave, con_operatore=True):
     """'cliente__nome__icontains' → (lookup Django, campo finale, operatore). Al massimo un salto su una relazione."""
     parti = chiave.split("__")
@@ -150,9 +161,13 @@ def _percorso(vista, chiave, con_operatore=True):
     if len(parti) == 2:
         if not f.is_relation:
             raise ErroreInterrogazione(f"«{parti[0]}» non è una relazione.")
-        f = _campo(f.related_model, parti[1])
+        collegato = f.related_model
+        f = _campo(collegato, parti[1])
         if f is None:
             raise ErroreInterrogazione(f"«{parti[0]}» non ha il campo «{parti[1]}».")
+        from django.contrib.auth import get_user_model
+        if collegato is get_user_model() and parti[1] not in CAMPI_UTENTE:
+            raise ErroreInterrogazione(f"Di «{parti[0]}» si usano solo nome, cognome e nome utente ({parti[0]}__first_name…).")
     return "__".join(parti), f, operatore
 
 
@@ -174,9 +189,31 @@ def controlla_nascosti(vista, request, *nomi):
         testo = str(nome or "")
         if ":" in testo and testo.split(":", 1)[0] in AGGREGATI:      # sum:totale → totale
             testo = testo.split(":", 1)[1]
-        radice = testo.split(":", 1)[0].split("__", 1)[0]               # data:mese → data, cliente__nome → cliente
+        parti = testo.split(":", 1)[0].split("__")                      # data:mese → data, cliente__nome → cliente, nome
+        radice = parti[0]
         if radice and radice in via:
             raise ErroreInterrogazione(f"Il campo «{radice}» non è disponibile per il tuo ruolo.")
+        if len(parti) > 1 and parti[1] not in OPERATORI:
+            _controlla_collegato(vista, request, radice, parti[1])
+
+
+def _controlla_collegato(vista, request, radice, campo):
+    """cliente__citta: il secondo campo sta in un'altra tabella. Se quella tabella ha una sua vista, il campo non deve
+    essere nascosto lì al ruolo di chi chiede e, tolti i campi che fanno da nome del record (NOMI_COLLEGATO: si leggono
+    già ovunque la relazione è mostrata), chi chiede deve poter vedere quella vista. Altrimenti da una vista che vede
+    leggerebbe, filtrando e raggruppando, i dati di una che non vede (il codice fiscale del dipendente passando dal
+    veicolo assegnato)."""
+    f = _campo(vista.model, radice)
+    if f is None or not f.is_relation:
+        return                                           # lo dice _percorso, con il suo messaggio
+    collegata = registry.per_modello(f.related_model)
+    if collegata is None:
+        return
+    from core import regole
+    if campo in regole.nascosti(collegata, request):
+        raise ErroreInterrogazione(f"Il campo «{campo}» di «{radice}» non è disponibile per il tuo ruolo.")
+    if campo not in NOMI_COLLEGATO and not collegata.has_view_permission(request):
+        raise ErroreInterrogazione(f"«{radice}__{campo}» non è disponibile: non hai accesso a «{collegata.verbose_name_plural}».")
 
 
 def filtra(vista, request, qs, testo="", filtri=None, lista=None):
@@ -617,6 +654,7 @@ def kpi(spec, request, storia=12):
         return _kpi_aziende(spec, request, aziende, storia)
     vista = vista_per_nome(spec["vista"], request)
     misura = spec.get("misura", "count") or "count"
+    controlla_nascosti(vista, request, misura, spec.get("data"))
     espressione, f_misura = _misura(vista, misura)
     unita = "€" if f_misura is not None and "€" in str(f_misura.verbose_name) else ""
     qs = filtra(vista, request, vista.get_queryset(request), spec.get("testo", ""), spec.get("filtri"), spec.get("lista")).order_by()

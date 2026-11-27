@@ -3,7 +3,7 @@
   <div class="ui-container ui-header-inner">
     <a class="ui-logo" href="/">
       <span class="ui-logo-mark">{% include "theme/partials/_logo.html" %}</span>
-      <span>{{ theme.brand }}</span>
+      <span class="ui-logo-nome">{{ theme.brand }}</span>
     </a>
 
     <nav class="ui-nav" aria-label="Principale">
@@ -12,7 +12,7 @@
       <p class="ui-nav-vuota" data-nav-vuota hidden>Nessuna app con questo nome</p>
       {% for item in theme.nav_principale|default:theme.nav %}
         <a href="{% url item.url_name %}" class="{% if current == item.url_name or item.slug == 'dashboard' and theme.nav_dashboard_attiva %}is-active{% endif %}{% if item.solo_computer %} is-solo-computer{% endif %}">{{ item.label }}</a>
-      {% endfor %}
+      {% endfor %}{% include "theme/partials/_altre_aziende.html" %}
       {% if theme.nav_altre %}
       <div class="ui-dropdown ui-nav-altre">
         <button type="button" class="ui-nav-voce{% for item in theme.nav_altre %}{% if current == item.url_name %} is-active{% endif %}{% endfor %}" aria-haspopup="true" aria-expanded="false" aria-controls="nav-altre">Altre <svg class="chev"><use href="#icon-chevron-down"/></svg></button>
@@ -75,6 +75,6 @@
         </div>
       </div>
     </div>
-  </div>
+  </div>{% include "theme/partials/_cambia_azienda.html" %}
 </header>
 {% endwith %}

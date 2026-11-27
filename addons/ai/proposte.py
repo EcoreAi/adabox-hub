@@ -25,6 +25,18 @@ def registra_guardia(funzione):
         GUARDIE.append(funzione)
     return funzione
 
+MASSIMO_IN_SCHEDA = 5000
+
+
+def per_la_scheda(testo, massimo=MASSIMO_IN_SCHEDA):
+    """Un valore da mostrare nella scheda di conferma: per intero. Oltre `massimo` caratteri si taglia, ma dicendolo:
+    chi conferma deve sapere che parte più di quello che legge (prima i tagli erano muti)."""
+    testo = str(testo)
+    if len(testo) <= massimo:
+        return testo
+    return f"{testo[:massimo]}\n… [qui la scheda si ferma: il valore intero è di {len(testo)} caratteri e parte tutto]"
+
+
 def prepara(strumento, contesto, argomenti):
     if contesto.conversazione is None:
         raise ErroreStrumento("Le modifiche si propongono solo in una chat con l'utente.")

@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="{% statico 'ai/parla.css' %}">
   <link rel="icon" type="image/svg+xml" href="{% url 'theme:favicon' %}">
   <link rel="manifest" href="{% url 'theme:manifest' %}">
+  {% include "theme/partials/_csrf.html" %}
   {% include "theme/partials/_tema.html" %}
 </head>
 {% comment %} Conversazione a voce a schermo intero, scura e immersiva: il cubo del logo in una galassia (canvas .pa-cielo a
@@ -65,6 +66,7 @@
     <p class="pa-detto" data-pa-detto hidden></p>
     <div class="pa-sottotitoli" data-pa-risposta aria-live="polite">{% if apertura %}{{ apertura.testo }}{% elif gia_qui %}Dimmi pure{% if nome %}, {{ nome }}{% endif %}.{% elif not conversazione %}Ciao{% if nome %} {{ nome }}{% endif %}, cosa posso fare per te?{% endif %}</div>
     <p class="pa-fonti" data-pa-fonti hidden></p>
+    {% if avviso_voce %}<p class="pa-fonti is-avviso">{{ avviso_voce }}</p>{% endif %}
   </section>
 
   <form class="pa-scrivi" data-pa-scrivi hidden>

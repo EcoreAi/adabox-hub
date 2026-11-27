@@ -473,12 +473,13 @@ def kpi(spec, request, storia=12):
             "storico": [(interroga.etichetta_periodo(p, periodo), valori.get(p.isoformat(), 0)) for p in periodi]}
 
 
-def storia(nome, request, per, aziende=None, di=""):
-    """{inizio del periodo: valore} di tutta la storia fino a oggi, per le previsioni."""
+def storia(nome, request, per, aziende=None, di="", scelti=None):
+    """{inizio del periodo: valore} di tutta la storia fino a oggi, per le previsioni. `scelti`: come in calcola."""
     m = per_nome(nome)
     if not m.periodo_su or per not in m.raggruppamenti:
         raise ErroreInterrogazione(f"La misura «{m.etichetta}» non ha una storia per {per}.")
-    r = calcola(nome, request, dal=datetime.date(1900, 1, 1), al=_oggi(), per=per, aziende=aziende, di=di)
+    r = calcola(nome, request, dal=datetime.date(1900, 1, 1), al=_oggi(), per=per, aziende=aziende, di=di,
+                scelti=scelti)
     return {_data(g["chiave"]): float(g["valore"] or 0) for g in r["gruppi"] if g.get("chiave")}
 
 

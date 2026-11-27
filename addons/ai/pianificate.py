@@ -75,14 +75,24 @@ def esegui_scadute():
             p.save(update_fields=["prossima"])
     fatte = 0
     for p in scadute:
-        if p.ricorrenza == Pianificata.EVENTI:
-            for evento in eventi_imminenti(p, adesso):
-                esegui(p, evento=evento)
+        try:                                         # una che va in errore non ferma le altre del giro
+            if p.ricorrenza == Pianificata.EVENTI:
+                for evento in eventi_imminenti(p, adesso):
+                    esegui(p, evento=evento)
+                    fatte += 1
+            else:
+                esegui(p)
                 fatte += 1
-        else:
-            esegui(p)
-            fatte += 1
+        except Exception:
+            log.exception("pianificata %s", p.pk)
     return f"pianificate eseguite: {fatte}"
+
+
+# Fuori dalla transazione del worker (core.lavori): un turno chiama i modelli per minuti e i suoi strumenti girano in
+# altri thread, con un'altra connessione. Dentro una transazione sola non vedrebbero il turno e la chat appena creati
+# (grafici, documenti e proposte fallirebbero), nessuno vedrebbe costi e risposte fino alla fine del giro, e un errore
+# riporterebbe indietro tutto, anche lo spostamento della prossima esecuzione: le stesse attività ripartirebbero.
+esegui_scadute.senza_transazione = True
 
 
 def _conversazione(p):
@@ -123,11 +133,23 @@ def esegui_id(pianificata_id):
     return f"turno {getattr(turno, 'pk', None)}"
 
 
+esegui_id.senza_transazione = True
+
+
 def esegui(p, evento=None):
     """Un'esecuzione della pianificazione (dal worker o da «Esegui ora»). Restituisce il turno."""
     from . import motore
     if not p.utente.is_active:
         _spegni(p, "Il proprietario non è più attivo.")
+        return None
+    # Il turno gira con l'azienda salvata nell'attività, senza passare dal middleware che controlla le aziende di chi
+    # si collega: chi è stato tolto da un'azienda continuerebbe a riceverne i dati ogni mattina.
+    from core.azienda import consentite
+    if p.azienda_id is not None and p.azienda_id not in {a.pk for a in consentite(p.utente)}:
+        _spegni(p, f"Il proprietario non ha più accesso all'azienda «{p.azienda}».")
+        return None
+    if not p.utente.has_perm("ai.add_conversazione"):
+        _spegni(p, "Il proprietario non può più usare l'assistente.")
         return None
     conversazione = _conversazione(p)
     testo = p.istruzioni if evento is None else f"{p.istruzioni}\n\nEvento: {evento['titolo']}"

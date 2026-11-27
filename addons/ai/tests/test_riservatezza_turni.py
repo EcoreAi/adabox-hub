@@ -226,6 +226,19 @@ def test_area_con_cartella_riservata(s):
     assert c.riservata and c.riservata_motivo == "cartella «Personale»" and modelli == ["finto-locale"]
 
 
+def test_area_collegata_a_un_record_di_un_app_riservata(s):
+    """La nota dell'area dice tipo e titolo dei record collegati e va al modello con il primo messaggio: se l'app del
+    record è riservata la chat lo diventa prima di partire (prima il titolo arrivava a un modello cloud)."""
+    from django.contrib.contenttypes.models import ContentType
+
+    from ai.models import CollegamentoProgetto, ProgettoChat
+    area = ProgettoChat.objects.create(utente=s["capo"], azienda=s["azienda"], nome="Capogruppo")
+    CollegamentoProgetto.objects.create(progetto=area, content_type=ContentType.objects.get_for_model(Azienda), object_id=s["azienda"].pk)
+    c = Conversazione.objects.create(utente=s["capo"], progetto=area)
+    _, modelli = _turno(s, c, [["Ciao."]])
+    assert c.riservata and c.riservata_motivo == "app «core»" and modelli == ["finto-locale"]
+
+
 def test_strumenti_verso_l_esterno_tolti_nelle_chat_riservate(s):
     c = Conversazione.objects.create(utente=s["capo"])
     with finto.con_copione([LETTURA, ["Una."]]) as chiamate:
