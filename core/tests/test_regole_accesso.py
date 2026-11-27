@@ -98,3 +98,95 @@ def test_regola_rotta_nasconde_tutto(client, s):
     RegolaRiga.objects.filter(vista="crm.opportunita").update(campo="sparito")
     client.force_login(s["anna"])
     assert "Di Anna" not in client.get("/crm/opportunita/").content.decode()
+
+
+def test_i_campi_di_una_tabella_collegata_seguono_i_permessi_di_quella_tabella(client, s):
+    """contatto__codice_fiscale da una vista che si vede: senza poter vedere i Contatti non si raggruppa, non si
+    filtra e non si ordina per i loro campi (prima bastava il salto sulla relazione per leggerli tutti)."""
+    from django.contrib.auth.models import Permission
+
+    from ai.strumenti import Contesto
+    from ai.strumenti.viste import aggrega_record, cerca_record
+    from contatti.models import Contatto
+    cliente = Contatto.objects.create(azienda=s["az"], nome="Rossi Srl", codice_fiscale="RSSMRA80A01H501U")
+    type(s["sua"]).objects.filter(pk=s["sua"].pk).update(contatto=cliente)
+    ctx = Contesto(utente=s["anna"], azienda=s["az"])
+    for chiamata in (lambda: aggrega_record(ctx, "crm.opportunita", per="contatto__codice_fiscale"),
+                     lambda: cerca_record(ctx, "crm.opportunita", filtri={"contatto__codice_fiscale__istartswith": "RSS"}),
+                     lambda: cerca_record(ctx, "crm.opportunita", ordina="-contatto__codice_fiscale")):
+        with pytest.raises(Exception, match="non hai accesso"):
+            chiamata()
+    # il nome del record collegato si legge già dove la relazione è mostrata: quello resta
+    assert "Rossi Srl" in str(aggrega_record(ctx, "crm.opportunita", per="contatto__nome")["gruppi"])
+    assert cerca_record(ctx, "crm.opportunita", filtri={"contatto__id": cliente.pk})["totale"] == 1
+    # con il permesso sui Contatti si può; con il campo nascosto al ruolo in quella vista di nuovo no
+    s["anna"].user_permissions.add(Permission.objects.get(content_type__app_label="contatti", codename="view_contatto"))
+    ctx = Contesto(utente=User.objects.get(pk=s["anna"].pk), azienda=s["az"])
+    gruppi = aggrega_record(ctx, "crm.opportunita", per="contatto__codice_fiscale")["gruppi"]
+    assert "RSSMRA80A01H501U" in str(gruppi)
+    PermessoCampo.objects.create(vista="contatti.contatti", campo="codice_fiscale", ruolo=s["anna"].profilo.ruolo, livello="nascosto")
+    cache.clear()
+    ctx = Contesto(utente=User.objects.get(pk=s["anna"].pk), azienda=s["az"])           # una richiesta nuova: i permessi si ricordano per richiesta
+    with pytest.raises(Exception, match="non è disponibile per il tuo ruolo"):
+        aggrega_record(ctx, "crm.opportunita", per="contatto__codice_fiscale")
+
+
+def test_di_un_utente_collegato_si_leggono_solo_i_nomi(client, s):
+    from ai.strumenti import Contesto
+    from ai.strumenti.viste import aggrega_record, cerca_record
+    ctx = Contesto(utente=s["anna"], azienda=s["az"])
+    assert aggrega_record(ctx, "crm.opportunita", per="commerciale__username")["gruppi"]
+    for campo in ("is_superuser", "email", "last_login", "groups"):
+        with pytest.raises(Exception, match="solo nome, cognome e nome utente"):
+            aggrega_record(ctx, "crm.opportunita", per=f"commerciale__{campo}")
+    with pytest.raises(Exception, match="solo nome, cognome e nome utente"):
+        cerca_record(ctx, "crm.opportunita", filtri={"commerciale__is_superuser": True})
+
+
+def test_ordine_e_previsione_non_usano_un_campo_nascosto_al_ruolo(client, s):
+    from ai.strumenti import Contesto, richiesta
+    from ai.strumenti.viste import cerca_record, vista_per
+    from previsioni import motore
+    ctx = Contesto(utente=s["anna"], azienda=s["az"])
+    with pytest.raises(Exception, match="non è disponibile per il tuo ruolo"):
+        cerca_record(ctx, "crm.opportunita", ordina="-valore_atteso")
+    with pytest.raises(Exception, match="non è disponibile per il tuo ruolo"):
+        motore.serie_storica(vista_per(ctx, "crm.opportunita"), richiesta.per(ctx), "creata", misura="sum:valore_atteso")
+
+
+def test_riassumi_e_scrivi_con_ada_non_riportano_i_campi_nascosti(client, s):
+    """La descrizione del record che va al modello per «Riassumi» e «Scrivi con Ada» elencava tutti i campi del
+    dettaglio: il riassunto riportava a chi chiede anche quelli che nella scheda non vede."""
+    from ai import aiuto_testi
+    from ai.strumenti import Contesto, richiesta
+    from ai.strumenti.viste import vista_per
+    from core import chatter
+    chatter.scrivi(s["sua"], s["capo"], tipo="tracciamento",
+                   modifiche=[{"campo": "valore_atteso", "label": "Valore atteso", "prima": "5000", "dopo": "7777"},
+                              {"campo": "titolo", "label": "Titolo", "prima": "Vecchio", "dopo": "Di Anna"}])
+    ctx = Contesto(utente=s["anna"], azienda=s["az"])
+    vista = vista_per(ctx, "crm.opportunita")
+    per_anna = aiuto_testi.descrivi_record(vista, s["sua"], request=richiesta.per(ctx))
+    assert "Di Anna" in per_anna and "Vecchio" in per_anna
+    assert "Valore atteso" not in per_anna and "7777" not in per_anna and "5000" not in per_anna and "5.000" not in per_anna
+    capo = Contesto(utente=s["capo"], azienda=s["az"])
+    per_il_capo = aiuto_testi.descrivi_record(vista_per(capo, "crm.opportunita"), s["sua"], request=richiesta.per(capo))
+    assert "Valore atteso" in per_il_capo and "7777" in per_il_capo
+
+
+def test_l_indice_della_conoscenza_non_contiene_i_campi_nascosti_a_un_ruolo(client, s):
+    """L'indice è uno per tutti: con le note nascoste ai commerciali, cerca_conoscenza ne restituiva l'estratto anche a
+    loro. Un campo nascosto ad almeno un ruolo non si indicizza."""
+    from django.contrib.contenttypes.models import ContentType
+
+    from ai import conoscenza
+    type(s["sua"]).objects.filter(pk=s["sua"].pk).update(note="Margine minimo accettabile: 12 per cento")
+    s["sua"].refresh_from_db()
+
+    def frammento():
+        vista, campi = next((v, c) for v, c in conoscenza._viste_indicizzabili() if v.model is type(s["sua"]))
+        ct = ContentType.objects.get_for_model(vista.model)
+        return "\n".join(f["testo"] for f in conoscenza.frammenti_di_un_record(vista, campi, ct, s["sua"]))
+    assert "Margine minimo" in frammento()
+    PermessoCampo.objects.create(vista="crm.opportunita", campo="note", ruolo=s["anna"].profilo.ruolo, livello="nascosto")
+    assert "Margine minimo" not in frammento() and "Di Anna" in frammento()

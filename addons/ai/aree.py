@@ -5,9 +5,14 @@
 - Le chat sono di chi le scrive: gli altri membri vedono solo quelle condivise con l'area, in sola lettura.
 - Ognuno ha sempre la sua area personale («Il mio spazio»): privata, non si elimina, il nome si cambia. Ogni chat sta
   in un'area: quelle che restano senza (chi esce da un'area, area eliminata) tornano nell'area personale di chi le ha
-  scritte. L'area corrente è quella su cui l'utente sta lavorando: lì nascono le chat nuove."""
+  scritte. L'area corrente è quella su cui l'utente sta lavorando: lì nascono le chat nuove.
+- Un'area è di una sola azienda e non si sposta; una chat è dell'azienda della sua area. Chi lavora in più aziende vede
+  le aree di tutte, ma apre e scrive in quelle dell'azienda corrente (dalle altre si passa con un clic)."""
 from django.contrib.auth import get_user_model
 from django.db.models import Q
+
+from core.azienda import consentite
+from core.registry import modules
 
 from .models import AreaCorrente, Conversazione, MembroArea, ProgettoChat
 
@@ -54,7 +59,68 @@ def riaccogli(conversazioni):
 def visibili(utente, azienda):
     if azienda is None:
         return ProgettoChat.objects.none()
-    return ProgettoChat.objects.filter(azienda=azienda).filter(Q(utente=utente) | Q(membri__utente=utente)).distinct()
+    return visibili_in(utente, [azienda])
+
+
+def visibili_in(utente, aziende):
+    """Le aree che l'utente vede in tutte le `aziende` (per chi lavora in più aziende: le altre sue)."""
+    return ProgettoChat.objects.filter(azienda__in=aziende).filter(Q(utente=utente) | Q(membri__utente=utente)).distinct()
+
+
+def azienda_di(oggetto):
+    """L'azienda di un'area, o di una chat: quella della sua area (None per le chat vecchie, senza area)."""
+    if isinstance(oggetto, ProgettoChat):
+        return oggetto.azienda
+    return oggetto.progetto.azienda if oggetto.progetto_id else None
+
+
+def altra_azienda(oggetto, azienda):
+    """L'azienda dell'area o della chat se non è `azienda` (la corrente), altrimenti None. Un'area resta della sua
+    azienda: ci si lavora solo con quella corrente, altrimenti Ada risponderebbe con i dati dell'altra. Le chat senza
+    area e chi non ha un'azienda corrente: None, come prima."""
+    sua = azienda_di(oggetto) if azienda is not None else None
+    return sua if sua is not None and sua.pk != azienda.pk else None
+
+
+def aziende_di(utente):
+    """Le aziende consentite dell'utente, chieste una volta per richiesta (sull'utente, come modules.aziende_ammesse)."""
+    memo = getattr(utente, "_ai_consentite", None)
+    if memo is None:
+        memo = consentite(utente)
+        utente._ai_consentite = memo
+    return memo
+
+
+def con_la_chat(utente, azienda):
+    """L'utente può lavorare in chat con `azienda`? Se è tra le sue e l'app Chat vale lì (può essere riservata ad alcune
+    aziende, Modulo.aziende): solo verso queste si propone il cambio, altrimenti si arriverebbe a una chat che dice 403."""
+    return azienda in aziende_di(utente) and modules.per_azienda("ai", azienda, utente)
+
+
+def da_passare(utente, azienda, oggetto):
+    """L'azienda della chat o dell'area se è un'altra in cui l'utente usa la chat: prima di aprirla si passa a quella.
+    None se è la corrente, se la chat non ha area o se lì l'utente non usa la chat."""
+    altra = altra_azienda(oggetto, azienda)
+    return altra if altra is not None and con_la_chat(utente, altra) else None
+
+
+def senza_chat(utente, azienda, oggetto):
+    """La chat o l'area è di un'altra azienda dell'utente in cui l'app Chat non c'è: non si apre e non ci si passa (404).
+    Un'azienda che l'utente non ha più resta com'era (le sue chat si leggono, non si scrivono)."""
+    altra = altra_azienda(oggetto, azienda)
+    return altra is not None and altra in aziende_di(utente) and not con_la_chat(utente, altra)
+
+
+def rifiuto(utente, azienda, oggetto):
+    """Perché Ada non lavora su una chat (o in un'area) di un'altra azienda, per esempio da una scheda rimasta aperta
+    dopo un cambio: risponderebbe con i dati dell'azienda corrente. "" se l'azienda è quella corrente."""
+    altra = altra_azienda(oggetto, azienda)
+    if altra is None:
+        return ""
+    cosa = "Quest'area" if isinstance(oggetto, ProgettoChat) else "Questa chat"
+    if con_la_chat(utente, altra):
+        return f"{cosa} è dell'azienda {altra}: passa a {altra} per continuare."
+    return f"{cosa} è dell'azienda {altra}, dove non puoi usare la chat: per continuare apri una chat nuova."
 
 
 def visibile(utente, azienda, pk):
@@ -81,9 +147,11 @@ def chat_visibili(utente, area):
 
 
 def candidati(area_o_azienda, proprietario):
-    """Gli utenti attivi della stessa azienda con cui si può condividere (non chi l'ha creata)."""
+    """Gli utenti attivi della stessa azienda con cui si può condividere (non chi l'ha creata): i colleghi, non gli
+    utenti esterni (i clienti del portale), come per documenti, grafici e tabelle (condivisione.colleghi)."""
     azienda = getattr(area_o_azienda, "azienda", area_o_azienda)
-    return get_user_model().objects.filter(is_active=True, profilo__aziende=azienda).exclude(pk=proprietario.pk).order_by("first_name", "username")
+    return (get_user_model().objects.filter(is_active=True, profilo__aziende=azienda).exclude(profilo__esterno=True)
+            .exclude(pk=proprietario.pk).order_by("first_name", "username"))
 
 
 def imposta_membri(area, utenti):

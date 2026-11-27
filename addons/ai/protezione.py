@@ -165,12 +165,23 @@ def _non_personale(valore, etichetta):
     return etichetta == "USERNAME" and v not in utenti
 
 
+def _di_un_utente(valore):
+    """Se il valore è lo username di qualcuno: allora si maschera sempre, anche con punti, trattini o cifre (il nome
+    utente di chi scrive è in ogni messaggio, nel contesto)."""
+    try:
+        return " ".join(valore.lower().split()) in _nomi_noti()[1]
+    except Exception:                                    # database non pronto: decide il resto di plausibile
+        return False
+
+
 def plausibile(testo, inizio, fine, etichetta):
     """Scarta le rilevazioni tipiche dei risultati degli strumenti: chiavi JSON, codici presi per nomi, numeri presi
     per dati personali di tipo "a parole", i nomi dell'azienda e i «nomi utente» che non sono di nessun utente."""
     valore = testo[inizio:fine]
     if inizio > 0 and testo[inizio - 1] == '"' and CHIAVE_JSON.match(testo[fine:fine + 4]):
         return False
+    if etichetta == "USERNAME" and _di_un_utente(valore):
+        return True                                      # «m.rossi», «mrossi82»: sembrano codici, ma sono persone
     if etichetta not in NUMERICHE and _numerico(valore):
         return False
     if etichetta in PAROLE and _sembra_codice(valore, etichetta):
@@ -304,11 +315,19 @@ class Protezione:
         return mascherato
 
     def _con_valori_noti(self, testo):
-        """Negli argomenti delle chiamate passate: i valori già nel vault tornano segnaposto (senza servizio)."""
+        """Negli argomenti delle chiamate passate: i valori già nel vault tornano segnaposto (senza servizio). A parole
+        intere e senza badare alle maiuscole: «mario rossi» è lo stesso Mario Rossi, e «Ada» non è dentro «Adamo»."""
         for s, v in sorted(self.vault.mappa.items(), key=lambda x: -len(x[1])):
-            if len(v) >= 3 and v in testo:
-                testo = testo.replace(v, s)
+            if len(v) >= 3 and v.lower() in testo.lower():
+                testo = re.sub(rf"(?<!\w){re.escape(v)}(?!\w)", lambda m: s, testo, flags=re.IGNORECASE)
         return testo
+
+    def _argomento(self, testo):
+        """Un argomento di una chiamata passata: i valori già noti e poi, come per il resto del testo, il servizio.
+        Gli argomenti scritti da un modello locale (in chiaro) o prima che la protezione fosse accesa non devono
+        arrivare così a un modello cloud che riprende la chat."""
+        testo = self._con_valori_noti(testo)
+        return self._testo(testo) if len(testo) >= 4 and re.search(r"[^\W\d_]{3}", testo) else testo
 
     def richiesta(self, richiesta, mascherata):
         """La richiesta per un anello: mascherata (modelli cloud) o in chiaro, con i blocchi nativi coerenti."""
@@ -339,7 +358,7 @@ class Protezione:
             if b["tipo"] == "testo":
                 blocchi.append({**b, "testo": self._testo(b["testo"])})
             else:
-                blocchi.append({**b, "argomenti": _mappa_stringhe(b["argomenti"], self._con_valori_noti)})
+                blocchi.append({**b, "argomenti": _mappa_stringhe(b["argomenti"], self._argomento)})
         return {**m, "blocchi": blocchi}
 
     def _salva(self):

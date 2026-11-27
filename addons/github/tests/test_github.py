@@ -145,3 +145,10 @@ def test_scheda_e_form_del_repository(client, scena):
     client.post(f"/github/repository/{repo.pk}/modifica/", {"nome": repo.nome, "progetto": repo.progetto_id,
                                                             "attivo": "on"})
     assert Repository.objects.get(pk=repo.pk).token == "ghp_nuovo"                       # vuoto: resta
+
+
+def test_il_nuovo_segreto_non_e_un_bottone_per_l_assistente():
+    """Rigenerare il segreto ferma il webhook finché non lo si aggiorna su GitHub: Ada lo proponeva come una modifica
+    qualunque. Ora è fuori dai suoi bottoni, e irreversibile per chi lo preme."""
+    from github.views import RepositoryView
+    assert RepositoryView.nuovo_segreto.ai is False and RepositoryView.nuovo_segreto.rischio == "irreversibile"

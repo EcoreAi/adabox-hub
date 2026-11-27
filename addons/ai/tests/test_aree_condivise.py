@@ -93,3 +93,24 @@ def test_un_altra_azienda_non_vede(client, a):
     MembroArea.objects.create(progetto=a["area"], utente=a["fuori"])                    # anche se finisse tra i membri
     client.force_login(a["fuori"])
     assert client.get(reverse("ai:progetto", args=[a["area"].pk])).status_code == 404
+
+
+def test_un_area_non_si_condivide_con_i_clienti_del_portale(client, a):
+    """Come documenti, grafici e tabelle: tra i colleghi con cui condividere non ci sono gli utenti esterni."""
+    cliente = _utente("dario", a["az"])
+    cliente.profilo.esterno = True
+    cliente.profilo.save()
+    assert a["bruno"] in aree.candidati(a["az"], a["u"]) and cliente not in aree.candidati(a["az"], a["u"])
+    pagina = client.get(reverse("ai:progetti_modifica", args=[a["area"].pk])).content.decode()
+    assert "Bruno" in pagina and "Dario" not in pagina
+    client.post(reverse("ai:progetti_modifica", args=[a["area"].pk]), {"nome": "Offerta Rossi", "istruzioni": "x", "membri": [cliente.pk]})
+    assert not a["area"].membri.exists()
+
+
+def test_dopo_un_azione_si_torna_solo_a_una_pagina_del_gestionale(client, a):
+    """«/\altro.sito» comincia con una barra sola, ma per un browser è «//altro.sito»: un altro sito."""
+    r = client.post(reverse("ai:area_corrente"), {"area": a["area"].pk, "da": "/\\altro.sito/x"})
+    assert r["Location"] == reverse("ai:chat")
+    r = client.post(reverse("ai:collega_app", args=[a["area"].pk]), {"app": "contatti", "da": "/\\altro.sito/x"})
+    assert r["Location"] == reverse("ai:progetto", args=[a["area"].pk])
+    assert client.post(reverse("ai:area_corrente"), {"area": a["area"].pk, "da": "/contatti/?x=1"})["Location"] == "/contatti/?x=1"

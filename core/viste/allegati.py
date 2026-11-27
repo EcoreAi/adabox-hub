@@ -3,8 +3,9 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET
 
+from core.decoratori import post_con_accesso
 from core import allegati
 from core.generici import ct_di, vista_e_oggetto
 from core.models import Allegato
@@ -23,8 +24,7 @@ def elenco(request, ct, pk):
     return _elenco(request, vista, obj)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def carica(request, ct, pk):
     vista, obj = vista_e_oggetto(request, ct, pk, "change")
     for file in request.FILES.getlist("file"):
@@ -49,8 +49,7 @@ def scarica(request, pk):
     return allegati.risposta(allegato)
 
 
-@require_POST
-@login_required
+@post_con_accesso
 def elimina(request, pk):
     allegato = get_object_or_404(Allegato, pk=pk)
     vista, obj = vista_e_oggetto(request, allegato.content_type_id, allegato.object_id, "change")

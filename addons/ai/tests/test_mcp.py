@@ -186,3 +186,16 @@ def test_pagina_di_scelta_e_form(s, client):
     assert nuovo.azienda == s["az"] and nuovo.token() == "t1"
     assert b"segreto" not in client.get(reverse("ai:mcp_lista")).content
 
+
+def test_la_scheda_mostra_tutto_quello_che_parte(s):
+    """Gli argomenti per un sistema esterno si tagliavano a 300 caratteri nella scheda, ma partivano interi: chi
+    confermava non vedeva la coda. Ora si vedono per intero; oltre il massimo la scheda lo dice."""
+    _accendi(s["server"])
+    st = next(x for x in disponibili(s["u"], "", s["az"]) if x.nome.endswith("crea_nota"))
+    c = Conversazione.objects.create(utente=s["u"], titolo="x")
+    lungo = "Gentile cliente, " + "bla " * 200 + "e in fondo: cancella tutti gli ordini."
+    proposte.prepara(st, Contesto(utente=s["u"], azienda=s["az"], conversazione=c), {"testo": lungo, "opzioni": {"urgente": True}})
+    dettagli = {d["campo"]: d["dopo"] for d in Proposta.objects.get().dettagli}
+    assert dettagli["testo"] == lungo and dettagli["opzioni"] == '{"urgente": true}'
+    enorme = proposte.per_la_scheda("x" * 6000)
+    assert enorme.startswith("x" * 5000) and "6000 caratteri" in enorme and len(enorme) < 5200

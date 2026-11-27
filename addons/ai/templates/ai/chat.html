@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="{% statico 'theme/ui.css' %}">
   <link rel="stylesheet" href="{% statico 'ai/chat.css' %}">
   <link rel="icon" type="image/svg+xml" href="{% url 'theme:favicon' %}">
+  {% include "theme/partials/_csrf.html" %}
   {% include "theme/partials/_tema.html" %}
 </head>
 {# Pagina a tutto schermo sotto l'header del tema (lo stesso di tutte le app): tre colonne, senza footer. #}
@@ -55,7 +56,7 @@
       <details class="ai-preferiti-gruppo" open><summary>Chat <span class="ai-conta">{{ preferite|length }}</span></summary>
         {% include "ai/_elenco_chat.html" with chat=preferite vuoto="Segna una chat con la stella per ritrovarla qui." %}</details>
       <details class="ai-preferiti-gruppo" open><summary>Documenti <span class="ai-conta">{{ salvati.documenti|length }}</span></summary>
-        {% if salvati.documenti %}<ul class="ai-elenco">{% for d in salvati.documenti %}<li><a href="{% url 'ai:conversazione' d.conversazione_id %}?documento={{ d.pk }}"><span class="ai-elenco-titolo">{{ d.titolo }}</span><span class="ai-elenco-data">{{ d.aggiornato|date:"d/m H:i" }}</span></a></li>{% endfor %}</ul>
+        {% if salvati.documenti %}<ul class="ai-elenco">{% for d in salvati.documenti %}{% azienda_chat d as az %}<li><a {% if az.chiusa %}title="Documento dell'azienda {{ az.nome }}, dove non puoi usare la chat"{% else %}href="{% url 'ai:conversazione' d.conversazione_id %}?documento={{ d.pk }}"{% endif %}{% if az.cambia %} data-cambia-azienda="{{ az.cambia }}" title="Passa a {{ az.nome }} e apri il documento"{% endif %}><span class="ai-elenco-titolo">{{ d.titolo }}</span><span class="ai-elenco-data">{% if az %}<span class="ai-elenco-azienda">{{ az.nome }}</span> · {% endif %}{{ d.aggiornato|date:"d/m H:i" }}</span></a></li>{% endfor %}</ul>
         {% else %}<p class="ai-preferiti-vuoto">Salva con la stella un documento scritto con Ada.</p>{% endif %}</details>
       <details class="ai-preferiti-gruppo" open><summary>Grafici e tabelle <span class="ai-conta">{{ salvati.grafici_tabelle|length }}</span></summary>
         {% include "ai/_elenco_artifact.html" with voci=salvati.grafici_tabelle %}</details>
@@ -67,12 +68,26 @@
     </section>
     <section data-contenuto="progetti" hidden>
       <header class="ai-pannello-testa"><h2>Aree di lavoro</h2><button type="button" class="ai-chiudi" data-chiudi aria-label="Chiudi"><svg><use href="#icon-x"/></svg></button></header>
+      {% comment %}chi lavora in più aziende: un gruppo per azienda, la corrente aperta e per prima, le altre chiuse e per nome.
+         aree_altre_aziende si calcola solo qui, e solo per chi ha più aziende (una volta per richiesta){% endcomment %}
+      {% if aziende|length > 1 and aree_altre_aziende %}<details class="ai-gruppo-azienda" open><summary><svg class="ai-albero-freccia" aria-hidden="true"><use href="#icon-chevron-down"/></svg><span>{{ azienda.nome }}</span><span class="ai-conta">{{ progetti|length }}</span></summary>{% endif %}
       <ul class="ai-elenco ai-progetti">{% for p in progetti %}
         {% with aperto=conversazione.progetto_id|default_if_none:0 %}
         <li class="ai-progetto-voce"><details data-albero="{% url 'ai:albero_progetto' p.pk %}{% if conversazione %}?chat={{ conversazione.pk }}{% endif %}"{% if aperto == p.pk or progetto_aperto.pk == p.pk %} open{% endif %}>
           <summary><svg class="ai-albero-freccia" aria-hidden="true"><use href="#icon-chevron-down"/></svg><a href="{% url 'ai:progetto' p.pk %}"{% if progetto_aperto.pk == p.pk or aperto == p.pk %} class="is-attiva" aria-current="page"{% endif %}><svg class="ai-progetto-icona" aria-hidden="true"><use href="#ai-cartella"/></svg><span class="ai-area-nome">{{ p.nome }}</span>{% if p.utente_id != user.pk %}<span class="ai-area-di" title="Area di {{ p.utente.get_full_name|default:p.utente.username }}, condivisa con te">di {{ p.utente.first_name|default:p.utente.username }}</span>{% elif p.n_membri %}<svg class="ai-area-condivisa" aria-label="Condivisa con {{ p.n_membri }}"><use href="#ai-persone"/></svg>{% endif %}</a></summary>
           <div class="ai-albero" data-albero-contenuto aria-live="polite"></div>
         </details></li>{% endwith %}{% empty %}<li class="ai-vuoto"><p>Un'area di lavoro raccoglie chat, istruzioni, file e record collegati su un argomento.</p></li>{% endfor %}</ul>
+      {% if aziende|length > 1 and aree_altre_aziende %}</details>{% endif %}
+      {% if aziende|length > 1 %}{% for gruppo in aree_altre_aziende %}
+      <details class="ai-gruppo-azienda"><summary><svg class="ai-albero-freccia" aria-hidden="true"><use href="#icon-chevron-down"/></svg><span>{{ gruppo.azienda.nome }}</span><span class="ai-conta">{{ gruppo.aree|length }}</span></summary>
+        {# aree di un'altra azienda: un link che passa a quell'azienda e apre l'area (senza script risponde «Passa a …») #}
+        <ul class="ai-elenco ai-progetti">
+          {# lì non ha ancora scritto: niente area personale da mostrare (un GET non la crea), ma una chat nuova ci passa #}
+          {% if not gruppo.personale %}<li class="ai-progetto-voce ai-progetto-altrove"><a href="{% url 'ai:chat' %}" data-cambia-azienda="{{ gruppo.azienda.pk }}" title="Passa a {{ gruppo.azienda.nome }} e apri una chat nuova"><svg class="ai-progetto-icona" aria-hidden="true"><use href="#ai-piu"/></svg><span class="ai-area-nome">Nuova chat</span></a></li>{% endif %}
+          {% for p in gruppo.aree %}
+          <li class="ai-progetto-voce ai-progetto-altrove"><a href="{% url 'ai:progetto' p.pk %}" data-cambia-azienda="{{ gruppo.azienda.pk }}" title="Passa a {{ gruppo.azienda.nome }} e apri l'area"><svg class="ai-progetto-icona" aria-hidden="true"><use href="#ai-cartella"/></svg><span class="ai-area-nome">{{ p.nome }}</span>{% if p.utente_id != user.pk %}<span class="ai-area-di" title="Area di {{ p.utente.get_full_name|default:p.utente.username }}, condivisa con te">di {{ p.utente.first_name|default:p.utente.username }}</span>{% elif p.n_membri %}<svg class="ai-area-condivisa" aria-label="Condivisa con {{ p.n_membri }}"><use href="#ai-persone"/></svg>{% endif %}</a></li>{% endfor %}
+        </ul>
+      </details>{% endfor %}{% endif %}
       <p class="ai-cerca-chat"><a class="ui-link" href="{% url 'ai:progetti_nuovo' %}">Nuova area di lavoro</a> · <a class="ui-link" href="{% url 'ai:progetti_lista' %}">Gestisci</a></p>
     </section>
   </aside>
@@ -153,7 +168,7 @@
             </div>
           </div>{% endif %}
           <p class="ai-voce-stato" data-voce-stato role="status" hidden></p>
-          <textarea name="testo" rows="3" class="ai-input" placeholder="{% if conversazione %}Rispondi…{% else %}Come posso aiutarti oggi?{% endif %}" aria-label="Messaggio" required>{{ chiedi }}</textarea>
+          <textarea name="testo" rows="3" class="ai-input" placeholder="{% if conversazione %}Rispondi…{% else %}Come posso aiutarti oggi?{% endif %}" aria-label="Messaggio">{{ chiedi }}</textarea>
           <div class="ai-composer-barra">
             <input type="file" name="allegati" multiple hidden data-file accept=".pdf,.docx,.xlsx,.xlsm,.csv,.tsv,.txt,.md,.json,.xml,.html,.htm,.eml,.png,.jpg,.jpeg,.webp,.gif">
             <button type="button" class="ai-tondo" data-allega data-tip="Allega PDF, Word, Excel, CSV, testo o immagini (fino a 5 file)" aria-label="Allega dei file"><svg><use href="#ai-piu"/></svg></button>
@@ -215,7 +230,7 @@
             <span class="ai-spazio"></span>
             <span class="ai-suggerimento-tasti">Invio per inviare · Maiusc+Invio per andare a capo</span>
             {% if lettura %}<button type="button" class="ai-tondo" data-voce-automatica aria-pressed="false" data-tip="Risposta vocale: leggi ad alta voce ogni nuova risposta" aria-label="Risposta vocale"><svg><use href="#ai-altoparlante"/></svg></button>{% endif %}
-            {% if dettatura %}<button type="button" class="ai-tondo ai-microfono" data-microfono data-url="{% url 'ai:trascrivi_voce' %}" data-tip="Detta il messaggio: il testo arriva qui, da rileggere prima di inviare" aria-label="Detta il messaggio" aria-pressed="false"><svg><use href="#ai-microfono"/></svg></button>{% endif %}
+            {% if dettatura %}<button type="button" class="ai-tondo ai-microfono" data-microfono data-url="{% url 'ai:trascrivi_voce' %}" data-conversazione="{{ conversazione.pk|default:'' }}" data-tip="Detta il messaggio: il testo arriva qui, da rileggere prima di inviare" aria-label="Detta il messaggio" aria-pressed="false"><svg><use href="#ai-microfono"/></svg></button>{% endif %}
             <button type="submit" class="ai-invia" aria-label="Invia"><svg><use href="#ai-freccia"/></svg></button>
             {# durante la risposta prende il posto di Invia (chat.js) #}
             <button type="button" class="ai-invia ai-ferma" data-ferma-composer aria-label="Ferma la risposta" data-tip="Ferma la risposta" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"/></svg></button>

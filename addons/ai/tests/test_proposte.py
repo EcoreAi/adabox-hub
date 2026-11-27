@@ -230,3 +230,28 @@ def test_scheda_dallo_streaming_con_token_csrf(scena):
     token = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', fine["html"]).group(1)
     r = client.post(f"/ai/proposta/{p.pk}/conferma/", {"csrfmiddlewaretoken": token}, HTTP_HX_REQUEST="true")
     assert r.status_code == 200 and Azienda.objects.filter(nome="Con token").exists()
+
+
+def test_il_cambio_tra_due_record_omonimi_si_vede_nella_scheda(scena):
+    """Il cliente passa a un altro contatto con lo stesso nome: la scheda confrontava i nomi, non i record. Da solo il
+    cambio era «nessuna modifica»; insieme a un altro spariva dalla scheda e alla conferma si faceva lo stesso."""
+    from pathlib import Path
+
+    import crm
+    from contatti.models import Contatto
+    from crm.models import Opportunita
+    from django.core.management import call_command
+
+    from ai.strumenti.scritture import anteprima_modifica
+    call_command("loaddata", str(Path(crm.__file__).parent / "data" / "iniziali.json"), verbosity=0)
+    uno, due = (Contatto.objects.create(azienda=scena["azienda"], nome="Rossi Srl") for _ in range(2))
+    o = Opportunita.objects.create(azienda=scena["azienda"], titolo="Fornitura", contatto=uno)
+    ctx = strumenti.Contesto(utente=scena["capo"], azienda=scena["azienda"], conversazione=scena["conversazione"])
+    dettagli = anteprima_modifica(ctx, "crm.opportunita", o.pk, {"titolo": "Fornitura 2027", "contatto": due.pk})["dettagli"]
+    assert len(dettagli) == 2
+    cliente = next(d for d in dettagli if d["campo"] != "Titolo")
+    assert f"(n. {uno.pk})" in cliente["prima"] and f"(n. {due.pk})" in cliente["dopo"]
+    solo = anteprima_modifica(ctx, "crm.opportunita", o.pk, {"contatto": due.pk})["dettagli"]
+    assert len(solo) == 1 and f"(n. {due.pk})" in solo[0]["dopo"]
+    with pytest.raises(strumenti.ErroreStrumento, match="Nessuna modifica"):
+        anteprima_modifica(ctx, "crm.opportunita", o.pk, {"contatto": uno.pk})

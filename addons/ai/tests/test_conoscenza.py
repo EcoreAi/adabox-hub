@@ -252,3 +252,9 @@ def test_documenti_indicizzati_subito(scena, settings, tmp_path, django_capture_
     conoscenza.accoda_documento(99)
     conoscenza.accoda_documento(99)
     assert Lavoro.objects.filter(funzione="ai.conoscenza.indicizza_documento", stato="in_coda").count() == 1
+
+
+def test_un_file_di_testo_utf16_si_legge_senza_caratteri_nulli():
+    """Postgres non salva i caratteri nulli: un .txt in UTF-16 fermava l'indicizzazione a quel documento, a ogni giro."""
+    pagine, esito = conoscenza.estrai("nota.txt", "Sconto del 10%".encode("utf-16-le"))
+    assert esito == "ok" and "\x00" not in pagine[0][1] and pagine[0][1] == "Sconto del 10%"

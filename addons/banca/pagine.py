@@ -5,8 +5,8 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core.dashboard import queryset
 
 from . import abbina as motore, estratti, memoria
@@ -103,9 +103,8 @@ def scegli(request, pk):
     return render(request, "banca/scegli.html", {"m": m, "scelte": scelte[:100], "q": testo, "altre": max(len(scelte) - 100, 0)})
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO_ABBINA, raise_exception=True)
-@require_POST
 def abbina(request, pk):
     m = _movimento(request, pk)
     try:
@@ -117,9 +116,8 @@ def abbina(request, pk):
     return _ritorno(request)
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO_ABBINA, raise_exception=True)
-@require_POST
 def abbina_sicuri(request):
     conto = queryset(request, Conto).filter(pk=request.POST.get("conto")).first() if str(request.POST.get("conto", "")).isdigit() else None
     fatti = motore.abbina_i_sicuri(request.azienda, request.user, conto)
@@ -127,9 +125,8 @@ def abbina_sicuri(request):
     return _ritorno(request)
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO_ABBINA, raise_exception=True)
-@require_POST
 def ignora(request, pk):
     try:
         motore.ignora(_movimento(request, pk))
@@ -138,9 +135,8 @@ def ignora(request, pk):
     return _ritorno(request)
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO_ABBINA, raise_exception=True)
-@require_POST
 def classifica(request, pk):
     from . import classifica as motore_classifica
     try:
@@ -153,9 +149,8 @@ def classifica(request, pk):
     return _ritorno(request)
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO_ABBINA, raise_exception=True)
-@require_POST
 def applica_regole(request):
     from . import classifica as motore_classifica
     fatti = motore_classifica.applica(request.azienda)
@@ -163,17 +158,15 @@ def applica_regole(request):
     return _ritorno(request)
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO_ABBINA, raise_exception=True)
-@require_POST
 def ripristina(request, pk):
     motore.ripristina(_movimento(request, pk))
     return _ritorno(request)
 
 
-@login_required
+@post_con_accesso
 @permission_required(PERMESSO_ABBINA, raise_exception=True)
-@require_POST
 def annulla(request, pk):
     abbinamento = get_object_or_404(Abbinamento.objects.filter(Q(movimento__in=queryset(request, MovimentoBanca))), pk=pk)
     motore.annulla(abbinamento)

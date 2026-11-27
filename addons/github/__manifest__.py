@@ -1,7 +1,7 @@
 {
     "name": "GitHub",
     "summary": "Repository dei progetti: commit e pull request collegati ai compiti, chiusura al merge, rilasci dai tag",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Servizi",
     "depends": ["progetti"],

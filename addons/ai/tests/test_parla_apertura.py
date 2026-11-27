@@ -297,7 +297,7 @@ def test_detta_al_primo_tocco(client, s, alle_nove):
 @pytest.fixture
 def note(monkeypatch):
     raccolte = []
-    monkeypatch.setattr(parla.motore, "avvia", lambda c, t, u, a=None, **o: raccolte.append(o["nota"]) or Turno.objects.create(conversazione=c, utente=u, voce=True))
+    monkeypatch.setattr(parla.motore, "avvia", lambda c, t, u, a=None, **o: raccolte.append(o["nota"]) or Turno.objects.create(conversazione=c, utente=u, voce=True, stato=Turno.COMPLETATO))
     return raccolte
 
 

@@ -241,3 +241,36 @@ def test_nomi_noti_calcolati_anche_su_una_macchina_appena_accesa(db, monkeypatch
     monkeypatch.setattr(time, "monotonic", lambda: 12.0)
     propri, _ = protezione._nomi_noti()
     assert "adabox hub" in propri
+
+
+def test_i_nomi_utente_con_punti_e_cifre_si_mascherano(db):
+    """«m.rossi» e «mrossi82» passavano per codici e non si mascheravano mai: e il nome utente è in ogni messaggio."""
+    from django.contrib.auth.models import User
+    for nome in ("m.rossi", "mario_rossi", "mrossi82"):
+        User.objects.create_user(nome, password="x")
+    protezione._noti["quando"] = None
+    p = lambda testo, valore, etichetta: protezione.plausibile(testo, testo.index(valore), testo.index(valore) + len(valore), etichetta)  # noqa: E731
+    for nome in ("m.rossi", "mario_rossi", "mrossi82"):
+        assert p(f"Utente: Mario ({nome})", nome, "USERNAME")
+    assert not p("aggiorna alla v1.2", "v1.2", "USERNAME") and not p("codice SYN-KIT", "SYN-KIT", "ORG")
+    protezione._noti["quando"] = None
+
+
+def test_gli_argomenti_delle_chiamate_passate_si_mascherano_come_il_testo(monkeypatch):
+    """Solo i valori già nel vault tornavano segnaposto, e con un confronto alla lettera: «mario rossi» restava in
+    chiaro, «Adamo srl» diventava «[FULLNAME_2]mo srl», e un nome mai visto dal servizio arrivava al modello cloud."""
+    visti = []
+
+    def spans(url, testo, esclusi):
+        visti.append(testo)
+        return [(m.start(), m.end(), "FULLNAME") for m in __import__("re").finditer("Luca Bianchi", testo)]
+    monkeypatch.setattr(protezione, "spans", spans)
+    p = protezione.Protezione(None, url="http://pii", esclusi=())
+    p.vault.mappa.update({"[FULLNAME_1]": "Mario Rossi", "[FULLNAME_2]": "Ada"})
+    p.vault._per_valore.update({p.vault._norma("Mario Rossi"): "[FULLNAME_1]", p.vault._norma("Ada"): "[FULLNAME_2]"})
+    m = p._messaggio({"ruolo": "assistente", "blocchi": [{"tipo": "strumento", "id": "a", "nome": "cerca_record", "argomenti": {
+        "vista": "contatti.contatti", "testo": "ordini di mario rossi e di Luca Bianchi", "note": "Adamo srl", "limite": 5}}]})
+    argomenti = m["blocchi"][0]["argomenti"]
+    assert argomenti["testo"].startswith("ordini di [FULLNAME_1] e di [FULLNAME_") and "Luca" not in argomenti["testo"]
+    assert argomenti["note"] == "Adamo srl" and argomenti["vista"] == "contatti.contatti" and argomenti["limite"] == 5
+

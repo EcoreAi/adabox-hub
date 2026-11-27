@@ -387,3 +387,86 @@ def test_chat_con_domanda_precompilata(client, superuser):
     """Da «Cerca ovunque»: la chat nuova si apre con la domanda già scritta nel campo, da inviare a mano."""
     html = client.get("/ai/chat/", {"chiedi": "grafico vendite <quest'anno>"}).content.decode()
     assert "grafico vendite &lt;quest&#x27;anno&gt;</textarea>" in html
+
+
+def test_un_messaggio_con_la_risposta_ancora_in_corso_non_va_perso(client, s):
+    """Da un'altra scheda o dal telefono: prima `motore.avvia` restituiva il turno in corso e il messaggio spariva."""
+    c = _chat(s)
+    Turno.objects.create(conversazione=c, utente=s["u"], azienda=s["az"], battito="2099-01-01T00:00:00Z")
+    prima = c.messaggi.count()
+    r = client.post(reverse("ai:invia_conversazione", args=[c.pk]), {"testo": "E poi?"}, headers={"HX-Request": "true"})
+    assert r.status_code == 204 and "già una risposta in corso" in json.loads(r["HX-Trigger"])["ai-errore"]
+    assert c.messaggi.count() == prima
+
+
+# --- regressioni trovate rileggendo il modulo ---
+
+def test_il_codice_nel_testo_di_un_link_si_vede():
+    html = str(markdown.rendi("Usa [`pip install`](https://esempio.it/x)."))
+    assert '<a href="https://esempio.it/x" target="_blank" rel="noopener noreferrer"><code>pip install</code></a>' in html
+    assert "\x00" not in html
+
+
+@pytest.mark.parametrize("testo", ["un segnaposto finto \x005\x00 nel testo", "\x000\x00 e `codice`", "\x00"])
+def test_un_carattere_nullo_nella_risposta_non_rompe_la_pagina(testo):
+    html = str(markdown.rendi(testo))                           # prima: IndexError, e la chat non si apriva più
+    assert "\x00" not in html and html.count("<code>") <= 1
+
+
+def test_la_ricerca_nei_consumi_non_guarda_dentro_le_risposte(client, s):
+    """Le chat sono di chi le scrive: chi vede i consumi di tutti non deve poter cercare che cosa hanno chiesto."""
+    c = Conversazione.objects.create(utente=_utente("bruno"), titolo="Sua")
+    Turno.objects.create(conversazione=c, utente=c.utente, azienda=s["az"], testo="Il licenziamento di Rossi", stato=Turno.COMPLETATO)
+    assert "bruno" in client.get("/ai/consumi/").content.decode()
+    assert "bruno" not in client.get("/ai/consumi/?q=licenziamento").content.decode()
+    assert "bruno" in client.get("/ai/consumi/?q=bruno").content.decode()
+
+
+def test_un_link_dentro_un_indirizzo_non_porta_html_nell_attributo():
+    """Il link Markdown attaccato a un indirizzo: il suo segnaposto non deve finire nell'href dell'indirizzo, o l'HTML
+    del secondo link chiuderebbe l'attributo del primo (e il resto diventerebbe attributi scelti da chi scrive)."""
+    import re
+    html = str(markdown.rendi("https://a.com/[x](https://b.com/onmouseover=alert(1)//) e [`c`](https://a.com/`d`)"))
+    indirizzi = re.findall(r'href="([^"]*)"', html)
+    assert indirizzi and all("<" not in i and "\x00" not in i for i in indirizzi)
+    assert html.count("<a ") == html.count("</a>") == len(indirizzi) and "onmouseover=alert(1)//\"" not in html
+
+
+def test_la_barra_rovesciata_non_fa_un_link_interno():
+    assert "<a " not in str(markdown.rendi("[x](/\\altro.sito/p)"))
+    assert 'href="/ai/chat/"' in str(markdown.rendi("[x](/ai/chat/)"))
+
+
+@pytest.mark.parametrize("riga", ["[" * 60000, "![" * 30000, " _a" * 20000, " " * 60000, "*a " * 20000])
+def test_una_riga_lunghissima_non_tiene_occupato_il_server(riga):
+    """Prima: 60.000 «[» di fila tenevano occupato il server per mezzo minuto, a ogni lettura della pagina."""
+    import time
+    inizio = time.monotonic()
+    markdown.rendi(riga)
+    assert time.monotonic() - inizio < 3
+
+
+def test_titoli_senza_lettere_si_esportano_lo_stesso(client, s):
+    """get_valid_filename non dà mai un nome vuoto: per «???» solleva un errore, cioè una risposta 400."""
+    from ai import documenti_chat
+    c = _chat(s, ["La domanda"])
+    Conversazione.objects.filter(pk=c.pk).update(titolo="???")
+    r = client.get(reverse("ai:esporta", args=[c.pk]))
+    assert r.status_code == 200 and "chat.md" in r["Content-Disposition"]
+    d = documenti_chat.crea(c, s["u"], s["az"], "👍", "Testo")
+    r = client.get(reverse("ai:scarica_documento", args=[d.pk, "md"]))
+    assert r.status_code == 200 and "documento.md" in r["Content-Disposition"]
+
+
+def test_word_con_caratteri_di_controllo(s):
+    pytest.importorskip("docx")
+    from ai import documenti_chat
+    d = documenti_chat.crea(_chat(s), s["u"], s["az"], "Verbale\x08", "Riga\x1b uno\n\n- voce\x0c")
+    assert documenti_chat.in_word(d)[:2] == b"PK"                    # prima: ValueError di python-docx, cioè un 500
+
+
+def test_si_invia_anche_il_solo_allegato(client, s):
+    """Il campo del messaggio non è obbligatorio per il browser: script e server ammettono già il solo file."""
+    html = client.get(reverse("ai:chat")).content.decode()
+    campo = html[html.index('<textarea name="testo"'):]
+    assert " required" not in campo[:campo.index(">")]

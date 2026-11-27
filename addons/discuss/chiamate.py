@@ -14,7 +14,7 @@ import time
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
-from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.decorators import permission_required
 from django.core.exceptions import PermissionDenied
 from django.core.handlers.asgi import ASGIRequest
 from django.db import transaction
@@ -26,6 +26,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
+from core.decoratori import post_con_accesso
 from core import allegati, lavori, parametri
 
 from . import eventi, servizi
@@ -209,9 +210,8 @@ def _partecipante(request, token):
 
 # --- pagine ---
 
-@login_required
+@post_con_accesso
 @permission_required("discuss.view_canale", raise_exception=True)
-@require_POST
 def avvia_vista(request, pk):
     canale = get_object_or_404(Canale, pk=pk, archiviato=False)
     if not servizi.puo_vedere(request.user, canale):

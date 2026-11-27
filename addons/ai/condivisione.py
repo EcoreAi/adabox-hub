@@ -56,7 +56,7 @@ def condividi(request, oggetto, scelti):
 
 def _avvisa(autore, oggetto, destinatari):
     chi = autore.get_full_name() or autore.get_username()
-    titolo = f"{chi} ha condiviso con te {nome_di(oggetto)}"[:200]
+    titolo = " ".join(f"{chi} ha condiviso con te {nome_di(oggetto)}".split())[:200]   # un oggetto sta su una riga
     url = url_di(oggetto)
     email = [u.email for u in destinatari if u.email]
     if email:

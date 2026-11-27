@@ -29,14 +29,14 @@ def storia(db):
 @pytest.fixture
 def servizio(monkeypatch):
     """Un Timestral finto: mediana = ultimo valore + 1, +2, …; fascia ±2 e qualcosa."""
-    from ai import specialisti
+    from previsioni import servizio as servizio_previsioni
 
-    def chiama(chiave, percorso, dati, nome):
+    def chiama(percorso, dati):
         ultimo, h = dati["series"][0]["values"][-1], dati["horizon"]
-        return {"model": "finto-timestral", "forecasts": [{"id": "serie", "quantiles": {
+        return {"model": "finto-timestral", "forecasts": [{"id": dati["series"][0]["id"], "quantiles": {
             "0.1": [max(ultimo - 1, 0)] * h, "0.5": [ultimo + 1 + i for i in range(h)], "0.9": [ultimo + 3 + i for i in range(h)]}}]}
-    monkeypatch.setattr(specialisti, "chiama", chiama)
-    monkeypatch.setattr(specialisti, "url", lambda chiave: "http://finto" if chiave == "url_forecast" else "")
+    monkeypatch.setattr(servizio_previsioni, "chiama", chiama)
+    monkeypatch.setattr(servizio_previsioni, "url", lambda: "http://finto")
 
 
 def _serie(html, dom):
@@ -46,7 +46,7 @@ def _serie(html, dom):
 
 @pytest.mark.django_db
 def test_previsione_dal_costruttore_solo_con_il_servizio(client, superuser, storia, servizio, monkeypatch):
-    from ai import specialisti
+    from previsioni import servizio as servizio_previsioni
     html = client.get(reverse("grafici:costruttore")).content.decode()
     assert 'value="previsione"' in html
     html = client.get(reverse("grafici:costruttore") + "?vista=todo.attivita&tipo=previsione&data=scadenza&periodo=mese&orizzonte=6").content.decode()
@@ -68,11 +68,11 @@ def test_previsione_dal_costruttore_solo_con_il_servizio(client, superuser, stor
     html = client.get(reverse("grafici:grafico_costruttore", args=[g.pk])).content.decode()
     assert 'value="3" selected' in html and 'value="24" selected' in html and 'value="scadenza" selected' in html
     # senza servizio: la previsione sparisce dai tipi; il grafico salvato tiene l'ultima istantanea e segnala l'errore
-    monkeypatch.setattr(specialisti, "url", lambda chiave: "")
+    monkeypatch.setattr(servizio_previsioni, "url", lambda: "")
 
     def giu(*a, **k):
-        raise specialisti.ErroreStrumento("Il servizio di previsione non è configurato.")
-    monkeypatch.setattr(specialisti, "chiama", giu)
+        raise servizio_previsioni.ErrorePrevisione("Il servizio di previsione non è configurato.")
+    monkeypatch.setattr(servizio_previsioni, "chiama", giu)
     assert 'value="previsione"' not in client.get(reverse("grafici:costruttore")).content.decode()
     Grafico.objects.filter(pk=g.pk).update(aggiornato=timezone.now() - datetime.timedelta(days=2))
     html = client.get(reverse("grafici:pagina", args=[pagina.pk])).content.decode()

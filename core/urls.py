@@ -4,12 +4,14 @@ from . import applicazioni, cerca, due_fattori_viste, utenti, views, periodi
 from .viste import salvate as salvate_viste
 from .viste import allegati as allegati_viste
 from .viste import chatter as chatter_viste
+from .viste import csp as csp_viste
 from .viste import kanban as kanban_viste
 from .viste import registry
 
 app_name = "core"
 urlpatterns = [
     path("", views.home, name="home"),
+    path("csp/segnalazione/", csp_viste.segnalazione, name="csp_segnalazione"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("dashboard/layout/", views.dashboard_layout, name="dashboard_layout"),
     path("dashboard/ripristina/", views.dashboard_reset, name="dashboard_reset"),

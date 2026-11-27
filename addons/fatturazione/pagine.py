@@ -3,12 +3,12 @@ import datetime
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.decorators import permission_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
-from django.views.decorators.http import require_POST
 
+from core.decoratori import post_con_accesso
 from core.dashboard import queryset
 from vendite.models import OrdineVendita
 
@@ -16,9 +16,8 @@ from . import operazioni
 from .models import Fattura, Incasso
 
 
-@login_required
+@post_con_accesso
 @permission_required("fatturazione.add_fattura", raise_exception=True)
-@require_POST
 def da_ordine(request, pk):
     ordine = queryset(request, OrdineVendita).filter(pk=pk).first()
     if ordine is None:
@@ -33,8 +32,7 @@ def da_ordine(request, pk):
     return redirect("fatturazione:fatture_dettaglio", pk=fattura.pk)
 
 
-@login_required
-@require_POST
+@post_con_accesso
 @permission_required("fatturazione.change_scadenza", raise_exception=True)
 def incasso(request, pk):
     fattura = get_object_or_404(queryset(request, Fattura), pk=pk)
@@ -53,8 +51,7 @@ def incasso(request, pk):
     return redirect("fatturazione:fatture_dettaglio", pk=pk)
 
 
-@login_required
-@require_POST
+@post_con_accesso
 @permission_required("fatturazione.change_scadenza", raise_exception=True)
 def incasso_annulla(request, pk):
     voce = get_object_or_404(Incasso.objects.select_related("scadenza__fattura"), pk=pk,
@@ -66,8 +63,7 @@ def incasso_annulla(request, pk):
 
 
 
-@login_required
-@require_POST
+@post_con_accesso
 @permission_required("fatturazione.change_scadenza", raise_exception=True)
 def usa_credito(request, pk):
     fattura = get_object_or_404(queryset(request, Fattura), pk=pk)
@@ -81,8 +77,7 @@ def usa_credito(request, pk):
 
 
 
-@login_required
-@require_POST
+@post_con_accesso
 @permission_required("fatturazione.change_fattura", raise_exception=True)
 def posizione_contatto(request, pk):
     """La posizione fiscale scelta per il cliente: «auto» torna a quella automatica, «nessuna» la toglie."""

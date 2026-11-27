@@ -2,14 +2,13 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
 
 from . import servizi
 from .models import PaginaWiki
+from core.decoratori import post_con_accesso
 
 
-@login_required
-@require_POST
+@post_con_accesso
 def ripristina(request, pk, numero):
     pagina = get_object_or_404(PaginaWiki, pk=pk, azienda=request.azienda)
     if not servizi.puo_scrivere(request.user, pagina.spazio):

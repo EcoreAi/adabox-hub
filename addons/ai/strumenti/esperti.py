@@ -1,6 +1,11 @@
 """Sotto-agenti: l'assistente principale chiede a un esperto (un altro assistente, con istruzioni, strumenti e
 modello propri). Un livello solo; l'esperto lavora in sola lettura in una conversazione interna."""
+import threading
+
 from .registro import ErroreStrumento, Strumento, registra
+
+
+_SOMMA = threading.Lock()                               # più esperti insieme: ognuno somma il suo costo
 
 
 def _esperti(utente):
@@ -31,11 +36,16 @@ def chiedi_esperto(contesto, esperto, domanda):
                                            titolo=f"Esperto: {scelto.nome}"[:120], titolo_generato=True,
                                            riservata=getattr(chiamante, "riservata", False),
                                            riservata_motivo=getattr(chiamante, "riservata_motivo", ""))
+    # il web solo se l'utente l'ha scelto per questo messaggio, come per l'assistente che lo consulta: senza, il
+    # turno dell'esperto nasceva con il web acceso e bastava passargli un indirizzo nella domanda
     turno = motore.avvia(interna, domanda, contesto.utente, contesto.azienda, compito="esperto", sincrono=True,
+                         web=bool(getattr(contesto.turno, "web", False)),
                          nota="Ti consulta l'assistente principale, non l'utente: rispondi in modo completo e conciso "
                               "con i dati trovati e i loro link. Non puoi modificare dati.")
     turno.refresh_from_db()
     interna.refresh_from_db()
+    with _SOMMA:                                         # il costo dell'esperto conta nella risposta che l'ha chiesto
+        contesto.extra["costo_esperti"] = contesto.extra.get("costo_esperti", 0) + turno.costo
     if interna.riservata:
         from .. import riservatezza
         riservatezza.segna(chiamante, interna.riservata_motivo)

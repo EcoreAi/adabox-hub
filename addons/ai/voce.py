@@ -70,6 +70,42 @@ def servizio_per(azienda, solo_locale=False):
     return None
 
 
+# ---------- prima di chiamare un servizio ----------
+
+RICHIESTE_MASSIME = 200                                 # per persona, tra letture e trascrizioni, ogni FINESTRA secondi
+FINESTRA = 600
+CONTROLLO_OGNI = 30                                     # secondi: licenza e tetto non si rileggono a ogni pezzo d'audio
+
+
+def blocco(utente, azienda):
+    """Il motivo per cui non si chiama un servizio vocale, o "". La voce non passa da un turno del motore: senza
+    questo rispondeva anche con la licenza scaduta o il tetto di spesa raggiunto, e una persona poteva chiedere letture
+    senza limite (ogni pezzo è una chiamata, spesso a pagamento)."""
+    from . import limiti
+    from .gateway import ErroreModello
+    chiave = f"ai-voce-stato:{getattr(azienda, 'pk', 0)}"
+    motivo = cache.get(chiave)
+    if motivo is None:
+        try:
+            limiti.verifica(azienda)
+            motivo = ""
+        except ErroreModello as e:
+            motivo = e.messaggio or "L'assistente non è attivo."
+        cache.set(chiave, motivo, CONTROLLO_OGNI)
+    if motivo:
+        return motivo
+    # la persona, non solo il suo numero: nei database di prova i numeri si ripetono (e più test creano l'utente
+    # nello stesso secondo: l'istante va preso per intero)
+    chiave = f"ai-voce-richieste:{utente.pk}:{utente.date_joined.timestamp():.6f}"
+    cache.add(chiave, 0, FINESTRA)
+    try:
+        richieste = cache.incr(chiave)
+    except ValueError:                                  # scaduta tra add e incr
+        cache.set(chiave, 1, FINESTRA)
+        richieste = 1
+    return "Troppe richieste vocali in poco tempo: riprova tra qualche minuto." if richieste > RICHIESTE_MASSIME else ""
+
+
 # ---------- dettatura ----------
 
 OVH_URL = "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -95,31 +131,50 @@ def parole_note(utente, azienda):
     return uniche[:10]
 
 
-def trascrivi(file, lingua="", http_client=None, azienda=None, parole=()):
+def trascrivi(file, lingua="", http_client=None, azienda=None, parole=(), solo_locale=False, utente=None):
     """Il testo detto: con il servizio cloud dell'azienda se c'è (e se non risponde, con il Whisper locale), altrimenti
-    con il Whisper locale."""
+    con il Whisper locale. `solo_locale` (chat riservate): mai il servizio cloud, come per la lettura delle risposte
+    (servizio_per): in una chat riservata nemmeno la voce di chi parla esce dal server."""
     if file.size > MASSIMO_AUDIO:
         raise ErroreVoce("Registrazione troppo lunga.")
     tipo = (file.content_type or "").split(";")[0]
     if tipo not in TIPI_AUDIO:
         raise ErroreVoce("Formato audio non riconosciuto.")
-    servizio = trascrizione_cloud(azienda) if azienda is not None else None
+    servizio = trascrizione_cloud(azienda) if azienda is not None and not solo_locale else None
     if servizio is not None:
         dati_audio = file.read()
         try:
-            return trascrivi_cloud(servizio, dati_audio, file.name or "voce.webm", tipo, lingua, http_client, parole=parole)
+            testo, secondi = trascrivi_cloud(servizio, dati_audio, file.name or "voce.webm", tipo, lingua, http_client,
+                                             parole=parole, con_durata=True)
+            registra(servizio, utente, azienda, secondi)
+            return testo
         except ErroreVoce:
             if not url_locale():
                 raise
             log.warning("trascrizione con «%s» non riuscita: si usa il Whisper locale", servizio.nome, exc_info=True)
             file.seek(0)
     if not url_locale():
-        raise ErroreVoce("La dettatura non è configurata.")
+        raise ErroreVoce("In una chat riservata la dettatura usa solo il servizio sui nostri server, che non è configurato."
+                         if solo_locale else "La dettatura non è configurata.")
     return _trascrivi_locale(file, tipo, lingua, http_client, parole)
 
 
-def trascrivi_cloud(servizio, audio, nome, tipo, lingua="", http_client=None, parole=()):
-    """Mistral Voxtral e OVH (Whisper) parlano la stessa lingua di OpenAI: multipart con file, modello e lingua."""
+def _secondi(risposta, audio):
+    """I secondi di audio trascritti: quelli che dice il fornitore (Voxtral: usage.prompt_audio_seconds; Whisper:
+    duration); se non li dice, una stima dalla dimensione (la voce registrata dal browser è Opus, circa 32 kbit/s)."""
+    uso = risposta.get("usage") if isinstance(risposta.get("usage"), dict) else {}
+    for valore in (uso.get("prompt_audio_seconds"), uso.get("seconds"), risposta.get("duration")):
+        try:
+            if valore is not None and float(valore) > 0:
+                return int(float(valore) + 0.999)
+        except (TypeError, ValueError):
+            continue
+    return max(1, round(len(audio) * 8 / 32000))
+
+
+def trascrivi_cloud(servizio, audio, nome, tipo, lingua="", http_client=None, parole=(), con_durata=False):
+    """Mistral Voxtral e OVH (Whisper) parlano la stessa lingua di OpenAI: multipart con file, modello e lingua.
+    Con `con_durata` restituisce (testo, secondi di audio), per i consumi."""
     if not servizio.chiave():
         raise ErroreVoce(f"«{servizio.nome}»: manca la chiave API.")
     url = {ServizioVoce.MISTRAL: "https://api.mistral.ai/v1", ServizioVoce.OVH: OVH_URL}.get(servizio.tipo)
@@ -136,7 +191,9 @@ def trascrivi_cloud(servizio, audio, nome, tipo, lingua="", http_client=None, pa
         r = client.post(f"{url}/audio/transcriptions", headers={"Authorization": f"Bearer {servizio.chiave()}"},
                         files=file, data=dati)
         _controlla(r, servizio.nome, "trascrizione")
-        return str(r.json().get("text", "")).strip()
+        risposta = r.json()
+        testo = str(risposta.get("text", "")).strip()
+        return (testo, _secondi(risposta, audio)) if con_durata else testo
     except (httpx.HTTPError, ValueError, AttributeError) as e:
         raise ErroreVoce(f"«{servizio.nome}» non risponde: {type(e).__name__}") from e
     finally:
@@ -341,12 +398,60 @@ def sintetizza(servizio, testo, lingua="it", http_client=None):
             client.close()
 
 
+def _chiave_audio(servizio, testo, lingua):
+    import hashlib
+    return "voce:" + hashlib.sha256(f"{servizio.pk}|{servizio.valore('modello')}|{servizio.valore('voce_it')}|{servizio.valore('voce_en')}|{lingua}|{testo}".encode()).hexdigest()
+
+
 def audio_di(servizio, testo, lingua):
     """Con una cache di un giorno: riascoltare una risposta non la fa pagare due volte."""
-    import hashlib
-    chiave = "voce:" + hashlib.sha256(f"{servizio.pk}|{servizio.valore('modello')}|{servizio.valore('voce_it')}|{servizio.valore('voce_en')}|{lingua}|{testo}".encode()).hexdigest()
+    chiave = _chiave_audio(servizio, testo, lingua)
     if (salvato := cache.get(chiave)) is not None:
         return salvato
     audio = sintetizza(servizio, testo, lingua)
     cache.set(chiave, audio, 86400)
     return audio
+
+
+def leggi(servizio, testo, lingua, utente=None, azienda=None):
+    """audio_di per una persona: se l'audio non era in cache il servizio è stato chiamato davvero, e i caratteri
+    letti si segnano nei Consumi (registra)."""
+    nuova = cache.get(_chiave_audio(servizio, testo, lingua)) is None
+    audio = audio_di(servizio, testo, lingua)
+    if nuova:
+        registra(servizio, utente, azienda, len(testo))
+    return audio
+
+
+# ---------- consumi: ogni chiamata a un servizio con un prezzo ----------
+
+COMPITI = {ServizioVoce.LETTURA: "voce_lettura", ServizioVoce.TRASCRIZIONE: "voce_trascrizione"}
+
+
+def registra(servizio, utente, azienda, quantita):
+    """Segna nei Consumi una chiamata al servizio: `quantita` caratteri letti o secondi trascritti. Una riga al giorno
+    per persona, azienda e servizio (un turno «voce_lettura» o «voce_trascrizione», senza conversazione): il costo
+    entra nel tetto di spesa dell'azienda come quello dei modelli, e nella quota della voce della licenza
+    (ai.limiti.voce). Senza un prezzo e senza un piano del fornitore da tenere d'occhio non si segna nulla; i servizi
+    locali non costano."""
+    if servizio.locale or quantita <= 0 or not (servizio.prezzo or servizio.compresi_nel_piano):
+        return None
+    from django.db import transaction
+    from django.utils import timezone
+
+    from . import limiti
+    from .models import Turno
+    adesso, compito = timezone.now(), COMPITI[servizio.uso]
+    with transaction.atomic():
+        riga = (Turno.objects.select_for_update().filter(utente=utente, azienda=azienda, compito=compito, uso__servizio=servizio.pk,
+                                                         iniziato__date=timezone.localdate()).first())
+        if riga is None:
+            riga = Turno(utente=utente, azienda=azienda, compito=compito, stato=Turno.COMPLETATO, web=False,
+                         uso={"servizio": servizio.pk, "nome": servizio.nome})
+        uso = dict(riga.uso)
+        uso[servizio.unita] = uso.get(servizio.unita, 0) + int(quantita)
+        uso["chiamate"] = uso.get("chiamate", 0) + 1
+        riga.uso, riga.costo, riga.finito, riga.battito = uso, riga.costo + servizio.costo_di(quantita), adesso, adesso
+        riga.save()
+    limiti.dopo_la_voce(servizio)
+    return riga

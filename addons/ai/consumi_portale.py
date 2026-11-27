@@ -13,7 +13,7 @@ import urllib.request
 from decimal import Decimal
 
 from django.conf import settings
-from django.db.models import Count, Sum
+from django.db.models import Sum
 from django.utils import timezone
 
 from . import licenza
@@ -34,10 +34,15 @@ def _mesi():
 
 
 def riepilogo(mese):
+    from .limiti import COMPITI_VOCE
     turni = Turno.objects.filter(iniziato__year=mese.year, iniziato__month=mese.month)
-    totali = turni.aggregate(costo=Sum("costo"), fornito=Sum("costo_fornito"), turni=Count("pk"))
+    totali = turni.aggregate(costo=Sum("costo"), fornito=Sum("costo_fornito"))
+    voce = turni.filter(compito__in=COMPITI_VOCE).aggregate(costo=Sum("costo"))["costo"] or Decimal(0)
+    # «costo» comprende la voce; «costo_voce», se c'è stata, dice quanta parte è (il portale ne fattura il di più
+    # sulla quota). Le righe della voce sono una al giorno per persona: non sono turni dell'assistente
     return {"mese": f"{mese:%Y-%m}", "costo": f"{totali['costo'] or Decimal(0):.6f}",
-            "costo_fornito": f"{totali['fornito'] or Decimal(0):.6f}", "turni": totali["turni"],
+            "costo_fornito": f"{totali['fornito'] or Decimal(0):.6f}", **({"costo_voce": f"{voce:.6f}"} if voce else {}),
+            "turni": turni.exclude(compito__in=COMPITI_VOCE).count(),
             "utenti": turni.filter(compito="chat", utente__isnull=False).values("utente").distinct().count()}
 
 
@@ -55,7 +60,9 @@ def invia():
         return None
     propria = licenza.attuale().formula == licenza.PROPRIA
     # con la chiave del cliente partono solo i mesi con un costo sul piano (la formula è appena cambiata)
-    mesi = [r for r in map(riepilogo, _mesi()) if not propria or Decimal(r["costo_fornito"])]
+    mesi = [r for r in map(riepilogo, _mesi()) if not propria or Decimal(r["costo_fornito"]) or "costo_voce" in r]
+    if propria:                 # un mese che parte solo per la voce porta solo la voce, non ciò che il cliente spende con la sua chiave
+        mesi = [r if Decimal(r["costo_fornito"]) else {**r, "costo": r["costo_voce"]} for r in mesi]
     if not mesi:
         return None
     try:

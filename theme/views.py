@@ -2,6 +2,9 @@ from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.views.decorators.cache import cache_control
 
+# La cache del service worker con le copie delle pagine apribili senza rete: la leggono lui e la pagina «Sei offline».
+CACHE_PAGINE = "adabox-pagine-1"
+
 
 def colore_tema():
     from django.conf import settings
@@ -78,22 +81,46 @@ def manifest(request):
 
     from django.conf import settings
     from django.urls import reverse
+    from django.utils.module_loading import import_string
     brand = settings.THEME.get("brand", "adabox")
+    # Le scorciatoie che i moduli aggiungono: il tema non conosce il kernel (resta portabile), la funzione che le dà
+    # arriva dalle impostazioni (THEME["scorciatoie"], un percorso puntato). Senza, restano quelle fisse.
+    dei_moduli = []
+    if (percorso := settings.THEME.get("scorciatoie")):
+        try:
+            dei_moduli = list(import_string(percorso)())
+        except Exception:                                 # noqa: BLE001 - il manifest deve uscire comunque
+            dei_moduli = []
     dati = {"name": brand, "short_name": brand[:12], "lang": "it", "dir": "ltr",
             "start_url": "/tasca/?da=app", "scope": "/", "display": "standalone", "background_color": "#ffffff", "theme_color": colore_tema(),
             "description": "Il gestionale con l'assistente: attività, approvazioni, note spese e notifiche anche dal telefono.",
             "icons": [{"src": reverse("theme:icona", args=[192]), "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
                       {"src": reverse("theme:icona", args=[512]), "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}],
             # le scorciatoie passano da «In tasca»: è il kernel a sapere se la pagina esiste e se la persona la può usare
-            "shortcuts": [{"name": "Parla con Ada", "url": "/tasca/?apri=parla"}, {"name": "Chat con Ada", "url": "/tasca/?apri=chat"},
+            # per prime quelle che i moduli hanno chiesto (hooks.voce_tasca con scorciatoia=True): il telefono ne mostra poche
+            "shortcuts": [*dei_moduli,
+                          {"name": "Parla con Ada", "url": "/tasca/?apri=parla"}, {"name": "Chat con Ada", "url": "/tasca/?apri=chat"},
                           {"name": "In tasca", "url": "/tasca/?apri=tasca"}, {"name": "Da approvare", "url": "/approvazioni/"},
                           {"name": "Le mie attività", "url": "/attivita/"}]}
     return HttpResponse(json.dumps(dati, ensure_ascii=False), content_type="application/manifest+json")
 
 
 def service_worker(request):
+    import json
+
+    from django.conf import settings
     from django.template.loader import render_to_string
-    risposta = HttpResponse(render_to_string("theme/sw.js"), content_type="application/javascript")
+    from django.utils.module_loading import import_string
+    # Le pagine che i moduli vogliono apribili senza rete: come per le scorciatoie, il tema non conosce il kernel e la
+    # funzione che le dà arriva dalle impostazioni (THEME["senza_rete"]). Senza, nessuna pagina in cache, come prima.
+    senza_rete = {"pagine": [], "statici": []}
+    if (percorso := settings.THEME.get("senza_rete")):
+        try:
+            senza_rete = {**senza_rete, **import_string(percorso)()}
+        except Exception:                                 # noqa: BLE001 - il service worker deve uscire comunque
+            pass
+    codice = render_to_string("theme/sw.js", {"senza_rete": json.dumps(senza_rete, ensure_ascii=False), "cache_pagine": CACHE_PAGINE})
+    risposta = HttpResponse(codice, content_type="application/javascript")
     risposta["Service-Worker-Allowed"] = "/"
     risposta["Cache-Control"] = "no-cache"
     return risposta
@@ -101,7 +128,7 @@ def service_worker(request):
 
 def offline(request):
     from django.shortcuts import render
-    return render(request, "theme/offline.html")
+    return render(request, "theme/offline.html", {"cache_pagine": CACHE_PAGINE})
 
 
 @cache_control(max_age=31536000, public=True)                     # l'URL cambia con ?v= a ogni modifica

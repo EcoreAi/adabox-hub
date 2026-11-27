@@ -177,3 +177,43 @@ def test_prima_degli_eventi_una_volta_per_evento(scena):
         Pianificata.objects.filter(pk=p.pk).update(prossima=timezone.now() - datetime.timedelta(minutes=1))
         assert pianificate.esegui_scadute() == "pianificate eseguite: 0"          # stesso evento: non si ripete
     assert len(chiamate) == 1 and "Riunione Rossi" in chiamate[0]["messaggi"][0]["testo"]
+
+
+# --- regressioni trovate rileggendo il modulo ---
+
+def test_le_pianificate_girano_fuori_dalla_transazione_del_worker():
+    """core.lavori chiude ogni lavoro in una transazione, a meno di questo segno: lì dentro gli strumenti (altri thread,
+    altra connessione) non vedrebbero il turno, e un errore riporterebbe indietro costi e prossima esecuzione."""
+    assert pianificate.esegui_scadute.senza_transazione is True and pianificate.esegui_id.senza_transazione is True
+
+
+def test_una_pianificata_in_errore_non_ferma_le_altre(scena, monkeypatch):
+    prima, seconda = _pianificata(scena, nome="Prima"), _pianificata(scena, nome="Seconda")
+    eseguite = []
+
+    def esegui(p, evento=None):
+        if p.pk == prima.pk:
+            raise RuntimeError("database occupato")
+        eseguite.append(p.pk)
+    monkeypatch.setattr(pianificate, "esegui", esegui)
+    assert pianificate.esegui_scadute() == "pianificate eseguite: 1" and eseguite == [seconda.pk]
+
+
+def test_senza_piu_accesso_all_azienda_la_pianificata_si_sospende(scena):
+    """Il turno usa l'azienda salvata nell'attività, non quella controllata dal middleware: chi è stato tolto
+    dall'azienda continuava a riceverne i dati a ogni esecuzione."""
+    p = _pianificata(scena)
+    scena["capo"].profilo.aziende.set([Azienda.objects.create(nome="Altra del gruppo")])
+    with finto.con_copione([["Ecco gli ordini aperti."]]) as chiamate:
+        assert pianificate.esegui(p) is None
+    p.refresh_from_db()
+    assert not chiamate and not Turno.objects.exists()
+    assert not p.attiva and "non ha più accesso" in p.esito
+
+
+def test_senza_piu_il_permesso_dell_assistente_la_pianificata_si_sospende(scena):
+    utente = User.objects.create_user("dario", "dario@example.com", "x")
+    p = _pianificata(scena, utente=utente)
+    assert pianificate.esegui(p) is None
+    p.refresh_from_db()
+    assert not p.attiva and "non può più usare l'assistente" in p.esito and not Turno.objects.exists()

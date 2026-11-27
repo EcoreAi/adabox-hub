@@ -2,6 +2,7 @@
 # Avvio del container web. exec: gunicorn diventa il processo principale e scrive
 # il pidfile, che `manage.py modulo ... --riavvia` usa per mandargli SIGHUP.
 set -e
+python manage.py controlla_avvio          # fuori dal debug, mai con la SECRET_KEY di sviluppo
 python manage.py collectstatic --noinput
 python manage.py migrate --noinput
 sh deploy/osserva_moduli.sh hup &

@@ -126,6 +126,7 @@ def test_scheda_sotto_la_risposta_stella_e_pannello(s, client):
 def test_la_nota_dice_ad_ada_quale_documento_e_aperto(s, client, monkeypatch):
     from ai import motore
     d = documenti_chat.crea(s["c"], s["u"], s["az"], "Lettera", "x")
+    Turno.objects.filter(pk=s["t"].pk).update(stato=Turno.COMPLETATO)     # con una risposta ancora in corso non si invia
     visti = {}
     monkeypatch.setattr(motore, "avvia", lambda *a, **k: visti.update(k) or Turno.objects.create(conversazione=s["c"], utente=s["u"], azienda=s["az"]))
     client.post(reverse("ai:invia_conversazione", args=[s["c"].pk]), {"testo": "accorcia il secondo paragrafo", "documento": d.pk})

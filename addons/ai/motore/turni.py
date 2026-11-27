@@ -31,6 +31,7 @@ MAX_COSTO = Decimal("0.50")                     # dollari per turno
 MAX_TOKEN_DESCRIZIONE = 350                     # descrizione di un'immagine fatta in locale (su CPU circa 40 secondi)
 INTERVALLO_SALVATAGGIO = 0.25                   # secondi tra due salvataggi del testo in uscita
 SENZA_BATTITO = timedelta(seconds=90)
+ATTESA_STOP = 10                                # secondi: quanto si aspetta che un turno fermato si chiuda
 
 MESSAGGI_ERRORE = {
     "AUTENTICAZIONE": "La chiave API del modello non è valida: avvisa l'amministratore.",
@@ -171,8 +172,25 @@ def ferma(turno):
     Turno.objects.filter(pk=turno.pk, stato=Turno.IN_CORSO).update(richiesta_stop=True)
 
 
+def ferma_e_attendi(turno, secondi=None, intervallo=0.2):
+    """Chiede lo stop e aspetta che il turno si chiuda davvero: lo stop si vede solo tra un pezzo di testo e l'altro e
+    a fine strumento, quindi può volerci qualche secondo. True se si è chiuso in tempo. Serve a chi deve avviare
+    subito un altro turno nella stessa conversazione (a voce, dopo un'interruzione): `avvia` con un turno ancora in
+    corso restituisce quello, e la domanda nuova andrebbe persa."""
+    ferma(turno)
+    scadenza = time.monotonic() + (ATTESA_STOP if secondi is None else secondi)
+    while Turno.objects.filter(pk=turno.pk, stato=Turno.IN_CORSO).exists():
+        if time.monotonic() >= scadenza:
+            return False
+        time.sleep(intervallo)
+    return True
+
+
 class _Fermati(Exception):
     pass
+
+
+TETTO_MENSILE = "il tetto di spesa mensile dell'assistente"
 
 
 class _Esecuzione:
@@ -185,6 +203,7 @@ class _Esecuzione:
         self.ultimo_salvataggio = 0.0
         self.testo_turno = []                     # tutto il testo visibile del turno (tra un passo e l'altro)
         self.protezione = None
+        self.extra = {}                           # del contesto degli strumenti: qui gli esperti sommano il loro costo
         self.ricontrollato = False                # la guardia dei dati senza fonti (solo a voce) ha già chiesto di rifare
         self.grafico_richiamato = False           # il grafico scritto come testo: chiesto una volta di usare lo strumento
 
@@ -206,20 +225,72 @@ class _Esecuzione:
         self.turno.addebita(modello, uso.come_dict())
 
     def oltre_budget(self):
+        """Il motivo per cui il turno si ferma prima del prossimo passo, o None. Nel costo della risposta contano anche
+        gli esperti consultati (ognuno ha un turno suo: senza, dodici passi da otto esperti l'uno non avevano tetto); il
+        tetto mensile dell'azienda si riguarda a ogni passo, non solo all'inizio (il costo si salva passo per passo,
+        così lo vedono anche le chat che girano insieme)."""
+        from decimal import Decimal as D
+
+        from .. import limiti
         if time.monotonic() - self.inizio > self.secondi:
             return "il tempo massimo del turno"
-        if self.turno.costo > self.costo:
+        if self.turno.costo + D(str(self.extra.get("costo_esperti", 0))) > self.costo:
             return "la spesa massima per una risposta"
+        if self.turno.passi and limiti.tetto_raggiunto(self.turno.azienda):
+            return TETTO_MENSILE
         return None
 
 
+BATTITO_OGNI = 20                               # secondi tra due segni di vita mentre il turno non scrive
+BATTITO_MASSIMO = 1800                          # oltre, un turno muto è bloccato davvero: lo si può dichiarare interrotto
+
+
+class _Battito:
+    """Il segno di vita del turno mentre non scrive: uno strumento lungo (un esperto arriva a 300 secondi), un modello
+    che ragiona a lungo prima della prima parola. `battito` si aggiornava solo con il testo e all'inizio e alla fine
+    degli strumenti: dopo 90 secondi di silenzio chi apriva la chat lo faceva dichiarare interrotto (segna_interrotti)
+    mentre lavorava ancora, con risultati sintetici nel log e poi quelli veri, e un secondo turno accanto al primo."""
+
+    def __init__(self, turno_id, ogni=None, massimo=None):
+        self.turno_id = turno_id
+        self.ogni = BATTITO_OGNI if ogni is None else ogni
+        self.massimo = BATTITO_MASSIMO if massimo is None else massimo
+        self._fine = threading.Event()
+
+    def segna(self):
+        Turno.objects.filter(pk=self.turno_id, stato=Turno.IN_CORSO).update(battito=timezone.now())
+
+    def _gira(self):
+        scadenza = time.monotonic() + self.massimo
+        try:
+            while not self._fine.wait(self.ogni) and time.monotonic() < scadenza:
+                try:
+                    self.segna()
+                except Exception:                  # il database occupato un momento: si riprova al giro dopo
+                    log.exception("battito del turno %s", self.turno_id)
+        finally:
+            connection.close()                     # thread suo, connessione sua
+
+    def __enter__(self):
+        threading.Thread(target=self._gira, daemon=True, name=f"ai-battito-{self.turno_id}").start()
+        return self
+
+    def __exit__(self, *errore):
+        self._fine.set()
+
+
 def esegui(turno_id):
+    with _Battito(turno_id):
+        return _esegui(turno_id)
+
+
+def _esegui(turno_id):
     turno = Turno.objects.select_related("conversazione", "utente", "azienda").get(pk=turno_id)
     conversazione, utente = turno.conversazione, turno.utente
     e = _Esecuzione(turno)
     try:
         from .. import limiti
-        limiti.verifica(turno.azienda, utente)
+        limiti.verifica(turno.azienda, utente, turno=turno)
         from .. import assistenti
         assistente = assistenti.risolvi(conversazione, utente)
         if assistente is not None and assistente.profilo_id and assistente.profilo.attivo:
@@ -265,7 +336,7 @@ def esegui(turno_id):
             else:                                      # un'immagine di prima: la chat continua senza vederla
                 senza_immagini = True
         sistema = prompt.sistema(assistente)
-        contesto = strumenti.Contesto(utente=utente, azienda=turno.azienda, conversazione=conversazione, turno=turno)
+        contesto = strumenti.Contesto(utente=utente, azienda=turno.azienda, conversazione=conversazione, turno=turno, extra=e.extra)
         e.protezione = protezione.Protezione(conversazione)
         from . import compattazione
         if compattazione.se_serve(turno):
@@ -273,7 +344,8 @@ def esegui(turno_id):
         for passo in range(1, e.passi + 1):
             motivo = e.oltre_budget()
             if motivo:
-                _chiudi(e, Turno.COMPLETATO, f"\n\n_Mi fermo qui: ho raggiunto {motivo}. Chiedimi di continuare._")
+                seguito = "L'amministratore può alzarlo nelle impostazioni." if motivo == TETTO_MENSILE else "Chiedimi di continuare."
+                _chiudi(e, Turno.COMPLETATO, f"\n\n_Mi fermo qui: ho raggiunto {motivo}. {seguito}_")
                 return turno
             turno.passi = passo
             modello, chiamate, fine = None, [], None
@@ -301,6 +373,9 @@ def esegui(turno_id):
                 _registra_parziale(turno, testo_passo)
                 _chiudi(e, Turno.FERMATO, "\n\n_Risposta interrotta._")
                 return turno
+            # il costo di questo passo subito nel database: il tetto mensile lo vedono anche gli altri turni in corso,
+            # e un turno che muore a metà (riavvio) non perde quello che ha già speso
+            turno.save(update_fields=["uso", "costo", "costo_fornito", "passi", "modello"])
             dati = {"ruolo": "assistente", "blocchi": fine.blocchi if fine else [{"tipo": "testo",
                                                                                  "testo": "".join(testo_passo)}]}
             if fine and fine.nativo:

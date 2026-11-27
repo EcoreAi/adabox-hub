@@ -34,11 +34,25 @@ def tetto(azienda):
     return Decimal(str(valore or 0))
 
 
-def utenti_del_mese():
+def tetto_raggiunto(azienda):
+    """Se la spesa del mese dell'azienda ha raggiunto il suo tetto (mai senza azienda o senza tetto)."""
+    if azienda is None:
+        return False
+    limite = tetto(azienda)
+    return limite > 0 and spesa_mese(azienda) >= limite
+
+
+def utenti_del_mese(senza=None):
+    """Chi ha usato la chat nel mese: ognuno occupa un posto della licenza. Non contano i turni finiti in errore (tra
+    cui quelli rifiutati proprio perché i posti erano finiti) né il turno `senza`, quello che sta per partire: il
+    motore lo crea prima di controllare la licenza, e contandolo chi scriveva per la prima volta risultava già tra gli
+    utenti del mese, cioè il limite non scattava mai."""
     from .models import Turno
     oggi = timezone.localdate()
-    return set(Turno.objects.filter(iniziato__year=oggi.year, iniziato__month=oggi.month, compito="chat")
-               .values_list("utente_id", flat=True))
+    turni = Turno.objects.filter(iniziato__year=oggi.year, iniziato__month=oggi.month, compito="chat").exclude(stato=Turno.ERRORE)
+    if senza is not None:
+        turni = turni.exclude(pk=senza.pk)
+    return set(turni.values_list("utente_id", flat=True))
 
 
 def _del_mese():
@@ -122,14 +136,15 @@ def ammessi(catena, utente=None):
     return restanti
 
 
-def verifica(azienda=None, utente=None, funzione="chat"):
+def verifica(azienda=None, utente=None, funzione="chat", turno=None):
+    """`turno`: quello che sta per partire, da non contare tra gli utenti del mese (vedi utenti_del_mese)."""
     stato = licenza.attuale()
     if not stato.valida:
         raise ErroreModello("LIMITE", f"L'assistente non è attivo: {stato.motivo} Contatta l'amministratore.")
     if funzione != "chat" and stato.funzioni is not None and funzione not in stato.funzioni:
         raise ErroreModello("LIMITE", "Questa funzione dell'assistente non è compresa nella licenza.")
     if stato.utenti and utente is not None:
-        attivi = utenti_del_mese()
+        attivi = utenti_del_mese(senza=turno)
         if utente.pk not in attivi and len(attivi) >= stato.utenti:
             raise ErroreModello("LIMITE", f"Raggiunto il numero di utenti della licenza ({stato.utenti} al mese).")
     if azienda is None:
@@ -143,6 +158,89 @@ def verifica(azienda=None, utente=None, funzione="chat"):
                                       "l'amministratore può alzarlo nelle impostazioni.")
     if spesa >= limite * Decimal(parametri.leggi("ai.avviso_percentuale", azienda) or 80) / 100:
         _avvisa(azienda, spesa, limite)
+
+
+# ---------- la voce cloud: quota della licenza (oltre si fattura) e piano del fornitore ----------
+
+COMPITI_VOCE = ("voce_lettura", "voce_trascrizione")     # le righe dei Consumi scritte da ai.voce.registra
+
+
+def consumo_voce():
+    """Il costo della voce cloud nel mese, di tutta l'istanza: la quota della licenza è dell'istanza."""
+    return _del_mese().filter(compito__in=COMPITI_VOCE).aggregate(t=Sum("costo"))["t"] or Decimal(0)
+
+
+def voce(stato=None):
+    """(consumo, quota, extra) in dollari della voce cloud nel mese. Quota 0 = la licenza non ne prevede una. Oltre la
+    quota la voce non si ferma: `extra` è il di più, che chi vende l'istanza fattura a parte."""
+    stato = stato or licenza.attuale()
+    consumo = consumo_voce()
+    quota_voce = stato.quota_voce if stato.valida else Decimal(0)
+    return consumo, quota_voce, (max(consumo - quota_voce, Decimal(0)) if quota_voce else Decimal(0))
+
+
+def avviso_voce(stato=None):
+    """Il testo per la chat e per «Parla con Ada» quando la quota della voce è quasi finita o superata, "" altrimenti."""
+    consumo, quota_voce, extra = voce(stato)
+    if not quota_voce:
+        return ""
+    if extra:
+        return (f"Voce: superata la quota mensile del piano ({consumo:.2f} $ su {quota_voce} $). La voce continua: "
+                f"il di più, {extra:.2f} $ finora, si fattura a parte.")
+    if consumo >= quota_voce * AVVISO_QUOTA:
+        return f"Voce: usati {consumo:.2f} $ su {quota_voce} $ della quota mensile del piano. Oltre, il di più si fattura a parte."
+    return ""
+
+
+def uso_del_piano(servizio):
+    """Quanto del piano del fornitore è andato nel mese con questo servizio, nell'unità del piano: caratteri letti o
+    minuti trascritti (i secondi dei Consumi, arrotondati per eccesso)."""
+    from .voce import COMPITI
+    righe = _del_mese().filter(compito=COMPITI[servizio.uso], uso__servizio=servizio.pk).values_list("uso", flat=True)
+    totale = sum(int((uso or {}).get(servizio.unita, 0) or 0) for uso in righe)
+    return -(-totale // 60) if servizio.unita == "secondi" else totale
+
+
+def _una_volta_al_mese(chiave):
+    """True la prima volta nel mese: così un avviso per email parte una volta sola."""
+    from core.models import Parametro
+    _, nuovo = Parametro.objects.get_or_create(chiave=f"ai.{chiave}_{timezone.localdate():%Y_%m}", azienda=None, defaults={"valore": True})
+    return nuovo
+
+
+def _email(utenti, oggetto, testo):
+    destinatari = [u.email for u in utenti if u.email]
+    if destinatari:
+        send_mail(oggetto, testo, None, destinatari, fail_silently=True)
+
+
+def dopo_la_voce(servizio):
+    """Dopo una chiamata vocale segnata nei Consumi: gli avvisi per email, una volta al mese ciascuno. Agli
+    amministratori dell'assistente quando la quota della voce è quasi finita e quando è superata; al Global Admin
+    quando il mese si avvicina a ciò che il piano del fornitore comprende. Al massimo un controllo al minuto."""
+    from django.core.cache import cache
+    if not cache.add(f"ai-voce-avvisi:{servizio.pk}", 1, 60):
+        return
+    attivi = get_user_model().objects.filter(is_active=True).exclude(email="")
+    consumo, quota_voce, extra = voce()
+    if quota_voce and consumo >= quota_voce * AVVISO_QUOTA:
+        amministratori = [u for u in attivi if u.is_superuser or u.has_perm("ai.change_provider")]
+        if extra and _una_volta_al_mese("avviso_voce_extra"):
+            _email(amministratori, f"Assistente AI: superata la quota mensile della voce ({quota_voce} $)",
+                   f"La voce cloud dell'assistente questo mese è a {consumo:.2f} $ su una quota di {quota_voce} $.\n"
+                   "La voce continua a funzionare: il di più si fattura a parte.")
+        elif not extra and _una_volta_al_mese("avviso_voce"):
+            _email(amministratori, f"Assistente AI: voce a {consumo:.2f} $ su {quota_voce} $ della quota mensile",
+                   f"La voce cloud dell'assistente questo mese è a {consumo:.2f} $ su una quota di {quota_voce} $.\n"
+                   "Superata la quota la voce continua, e il di più si fattura a parte.")
+    if servizio.compresi_nel_piano:
+        usato = uso_del_piano(servizio)
+        if usato >= servizio.compresi_nel_piano * AVVISO_QUOTA and _una_volta_al_mese(f"avviso_piano_voce_{servizio.pk}"):
+            cosa = "minuti" if servizio.unita == "secondi" else "caratteri"
+            _email([u for u in attivi if u.is_superuser],
+                   f"Assistente AI: «{servizio.nome}» a {usato} {cosa} su {servizio.compresi_nel_piano} del piano",
+                   f"Il servizio vocale «{servizio.nome}» questo mese ha usato {usato} {cosa} dei {servizio.compresi_nel_piano} "
+                   "compresi nel piano del fornitore: oltre, il fornitore applica il suo sovrapprezzo.")
 
 
 def _avvisa(azienda, spesa, limite):

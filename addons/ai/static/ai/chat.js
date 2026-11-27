@@ -246,7 +246,7 @@
     boxConferma.querySelector('[data-conferma-bottoni]').hidden = fatta;
   }
   if (boxConferma) {
-    boxConferma.querySelector('[data-conferma-si]').addEventListener('click', () => { campoConferma.value = '1'; aggiornaConferma(); input.focus(); });
+    boxConferma.querySelector('[data-conferma-si]').addEventListener('click', () => { campoConferma.value = '1'; aggiornaConferma(); aggiorna(); input.focus(); });
     boxConferma.querySelector('[data-conferma-togli]').addEventListener('click', () => {
       const dt = new DataTransfer();
       [...campoFile.files].forEach((f) => { if (!f.type.startsWith('image/')) dt.items.add(f); });
@@ -318,10 +318,13 @@
     const href = link.getAttribute('href');
     const indirizzo = pannelloFonte.dataset.urlFonte.replace(/0\/$/, `${articolo.dataset.messaggio}/`);
     let risposta;
+    // se la fonte non si apre nel pannello: il link del testo va in una scheda nuova, come senza pannello (la chat
+    // resta dov'è); quello della scheda delle fonti nella stessa finestra, come prima
+    const altrove = () => { if (link.target === '_blank') window.open(href, '_blank', 'noopener'); else window.location.href = href; };
     try {
       risposta = await fetch(`${indirizzo}?url=${encodeURIComponent(href)}`, { headers: { 'X-Requested-With': 'fetch' } });
-    } catch (err) { window.location.href = href; return; }
-    if (!risposta.ok) { window.location.href = href; return; }
+    } catch (err) { altrove(); return; }
+    if (!risposta.ok) { altrove(); return; }
     pannelloFonte.innerHTML = await risposta.text();
     pannelloFonte.hidden = false;
     messaggi.querySelectorAll('a.is-citata').forEach((a) => a.classList.remove('is-citata'));
@@ -333,14 +336,26 @@
     pannelloFonte.addEventListener('click', (e) => { if (e.target.closest('[data-chiudi-fonte]')) chiudiFonte(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !pannelloFonte.hidden) chiudiFonte(); });
   }
+  // Un link del testo è una citazione se punta a una delle fonti elencate sotto la risposta (stesso indirizzo, o lo
+  // stesso record con un'altra pagina o sezione): si apre nel pannello accanto, come dalla scheda delle fonti. Gli
+  // altri link del testo restano com'erano, in una scheda nuova. (Prima il controllo era sul target, e il testo ha
+  // sempre target="_blank": le citazioni non aprivano mai il pannello.)
+  const senzaCoda = (indirizzo) => indirizzo.split('#')[0].split('?')[0];
+  const eUnaFonte = (articolo, link) => {
+    const href = link.getAttribute('href');
+    return [...articolo.querySelectorAll('.ai-pv-card a[href^="/"]')].some((a) => {
+      const fonte = a.getAttribute('href');
+      return fonte === href || senzaCoda(fonte) === senzaCoda(href);
+    });
+  };
   messaggi.addEventListener('click', (e) => {
     const link = e.target.closest('.ai-msg-testo a[href^="/"], .ai-pv-card a[href^="/"]');
     const conLink = link && link.closest('[data-messaggio]');
-    if (pannelloFonte && conLink && !(e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) && link.target !== '_blank') {
-      e.preventDefault();
-      apriFonte(conLink, link);
-      return;
-    }
+    if (!pannelloFonte || !conLink || e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+    const nelTesto = !!link.closest('.ai-msg-testo');
+    if (nelTesto ? !eUnaFonte(conLink, link) : link.target === '_blank') return;
+    e.preventDefault();
+    apriFonte(conLink, link);
   });
   messaggi.addEventListener('click', (e) => {
     const articolo = e.target.closest('[data-messaggio]');
@@ -437,7 +452,8 @@
     seguiInCorso();
   });
   document.body.addEventListener('htmx:beforeRequest', (e) => {
-    if (e.detail.elt === form) invia.disabled = true;
+    // non se l'invio è stato fermato (immagine da confermare): senza richiesta non arriva afterRequest a riaccenderlo
+    if (e.detail.elt === form && !e.defaultPrevented) invia.disabled = true;
   });
   document.body.addEventListener('htmx:afterRequest', (e) => {
     if (e.detail.elt === form && !messaggi.querySelector('[data-flusso]')) { aggiorna(); input.focus(); }
@@ -605,7 +621,9 @@
     if (e.target.closest('[data-tela] [data-scrittura]')) modificato = true;
   });
   document.body.addEventListener('htmx:afterSwap', (e) => {
-    if (e.detail.target && e.detail.target.id === 'ai-tela') modificato = false;
+    // dopo un conflitto il testo non salvato è solo nel riquadro «da ricopiare»: conta ancora come modifica in sospeso,
+    // altrimenti la prossima risposta ricarica il documento e quel testo si perde
+    if (e.detail.target && e.detail.target.id === 'ai-tela') modificato = !!document.querySelector('#ai-tela .ai-tela-perso');
   });
   document.body.addEventListener('htmx:afterSettle', (e) => {
     const t = tela();
@@ -651,6 +669,7 @@
         dici('Trascrivo…');
         const dati = new FormData();
         dati.append('audio', audio, 'voce.' + ((audio.type.split('/')[1] || 'webm').split(';')[0]));
+        if (microfono.dataset.conversazione) dati.append('conversazione', microfono.dataset.conversazione);   // chat riservata: solo in locale
         try {
           const r = await fetch(microfono.dataset.url, { method: 'POST', body: dati, headers: { 'X-CSRFToken': csrf } });
           const j = await r.json();
