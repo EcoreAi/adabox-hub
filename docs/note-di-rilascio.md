@@ -63,6 +63,16 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-26
 
+- **Il token CSRF per gli script sta nella pagina** — Kernel 1.15.1, AI 1.60.1 (nessuna migrazione).
+  - Su un'istanza con un nome suo per il cookie CSRF (quelle della flotta: `adabox_<slug>_csrf`) attivare le notifiche
+    push rispondeva 403, e così «Scrivi con Ada» nelle pagine senza un form: i due script leggevano il cookie
+    `csrftoken` scritto fisso. Ora leggono `<meta name="csrf-token">`, che il tema mette nel `<head>` di ogni pagina
+    per chi è dentro.
+  - Per i moduli: negli script il token si prende da lì (`docs/guida-moduli.md`, regola 8).
+  - Per i temi: il `<meta>` è in `theme/partials/_csrf.html`, incluso nel `<head>` accanto a `_tema.html`. Un tema che
+    sostituisce `_tema.html` non deve fare nulla; uno che sostituisce `base.html` o `base_pubblica.html` deve riportare
+    quell'inclusione, altrimenti gli script restano senza token (non leggono più il cookie) e ripiegano sul campo
+    `csrfmiddlewaretoken` della pagina, se c'è.
 - **Prima pagina per ruolo e per persona** — Kernel 1.15.0 (migrazione `core.0045`: prima pagina su ruolo e profilo).
   - Nel ruolo (Utenti → Ruoli) e nella scheda di una persona chi amministra sceglie la **prima pagina**: la Dashboard,
     «In tasca» o una voce di menu di un'app. È dove si arriva dopo l'accesso; la scelta sulla persona vince su quella

@@ -12,6 +12,7 @@
   <meta name="theme-color" content="{{ theme.theme_color }}">
   <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
   {% block head_extra %}{% endblock %}
+  {% include "theme/partials/_csrf.html" %}
   {% include "theme/partials/_tema.html" %}
 </head>
 <body class="ui-body">
