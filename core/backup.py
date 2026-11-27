@@ -1,6 +1,7 @@
 """Backup del database prima di installare, aggiornare o disinstallare moduli."""
 import logging
 import os
+import re
 import sqlite3
 import subprocess
 from pathlib import Path
@@ -40,6 +41,7 @@ def _postgres(dest, db):
 
 
 LUNGHEZZA_MOTIVO = 150
+AUTOMATICO = re.compile(r"\d{4}-\d{2}-\d{2}-\d{6}-.+\.(sqlite3|dump)")     # il nome che dà esegui()
 
 
 def esegui(motivo):
@@ -67,11 +69,13 @@ def esegui(motivo):
 
 
 def pulisci():
-    """Tiene solo gli ultimi BACKUP_CONSERVA file (il nome inizia con la data)."""
+    """Tiene solo gli ultimi BACKUP_CONSERVA backup automatici (il nome inizia con la data, quindi per nome sono in
+    ordine di tempo). Gli altri file della cartella, come le copie fatte a mano, non li tocca: quando si ordinava
+    tutto insieme, i «db-…» finivano dopo i «2026-…» e a farne le spese era il backup appena creato."""
     cartella = Path(settings.BACKUP_DIR)
     if not cartella.is_dir():
         return
-    file = sorted(p for p in cartella.iterdir() if p.is_file() and not p.name.startswith("."))
+    file = sorted(p for p in cartella.iterdir() if p.is_file() and AUTOMATICO.fullmatch(p.name))
     for vecchio in file[:-settings.BACKUP_CONSERVA] if settings.BACKUP_CONSERVA > 0 else []:
         vecchio.unlink()
         log.info("backup rimosso: %s", vecchio)
