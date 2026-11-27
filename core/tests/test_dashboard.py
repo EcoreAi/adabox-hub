@@ -50,6 +50,12 @@ def test_manifest_dashboard_e_home_validati(addons_tmp):
     assert manifest.leggi(addons_tmp.crea("gamma", dashboard="gamma.dashboard.kpi", home="gamma:pagina")).home == "gamma:pagina"
 
 
+def _tolti(r):
+    """I widget tolti dall'utente: nel cassetto ci sono anche quelli «su richiesta» (grafici salvati, previsioni
+    pronte), che stanno lì per definizione finché qualcuno non li mette in dashboard."""
+    return [w["id"] for w in r.context["nascosti"] if not w.get("su_richiesta")]
+
+
 @pytest.mark.django_db
 def test_widget_si_ordinano_allargano_tolgono_e_rimettono(client, superuser):
     import json
@@ -61,7 +67,7 @@ def test_widget_si_ordinano_allargano_tolgono_e_rimettono(client, superuser):
     r = client.get(reverse("core:dashboard"))
     html = r.content.decode()
     ids = [w["id"] for w in r.context["widget"]]
-    assert "todo:kpi" in ids and "todo:g0" in ids and r.context["nascosti"] == []
+    assert "todo:kpi" in ids and "todo:g0" in ids and _tolti(r) == []
     # il canvas e il blocco JSON con la serie portano lo stesso id, altrimenti il grafico non si disegna
     serie = re.search(r'<script id="wd-serie-todo-0" type="application/json">(.*?)</script>', html)
     assert serie and json.loads(serie.group(1))["etichette"] and 'data-grafico="wd-serie-todo-0"' in html
@@ -73,14 +79,14 @@ def test_widget_si_ordinano_allargano_tolgono_e_rimettono(client, superuser):
     r = client.get(reverse("core:dashboard"))
     visibili = [(w["id"], w["w"]) for w in r.context["widget"]]
     assert visibili[:2] == [("todo:g0", 4), ("todo:kpi", 2)] and ("crm:kpi", 1) not in visibili and "crm:kpi" not in [i for i, _ in visibili]
-    assert [w["id"] for w in r.context["nascosti"]] == ["crm:kpi"] and 'data-aggiungi="crm:kpi"' in r.content.decode()
+    assert _tolti(r) == ["crm:kpi"] and 'data-aggiungi="crm:kpi"' in r.content.decode()
     assert {i for i, _ in visibili} >= {"contatti:kpi", "helpdesk:kpi"}                 # i widget nuovi restano in coda
     assert client.post(reverse("core:dashboard_layout"), "[1, 2]", content_type="application/json").status_code == 400
     assert client.post(reverse("core:dashboard_layout"), "{non json", content_type="application/json").status_code == 400
     client.post(reverse("core:dashboard_layout"), json.dumps({"widget": [], "nascosti": ["todo:g0"]}), content_type="application/json")
     assert client.get(reverse("core:dashboard")).status_code == 200         # un grafico nel cassetto non rompe la pagina
     assert client.post(reverse("core:dashboard_reset")).status_code == 302 and not DashboardUtente.objects.filter(utente=superuser).exists()
-    assert client.get(reverse("core:dashboard")).context["nascosti"] == []
+    assert _tolti(client.get(reverse("core:dashboard"))) == []
 
 
 @pytest.mark.django_db

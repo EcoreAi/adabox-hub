@@ -1,0 +1,7 @@
+{% comment %}
+Le app delle altre aziende dell'utente (core.altre_aziende), in fondo alle voci della barra: link veri, così la ricerca
+del menu sul telefono li trova. Il clic cambia azienda e apre l'app con theme/partials/_cambia_azienda.html; senza
+script il link risponde «Passa a …». Un tema con un suo _header.html include questo pezzo e quello del cambio.
+{% endcomment %}{% if aziende|length > 1 %}{% for voce in theme.nav_altre_aziende %}
+        <a href="{{ voce.url }}" class="ui-nav-altra-azienda{% if voce.solo_computer %} is-solo-computer{% endif %}" data-cambia-azienda="{{ voce.azienda_pk }}" title="Passa a {{ voce.azienda_nome }} e apri {{ voce.label }}">{{ voce.label }} <small>{{ voce.azienda_nome }}</small></a>
+{% endfor %}{% endif %}
