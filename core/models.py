@@ -77,6 +77,9 @@ class Ruolo(models.Model):
     predefinito = models.BooleanField("ai nuovi utenti", default=False, help_text="il ruolo di chi viene creato senza sceglierne uno")
     dashboard = models.JSONField("dashboard iniziale", default=dict, blank=True,
                                  help_text="la disposizione da cui parte la dashboard di chi ha questo ruolo e non l'ha ancora personalizzata")
+    prima_pagina = models.CharField("prima pagina", max_length=100, blank=True,
+                                    help_text="dove arriva chi ha questo ruolo dopo l'accesso e aprendo l'app installata: una voce di menu "
+                                              "(il suo nome URL). Vuota = la prima voce della barra in alto, come senza scelta")
     ordine = models.PositiveSmallIntegerField("ordine", default=10)
 
     class Meta:
@@ -128,6 +131,8 @@ class ProfiloUtente(models.Model):
     apertura_app = models.CharField("quando apro l'app", max_length=10, choices=APERTURE, default="tasca",
                                     help_text="la pagina con cui si apre l'app installata sul telefono")
     barra = models.JSONField("app nella barra", default=dict, blank=True, help_text='{"fisse": [slug, ...]}: l\'ordine scelto da questa persona; vuoto = quello dell\'azienda')
+    prima_pagina = models.CharField("prima pagina", max_length=100, blank=True,
+                                    help_text="scelta da chi amministra per questa persona; vuota = quella del suo ruolo")
 
     class Meta:
         verbose_name = "profilo utente"
