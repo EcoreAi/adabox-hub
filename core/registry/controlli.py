@@ -12,7 +12,7 @@ from . import manifest, modules
 
 ERRORE, AVVISO = "errore", "avviso"
 SEGRETO = re.compile(r"(^|_)(token|password|segreto|secret|api_?key)($|_)")
-COMANDATI = {"login_required", "permission_required", "staff_member_required", "portale"}
+COMANDATI = {"login_required", "permission_required", "staff_member_required", "portale", "post_con_accesso"}
 
 
 @dataclass
@@ -186,12 +186,13 @@ def _pagine(alberi, rilievi):
     urls = alberi.get("urls.py")
     if urls is None:
         return
-    collegate = {x.args[1].attr: getattr(x.args[1].value, "id", "") for x in ast.walk(urls) if isinstance(x, ast.Call) and getattr(x.func, "id", "") == "path"
-                 and len(x.args) > 1 and isinstance(x.args[1], ast.Attribute)}
+    # coppie (file, funzione): due viste con lo stesso nome in file diversi si controllano entrambe
+    collegate = {(getattr(x.args[1].value, "id", ""), x.args[1].attr) for x in ast.walk(urls) if isinstance(x, ast.Call)
+                 and getattr(x.func, "id", "") == "path" and len(x.args) > 1 and isinstance(x.args[1], ast.Attribute)}
     for file, albero in alberi.items():
         modulo = Path(file).stem
         for n in albero.body:
-            if isinstance(n, ast.FunctionDef) and collegate.get(n.name) == modulo:
+            if isinstance(n, ast.FunctionDef) and (modulo, n.name) in collegate:
                 decoratori = {getattr(d.func if isinstance(d, ast.Call) else d, "id", "") for d in n.decorator_list}
                 if not decoratori & COMANDATI:
                     rilievi.append(Rilievo(AVVISO, "accesso", file, n.lineno, f"{n.name} risponde anche a chi non ha fatto l'accesso: è voluto?"))
