@@ -141,6 +141,18 @@ def test_le_richieste_fuori_dal_browser_portano_l_azienda(scena):
     assert slug in [a["slug"] for a in modules.app_visibili(interroga.richiesta_di(u, scena["zen"]).user)]
 
 
+def test_le_richieste_per_un_altra_azienda_non_cambiano_quella_della_pagina(scena):
+    """Il consolidato su più aziende (interroga._aggrega_aziende, _kpi_aziende) chiama richiesta_di con l'utente della
+    pagina, una volta per azienda: dopo, barra e menu della pagina devono restare quelli dell'azienda corrente."""
+    from ai.strumenti import richiesta
+    slug, u = scena["slug"], scena["u"]
+    u._azienda_corrente = scena["zen"]                   # come il middleware
+    interroga.richiesta_di(u, scena["iem"])
+    richiesta.nuova(u, scena["iem"])
+    assert u._azienda_corrente == scena["zen"]
+    assert slug in [a["slug"] for a in modules.app_visibili(u)]
+
+
 def test_le_aziende_disattivate_non_contano(scena):
     """Riservata solo a un'azienda poi disattivata: l'app non deve sparire per tutti."""
     slug, u, iem = scena["slug"], scena["u"], scena["iem"]

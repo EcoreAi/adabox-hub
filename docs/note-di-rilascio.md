@@ -250,7 +250,7 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-23
 
-- **App di una sola azienda: chiuse anche le altre strade** — Kernel 1.17.4 (nessuna migrazione).
+- **App di una sola azienda: chiuse anche le altre strade** — Kernel 1.17.4, AI 1.61.2 (nessuna migrazione).
   - Le **API** rispettano le app riservate: con un token, o con `X-Azienda` su un'altra azienda, un'app riservata
     risponde 403 in JSON (prima la chiamata passava); `/api/v1/me/` elenca solo le app dell'azienda della chiamata.
   - **Ada** non ha più gli strumenti delle app riservate ad altre aziende, e il worker (pianificazioni, turni di Ada)
