@@ -13,6 +13,7 @@ _pagine_app = []               # pagine che un modulo aggiunge dentro le altre a
 _parti_dashboard = set()       # app le cui pagine sono schede della dashboard (es. Analisi)
 _fonti_ricerca = []            # [dict(funzione, modulo, permission)] altre cose da trovare con «Cerca ovunque»
 _tasca = []                    # [dict(etichetta, url_name, icona, permission, ...)] voci dei moduli nella pagina «In tasca»
+_senza_rete = []               # [dict(url_name, statici, modulo)] pagine dei moduli che il service worker tiene in cache
 
 
 def _chiave(model):
@@ -121,6 +122,46 @@ def scorciatoie_tasca():
     spenti = disattivati()
     return [{"name": v["etichetta"], "url": f"/tasca/?apri={v['url_name']}"} for v in sorted(_tasca, key=lambda v: v["order"])
             if v["scorciatoia"] and v["modulo"] not in spenti]
+
+
+def pagina_senza_rete(url_name, statici=(), modulo=None):
+    """Da chiamare nel ready() dell'app: la pagina `url_name` (un nome URL senza argomenti) resta apribile senza rete.
+    Il service worker dell'app installata ne tiene l'ultima copia sul dispositivo di chi l'ha aperta almeno una volta
+    con la rete, e la mostra quando la rete manca (al posto di «Sei offline») o tarda più di quattro secondi.
+    `statici`: i suoi file, scritti come in `{% statico %}` ("iem/scansiona.js"): entrano in cache all'installazione
+    dell'app. Anche l'avvio dell'app e le scorciatoie, se con la rete hanno portato a questa pagina, senza rete portano
+    alla sua copia; e «Sei offline» elenca le pagine di cui c'è una copia.
+
+    Da sapere, per chi scrive la pagina:
+    - la copia può comparire anche con la rete (lenta): la pagina non dia per scontato né di essere senza rete né di
+      essere aggiornata, e provi lei a raggiungere il server;
+    - la copia è quella dell'ultima apertura, con il token CSRF di allora: tornata la rete, prima di inviare qualcosa
+      si rilegge il token (un `fetch` della pagina stessa e `<meta name="csrf-token">`), o si ricarica la pagina;
+    - i dati che la pagina raccoglie senza rete li tiene lei (IndexedDB) e li invia quando la rete torna;
+    - le copie si cancellano dal dispositivo quando si passa dal login o dal logout."""
+    voce = {"url_name": url_name, "statici": tuple(statici), "modulo": modulo or url_name.split(":", 1)[0]}
+    if not any(v["url_name"] == url_name for v in _senza_rete):
+        _senza_rete.append(voce)
+
+
+def pagine_senza_rete():
+    """Per il service worker (uguale per tutti: non c'è una persona): {"pagine": [percorsi], "statici": [indirizzi]}
+    delle pagine dichiarate dai moduli accesi."""
+    from django.urls import NoReverseMatch, reverse
+
+    from theme.templatetags.tema import statico
+
+    from .modules import disattivati
+    spenti, pagine, statici = disattivati(), [], []
+    for v in _senza_rete:
+        if v["modulo"] in spenti:
+            continue
+        try:
+            pagine.append(reverse(v["url_name"]))
+        except NoReverseMatch:
+            continue
+        statici += [statico(percorso) for percorso in v["statici"]]
+    return {"pagine": pagine, "statici": list(dict.fromkeys(statici))}
 
 
 def sezione_dashboard(template, order=100, permission=None):
