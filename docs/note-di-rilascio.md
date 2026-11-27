@@ -14,6 +14,18 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-26
 
+- **Voci dei moduli nella pagina «In tasca»** — Kernel 1.16.0 (nessuna migrazione).
+  - Un modulo aggiunge la sua voce dal `ready()`: `hooks.voce_tasca("Scansiona documento", "iem:scansiona",
+    icona="search", permission="iem.add_documento", sotto="DDT e fatture", scorciatoia=True)`. Compare per prima, per
+    chi ha il permesso, con l'app accesa, attiva per l'azienda corrente e tra quelle dei suoi dipartimenti. `conta` è una
+    funzione che riceve la richiesta e dà il numero del bollino.
+  - Con `scorciatoia=True` la voce va anche tra le scorciatoie dell'icona dell'app installata, prima di quelle del
+    kernel (il telefono ne mostra tre o quattro): si apre da `/tasca/?apri=<nome URL>`, con gli stessi controlli. Le
+    scorciatoie le legge il telefono quando installa o aggiorna l'app: su un'app già installata possono arrivare dopo.
+  - Il tema non conosce il kernel: la funzione che dà le scorciatoie dei moduli gli arriva da `THEME["scorciatoie"]`
+    (`core.registry.hooks.scorciatoie_tasca`). Un'istanza con un `settings.py` proprio deve aggiungere quella voce,
+    altrimenti le scorciatoie dei moduli non compaiono (le voci in «In tasca» sì).
+
 - **Il token CSRF per gli script sta nella pagina** — Kernel 1.15.1, AI 1.60.1 (nessuna migrazione).
   - Su un'istanza con un nome suo per il cookie CSRF (quelle della flotta: `adabox_<slug>_csrf`) attivare le notifiche
     push rispondeva 403, e così «Scrivi con Ada» nelle pagine senza un form: i due script leggevano il cookie
