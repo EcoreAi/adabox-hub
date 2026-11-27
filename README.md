@@ -818,7 +818,8 @@ profilo e si vedono in chiaro una volta sola. Per ogni `ModelView` con `api = Tr
 
 Prima di ogni installazione, aggiornamento o disinstallazione il kernel salva il DB in
 `backup/` (`<data>-pre-<operazione>-<slug>.sqlite3` o `.dump`) e tiene gli ultimi
-`BACKUP_CONSERVA` (default 10). Senza backup riuscito l'operazione non parte.
+`BACKUP_CONSERVA` (default 10). La rotazione conta e cancella solo questi backup automatici: le copie
+messe a mano nella cartella con un altro nome restano. Senza backup riuscito l'operazione non parte.
 
 - **SQLite**: ferma il server e copia il file: `cp backup/<file>.sqlite3 db.sqlite3`.
 - **Postgres**: `pg_restore --clean --if-exists --dbname "$DATABASE_URL" backup/<file>.dump`.

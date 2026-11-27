@@ -64,6 +64,36 @@ def test_pulisci_tiene_gli_ultimi(settings, cartella):
     assert sorted(p.name[:10] for p in cartella.iterdir()) == ["2026-10-04", "2026-10-05", "2026-10-06"]
 
 
+A_MANO = ["db-prima-di-0045-20261127-1715.sqlite3", "env-prima-di-https-20261116", "copia.sqlite3"]
+
+
+def test_pulisci_non_tocca_i_file_messi_a_mano(settings, cartella):
+    """Si ruotano solo i backup automatici: le copie fatte a mano nella stessa cartella restano."""
+    settings.BACKUP_CONSERVA = 2
+    cartella.mkdir()
+    for nome in A_MANO:
+        (cartella / nome).write_text("")
+    for i in range(4):
+        (cartella / f"2026-10-0{i + 1}-120000-pre-aggiorna-x.sqlite3").write_text("")
+    backup.pulisci()
+    assert sorted(p.name for p in cartella.iterdir()) == sorted(
+        A_MANO + ["2026-10-03-120000-pre-aggiorna-x.sqlite3", "2026-10-04-120000-pre-aggiorna-x.sqlite3"])
+
+
+@pytest.mark.django_db
+@pytest.mark.skipif("sqlite" not in __import__("django.conf").conf.settings.DATABASES["default"]["ENGINE"], reason="backup sqlite")
+def test_il_backup_appena_fatto_resta_con_tante_copie_a_mano(settings, cartella):
+    """Il caso dell'istanza del 27/11: dieci copie «db-…» fatte a mano, e il backup di `modulo aggiorna` veniva
+    cancellato appena creato, perché per nome «2026-…» viene prima di «db-…»."""
+    settings.BACKUP_CONSERVA = 10
+    cartella.mkdir()
+    for i in range(10):
+        (cartella / f"db-prima-di-qualcosa-{i}.sqlite3").write_text("")
+    dest = backup.esegui("pre-aggiorna-ai")
+    assert dest.exists()
+    assert len(list(cartella.glob("db-*"))) == 10
+
+
 def test_engine_sconosciuto(settings, monkeypatch, cartella):
     monkeypatch.setitem(settings.DATABASES, "default", {**settings.DATABASES["default"], "ENGINE": "x.oracle"})
     with pytest.raises(backup.BackupFallito):
