@@ -144,13 +144,22 @@ def _righe_inline(paragrafo, testo):
             paragrafo.add_run(pezzo)
 
 
+_NON_XML = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
+
+
+def _per_xml(testo):
+    """Senza i caratteri di controllo (da un testo incollato o estratto da un PDF): un file Word è XML e non li ammette."""
+    return _NON_XML.sub("", testo or "")
+
+
 def in_word(documento):
     """Il documento in .docx: titoli, elenchi, grassetto e corsivo; il resto come testo."""
     from docx import Document
     doc = Document()
-    doc.core_properties.title = documento.titolo
-    doc.add_heading(documento.titolo, level=0)
-    for riga in documento.testo.splitlines():
+    titolo, testo = _per_xml(documento.titolo), _per_xml(documento.testo)
+    doc.core_properties.title = titolo
+    doc.add_heading(titolo, level=0)
+    for riga in testo.splitlines():
         s = riga.strip()
         if not s:
             continue

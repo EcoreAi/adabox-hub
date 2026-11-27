@@ -59,7 +59,7 @@ def estrai(nome, dati):
         return [], "non_supportato"
     try:
         if estensione in TESTUALI:
-            testo = dati.decode("utf-8", errors="replace")
+            testo = dati.decode("utf-8", errors="replace").replace("\x00", "")   # un file UTF-16: Postgres rifiuta i nulli
             return [(None, re.sub(r"<[^>]+>", " ", testo) if estensione in ("html", "htm", "xml") else testo)], "ok"
         if estensione == "pdf":
             from pypdf import PdfReader
@@ -125,17 +125,23 @@ def _impronta(testo):
 
 
 def _viste_indicizzabili():
+    """(vista, campi di testo da indicizzare). Fuori le viste che l'assistente non legge (`per_assistente = False`) e
+    i campi nascosti ad almeno un ruolo (core.regole): l'indice è uno solo per tutti, e la ricerca restituirebbe
+    l'estratto con quel campo anche a chi nella scheda non lo vede."""
+    from core.models import PermessoCampo
     from core.viste import registry
+    from core.viste.interroga import id_vista
     registry.autodiscover(["core", *settings.ADDONS_ATTIVI])
+    nascosti = set(PermessoCampo.objects.filter(livello=PermessoCampo.NASCOSTO).values_list("vista", "campo"))
     for modulo in ["core", *settings.ADDONS_ATTIVI]:
         if modulo in ESCLUSI:
             continue
         for vista in registry.viste_di(modulo):
-            if vista.opts.label_lower in MODELLI_ESCLUSI:
+            if vista.opts.label_lower in MODELLI_ESCLUSI or not getattr(vista, "per_assistente", True):
                 continue
             campi = [f for f in vista.opts.concrete_fields
                      if isinstance(f, (models.CharField, models.TextField)) and not f.choices
-                     and not SENSIBILE.search(f.name)]
+                     and not SENSIBILE.search(f.name) and (id_vista(vista), f.name) not in nascosti]
             if campi and not (modulo == "documenti" and vista.model.__name__ == "Documento"):
                 yield vista, campi
 
@@ -152,7 +158,7 @@ def frammenti_di_un_record(vista, campi, ct, obj):
     """Un frammento per record (i campi di testo, fino a MAX_TESTO_RECORD); le viste con `conoscenza_sezioni`
     (es. le pagine della wiki) danno invece quel campo per intero, un frammento per sezione."""
     azienda_id = getattr(obj, f"{vista.company_field}_id", None) if vista.company_field else None
-    if getattr(vista, "conoscenza_sezioni", None):
+    if getattr(vista, "conoscenza_sezioni", None) and any(f.name == vista.conoscenza_sezioni for f in campi):
         yield from _frammenti_a_sezioni(vista, campi, ct, obj, azienda_id)
         return
     righe = [f"{vista.verbose_name}: {obj}"]
@@ -185,11 +191,27 @@ def _frammenti_a_sezioni(vista, campi, ct, obj, azienda_id):
             n += 1
 
 
+def _documenti_dimenticati():
+    """{(tipo di contenuto, id)} dei documenti fatti dimenticare ad Ada (ai.oblio): senza, il giro dopo rimetteva
+    nell'indice le note del chatter che «Fai dimenticare» aveva appena tolto."""
+    from django.apps import apps
+    if not apps.is_installed("documenti"):
+        return set()
+    from django.contrib.contenttypes.models import ContentType
+
+    from documenti.models import Documento
+    ct = ContentType.objects.get_for_model(Documento).pk
+    return {(ct, pk) for pk in IndiceDocumento.objects.filter(stato=IndiceDocumento.ESCLUSO).values_list("documento_id", flat=True)}
+
+
 def frammenti_note():
     """Note e messaggi del chatter (non i tracciamenti né gli eventi di sistema), legati al loro record."""
     from core.models import Messaggio
+    dimenticati = _documenti_dimenticati()
     for m in (Messaggio.objects.filter(tipo__in=[Messaggio.NOTA, Messaggio.MESSAGGIO]).exclude(corpo="")
               .select_related("content_type", "autore").iterator(chunk_size=500)):
+        if (m.content_type_id, m.object_id) in dimenticati:  # le note di un documento fatto dimenticare restano fuori
+            continue
         record = m.record
         if record is None:
             continue
@@ -449,6 +471,10 @@ def riassumi(d, analisi):
         return "senza testo"
     if indice.impronta_riassunto == indice.impronta:
         return "già fatto"
+    try:
+        limiti.verifica(d.azienda)                        # licenza e tetto di spesa valgono anche per i riassunti
+    except ErroreModello as e:
+        return (e.messaggio or str(e))[:200]              # si riprova al prossimo giro: l'impronta non si tocca
     utente = d.caricato_da or d.proprietario
     lavoro = Turno.objects.create(utente=utente, azienda_id=d.azienda_id, compito="riassunto_documento")
     pezzi_testo, modello = [], None

@@ -104,3 +104,27 @@ def test_profilo_con_catena_dal_form(client, superuser, iniziali):
     p = Profilo.objects.get(nome="Analisi")
     assert list(AnelloCatena.objects.filter(profilo=p).values_list("modello__id_api", flat=True)) == ["claude-sonnet-5-5"]
     assert "Claude Sonnet 5.5" in client.get("/ai/profili/").content.decode()
+
+
+def test_cambiando_il_server_di_un_provider_la_chiave_non_lo_segue(db):
+    """Chi può modificare un provider non legge la chiave, ma cambiandone l'URL se la faceva mandare: ora la deve
+    riscrivere. Le chiavi delle aziende, che non può riscrivere, bloccano il cambio per chi non è Global Admin."""
+    from ai.forms import ProviderForm
+    from ai.models import ChiaveAzienda
+    from core import cifratura
+    p = Provider.objects.create(nome="Gateway", tipo="openai_compat", base_url="https://api.gateway.example/v1",
+                                chiave_cifrata=cifratura.cifra("sk-vera-1234"))
+    dati = {"nome": "Gateway", "tipo": "openai_compat", "attivo": "on"}
+    altrove = ProviderForm({**dati, "base_url": "https://ladro.example/v1"}, instance=p)
+    assert not altrove.is_valid() and "chiave salvata" in str(altrove.errors["nuova_chiave"])
+    assert ProviderForm({**dati, "base_url": "https://api.gateway.example/v2"}, instance=p).is_valid()       # stesso server
+    assert ProviderForm({**dati, "base_url": "https://nuovo.example/v1", "nuova_chiave": "sk-vera-1234"}, instance=p).is_valid()
+    assert ProviderForm({**dati, "base_url": "https://nuovo.example/v1", "togli_chiave": "on"}, instance=p).is_valid()
+    p.refresh_from_db()
+    assert p.base_url == "https://api.gateway.example/v1" and p.chiave_per() == "sk-vera-1234"
+
+    ChiaveAzienda.objects.create(provider=p, azienda=Azienda.objects.get(pk=1), chiave_cifrata=cifratura.cifra("sk-azienda"))
+    con_chiavi = ProviderForm({**dati, "base_url": "https://nuovo.example/v1", "nuova_chiave": "sk-vera-1234"}, instance=p)
+    assert not con_chiavi.is_valid() and "Global Admin" in str(con_chiavi.errors["base_url"])
+    admin = type("ProviderFormAdmin", (ProviderForm,), {"global_admin": True})
+    assert admin({**dati, "base_url": "https://nuovo.example/v1", "nuova_chiave": "sk-vera-1234"}, instance=p).is_valid()

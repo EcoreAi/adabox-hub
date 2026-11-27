@@ -10,13 +10,17 @@ LINGUA = re.compile(r"[a-z0-9+#_-]{1,20}")
 CODICE_MASSIMO = 20_000
 CODICE = re.compile(r"`([^`\n]+)`")
 GRASSETTO = re.compile(r"\*\*(.+?)\*\*")
-CORSIVO = re.compile(r"(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])|(?<!\w)_(?!\s)(.+?)(?<!\s)_(?!\w)")
-LINK = re.compile(r"\[([^\]\n]+)\]\((https?://[^\s)]+|/(?!/)[^\s)]*)\)")
-URL = re.compile(r"(?<![\"'=>])\bhttps?://[^\s<]+[^\s<.,;:!?)\]'\"]")
+# Le espressioni non devono poter ripartire da ogni carattere di una riga lunga (una riga di sole «[» o « _a» teneva
+# occupato il server per secondi, a ogni lettura): il testo di un link non contiene «[», il corsivo è corto.
+CORSIVO = re.compile(r"(?<![\w*])\*(?!\s)(.{1,300}?)(?<!\s)\*(?![\w*])|(?<!\w)_(?!\s)(.{1,300}?)(?<!\s)_(?!\w)")
+# Negli indirizzi mai il carattere nullo: è quello dei segnaposto di _in_linea, e un segnaposto dentro un href
+# porterebbe l'HTML di un altro link dentro l'attributo. «/\sito» per un browser è «//sito»: non è un link interno.
+LINK = re.compile(r"\[([^\]\[\n]+)\]\((https?://[^\s)\x00]+|/(?![/\\])[^\s)\x00]*)\)")
+URL = re.compile(r"(?<![\"'=>])\bhttps?://[^\s<\x00]+[^\s<\x00.,;:!?)\]'\"]")
 SEPARATORE = re.compile(r"^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?$")
 TITOLO = re.compile(r"^(#{1,4})\s+(.*)$")
 # alcuni modelli scrivono il grafico come immagine Markdown: il grafico è già sotto la risposta, il segnaposto si toglie
-SEGNAPOSTO_ARTIFACT = re.compile(r"[ \t]*!\[[^\]\n]*\]\(artifact:\d+\)")
+SEGNAPOSTO_ARTIFACT = re.compile(r"(?<![ \t])[ \t]*!\[[^\]\[\n]*\]\(artifact:\d+\)")
 
 
 def _ancora(titolo, usate):
@@ -50,8 +54,16 @@ def sezioni(testo):
     return voci
 
 
+SEGNAPOSTO = re.compile(r"\x00(\d+)\x00")
+
+
 def _in_linea(testo):
-    """Su testo già passato da escape."""
+    """Su testo già passato da escape. Codice e link si mettono da parte con segnaposto \\x00N\\x00 (grassetto e
+    corsivo non devono toccarli): per questo i caratteri nulli del testo si tolgono prima, altrimenti uno scritto
+    nella risposta varrebbe come segnaposto (e con un numero che non c'è la pagina andava in errore).
+    Un segnaposto può stare dentro un altro solo come testo: il codice nel testo di un link. Mai in un indirizzo
+    (LINK e URL escludono il carattere nullo), quindi due passate bastano e nessun HTML finisce in un attributo."""
+    testo = testo.replace("\x00", "")
     segnaposti = []
 
     def proteggi(html):
@@ -65,7 +77,9 @@ def _in_linea(testo):
                                        f'{m.group(0)}</a>'), testo)
     testo = GRASSETTO.sub(r"<strong>\1</strong>", testo)
     testo = CORSIVO.sub(lambda m: f"<em>{m.group(1) or m.group(2)}</em>", testo)
-    return re.sub(r"\x00(\d+)\x00", lambda m: segnaposti[int(m.group(1))], testo)
+    for _ in range(2):                                  # la seconda: il codice nel testo di un link
+        testo = SEGNAPOSTO.sub(lambda m: segnaposti[int(m.group(1))], testo)
+    return testo
 
 
 def _blocco_codice(testo_con_escape, lingua):
@@ -91,7 +105,7 @@ def _celle(riga):
 
 def rendi(testo, ancore=False):
     """Con ancore=True i titoli hanno un id (le pagine della wiki: le citazioni puntano alla sezione)."""
-    righe = escape(SEGNAPOSTO_ARTIFACT.sub("", testo or "")).replace("\r\n", "\n").split("\n")
+    righe = escape(SEGNAPOSTO_ARTIFACT.sub("", (testo or "").replace("\x00", ""))).replace("\r\n", "\n").split("\n")
     html, i, usate = [], 0, {}
     paragrafo = []
 

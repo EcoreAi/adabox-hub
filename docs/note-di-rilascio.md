@@ -5,6 +5,55 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-27
 
+- **Revisione dell'assistente, seconda parte** — AI 1.60.2, Kernel 1.17.1, Discuss 1.13.3, GitHub 1.0.1, Chiedi ad
+  Ada 1.0.2 (nessuna migrazione).
+  - **Da fare prima di aggiornare un'istanza non in debug**: il container web non parte più se `SECRET_KEY` non è
+    impostata (resterebbe quella di sviluppo, nota a tutti). Mettila nel file `.env`; con `DEBUG=True` non cambia nulla.
+  - **Content-Security-Policy in sola segnalazione**: ogni pagina dice al browser che cosa segnalare, senza bloccare
+    nulla. Le segnalazioni arrivano nel log `sicurezza.csp` (una riga all'ora per violazione diversa): servono a
+    vedere che cosa romperebbe una politica vera. Si spegne con `CSP_SOLO_SEGNALAZIONE=False`.
+  - **Ricerca nei documenti**: i campi nascosti ad almeno un ruolo non entrano più nell'indice (spariscono al giro
+    programmato successivo) e la ricerca rispetta dipartimenti e app di altre aziende. «Riassumi» e «Scrivi con Ada»
+    non riportano i campi nascosti a chi chiede.
+  - **Citazioni**: il clic su una citazione nel testo della risposta apre la fonte nel pannello accanto alla chat.
+  - **Chiedi ad Ada**: la ricerca sul web è spenta; si accende per azienda da Impostazioni → Chiedi ad Ada.
+  - **Spesa**: il tetto mensile si ricontrolla a ogni passo del turno; il costo degli esperti conta nella risposta
+    che li chiama; i riassunti dei documenti e la voce rispettano licenza e tetto. La voce ha un limite di 200
+    richieste ogni dieci minuti per persona.
+  - **Scheda di conferma**: argomenti dei sistemi esterni e messaggi di Discuss per intero.
+  - **Fai dimenticare ad Ada**: diventano una nota anche le risposte venute dopo nella stessa chat.
+  - **Dati personali**: i nomi utente con punti o cifre si mascherano; gli argomenti delle chiamate passate passano
+    dal servizio di protezione come il resto del testo.
+  - GitHub: «Rigenera il segreto» chiede la spunta e non è più tra i bottoni dell'assistente. Discuss: leggere una
+    conversazione con Ada non la crea.
+
+- **Revisione di Chat e «Parla con Ada»: correzioni e sicurezza** — AI 1.60.2, Kernel 1.17.1, insieme alla seconda parte (nessuna migrazione).
+  Cambi di comportamento da conoscere:
+  - **Pagine web**: Ada apre solo gli indirizzi scritti dall'utente nel messaggio o tornati da `cerca_web` e
+    `leggi_pagina`. Un indirizzo letto in un record o in un documento va incollato nel messaggio. Un esperto
+    (`chiedi_esperto`) ha il web solo se l'utente l'ha acceso per quel messaggio.
+  - **Campi di tabelle collegate** (`cliente__citta` in filtri, raggruppamenti, ordinamenti, pivot, KPI): servono il
+    permesso di vedere la tabella collegata e il campo non nascosto al ruolo lì; il nome del record collegato
+    (`cliente__nome`, `ordine__numero`) resta sempre. Di un utente collegato si usano solo nome, cognome e nome utente.
+    Vale per Ada, per Analisi e per la pivot.
+  - **Dipartimenti**: le viste di un'app fuori dai dipartimenti di chi chiede non sono più lette da Ada né dalle
+    interrogazioni per vista, come già per pagine e API.
+  - **Attività pianificate**: si sospendono (con l'email al proprietario) se il proprietario non ha più accesso
+    all'azienda dell'attività o non può più usare l'assistente. Girano fuori dalla transazione del worker.
+  - **Grafici e tabelle salvati**: non si ricalcolano per chi ha perso l'accesso all'azienda in cui li ha chiesti
+    (resta l'istantanea).
+  - **Provider**: cambiando il server dell'URL dell'API la chiave salvata va riscritta (o tolta); se il provider ha
+    chiavi delle aziende il server lo cambia solo il Global Admin.
+  - **Voce**: in una chat riservata anche la trascrizione di chi parla resta sul servizio locale; senza servizio
+    locale la dettatura lì non funziona.
+  - **Fai dimenticare ad Ada**: un documento dimenticato non si legge più nemmeno con `leggi_documento`, e le note
+    del suo chatter non tornano nell'indice.
+  - **Licenza, utenti al mese**: il limite ora scatta davvero (prima chi scriveva per la prima volta risultava già
+    contato): con una licenza a N utenti, l'utente N+1 del mese riceve «Raggiunto il numero di utenti della licenza».
+    Con la licenza di sviluppo o con 0 utenti non cambia nulla.
+  - **Consumi**: la ricerca non guarda più dentro il testo delle risposte. **Aree di lavoro**: non si condividono
+    con gli utenti esterni. **CSV di grafici e tabelle**: i testi che cominciano con `=`, `+`, `-`, `@` escono con un
+    apostrofo davanti (non sono formule).
 - **Azioni solo POST e sessione scaduta** (Kernel, nessuna migrazione). A sessione scaduta un clic su un'azione solo POST
   (cambio azienda, allegati, chatter, token, apertura app…) portava al login con quell'azione come destinazione, e dopo
   l'accesso rispondeva 405. Ora si torna alla pagina di partenza (con HTMX è la pagina intera ad andare al login), e il

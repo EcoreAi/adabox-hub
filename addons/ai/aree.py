@@ -147,9 +147,11 @@ def chat_visibili(utente, area):
 
 
 def candidati(area_o_azienda, proprietario):
-    """Gli utenti attivi della stessa azienda con cui si può condividere (non chi l'ha creata)."""
+    """Gli utenti attivi della stessa azienda con cui si può condividere (non chi l'ha creata): i colleghi, non gli
+    utenti esterni (i clienti del portale), come per documenti, grafici e tabelle (condivisione.colleghi)."""
     azienda = getattr(area_o_azienda, "azienda", area_o_azienda)
-    return get_user_model().objects.filter(is_active=True, profilo__aziende=azienda).exclude(pk=proprietario.pk).order_by("first_name", "username")
+    return (get_user_model().objects.filter(is_active=True, profilo__aziende=azienda).exclude(profilo__esterno=True)
+            .exclude(pk=proprietario.pk).order_by("first_name", "username"))
 
 
 def imposta_membri(area, utenti):

@@ -70,14 +70,21 @@ def richiesta_libera(testo_attuale, istruzione, etichetta="", record=""):
     return regole, "\n\n".join(p for p in parti if p)
 
 
-def descrivi_record(vista, obj, messaggi=30, massimo=8000):
-    """Il record in parole, per Ada: tipo, nome, i campi del dettaglio e gli ultimi messaggi del chatter."""
+def descrivi_record(vista, obj, messaggi=30, massimo=8000, request=None):
+    """Il record in parole, per Ada: tipo, nome, i campi del dettaglio e gli ultimi messaggi del chatter. Con la
+    richiesta di chi chiede, senza i campi nascosti al suo ruolo (core.regole), nemmeno tra le modifiche tracciate:
+    il riassunto li riporterebbe a chi nella scheda non li vede."""
     from core import chatter
+    nascosti = set()
+    if request is not None:
+        from core import regole
+        nascosti = set(regole.nascosti(vista, request))
+    etichette_nascoste = {str(vista.etichetta(c)) for c in nascosti}
     righe = [f"{str(vista.verbose_name).capitalize()}: {obj}"]
     for _, gruppi in vista.layout_dettaglio():
         for riga in gruppi:
             for campo in riga:
-                if campo.startswith(("@", "prop_")):
+                if campo.startswith(("@", "prop_")) or campo in nascosti:
                     continue
                 try:
                     valore = chatter.testo_campo(obj, campo)
@@ -91,8 +98,10 @@ def descrivi_record(vista, obj, messaggi=30, massimo=8000):
             righe.append("Ultimi messaggi e modifiche (dal più vecchio):")
             for m in voci:
                 chi = (m.autore.get_full_name() or m.autore.username) if m.autore else (m.autore_email or "Sistema")
-                testo = m.corpo or "; ".join(f"{c.get('label')}: {c.get('prima')} → {c.get('dopo')}" for c in m.modifiche)
-                righe.append(f"- {m.creato:%d/%m/%Y} {chi} ({m.get_tipo_display().lower()}): {testo[:400]}")
+                testo = m.corpo or "; ".join(f"{c.get('label')}: {c.get('prima')} → {c.get('dopo')}" for c in m.modifiche
+                                             if c.get("campo") not in nascosti and str(c.get("label")) not in etichette_nascoste)
+                if testo:
+                    righe.append(f"- {m.creato:%d/%m/%Y} {chi} ({m.get_tipo_display().lower()}): {testo[:400]}")
     return "\n".join(righe)[:massimo]
 
 
@@ -105,7 +114,7 @@ def avvia_libero(utente, azienda, testo_attuale, istruzione, etichetta="", recor
     return motore.avvia(conversazione, corpo, utente, azienda, compito=COMPITO, nota=regole, web=False)
 
 
-def avvia_riassunto(utente, azienda, vista, obj):
+def avvia_riassunto(utente, azienda, vista, obj, request=None):
     from . import motore
     regole = ("Riassumi il record per un collega che deve prenderlo in mano adesso. Italiano chiaro, al massimo 150 parole, "
               "con brevi elenchi a trattino: a che punto è, i fatti importanti, le ultime novità, cosa resta da fare o chi aspetta cosa. "
@@ -116,7 +125,8 @@ def avvia_riassunto(utente, azienda, vista, obj):
     motivo = riservatezza.motivo_record(vista, obj, azienda)        # record riservato: la chat nasce riservata
     conversazione = Conversazione.objects.create(utente=utente, titolo=f"Riassunto: {str(obj)[:150]}", nascosta=True,
                                                  riservata=bool(motivo), riservata_motivo=motivo)
-    return motore.avvia(conversazione, descrivi_record(vista, obj), utente, azienda, compito=COMPITO, nota=regole, web=False)
+    return motore.avvia(conversazione, descrivi_record(vista, obj, request=request), utente, azienda, compito=COMPITO, nota=regole,
+                        web=False)
 
 
 def richiesta(chiave, testo_attuale, risposte):

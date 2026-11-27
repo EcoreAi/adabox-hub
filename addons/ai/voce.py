@@ -70,6 +70,42 @@ def servizio_per(azienda, solo_locale=False):
     return None
 
 
+# ---------- prima di chiamare un servizio ----------
+
+RICHIESTE_MASSIME = 200                                 # per persona, tra letture e trascrizioni, ogni FINESTRA secondi
+FINESTRA = 600
+CONTROLLO_OGNI = 30                                     # secondi: licenza e tetto non si rileggono a ogni pezzo d'audio
+
+
+def blocco(utente, azienda):
+    """Il motivo per cui non si chiama un servizio vocale, o "". La voce non passa da un turno del motore: senza
+    questo rispondeva anche con la licenza scaduta o il tetto di spesa raggiunto, e una persona poteva chiedere letture
+    senza limite (ogni pezzo è una chiamata, spesso a pagamento)."""
+    from . import limiti
+    from .gateway import ErroreModello
+    chiave = f"ai-voce-stato:{getattr(azienda, 'pk', 0)}"
+    motivo = cache.get(chiave)
+    if motivo is None:
+        try:
+            limiti.verifica(azienda)
+            motivo = ""
+        except ErroreModello as e:
+            motivo = e.messaggio or "L'assistente non è attivo."
+        cache.set(chiave, motivo, CONTROLLO_OGNI)
+    if motivo:
+        return motivo
+    # la persona, non solo il suo numero: nei database di prova i numeri si ripetono (e più test creano l'utente
+    # nello stesso secondo: l'istante va preso per intero)
+    chiave = f"ai-voce-richieste:{utente.pk}:{utente.date_joined.timestamp():.6f}"
+    cache.add(chiave, 0, FINESTRA)
+    try:
+        richieste = cache.incr(chiave)
+    except ValueError:                                  # scaduta tra add e incr
+        cache.set(chiave, 1, FINESTRA)
+        richieste = 1
+    return "Troppe richieste vocali in poco tempo: riprova tra qualche minuto." if richieste > RICHIESTE_MASSIME else ""
+
+
 # ---------- dettatura ----------
 
 OVH_URL = "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -95,15 +131,16 @@ def parole_note(utente, azienda):
     return uniche[:10]
 
 
-def trascrivi(file, lingua="", http_client=None, azienda=None, parole=()):
+def trascrivi(file, lingua="", http_client=None, azienda=None, parole=(), solo_locale=False):
     """Il testo detto: con il servizio cloud dell'azienda se c'è (e se non risponde, con il Whisper locale), altrimenti
-    con il Whisper locale."""
+    con il Whisper locale. `solo_locale` (chat riservate): mai il servizio cloud, come per la lettura delle risposte
+    (servizio_per): in una chat riservata nemmeno la voce di chi parla esce dal server."""
     if file.size > MASSIMO_AUDIO:
         raise ErroreVoce("Registrazione troppo lunga.")
     tipo = (file.content_type or "").split(";")[0]
     if tipo not in TIPI_AUDIO:
         raise ErroreVoce("Formato audio non riconosciuto.")
-    servizio = trascrizione_cloud(azienda) if azienda is not None else None
+    servizio = trascrizione_cloud(azienda) if azienda is not None and not solo_locale else None
     if servizio is not None:
         dati_audio = file.read()
         try:
@@ -114,7 +151,8 @@ def trascrivi(file, lingua="", http_client=None, azienda=None, parole=()):
             log.warning("trascrizione con «%s» non riuscita: si usa il Whisper locale", servizio.nome, exc_info=True)
             file.seek(0)
     if not url_locale():
-        raise ErroreVoce("La dettatura non è configurata.")
+        raise ErroreVoce("In una chat riservata la dettatura usa solo il servizio sui nostri server, che non è configurato."
+                         if solo_locale else "La dettatura non è configurata.")
     return _trascrivi_locale(file, tipo, lingua, http_client, parole)
 
 

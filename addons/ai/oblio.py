@@ -3,8 +3,9 @@
 1. Il documento resta nell'archivio ma è escluso dall'indice (IndiceDocumento «escluso»): via i suoi frammenti, il
    riassunto e le note del chatter collegate; non si reindicizza più, nemmeno se cambia, finché non lo si riammette.
 2. In ogni chat, di chiunque, in cui uno strumento l'ha restituito (cerca_conoscenza, leggi_documento, leggi_foglio),
-   le letture del documento si tolgono dai risultati salvati, le risposte di quei turni diventano una nota e i
-   riassunti automatici di quelle chat si cancellano: riprendendo la chat, il modello non lo rivede.
+   le letture del documento si tolgono dai risultati salvati, le risposte di quei turni e di quelli venuti dopo
+   nella stessa chat diventano una nota e i riassunti automatici di quelle chat si cancellano: riprendendo la chat,
+   il modello non lo rivede.
 3. OblioDocumento registra chi, quando, perché e quanto è stato tolto, mai il testo.
 
 Non si toccano: il file (si elimina dall'archivio come sempre), le memorie degli utenti, i documenti scritti accanto
@@ -80,14 +81,19 @@ def dimentica(documento, utente, motivo=""):
             turni.add(ev.turno_id)
             conversazioni.add(ev.conversazione_id)
     turni.discard(None)
+    # Anche i turni venuti dopo, nella stessa chat: il modello aveva il documento davanti e può averlo ripetuto nelle
+    # risposte successive, e il riassunto automatico della chat (un turno a sé, con il suo testo) lo conteneva.
+    for riga in Turno.objects.filter(pk__in=turni).values("conversazione_id").annotate(primo=models.Min("pk")):
+        turni |= set(Turno.objects.filter(conversazione_id=riga["conversazione_id"], pk__gt=riga["primo"]).values_list("pk", flat=True))
 
     risposte = 0
     for ev in Evento.objects.filter(turno_id__in=turni, tipo=Evento.ASSISTENTE):
         blocchi = ev.dati.get("blocchi", [])
         strumenti = [b for b in blocchi if b.get("tipo") == "strumento"]
-        if len(strumenti) < len(blocchi):                    # testo e ragionamento del modello: via
+        if len(strumenti) < len(blocchi) or "nativo" in ev.dati:     # testo e ragionamento del modello: via
             nuovi = strumenti or [{"tipo": "testo", "testo": NOTA_RISPOSTA}]
-            Evento.objects.filter(pk=ev.pk).update(dati={**ev.dati, "blocchi": nuovi})
+            # via anche la copia nel formato del provider: è quella che si rimanda al modello al turno dopo
+            Evento.objects.filter(pk=ev.pk).update(dati={**{k: v for k, v in ev.dati.items() if k != "nativo"}, "blocchi": nuovi})
     risposte += MessaggioChat.objects.filter(turno_id__in=turni, ruolo=MessaggioChat.ASSISTENTE).update(testo=NOTA_RISPOSTA)
     Turno.objects.filter(pk__in=turni).update(testo=NOTA_RISPOSTA, provenienza={}, avanzamento=[])
     riassunti = Evento.objects.filter(conversazione_id__in=conversazioni, tipo=Evento.RIASSUNTO).delete()[0]

@@ -143,7 +143,9 @@ class ConsumiView(ModelView):
     verbose_name_plural = "consumi"
     list_display = ["iniziato", "utente", "azienda", "compito", "modello", "passi", "costo", "costo_fornito", "protetti", "stato"]
     list_filter = ["compito", "stato", "modello", "azienda", "iniziato"]
-    search_fields = ["utente__username", "testo", "errore"]
+    # non nel testo delle risposte: le chat sono di chi le scrive, e chi guarda i consumi di tutti con una ricerca
+    # saprebbe chi ha parlato di che cosa
+    search_fields = ["utente__username", "errore"]
     form_layout = [("Turno", [("iniziato", "finito"), ("utente", "azienda"), ("compito", "modello"),
                               ("stato", "passi"), ("costo", "costo_fornito"), "uso", "errore"])]
     readonly_fields = ["iniziato", "finito", "utente", "azienda", "compito", "modello", "stato", "passi", "costo",

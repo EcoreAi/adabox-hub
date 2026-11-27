@@ -9,7 +9,8 @@ from django.shortcuts import render
 from core.esporta import xlsx_bytes
 
 from . import filtri
-from .interroga import TRONCATURE, ErroreInterrogazione, _etichette_gruppi, _misura, _numero, _percorso, opzioni_vista
+from .interroga import (TRONCATURE, ErroreInterrogazione, _etichette_gruppi, _misura, _numero, _percorso, controlla_nascosti,
+                        opzioni_vista)
 from .lista import VistaBase, contesto_testata, urls_di
 
 RIGHE_MASSIME = 100
@@ -29,6 +30,7 @@ def _espressione(vista, asse):
 
 def calcola(vista, request, riga, colonna, misure):
     """{"righe": [{"etichetta", "celle": [[valori per misura]], "totali"}], "colonne": [...], "totali_colonne", "totale"}."""
+    controlla_nascosti(vista, request, riga, colonna, *misure)    # assi e misure arrivano dall'indirizzo della pagina
     qs = filtri.applica(vista, request, vista.get_queryset(request)).order_by()
     if qs.query.distinct:                               # filtro su una relazione multipla: senza doppioni nelle somme
         qs = vista.model._default_manager.filter(pk__in=qs.values("pk"))

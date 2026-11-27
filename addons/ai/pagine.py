@@ -302,6 +302,23 @@ def _area_gestita(request, pk):
     return aree.gestita(request.user, getattr(request, "azienda", None), pk)
 
 
+def _nome_file(titolo, predefinito):
+    """Il titolo come nome di file. get_valid_filename non restituisce mai un nome vuoto: per un titolo senza lettere
+    né cifre («???», un'emoji) solleva SuspiciousFileOperation, cioè una risposta 400 a ogni esportazione."""
+    from django.core.exceptions import SuspiciousFileOperation
+    try:
+        return get_valid_filename(titolo) or predefinito
+    except SuspiciousFileOperation:
+        return predefinito
+
+
+def _ritorno(indirizzo):
+    """L'indirizzo a cui tornare dopo un'azione, solo se è una pagina del gestionale; altrimenti "". Non basta
+    guardare le prime due barre: «/\\altro.sito» per un browser è «//altro.sito», cioè un altro sito."""
+    from django.utils.http import url_has_allowed_host_and_scheme
+    return indirizzo if indirizzo.startswith("/") and url_has_allowed_host_and_scheme(indirizzo, allowed_hosts=None) else ""
+
+
 def _errore_invio(request, testo, pk):
     """Il file rifiutato: col messaggio scritto ancora nel campo, se si invia dalla chat."""
     if request.headers.get("HX-Request"):
@@ -333,6 +350,12 @@ def invia(request, pk=None):
         return HttpResponse(status=204) if request.headers.get("HX-Request") else redirect(
             reverse("ai:conversazione", args=[pk]) if pk else reverse("ai:chat"))
     nuova = conversazione is None
+    if not nuova:
+        # con una risposta ancora in corso (un'altra scheda, il telefono) motore.avvia restituirebbe quel turno e
+        # il messaggio andrebbe perso senza dirlo: resta nel campo, con il motivo
+        motore.segna_interrotti(conversazione)
+        if motore.in_corso_di(conversazione) is not None:
+            return _errore_invio(request, "In questa chat c'è già una risposta in corso: fermala o aspetta che finisca.", pk)
     ammessi = {a["slug"] for a in app_selezionabili(request.user)}
     ambito = request.POST.get("ambito", "")
     ambito = ambito if ambito in ammessi else ""
@@ -431,8 +454,7 @@ def area_corrente(request):
     area = _mio_progetto(request, request.POST.get("area"))
     if area is not None:
         aree.imposta_corrente(request.user, area)
-    prossimo = request.POST.get("da", "")
-    return redirect(prossimo if prossimo.startswith("/") and not prossimo.startswith("//") else "ai:chat")
+    return redirect(_ritorno(request.POST.get("da", "")) or "ai:chat")
 
 
 @post_con_accesso
@@ -466,7 +488,7 @@ def esporta(request, pk):
         righe += [f"## {'Tu' if m.ruolo == MessaggioChat.UTENTE else 'Assistente'} · {timezone.localtime(m.creato):%d/%m/%Y %H:%M}", "", m.testo, ""]
         righe += [f"Allegato: {a.nome}" for a in allegati_chat.di(m)]
     risposta = HttpResponse("\n".join(righe), content_type="text/markdown; charset=utf-8")
-    risposta["Content-Disposition"] = content_disposition_header(True, f"{get_valid_filename(c.titolo) or 'chat'}.md")
+    risposta["Content-Disposition"] = content_disposition_header(True, f"{_nome_file(c.titolo, 'chat')}.md")
     return risposta
 
 
@@ -725,10 +747,10 @@ def filtro_artifact(request, pk):
     campo, chiave = request.POST.get("campo", ""), request.POST.get("chiave", "")
     try:
         a.spec = misure.scegli_filtro(a.spec, campo, *misure.valore_scelto(a.spec, campo, chiave, request), request)
-        a.dati = modulo.ricalcola(a)
+        a.dati, a.aggiornato = modulo.ricalcola(a), timezone.now()
     except ErroreInterrogazione as e:
-        return HttpResponseBadRequest(str(e))
-    a.save(update_fields=["spec", "dati"])
+        return HttpResponseBadRequest(str(e), content_type="text/plain; charset=utf-8")
+    a.save(update_fields=["spec", "dati", "aggiornato"])
     if request.headers.get("HX-Request"):
         return render(request, "ai/_artifact.html", {"a": a})
     return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
@@ -748,11 +770,11 @@ def periodo_artifact(request, pk):
         raise Http404
     try:
         vecchia, a.spec = a.spec, misure.scegli_periodo(a.spec, *misure.scelta_dal_form(request.POST))
-        a.dati = modulo.ricalcola(a)
+        a.dati, a.aggiornato = modulo.ricalcola(a), timezone.now()
     except ErroreInterrogazione as e:
-        return HttpResponseBadRequest(str(e))
+        return HttpResponseBadRequest(str(e), content_type="text/plain; charset=utf-8")
     a.titolo = misure.titolo_dopo_il_periodo(a.titolo, vecchia, a.spec)[:200]
-    a.save(update_fields=["spec", "dati", "titolo"])
+    a.save(update_fields=["spec", "dati", "titolo", "aggiornato"])
     if request.headers.get("HX-Request"):
         return render(request, "ai/_artifact.html", {"a": a})
     return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
@@ -766,11 +788,11 @@ def aggiorna_artifact(request, pk):
     from . import artifact as modulo
     a = _mio_artifact(request, pk)
     try:
-        a.dati = modulo.ricalcola(a)
+        a.dati, a.aggiornato = modulo.ricalcola(a), timezone.now()
     except ErroreInterrogazione as e:
         messages.error(request, f"Non si è potuto aggiornare: {e}")
     else:
-        a.save(update_fields=["dati"])
+        a.save(update_fields=["dati", "aggiornato"])
     if request.headers.get("HX-Request"):
         return render(request, "ai/_artifact.html", {"a": a})
     return redirect("ai:conversazione", pk=a.conversazione_id) if a.conversazione_id else redirect("ai:chat")
@@ -867,7 +889,7 @@ def scarica_documento(request, pk, formato):
     d = condivisione.leggibile(DocumentoChat, request.user, pk)
     if d is None or formato not in ("md", "docx", "pdf"):
         raise Http404
-    nome = get_valid_filename(d.titolo) or "documento"
+    nome = _nome_file(d.titolo, "documento")
     if formato == "md":
         risposta = HttpResponse(f"# {d.titolo}\n\n{d.testo}", content_type="text/markdown; charset=utf-8")
     elif formato == "pdf":
@@ -891,9 +913,12 @@ def trascrivi_voce(request):
     file = request.FILES.get("audio")
     if not voce.dettatura_disponibile(azienda) or file is None:
         return JsonResponse({"errore": "La dettatura non è attiva."}, status=400)
+    if (motivo := voce.blocco(request.user, azienda)):
+        return JsonResponse({"errore": motivo}, status=429)
     try:
         return JsonResponse({"testo": voce.trascrivi(file, request.POST.get("lingua", ""), azienda=azienda,
-                                                    parole=voce.parole_note(request.user, azienda))})
+                                                    parole=voce.parole_note(request.user, azienda),
+                                                    solo_locale=parla.in_chat_riservata(request))})
     except voce.ErroreVoce as e:
         return JsonResponse({"errore": str(e)}, status=502)
 
@@ -973,6 +998,8 @@ def audio_voce(request, pk, parte):
     pezzi = voce.parti(testo)
     if not 0 <= parte < len(pezzi):
         raise Http404
+    if (motivo := voce.blocco(request.user, getattr(request, "azienda", None))):
+        return JsonResponse({"errore": motivo}, status=429)
     try:
         audio, tipo = voce.audio_di(servizio, pezzi[parte], voce.lingua_di(testo))
     except voce.ErroreVoce as e:
@@ -1023,7 +1050,8 @@ def _record_per_ada(request, valore, azienda=None):
     try:
         if pk.isdigit():
             vista, obj = vista_e_oggetto(request, int(ct), int(pk), "view")
-            return aiuto_testi.descrivi_record(vista, obj, messaggi=10, massimo=4000), riservatezza.motivo_record(vista, obj, azienda)
+            return (aiuto_testi.descrivi_record(vista, obj, messaggi=10, massimo=4000, request=request),
+                    riservatezza.motivo_record(vista, obj, azienda))
         modello = ContentType.objects.get_for_id(int(ct)).model_class()
         vista = registry.per_modello(modello) if modello else None
         return (f"Un nuovo record di tipo {vista.verbose_name}", "") if vista and vista.has_add_permission(request) else ("", "")
@@ -1039,7 +1067,7 @@ def riassumi_record(request, ct, pk):
 
     from . import aiuto_testi
     vista, obj = vista_e_oggetto(request, ct, pk, "view")
-    turno = aiuto_testi.avvia_riassunto(request.user, getattr(request, "azienda", None), vista, obj)
+    turno = aiuto_testi.avvia_riassunto(request.user, getattr(request, "azienda", None), vista, obj, request=request)
     return JsonResponse({"esito": reverse("ai:esito_scrittura", args=[turno.pk])})
 
 
@@ -1241,8 +1269,7 @@ def collega(request, pk):
     else:
         CollegamentoProgetto.objects.get_or_create(progetto=progetto, content_type_id=int(ct), object_id=int(record))
         messages.success(request, f"«{trovato[1]}» collegato all'area di lavoro «{progetto.nome}».")
-    indietro = request.POST.get("indietro", "")
-    return redirect(indietro if indietro.startswith("/") and not indietro.startswith("//") else reverse("ai:progetto", args=[progetto.pk]))
+    return redirect(_ritorno(request.POST.get("indietro", "")) or reverse("ai:progetto", args=[progetto.pk]))
 
 
 @post_con_accesso
@@ -1253,8 +1280,7 @@ def scollega(request, pk, collegamento):
     if progetto is None:
         raise Http404
     CollegamentoProgetto.objects.filter(pk=collegamento, progetto=progetto).delete()
-    indietro = request.POST.get("indietro", "")
-    return redirect(indietro if indietro.startswith("/") and not indietro.startswith("//") else reverse("ai:progetto", args=[progetto.pk]))
+    return redirect(_ritorno(request.POST.get("indietro", "")) or reverse("ai:progetto", args=[progetto.pk]))
 
 
 @post_con_accesso
@@ -1360,8 +1386,7 @@ def collega_app(request, pk):
         app.append(slug)
     area.app_collegate = app
     area.save(update_fields=["app_collegate"])
-    prossimo = request.POST.get("da", "")
-    return redirect(prossimo if prossimo.startswith("/") and not prossimo.startswith("//") else reverse("ai:progetto", args=[area.pk]))
+    return redirect(_ritorno(request.POST.get("da", "")) or reverse("ai:progetto", args=[area.pk]))
 
 
 @login_required
