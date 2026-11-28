@@ -165,9 +165,13 @@ def gruppo_da(canale, autore, nuovi, nome=""):
 # --- messaggi ---
 
 @transaction.atomic
-def invia(canale, autore, corpo, file=(), risposta_a=None, record=(), host=None, esterno="", silenzioso=False):
+def invia(canale, autore, corpo, file=(), risposta_a=None, record=(), host=None, esterno="", silenzioso=False,
+          anteprime=True):
     """`record`: i record da mostrare come scheda, oltre a quelli citati con un link nel testo.
-    `esterno`: il nome di un visitatore del sito. Il suo testo non è fidato: niente menzioni, schede né anteprime."""
+    `esterno`: il nome di un visitatore del sito. Il suo testo non è fidato: niente menzioni, schede né anteprime.
+    `anteprime=False` per un testo scritto dall'assistente: per fare l'anteprima il server apre gli indirizzi del
+    messaggio, e un link composto dal modello con dentro dei dati (basta un testo ostile letto in un ticket) li
+    porterebbe fuori senza che nessuno clicchi."""
     corpo = (corpo or "").strip()[:10000]
     if not corpo and not file and not record:
         raise ValueError("Il messaggio è vuoto.")
@@ -199,7 +203,7 @@ def invia(canale, autore, corpo, file=(), risposta_a=None, record=(), host=None,
             connettori.accoda(messaggio)
         else:
             transaction.on_commit(lambda: lavori.accoda("discuss.livechat.avvisa_visitatore", messaggio=messaggio.pk, ritardo=120))
-    if testo.link_di(corpo):
+    if anteprime and testo.link_di(corpo):
         transaction.on_commit(lambda: lavori.accoda("discuss.anteprime.calcola", messaggio=messaggio.pk))
     if canale.lista_email:
         transaction.on_commit(lambda: lavori.accoda("discuss.posta_canali.invia_lista", messaggio=messaggio.pk))

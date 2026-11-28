@@ -261,4 +261,6 @@ def _in_discuss(p, testo):
     from discuss import servizi
     estratto = testo if len(testo) <= LUNGHEZZA_DISCUSS else testo[:LUNGHEZZA_DISCUSS].rsplit("\n", 1)[0] + "\n…"
     canale = servizi.diretto([utente_assistente(), p.utente])
-    servizi.invia(canale, utente_assistente(), f"**{p.nome}**\n\n{estratto}\n\nRisultato completo: {_link(p)}")
+    # il testo lo scrive il modello: il server non apre da sé i suoi link per farne l'anteprima
+    servizi.invia(canale, utente_assistente(), f"**{p.nome}**\n\n{estratto}\n\nRisultato completo: {_link(p)}",
+                  anteprime=False)

@@ -195,7 +195,8 @@ def lavora_registrazione(registrazione):
     if not r.trascrizione:
         servizi.invia(canale, autore, f"Registrazione della riunione: non è stata riconosciuta nessuna parola. {settings.SITO_URL}{url}")
     else:
-        servizi.invia(canale, autore, f"{r.sintesi or 'Trascrizione della riunione pronta.'}\n\nTesto completo e audio: {settings.SITO_URL}{url}")
+        servizi.invia(canale, autore, f"{r.sintesi or 'Trascrizione della riunione pronta.'}\n\nTesto completo e audio: {settings.SITO_URL}{url}",
+                      anteprime=False)                   # la sintesi la scrive il modello
     return r.stato
 
 

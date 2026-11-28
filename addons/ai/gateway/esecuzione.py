@@ -29,7 +29,8 @@ def esegui(catena, protezione=None, **richiesta):
     Sonnet 5.5) rifiutano con un 400.
 
     Con `protezione` (ai.protezione) la politica sui dati personali è per anello: ai modelli non locali va la
-    richiesta mascherata e la risposta torna in chiaro; se la protezione non è possibile l'anello si salta.
+    richiesta mascherata e la risposta torna in chiaro; se la protezione non è possibile l'anello si salta. La
+    richiesta si prepara per il fornitore dell'anello: la riserva di un altro fornitore non riceve i blocchi nativi.
     Senza `protezione` se ne crea una (senza conversazione): nessun chiamante la scavalca per dimenticanza."""
     if protezione is None:
         from ..protezione import Protezione
@@ -41,14 +42,15 @@ def esegui(catena, protezione=None, **richiesta):
             ultimo = ErroreModello("CONFIGURAZIONE", f"tipo di provider sconosciuto: {modello.provider.tipo}")
             continue
         mascherata = protezione.serve(modello)
+        politica = (mascherata, modello.provider.tipo)   # per fornitore: i blocchi nativi tornano solo a chi li ha scritti
         try:
-            if mascherata not in preparate:
-                preparate[mascherata] = protezione.richiesta(richiesta, mascherata)
+            if politica not in preparate:
+                preparate[politica] = protezione.richiesta(richiesta, mascherata, modello.provider.tipo)
         except ErroreModello as e:
             ultimo = e
             log.warning("modello %s saltato: %s", modello.id_api, e)
             continue
-        da_inviare = preparate[mascherata]
+        da_inviare = preparate[politica]
         for tentativo in range(TENTATIVI):
             iniziato = False
             try:
