@@ -1,8 +1,23 @@
 from datetime import timedelta
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
+
+
+def valida_url_api(valore):
+    """http o https con un host. Più largo del controllo di Django sugli URL, che rifiuta i nomi dei container: senza
+    punto («http://ollama:11434/v1») o con il trattino basso («http://adabox_hub_ollama:11434/v1»)."""
+    from urllib.parse import urlsplit
+    try:
+        parti = urlsplit(valore)
+        parti.port                                       # una porta che non è un numero: ValueError
+        valido = parti.scheme in ("http", "https") and bool(parti.hostname) and not any(c.isspace() for c in valore)
+    except ValueError:
+        valido = False
+    if not valido:
+        raise ValidationError("Inserisci un URL valido, con http:// o https://.")
 
 
 class Assistente(models.Model):
@@ -102,7 +117,8 @@ class Provider(models.Model):
     CON_CHIAVE = {ANTHROPIC, OPENAI, GEMINI, MISTRAL}     # senza chiave non rispondono: si saltano nella catena
     nome = models.CharField("nome", max_length=80, unique=True)
     tipo = models.CharField("tipo", max_length=15, choices=TIPI)
-    base_url = models.URLField("URL dell'API", blank=True, help_text="vuoto = quello predefinito del tipo")
+    base_url = models.CharField("URL dell'API", max_length=200, blank=True, validators=[valida_url_api],
+                                help_text="vuoto = quello predefinito del tipo")
     chiave_cifrata = models.TextField("chiave API (cifrata)", blank=True, editable=False)
     locale = models.BooleanField("locale", default=False, help_text="gira sui nostri server: i dati non escono")
     gestito = models.BooleanField("fornito con il piano", default=False,

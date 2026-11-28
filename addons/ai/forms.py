@@ -7,6 +7,30 @@ from core import cifratura
 from .models import Assistente, ChiaveAzienda, Pianificata, ProgettoChat, Provider, ServerMCP, ServizioVoce
 
 
+INTERNA, PUBBLICA, SCONOSCIUTA = "interna", "pubblica", "sconosciuta"
+
+
+def _rete_di(url):
+    """Dove porta l'host dell'URL. INTERNA: solo indirizzi non pubblici (la macchina stessa, la rete dei container, la
+    rete locale). PUBBLICA: almeno un indirizzo pubblico, o nessun URL (vale quello del fornitore). SCONOSCIUTA: il
+    nome adesso non si risolve (un container fermo)."""
+    import ipaddress
+    from urllib.parse import urlparse
+
+    from core import rete
+    host = urlparse(url or "").hostname
+    if not host:
+        return PUBBLICA
+    try:
+        risposte = rete.socket.getaddrinfo(host, None, type=rete.socket.SOCK_STREAM)
+        indirizzi = [ipaddress.ip_address(r[4][0].split("%")[0]) for r in risposte]
+    except (OSError, ValueError):
+        return SCONOSCIUTA
+    if not indirizzi:
+        return SCONOSCIUTA
+    return PUBBLICA if any(i.is_global for i in indirizzi) else INTERNA
+
+
 class ProviderForm(forms.ModelForm):
     """La chiave si scrive qui e si salva cifrata; vuota = resta quella di prima."""
     nuova_chiave = forms.CharField(label="chiave API", required=False, strip=True,
@@ -15,11 +39,15 @@ class ProviderForm(forms.ModelForm):
                                        "spellcheck": "false"}),
                                    help_text="lascia vuoto per non cambiarla")
     togli_chiave = forms.BooleanField(label="togli la chiave", required=False)
-    base_url = forms.URLField(label="URL dell'API", required=False, assume_scheme="https",
-                              widget=forms.URLInput(attrs={"autocomplete": "off"}),
-                              help_text="per Anthropic, OpenAI, Gemini e Mistral lascia vuoto; per Ollama/OpenRouter l'indirizzo dell'API")
+    # non forms.URLField: rifiuta i nomi dei container (http://ollama:11434/v1); il controllo è nel modello
+    base_url = forms.CharField(label="URL dell'API", required=False, max_length=200,
+                               widget=forms.URLInput(attrs={"autocomplete": "off"}),
+                               help_text="per Anthropic, OpenAI, Gemini e Mistral lascia vuoto; per Ollama/OpenRouter l'indirizzo dell'API")
 
-    global_admin = False              # la vista lo mette a True per il Global Admin: solo lui decide «fornito con il piano»
+    # La vista lo mette a True per il Global Admin. Solo lui decide «fornito con il piano» e «locale»: a un provider
+    # locale i dati personali vanno senza mascheramento e le chat riservate lo accettano, quindi una spunta sbagliata
+    # su un servizio esterno annulla tutte e due le protezioni senza che si veda.
+    global_admin = False
 
     class Meta:
         model = Provider
@@ -29,12 +57,20 @@ class ProviderForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if not self.global_admin:
             del self.fields["gestito"]
+            del self.fields["locale"]
+        else:
+            self.fields["locale"].help_text = ("gira sui nostri server: riceve i dati personali senza mascheramento ed è "
+                                               "ammesso nelle chat riservate. Solo per indirizzi della rete interna")
         if self.instance.pk and self.instance.chiave_cifrata:
             try:
                 attuale = cifratura.mascherato(cifratura.decifra(self.instance.chiave_cifrata))
             except cifratura.SegretoIlleggibile:
                 attuale = "illeggibile: inseriscila di nuovo"
             self.fields["nuova_chiave"].help_text = f"attuale: {attuale}; lascia vuoto per non cambiarla"
+
+    def clean_base_url(self):
+        valore = (self.cleaned_data.get("base_url") or "").strip()
+        return f"https://{valore}" if valore and "://" not in valore else valore       # senza schema: https
 
     def clean(self):
         """Per Anthropic: niente URL locali e chiavi che non sono chiavi (tipico del compilatore automatico del
@@ -50,7 +86,31 @@ class ProviderForm(forms.ModelForm):
                 self.add_error("nuova_chiave", "Non sembra una chiave API Anthropic (inizia con «sk-ant-»). "
                                                "Forse il browser ha inserito da solo la password del login.")
         self._controlla_cambio_indirizzo(dati)
+        self._controlla_locale(dati)
         return dati
+
+    def _controlla_locale(self, dati):
+        """«Locale» solo per ciò che gira davvero sui nostri server: non per i servizi dei fornitori, e solo con un
+        indirizzo della rete interna (OpenRouter con la spunta mandava i dati in chiaro fuori)."""
+        if not dati.get("locale") or dati.get("tipo") == Provider.FINTO:
+            return
+        if dati.get("tipo") in Provider.CON_CHIAVE:
+            self.add_error("locale", "Questo provider è un servizio esterno: non può essere «locale».")
+            return
+        dove = _rete_di(dati.get("base_url"))
+        if dove == PUBBLICA:
+            self.add_error("locale", "«Locale» vale solo per un modello sui nostri server: l'URL dell'API deve essere un "
+                                     "indirizzo della rete interna (es. http://ollama:11434/v1).")
+        elif dove == SCONOSCIUTA and not self._gia_locale_li(dati):
+            self.add_error("locale", "L'indirizzo dell'API adesso non risponde: non si può controllare che sia nella rete "
+                                     "interna. Accendi il server e riprova, oppure salva senza «locale».")
+
+    def _gia_locale_li(self, dati):
+        """Il provider era già locale con lo stesso indirizzo: con il server spento si deve poterlo salvare lo stesso."""
+        if not self.instance.pk:
+            return False
+        prima = Provider.objects.filter(pk=self.instance.pk).values("locale", "base_url").first()
+        return bool(prima and prima["locale"] and prima["base_url"] == dati.get("base_url"))
 
     def _controlla_cambio_indirizzo(self, dati):
         """Chi cambia il server dell'API se ne farebbe mandare la chiave salvata (che dal form non si legge) insieme

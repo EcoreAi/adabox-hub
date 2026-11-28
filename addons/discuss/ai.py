@@ -84,7 +84,7 @@ def anteprima_invia(contesto, dove, testo):
 
 def invia(contesto, dove, testo):
     canale = _destinazione(contesto, dove, testo)
-    m = servizi.invia(canale, contesto.utente, testo)
+    m = servizi.invia(canale, contesto.utente, testo, anteprime=False)     # testo scritto dal modello: niente anteprime
     return {"inviato": True, "url": reverse("discuss:canale", args=[canale.pk]) + f"?a={m.pk}"}
 
 

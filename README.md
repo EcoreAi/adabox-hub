@@ -514,6 +514,8 @@ completate.
     catena non ha un modello locale si usa uno locale attivo dell'istanza; se non ce n'è nessuno il turno si ferma con
     un messaggio e non parte nulla. In chat e sotto le risposte compare «Riservata · solo modelli locali». Il
     connettore verso le chat esterne rifiuta le letture riservate e toglie i risultati riservati dalle ricerche.
+    Che un provider sia «locale» lo decide solo il Global Admin, e solo per un indirizzo della rete interna: a un
+    provider locale i dati personali arrivano senza mascheramento.
     Limiti del primo giro: le aree di lavoro non si segnano ancora come riservate; con almeno un'app riservata, la
     lettura di una pagina di Analisi conta come riservata (può mostrare dati di ogni app).
 - **Specialisti** (AI-6), facoltativi, attivi solo con l'URL del servizio nelle impostazioni:
@@ -642,7 +644,7 @@ Si applica all'API generata dalle viste: elenco, lettura, creazione, modifica, e
 
 Oltre a rispondere sui dati, la chat ha allegati, rigenera e modifica, ricerca nelle chat, export e pollici. Le opzioni da decidere:
 
-- **Ricerca sul web**: `ai.url_ricerca_web` (SearXNG) più `ai.ricerca_web`, azienda per azienda, spenta di default. Una query con dati personali non esce, e se il controllo non risponde non si cerca. Si aprono solo indirizzi già comparsi nei risultati o scritti dall'utente.
+- **Ricerca sul web**: `ai.url_ricerca_web` (SearXNG) più `ai.ricerca_web`, azienda per azienda, spenta di default. Una query con dati personali non esce, e se il controllo non risponde non si cerca. Si aprono solo indirizzi già comparsi nei risultati o scritti dall'utente, esattamente come sono: non contano quelli che il modello ha scritto nella ricerca.
 - **Immagini**: verso i modelli cloud servono `ai.immagini_cloud`, spento di default, perché dentro un'immagine i dati personali non si mascherano. Il modello deve avere «legge immagini». I modelli locali non hanno questo vincolo.
 - **Scelta del modello**: compaiono in chat i modelli con «sceglibile dagli utenti». I tetti di spesa restano gli stessi.
 - **Memoria**: `/ai/memoria/`, per persona e per azienda. Ada propone, l'utente conferma, e può cancellare quando vuole. Nemmeno il superuser vede quella degli altri.

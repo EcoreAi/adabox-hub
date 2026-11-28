@@ -5,9 +5,10 @@ Due regole, perché i risultati e le pagine sono testo scritto da chiunque:
   diventerebbe il nome vero sul motore di ricerca. Se il controllo non è possibile, non si cerca.
 - si aprono solo indirizzi già comparsi nei risultati o scritti dall'utente: una pagina che chiede ad Ada di aprire
   sito.it?dati=... non ottiene nulla, perché quell'indirizzo composto non è mai comparso."""
+import json
 import re
 from html.parser import HTMLParser
-from urllib.parse import urlencode
+from urllib.parse import unquote, urlencode, urlsplit
 
 import httpx2 as httpx
 
@@ -84,7 +85,8 @@ def cerca_web(contesto, query, http_client=None):
             client.close()
     risultati = [{"titolo": str(v.get("title", ""))[:200], "url": v["url"], "estratto": str(v.get("content", ""))[:400]}
                  for v in voci[:MASSIMO_RISULTATI] if str(v.get("url", "")).startswith(("http://", "https://"))]
-    return {"query": query, "risultati": risultati} if risultati else "Nessun risultato."
+    # senza ripetere la query: l'ha scritta il modello, e un indirizzo messo lì dentro risulterebbe «comparso sul web»
+    return {"risultati": risultati} if risultati else "Nessun risultato."
 
 
 class _SoloTesto(HTMLParser):
@@ -112,30 +114,93 @@ class _SoloTesto(HTMLParser):
 STRUMENTI_WEB = ("cerca_web", "leggi_pagina")
 
 
-def _gia_comparso(conversazione, url, scritti_dall_utente=True):
-    """L'indirizzo, esattamente com'è, nel testo scritto dall'utente o nel risultato riuscito di cerca_web o di
-    leggi_pagina di questa chat.
+_INDIRIZZO = re.compile(r"https?://[^\s<>\"'\\]+")
+_QUERY_NEL_TESTO = re.compile(r'"query":\s*"(?:[^"\\]|\\.)*"')
+_IN_CODA = ".,;:!?)]}»”’"
 
-    Non vale il risultato degli altri strumenti: molti ripetono i propri argomenti («Vista «…» inesistente»), e al
-    modello basterebbe farsi ripetere un indirizzo composto con i dati (sito.it?dati=…) per poi aprirlo. Non vale
-    nemmeno il <contesto> del messaggio: lo scrive il server, con esiti e note che non sono parole dell'utente.
+
+def _indirizzi(risultato):
+    """Gli indirizzi nel risultato di uno strumento del web: quelli dei risultati e quelli scritti nei testi (titoli,
+    estratti, testo delle pagine), interi. La voce «query» non conta: la scrive il modello (i risultati di prima di
+    questa correzione la ripetevano)."""
+    trovati = set()
+
+    def raccogli(x):
+        if isinstance(x, dict):
+            for chiave, valore in x.items():
+                if chiave != "query":
+                    raccogli(valore)
+        elif isinstance(x, list):
+            for valore in x:
+                raccogli(valore)
+        elif isinstance(x, str):
+            for indirizzo in _INDIRIZZO.findall(x):
+                trovati.update((indirizzo, indirizzo.rstrip(_IN_CODA)))      # «…vedi https://x.it/a.»
+    raccogli(risultato)
+    return trovati
+
+
+def _letto(contenuto):
+    """Il risultato come dato; se è stato troncato (non è più JSON) il testo, senza la query."""
+    try:
+        return json.loads(contenuto)
+    except (TypeError, ValueError):
+        return _QUERY_NEL_TESTO.sub("", str(contenuto or "")).replace("\\/", "/")
+
+
+def _scritto_dal_modello(indirizzo, query):
+    """Se host e percorso dell'indirizzo stavano già nella query (in minuscolo, senza %xx): allora il risultato non è
+    una pagina trovata, è la query che torna indietro. Si guardano host e percorso, non i parametri: un motore può
+    riordinarli o ricodificarli; l'host anche nell'altra forma dei nomi con lettere accentate (xn--…)."""
+    try:
+        parti = urlsplit(indirizzo)
+    except ValueError:
+        return True
+    host = (parti.hostname or "").removeprefix("www.")
+    if not host:
+        return True
+    forme = {host}
+    for codifica, decodifica in (("idna", "ascii"), ("ascii", "idna")):
+        try:
+            forme.add(host.encode(codifica).decode(decodifica))
+        except UnicodeError:
+            pass
+    percorso = unquote(parti.path).rstrip("/").lower()
+    return any(f"{forma.lower()}{percorso}" in query for forma in forme)
+
+
+def _gia_comparso(conversazione, url, scritti_dall_utente=True):
+    """L'indirizzo, esattamente com'è, nel testo scritto dall'utente o tra gli indirizzi dei risultati riusciti di
+    cerca_web e di leggi_pagina di questa chat.
+
+    Dei risultati contano gli indirizzi interi, non un pezzo di testo qualsiasi. E di una ricerca non contano quelli
+    che il modello aveva già scritto nella query: cercando «notizie sito.it?dati=…» la query tornava nel risultato (e
+    un motore può restituire come primo risultato proprio l'indirizzo cercato), e tanto bastava per aprirlo. Non vale
+    il risultato degli altri strumenti: molti ripetono i propri argomenti («Vista «…» inesistente»). Non vale nemmeno
+    il <contesto> del messaggio: lo scrive il server, con esiti e note che non sono parole dell'utente.
     `scritti_dall_utente=False` nella conversazione interna di un esperto: lì la domanda la scrive il modello."""
     if conversazione is None or not url:
         return False
-    del_web = set()
+    del_web, comparsi = {}, set()                      # del_web: id della chiamata → (strumento, query scritta dal modello)
     for e in conversazione.eventi.filter(tipo__in=[Evento.UTENTE, Evento.ASSISTENTE, Evento.STRUMENTO]).order_by("pk"):
         if e.tipo == Evento.ASSISTENTE:
-            del_web |= {b.get("id") for b in e.dati.get("blocchi", [])
-                        if isinstance(b, dict) and b.get("tipo") == "strumento" and b.get("nome") in STRUMENTI_WEB}
-            continue
-        if e.tipo == Evento.UTENTE:
-            testi = [str(e.dati.get("testo", "")).rsplit("</contesto>", 1)[-1]] if scritti_dall_utente else []
+            for b in e.dati.get("blocchi", []):
+                if isinstance(b, dict) and b.get("tipo") == "strumento" and b.get("nome") in STRUMENTI_WEB:
+                    scritto = json.dumps(b.get("argomenti"), ensure_ascii=False, default=str).replace("\\/", "/")
+                    del_web[b.get("id")] = (b["nome"], unquote(scritto).lower())
+        elif e.tipo == Evento.UTENTE:
+            if scritti_dall_utente and url in str(e.dati.get("testo", "")).rsplit("</contesto>", 1)[-1]:
+                return True
         else:
-            testi = [str(r.get("contenuto", "")) for r in e.dati.get("risultati", [])
-                     if isinstance(r, dict) and r.get("id") in del_web and not r.get("errore")]
-        if any(url in t or url.replace("/", "\\/") in t for t in testi):
-            return True
-    return False
+            for r in e.dati.get("risultati", []):
+                if not isinstance(r, dict) or r.get("id") not in del_web or r.get("errore"):
+                    continue
+                strumento, query = del_web[r["id"]]
+                trovati = _indirizzi(_letto(r.get("contenuto")))
+                if strumento == "cerca_web":           # la pagina letta non ripete nulla di scritto dal modello
+                    trovati = {i for i in trovati if not _scritto_dal_modello(i, query)}
+                comparsi |= trovati
+    return url in comparsi
 
 
 def leggi_pagina(contesto, url, pagina=1, http_client=None):

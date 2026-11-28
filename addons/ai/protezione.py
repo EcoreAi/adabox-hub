@@ -329,12 +329,18 @@ class Protezione:
         testo = self._con_valori_noti(testo)
         return self._testo(testo) if len(testo) >= 4 and re.search(r"[^\W\d_]{3}", testo) else testo
 
-    def richiesta(self, richiesta, mascherata):
-        """La richiesta per un anello: mascherata (modelli cloud) o in chiaro, con i blocchi nativi coerenti."""
+    def richiesta(self, richiesta, mascherata, provider=""):
+        """La richiesta per un anello: mascherata (modelli cloud) o in chiaro, con i blocchi nativi coerenti.
+
+        I blocchi nativi di una risposta tornano solo al fornitore che li ha scritti (`provider`, il tipo del provider
+        dell'anello) e con la stessa politica. Gli altri adattatori leggono «blocchi», che per una risposta mascherata
+        sono già in chiaro (è il testo mostrato all'utente): senza i nativi `_messaggio` li maschera di nuovo. Prima
+        restavano com'erano, e una chat cominciata con Claude arrivava in chiaro alla riserva di un altro fornitore."""
         messaggi = []
         for m in richiesta["messaggi"]:
-            if m["ruolo"] == "assistente" and m.get("nativo") and bool(m.get("mascherato")) != mascherata:
-                m = {k: v for k, v in m.items() if k != "nativo"}           # prodotti con l'altra politica
+            if m["ruolo"] == "assistente" and m.get("nativo") and (
+                    bool(m.get("mascherato")) != mascherata or m["nativo"].get("provider") != provider):
+                m = {k: v for k, v in m.items() if k != "nativo"}           # di un altro fornitore o dell'altra politica
             messaggi.append(m)
         if not mascherata:
             return {**richiesta, "messaggi": messaggi}
@@ -351,7 +357,7 @@ class Protezione:
             return {**m, "testo": self._testo(m["testo"])}
         if m["ruolo"] == "strumento":
             return {**m, "risultati": [{**r, "contenuto": self._testo(r["contenuto"])} for r in m["risultati"]]}
-        if m.get("nativo"):                                  # già mascherato quando il modello l'ha scritto
+        if m.get("nativo"):                                  # torna a chi l'ha scritto, già mascherato allora (vedi richiesta)
             return m
         blocchi = []
         for b in m["blocchi"]:

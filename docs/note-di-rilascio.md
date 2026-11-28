@@ -3,6 +3,29 @@
 Ciò che chi aggiorna un'istanza deve sapere: cambi di comportamento, azioni da fare, migrazioni. Il dettaglio è nei
 commit; qui solo ciò che si vede o che chiede un intervento.
 
+## 2026-11-28
+
+- **Assistente: quattro strade da cui i dati potevano uscire** — AI 1.62.1 (migrazione `ai.0044`: l'URL dei provider,
+  la colonna non cambia), Discuss 1.13.4.
+  - **Dati personali tra fornitori.** Con la protezione dei dati personali accesa, una chat cominciata con Claude e
+    continuata da un altro fornitore (riserva della catena, modello scelto a mano, chat ripresa a voce) gli mandava in
+    chiaro le risposte di prima. Ora la richiesta si prepara per il fornitore di ogni modello.
+  - **Ricerca sul web.** Un indirizzo scritto dal modello nella query di `cerca_web` risultava «comparso nei risultati»
+    e `leggi_pagina` lo apriva: un testo ostile letto da Ada bastava a far uscire dei dati. Ora contano gli indirizzi
+    interi dei risultati e delle pagine lette, non quelli che il modello aveva scritto nella ricerca; il risultato non
+    ripete più la query. Cambia una cosa: si apre solo l'indirizzo esatto (prima andava bene anche un suo pezzo, per
+    esempio la pagina iniziale del sito trovato).
+  - **Comunicazioni.** I messaggi scritti da Ada (risultato di un'attività pianificata, messaggio preparato con
+    «scrivi a…», sintesi di una riunione) non fanno più scaricare al server l'anteprima dei loro link. Per i messaggi
+    scritti dalle persone non cambia nulla.
+  - **Provider «locale».** La casella la vede e la decide solo il Global Admin, non vale per Anthropic, OpenAI, Gemini
+    e Mistral, e chiede un indirizzo della rete interna che risponda. A un provider locale i dati personali vanno senza
+    mascheramento e le chat riservate lo accettano: una spunta sbagliata annullava tutte e due le protezioni.
+    **Da controllare dopo l'aggiornamento:** nella pagina dei provider, che «locale» sia spuntato solo sui modelli che
+    girano sui vostri server (quelli già salvati non vengono toccati).
+  - L'URL di un provider accetta i nomi dei container (`http://ollama:11434/v1`): prima la pagina li rifiutava e
+    quei provider non si potevano più modificare.
+
 ## 2026-11-27
 
 - **Ricerca in Preferiti e Aree di lavoro** — AI 1.62.0 (nessuna migrazione).
