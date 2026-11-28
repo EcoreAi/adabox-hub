@@ -51,7 +51,7 @@ def _tabella_raggruppata(v, request, spec):
     """Una riga per gruppo: [gruppo, valore], dal più grande (o nell'ordine chiesto)."""
     from core.viste.interroga import aziende_di
     r = aggrega(v, request, spec["per"], spec.get("misura", "count"), spec.get("filtri"), spec.get("testo", ""),
-                aziende=aziende_di(request, spec.get("aziende")))
+                aziende=aziende_di(request, spec.get("aziende")), massimo=None)     # tutti: si ordina e poi si taglia
     tutti = r.get("gruppi", [])
     gruppi = ordina_gruppi(tutti, spec["per"], spec.get("ordina") or "-valore", spec.get("limite", 50))
     campo = spec["per"].split(":", 1)[0]
@@ -125,7 +125,7 @@ def _calcola(spec, contesto):
         spec = misure.spec_per_calcolo(spec)            # il periodo scelto sopra il grafico: un filtro sulla sua data
         r = aggrega(v, request, spec["per"], spec.get("misura", "count"), spec.get("filtri"), spec.get("testo", ""),
                     aziende=aziende_di(request, spec.get("aziende")), con_chiavi=True,
-                    massimo=None if (spec.get("primi") or spec.get("ordina")) else 100)
+                    massimo=None)             # tutti i gruppi: i più grandi (o gli ultimi periodi) si scelgono dopo
         terne = _terne(r.get("gruppi", []), spec)
         if any(isinstance(val, str) for _, val, _ in terne):
             raise ErroreStrumento("Un grafico ha bisogno di una misura numerica: questa dà una data o un testo "

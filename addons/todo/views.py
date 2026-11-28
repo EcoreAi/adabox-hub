@@ -15,6 +15,8 @@ PILL_STATO = {Attivita.APERTA: "ui-pill-info", Attivita.IN_CORSO: "ui-pill-warn"
 class AttivitaView(ModelView):
     model = Attivita
     slug = "attivita"
+    ai_descrizione = ("Le attività da fare (compiti, to-do, cose da fare) con scadenza, assegnatario e stato. Per «che "
+                      "attività ho», «cosa devo fare», «i miei compiti»: filtra per assegnatario e per stato aperta o in corso.")
     list_display = ["titolo", "numero", "scadenza", "assegnatario", "stato"]
     list_filter = ["stato", "assegnatario", "tag"]
     search_fields = ["titolo", "descrizione", "numero"]

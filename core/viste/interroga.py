@@ -37,6 +37,15 @@ TRONCATURE = {"giorno": TruncDay, "settimana": TruncWeek, "mese": TruncMonth, "a
 SOLO_DATA = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
+def nota_gruppi_tagliati(massimo, per_data):
+    """Che cosa resta quando i gruppi sono più di `massimo`: per data gli ultimi periodi, altrimenti i primi in ordine
+    di nome. Il modello deve saperlo: «mostrati i primi» si leggeva come «i più grandi», e ne usciva una classifica."""
+    if per_data:
+        return f"Più di {massimo} periodi: mostrati gli ultimi {massimo}. Per i precedenti restringi le date."
+    return (f"Più di {massimo} gruppi: mostrati i primi {massimo} in ordine di nome, non i più grandi. Per una "
+            "classifica usa «ordina» (-valore) o «primi»; per vederli tutti restringi i filtri.")
+
+
 class ErroreInterrogazione(Exception):
     """Errore previsto (specifica sbagliata, vista o campo inesistenti, valore non valido): il messaggio è per chi
     ha scritto la specifica, persona o modello, senza traceback."""
@@ -398,9 +407,10 @@ def _aggrega_aziende(vista, request, aziende, per, misura, filtri, testo, lista,
             etichette.setdefault(chiave, g["gruppo"])
     gruppi = [{"gruppo": etichette[k], "valore": _unisci(valori[k], funzione), **({"chiave": k} if con_chiavi else {})}
               for k in _ordina_chiavi(list(valori))]
-    risultato.update(per=per, gruppi=gruppi[:massimo] if massimo else gruppi)
+    per_data = ":" in per
+    risultato.update(per=per, gruppi=(gruppi[-massimo:] if per_data else gruppi[:massimo]) if massimo else gruppi)
     if (massimo and len(gruppi) > massimo) or any(r.get("nota") for r in parziali):
-        risultato["nota"] = f"Più di {GRUPPI_MASSIMI} gruppi: mostrati i primi. Restringi i filtri."
+        risultato["nota"] = nota_gruppi_tagliati(massimo or GRUPPI_MASSIMI, per_data)
     return risultato
 
 
@@ -432,16 +442,21 @@ def aggrega(vista, request, per="", misura="count", filtri=None, testo="", lista
         raise ErroreInterrogazione("Non si raggruppa per un testo lungo.")
     else:
         chiave = F(lookup)
-    righe = qs.annotate(_g=chiave).values("_g").annotate(_v=espressione).order_by("_g")
-    righe = list(righe[:massimo + 1] if massimo else righe)       # massimo=None: tutti (i primi N veri, le serie lunghe)
+    righe = qs.annotate(_g=chiave).values("_g").annotate(_v=espressione)
+    if massimo and parte:                       # per data, oltre il massimo restano i periodi più recenti (in ordine)
+        righe = list(righe.order_by("-_g")[:massimo + 1])
+        troppi, righe = len(righe) > massimo, righe[:massimo][::-1]
+    else:                                       # massimo=None: tutti (i primi N veri, le serie lunghe)
+        righe = list(righe.order_by("_g")[:massimo + 1] if massimo else righe.order_by("_g"))
+        troppi, righe = bool(massimo) and len(righe) > massimo, righe[:massimo] if massimo else righe
     etichette = _etichette_gruppi(f, parte, [r["_g"] for r in righe])
-    gruppi = [{"gruppo": etichette[r["_g"]], "valore": _numero(r["_v"], f_misura)} for r in (righe[:massimo] if massimo else righe)]
+    gruppi = [{"gruppo": etichette[r["_g"]], "valore": _numero(r["_v"], f_misura)} for r in righe]
     if con_chiavi:
         for g, r in zip(gruppi, righe):
             g["chiave"] = _chiave(r["_g"])
     risultato.update(per=per, gruppi=gruppi)
-    if massimo and len(righe) > massimo:
-        risultato["nota"] = f"Più di {massimo} gruppi: mostrati i primi. Restringi i filtri."
+    if troppi:
+        risultato["nota"] = nota_gruppi_tagliati(massimo, bool(parte))
     return risultato
 
 
@@ -589,7 +604,7 @@ def calcola(spec, request):
         raise ErroreInterrogazione("Un grafico ha bisogno di «per»: un campo o una data (data:mese, data:anno…).")
     r = aggrega(vista, request, per, spec.get("misura", "count"), spec.get("filtri"), spec.get("testo", ""),
                 spec.get("lista"), con_chiavi=True, aziende=aziende_di(request, spec.get("aziende")),
-                massimo=None if spec.get("primi") else GRUPPI_MASSIMI)
+                massimo=None)                 # tutti: tagliando i primi 100 per nome il gruppo più grande poteva mancare
     if spec.get("primi") and ":" not in per:          # le prime N per valore più «Altro» (grafici dell'assistente)
         valori, chiavi = _primi_con_chiavi(r.get("gruppi", []), int(spec["primi"]))
     else:
