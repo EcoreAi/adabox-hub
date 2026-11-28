@@ -5,6 +5,22 @@ commit; qui solo ciò che si vede o che chiede un intervento.
 
 ## 2026-11-28
 
+- **Assistente: numeri e agenda giusti alla fonte** — AI 1.62.2, Kernel 1.17.6, Calendario 1.2.1, To-do
+  1.3.4 (nessuna migrazione).
+  - **A voce le misure.** «Parla con Ada» non aveva lo strumento delle misure: per fatturato, ordinato o incassi
+    sommava i documenti a mano, bozze comprese, e dava un numero diverso da quello della chat. Ora usa le stesse misure.
+  - **L'agenda è di chi chiede.** «Che appuntamenti ho?» elencava tutti gli appuntamenti che l'utente vede, anche quelli
+    dei colleghi. Ora di default solo i suoi (organizzatore o partecipante), come la misura «appuntamenti»; il
+    calendario di tutti si ha chiedendolo, e ogni appuntamento dice di chi è. Vale anche per il saluto di «Parla con
+    Ada». Il conteggio è su tutto il periodo, anche oltre i 200 appuntamenti elencati.
+  - **Classifiche con più di 100 gruppi.** Tabelle e grafici (di Ada e di Analisi) tenevano i primi 100 gruppi in
+    ordine di nome e solo dopo sceglievano i più grandi: il cliente o il prodotto più grande poteva mancare, e per
+    giorno restavano i giorni più vecchi. Ora si leggono tutti i gruppi e si taglia dopo; per data restano i periodi più
+    recenti. Quando un elenco di gruppi viene tagliato la nota dice che cosa è rimasto.
+  - **Quantità.** Una quantità 7 arrivava al modello come «7.000» (si legge settemila): ora senza gli zeri in coda.
+  - **«Che attività ho da fare?»** rispondeva con gli appuntamenti: la vista delle attività ora si presenta ad Ada e lo
+    strumento dell'agenda dice che cosa non è.
+
 - **Assistente: quattro strade da cui i dati potevano uscire** — AI 1.62.1 (migrazione `ai.0044`: l'URL dei provider,
   la colonna non cambia), Discuss 1.13.4.
   - **Dati personali tra fornitori.** Con la protezione dei dati personali accesa, una chat cominciata con Claude e

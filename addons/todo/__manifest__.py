@@ -1,7 +1,7 @@
 {
     "name": "To-Do",
     "summary": "Attività personali e di squadra con scadenze",
-    "version": "1.3.3",
+    "version": "1.3.4",
     "author": "ICHNOBYTE S.R.L.",
     "category": "Produttività",
     "depends": [],

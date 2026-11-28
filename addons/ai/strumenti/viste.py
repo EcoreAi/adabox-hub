@@ -62,7 +62,9 @@ def valore(obj, f):
     if isinstance(v, (datetime.date, datetime.time)):
         return v.isoformat()
     if isinstance(v, Decimal):
-        return str(v)
+        # oltre i due decimali senza gli zeri in coda: la quantità «7.000» in italiano si legge settemila
+        decimali = v.as_tuple().exponent
+        return format(v.normalize(), "f") if isinstance(decimali, int) and decimali < -2 else str(v)
     if hasattr(v, "field") and hasattr(v, "name"):                      # FieldFile
         return v.name or ""
     return v

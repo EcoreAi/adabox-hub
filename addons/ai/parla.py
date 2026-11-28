@@ -30,10 +30,12 @@ NOTA_PRIMO_TURNO = ("È l'inizio della conversazione: se l'utente ti saluta solt
 NOTA_TURNI_DOPO = "Vi siete già salutati: non salutare di nuovo e non usare formule fatte come «come posso aiutarti?»."
 NOTA_INTERROTTA = ("Nel turno precedente l'utente ti ha interrotto mentre parlavi: ha sentito solo fin qui: «{sentito}». "
                    "Tienine conto e non ripetere quello che ha già sentito, a meno che lo chieda.")
-# A voce solo gli strumenti utili al telefono: da 39 a 18, circa il 40% di attesa in meno sul primo passo e meno token.
+# A voce solo gli strumenti utili al telefono: da 39 a 19, circa il 40% di attesa in meno sul primo passo e meno token.
 # Fuori quelli visivi (grafici, tabelle, Analisi), i documenti lunghi, le pianificazioni, gli agenti e l'eliminazione.
+# «misura» c'è: il prompt la chiede per fatturato, ordinato, incassi, e senza di lei a voce i totali si rifacevano a
+# mano con aggrega_record (bozze comprese): un fatturato diverso da quello della chat.
 STRUMENTI_VOCE = frozenset({
-    "data_e_ora", "calendario_agenda", "cerca_record", "leggi_record", "aggrega_record", "elenco_viste", "descrivi_vista",
+    "data_e_ora", "calendario_agenda", "misura", "cerca_record", "leggi_record", "aggrega_record", "elenco_viste", "descrivi_vista",
     "cerca_conoscenza", "leggi_documento", "comunicazioni_cerca", "comunicazioni_leggi", "comunicazioni_scrivi",
     "crea_record", "modifica_record", "pianifica_attivita", "esegui_bottone", "ricorda", "previsione", "notifiche_leggi"})
 # Frasi d'attesa: «attimo» se la risposta tarda, le altre quando parte uno strumento, prima della risposta. Più
